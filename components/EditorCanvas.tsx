@@ -7,7 +7,7 @@ import EditorConnection, { Connection } from './EditorConnection';
 import Onboarding, { EmptyStateMessage, ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from './Onboarding';
 import WorkflowRunner from './WorkflowRunner';
 import { useAdvancedUndoRedo } from '../hooks/useAdvancedUndoRedo';
-import { Undo2, Redo2, Save, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { NodeType } from './NodePalette';
 import ConfirmDialog from './ConfirmDialog';
 import SaveLoadMenu from './SaveLoadMenu';
@@ -18,8 +18,7 @@ import SearchBar from './SearchBar';
 import ZoomControls from './ZoomControls';
 import ContextMenu from './ContextMenu';
 import MetricsDashboard from './MetricsDashboard';
-import ThemeToggle from './ThemeToggle';
-import SaveStatusIndicator from './SaveStatusIndicator';
+import EditorToolbar from './EditorToolbar';
 import { useAccessibility } from '../context/AccessibilityContext';
 import useWindowSize from '../hooks/useWindowSize';
 import { useNodeTypes } from '../hooks/useNodeTypes';
@@ -591,33 +590,16 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                         : 'Use Tab para navegar entre nodos, teclas de flecha para mover el foco, Enter para seleccionar, Escape para deseleccionar, Delete para eliminar nodos seleccionados'}
                 </div>
 
-                <div className="absolute top-4 right-4 flex items-center gap-2 z-40">
-                    <SaveStatusIndicator saveStatus={saveStatus} lang={lang} />
-                    <button
-                        onClick={() => setEnableAutosave(!enableAutosave)}
-                        className={`p-2 ${enableAutosave ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-900/50'} text-slate-200 rounded-lg transition-colors shadow-lg border border-slate-700`}
-                        title={enableAutosave ? (lang === 'en' ? 'Autosave enabled' : 'Autoguardado activado') : (lang === 'en' ? 'Autosave disabled' : 'Autoguardado desactivado')}
-                    >
-                        <Save size={18} className={enableAutosave ? '' : 'opacity-40'} />
-                    </button>
-                    <ThemeToggle lang={lang} />
-                    <button
-                        onClick={undo}
-                        disabled={!canUndo}
-                        className="p-2 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 rounded-lg transition-colors shadow-lg border border-slate-700"
-                        title="Undo (Ctrl+Z)"
-                    >
-                        <Undo2 size={18} />
-                    </button>
-                    <button
-                        onClick={redo}
-                        disabled={!canRedo}
-                        className="p-2 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 rounded-lg transition-colors shadow-lg border border-slate-700"
-                        title="Redo (Ctrl+Y)"
-                    >
-                        <Redo2 size={18} />
-                    </button>
-                </div>
+                <EditorToolbar
+                    saveStatus={saveStatus}
+                    enableAutosave={enableAutosave}
+                    setEnableAutosave={setEnableAutosave}
+                    undo={undo}
+                    redo={redo}
+                    canUndo={canUndo}
+                    canRedo={canRedo}
+                    lang={lang}
+                />
 
                 <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900/50 via-background to-background" />
 
