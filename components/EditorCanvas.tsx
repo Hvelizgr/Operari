@@ -7,7 +7,7 @@ import EditorConnection, { Connection } from './EditorConnection';
 import Onboarding, { EmptyStateMessage, ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from './Onboarding';
 import WorkflowRunner from './WorkflowRunner';
 import { useAdvancedUndoRedo } from '../hooks/useAdvancedUndoRedo';
-import { Undo2, Redo2, Save, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Undo2, Redo2, Save, AlertCircle } from 'lucide-react';
 import { NodeType } from './NodePalette';
 import ConfirmDialog from './ConfirmDialog';
 import SaveLoadMenu from './SaveLoadMenu';
@@ -19,6 +19,7 @@ import ZoomControls from './ZoomControls';
 import ContextMenu from './ContextMenu';
 import MetricsDashboard from './MetricsDashboard';
 import ThemeToggle from './ThemeToggle';
+import SaveStatusIndicator from './SaveStatusIndicator';
 import { useAccessibility } from '../context/AccessibilityContext';
 import useWindowSize from '../hooks/useWindowSize';
 import { useNodeTypes } from '../hooks/useNodeTypes';
@@ -555,49 +556,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     </pattern>
   `;
 
-    const SaveStatusIndicator = () => {
-        const statusConfig: Record<SaveStatus, {
-            icon: typeof Loader2;
-            text: string;
-            className: string;
-            iconClassName: string;
-        }> = {
-            saving: {
-                icon: Loader2,
-                text: lang === 'en' ? 'Saving...' : 'Guardando...',
-                className: 'text-blue-400',
-                iconClassName: 'animate-spin'
-            },
-            saved: {
-                icon: CheckCircle2,
-                text: lang === 'en' ? 'Saved' : 'Guardado',
-                className: 'text-green-400',
-                iconClassName: ''
-            },
-            error: {
-                icon: AlertCircle,
-                text: lang === 'en' ? 'Error' : 'Error',
-                className: 'text-red-400',
-                iconClassName: ''
-            },
-            conflict: {
-                icon: AlertCircle,
-                text: lang === 'en' ? 'Conflict' : 'Conflicto',
-                className: 'text-yellow-400',
-                iconClassName: ''
-            }
-        };
-
-        const config = statusConfig[saveStatus];
-        const Icon = config.icon;
-
-        return (
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 backdrop-blur-sm border border-slate-700 ${config.className}`}>
-                <Icon size={14} className={config.iconClassName} />
-                <span className="text-xs font-medium">{config.text}</span>
-            </div>
-        );
-    };
 
     return (
         <>
@@ -634,7 +592,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                 </div>
 
                 <div className="absolute top-4 right-4 flex items-center gap-2 z-40">
-                    <SaveStatusIndicator />
+                    <SaveStatusIndicator saveStatus={saveStatus} lang={lang} />
                     <button
                         onClick={() => setEnableAutosave(!enableAutosave)}
                         className={`p-2 ${enableAutosave ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-900/50'} text-slate-200 rounded-lg transition-colors shadow-lg border border-slate-700`}
