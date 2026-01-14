@@ -1,11 +1,13 @@
 'use client';
 
 import { useRef, useState, useCallback, MouseEvent, useEffect, DragEvent } from 'react';
-import { motion } from 'framer-motion';
-import EditorNode, { WorkflowNode, getNodeInputPort, getNodeOutputPort } from './EditorNode';
-import EditorConnection, { Connection } from './EditorConnection';
+import type { WorkflowNode } from './EditorNode';
+import type { Connection } from './EditorConnection';
 import Onboarding, { EmptyStateMessage, ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from './Onboarding';
 import WorkflowRunner from './WorkflowRunner';
+import ConnectionsLayer from './ConnectionsLayer';
+import NodesLayer from './NodesLayer';
+import GridLayer from './GridLayer';
 import { useAdvancedUndoRedo } from '../hooks/useAdvancedUndoRedo';
 import { AlertCircle } from 'lucide-react';
 import { NodeType } from './NodePalette';
@@ -22,10 +24,9 @@ import EditorToolbar from './EditorToolbar';
 import { useAccessibility } from '../context/AccessibilityContext';
 import useWindowSize from '../hooks/useWindowSize';
 import { useNodeTypes } from '../hooks/useNodeTypes';
-import { useAutosave, SaveStatus } from '../hooks/useAutosave';
+import { useAutosave } from '../hooks/useAutosave';
 import { useEditorConnections } from '../hooks/useEditorConnections';
 import { EDITOR_CONFIG } from '../config/editor.config';
-import { INITIAL_NODES } from '../constants/editor.constants';
 import { useEditorViewport } from '../hooks/useEditorViewport';
 import { useEditorNodes } from '../hooks/useEditorNodes';
 import { useEditorSelection } from '../hooks/useEditorSelection';
@@ -33,7 +34,6 @@ import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 
 // Editor-specific types
 import type {
-    CreatingConnectionState,
     DeleteConfirmState,
     DeleteConnectionConfirmState,
     ContextMenuState,
@@ -571,139 +571,38 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
                 <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900/50 via-background to-background" />
 
-                <svg className="absolute inset-0 w-full h-full pointer-events-none text-slate-700/50">
-                    <defs>
-                        <pattern id="grid" width={EDITOR_CONFIG.GRID.SIZE} height={EDITOR_CONFIG.GRID.SIZE} patternUnits="userSpaceOnUse">
-                            <circle cx="1" cy="1" r="1" fill="currentColor" fillOpacity="0.3" />
-                        </pattern>
-                        <linearGradient id="gradient-line" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#818cf8" />
-                            <stop offset="100%" stopColor="#ec4899" />
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                        <pattern
-                            id="grid"
-                            width={EDITOR_CONFIG.GRID.SIZE * viewport.zoom}
-                            height={EDITOR_CONFIG.GRID.SIZE * viewport.zoom}
-                            patternUnits="userSpaceOnUse"
-                        >
-                            <circle
-                                cx={EDITOR_CONFIG.GRID.SIZE * viewport.zoom / 2}
-                                cy={EDITOR_CONFIG.GRID.SIZE * viewport.zoom / 2}
-                                r={1}
-                                fill={highContrast ? '#444' : '#ffffff20'}
-                            />
-                        </pattern>
-                    </defs>
-                    <motion.rect
-                        width="100%"
-                        height="100%"
-                        fill="url(#grid)"
-                        animate={{
-                            x: viewport.x % (EDITOR_CONFIG.GRID.SIZE * viewport.zoom),
-                            y: viewport.y % (EDITOR_CONFIG.GRID.SIZE * viewport.zoom),
-                        }}
-                        transition={{
-                            type: 'tween',
-                            duration: 0,
-                        }}
-                        style={{
-                            transformOrigin: '0 0',
-                            transform: `scale(${viewport.zoom})`,
-                        }}
-                    />
-                </svg>
+                <GridLayer
+                    viewport={viewport}
+                    highContrast={highContrast}
+                />
 
-                <motion.svg
-                    className="absolute top-0 left-0 w-full h-full pointer-events-none"
-                    style={{
-                        transformOrigin: '0 0',
-                    }}
-                    animate={{
-                        x: viewport.x,
-                        y: viewport.y,
-                        scale: viewport.zoom,
-                    }}
-                    transition={{
-                        type: 'spring',
-                        stiffness: 300,
-                        damping: 30,
-                    }}
-                >
-                    {connections.map((connection) => {
-                        const sourceNode = nodes.find((n) => n.id === connection.source);
-                        const targetNode = nodes.find((n) => n.id === connection.target);
+                <ConnectionsLayer
+                    connections={connections}
+                    nodes={nodes}
+                    selectedConnection={selectedConnection}
+                    creatingConnection={creatingConnection}
+                    cyclicConnections={cyclicConnections}
+                    viewport={viewport}
+                    onConnectionClick={handleConnectionSelectLocal}
+                />
 
-                        if (!sourceNode || !targetNode) return null;
-
-                        const isExecuting = sourceNode.executionState === 'running' || targetNode.executionState === 'running';
-                        const isCyclic = cyclicConnections.includes(connection.id);
-
-                        return (
-                            <EditorConnection
-                                key={connection.id}
-                                connection={connection}
-                                sourcePos={getNodeOutputPort(sourceNode, connection.sourcePort || 0)}
-                                targetPos={getNodeInputPort(targetNode, connection.targetPort || 0)}
-                                isSelected={selectedConnection === connection.id}
-                                isExecuting={isExecuting}
-                                isCyclic={isCyclic}
-                                onClick={handleConnectionSelectLocal}
-                            />
-                        );
-                    })}
-                    {creatingConnection && (() => {
-                        const sourceNode = nodes.find((n) => n.id === creatingConnection.sourceNodeId);
-                        if (!sourceNode) return null;
-                        return (
-                            <EditorConnection
-                                key="temp-connection"
-                                connection={{ id: 'temp', source: creatingConnection.sourceNodeId, target: '' }}
-                                sourcePos={creatingConnection.startPos}
-                                targetPos={creatingConnection.currentPos}
-                            />
-                        );
-                    })()}
-                </motion.svg>
-
-                <motion.div
-                    className="absolute top-0 left-0 w-full h-full"
-                    animate={{
-                        x: viewport.x,
-                        y: viewport.y,
-                        scale: viewport.zoom,
-                    }}
-                    transition={{
-                        type: 'spring',
-                        stiffness: 300,
-                        damping: 30,
-                    }}
-                    style={{
-                        transformOrigin: '0 0',
-                    }}
-                >
-                    {nodes.map((node, index) => (
-                        <EditorNode
-                            key={node.id}
-                            node={node}
-                            typeDefinition={dbNodeTypes.find(t => t.type === node.type)} // Pass definition
-                            onDragStart={handleNodeDragStart}
-                            onDrag={handleNodeDrag}
-                            onDragEnd={handleNodeDragEnd}
-                            isDragging={draggingNode === node.id}
-                            onPortDragStart={handlePortDragStart}
-                            onPortDragEnd={handlePortDragEnd}
-                            isConnectionTarget={hoveredInputNode === node.id}
-                            isSelected={selectedNodes.has(node.id)}
-                            isHighlighted={highlightedNodes.includes(node.id) || focusedNodeIndex === index}
-                            onClick={(id) => handleNodeSelect(id, false)}
-                            onMove={handleNodeMove}
-                        />
-                    ))}
-                </motion.div>
+                <NodesLayer
+                    nodes={nodes}
+                    nodeTypes={dbNodeTypes}
+                    viewport={viewport}
+                    draggingNode={draggingNode}
+                    hoveredInputNode={hoveredInputNode}
+                    selectedNodes={selectedNodes}
+                    highlightedNodes={highlightedNodes}
+                    focusedNodeIndex={focusedNodeIndex}
+                    onNodeDragStart={handleNodeDragStart}
+                    onNodeDrag={handleNodeDrag}
+                    onNodeDragEnd={handleNodeDragEnd}
+                    onPortDragStart={handlePortDragStart}
+                    onPortDragEnd={handlePortDragEnd}
+                    onNodeClick={(id) => handleNodeSelect(id, false)}
+                    onNodeMove={handleNodeMove}
+                />
 
                 <div className="absolute bottom-4 right-4 bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg text-xs text-slate-300 font-mono pointer-events-none">
                     Zoom: {Math.round(viewport.zoom * 100)}% | Pan: ({Math.round(viewport.x)}, {Math.round(viewport.y)}) | Nodes: {nodes.length} | Selected: {selectedNodes.size}
