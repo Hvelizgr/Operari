@@ -29,6 +29,7 @@ import { INITIAL_NODES } from '../constants/editor.constants';
 import { useEditorViewport } from '../hooks/useEditorViewport';
 import { useEditorNodes } from '../hooks/useEditorNodes';
 import { useEditorSelection } from '../hooks/useEditorSelection';
+import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 
 // Editor-specific types
 import type {
@@ -153,77 +154,24 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         }
     }, [nodes.length]);
 
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-                e.preventDefault();
-                undo();
-            } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-                e.preventDefault();
-                redo();
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo]);
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Tab' && !e.shiftKey && nodes.length > 0) {
-                e.preventDefault();
-                setFocusedNodeIndex(prev => (prev + 1) % nodes.length);
-                announceMessage(`Focused on node ${nodes[(focusedNodeIndex + 1) % nodes.length].title}`);
-            } else if (e.key === 'Tab' && e.shiftKey && nodes.length > 0) {
-                e.preventDefault();
-                setFocusedNodeIndex(prev => (prev - 1 + nodes.length) % nodes.length);
-                announceMessage(`Focused on node ${nodes[(focusedNodeIndex - 1 + nodes.length) % nodes.length].title}`);
-            } else if (e.key === 'ArrowRight' && focusedNodeIndex >= 0) {
-                e.preventDefault();
-                setFocusedNodeIndex(prev => Math.min(prev + 1, nodes.length - 1));
-                if (focusedNodeIndex < nodes.length - 1) {
-                    announceMessage(`Moved to ${nodes[focusedNodeIndex + 1].title}`);
-                }
-            } else if (e.key === 'ArrowLeft' && focusedNodeIndex >= 0) {
-                e.preventDefault();
-                setFocusedNodeIndex(prev => Math.max(prev - 1, 0));
-                if (focusedNodeIndex > 0) {
-                    announceMessage(`Moved to ${nodes[focusedNodeIndex - 1].title}`);
-                }
-            } else if (e.key === 'Enter' && focusedNodeIndex >= 0) {
-                e.preventDefault();
-                const nodeId = nodes[focusedNodeIndex].id;
-                setSelectedNodes(new Set([nodeId]));
-                announceMessage(`Selected ${nodes[focusedNodeIndex].title}`);
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                setSelectedNodes(new Set());
-                setFocusedNodeIndex(-1);
-                announceMessage('Deselected all nodes');
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [focusedNodeIndex, nodes, announceMessage]);
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            const isDeleteKey = EDITOR_CONFIG.SHORTCUTS.DELETE.includes(e.key);
-            if (isDeleteKey && selectedNodes.size > 0 && !deleteConfirm.open) {
-                e.preventDefault();
-                setDeleteConfirm({ open: true, nodeIds: Array.from(selectedNodes) });
-            }
-            if (isDeleteKey && selectedConnection && !deleteConnectionConfirm.open && selectedNodes.size === 0) {
-                e.preventDefault();
-                setDeleteConnectionConfirm({ open: true, connectionId: selectedConnection });
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [selectedNodes, selectedConnection, deleteConfirm.open, deleteConnectionConfirm.open]);
+    // Keyboard shortcuts and navigation
+    useEditorKeyboard({
+        nodes,
+        selectedNodes,
+        focusedNodeIndex,
+        selectedConnection,
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+        setSelectedNodes,
+        setFocusedNodeIndex,
+        setDeleteConfirm,
+        setDeleteConnectionConfirm,
+        deleteConfirm,
+        deleteConnectionConfirm,
+        announceMessage,
+    });
 
     const handleMouseDown = useCallback(
         (e: MouseEvent<HTMLDivElement>) => {
