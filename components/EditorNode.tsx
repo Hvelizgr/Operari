@@ -84,7 +84,7 @@ export default function EditorNode({
 
         // Style Logic
         let shapeClass = "rounded-full"; // Default circle
-        let sizeClass = "w-3 h-3";
+        const sizeClass = "w-3 h-3";
         let colorClass = isInput ? "bg-slate-200 border-slate-500" : "bg-slate-200 border-slate-500";
 
         if (isBottom) {

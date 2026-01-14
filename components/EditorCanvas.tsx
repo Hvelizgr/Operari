@@ -26,6 +26,7 @@ import { useAutosave, SaveStatus } from '../hooks/useAutosave';
 import { hasCycle, getCyclicConnections } from '../utils/cycleDetection';
 import { EDITOR_CONFIG } from '../config/editor.config';
 import { INITIAL_NODES, INITIAL_CONNECTIONS } from '../constants/editor.constants';
+import { useEditorViewport } from '../hooks/useEditorViewport';
 
 // Editor-specific types
 import type {
@@ -40,7 +41,8 @@ import type {
 
 export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const windowSize = useWindowSize();
-    const { nodeTypes: dbNodeTypes, loading: loadingNodeTypes } = useNodeTypes(); // Fetch DB nodes
+    const canvasRef = useRef<HTMLDivElement>(null);
+    const { nodeTypes: dbNodeTypes, loading: loadingNodeTypes } = useNodeTypes();
     const [nodes, setNodes] = useState<WorkflowNode[]>(INITIAL_NODES);
     const [connections, setConnections] = useState<Connection[]>(INITIAL_CONNECTIONS);
     const { executeCommand, undo, redo, canUndo, canRedo } = useAdvancedUndoRedo(50);
@@ -54,11 +56,17 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         debounceMs: EDITOR_CONFIG.CANVAS.DEBOUNCE_MS,
     });
 
-    const [viewport, setViewport] = useState<ViewportState>({
-        x: 0,
-        y: 0,
-        zoom: 1,
-    });
+    // Viewport management (zoom, pan, fit view)
+    const {
+        viewport,
+        setViewport,
+        handleWheel,
+        handleZoomIn,
+        handleZoomOut,
+        handleFitView,
+        handleResetZoom,
+        handleViewportChange,
+    } = useEditorViewport({ nodes, windowSize, canvasRef });
 
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -80,7 +88,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const [executionMetrics, setExecutionMetrics] = useState<ExecutionMetric[]>([]);
     const [cyclicConnections, setCyclicConnections] = useState<string[]>([]);
     const [cycleError, setCycleError] = useState<string | null>(null);
-    const canvasRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const hasSeenOnboarding = localStorage.getItem('nanoflow-onboarding-seen');
@@ -171,33 +178,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectedNodes, selectedConnection, deleteConfirm.open, deleteConnectionConfirm.open]);
-
-    const handleWheel = useCallback(
-        (e: WheelEvent<HTMLDivElement>) => {
-            e.preventDefault();
-
-            const delta = -e.deltaY * EDITOR_CONFIG.ZOOM.SENSITIVITY;
-            const newZoom = Math.min(Math.max(viewport.zoom + delta, EDITOR_CONFIG.ZOOM.MIN), EDITOR_CONFIG.ZOOM.MAX);
-
-            if (canvasRef.current) {
-                const rect = canvasRef.current.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
-
-                const zoomPoint = {
-                    x: (mouseX - viewport.x) / viewport.zoom,
-                    y: (mouseY - viewport.y) / viewport.zoom,
-                };
-
-                setViewport({
-                    x: mouseX - zoomPoint.x * newZoom,
-                    y: mouseY - zoomPoint.y * newZoom,
-                    zoom: newZoom,
-                });
-            }
-        },
-        [viewport]
-    );
 
     const handleMouseDown = useCallback(
         (e: MouseEvent<HTMLDivElement>) => {
@@ -743,10 +723,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         setConfigNodeId(nodeId);
     }, []);
 
-    const handleViewportChange = useCallback((x: number, y: number) => {
-        setViewport(prev => ({ ...prev, x, y }));
-    }, []);
-
     const handleHighlightNodes = useCallback((nodeIds: string[]) => {
         setHighlightedNodes(nodeIds);
     }, []);
@@ -760,45 +736,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
             setSelectedNodes(new Set([nodeId]));
         }
     }, [nodes, viewport.zoom, windowSize.width, windowSize.height]);
-
-    const handleZoomIn = useCallback(() => {
-        setViewport(prev => ({ ...prev, zoom: Math.min(prev.zoom + 0.1, EDITOR_CONFIG.ZOOM.MAX) }));
-    }, []);
-
-    const handleZoomOut = useCallback(() => {
-        setViewport(prev => ({ ...prev, zoom: Math.max(prev.zoom - 0.1, EDITOR_CONFIG.ZOOM.MIN) }));
-    }, []);
-
-    const handleFitView = useCallback(() => {
-        if (nodes.length === 0) return;
-
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        nodes.forEach(node => {
-            minX = Math.min(minX, node.position.x);
-            minY = Math.min(minY, node.position.y);
-            maxX = Math.max(maxX, node.position.x + 260);
-            maxY = Math.max(maxY, node.position.y + 120);
-        });
-
-        const padding = 100;
-        const width = maxX - minX + padding * 2;
-        const height = maxY - minY + padding * 2;
-        const canvasWidth = windowSize.width;
-        const canvasHeight = windowSize.height;
-
-        const zoomX = canvasWidth / width;
-        const zoomY = canvasHeight / height;
-        const newZoom = Math.min(zoomX, zoomY, EDITOR_CONFIG.ZOOM.MAX);
-
-        const centerX = -(minX - padding - (canvasWidth / newZoom - width) / 2) * newZoom;
-        const centerY = -(minY - padding - (canvasHeight / newZoom - height) / 2) * newZoom;
-
-        setViewport({ x: centerX, y: centerY, zoom: newZoom });
-    }, [nodes, windowSize.width, windowSize.height]);
-
-    const handleResetZoom = useCallback(() => {
-        setViewport({ x: 0, y: 0, zoom: 1 });
-    }, []);
 
     const handleContextMenu = useCallback((e: React.MouseEvent, type: 'node' | 'canvas', nodeId?: string) => {
         e.preventDefault();
