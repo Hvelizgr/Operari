@@ -28,6 +28,7 @@ import { EDITOR_CONFIG } from '../config/editor.config';
 import { INITIAL_NODES } from '../constants/editor.constants';
 import { useEditorViewport } from '../hooks/useEditorViewport';
 import { useEditorNodes } from '../hooks/useEditorNodes';
+import { useEditorSelection } from '../hooks/useEditorSelection';
 
 // Editor-specific types
 import type {
@@ -110,11 +111,36 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         announceMessage,
     });
 
+    // Selection box management hook
+    const {
+        selectionBox,
+        setSelectionBox,
+        isSelecting,
+        startSelectionBox,
+        updateSelectionBox,
+        clearSelectionBox,
+        getSelectionBoxStyle,
+    } = useEditorSelection({
+        nodes,
+        viewport,
+        canvasRef,
+        selectedNodes,
+        setSelectedNodes,
+        draggingNode,
+        creatingConnection,
+    });
+
+    const { saveStatus, enableAutosave, setEnableAutosave } = useAutosave({
+        nodes,
+        connections,
+        workflowId: 'current-workflow',
+        debounceMs: EDITOR_CONFIG.CANVAS.DEBOUNCE_MS,
+    });
+
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
-    const [selectionBox, setSelectionBox] = useState<SelectionBoxState | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>({ open: false, nodeIds: [] });
     const [deleteConnectionConfirm, setDeleteConnectionConfirm] = useState<DeleteConnectionConfirmState>({ open: false, connectionId: null });
     const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -204,11 +230,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
             if (e.button === 0 && !draggingNode && !creatingConnection && canvasRef.current) {
                 const isShiftClick = e.shiftKey;
                 if (!isShiftClick) {
-                    const rect = canvasRef.current.getBoundingClientRect();
-                    setSelectionBox({
-                        start: { x: e.clientX - rect.left, y: e.clientY - rect.top },
-                        end: { x: e.clientX - rect.left, y: e.clientY - rect.top },
-                    });
+                    startSelectionBox(e.clientX, e.clientY);
                     setConfigNodeId(null);
                 }
                 setIsPanning(!isShiftClick && !selectionBox);
@@ -218,7 +240,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                 });
             }
         },
-        [viewport.x, viewport.y, draggingNode, creatingConnection, selectionBox]
+        [viewport.x, viewport.y, draggingNode, creatingConnection, selectionBox, startSelectionBox, setConfigNodeId]
     );
 
     const handleMouseMove = useCallback(
@@ -308,79 +330,22 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                 }));
             }
 
-            if (selectionBox && canvasRef.current) {
-                const rect = canvasRef.current.getBoundingClientRect();
-                setSelectionBox((prev) => prev ? {
-                    ...prev,
-                    end: { x: e.clientX - rect.left, y: e.clientY - rect.top },
-                } : null);
-
-                const box = {
-                    x1: Math.min(selectionBox.start.x, e.clientX - rect.left),
-                    y1: Math.min(selectionBox.start.y, e.clientY - rect.top),
-                    x2: Math.max(selectionBox.start.x, e.clientX - rect.left),
-                    y2: Math.max(selectionBox.start.y, e.clientY - rect.top),
-                };
-
-                const selected = new Set<string>();
-                nodes.forEach((node) => {
-                    const nodeScreenX = node.position.x * viewport.zoom + viewport.x;
-                    const nodeScreenY = node.position.y * viewport.zoom + viewport.y;
-                    const nodeWidth = EDITOR_CONFIG.CANVAS.NODE_WIDTH * viewport.zoom;
-                    const nodeHeight = EDITOR_CONFIG.CANVAS.NODE_HEIGHT * viewport.zoom;
-
-                    if (
-                        nodeScreenX < box.x2 &&
-                        nodeScreenX + nodeWidth > box.x1 &&
-                        nodeScreenY < box.y2 &&
-                        nodeScreenY + nodeHeight > box.y1
-                    ) {
-                        selected.add(node.id);
-                    }
-                });
-                setSelectedNodes(selected);
+            if (selectionBox) {
+                updateSelectionBox(e.clientX, e.clientY);
             }
 
             if (creatingConnection && canvasRef.current) {
-                const rect = canvasRef.current.getBoundingClientRect();
-                setCreatingConnection((prev) =>
-                    prev
-                        ? {
-                            ...prev,
-                            currentPos: {
-                                x: (e.clientX - rect.left - viewport.x) / viewport.zoom,
-                                y: (e.clientY - rect.top - viewport.y) / viewport.zoom,
-                            },
-                        }
-                        : null
-                );
-
-                let foundHover = false;
-                for (const node of nodes) {
-                    if (node.id === creatingConnection.sourceNodeId) continue;
-                    const inputPort = getNodeInputPort(node);
-                    const dx = inputPort.x - ((e.clientX - rect.left - viewport.x) / viewport.zoom);
-                    const dy = inputPort.y - ((e.clientY - rect.top - viewport.y) / viewport.zoom);
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    if (distance < EDITOR_CONFIG.GRID.SNAP_RADIUS) {
-                        setHoveredInputNode(node.id);
-                        foundHover = true;
-                        break;
-                    }
-                }
-                if (!foundHover) {
-                    setHoveredInputNode(null);
-                }
+                updateCreatingConnectionPosition(e.clientX, e.clientY);
             }
         },
-        [isPanning, panStart, draggingNode, creatingConnection, selectionBox, viewport, nodes]
+        [isPanning, panStart, draggingNode, creatingConnection, selectionBox, viewport, nodes, setViewport, updateSelectionBox, updateCreatingConnectionPosition]
     );
 
     const handleCanvasMouseUp = useCallback(() => {
         setIsPanning(false);
-        setSelectionBox(null);
+        clearSelectionBox();
         completeConnection();
-    }, [completeConnection]);
+    }, [completeConnection, clearSelectionBox]);
 
     const handleOnboardingNext = useCallback(() => {
         const steps = lang === 'es' ? ONBOARDING_STEPS_ES : ONBOARDING_STEPS_EN;
@@ -531,7 +496,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
             if (isPanningRef.current) setIsPanning(false);
             if (creatingConnection) setCreatingConnection(null);
             if (draggingNodeType) setDraggingNodeType(null);
-            if (selectionBoxRef.current) setSelectionBox(null);
+            if (selectionBoxRef.current) clearSelectionBox();
         };
 
         // Only attach if interaction is active
@@ -580,7 +545,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         }
     }, [clearConnectionSelection]);
 
-    const handleConnectionSelectLocal = useCallback((connectionId: string) =>
+    const handleConnectionSelectLocal = useCallback((connectionId: string) => {
         setSelectedConnection(connectionId);
         setSelectedNodes(new Set());
     }, []);
@@ -888,15 +853,10 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     Zoom: {Math.round(viewport.zoom * 100)}% | Pan: ({Math.round(viewport.x)}, {Math.round(viewport.y)}) | Nodes: {nodes.length} | Selected: {selectedNodes.size}
                 </div>
 
-                {selectionBox && (
+                {selectionBox && getSelectionBoxStyle() && (
                     <div
                         className="absolute border-2 border-blue-500 bg-blue-500/10 pointer-events-none"
-                        style={{
-                            left: Math.min(selectionBox.start.x, selectionBox.end.x),
-                            top: Math.min(selectionBox.start.y, selectionBox.end.y),
-                            width: Math.abs(selectionBox.end.x - selectionBox.start.x),
-                            height: Math.abs(selectionBox.end.y - selectionBox.start.y),
-                        }}
+                        style={getSelectionBoxStyle()!}
                     />
                 )}
 
