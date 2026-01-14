@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback, WheelEvent, MouseEvent, useEffect, DragEvent } from 'react';
+import { useRef, useState, useCallback, MouseEvent, useEffect, DragEvent } from 'react';
 import { motion } from 'framer-motion';
 import EditorNode, { WorkflowNode, getNodeInputPort, getNodeOutputPort } from './EditorNode';
 import EditorConnection, { Connection } from './EditorConnection';
@@ -8,7 +8,7 @@ import Onboarding, { EmptyStateMessage, ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES
 import WorkflowRunner from './WorkflowRunner';
 import { useAdvancedUndoRedo } from '../hooks/useAdvancedUndoRedo';
 import { Undo2, Redo2, Save, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
-import NodePalette, { NodeType } from './NodePalette';
+import { NodeType } from './NodePalette';
 import ConfirmDialog from './ConfirmDialog';
 import SaveLoadMenu from './SaveLoadMenu';
 import NodeConfigPanel from './NodeConfigPanel';
@@ -27,10 +27,10 @@ import { hasCycle, getCyclicConnections } from '../utils/cycleDetection';
 import { EDITOR_CONFIG } from '../config/editor.config';
 import { INITIAL_NODES, INITIAL_CONNECTIONS } from '../constants/editor.constants';
 import { useEditorViewport } from '../hooks/useEditorViewport';
+import { useEditorNodes } from '../hooks/useEditorNodes';
 
 // Editor-specific types
 import type {
-    ViewportState,
     CreatingConnectionState,
     SelectionBoxState,
     DeleteConfirmState,
@@ -42,12 +42,34 @@ import type {
 export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const windowSize = useWindowSize();
     const canvasRef = useRef<HTMLDivElement>(null);
-    const { nodeTypes: dbNodeTypes, loading: loadingNodeTypes } = useNodeTypes();
-    const [nodes, setNodes] = useState<WorkflowNode[]>(INITIAL_NODES);
+    const { nodeTypes: dbNodeTypes } = useNodeTypes();
     const [connections, setConnections] = useState<Connection[]>(INITIAL_CONNECTIONS);
     const { executeCommand, undo, redo, canUndo, canRedo } = useAdvancedUndoRedo(50);
     const { highContrast, announceMessage } = useAccessibility();
     const [focusedNodeIndex, setFocusedNodeIndex] = useState(-1);
+
+    // Node management hook
+    const {
+        nodes,
+        setNodes,
+        selectedNodes,
+        setSelectedNodes,
+        highlightedNodes,
+        draggingNode,
+        setDraggingNode,
+        nodeDragStart,
+        setNodeDragStart,
+        draggingNodeType,
+        setDraggingNodeType,
+        configNodeId,
+        setConfigNodeId,
+        handleNodeSelect,
+        handleNodeUpdate,
+        handleCloseConfigPanel,
+        handleHighlightNodes,
+    } = useEditorNodes({
+        executeCommand,
+    });
 
     const { saveStatus, enableAutosave, setEnableAutosave } = useAutosave({
         nodes,
@@ -70,17 +92,11 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-    const [draggingNode, setDraggingNode] = useState<string | null>(null);
-    const [nodeDragStart, setNodeDragStart] = useState({ x: 0, y: 0 });
     const [creatingConnection, setCreatingConnection] = useState<CreatingConnectionState | null>(null);
     const [hoveredInputNode, setHoveredInputNode] = useState<string | null>(null);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
-    const [draggingNodeType, setDraggingNodeType] = useState<NodeType | null>(null);
-    const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
-    const [configNodeId, setConfigNodeId] = useState<string | null>(null);
     const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
-    const [highlightedNodes, setHighlightedNodes] = useState<string[]>([]);
     const [selectionBox, setSelectionBox] = useState<SelectionBoxState | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>({ open: false, nodeIds: [] });
     const [deleteConnectionConfirm, setDeleteConnectionConfirm] = useState<DeleteConnectionConfirmState>({ open: false, connectionId: null });
@@ -217,65 +233,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const handleMouseUp = useCallback(() => {
         setIsPanning(false);
     }, []);
-
-    const handleNodeDragStart = useCallback(
-        (nodeId: string, e: MouseEvent) => {
-            const node = nodes.find((n) => n.id === nodeId);
-            if (!node) return;
-
-            setDraggingNode(nodeId);
-            setNodeDragStart({
-                x: e.clientX / viewport.zoom - node.position.x,
-                y: e.clientY / viewport.zoom - node.position.y,
-            });
-        },
-        [nodes, viewport.zoom]
-    );
-
-    const handleNodeDrag = useCallback(
-        (e: MouseEvent) => {
-            if (!draggingNode) return;
-
-            const newPosition = {
-                x: e.clientX / viewport.zoom - nodeDragStart.x,
-                y: e.clientY / viewport.zoom - nodeDragStart.y,
-            };
-
-            setNodes((prevNodes: WorkflowNode[]) =>
-                prevNodes.map((node: WorkflowNode) =>
-                    node.id === draggingNode
-                        ? { ...node, position: newPosition }
-                        : node
-                )
-            );
-        },
-        [draggingNode, nodeDragStart, viewport.zoom]
-    );
-
-    const handleNodeDragEnd = useCallback(() => {
-        if (draggingNode) {
-            const node = nodes.find(n => n.id === draggingNode);
-            const initialPos = nodeDragStart;
-
-            if (node) {
-                const finalPos = node.position;
-
-                executeCommand({
-                    execute: () => {
-                        setNodes(prev => prev.map(n =>
-                            n.id === draggingNode ? { ...n, position: finalPos } : n
-                        ));
-                    },
-                    undo: () => {
-                        setNodes(prev => prev.map(n =>
-                            n.id === draggingNode ? { ...n, position: { x: initialPos.x, y: initialPos.y } } : n
-                        ));
-                    },
-                });
-            }
-        }
-        setDraggingNode(null);
-    }, [draggingNode, nodes, nodeDragStart, executeCommand]);
 
     const handlePortDragStart = useCallback(
         (nodeId: string, portId: string, type: 'source' | 'target', pos: { x: number; y: number }) => {
@@ -459,7 +416,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
             outputs: [{ id: 'out', label: 'Output' }],
         };
         setNodes(prev => [...prev, newNode]);
-    }, [viewport, lang, windowSize.width, windowSize.height]);
+    }, [viewport, lang, windowSize.width, windowSize.height, setNodes]);
 
     const handleNodePaletteDragStart = useCallback((nodeType: NodeType) => {
         setDraggingNodeType(nodeType);
@@ -488,30 +445,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
         setNodes((prev: WorkflowNode[]) => [...prev, newNode]);
         setDraggingNodeType(null);
-    }, [draggingNodeType, viewport, lang]);
-
-    const handleNodeSelect = useCallback((nodeId: string, isShiftKey: boolean) => {
-        if (isShiftKey) {
-            setSelectedNodes((prev) => {
-                const newSet = new Set(prev);
-                if (newSet.has(nodeId)) {
-                    newSet.delete(nodeId);
-                } else {
-                    newSet.add(nodeId);
-                }
-                return newSet;
-            });
-        } else {
-            setSelectedNodes(new Set([nodeId]));
-        }
-        setSelectedConnection(null);
-    }, []);
-
-    const handleCloseConfigPanel = useCallback(() => {
-        setConfigNodeId(null);
-    }, []);
-
-
+    }, [draggingNodeType, viewport, lang, setNodes, setDraggingNodeType]);
 
     const handleNodeDelete = useCallback((nodeId: string) => {
         setDeleteConfirm({ open: true, nodeIds: [nodeId] });
@@ -665,66 +599,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         setConnections(templateConnections);
         setSelectedNodes(new Set());
         setSelectedConnection(null);
-    }, []);
-
-    const handleNodeUpdate = useCallback((nodeId: string, updates: Partial<WorkflowNode>) => {
-        const oldNode = nodes.find(n => n.id === nodeId);
-
-        if (oldNode) {
-            const oldState = { ...oldNode };
-            const newState = { ...oldNode, ...updates };
-
-            executeCommand({
-                execute: () => {
-                    setNodes((prev: WorkflowNode[]) =>
-                        prev.map((node: WorkflowNode) =>
-                            node.id === nodeId ? newState : node
-                        )
-                    );
-                },
-                undo: () => {
-                    setNodes((prev: WorkflowNode[]) =>
-                        prev.map((node: WorkflowNode) =>
-                            node.id === nodeId ? oldState : node
-                        )
-                    );
-                },
-            });
-        }
-    }, [nodes, executeCommand]);
-
-    const handleNodeMove = useCallback((nodeId: string, direction: 'up' | 'down' | 'left' | 'right') => {
-        const node = nodes.find(n => n.id === nodeId);
-        if (!node) return;
-
-        const moveAmount = EDITOR_CONFIG.CANVAS.MOVE_STEP;
-        const newPosition = { ...node.position };
-
-        switch (direction) {
-            case 'up':
-                newPosition.y -= moveAmount;
-                break;
-            case 'down':
-                newPosition.y += moveAmount;
-                break;
-            case 'left':
-                newPosition.x -= moveAmount;
-                break;
-            case 'right':
-                newPosition.x += moveAmount;
-                break;
-        }
-
-        handleNodeUpdate(nodeId, { position: newPosition });
-    }, [nodes, handleNodeUpdate]);
-
-    const handleNodeOpenSettings = useCallback((nodeId: string) => {
-        setSelectedNodes(new Set([nodeId]));
-        setConfigNodeId(nodeId);
-    }, []);
-
-    const handleHighlightNodes = useCallback((nodeIds: string[]) => {
-        setHighlightedNodes(nodeIds);
     }, []);
 
     const handleSearchNodeSelect = useCallback((nodeId: string) => {
