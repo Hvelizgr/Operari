@@ -18,11 +18,11 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
+  backend:
     build:
-      context: ./api
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: nanoflow-api
+    container_name: nanoflow-backend
     environment:
       NODE_ENV: production
       PORT: 4000
@@ -36,18 +36,18 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  web:
+  frontend:
     build:
-      context: .
+      context: ./frontend
       dockerfile: Dockerfile
-    container_name: nanoflow-web
+    container_name: nanoflow-frontend
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
     ports:
       - "3000:3000"
     depends_on:
-      - api
+      - backend
     restart: unless-stopped
 
 volumes:
