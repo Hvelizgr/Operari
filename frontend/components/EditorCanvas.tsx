@@ -3,23 +3,13 @@
 import { useRef, useState, useCallback, MouseEvent, useEffect, DragEvent } from 'react';
 import type { WorkflowNode } from './EditorNode';
 import type { Connection } from './EditorConnection';
-import Onboarding, { EmptyStateMessage, ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from './Onboarding';
-import WorkflowRunner from './WorkflowRunner';
+import { ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from './Onboarding';
 import ConnectionsLayer from './ConnectionsLayer';
 import NodesLayer from './NodesLayer';
 import GridLayer from './GridLayer';
+import EditorOverlays from './EditorOverlays';
 import { useAdvancedUndoRedo } from '../hooks/useAdvancedUndoRedo';
-import { AlertCircle } from 'lucide-react';
 import { NodeType } from './NodePalette';
-import ConfirmDialog from './ConfirmDialog';
-import SaveLoadMenu from './SaveLoadMenu';
-import NodeConfigPanel from './NodeConfigPanel';
-import TemplateGallery from './TemplateGallery';
-import MiniMap from './MiniMap';
-import SearchBar from './SearchBar';
-import ZoomControls from './ZoomControls';
-import ContextMenu from './ContextMenu';
-import MetricsDashboard from './MetricsDashboard';
 import EditorToolbar from './EditorToolbar';
 import { useAccessibility } from '../context/AccessibilityContext';
 import useWindowSize from '../hooks/useWindowSize';
@@ -38,6 +28,7 @@ import type {
     DeleteConnectionConfirmState,
     ContextMenuState,
     ExecutionMetric,
+    ViewportState,
 } from '../types/editor.types';
 
 export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
@@ -524,6 +515,31 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
 
 
+    // Handlers for Overlays
+    const handleDuplicateNode = useCallback((nodeId: string) => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (node) {
+            const newNode = {
+                ...node,
+                id: `node-${Date.now()}`,
+                position: { x: node.position.x + 50, y: node.position.y + 50 },
+            };
+            setNodes((prev) => [...prev, newNode]);
+        }
+        handleCloseContextMenu();
+    }, [nodes, setNodes, handleCloseContextMenu]);
+
+    const handleDeleteFromContextMenu = useCallback(() => {
+        if (contextMenu?.nodeId) {
+            setDeleteConfirm({ open: true, nodeIds: [contextMenu.nodeId] });
+        }
+        handleCloseContextMenu();
+    }, [contextMenu, setDeleteConfirm, handleCloseContextMenu]);
+
+    const handleViewportChangeAdapter = useCallback((newViewport: ViewportState) => {
+        setViewport(newViewport);
+    }, [setViewport]);
+
     return (
         <>
             <a
@@ -604,9 +620,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     onNodeMove={handleNodeMove}
                 />
 
-                <div className="absolute bottom-4 right-4 bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg text-xs text-slate-300 font-mono pointer-events-none">
-                    Zoom: {Math.round(viewport.zoom * 100)}% | Pan: ({Math.round(viewport.x)}, {Math.round(viewport.y)}) | Nodes: {nodes.length} | Selected: {selectedNodes.size}
-                </div>
+
 
                 {selectionBox && getSelectionBoxStyle() && (
                     <div
@@ -615,135 +629,54 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     />
                 )}
 
-                {cycleError && (
-                    <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2">
-                        <AlertCircle size={18} />
-                        <span className="text-sm font-medium">{cycleError}</span>
-                    </div>
-                )}
-
-                {nodes.length === 0 && <EmptyStateMessage lang={lang} />}
-
-                {/* NodePalette removed - functionality moved to SearchBar */}
-
-                <SaveLoadMenu
+                <EditorOverlays
                     nodes={nodes}
                     connections={connections}
-                    onLoad={handleLoadWorkflow}
-                    lang={lang}
-                />
-
-                <TemplateGallery
-                    onSelectTemplate={handleSelectTemplate}
-                    lang={lang}
-                />
-
-                <MiniMap
-                    nodes={nodes}
                     viewport={viewport}
-                    canvasSize={windowSize}
-                    onViewportChange={handleViewportChange}
+                    windowSize={windowSize}
+                    dbNodeTypes={dbNodeTypes}
+                    executionMetrics={executionMetrics}
+                    cycleError={cycleError}
+                    deleteConfirm={deleteConfirm}
+                    deleteConnectionConfirm={deleteConnectionConfirm}
+                    contextMenu={contextMenu}
+                    configNodeId={configNodeId}
+                    showOnboarding={showOnboarding}
+                    onboardingStep={onboardingStep}
                     lang={lang}
-                />
-
-                <SearchBar
-                    nodes={nodes}
-                    onNodeSelect={handleSearchNodeSelect}
+                    selectedNodesCount={selectedNodes.size}
+                    onLoadWorkflow={handleLoadWorkflow}
+                    onSelectTemplate={handleSelectTemplate}
+                    onViewportChange={handleViewportChangeAdapter}
                     onNodeAdd={handleNodeAddFromSearch}
                     onHighlightNodes={handleHighlightNodes}
-                    lang={lang}
-                    availableNodeTypes={dbNodeTypes} // Pass dynamic nodes
-                />
-
-                <MetricsDashboard
-                    metrics={executionMetrics}
-                    lang={lang}
-                />
-
-                <WorkflowRunner
-                    nodes={nodes}
-                    connections={connections}
+                    onSearchNodeSelect={handleSearchNodeSelect}
                     onExecutionStateChange={handleExecutionStateChange}
-                    lang={lang}
-                />
-
-                {showOnboarding && (
-                    <Onboarding
-                        currentStep={onboardingStep}
-                        steps={lang === 'es' ? ONBOARDING_STEPS_ES : ONBOARDING_STEPS_EN}
-                        onNext={handleOnboardingNext}
-                        onSkip={handleOnboardingSkip}
-                        onClose={handleOnboardingClose}
-                    />
-                )}
-
-                <ConfirmDialog
-                    isOpen={deleteConfirm.open}
-                    title={lang === 'en' ? 'Delete Node' + (deleteConfirm.nodeIds.length > 1 ? 's' : '') : 'Eliminar Nodo' + (deleteConfirm.nodeIds.length > 1 ? 's' : '')}
-                    message={lang === 'en'
-                        ? `Are you sure you want to delete ${deleteConfirm.nodeIds.length} node${deleteConfirm.nodeIds.length > 1 ? 's' : ''}? All connected edges will also be removed.`
-                        : `¿Estás seguro de que quieres eliminar ${deleteConfirm.nodeIds.length} nodo${deleteConfirm.nodeIds.length > 1 ? 's' : ''}? Todas las conexiones también se eliminarán.`}
-                    confirmLabel={lang === 'en' ? 'Delete' : 'Eliminar'}
-                    cancelLabel={lang === 'en' ? 'Cancel' : 'Cancelar'}
-                    onConfirm={handleConfirmDelete}
-                    onCancel={handleCancelDelete}
-                />
-
-                <NodeConfigPanel
-                    node={configNodeId ? nodes.find(n => n.id === configNodeId) || null : null}
-                    nodeTypeDefinition={configNodeId && dbNodeTypes ? dbNodeTypes.find(t => t.type === nodes.find(n => n.id === configNodeId)?.type) : undefined}
-                    onUpdate={handleNodeUpdate}
-                    onClose={handleCloseConfigPanel}
-                    lang={lang}
-                />
-
-                <ConfirmDialog
-                    isOpen={deleteConnectionConfirm.open}
-                    title={lang === 'en' ? 'Delete Connection' : 'Eliminar Conexión'}
-                    message={lang === 'en' ? 'Are you sure you want to delete this connection?' : '¿Estás seguro de que quieres eliminar esta conexión?'}
-                    confirmLabel={lang === 'en' ? 'Delete' : 'Eliminar'}
-                    cancelLabel={lang === 'en' ? 'Cancel' : 'Cancelar'}
-                    onConfirm={onConfirmDeleteConnection}
-                    onCancel={handleCancelDeleteConnection}
-                />
-
-                <ZoomControls
-                    zoom={viewport.zoom}
+                    onOnboardingNext={handleOnboardingNext}
+                    onOnboardingSkip={handleOnboardingSkip}
+                    onOnboardingClose={handleOnboardingClose}
+                    onDeleteConfirm={handleConfirmDelete}
+                    onDeleteCancel={handleCancelDelete}
+                    onDeleteConnectionConfirm={onConfirmDeleteConnection}
+                    onDeleteConnectionCancel={handleCancelDeleteConnection}
+                    onConfigUpdate={handleNodeUpdate}
+                    onConfigClose={handleCloseConfigPanel}
+                    onContextMenuClose={handleCloseContextMenu}
+                    onContextMenuDuplicate={() => {
+                        if (contextMenu?.nodeId) {
+                            handleDuplicateNode(contextMenu.nodeId);
+                        }
+                    }}
+                    onContextMenuDelete={handleDeleteFromContextMenu}
                     onZoomIn={handleZoomIn}
                     onZoomOut={handleZoomOut}
                     onFitView={handleFitView}
                     onResetZoom={handleResetZoom}
-                    lang={lang}
                 />
 
-                {contextMenu && (
-                    <ContextMenu
-                        x={contextMenu.x}
-                        y={contextMenu.y}
-                        type={contextMenu.type}
-                        nodeId={contextMenu.nodeId}
-                        onClose={handleCloseContextMenu}
-                        onDelete={() => {
-                            if (contextMenu.nodeId) {
-                                setDeleteConfirm({ open: true, nodeIds: [contextMenu.nodeId] });
-                            }
-                        }}
-                        onDuplicate={() => {
-                            if (contextMenu.nodeId) {
-                                const node = nodes.find(n => n.id === contextMenu.nodeId);
-                                if (node) {
-                                    const newNode = {
-                                        ...node,
-                                        id: `node-${Date.now()}`,
-                                        position: { x: node.position.x + 50, y: node.position.y + 50 },
-                                    };
-                                    setNodes((prev: WorkflowNode[]) => [...prev, newNode]);
-                                }
-                            }
-                        }}
-                        lang={lang}
-                    />
-                )}
+
+
+
             </div>
         </>
     );

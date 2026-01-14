@@ -28,7 +28,7 @@ export default function ConnectionsLayer({
     return (
         <motion.svg
             className="absolute top-0 left-0 w-full h-full pointer-events-none"
-            style={{ zIndex: 0 }}
+            style={{ zIndex: 0, transformOrigin: '0 0' }}
             animate={{
                 x: viewport.x,
                 y: viewport.y,
