@@ -23,9 +23,9 @@ import { useAccessibility } from '../context/AccessibilityContext';
 import useWindowSize from '../hooks/useWindowSize';
 import { useNodeTypes } from '../hooks/useNodeTypes';
 import { useAutosave, SaveStatus } from '../hooks/useAutosave';
-import { hasCycle, getCyclicConnections } from '../utils/cycleDetection';
+import { useEditorConnections } from '../hooks/useEditorConnections';
 import { EDITOR_CONFIG } from '../config/editor.config';
-import { INITIAL_NODES, INITIAL_CONNECTIONS } from '../constants/editor.constants';
+import { INITIAL_NODES } from '../constants/editor.constants';
 import { useEditorViewport } from '../hooks/useEditorViewport';
 import { useEditorNodes } from '../hooks/useEditorNodes';
 
@@ -43,7 +43,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const windowSize = useWindowSize();
     const canvasRef = useRef<HTMLDivElement>(null);
     const { nodeTypes: dbNodeTypes } = useNodeTypes();
-    const [connections, setConnections] = useState<Connection[]>(INITIAL_CONNECTIONS);
     const { executeCommand, undo, redo, canUndo, canRedo } = useAdvancedUndoRedo(50);
     const { highContrast, announceMessage } = useAccessibility();
     const [focusedNodeIndex, setFocusedNodeIndex] = useState(-1);
@@ -72,13 +71,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         executeCommand,
     });
 
-    const { saveStatus, enableAutosave, setEnableAutosave } = useAutosave({
-        nodes,
-        connections,
-        workflowId: 'current-workflow',
-        debounceMs: EDITOR_CONFIG.CANVAS.DEBOUNCE_MS,
-    });
-
     // Viewport management (zoom, pan, fit view)
     const {
         viewport,
@@ -91,20 +83,42 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         handleViewportChange,
     } = useEditorViewport({ nodes, windowSize, canvasRef });
 
+    // Connection management hook
+    const {
+        connections,
+        setConnections,
+        creatingConnection,
+        setCreatingConnection,
+        hoveredInputNode,
+        setHoveredInputNode,
+        selectedConnection,
+        setSelectedConnection,
+        cyclicConnections,
+        cycleError,
+        handlePortDragStart,
+        handlePortDragEnd,
+        handleConnectionSelect,
+        handleConfirmDeleteConnection,
+        updateCreatingConnectionPosition,
+        completeConnection,
+        clearConnectionSelection,
+    } = useEditorConnections({
+        nodes,
+        viewport,
+        canvasRef,
+        executeCommand,
+        announceMessage,
+    });
+
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-    const [creatingConnection, setCreatingConnection] = useState<CreatingConnectionState | null>(null);
-    const [hoveredInputNode, setHoveredInputNode] = useState<string | null>(null);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(0);
-    const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
     const [selectionBox, setSelectionBox] = useState<SelectionBoxState | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>({ open: false, nodeIds: [] });
     const [deleteConnectionConfirm, setDeleteConnectionConfirm] = useState<DeleteConnectionConfirmState>({ open: false, connectionId: null });
     const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
     const [executionMetrics, setExecutionMetrics] = useState<ExecutionMetric[]>([]);
-    const [cyclicConnections, setCyclicConnections] = useState<string[]>([]);
-    const [cycleError, setCycleError] = useState<string | null>(null);
 
     useEffect(() => {
         const hasSeenOnboarding = localStorage.getItem('nanoflow-onboarding-seen');
@@ -113,17 +127,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         }
     }, [nodes.length]);
 
-    useEffect(() => {
-        const result = hasCycle(nodes, connections);
-        if (result.hasCycle && result.cyclePath) {
-            const cyclicConns = getCyclicConnections(connections, result.cyclePath);
-            setCyclicConnections(cyclicConns);
-            setCycleError(`Cycle detected: ${result.cyclePath.join(' → ')}`);
-        } else {
-            setCyclicConnections([]);
-            setCycleError(null);
-        }
-    }, [nodes, connections]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -294,24 +297,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         setDraggingNode(null);
     }, [draggingNode, nodes, nodeDragStart, executeCommand]);
 
-    const handlePortDragStart = useCallback(
-        (nodeId: string, portId: string, type: 'source' | 'target', pos: { x: number; y: number }) => {
-            if (type === 'source' && canvasRef.current) {
-                setCreatingConnection({
-                    sourceNodeId: nodeId,
-                    sourcePortId: portId,
-                    startPos: pos,
-                    currentPos: pos,
-                });
-            }
-        },
-        []
-    );
-
-    const handlePortDragEnd = useCallback(() => {
-        setCreatingConnection(null);
-        setHoveredInputNode(null);
-    }, []);
 
     const handleCanvasMouseMove = useCallback(
         (e: MouseEvent<HTMLDivElement>) => {
@@ -394,28 +379,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const handleCanvasMouseUp = useCallback(() => {
         setIsPanning(false);
         setSelectionBox(null);
-
-        if (creatingConnection && hoveredInputNode) {
-            const newConnection: Connection = {
-                id: `conn-${Date.now()}`,
-                source: creatingConnection.sourceNodeId,
-                target: hoveredInputNode,
-                sourcePort: 0, // Fallback for now
-                targetPort: 0,
-            };
-
-            executeCommand({
-                execute: () => {
-                    setConnections((prev: Connection[]) => [...prev, newConnection]);
-                },
-                undo: () => {
-                    setConnections((prev: Connection[]) => prev.filter(c => c.id !== newConnection.id));
-                },
-            });
-        }
-        setCreatingConnection(null);
-        setHoveredInputNode(null);
-    }, [creatingConnection, hoveredInputNode, executeCommand]);
+        completeConnection();
+    }, [completeConnection]);
 
     const handleOnboardingNext = useCallback(() => {
         const steps = lang === 'es' ? ONBOARDING_STEPS_ES : ONBOARDING_STEPS_EN;
@@ -611,37 +576,21 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const handleCanvasClick = useCallback((e: MouseEvent<HTMLDivElement>) => {
         if (e.target === e.currentTarget && !e.shiftKey) {
             setSelectedNodes(new Set());
-            setSelectedConnection(null);
+            clearConnectionSelection();
         }
-    }, []);
+    }, [clearConnectionSelection]);
 
-    const handleConnectionSelect = useCallback((connectionId: string) => {
+    const handleConnectionSelectLocal = useCallback((connectionId: string) =>
         setSelectedConnection(connectionId);
         setSelectedNodes(new Set());
     }, []);
 
-    const handleConfirmDeleteConnection = useCallback(() => {
+    const onConfirmDeleteConnection = useCallback(() => {
         if (deleteConnectionConfirm.connectionId) {
-            const deletedConnection = connections.find(c => c.id === deleteConnectionConfirm.connectionId);
-
-            if (deletedConnection) {
-                executeCommand({
-                    execute: () => {
-                        setConnections((prev: Connection[]) =>
-                            prev.filter(c => c.id !== deleteConnectionConfirm.connectionId)
-                        );
-                        setSelectedConnection(null);
-                        announceMessage('Connection deleted');
-                    },
-                    undo: () => {
-                        setConnections((prev: Connection[]) => [...prev, deletedConnection]);
-                        announceMessage('Connection restored');
-                    },
-                });
-            }
+            handleConfirmDeleteConnection(deleteConnectionConfirm.connectionId);
         }
         setDeleteConnectionConfirm({ open: false, connectionId: null });
-    }, [deleteConnectionConfirm.connectionId, connections, executeCommand, announceMessage]);
+    }, [deleteConnectionConfirm.connectionId, handleConfirmDeleteConnection]);
 
     const handleCancelDeleteConnection = useCallback(() => {
         setDeleteConnectionConfirm({ open: false, connectionId: null });
@@ -881,7 +830,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                                 isSelected={selectedConnection === connection.id}
                                 isExecuting={isExecuting}
                                 isCyclic={isCyclic}
-                                onClick={handleConnectionSelect}
+                                onClick={handleConnectionSelectLocal}
                             />
                         );
                     })}
@@ -1039,7 +988,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     message={lang === 'en' ? 'Are you sure you want to delete this connection?' : '¿Estás seguro de que quieres eliminar esta conexión?'}
                     confirmLabel={lang === 'en' ? 'Delete' : 'Eliminar'}
                     cancelLabel={lang === 'en' ? 'Cancel' : 'Cancelar'}
-                    onConfirm={handleConfirmDeleteConnection}
+                    onConfirm={onConfirmDeleteConnection}
                     onCancel={handleCancelDeleteConnection}
                 />
 
