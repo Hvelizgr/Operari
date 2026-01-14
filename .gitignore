@@ -63,3 +63,11 @@ api/prisma/*.db-journal
 # Misc
 *.log
 .cache/
+
+# Agent/IDE specific
+.agent/
+.claude/
+.cursorrules
+
+# Documentation (internal)
+docs/
