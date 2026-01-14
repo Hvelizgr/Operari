@@ -65,6 +65,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         setConfigNodeId,
         handleNodeSelect,
         handleNodeUpdate,
+        handleNodeMove,
         handleCloseConfigPanel,
         handleHighlightNodes,
     } = useEditorNodes({
@@ -233,6 +234,65 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const handleMouseUp = useCallback(() => {
         setIsPanning(false);
     }, []);
+
+    const handleNodeDragStart = useCallback(
+        (nodeId: string, e: MouseEvent) => {
+            const node = nodes.find((n) => n.id === nodeId);
+            if (!node) return;
+
+            setDraggingNode(nodeId);
+            setNodeDragStart({
+                x: e.clientX / viewport.zoom - node.position.x,
+                y: e.clientY / viewport.zoom - node.position.y,
+            });
+        },
+        [nodes, viewport.zoom]
+    );
+
+    const handleNodeDrag = useCallback(
+        (e: MouseEvent) => {
+            if (!draggingNode) return;
+
+            const newPosition = {
+                x: e.clientX / viewport.zoom - nodeDragStart.x,
+                y: e.clientY / viewport.zoom - nodeDragStart.y,
+            };
+
+            setNodes((prevNodes: WorkflowNode[]) =>
+                prevNodes.map((node: WorkflowNode) =>
+                    node.id === draggingNode
+                        ? { ...node, position: newPosition }
+                        : node
+                )
+            );
+        },
+        [draggingNode, nodeDragStart, viewport.zoom]
+    );
+
+    const handleNodeDragEnd = useCallback(() => {
+        if (draggingNode) {
+            const node = nodes.find(n => n.id === draggingNode);
+            const initialPos = nodeDragStart;
+
+            if (node) {
+                const finalPos = node.position;
+
+                executeCommand({
+                    execute: () => {
+                        setNodes(prev => prev.map(n =>
+                            n.id === draggingNode ? { ...n, position: finalPos } : n
+                        ));
+                    },
+                    undo: () => {
+                        setNodes(prev => prev.map(n =>
+                            n.id === draggingNode ? { ...n, position: { x: initialPos.x, y: initialPos.y } } : n
+                        ));
+                    },
+                });
+            }
+        }
+        setDraggingNode(null);
+    }, [draggingNode, nodes, nodeDragStart, executeCommand]);
 
     const handlePortDragStart = useCallback(
         (nodeId: string, portId: string, type: 'source' | 'target', pos: { x: number; y: number }) => {
@@ -518,7 +578,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
             window.removeEventListener('mousemove', handleWindowMouseMove);
             window.removeEventListener('mouseup', handleWindowMouseUp);
         };
-    }, [draggingNode, isPanning, creatingConnection, draggingNodeType, selectionBox, handleNodeDragEnd]); // Reduced dependencies!
+    }, [draggingNode, isPanning, creatingConnection, draggingNodeType, selectionBox]); // Using refs for stable callbacks
 
     const handleConfirmDelete = useCallback(() => {
         if (deleteConfirm.nodeIds.length > 0) {

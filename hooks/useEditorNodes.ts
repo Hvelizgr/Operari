@@ -76,6 +76,32 @@ export function useEditorNodes({ executeCommand }: UseEditorNodesOptions) {
         setHighlightedNodes(nodeIds);
     }, []);
 
+    // Move node by keyboard
+    const handleNodeMove = useCallback((nodeId: string, direction: 'up' | 'down' | 'left' | 'right') => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        const moveAmount = 20; // EDITOR_CONFIG.CANVAS.MOVE_STEP
+        const newPosition = { ...node.position };
+
+        switch (direction) {
+            case 'up':
+                newPosition.y -= moveAmount;
+                break;
+            case 'down':
+                newPosition.y += moveAmount;
+                break;
+            case 'left':
+                newPosition.x -= moveAmount;
+                break;
+            case 'right':
+                newPosition.x += moveAmount;
+                break;
+        }
+
+        handleNodeUpdate(nodeId, { position: newPosition });
+    }, [nodes, handleNodeUpdate]);
+
     return {
         // State
         nodes,
@@ -95,6 +121,7 @@ export function useEditorNodes({ executeCommand }: UseEditorNodesOptions) {
         // Handlers
         handleNodeSelect,
         handleNodeUpdate,
+        handleNodeMove,
         handleCloseConfigPanel,
         handleHighlightNodes,
     };
