@@ -25,6 +25,7 @@ import { useNodeTypes } from '../hooks/useNodeTypes';
 import { useAutosave, SaveStatus } from '../hooks/useAutosave';
 import { hasCycle, getCyclicConnections } from '../utils/cycleDetection';
 import { EDITOR_CONFIG } from '../config/editor.config';
+import { INITIAL_NODES, INITIAL_CONNECTIONS } from '../constants/editor.constants';
 
 // Editor-specific types
 import type {
@@ -36,45 +37,6 @@ import type {
     ContextMenuState,
     ExecutionMetric,
 } from '../types/editor.types';
-
-const INITIAL_NODES: WorkflowNode[] = [
-    {
-        id: 'node-1',
-        type: 'webhook',
-        title: 'Webhook Trigger',
-        position: { x: 100, y: 200 },
-        outputs: [{ id: 'out-1', label: 'Output' }]
-    },
-    {
-        id: 'node-2',
-        type: 'script',
-        title: 'Data Transform',
-        position: { x: 450, y: 200 },
-        inputs: [{ id: 'in-2', label: 'Input' }],
-        outputs: [{ id: 'out-2', label: 'Output' }]
-    },
-    {
-        id: 'node-3',
-        type: 'request',
-        title: 'External API',
-        position: { x: 800, y: 100 },
-        inputs: [{ id: 'in-3', label: 'Input' }],
-        outputs: [{ id: 'out-3', label: 'Output' }]
-    },
-    {
-        id: 'node-4',
-        type: 'database',
-        title: 'Postgres Insert',
-        position: { x: 800, y: 300 },
-        inputs: [{ id: 'in-4', label: 'Input' }]
-    }
-];
-
-const INITIAL_CONNECTIONS: Connection[] = [
-    { id: 'edge-1', source: 'node-1', target: 'node-2' },
-    { id: 'edge-2', source: 'node-2', target: 'node-3' },
-    { id: 'edge-3', source: 'node-2', target: 'node-4' }
-];
 
 export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const windowSize = useWindowSize();
