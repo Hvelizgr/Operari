@@ -8,11 +8,9 @@ node_modules/
 out/
 build/
 dist/
-api/dist/
 
 # Testing
 coverage/
-api/coverage/
 .nyc_output/
 
 # Environment files
@@ -57,8 +55,8 @@ playwright/.cache/
 storybook-static/
 
 # Prisma
-api/prisma/*.db
-api/prisma/*.db-journal
+backend/prisma/*.db
+backend/prisma/*.db-journal
 
 # Misc
 *.log
