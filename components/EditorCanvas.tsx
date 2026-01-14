@@ -34,7 +34,6 @@ import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 // Editor-specific types
 import type {
     CreatingConnectionState,
-    SelectionBoxState,
     DeleteConfirmState,
     DeleteConnectionConfirmState,
     ContextMenuState,
@@ -92,14 +91,12 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         creatingConnection,
         setCreatingConnection,
         hoveredInputNode,
-        setHoveredInputNode,
         selectedConnection,
         setSelectedConnection,
         cyclicConnections,
         cycleError,
         handlePortDragStart,
         handlePortDragEnd,
-        handleConnectionSelect,
         handleConfirmDeleteConnection,
         updateCreatingConnectionPosition,
         completeConnection,
@@ -115,8 +112,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     // Selection box management hook
     const {
         selectionBox,
-        setSelectionBox,
-        isSelecting,
         startSelectionBox,
         updateSelectionBox,
         clearSelectionBox,
@@ -191,22 +186,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         [viewport.x, viewport.y, draggingNode, creatingConnection, selectionBox, startSelectionBox, setConfigNodeId]
     );
 
-    const handleMouseMove = useCallback(
-        (e: MouseEvent<HTMLDivElement>) => {
-            if (isPanning && !draggingNode) {
-                setViewport((prev) => ({
-                    ...prev,
-                    x: e.clientX - panStart.x,
-                    y: e.clientY - panStart.y,
-                }));
-            }
-        },
-        [isPanning, panStart, draggingNode]
-    );
 
-    const handleMouseUp = useCallback(() => {
-        setIsPanning(false);
-    }, []);
 
     const handleNodeDragStart = useCallback(
         (nodeId: string, e: MouseEvent) => {
@@ -356,9 +336,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         setNodes(prev => [...prev, newNode]);
     }, [viewport, lang, windowSize.width, windowSize.height, setNodes]);
 
-    const handleNodePaletteDragStart = useCallback((nodeType: NodeType) => {
-        setDraggingNodeType(nodeType);
-    }, []);
+
 
     const handleCanvasDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -385,9 +363,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         setDraggingNodeType(null);
     }, [draggingNodeType, viewport, lang, setNodes, setDraggingNodeType]);
 
-    const handleNodeDelete = useCallback((nodeId: string) => {
-        setDeleteConfirm({ open: true, nodeIds: [nodeId] });
-    }, []);
+
 
     // Refs for stable access inside event listeners without re-binding
     const viewportRef = useRef(viewport);
@@ -430,12 +406,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     x: e.clientX - start.x,
                     y: e.clientY - start.y,
                 }));
-            } else if (selectionBoxRef.current && canvasRef.current) {
-                const rect = canvasRef.current.getBoundingClientRect();
-                setSelectionBox((prev) => prev ? {
-                    ...prev,
-                    end: { x: e.clientX - rect.left, y: e.clientY - rect.top },
-                } : null);
+            } else if (selectionBoxRef.current) {
+                updateSelectionBox(e.clientX, e.clientY);
             }
         };
 
@@ -549,11 +521,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         return () => clearTimeout(timer);
     }, [handleFitView]);
 
-    const gridPattern = `
-    <pattern id="grid" width="${EDITOR_CONFIG.GRID.SIZE}" height="${EDITOR_CONFIG.GRID.SIZE}" patternUnits="userSpaceOnUse">
-      <path d="M ${EDITOR_CONFIG.GRID.SIZE} 0 L 0 0 0 ${EDITOR_CONFIG.GRID.SIZE}" fill="none" stroke="currentColor" stroke-width="0.5" opacity="0.2"/>
-    </pattern>
-  `;
+
 
 
     return (
