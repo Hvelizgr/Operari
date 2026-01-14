@@ -52,8 +52,6 @@ export default function EditorNode({
     node,
     typeDefinition,
     onDragStart,
-    // onDrag, // consumed by motion directly or parent
-    // onDragEnd,
     isDragging,
     onPortDragStart,
     isConnectionTarget,
@@ -197,12 +195,6 @@ export default function EditorNode({
                     </div>
                 )}
             </div>
-
-            {/* --- OPTIONAL BODY --- */}
-            {/* Useful for displaying small params later */}
-            {/* <div className="px-3 pb-2 text-[10px] text-slate-400">
-                Some details...
-            </div> */}
 
             {/* Settings Hover */}
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">

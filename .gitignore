@@ -5,6 +5,7 @@ node_modules/
 
 # Build outputs
 .next/
+.swc/
 out/
 build/
 dist/
