@@ -1,0 +1,47 @@
+{
+    "extends": [
+        "next/core-web-vitals",
+        "next/typescript",
+        "prettier"
+    ],
+    "plugins": [
+        "@typescript-eslint",
+        "testing-library",
+        "jest-dom"
+    ],
+    "rules": {
+        "@typescript-eslint/no-unused-vars": [
+            "warn",
+            {
+                "argsIgnorePattern": "^_"
+            }
+        ],
+        "@typescript-eslint/no-explicit-any": "warn",
+        "react/prop-types": "off",
+        "react-hooks/exhaustive-deps": "warn",
+        "no-console": [
+            "warn",
+            {
+                "allow": [
+                    "warn",
+                    "error"
+                ]
+            }
+        ]
+    },
+    "overrides": [
+        {
+            "files": [
+                "**/*.test.ts",
+                "**/*.test.tsx"
+            ],
+            "extends": [
+                "plugin:testing-library/react",
+                "plugin:jest-dom/recommended"
+            ]
+        }
+    ],
+    "env": {
+        "jest": true
+    }
+}

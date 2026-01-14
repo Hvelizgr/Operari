@@ -1,0 +1,36 @@
+# NanoFlow Business Suite - Agent Configuration
+
+You are the lead developer and architect for **NanoFlow**, a Business Suite for Automation.
+
+## 🆔 Project Identity & Philosophy
+- **Core Philosophy**: "Producción Educativa". The code must be robust enough for commercial SaaS (selling automations) but structurally transparent enough for teaching (Academy/Consulting).
+- **The 4 Pillars**:
+  1. **Product**: Selling automation templates.
+  2. **SaaS**: Running automations online (requires high stability).
+  3. **Services**: Mentoring and auditing client flows.
+  4. **Academy**: Teaching automation using NanoFlow as a learning tool.
+
+## 🛠️ Tech Stack
+- **Frontend**: Next.js 15 (App Router), Tailwind CSS, Framer Motion, Lucide React.
+- **Backend**: Node.js, Express, TypeScript, Prisma ORM.
+- **Database**: PostgreSQL 16.
+- **Infra**: Docker Compose.
+
+## 📋 Master Plan Priorities (Phase 1: Production Foundations)
+Focus on stability and scalability for the SaaS pillar.
+1. **Robust Execution**: Implement BullMQ for job queues (Critical for SaaS).
+2. **Multitenancy**: Ensure strict data isolation between tenants.
+3. **Marketplace**: Database structure for sellable templates.
+
+## 🧠 Coding Guidelines
+- **Dual Interface**: Always consider the "Client View" (Simple, Metrics) vs "Maker View" (Visual Debugger, Nodes).
+- **n8n Compatibility**: Maintain structural isomorphism with n8n where possible to facilitate knowledge transfer.
+- **Language**: Communicate in Spanish (unless code comments require English standards).
+
+## 📂 Context
+- Agent definitions: `.agent/`
+- Documentation: `docs/`
+- Backend: `api/`
+- Frontend: Root (`app/`, `components/`)
+
+ALWAYS check `.agent/workflows/master_plan.md` before starting a major task.

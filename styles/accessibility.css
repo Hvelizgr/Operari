@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+    }
+}
+
+.high-contrast {
+    --bg-primary: #000000;
+    --bg-secondary: #1a1a1a;
+    --border-color: #ffff00;
+    --text-primary: #ffffff;
+    --text-secondary: #ffff00;
+    --node-bg: #000000;
+    --node-border: #ffff00;
+    --connection-stroke: #00ff00;
+    --selection-ring: #ffff00;
+}
+
+.high-contrast .bg-slate-950 {
+    background-color: var(--bg-primary) !important;
+}
+
+.high-contrast .bg-slate-900 {
+    background-color: var(--bg-secondary) !important;
+}
+
+.high-contrast .bg-slate-800 {
+    background-color: var(--bg-secondary) !important;
+}
+
+.high-contrast .border-slate-700 {
+    border-color: var(--border-color) !important;
+    border-width: 2px !important;
+}
+
+.high-contrast .text-slate-100,
+.high-contrast .text-slate-200,
+.high-contrast .text-slate-300 {
+    color: var(--text-primary) !important;
+}
+
+.high-contrast .text-slate-400,
+.high-contrast .text-slate-500 {
+    color: var(--text-secondary) !important;
+}
+
+.high-contrast svg path {
+    stroke: var(--connection-stroke) !important;
+    stroke-width: 3px !important;
+}
+
+.high-contrast .ring-blue-500 {
+    --tw-ring-color: var(--selection-ring) !important;
+    --tw-ring-width: 3px !important;
+}
+
+.high-contrast .ring-yellow-400,
+.high-contrast .ring-yellow-500 {
+    --tw-ring-color: #ffffff !important;
+    --tw-ring-width: 3px !important;
+}
+
+.high-contrast button:focus,
+.high-contrast [role="button"]:focus {
+    outline: 3px solid #ffff00 !important;
+    outline-offset: 2px;
+}
