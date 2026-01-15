@@ -21,10 +21,31 @@ export function useNodeTypes() {
 
     useEffect(() => {
         const fetchNodes = async () => {
+            // Try to load from localStorage first
+            const cached = localStorage.getItem('nanoflow-node-types');
+            if (cached) {
+                try {
+                    const parsed = JSON.parse(cached);
+                    // Map icons for cached data
+                    const mappedCached = parsed.map((node: any) => {
+                        const IconComponent = (Icons as any)[node.icon] || Icons.Box;
+                        return { ...node, icon: createElement(IconComponent, { size: 18 }) };
+                    });
+                    setNodeTypes(mappedCached);
+                    setLoading(false);
+                    // We still fetch in background to update cache
+                } catch (e) {
+                    console.error('Error parsing cached node types', e);
+                }
+            }
+
             try {
                 const res = await fetch('/api/node-types'); // Use proxy defined in next.config.ts
                 if (!res.ok) throw new Error('Failed to fetch');
                 const data = await res.json();
+
+                // Cache the raw data (without React elements)
+                localStorage.setItem('nanoflow-node-types', JSON.stringify(data));
 
                 const mappedNodes = data.map((node: any) => {
                     // Resolve icon from string name
@@ -43,7 +64,8 @@ export function useNodeTypes() {
                 setNodeTypes(mappedNodes);
             } catch (error) {
                 console.error('Error fetching node types:', error);
-                // Fallback or empty? Let's leave empty and let component handle it
+
+                // Fallback to defaults if specific hardcoded types allow, otherwise empty
             } finally {
                 setLoading(false);
             }
