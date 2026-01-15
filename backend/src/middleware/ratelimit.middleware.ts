@@ -1,7 +1,9 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
-import { AuthRequest } from './auth.middleware';
+import { RedisStore } from 'rate-limit-redis';
+import { redisConfig } from '../config/redis.config';
+import { logger } from '../services/logger.service';
 
 /**
  * Rate limit configuration for different endpoint types
@@ -78,83 +80,34 @@ const getUserIdentifier = (req: Request): string => {
 };
 
 /**
- * Custom store interface for future Redis integration
- * This abstraction allows easy migration to distributed rate limiting
- */
-interface RateLimitStore {
-    increment(key: string): Promise<{ totalHits: number; resetTime: Date }>;
-    decrement(key: string): Promise<void>;
-    resetKey(key: string): Promise<void>;
-}
-
-/**
- * In-memory store for single-instance deployments
- * Replace with RedisStore for horizontal scaling
- */
-class MemoryStore implements RateLimitStore {
-    private hits: Map<string, { count: number; resetTime: number }> = new Map();
-    private cleanupInterval: NodeJS.Timeout;
-
-    constructor() {
-        // Cleanup expired entries every 5 minutes
-        this.cleanupInterval = setInterval(() => {
-            const now = Date.now();
-            for (const [key, value] of this.hits.entries()) {
-                if (value.resetTime < now) {
-                    this.hits.delete(key);
-                }
-            }
-        }, 5 * 60 * 1000);
-    }
-
-    async increment(key: string): Promise<{ totalHits: number; resetTime: Date }> {
-        const now = Date.now();
-        const existing = this.hits.get(key);
-
-        if (!existing || existing.resetTime < now) {
-            // Create new window
-            const resetTime = now + 60 * 1000; // 1 minute from now
-            this.hits.set(key, { count: 1, resetTime });
-            return { totalHits: 1, resetTime: new Date(resetTime) };
-        }
-
-        // Increment existing window
-        existing.count++;
-        this.hits.set(key, existing);
-        return { totalHits: existing.count, resetTime: new Date(existing.resetTime) };
-    }
-
-    async decrement(key: string): Promise<void> {
-        const existing = this.hits.get(key);
-        if (existing && existing.count > 0) {
-            existing.count--;
-            this.hits.set(key, existing);
-        }
-    }
-
-    async resetKey(key: string): Promise<void> {
-        this.hits.delete(key);
-    }
-
-    destroy(): void {
-        clearInterval(this.cleanupInterval);
-        this.hits.clear();
-    }
-}
-
-// Singleton memory store instance
-const memoryStore = new MemoryStore();
-
-/**
  * Create a rate limiter for a specific tier
- * Designed to be Redis-compatible for future horizontal scaling
+ * Uses RedisStore if available, otherwise falls back to memory store by default (express-rate-limit built-in)
  */
 export const createRateLimiter = (tier: RateLimitTier): RateLimitRequestHandler => {
     const config = RATE_LIMIT_CONFIGS[tier];
+    const redisClient = redisConfig.getClient();
+
+    // Configure store if Redis is available
+    let store;
+    if (redisClient && redisConfig.isReady()) {
+        store = new RedisStore({
+            // @ts-expect-error - Expected by library type definition issues
+            sendCommand: (...args: string[]) => redisClient.call(...args),
+            prefix: `ratelimit:${tier}:`,
+        });
+        logger.debug(`Using Redis store for rate limit tier: ${tier}`,
+            { context: { nodeId: '', nodeName: '', nodeType: '' } }
+        );
+    } else {
+        logger.warn(`Using in-memory store for rate limit tier: ${tier} (Redis not available)`,
+            { context: { nodeId: '', nodeName: '', nodeType: '' } }
+        );
+    }
 
     return rateLimit({
         windowMs: config.windowMs,
         max: config.max,
+        store: store, // If undefined, express-rate-limit uses MemoryStore
 
         // Use custom key generator for per-user/tenant limiting
         keyGenerator: (req: Request) => {
@@ -199,35 +152,6 @@ export const webhookRateLimiter = createRateLimiter(RateLimitTier.WEBHOOK);
 /**
  * Cleanup function for graceful shutdown
  */
-export const cleanupRateLimiters = (): void => {
-    memoryStore.destroy();
+export const cleanupRateLimiters = async (): Promise<void> => {
+    await redisConfig.quit();
 };
-
-/**
- * Future Redis integration example:
- * 
- * import RedisStore from 'rate-limit-redis';
- * import { createClient } from 'redis';
- * 
- * const redisClient = createClient({
- *     url: process.env.REDIS_URL,
- * });
- * 
- * export const createRateLimiter = (tier: RateLimitTier): RateLimitRequestHandler => {
- *     const config = RATE_LIMIT_CONFIGS[tier];
- *     
- *     return rateLimit({
- *         windowMs: config.windowMs,
- *         max: config.max,
- *         store: new RedisStore({
- *             client: redisClient,
- *             prefix: `ratelimit:${tier}:`,
- *         }),
- *         keyGenerator: (req: Request) => {
- *             const userIdentifier = getUserIdentifier(req);
- *             return userIdentifier;
- *         },
- *         // ... rest of configuration
- *     });
- * };
- */

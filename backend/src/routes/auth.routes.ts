@@ -46,8 +46,40 @@ const loginSchema = z.object({
  *     responses:
  *       201:
  *         description: User created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string }
+ *                     email: { type: string }
+ *                     name: { type: string }
+ *                     role: { type: string }
+ *                 tenant:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string }
+ *                     name: { type: string }
+ *                 token: { type: string }
+ *             example:
+ *               user:
+ *                 id: "cm5..."
+ *                 email: "admin@company.com"
+ *                 name: "Admin User"
+ *                 role: "ADMIN"
+ *               tenant:
+ *                 id: "tenant-123"
+ *                 name: "My Company"
+ *               token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *       400:
  *         description: Validation error or email already exists
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Email already registered"
  */
 router.post('/register', async (req, res) => {
     try {
@@ -136,8 +168,40 @@ router.post('/register', async (req, res) => {
  *     responses:
  *       200:
  *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string }
+ *                     email: { type: string }
+ *                     name: { type: string }
+ *                     role: { type: string }
+ *                 tenant:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: string }
+ *                     name: { type: string }
+ *                 token: { type: string }
+ *             example:
+ *               user:
+ *                 id: "cm5..."
+ *                 email: "user@example.com"
+ *                 name: "John Doe"
+ *                 role: "USER"
+ *               tenant:
+ *                 id: "tenant-123"
+ *                 name: "Acme Corp"
+ *               token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *       401:
  *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Invalid credentials"
  */
 router.post('/login', async (req, res) => {
     try {
@@ -202,8 +266,24 @@ router.post('/login', async (req, res) => {
  *     responses:
  *       200:
  *         description: User profile
+ *         content:
+ *           application/json:
+ *             example:
+ *               user:
+ *                 id: "u-123"
+ *                 email: "me@example.com"
+ *                 name: "Me"
+ *                 role: "ADMIN"
+ *               tenant:
+ *                 id: "t-456"
+ *                 name: "My Tenant"
+ *                 plan: "FREE"
  *       401:
  *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Unauthorized"
  */
 router.get('/me', authenticate, async (req: AuthRequest, res) => {
     try {
@@ -246,8 +326,23 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
  *     responses:
  *       200:
  *         description: New token generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *             example:
+ *               token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *       401:
  *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               error: "Invalid or expired token"
  */
 router.post('/refresh', authenticate, async (req: AuthRequest, res) => {
     try {

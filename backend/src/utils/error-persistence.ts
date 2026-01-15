@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { CustomError } from '../errors/custom-error';
+import { logger } from '../config/logger.config';
 
 /**
  * Persist an error to the database
@@ -51,7 +52,7 @@ export async function persistExecutionError(
         }
     } catch (persistError) {
         // Log persistence failure but don't throw to avoid double errors
-        console.error('Failed to persist execution error:', persistError);
+        logger.error({ err: persistError, executionId }, 'Failed to persist execution error');
     }
 }
 

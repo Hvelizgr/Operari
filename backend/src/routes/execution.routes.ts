@@ -31,6 +31,34 @@ router.use(authenticate);
  *     responses:
  *       200:
  *         description: List of executions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 executions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: string }
+ *                       status: { type: string }
+ *                       startedAt: { type: string }
+ *                       duration: { type: number }
+ *                 pagination:
+ *                   type: object
+ *             example:
+ *               executions:
+ *                 - id: "exec-1"
+ *                   workflowId: "wf-1"
+ *                   status: "COMPLETED"
+ *                   startedAt: "2024-03-20T10:00:00Z"
+ *                   duration: 1500
+ *               pagination:
+ *                 page: 1
+ *                 limit: 20
+ *                 total: 50
+ *                 pages: 3
  */
 router.get('/', async (req: AuthRequest, res) => {
     try {
@@ -89,8 +117,29 @@ router.get('/', async (req: AuthRequest, res) => {
  *     responses:
  *       200:
  *         description: Execution details
+ *         content:
+ *           application/json:
+ *             example:
+ *               id: "exec-1"
+ *               workflowId: "wf-1"
+ *               status: "FAILED"
+ *               error: "HTTP 500"
+ *               startedAt: "2024-03-20T10:00:00Z"
+ *               completedAt: "2024-03-20T10:00:02Z"
+ *               nodeLogs:
+ *                 - nodeId: "node-1"
+ *                   status: "SUCCESS"
+ *                   duration: 200
+ *                 - nodeId: "node-2"
+ *                   status: "ERROR"
+ *                   duration: 50
+ *                   error: "Connection timeout"
  *       404:
  *         description: Execution not found
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Execution not found"
  */
 router.get('/:id', async (req: AuthRequest, res) => {
     try {
@@ -132,17 +181,34 @@ router.get('/:id', async (req: AuthRequest, res) => {
  *         required: true
  *         schema: { type: string }
  *     requestBody:
+ *       required: false
  *       content:
  *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               input: { type: object }
+ *               input:
+ *                 type: object
+ *                 description: Initial input data for the workflow
+ *           example:
+ *             input:
+ *               email: "user@example.com"
+ *               sku: "PROD-123"
  *     responses:
  *       202:
  *         description: Execution started
+ *         content:
+ *           application/json:
+ *             example:
+ *               id: "exec-new-123"
+ *               status: "RUNNING"
+ *               trigger: "MANUAL"
  *       404:
  *         description: Workflow not found
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Workflow not found"
  */
 router.post('/:workflowId/run', async (req: AuthRequest, res) => {
     try {
@@ -189,8 +255,16 @@ router.post('/:workflowId/run', async (req: AuthRequest, res) => {
  *     responses:
  *       200:
  *         description: Execution cancelled
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: "Execution cancelled"
  *       404:
  *         description: Execution not found or not running
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Running execution not found"
  */
 router.post('/:id/cancel', async (req: AuthRequest, res) => {
     try {

@@ -4,6 +4,7 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
+import { logger } from '../config/logger.config';
 
 interface N8nWorkflow {
   id?: string;
@@ -81,7 +82,7 @@ class N8nService {
       const response = await this.client.get('/workflows', { params: { limit: 1 } });
       return response.status === 200;
     } catch (error) {
-      console.error('n8n health check failed:', error);
+      logger.warn({ err: error }, 'n8n health check failed');
       return false;
     }
   }
@@ -93,7 +94,7 @@ class N8nService {
       const response = await this.client.get('/workflows');
       return response.data.data || [];
     } catch (error) {
-      console.error('Error fetching n8n workflows:', error);
+      logger.error({ err: error }, 'Error fetching n8n workflows');
       throw error;
     }
   }
@@ -103,7 +104,7 @@ class N8nService {
       const response = await this.client.get(`/workflows/${id}`);
       return response.data;
     } catch (error) {
-      console.error(`Error fetching workflow ${id}:`, error);
+      logger.error({ err: error, workflowId: id }, 'Error fetching workflow');
       throw error;
     }
   }
@@ -113,7 +114,7 @@ class N8nService {
       const response = await this.client.post('/workflows', workflow);
       return response.data;
     } catch (error) {
-      console.error('Error creating workflow:', error);
+      logger.error({ err: error }, 'Error creating workflow');
       throw error;
     }
   }
@@ -123,7 +124,7 @@ class N8nService {
       const response = await this.client.patch(`/workflows/${id}`, workflow);
       return response.data;
     } catch (error) {
-      console.error(`Error updating workflow ${id}:`, error);
+      logger.error({ err: error, workflowId: id }, 'Error updating workflow');
       throw error;
     }
   }
@@ -132,7 +133,7 @@ class N8nService {
     try {
       await this.client.delete(`/workflows/${id}`);
     } catch (error) {
-      console.error(`Error deleting workflow ${id}:`, error);
+      logger.error({ err: error, workflowId: id }, 'Error deleting workflow');
       throw error;
     }
   }
@@ -142,7 +143,7 @@ class N8nService {
       const response = await this.client.post(`/workflows/${id}/activate`);
       return response.data;
     } catch (error) {
-      console.error(`Error activating workflow ${id}:`, error);
+      logger.error({ err: error, workflowId: id }, 'Error activating workflow');
       throw error;
     }
   }
@@ -152,7 +153,7 @@ class N8nService {
       const response = await this.client.post(`/workflows/${id}/deactivate`);
       return response.data;
     } catch (error) {
-      console.error(`Error deactivating workflow ${id}:`, error);
+      logger.error({ err: error, workflowId: id }, 'Error deactivating workflow');
       throw error;
     }
   }
@@ -164,7 +165,7 @@ class N8nService {
       const response = await this.client.post(`/workflows/${id}/run`, { data });
       return response.data;
     } catch (error) {
-      console.error(`Error executing workflow ${id}:`, error);
+      logger.error({ err: error, workflowId: id }, 'Error executing workflow');
       throw error;
     }
   }
@@ -175,7 +176,7 @@ class N8nService {
       const response = await this.client.get('/executions', { params });
       return response.data.data || [];
     } catch (error) {
-      console.error('Error fetching executions:', error);
+      logger.error({ err: error }, 'Error fetching executions');
       throw error;
     }
   }
@@ -185,7 +186,7 @@ class N8nService {
       const response = await this.client.get(`/executions/${id}`);
       return response.data;
     } catch (error) {
-      console.error(`Error fetching execution ${id}:`, error);
+      logger.error({ err: error, executionId: id }, 'Error fetching execution');
       throw error;
     }
   }
@@ -194,7 +195,7 @@ class N8nService {
     try {
       await this.client.delete(`/executions/${id}`);
     } catch (error) {
-      console.error(`Error deleting execution ${id}:`, error);
+      logger.error({ err: error, executionId: id }, 'Error deleting execution');
       throw error;
     }
   }
@@ -206,7 +207,7 @@ class N8nService {
       const response = await this.client.get('/credentials');
       return response.data.data || [];
     } catch (error) {
-      console.error('Error fetching credentials:', error);
+      logger.error({ err: error }, 'Error fetching credentials');
       throw error;
     }
   }
@@ -216,7 +217,7 @@ class N8nService {
       const response = await this.client.post('/credentials', credential);
       return response.data;
     } catch (error) {
-      console.error('Error creating credential:', error);
+      logger.error({ err: error }, 'Error creating credential');
       throw error;
     }
   }
@@ -225,7 +226,7 @@ class N8nService {
     try {
       await this.client.delete(`/credentials/${id}`);
     } catch (error) {
-      console.error(`Error deleting credential ${id}:`, error);
+      logger.error({ err: error, credentialId: id }, 'Error deleting credential');
       throw error;
     }
   }
@@ -237,7 +238,7 @@ class N8nService {
       const response = await this.client.get('/variables');
       return response.data.data || [];
     } catch (error) {
-      console.error('Error fetching variables:', error);
+      logger.error({ err: error }, 'Error fetching variables');
       throw error;
     }
   }
@@ -247,7 +248,7 @@ class N8nService {
       const response = await this.client.post('/variables', variable);
       return response.data;
     } catch (error) {
-      console.error('Error creating variable:', error);
+      logger.error({ err: error }, 'Error creating variable');
       throw error;
     }
   }
@@ -256,7 +257,7 @@ class N8nService {
     try {
       await this.client.delete(`/variables/${id}`);
     } catch (error) {
-      console.error(`Error deleting variable ${id}:`, error);
+      logger.error({ err: error, variableId: id }, 'Error deleting variable');
       throw error;
     }
   }
@@ -268,7 +269,7 @@ class N8nService {
       const response = await this.client.get('/tags');
       return response.data.data || [];
     } catch (error) {
-      console.error('Error fetching tags:', error);
+      logger.error({ err: error }, 'Error fetching tags');
       throw error;
     }
   }
@@ -278,7 +279,7 @@ class N8nService {
       const response = await this.client.post('/tags', tag);
       return response.data;
     } catch (error) {
-      console.error('Error creating tag:', error);
+      logger.error({ err: error }, 'Error creating tag');
       throw error;
     }
   }
@@ -287,7 +288,7 @@ class N8nService {
     try {
       await this.client.delete(`/tags/${id}`);
     } catch (error) {
-      console.error(`Error deleting tag ${id}:`, error);
+      logger.error({ err: error, tagId: id }, 'Error deleting tag');
       throw error;
     }
   }
@@ -371,7 +372,7 @@ class N8nService {
 
       return finalExecution;
     } catch (error) {
-      console.error('Error executing n8n node:', error);
+      logger.error({ err: error, nodeType }, 'Error executing n8n node');
       throw error;
     }
   }

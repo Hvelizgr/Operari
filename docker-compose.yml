@@ -18,10 +18,33 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: nanoflow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: nanoflow-jaeger
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+      - "6831:6831/udp"
+    restart: unless-stopped
+
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: nanoflow-backend
     environment:
       NODE_ENV: production
@@ -29,20 +52,29 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nanoflow?schema=public
       JWT_SECRET: dev-secret-key-change-in-prod-at-least-32-chars-long
       FRONTEND_URL: http://localhost:3000
+      REDIS_URL: redis://redis:6379
+      JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+      ENABLE_TRACING: "true"
+      OTEL_SERVICE_NAME: nanoflow-backend
     ports:
       - "4000:4000"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: nanoflow-frontend
     environment:
       NODE_ENV: production
+      # Server-side API URL (Docker network)
+      API_URL: http://backend:4000
+      # Client-side API URL (Browser access)
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
     ports:
       - "3000:3000"
@@ -52,4 +84,6 @@ services:
 
 volumes:
   postgres-data:
+    driver: local
+  redis-data:
     driver: local

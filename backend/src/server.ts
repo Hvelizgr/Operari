@@ -1,3 +1,4 @@
+import './config/tracing.config'; // Initialize tracing first
 import './config/env.config'; // Validate env vars first
 import express from 'express';
 import cors from 'cors';

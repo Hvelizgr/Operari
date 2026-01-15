@@ -10,7 +10,9 @@ import {
     workflowConnectionSchema,
     WorkflowNode,
     WorkflowConnection,
+    WorkflowDefinition,
 } from '../types/workflow.types';
+import { WorkflowValidatorService, ValidationSeverity } from '../services/workflow-validator.service';
 
 const router = Router();
 
@@ -72,6 +74,18 @@ router.use((req: AuthRequest, _res, next) => {
  *                     limit: { type: integer }
  *                     total: { type: integer }
  *                     pages: { type: integer }
+ *             example:
+ *               workflows:
+ *                 - id: "wf-123"
+ *                   name: "New Order Processing"
+ *                   description: "Handles Shopify orders"
+ *                   isActive: true
+ *                   updatedAt: "2024-03-21T15:30:00Z"
+ *               pagination:
+ *                 page: 1
+ *                 limit: 10
+ *                 total: 1
+ *                 pages: 1
  */
 router.get('/', async (req: AuthRequest, res) => {
     try {
@@ -133,8 +147,27 @@ router.get('/', async (req: AuthRequest, res) => {
  *     responses:
  *       200:
  *         description: Workflow details
+ *         content:
+ *           application/json:
+ *             example:
+ *               id: "wf-123"
+ *               name: "Daily Report"
+ *               nodes:
+ *                 - id: "node-1"
+ *                   type: "Schedule"
+ *                   position: { x: 0, y: 0 }
+ *                   config: { cron: "0 0 * * *" }
+ *               connections:
+ *                 - id: "c-1"
+ *                   source: "node-1"
+ *                   target: "node-2"
+ *               isActive: true
  *       404:
  *         description: Workflow not found
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Workflow not found"
  */
 router.get('/:id', async (req: AuthRequest, res) => {
     try {
@@ -240,15 +273,42 @@ router.get('/:id/metadata', async (req: AuthRequest, res) => {
  *               schedule: { type: string }
  *               nodes: { type: array, items: { type: object } }
  *               connections: { type: array, items: { type: object } }
+ *           example:
+ *             name: "New Automation"
+ *             description: "Created via API"
+ *             nodes: []
+ *             connections: []
+ *             isActive: false
  *     responses:
  *       201:
  *         description: Workflow created
+ *         content:
+ *           application/json:
+ *             example:
+ *               id: "wf-new-789"
+ *               name: "New Automation"
+ *               createdAt: "2024-03-22T09:00:00Z"
  *       400:
  *         description: Validation error
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Name is required"
  */
 router.post('/', async (req: AuthRequest, res) => {
     try {
         const data = workflowDefinitionSchema.parse(req.body);
+
+        // Validate logic
+        const validator = new WorkflowValidatorService();
+        const validation = validator.validate(data as WorkflowDefinition);
+
+        if (!validation.isValid) {
+            return res.status(400).json({
+                error: 'Workflow validation failed',
+                issues: validation.issues,
+            });
+        }
 
         const workflow = await prisma.workflow.create({
             data: {
@@ -309,9 +369,18 @@ router.post('/', async (req: AuthRequest, res) => {
  *               schedule: { type: string }
  *               nodes: { type: array, items: { type: object } }
  *               connections: { type: array, items: { type: object } }
+ *           example:
+ *             isActive: true
+ *             schedule: "0 * * * *"
  *     responses:
  *       200:
  *         description: Workflow updated
+ *         content:
+ *           application/json:
+ *             example:
+ *               id: "wf-123"
+ *               isActive: true
+ *               schedule: "0 * * * *"
  *       404:
  *         description: Workflow not found
  */
@@ -386,6 +455,26 @@ router.put('/:id', async (req: AuthRequest, res) => {
         if (data.description !== undefined) updateData.description = data.description;
         if (data.isActive !== undefined) updateData.isActive = data.isActive;
         if (data.schedule !== undefined) updateData.schedule = data.schedule;
+
+        // Construct full workflow object for validation
+        const fullWorkflowForValidation: WorkflowDefinition = {
+            name: updateData.name || existing.name,
+            description: updateData.description || existing.description,
+            nodes: (updateData.nodes || existing.nodes) as WorkflowNode[],
+            connections: (updateData.connections || existing.connections) as WorkflowConnection[],
+            isActive: updateData.isActive ?? existing.isActive,
+            schedule: updateData.schedule ?? existing.schedule,
+        };
+
+        const validator = new WorkflowValidatorService();
+        const validation = validator.validate(fullWorkflowForValidation);
+
+        if (!validation.isValid) {
+            return res.status(400).json({
+                error: 'Workflow validation failed',
+                issues: validation.issues,
+            });
+        }
 
         const workflow = await prisma.workflow.update({
             where: { id: workflowId },
@@ -485,6 +574,12 @@ router.delete('/:id', async (req: AuthRequest, res) => {
  *     responses:
  *       201:
  *         description: Workflow duplicated
+ *         content:
+ *           application/json:
+ *             example:
+ *               id: "wf-copy-456"
+ *               name: "Original Name (Copy)"
+ *               nodes: []
  *       404:
  *         description: Workflow not found
  */

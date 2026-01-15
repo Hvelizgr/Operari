@@ -69,4 +69,4 @@ backend/prisma/*.db-journal
 .cursorrules
 
 # Documentation (internal)
-docs/
+/docs

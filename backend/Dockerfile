@@ -1,43 +1,50 @@
-# Build stage
-FROM node:18-slim AS builder
+FROM node:20-alpine AS base
 
+FROM base AS deps
 WORKDIR /app
+RUN apk add --no-cache libc6-compat
 
-# Install openssl for Prisma and build tools for native modules
-RUN apt-get update -y && apt-get install -y openssl python3 make g++
-
-# Install dependencies including dev dependencies for building
-COPY package*.json ./
-COPY prisma ./prisma/
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY frontend/package.json ./frontend/
+COPY backend/package.json ./backend/
 
 RUN npm ci
-RUN npx prisma generate
 
-# Copy source code
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build the application
+# Build shared
+WORKDIR /app/packages/shared
 RUN npm run build
 
-# Production stage
-FROM node:18-slim AS runner
+# Build backend
+WORKDIR /app/backend
+RUN npx prisma generate
+RUN npm run build
 
+FROM base AS runner
 WORKDIR /app
+ENV NODE_ENV production
 
-ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 expressjs
 
-# Install openssl for Prisma and build tools for native module rebuild
-RUN apt-get update -y && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
-
-# Copy built artifacts and necessary files
-COPY --from=builder /app/dist ./dist
+# Copy node_modules and shared package (needed for symlinks to work)
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/packages/shared ./packages/shared
 
-# Rebuild isolated-vm for this specific environment
-RUN npm rebuild isolated-vm
+# Copy backend artifacts
+COPY --from=builder /app/backend/package.json ./backend/
+COPY --from=builder /app/backend/dist ./backend/dist
+# Prisma might need schema
+COPY --from=builder /app/backend/prisma ./backend/prisma
+
+WORKDIR /app/backend
+USER expressjs
 
 EXPOSE 4000
 
-CMD ["npm", "start"]
+CMD ["node", "dist/server.js"]

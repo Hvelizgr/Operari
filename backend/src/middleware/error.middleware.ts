@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { logger } from '../config/logger.config';
 
 export class AppError extends Error {
     statusCode: number;
@@ -26,7 +27,7 @@ export const errorHandler = (
         });
     }
 
-    console.error('Unhandled error:', err);
+    logger.error({ err, path: req.path, method: req.method }, 'Unhandled error');
 
     return res.status(500).json({
         error: 'Internal server error',

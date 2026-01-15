@@ -19,11 +19,25 @@ const router = Router();
  *       content:
  *         application/json:
  *           schema: { type: object }
+ *           example:
+ *             event: "user.created"
+ *             data:
+ *               userId: "123"
+ *               email: "user@example.com"
  *     responses:
  *       202:
  *         description: Workflow triggered successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               executionId: "exec-webhook-123"
+ *               status: "RUNNING"
  *       404:
  *         description: Workflow not found or inactive
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Workflow not found or not active"
  */
 router.post('/:workflowId', async (req, res) => {
     try {

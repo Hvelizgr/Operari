@@ -21,6 +21,28 @@ router.use(authenticate);
  *     responses:
  *       200:
  *         description: Dashboard data
+ *         content:
+ *           application/json:
+ *             example:
+ *               summary:
+ *                 totalWorkflows: 15
+ *                 activeWorkflows: 8
+ *                 totalExecutions: 1250
+ *                 successfulExecutions: 1200
+ *                 failedExecutions: 50
+ *                 successRate: 96
+ *               recentExecutions:
+ *                 - id: "exec-1"
+ *                   status: "SUCCESS"
+ *                   startedAt: "2024-03-22T10:00:00Z"
+ *               executionsByDay:
+ *                 - date: "2024-03-22"
+ *                   count: 150
+ *                   status: "SUCCESS"
+ *               topWorkflows:
+ *                 - workflowId: "wf-1"
+ *                   _count: 500
+ *                   _avg: { duration: 120 }
  */
 router.get('/dashboard', async (req: AuthRequest, res) => {
     try {
@@ -151,8 +173,28 @@ router.get('/dashboard', async (req: AuthRequest, res) => {
  *     responses:
  *       200:
  *         description: Workflow statistics
+ *         content:
+ *           application/json:
+ *             example:
+ *               workflow:
+ *                 id: "wf-123"
+ *                 name: "Order Processing"
+ *               stats:
+ *                 totalExecutions: 500
+ *                 successCount: 480
+ *                 failedCount: 20
+ *                 successRate: 96
+ *                 avgDuration: 250
+ *               executionHistory:
+ *                 - id: "exec-1"
+ *                   status: "SUCCESS"
+ *                   duration: 245
  *       404:
  *         description: Workflow not found
+ *         content:
+ *           application/json:
+ *             example:
+ *               error: "Workflow not found"
  */
 router.get('/workflows/:id/stats', async (req: AuthRequest, res) => {
     try {
@@ -251,6 +293,18 @@ router.get('/workflows/:id/stats', async (req: AuthRequest, res) => {
  *     responses:
  *       200:
  *         description: Usage statistics
+ *         content:
+ *           application/json:
+ *             example:
+ *               plan: "PRO"
+ *               usage:
+ *                 workflows: 8
+ *                 users: 3
+ *                 executions: 1250
+ *               limits:
+ *                 workflows: 50
+ *                 executions: 5000
+ *                 users: 10
  */
 router.get('/usage', async (req: AuthRequest, res) => {
     try {
