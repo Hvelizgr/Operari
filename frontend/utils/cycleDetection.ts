@@ -1,5 +1,4 @@
-import { WorkflowNode } from '../components/EditorNode';
-import { Connection } from '../components/EditorConnection';
+import type { WorkflowNode, Connection } from '@nanoflow/shared';
 
 export function hasCycle(nodes: WorkflowNode[], connections: Connection[]): { hasCycle: boolean; cyclePath?: string[] } {
     const nodeIds = new Set(nodes.map(n => n.id));

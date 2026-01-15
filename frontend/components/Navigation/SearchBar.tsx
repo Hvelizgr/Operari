@@ -9,8 +9,8 @@ import {
     AlertCircle, List, Grid, Shuffle, Bell
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { WorkflowNode } from './EditorNode';
-import { NODE_TYPES, NodeType, CATEGORIES } from './NodePalette';
+import { WorkflowNode } from '../Editor';
+import { NODE_TYPES, NodeType, CATEGORIES } from '../Node';
 
 interface SearchBarProps {
     nodes: WorkflowNode[];

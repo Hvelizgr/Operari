@@ -1,5 +1,6 @@
 import { render, fireEvent } from '@testing-library/react';
-import EditorConnection, { Connection } from '@/components/EditorConnection';
+import type { Connection } from '@nanoflow/shared';
+import EditorConnection from '@/components/Editor/EditorConnection';
 
 const mockConnection: Connection = {
     id: 'conn-1',

@@ -4,8 +4,8 @@
  */
 
 import { useState, useCallback, useEffect, RefObject, MutableRefObject } from 'react';
-import { WorkflowNode, getNodeInputPort } from '../components/EditorNode';
-import { Connection } from '../components/EditorConnection';
+import { WorkflowNode, getNodeInputPort } from '../components/Editor';
+import { Connection } from '../components/Editor';
 import { INITIAL_CONNECTIONS } from '../constants/editor.constants';
 import { hasCycle, getCyclicConnections } from '../utils/cycleDetection';
 import { EDITOR_CONFIG } from '../config/editor.config';

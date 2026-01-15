@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Map, Minimize2, Maximize2 } from 'lucide-react';
 import { useState, useCallback, useRef } from 'react';
-import { WorkflowNode } from './EditorNode';
+import { WorkflowNode } from '../Editor';
 
 interface MiniMapProps {
     nodes: WorkflowNode[];

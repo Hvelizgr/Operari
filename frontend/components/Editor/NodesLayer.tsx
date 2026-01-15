@@ -1,9 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import EditorNode, { WorkflowNode } from './EditorNode';
-import { NodeType } from './NodePalette';
-import type { ViewportState } from '../types/editor.types';
+import type { WorkflowNode } from '@nanoflow/shared';
+import EditorNode from './EditorNode';
+import { NodeType } from '../Node';
+import type { ViewportState } from '../../types/editor.types';
 import type { MouseEvent } from 'react';
 
 interface NodesLayerProps {

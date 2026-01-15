@@ -4,7 +4,7 @@
  */
 
 import { useEffect } from 'react';
-import { WorkflowNode } from '../components/EditorNode';
+import { WorkflowNode } from '../components/Editor';
 import { EDITOR_CONFIG } from '../config/editor.config';
 import type { DeleteConfirmState, DeleteConnectionConfirmState } from '../types/editor.types';
 

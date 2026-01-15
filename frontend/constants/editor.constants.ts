@@ -3,8 +3,7 @@
  * These provide default workflow examples for new users
  */
 
-import type { WorkflowNode } from '../components/EditorNode';
-import type { Connection } from '../components/EditorConnection';
+import type { WorkflowNode, Connection } from '@nanoflow/shared';
 
 /**
  * Default nodes shown when the editor first loads

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import ZoomControls from '../components/ZoomControls';
+import { ZoomControls } from '../components/Navigation';
 
 const meta: Meta<typeof ZoomControls> = {
     title: 'Components/ZoomControls',

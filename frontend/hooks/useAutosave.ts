@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { WorkflowNode } from '../components/EditorNode';
-import { Connection } from '../components/EditorConnection';
+import type { WorkflowNode, Connection } from '@nanoflow/shared';
 
 export type SaveStatus = 'saving' | 'saved' | 'error' | 'conflict';
 

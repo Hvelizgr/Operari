@@ -1,15 +1,14 @@
-'use client';
-
+import { memo } from 'react';
 import { motion } from 'framer-motion';
-import { EDITOR_CONFIG } from '../config/editor.config';
-import type { ViewportState } from '../types/editor.types';
+import { EDITOR_CONFIG } from '../../config/editor.config';
+import type { ViewportState } from '../../types/editor.types';
 
 interface GridLayerProps {
     viewport: ViewportState;
     highContrast: boolean;
 }
 
-export default function GridLayer({ viewport, highContrast }: GridLayerProps) {
+function GridLayer({ viewport, highContrast }: GridLayerProps) {
     return (
         <svg
             className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-50 transition-opacity duration-300"
@@ -46,3 +45,5 @@ export default function GridLayer({ viewport, highContrast }: GridLayerProps) {
         </svg>
     );
 }
+
+export default memo(GridLayer);

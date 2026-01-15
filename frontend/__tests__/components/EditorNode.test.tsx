@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import EditorNode, { WorkflowNode } from '@/components/EditorNode';
+import type { WorkflowNode } from '@nanoflow/shared';
+import EditorNode from '@/components/Editor/EditorNode';
 
 const mockNode: WorkflowNode = {
     id: 'test-node-1',
@@ -21,8 +22,9 @@ const defaultProps = {
     isConnectionTarget: false,
     isSelected: false,
     isHighlighted: false,
-    onSelect: jest.fn(),
-    onDelete: jest.fn(),
+    onClick: jest.fn(),
+    onMove: jest.fn(),
+    onContextMenu: jest.fn(),
 };
 
 describe('EditorNode', () => {
@@ -50,18 +52,11 @@ describe('EditorNode', () => {
         expect(container.firstChild).toHaveClass('ring-4');
     });
 
-    it('calls onSelect when clicked', () => {
+    it('calls onClick when clicked', () => {
         render(<EditorNode {...defaultProps} />);
         const nodeElement = screen.getByRole('button');
-        fireEvent.mouseDown(nodeElement);
-        expect(defaultProps.onSelect).toHaveBeenCalledWith('test-node-1', false);
-    });
-
-    it('calls onDelete when delete button clicked', () => {
-        render(<EditorNode {...defaultProps} isSelected={true} />);
-        const deleteButton = screen.getByTitle(/delete/i);
-        fireEvent.click(deleteButton);
-        expect(defaultProps.onDelete).toHaveBeenCalledWith('test-node-1');
+        fireEvent.click(nodeElement);
+        expect(defaultProps.onClick).toHaveBeenCalledWith('test-node-1');
     });
 
     it('has proper ARIA attributes', () => {

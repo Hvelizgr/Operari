@@ -4,20 +4,12 @@ import { motion } from 'framer-motion';
 import {
     MoreHorizontal, CheckCircle2, AlertCircle, Loader2,
 } from 'lucide-react';
-import { NodeType } from './NodePalette';
-import { NODE_TYPES } from './NodePalette';
+import { NodeType, NODE_TYPES } from '../Node';
 
-export interface WorkflowNode {
-    id: string;
-    type: string;
-    position: { x: number; y: number };
-    title: string;
-    config?: Record<string, any>;
-    executionState?: 'idle' | 'running' | 'success' | 'error';
-    executionData?: any;
-    inputs?: any[];
-    outputs?: any[];
-}
+import { WorkflowNode } from '@nanoflow/shared';
+
+// Removed local WorkflowNode interface
+
 
 interface EditorNodeProps {
     node: WorkflowNode;

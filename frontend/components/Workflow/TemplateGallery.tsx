@@ -3,8 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Zap, Mail, Database, Webhook, Code, FileText } from 'lucide-react';
 import { useState } from 'react';
-import { WorkflowNode } from './EditorNode';
-import { Connection } from './EditorConnection';
+import type { WorkflowNode, Connection } from '@nanoflow/shared';
 
 interface WorkflowTemplate {
     id: string;

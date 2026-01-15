@@ -4,8 +4,8 @@
  */
 
 import { useState, useCallback } from 'react';
-import { WorkflowNode } from '../components/EditorNode';
-import { NodeType } from '../components/NodePalette';
+import { WorkflowNode } from '../components/Editor';
+import { NodeType } from '../components/Node';
 import { INITIAL_NODES } from '../constants/editor.constants';
 
 interface UseEditorNodesOptions {

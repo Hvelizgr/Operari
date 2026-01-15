@@ -1,21 +1,14 @@
 'use client';
 
 import { AlertCircle } from 'lucide-react';
-import Onboarding, { EmptyStateMessage, ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from './Onboarding';
-import WorkflowRunner from './WorkflowRunner';
-import ConfirmDialog from './ConfirmDialog';
-import SaveLoadMenu from './SaveLoadMenu';
-import NodeConfigPanel from './NodeConfigPanel';
-import TemplateGallery from './TemplateGallery';
-import MiniMap from './MiniMap';
-import SearchBar from './SearchBar';
-import ZoomControls from './ZoomControls';
-import ContextMenu from './ContextMenu';
-import MetricsDashboard from './MetricsDashboard';
-import { NodeType } from './NodePalette';
-import type { WorkflowNode } from './EditorNode';
-import type { Connection } from './EditorConnection';
-import type { ViewportState, DeleteConfirmState, DeleteConnectionConfirmState, ContextMenuState, ExecutionMetric } from '../types/editor.types';
+import { Onboarding, ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES, EmptyStateMessage, ConfirmDialog, ContextMenu } from '../Common';
+import { WorkflowRunner, SaveLoadMenu, TemplateGallery } from '../Workflow';
+import { NodeConfigPanel } from '../Node';
+import { MiniMap, SearchBar, ZoomControls } from '../Navigation';
+import { MetricsDashboard } from '../Dashboard';
+import type { NodeType } from '../Node';
+import type { WorkflowNode, Connection } from './';
+import type { ViewportState, DeleteConfirmState, DeleteConnectionConfirmState, ContextMenuState, ExecutionMetric } from '../../types/editor.types';
 
 interface EditorOverlaysProps {
     nodes: WorkflowNode[];

@@ -1,9 +1,9 @@
 'use client';
 
 import { Undo2, Redo2, Save } from 'lucide-react';
-import SaveStatusIndicator from './SaveStatusIndicator';
-import ThemeToggle from './ThemeToggle';
-import type { SaveStatus } from '../hooks/useAutosave';
+import { SaveStatusIndicator } from '../Workflow';
+import { ThemeToggle } from '../Common';
+import type { SaveStatus } from '../../hooks/useAutosave';
 
 interface EditorToolbarProps {
     // Save status

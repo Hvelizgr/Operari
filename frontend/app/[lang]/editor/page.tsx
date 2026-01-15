@@ -1,4 +1,4 @@
-import EditorCanvas from '@/components/EditorCanvas';
+import { EditorCanvas } from '@/components/Editor';
 import { AccessibilityProvider } from '@/context/AccessibilityContext';
 
 export default async function EditorPage({

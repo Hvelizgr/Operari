@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Settings } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { WorkflowNode } from './EditorNode';
+import type { WorkflowNode } from '@nanoflow/shared';
 import { NODE_TYPES, NodeType } from './NodePalette';
 import DynamicNodeForm from './DynamicNodeForm';
 

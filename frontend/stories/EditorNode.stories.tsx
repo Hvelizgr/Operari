@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import EditorNode, { WorkflowNode } from '../components/EditorNode';
+import type { WorkflowNode } from '@nanoflow/shared';
+import EditorNode from '../components/Editor/EditorNode';
 
 const mockNode: WorkflowNode = {
     id: 'story-node-1',

@@ -1,9 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import EditorConnection, { Connection } from './EditorConnection';
-import { WorkflowNode, getNodeOutputPort, getNodeInputPort } from './EditorNode';
-import type { CreatingConnectionState, ViewportState } from '../types/editor.types';
+import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import EditorConnection from './EditorConnection';
+import { getNodeOutputPort, getNodeInputPort } from './EditorNode';
+import type { CreatingConnectionState, ViewportState } from '../../types/editor.types';
 import type { MouseEvent } from 'react';
 
 interface ConnectionsLayerProps {

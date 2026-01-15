@@ -6,7 +6,7 @@
 import { useState, useCallback, useRef, RefObject, WheelEvent } from 'react';
 import { EDITOR_CONFIG } from '../config/editor.config';
 import type { ViewportState } from '../types/editor.types';
-import type { WorkflowNode } from '../components/EditorNode';
+import type { WorkflowNode } from '../components/Editor';
 
 interface UseEditorViewportProps {
     nodes: WorkflowNode[];

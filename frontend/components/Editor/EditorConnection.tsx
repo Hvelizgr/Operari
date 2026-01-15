@@ -2,13 +2,10 @@
 
 import { motion } from 'framer-motion';
 
-export interface Connection {
-    id: string;
-    source: string;
-    target: string;
-    sourcePort?: number;
-    targetPort?: number;
-}
+import { Connection } from '@nanoflow/shared';
+
+// Removed local Connection interface
+
 
 interface EditorConnectionProps {
     connection: Connection;
