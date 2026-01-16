@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Trash2, ToggleRight, Play } from 'lucide-react';
+import { Copy, Trash2, ToggleRight, Play, Plus, ZoomIn, ZoomOut, Maximize2, Undo2, Redo2, History, Keyboard, Link2Off, Move, Pencil, Eraser } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
 interface ContextMenuProps {
@@ -14,9 +14,30 @@ interface ContextMenuProps {
     onTestFromNode?: () => void;
     lang: 'en' | 'es';
     type: 'node' | 'canvas';
+    // Canvas actions
+    onAddNode?: () => void;
+    onZoomIn?: () => void;
+    onZoomOut?: () => void;
+    onFitView?: () => void;
+    // Additional actions
+    onUndo?: () => void;
+    onRedo?: () => void;
+    onHistory?: () => void;
+    onShortcuts?: () => void;
+    onDetachConnections?: () => void;
+    onSetModeMove?: () => void;
+    onSetModeDraw?: () => void;
+    onClearAll?: () => void;
+    canUndo?: boolean;
+    canRedo?: boolean;
 }
 
-export default function ContextMenu({ x, y, onClose, onDuplicate, onDelete, onToggleEnable, onTestFromNode, lang, type }: ContextMenuProps) {
+export default function ContextMenu({
+    x, y, onClose, onDuplicate, onDelete, onToggleEnable, onTestFromNode, lang, type,
+    onAddNode, onZoomIn, onZoomOut, onFitView,
+    onUndo, onRedo, onHistory, onShortcuts, onDetachConnections, onSetModeMove, onSetModeDraw, onClearAll,
+    canUndo = true, canRedo = true
+}: ContextMenuProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [position, setPosition] = useState({ x, y });
 
@@ -46,12 +67,36 @@ export default function ContextMenu({ x, y, onClose, onDuplicate, onDelete, onTo
             toggleEnable: 'Enable/Disable',
             delete: 'Delete',
             testFromNode: 'Test From Here',
+            addNode: 'Add Node',
+            zoomIn: 'Zoom In',
+            zoomOut: 'Zoom Out',
+            fitView: 'Fit View',
+            undo: 'Undo',
+            redo: 'Redo',
+            history: 'History',
+            shortcuts: 'Shortcuts',
+            detach: 'Detach Connections',
+            modeMove: 'Move Mode',
+            modeDraw: 'Draw Mode',
+            clearAll: 'Clear All',
         },
         es: {
             duplicate: 'Duplicar',
             toggleEnable: 'Activar/Desactivar',
             delete: 'Eliminar',
             testFromNode: 'Probar Desde Aquí',
+            addNode: 'Agregar Nodo',
+            zoomIn: 'Acercar',
+            zoomOut: 'Alejar',
+            fitView: 'Ajustar Vista',
+            undo: 'Deshacer',
+            redo: 'Rehacer',
+            history: 'Historial',
+            shortcuts: 'Atajos',
+            detach: 'Desconectar',
+            modeMove: 'Modo Mover',
+            modeDraw: 'Modo Dibujar',
+            clearAll: 'Limpiar Todo',
         },
     };
 
@@ -61,10 +106,25 @@ export default function ContextMenu({ x, y, onClose, onDuplicate, onDelete, onTo
         { icon: Play, label: text.testFromNode, action: onTestFromNode, color: 'text-green-400' },
         { icon: Copy, label: text.duplicate, action: onDuplicate, color: 'text-slate-300' },
         { icon: ToggleRight, label: text.toggleEnable, action: onToggleEnable, color: 'text-slate-300' },
+        { icon: Link2Off, label: text.detach, action: onDetachConnections, color: 'text-orange-400' },
         { icon: Trash2, label: text.delete, action: onDelete, color: 'text-red-400' },
     ];
 
-    const items = type === 'node' ? nodeMenuItems : [];
+    const canvasMenuItems = [
+        { icon: Plus, label: text.addNode, action: onAddNode, color: 'text-blue-400' },
+        { icon: Undo2, label: text.undo, action: onUndo, color: 'text-slate-300', disabled: !canUndo },
+        { icon: Redo2, label: text.redo, action: onRedo, color: 'text-slate-300', disabled: !canRedo },
+        { icon: Move, label: text.modeMove, action: onSetModeMove, color: 'text-slate-300' },
+        { icon: Pencil, label: text.modeDraw, action: onSetModeDraw, color: 'text-slate-300' },
+        { icon: History, label: text.history, action: onHistory, color: 'text-purple-400' },
+        { icon: Keyboard, label: text.shortcuts, action: onShortcuts, color: 'text-slate-300' },
+        { icon: ZoomIn, label: text.zoomIn, action: onZoomIn, color: 'text-slate-300' },
+        { icon: ZoomOut, label: text.zoomOut, action: onZoomOut, color: 'text-slate-300' },
+        { icon: Maximize2, label: text.fitView, action: onFitView, color: 'text-slate-300' },
+        { icon: Eraser, label: text.clearAll, action: onClearAll, color: 'text-red-400' },
+    ];
+
+    const items = type === 'node' ? nodeMenuItems : canvasMenuItems;
 
     return (
         <AnimatePresence>
@@ -83,10 +143,12 @@ export default function ContextMenu({ x, y, onClose, onDuplicate, onDelete, onTo
                         <button
                             key={index}
                             onClick={() => {
+                                if ((item as any).disabled) return;
                                 item.action?.();
                                 onClose();
                             }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-700 transition-colors text-left"
+                            disabled={(item as any).disabled}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-700 transition-colors text-left ${(item as any).disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
                         >
                             <item.icon size={16} className={item.color} />
                             <span className="text-sm text-slate-200">{item.label}</span>
