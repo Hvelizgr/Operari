@@ -2,7 +2,7 @@
 
 import { useEditorCanvas } from '../../hooks/useEditorCanvas';
 import { getAutoLayout } from '../../utils/layoutUtils';
-import { ConnectionsLayer, ConnectionBubblesLayer, NodesLayer, GridLayer, EditorOverlays, EditorToolbar } from './';
+import { ConnectionsLayer, ConnectionBubblesLayer, NodesLayer, GridLayer, EditorOverlays } from './';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import { useWorkflowExecution } from '../../hooks/useWorkflowExecution';
 import { useExecutionSocket } from '../../hooks/useExecutionSocket';
@@ -67,9 +67,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         canRedo,
         selectionBox,
         getSelectionBoxStyle,
-        editorMode,
-        setEditorMode,
-
         // Handlers
         handleWheel,
         handleMouseDown,
@@ -101,6 +98,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         handleConfirmDeleteConnection,
         handleCancelDeleteConnection,
         handleDetachConnections,
+        handleClearAll,
         handleLoadWorkflow,
         handleSelectTemplate,
         handleSearchNodeSelect,
@@ -115,10 +113,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         handleNodeAddFromSearch,
         handleViewportChangeAdapter,
         createConnection,
-
-        // Undo/Redo Internals
-        undoHistory,
-        undoIndex,
 
         isRunDialogOpen,
         handleOpenRunDialog,
@@ -135,6 +129,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const [runMode, setRunMode] = useState<'run' | 'debug'>('run'); // New State
     const [solderDropPos, setSolderDropPos] = useState<{ x: number; y: number } | null>(null);
     const [isWorkflowPropsOpen, setIsWorkflowPropsOpen] = useState(false);
+    const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
+    const [isMetricsDashboardOpen, setIsMetricsDashboardOpen] = useState(false);
     const [workflowProperties, setWorkflowProperties] = useState<WorkflowProperties>({
         name: 'Untitled Workflow',
         description: '',
@@ -310,9 +306,42 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             lang={lang}
                             workflowName={workflowProperties.name}
                             onRun={handleOpenRun}
-                            onSave={() => setEnableAutosave(true)}
-                            isSaving={saveStatus === 'saving'}
+                            onDebug={handleOpenDebug}
                             isExecuting={executing}
+                            onProperties={() => setIsWorkflowPropsOpen(true)}
+                            onAddNode={() => setSearchTrigger(Date.now())}
+                            onAutoLayout={handleAutoLayout}
+                            saveStatus={saveStatus}
+                            onTemplates={() => setIsTemplateGalleryOpen(true)}
+                            onMetrics={() => setIsMetricsDashboardOpen(true)}
+                            onExport={() => {
+                                const data = JSON.stringify({ nodes, connections }, null, 2);
+                                const blob = new Blob([data], { type: 'application/json' });
+                                const url = URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = `workflow-${new Date().toISOString().slice(0, 10)}.json`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            }}
+                            onImport={(file) => {
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                    try {
+                                        const json = JSON.parse(event.target?.result as string);
+                                        if (json.nodes && json.connections) {
+                                            handleLoadWorkflow(json.nodes, json.connections);
+                                        } else {
+                                            alert(lang === 'en' ? 'Invalid workflow file' : 'Archivo inválido');
+                                        }
+                                    } catch (err) {
+                                        console.error(err);
+                                        alert('Error parsing JSON');
+                                    }
+                                };
+                                reader.readAsText(file);
+                            }}
                         />
                     </div>
 
@@ -366,96 +395,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                                 : 'Use Tab para navegar entre nodos, teclas de flecha para mover el foco, Enter para seleccionar, Escape para deseleccionar, Delete para eliminar nodos seleccionados'}
                         </div>
 
-                        {/* Editor Toolbar (Floating) */}
-                        <EditorToolbar
-                            style={{ top: '20px', left: '50%', transform: 'translateX(-50%)' }}
-                            saveStatus={saveStatus}
-                            enableAutosave={enableAutosave}
-                            setEnableAutosave={setEnableAutosave}
-                            undo={undo}
-                            redo={redo}
-                            canUndo={canUndo}
-                            canRedo={canRedo}
-                            lang={lang}
-                            editorMode={tool === 'draw' ? 'connect' : 'move'}
-                            setEditorMode={(mode) => selectTool(mode === 'connect' ? 'draw' : 'move')}
-                            onExecute={handleOpenRun}
-                            onDebug={handleOpenDebug}
-                            isExecuting={executing}
-                            selectedCount={selectedNodes.size}
-                            onDuplicate={handleContextMenuDuplicate}
-                            onDelete={handleConfirmDelete}
-                            onToggleEnable={handleContextMenuToggleEnable}
-                            onDetach={handleDetachConnections}
-                            onOpenShortcuts={() => setIsCommandPaletteOpen(true)}
-                            onOpenHistory={() => setIsSnapshotDialogOpen(true)}
-                            onAddNode={() => setSearchTrigger(Date.now())}
-                            onAutoLayout={handleAutoLayout}
-                            undoDescription={undoHistory?.[undoIndex]?.description}
-                            redoDescription={undoHistory?.[undoIndex + 1]?.description}
-                        />
-
-
-                        {/* Visual Placeholders for Import/Export */}
-                        <div className="absolute top-4 right-4 z-50 flex gap-2">
-                            <button
-                                className="bg-[rgba(0,0,0,0.6)] hover:bg-[rgba(255,255,255,0.1)] text-[var(--icon-color)] px-3 py-1.5 rounded-md text-xs font-medium border border-white/10 transition-colors flex items-center gap-2 backdrop-blur-sm"
-                                title={lang === 'en' ? 'Workflow Properties' : 'Propiedades del Flujo'}
-                                onClick={() => setIsWorkflowPropsOpen(true)}
-                            >
-                                <FileText size={14} />
-                                <span>{lang === 'en' ? 'Properties' : 'Propiedades'}</span>
-                            </button>
-
-                            <button
-                                className="bg-[rgba(0,0,0,0.6)] hover:bg-[rgba(255,255,255,0.1)] text-[var(--icon-color)] px-3 py-1.5 rounded-md text-xs font-medium border border-white/10 transition-colors flex items-center gap-2 backdrop-blur-sm"
-                                title={lang === 'en' ? 'Export Workflow' : 'Exportar Flujo'}
-                                onClick={() => {
-                                    const data = JSON.stringify({ nodes, connections }, null, 2);
-                                    const blob = new Blob([data], { type: 'application/json' });
-                                    const url = URL.createObjectURL(blob);
-                                    const link = document.createElement('a');
-                                    link.href = url;
-                                    link.download = `workflow-${new Date().toISOString().slice(0, 10)}.json`;
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                }}
-                            >
-                                <Download size={14} />
-                                <span>Export</span>
-                            </button>
-
-                            <label className="bg-[rgba(0,0,0,0.6)] hover:bg-[rgba(255,255,255,0.1)] text-[var(--icon-color)] px-3 py-1.5 rounded-md text-xs font-medium border border-white/10 transition-colors flex items-center gap-2 backdrop-blur-sm cursor-pointer">
-                                <Upload size={14} />
-                                <span>Import</span>
-                                <input
-                                    type="file"
-                                    accept=".json"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (!file) return;
-                                        const reader = new FileReader();
-                                        reader.onload = (event) => {
-                                            try {
-                                                const json = JSON.parse(event.target?.result as string);
-                                                if (json.nodes && json.connections) {
-                                                    handleLoadWorkflow(json.nodes, json.connections);
-                                                } else {
-                                                    alert(lang === 'en' ? 'Invalid workflow file' : 'Archivo inválido');
-                                                }
-                                            } catch (err) {
-                                                console.error(err);
-                                                alert('Error parsing JSON');
-                                            }
-                                        };
-                                        reader.readAsText(file);
-                                        e.target.value = ''; // Reset input
-                                    }}
-                                />
-                            </label>
-                        </div>
 
                         <GridLayer
                             viewport={viewport}
@@ -563,7 +502,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onNodeAdd={handleNodeAddFromSearch}
                             onHighlightNodes={handleHighlightNodes}
                             onSearchNodeSelect={handleSearchNodeSelect}
-                            onExecutionStateChange={handleExecutionStateChange}
 
                             onOnboardingNext={handleOnboardingNext}
                             onOnboardingSkip={handleOnboardingSkip}
@@ -582,6 +520,17 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onContextMenuDelete={handleDeleteFromContextMenu}
                             onContextMenuToggleEnable={handleContextMenuToggleEnable}
                             onContextMenuTestFromNode={handleTestFromNode}
+                            onContextMenuDetachConnections={handleDetachConnections}
+
+                            onUndo={undo}
+                            onRedo={redo}
+                            onHistory={() => setIsSnapshotDialogOpen(true)}
+                            onShortcuts={() => setIsCommandPaletteOpen(true)}
+                            onSetModeMove={() => selectTool('move')}
+                            onSetModeDraw={() => selectTool('draw')}
+                            onClearAll={handleClearAll}
+                            canUndo={canUndo}
+                            canRedo={canRedo}
 
                             onZoomIn={handleZoomIn}
                             onZoomOut={handleZoomOut}
@@ -591,6 +540,10 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             solderDropPos={solderDropPos}
                             onSolderDropCancel={handleSolderDropCancel}
                             searchTrigger={searchTrigger}
+                            isTemplateGalleryOpen={isTemplateGalleryOpen}
+                            onTemplateGalleryOpenChange={setIsTemplateGalleryOpen}
+                            isMetricsDashboardOpen={isMetricsDashboardOpen}
+                            onMetricsDashboardOpenChange={setIsMetricsDashboardOpen}
                         />
 
                         <RunDialog

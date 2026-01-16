@@ -2,7 +2,7 @@
 
 import { AlertCircle } from 'lucide-react';
 import { Onboarding, ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES, EmptyStateMessage, ConfirmDialog, ContextMenu } from '../Common';
-import { WorkflowRunner, SaveLoadMenu, TemplateGallery } from '../Workflow';
+import { TemplateGallery } from '../Workflow';
 import PropertiesPanel from './PropertiesPanel';
 import { MiniMap, SearchBar, ZoomControls } from '../Navigation';
 import { MetricsDashboard } from '../Dashboard';
@@ -34,7 +34,6 @@ interface EditorOverlaysProps {
     onNodeAdd: (type: NodeType) => void;
     onHighlightNodes: (ids: string[]) => void;
     onSearchNodeSelect: (nodeId: string) => void;
-    onExecutionStateChange: (updatedNodes: WorkflowNode[]) => void;
 
     // Onboarding
     onOnboardingNext: () => void;
@@ -57,6 +56,18 @@ interface EditorOverlaysProps {
     onContextMenuDelete: () => void;
     onContextMenuToggleEnable: () => void;
     onContextMenuTestFromNode: () => void;
+    onContextMenuDetachConnections?: () => void;
+
+    // Additional Context Menu Actions
+    onUndo?: () => void;
+    onRedo?: () => void;
+    onHistory?: () => void;
+    onShortcuts?: () => void;
+    onSetModeMove?: () => void;
+    onSetModeDraw?: () => void;
+    onClearAll?: () => void;
+    canUndo?: boolean;
+    canRedo?: boolean;
 
     // Zoom
     onZoomIn: () => void;
@@ -70,6 +81,14 @@ interface EditorOverlaysProps {
 
     // External Triggers
     searchTrigger?: number;
+
+    // Template Gallery Control
+    isTemplateGalleryOpen?: boolean;
+    onTemplateGalleryOpenChange?: (open: boolean) => void;
+
+    // Metrics Dashboard Control
+    isMetricsDashboardOpen?: boolean;
+    onMetricsDashboardOpenChange?: (open: boolean) => void;
 }
 
 export default function EditorOverlays({
@@ -94,7 +113,6 @@ export default function EditorOverlays({
     onNodeAdd,
     onHighlightNodes,
     onSearchNodeSelect,
-    onExecutionStateChange,
     onOnboardingNext,
     onOnboardingSkip,
     onOnboardingClose,
@@ -109,13 +127,27 @@ export default function EditorOverlays({
     onContextMenuDelete,
     onContextMenuToggleEnable,
     onContextMenuTestFromNode,
+    onContextMenuDetachConnections,
+    onUndo,
+    onRedo,
+    onHistory,
+    onShortcuts,
+    onSetModeMove,
+    onSetModeDraw,
+    onClearAll,
+    canUndo,
+    canRedo,
     onZoomIn,
     onZoomOut,
     onFitView,
     onResetZoom,
     solderDropPos,
     onSolderDropCancel,
-    searchTrigger
+    searchTrigger,
+    isTemplateGalleryOpen,
+    onTemplateGalleryOpenChange,
+    isMetricsDashboardOpen,
+    onMetricsDashboardOpenChange
 }: EditorOverlaysProps & { selectedNodesCount: number }) {
     const configNode = configNodeId ? nodes.find(n => n.id === configNodeId) : null;
 
@@ -139,16 +171,11 @@ export default function EditorOverlays({
 
             {nodes.length === 0 && <EmptyStateMessage lang={lang} />}
 
-            <SaveLoadMenu
-                nodes={nodes}
-                connections={connections}
-                onLoad={onLoadWorkflow}
-                lang={lang}
-            />
-
             <TemplateGallery
                 onSelectTemplate={onSelectTemplate}
                 lang={lang}
+                isOpen={isTemplateGalleryOpen}
+                onOpenChange={onTemplateGalleryOpenChange}
             />
 
             <MiniMap
@@ -199,14 +226,10 @@ export default function EditorOverlays({
             <MetricsDashboard
                 metrics={executionMetrics}
                 lang={lang}
+                isOpen={isMetricsDashboardOpen}
+                onOpenChange={onMetricsDashboardOpenChange}
             />
 
-            <WorkflowRunner
-                nodes={nodes}
-                connections={connections}
-                onExecutionStateChange={onExecutionStateChange}
-                lang={lang}
-            />
 
             {showOnboarding && (
                 <Onboarding
@@ -265,6 +288,20 @@ export default function EditorOverlays({
                     onTestFromNode={onContextMenuTestFromNode}
                     lang={lang}
                     type={contextMenu.type}
+                    onAddNode={() => { onContextMenuClose(); /* trigger search */ }}
+                    onZoomIn={onZoomIn}
+                    onZoomOut={onZoomOut}
+                    onFitView={onFitView}
+                    onUndo={onUndo}
+                    onRedo={onRedo}
+                    onHistory={onHistory}
+                    onShortcuts={onShortcuts}
+                    onDetachConnections={onContextMenuDetachConnections}
+                    onSetModeMove={onSetModeMove}
+                    onSetModeDraw={onSetModeDraw}
+                    onClearAll={onClearAll}
+                    canUndo={canUndo}
+                    canRedo={canRedo}
                 />
             )}
 
