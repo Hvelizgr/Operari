@@ -10,11 +10,8 @@ export default async function EditorPage({
     const { lang } = await params;
     return (
         <AccessibilityProvider>
-            <div className="flex h-screen w-full overflow-hidden bg-black">
-                <EditorSidebar lang={lang as 'en' | 'es'} />
-                <div className="flex-1 relative h-full">
-                    <EditorCanvas lang={lang as 'en' | 'es'} />
-                </div>
+            <div className="h-screen w-full bg-black">
+                <EditorCanvas lang={lang as 'en' | 'es'} />
             </div>
         </AccessibilityProvider>
     );

@@ -15,10 +15,22 @@ interface ExecutionMetric {
 interface MetricsDashboardProps {
     metrics: ExecutionMetric[];
     lang: 'en' | 'es';
+    isOpen?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
-export default function MetricsDashboard({ metrics, lang }: MetricsDashboardProps) {
-    const [isOpen, setIsOpen] = useState(false);
+export default function MetricsDashboard({ metrics, lang, isOpen: controlledIsOpen, onOpenChange }: MetricsDashboardProps) {
+    const [internalIsOpen, setInternalIsOpen] = useState(false);
+
+    // Support both controlled and uncontrolled modes
+    const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
+    const setIsOpen = (open: boolean) => {
+        if (onOpenChange) {
+            onOpenChange(open);
+        } else {
+            setInternalIsOpen(open);
+        }
+    };
 
     const content = {
         en: {
@@ -82,15 +94,20 @@ export default function MetricsDashboard({ metrics, lang }: MetricsDashboardProp
         .sort((a, b) => b.count - a.count)
         .slice(0, 5);
 
+    // Hide the internal button when controlled externally
+    const showInternalButton = controlledIsOpen === undefined;
+
     return (
         <>
-            <button
-                onClick={() => setIsOpen(true)}
-                className="absolute top-4 left-1/2 translate-x-24 flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition-colors shadow-lg border border-slate-700 z-40"
-            >
-                <BarChart3 size={16} />
-                Metrics
-            </button>
+            {showInternalButton && (
+                <button
+                    onClick={() => setIsOpen(true)}
+                    className="absolute top-4 left-1/2 translate-x-24 flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition-colors shadow-lg border border-slate-700 z-40"
+                >
+                    <BarChart3 size={16} />
+                    Metrics
+                </button>
+            )}
 
             <AnimatePresence>
                 {isOpen && (

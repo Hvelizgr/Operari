@@ -42,8 +42,7 @@ export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightN
 
     // External Trigger (for Toolbar button)
     useEffect(() => {
-        if (externalTrigger && inputRef.current) {
-            inputRef.current.focus();
+        if (externalTrigger) {
             setIsOpen(true);
         }
     }, [externalTrigger]);
@@ -150,10 +149,20 @@ export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightN
     const hasSearchResults = searchTerm && (filteredAvailableNodes.length > 0 || filteredCanvasNodes.length > 0);
     const showCategories = isOpen && !searchTerm;
 
+    // Focus input when opened
+    useEffect(() => {
+        if (isOpen && inputRef.current) {
+            // Small timeout to ensure DOM is ready
+            setTimeout(() => inputRef.current?.focus(), 10);
+        }
+    }, [isOpen]);
+
+    if (!isOpen && !forceOpen) return null;
+
     return (
         <div
             ref={containerRef}
-            className={`absolute z-50 w-96 ${position ? '' : 'top-4 right-4'}`}
+            className={`absolute z-50 w-96 ${position ? '' : 'top-20 left-1/2 -ml-48'}`} // Centered top position (below Toolbar)
             style={position ? { left: position.x, top: position.y } : undefined}
         >
             <div className="bg-[#1a1a2e] border border-[#2d2d44] rounded-xl shadow-2xl overflow-hidden">

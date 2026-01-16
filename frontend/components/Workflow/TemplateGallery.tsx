@@ -110,10 +110,22 @@ const TEMPLATES: WorkflowTemplate[] = [
 interface TemplateGalleryProps {
     onSelectTemplate: (nodes: WorkflowNode[], connections: Connection[]) => void;
     lang: 'en' | 'es';
+    isOpen?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
-export default function TemplateGallery({ onSelectTemplate, lang }: TemplateGalleryProps) {
-    const [isOpen, setIsOpen] = useState(false);
+export default function TemplateGallery({ onSelectTemplate, lang, isOpen: controlledIsOpen, onOpenChange }: TemplateGalleryProps) {
+    const [internalIsOpen, setInternalIsOpen] = useState(false);
+
+    // Support both controlled and uncontrolled modes
+    const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
+    const setIsOpen = (open: boolean) => {
+        if (onOpenChange) {
+            onOpenChange(open);
+        } else {
+            setInternalIsOpen(open);
+        }
+    };
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
     const content = {
@@ -172,15 +184,20 @@ export default function TemplateGallery({ onSelectTemplate, lang }: TemplateGall
         }
     };
 
+    // Hide the internal button when controlled externally
+    const showInternalButton = controlledIsOpen === undefined;
+
     return (
         <>
-            <button
-                onClick={() => setIsOpen(true)}
-                className="absolute top-20 left-4 flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition-colors shadow-lg border border-slate-700 z-40"
-            >
-                <FileText size={16} />
-                {text.openGallery}
-            </button>
+            {showInternalButton && (
+                <button
+                    onClick={() => setIsOpen(true)}
+                    className="absolute top-20 left-4 flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition-colors shadow-lg border border-slate-700 z-40"
+                >
+                    <FileText size={16} />
+                    {text.openGallery}
+                </button>
+            )}
 
             <AnimatePresence>
                 {isOpen && (

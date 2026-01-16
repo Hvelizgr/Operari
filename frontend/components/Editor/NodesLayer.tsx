@@ -73,7 +73,15 @@ export default function NodesLayer({
 
     return (
         <motion.div
-        // ...
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+                transformOrigin: '0 0',
+            }}
         >
             {sortedNodes.map((node, index) => {
                 // Render FrameNode for frame type
