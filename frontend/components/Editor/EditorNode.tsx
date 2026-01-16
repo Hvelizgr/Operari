@@ -165,7 +165,7 @@ export default function EditorNode({
                     {/* Input Pole (Purple) */}
                     <div
                         className="wf_pole_button wf_input_pole"
-                        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
                     >
                         <Icons.ChevronRight size={12} />
                     </div>
@@ -177,7 +177,7 @@ export default function EditorNode({
                     {/* Output Pole (Purple) */}
                     <div
                         className="wf_pole_button wf_output_pole"
-                        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
                     >
                         <Icons.ChevronRight size={12} />
                     </div>
@@ -201,7 +201,7 @@ export default function EditorNode({
                     <div
                         className="wf_pole_button wf_up_pole"
                         title="Input (Limit)"
-                        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
                     >
                         <Icons.ChevronDown size={12} style={{ transform: 'rotate(225deg)' }} /> {/* Counter rotate? CSS handles some */}
                     </div>
@@ -226,7 +226,7 @@ export default function EditorNode({
                 <div
                     className="wf_pole_button wf_down_pole"
                     style={{ left: '50%', top: 'calc(100% + 5px)' }}
-                    onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                    onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
                 >
                     <Icons.ChevronDown size={12} />
                 </div>
@@ -251,7 +251,7 @@ export default function EditorNode({
                     </span>
                     <div
                         className="wf_pole_button wf_output_pole"
-                        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
                     >
                         <Icons.ChevronRight size={12} />
                     </div>
@@ -273,7 +273,7 @@ export default function EditorNode({
                 <div className="wf_ent_action">
                     <div
                         className="wf_pole_button wf_input_pole"
-                        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
                     >
                         <Icons.ChevronRight size={12} />
                     </div>
@@ -325,10 +325,10 @@ export default function EditorNode({
                 </div>
             </div>
 
-            <div className="wf_pole_button wf_input_pole" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}>
+            <div className="wf_pole_button wf_input_pole" onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}>
                 <Icons.ChevronRight size={12} />
             </div>
-            <div className="wf_pole_button wf_output_pole" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}>
+            <div className="wf_pole_button wf_output_pole" onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}>
                 <Icons.ChevronRight size={12} />
             </div>
         </div>

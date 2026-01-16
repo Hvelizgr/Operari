@@ -81,7 +81,6 @@ export default function NodesLayer({
                 height: '100%',
                 transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
                 transformOrigin: '0 0',
-                pointerEvents: 'none',
             }}
         >
             {sortedNodes.map((node, index) => {
