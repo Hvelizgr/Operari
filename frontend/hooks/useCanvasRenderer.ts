@@ -3,37 +3,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import type { WorkflowNode, Connection } from '@nanoflow/shared';
 import type { ViewportState } from '../types/editor.types';
 import type { SolderState } from './useEditorSoldering';
-
-type PortDirection = 'left' | 'right' | 'top' | 'bottom';
-
-// Helper functions to get port positions (aligned with EditorNode.tsx logic)
-const getNodePortInfo = (node: WorkflowNode, portType: string, portIndex: number = 0): { x: number; y: number; direction: PortDirection } => {
-    const type = node.type.toLowerCase();
-
-    // Trigger / Start: Output ONLY (Right)
-    if (type.includes('trigger') || type === 'start') {
-        if (portType === 'input') return { x: node.position.x, y: node.position.y + 32, direction: 'left' }; // Should not happen usually
-        return { x: node.position.x + 64, y: node.position.y + 32, direction: 'right' };
-    }
-
-    // Controller: Input (Left), Output (Right)
-    if (type.includes('controller') || type === 'condition') {
-        if (portType === 'input') return { x: node.position.x, y: node.position.y + 32, direction: 'left' };
-        return { x: node.position.x + 128, y: node.position.y + 32, direction: 'right' };
-    }
-
-    // Limit: Input (Top), Output (Bottom)
-    if (type.includes('limit')) {
-        if (portType === 'input') return { x: node.position.x + 32, y: node.position.y, direction: 'top' };
-        return { x: node.position.x + 32, y: node.position.y + 64, direction: 'bottom' };
-    }
-
-    // Standard Job: Input (Left), Output (Right)
-    // Use dynamic dimensions if available for center alignment
-    const height = (node as any).dimensions?.height || 120;
-    if (portType === 'input') return { x: node.position.x, y: node.position.y + (height / 2), direction: 'left' };
-    return { x: node.position.x + 275, y: node.position.y + (height / 2), direction: 'right' };
-};
+import { getNodePortInfo, PortDirection } from '../utils/nodePortUtils';
 
 const getControlPoint = (pos: { x: number, y: number }, direction: PortDirection, distance: number) => {
     switch (direction) {
@@ -141,12 +111,35 @@ export function useCanvasRenderer({
     const dashOffset = useRef(0);
     const flowOffset = useRef(0);
 
+    // Use Refs to hold latest state for the animation loop
+    const nodesRef = useRef(nodes);
+    const connectionsRef = useRef(connections);
+    const viewportRef = useRef(viewport);
+    const solderingRef = useRef(soldering);
+    const cyclicConnectionsRef = useRef(cyclicConnections);
+    const nodeStatusesRef = useRef(nodeStatuses);
+
+    useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+    useEffect(() => { connectionsRef.current = connections; }, [connections]);
+    useEffect(() => { viewportRef.current = viewport; }, [viewport]);
+    useEffect(() => { solderingRef.current = soldering; }, [soldering]);
+    useEffect(() => { cyclicConnectionsRef.current = cyclicConnections; }, [cyclicConnections]);
+    useEffect(() => { nodeStatusesRef.current = nodeStatuses; }, [nodeStatuses]);
+
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
+
+        // Read from refs
+        const _nodes = nodesRef.current;
+        const _connections = connectionsRef.current;
+        const _viewport = viewportRef.current;
+        const _soldering = solderingRef.current;
+        const _cyclicConnections = cyclicConnectionsRef.current;
+        const _nodeStatuses = nodeStatusesRef.current;
 
         const rect = canvas.getBoundingClientRect();
         if (canvas.width !== rect.width * window.devicePixelRatio || canvas.height !== rect.height * window.devicePixelRatio) {
@@ -157,40 +150,43 @@ export function useCanvasRenderer({
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.save();
         ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-        ctx.translate(viewport.x, viewport.y);
-        ctx.scale(viewport.zoom, viewport.zoom);
+        ctx.translate(_viewport.x, _viewport.y);
+        ctx.scale(_viewport.zoom, _viewport.zoom);
 
-        connections.forEach(conn => {
-            const sourceNode = nodes.find(n => n.id === conn.source);
-            const targetNode = nodes.find(n => n.id === conn.target);
+        _connections.forEach(conn => {
+            const sourceNode = _nodes.find(n => n.id === conn.source);
+            const targetNode = _nodes.find(n => n.id === conn.target);
             if (!sourceNode || !targetNode) return;
 
             const startInfo = getNodePortInfo(sourceNode, 'output', conn.sourcePort || 0);
             const endInfo = getNodePortInfo(targetNode, 'input', conn.targetPort || 0);
 
-            // Logic for Flow: If source is SUCCESS or RUNNING, we animate.
-            // If target is FAILED, maybe red flow?
-            const sourceStatus = nodeStatuses[conn.source];
+            const sourceStatus = _nodeStatuses[conn.source];
             let flow: number | undefined = undefined;
             if (sourceStatus === 'SUCCESS' || sourceStatus === 'RUNNING') {
                 flow = flowOffset.current;
             }
 
             drawSmartBezier(ctx, startInfo, endInfo, {
-                isCyclic: cyclicConnections.includes(conn.id),
+                isCyclic: _cyclicConnections.includes(conn.id),
                 flow
             });
         });
 
-        if (soldering) {
-            const startNode = nodes.find(n => n.id === soldering.startNodeId);
+        if (_soldering) {
+            const startNode = _nodes.find(n => n.id === _soldering.startNodeId);
             if (startNode) {
-                const startInfo = getNodePortInfo(startNode, soldering.startPort, 0);
+                const portType = _soldering.startPort === 'input' ? 'input' : 'output';
+                const startInfo = getNodePortInfo(startNode, portType, 0);
+
+                // Adjust for canvas space since soldering.mousePos is relative to canvas clientRect
                 const worldMousePos = {
-                    x: (soldering.mousePos.x - viewport.x) / viewport.zoom,
-                    y: (soldering.mousePos.y - viewport.y) / viewport.zoom,
+                    x: (_soldering.mousePos.x - _viewport.x) / _viewport.zoom,
+                    y: (_soldering.mousePos.y - _viewport.y) / _viewport.zoom,
                     direction: (['left', 'right'].includes(startInfo.direction) ? (startInfo.direction === 'left' ? 'left' : 'right') : 'top') as PortDirection
                 };
+
+                // Smart direction flip for mouse
                 const mouseDirectionMap: Record<string, PortDirection> = { 'left': 'right', 'right': 'left', 'top': 'bottom', 'bottom': 'top' };
                 worldMousePos.direction = mouseDirectionMap[startInfo.direction] || 'left';
 
@@ -201,10 +197,10 @@ export function useCanvasRenderer({
         ctx.restore();
 
         dashOffset.current = (dashOffset.current + 0.5) % 20;
-        flowOffset.current = (flowOffset.current + 0.005) % 1; // Speed of mouse
+        flowOffset.current = (flowOffset.current + 0.005) % 1;
         animationFrameId.current = requestAnimationFrame(draw);
 
-    }, [nodes, connections, viewport, soldering, cyclicConnections, nodeStatuses]);
+    }, [canvasRef]); // Minimal dependencies
 
     useEffect(() => {
         animationFrameId.current = requestAnimationFrame(draw);

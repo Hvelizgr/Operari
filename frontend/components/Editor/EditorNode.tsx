@@ -1,11 +1,12 @@
 'use client';
 
-import { MouseEvent, useRef, useEffect, useLayoutEffect } from 'react';
+import { MouseEvent, useRef, useLayoutEffect } from 'react';
 import { NodeType, NODE_TYPES } from '../Node';
 import { WorkflowNode } from '@nanoflow/shared';
-// Import new CSS
 import './WorkflowNode.css';
 import * as Icons from 'lucide-react';
+// Import shared port utilities
+export { getNodeInputPort, getNodeOutputPort, getNodePortInfo } from '../../utils/nodePortUtils';
 
 interface EditorNodeProps {
     node: WorkflowNode;
@@ -30,29 +31,6 @@ interface EditorNodeProps {
     isConnected?: boolean;
 }
 
-// ... helpers logic remains ...
-export const getNodeInputPort = (node: WorkflowNode & { dimensions?: { height: number } }, portIndex: number = 0) => {
-    // ... logic ...
-    const type = node.type.toLowerCase();
-    if (type.includes('trigger') || type === 'start') return { x: node.position.x, y: node.position.y + 32 };
-    if (type.includes('controller') || type === 'condition') return { x: node.position.x, y: node.position.y + 32 };
-    if (type.includes('action') || type.includes('email') || type.includes('slack')) return { x: node.position.x, y: node.position.y + 32 };
-    if (type.includes('limit')) return { x: node.position.x + 32, y: node.position.y };
-    const height = node.dimensions?.height || 120;
-    return { x: node.position.x, y: node.position.y + (height / 2) };
-};
-
-export const getNodeOutputPort = (node: WorkflowNode & { dimensions?: { height: number } }, portIndex: number = 0) => {
-    // ... logic ...
-    const type = node.type.toLowerCase();
-    if (type.includes('trigger') || type === 'start') return { x: node.position.x + 64, y: node.position.y + 32 };
-    if (type.includes('controller') || type === 'condition') return { x: node.position.x + 128, y: node.position.y + 32 };
-    if (type.includes('action') || type.includes('email') || type.includes('slack')) return { x: node.position.x + 64, y: node.position.y + 32 };
-    if (type.includes('limit')) return { x: node.position.x + 32, y: node.position.y + 64 };
-    const height = node.dimensions?.height || 120;
-    return { x: node.position.x + 275, y: node.position.y + (height / 2) };
-};
-
 export default function EditorNode({
     node,
     typeDefinition,
@@ -67,7 +45,8 @@ export default function EditorNode({
     onSolderStart,
     onNodeDoubleClick,
     onUpdate,
-    isConnected = true
+    isConnected = true,
+    onPortDragStart
 }: EditorNodeProps) {
     const nodeRef = useRef<HTMLDivElement>(null);
     const nodeType = typeDefinition || NODE_TYPES.find(t => t.type === node.type);
