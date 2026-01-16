@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import cron from 'node-cron';
-import { ExecutionService } from './execution.service';
+import { ExecutionService } from '../editor/execution/execution.service';
 import { logger } from '../config/logger.config';
 
 export class SchedulerService {

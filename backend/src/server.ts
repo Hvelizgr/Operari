@@ -1,6 +1,7 @@
 import './config/tracing.config'; // Initialize tracing first
 import './config/env.config'; // Validate env vars first
 import express from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import { PrismaClient } from '@prisma/client';
@@ -28,8 +29,12 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger.config';
 
 const app = express();
+const httpServer = createServer(app);
 const prisma = new PrismaClient();
 const PORT = env.PORT;
+
+import { socketService } from './editor/execution/socket.service';
+socketService.initialize(httpServer, env.FRONTEND_URL);
 
 app.use(helmet());
 app.use(cors({
@@ -70,7 +75,7 @@ async function main() {
         scheduler.start();
         logger.info('Scheduler started');
 
-        app.listen(PORT, () => {
+        httpServer.listen(PORT, () => {
             logger.info({ port: PORT }, `Server running on port ${PORT}`);
         });
     } catch (error) {

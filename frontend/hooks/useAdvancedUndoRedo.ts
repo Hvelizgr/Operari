@@ -13,6 +13,8 @@ interface UseAdvancedUndoRedoReturn {
     canUndo: boolean;
     canRedo: boolean;
     clear: () => void;
+    history: Command[];
+    currentIndex: number;
 }
 
 export function useAdvancedUndoRedo(maxHistorySize: number = 50): UseAdvancedUndoRedoReturn {
@@ -85,5 +87,7 @@ export function useAdvancedUndoRedo(maxHistorySize: number = 50): UseAdvancedUnd
         canUndo: state.currentIndex >= 0,
         canRedo: state.currentIndex < state.history.length - 1,
         clear,
+        history: state.history,
+        currentIndex: state.currentIndex,
     };
 }

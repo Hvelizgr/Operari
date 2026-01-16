@@ -19,15 +19,34 @@ interface SearchBarProps {
     onHighlightNodes: (nodeIds: string[]) => void;
     lang: 'en' | 'es';
     availableNodeTypes?: NodeType[]; // Dynamic list from DB
+    position?: { x: number; y: number }; // Absolute position override
+    forceOpen?: boolean; // Keep it open (for context menu usage)
+    externalTrigger?: number; // Timestamp to trigger open/focus
 }
 
-export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightNodes, lang: langProp, availableNodeTypes }: SearchBarProps) {
+export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightNodes, lang: langProp, availableNodeTypes, position, forceOpen, externalTrigger }: SearchBarProps) {
     const lang = (langProp === 'en' || langProp === 'es') ? langProp : 'en';
     const [searchTerm, setSearchTerm] = useState('');
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(forceOpen || false);
     const [expandedCategories, setExpandedCategories] = useState<string[]>(['triggers', 'core']);
     const inputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    // Auto-focus if forced open
+    useEffect(() => {
+        if (forceOpen && inputRef.current) {
+            inputRef.current.focus();
+            setIsOpen(true);
+        }
+    }, [forceOpen]);
+
+    // External Trigger (for Toolbar button)
+    useEffect(() => {
+        if (externalTrigger && inputRef.current) {
+            inputRef.current.focus();
+            setIsOpen(true);
+        }
+    }, [externalTrigger]);
 
     const content = {
         en: {
@@ -52,12 +71,14 @@ export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightN
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                if (!forceOpen) setIsOpen(false); // Only close if not forced (or maybe we want to close menu on outside click anyway?)
+                // Actually for context menu we DO want to close on outside click
                 setIsOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    }, [forceOpen]);
 
     const toggleCategory = (categoryId: string) => {
         setExpandedCategories(prev =>
@@ -108,6 +129,11 @@ export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightN
     const handleAddNode = (nodeType: NodeType) => {
         onNodeAdd(nodeType);
         setSearchTerm('');
+
+        // If contextual (forced open), we likely want to keep it open? 
+        // No, actually dropping a node should close the menu.
+        // But if we are in forceOpen mode, isOpen is controlled by props?
+        // Actually isOpen is state initialized by forceOpen.
         setIsOpen(false);
     };
 
@@ -125,7 +151,11 @@ export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightN
     const showCategories = isOpen && !searchTerm;
 
     return (
-        <div ref={containerRef} className="absolute top-4 right-4 z-50 w-96">
+        <div
+            ref={containerRef}
+            className={`absolute z-50 w-96 ${position ? '' : 'top-4 right-4'}`}
+            style={position ? { left: position.x, top: position.y } : undefined}
+        >
             <div className="bg-[#1a1a2e] border border-[#2d2d44] rounded-xl shadow-2xl overflow-hidden">
                 {/* Search Input */}
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2d2d44]">

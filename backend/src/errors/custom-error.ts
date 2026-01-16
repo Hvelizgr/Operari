@@ -12,6 +12,7 @@ export enum ErrorCode {
     WORKFLOW_NOT_FOUND = 'ERR_2000',
     WORKFLOW_INVALID = 'ERR_2001',
     WORKFLOW_DISABLED = 'ERR_2002',
+    EXECUTION_NOT_FOUND = 'ERR_2003',
 
     // Node execution errors (3xxx)
     NODE_EXECUTION_FAILED = 'ERR_3000',
@@ -62,6 +63,7 @@ export interface ExecutionErrorContext {
     input?: unknown;
     cyclePath?: string[];
     cycleNodes?: string[];
+    [key: string]: unknown;
 }
 
 /**
@@ -122,6 +124,7 @@ export class CustomError extends Error {
             [ErrorCode.WORKFLOW_NOT_FOUND]: 'The workflow was not found.',
             [ErrorCode.WORKFLOW_INVALID]: 'The workflow configuration is invalid.',
             [ErrorCode.WORKFLOW_DISABLED]: 'The workflow is currently disabled.',
+            [ErrorCode.EXECUTION_NOT_FOUND]: 'The execution was not found.',
 
             [ErrorCode.NODE_EXECUTION_FAILED]: 'A node failed to execute.',
             [ErrorCode.NODE_NOT_FOUND]: 'The specified node was not found.',

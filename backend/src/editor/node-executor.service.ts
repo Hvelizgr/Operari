@@ -1,11 +1,11 @@
-import * as nodemailer from 'nodemailer';
+import { exec } from 'child_process';
 import * as ivm from 'isolated-vm';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
+import * as nodemailer from 'nodemailer';
 import {
     WorkflowNode,
     ExecutionInput,
     ExecutionOutput,
-    NodeExecutionResult,
     TriggerResult,
     HttpResult,
     EmailResult,
@@ -14,6 +14,11 @@ import {
     LoopResult,
     DatabaseResult,
     N8nResult,
+    ShellCommandResult,
+    StoreResult,
+    SuspendResult,
+    SetMetadataResult,
+    CreateTicketResult,
     HttpNodeConfig,
     EmailNodeConfig,
     TransformNodeConfig,
@@ -22,8 +27,29 @@ import {
     DelayNodeConfig,
     LoopNodeConfig,
     N8nNodeConfig,
+    DecisionNodeConfig,
+    SplitNodeConfig,
+    JoinNodeConfig,
+    ShellCommandNodeConfig,
+    StoreSetNodeConfig,
+    StoreGetNodeConfig,
+    SuspendNodeConfig,
+    SetMetadataNodeConfig,
+    CreateTicketNodeConfig,
+    RepeatNodeConfig,
+    MultiplexNodeConfig,
+    LimitNodeConfig,
+    ActionNodeConfig,
+    NodeExecutionResult,
 } from '../types/workflow.types';
-import { n8nService } from './n8n.service';
+import { DecisionNodeExecutor } from './logic/decision-node.executor';
+import { SplitNodeExecutor } from './logic/split-node.executor';
+import { JoinNodeExecutor } from './logic/join-node.executor';
+import { RepeatNodeExecutor } from './logic/repeat-node.executor';
+import { MultiplexNodeExecutor } from './logic/multiplex-node.executor';
+import { LimitNodeExecutor } from './logic/limit-node.executor';
+import { ActionNodeExecutor } from './logic/action-node.executor';
+import { n8nService } from '../services/n8n.service';
 import {
     HttpError,
     SandboxError,
@@ -32,8 +58,11 @@ import {
     ErrorCode,
     ErrorSeverity,
 } from '../errors/custom-error';
-import { Logger } from './logger.service';
+import { Logger } from '../services/logger.service';
 import { withHttpRetry, withExternalServiceRetry, RetryOptions } from '../utils/retry';
+import axios from 'axios';
+
+type commonErrorContext = { nodeId: string; nodeName: string; nodeType: string }
 
 interface SandboxConfig {
     timeout: number;      // Tiempo máximo de ejecución en ms
@@ -240,6 +269,13 @@ export class NodeExecutor {
     private sandbox: SecureSandbox;
     private prisma: PrismaClient;
     private logger: Logger;
+    private decisionExecutor: DecisionNodeExecutor;
+    private splitExecutor: SplitNodeExecutor;
+    private joinExecutor: JoinNodeExecutor;
+    private repeatExecutor: RepeatNodeExecutor;
+    private multiplexExecutor: MultiplexNodeExecutor;
+    private limitExecutor: LimitNodeExecutor;
+    private actionExecutor: ActionNodeExecutor;
 
     constructor(prisma?: PrismaClient) {
         // Inicializar el sandbox con configuración por defecto
@@ -262,10 +298,23 @@ export class NodeExecutor {
                 },
             });
         }
+
+        this.decisionExecutor = new DecisionNodeExecutor();
+        this.splitExecutor = new SplitNodeExecutor();
+        this.joinExecutor = new JoinNodeExecutor();
+        this.repeatExecutor = new RepeatNodeExecutor();
+        this.multiplexExecutor = new MultiplexNodeExecutor();
+        this.limitExecutor = new LimitNodeExecutor();
+        this.actionExecutor = new ActionNodeExecutor();
     }
 
-    async execute(node: WorkflowNode, input: ExecutionInput): Promise<NodeExecutionResult> {
+    async execute(node: WorkflowNode, input: ExecutionInput, tenantId?: string, executionId?: string): Promise<NodeExecutionResult> {
         const config = node.config || {};
+        const commonErrorContext = {
+            nodeId: node.id,
+            nodeName: node.title,
+            nodeType: node.type,
+        };
 
         switch (node.type) {
             case 'Webhook':
@@ -275,22 +324,24 @@ export class NodeExecutor {
 
             case 'HTTP':
             case 'Api':
-                return this.executeHttp(config as HttpNodeConfig, input);
+                return this.executeHttp(config as HttpNodeConfig, input, commonErrorContext);
 
             case 'Email':
-                return this.executeEmail(config as EmailNodeConfig, input);
+                return this.executeEmail(config as EmailNodeConfig, input, commonErrorContext);
+            case 'custom.email':
+                return this.executeEmail(config as EmailNodeConfig, input, commonErrorContext);
 
             case 'Transform':
             case 'Code':
-                return this.executeTransform(config as TransformNodeConfig, input);
+                return this.executeTransform(config as TransformNodeConfig, input, commonErrorContext);
 
             case 'Condition':
             case 'If':
-                return this.executeCondition(config as ConditionNodeConfig, input);
+                return this.executeCondition(config as ConditionNodeConfig, input, commonErrorContext);
 
             case 'Database':
             case 'SQL':
-                return this.executeDatabase(config as DatabaseNodeConfig, input);
+                return this.executeDatabase(config as DatabaseNodeConfig, input, commonErrorContext);
 
             case 'Delay':
             case 'Wait':
@@ -298,13 +349,65 @@ export class NodeExecutor {
 
             case 'Loop':
             case 'Iterator':
-                return this.executeLoop(config as LoopNodeConfig, input);
+                return this.executeLoop(config as LoopNodeConfig, input, commonErrorContext);
 
             case 'n8n':
-                return this.executeN8n(config as N8nNodeConfig, input);
+                return this.executeN8n(config as N8nNodeConfig, input, commonErrorContext);
+
+            case 'Decision':
+                return this.decisionExecutor.execute(config as DecisionNodeConfig, input);
+
+            case 'Split':
+                return this.splitExecutor.execute(config as SplitNodeConfig, input);
+
+            case 'Join':
+                return this.joinExecutor.execute(input);
+
+            case 'Repeat':
+                return this.repeatExecutor.execute(config as RepeatNodeConfig, input);
+
+            case 'Multiplex':
+                return this.multiplexExecutor.execute(config as MultiplexNodeConfig, input);
+
+            case 'Limit':
+                return this.limitExecutor.execute(config as LimitNodeConfig, input);
+
+            case 'Action':
+                return this.actionExecutor.execute(config as ActionNodeConfig, input);
+
+            case 'ShellCommand':
+                return this.executeShellCommand(config as ShellCommandNodeConfig, input, commonErrorContext);
+
+            case 'StoreSet':
+                if (!tenantId) throw new NodeExecutionError({ ...commonErrorContext, message: 'Tenant ID is required for storage operations', code: ErrorCode.CONFIGURATION_ERROR });
+                return this.executeStoreSet(config as StoreSetNodeConfig, input, tenantId, commonErrorContext);
+
+            case 'StoreGet':
+                if (!tenantId) throw new NodeExecutionError({ ...commonErrorContext, message: 'Tenant ID is required for storage operations', code: ErrorCode.CONFIGURATION_ERROR });
+                return this.executeStoreGet(config as StoreGetNodeConfig, input, tenantId, commonErrorContext);
+
+            case 'Suspend':
+                return this.executeSuspend(config as SuspendNodeConfig, input);
+
+            case 'SetMetadata':
+                if (!executionId) throw new NodeExecutionError({ ...commonErrorContext, message: 'Execution ID is required for SetMetadata operation', code: ErrorCode.CONFIGURATION_ERROR });
+                return this.executeSetMetadata(config as SetMetadataNodeConfig, input, executionId, commonErrorContext);
+
+            case 'CreateTicket':
+                return this.executeCreateTicket(config as CreateTicketNodeConfig, input, commonErrorContext);
+
+            case 'custom.note':
+                return input; // Note nodes just pass through data
+
 
             default:
-                return { ...input, nodeType: node.type };
+                // Handle unknown node types with an error
+                throw new NodeExecutionError({
+                    ...commonErrorContext,
+                    message: `Unknown node type: ${node.type}`,
+                    code: ErrorCode.NODE_NOT_FOUND,
+                    userMessage: `Node type '${node.type}' is not recognized or supported.`,
+                });
         }
     }
 
@@ -312,9 +415,67 @@ export class NodeExecutor {
         return { ...input, triggered: true, timestamp: new Date().toISOString() };
     }
 
+    private async executeShellCommand(
+        config: ShellCommandNodeConfig,
+        input: ExecutionInput,
+        commonErrorContext: commonErrorContext
+    ): Promise<ShellCommandResult> {
+        const { command } = config;
+
+        if (!command) {
+            throw new NodeExecutionError({
+                ...commonErrorContext,
+                message: 'Shell command is not defined',
+                userMessage: 'Shell command is empty',
+                code: ErrorCode.NODE_EXECUTION_FAILED,
+            });
+        }
+
+        const resolvedCommand = this.resolveTemplate(command, input);
+
+        this.logger.warn(`Executing shell command: "${resolvedCommand}"`, {
+            metadata: { command: resolvedCommand },
+        });
+
+        return new Promise((resolve, reject) => {
+            exec(resolvedCommand, (error: Error | null, stdout: string, stderr: string) => { // Explicitly type callback parameters
+                if (error) {
+                    const execError = new NodeExecutionError({
+                        ...commonErrorContext,
+                        message: `Shell command failed: ${error.message}`,
+                        userMessage: `Command failed with error: ${error.message}. Stderr: ${stderr}`,
+                        code: ErrorCode.NODE_EXECUTION_FAILED,
+                        cause: error,
+                    });
+                    this.logger.error('Shell command execution failed', {
+                        error: execError,
+                        metadata: { command: resolvedCommand, stderr },
+                    });
+                    return reject(execError);
+                }
+
+                const result: ShellCommandResult = { stdout, stderr };
+
+                const trimmedStdout = stdout.trim();
+                if (trimmedStdout.startsWith('{') && trimmedStdout.endsWith('}')) {
+                    try {
+                        // @ts-ignore - Prisma's Json type is flexible, this should be fine
+                        result.json = JSON.parse(trimmedStdout);
+                    } catch (e) {
+                        // Not valid JSON, leave it as a string
+                    }
+                }
+
+                resolve(result);
+            });
+        });
+    }
+
+
     private async executeHttp(
         config: HttpNodeConfig,
-        input: ExecutionInput
+        input: ExecutionInput,
+        commonErrorContext: commonErrorContext
     ): Promise<HttpResult> {
         const { url, method = 'GET', headers = {}, body, retries = 3 } = config;
 
@@ -335,6 +496,7 @@ export class NodeExecutor {
 
                     if (!response.ok) {
                         throw new HttpError({
+                            ...commonErrorContext,
                             message: `HTTP ${response.status} ${response.statusText}`,
                             code: this.getHttpErrorCode(response.status),
                             statusCode: response.status,
@@ -376,10 +538,12 @@ export class NodeExecutor {
 
     private async executeEmail(
         config: EmailNodeConfig,
-        input: ExecutionInput
+        input: ExecutionInput,
+        commonErrorContext: commonErrorContext
     ): Promise<EmailResult> {
         if (!this.emailTransporter) {
             throw new ExternalServiceError({
+                ...commonErrorContext,
                 message: 'Email service is not configured',
                 code: ErrorCode.EMAIL_NOT_CONFIGURED,
                 serviceName: 'Email',
@@ -436,7 +600,8 @@ export class NodeExecutor {
 
     private async executeTransform(
         config: TransformNodeConfig,
-        input: ExecutionInput
+        input: ExecutionInput,
+        commonErrorContext: commonErrorContext
     ): Promise<ExecutionOutput> {
         const { code, mapping } = config;
 
@@ -448,6 +613,7 @@ export class NodeExecutor {
                 // Verificar si hubo error en la ejecución
                 if (result && typeof result === 'object' && 'error' in result) {
                     throw new SandboxError({
+                        ...commonErrorContext,
                         message: `Sandbox execution error: ${result.error}`,
                         code: ErrorCode.SANDBOX_EXECUTION_FAILED,
                         userMessage: 'Code execution failed',
@@ -499,7 +665,8 @@ export class NodeExecutor {
 
     private async executeCondition(
         config: ConditionNodeConfig,
-        input: ExecutionInput
+        input: ExecutionInput,
+        commonErrorContext: commonErrorContext
     ): Promise<ConditionResult> {
         const { condition, field, operator, value } = config;
 
@@ -511,10 +678,8 @@ export class NodeExecutor {
                 result = await this.sandbox.evaluateCondition(condition, input);
             } catch (error) {
                 throw new NodeExecutionError({
+                    ...commonErrorContext,
                     message: `Condition evaluation failed: ${error instanceof Error ? error.message : String(error)}`,
-                    nodeId: '',
-                    nodeName: 'Condition',
-                    nodeType: 'Condition',
                     code: ErrorCode.CONDITION_EVALUATION_FAILED,
                     cause: error instanceof Error ? error : undefined,
                 });
@@ -553,7 +718,8 @@ export class NodeExecutor {
 
     private async executeDatabase(
         config: DatabaseNodeConfig,
-        input: ExecutionInput
+        input: ExecutionInput,
+        commonErrorContext: commonErrorContext
     ): Promise<DatabaseResult> {
         const { operation, table, query, data } = config;
 
@@ -576,7 +742,8 @@ export class NodeExecutor {
 
     private async executeLoop(
         config: LoopNodeConfig,
-        input: ExecutionInput
+        input: ExecutionInput,
+        commonErrorContext: commonErrorContext
     ): Promise<LoopResult> {
         const { items, itemsPath } = config;
 
@@ -590,8 +757,162 @@ export class NodeExecutor {
         };
     }
 
-    private resolveTemplate(template: string, context: ExecutionInput): string {
+
+
+    private async executeStoreSet(
+        config: StoreSetNodeConfig,
+        input: ExecutionInput,
+        tenantId: string,
+        commonErrorContext: commonErrorContext
+    ): Promise<StoreResult> {
+        const { bucketName = 'default', key, value } = config;
+
+        if (!key) {
+            throw new NodeExecutionError({ ...commonErrorContext, message: 'Storage key is required for Set operation', code: ErrorCode.CONFIGURATION_ERROR });
+        }
+
+        const resolvedBucketName = this.resolveTemplate(bucketName, input);
+        const resolvedKey = this.resolveTemplate(key, input);
+        const resolvedValue = this.resolveTemplate(value, input);
+
+        const bucket = await this.prisma.storageBucket.upsert({
+            where: { tenantId_name: { tenantId, name: resolvedBucketName } },
+            create: { name: resolvedBucketName, tenantId, data: {} as Prisma.InputJsonValue }, // Ensure data is initialized
+            update: {},
+        });
+
+        const currentData = (bucket.data as Record<string, unknown>) || {};
+        const newData = { ...currentData, [resolvedKey]: resolvedValue };
+
+        await this.prisma.storageBucket.update({
+            where: { id: bucket.id },
+            data: { data: newData as Prisma.InputJsonValue }, // Explicitly cast to Prisma.InputJsonValue
+        });
+
+        return { success: true, key: resolvedKey, value: resolvedValue };
+    }
+
+    private async executeStoreGet(
+        config: StoreGetNodeConfig,
+        input: ExecutionInput,
+        tenantId: string,
+        commonErrorContext: commonErrorContext
+    ): Promise<ExecutionOutput> {
+        const { bucketName = 'default', key } = config;
+
+        if (!key) {
+            throw new NodeExecutionError({ ...commonErrorContext, message: 'Storage key is required for Get operation', code: ErrorCode.CONFIGURATION_ERROR });
+        }
+
+        const resolvedBucketName = this.resolveTemplate(bucketName, input);
+        const resolvedKey = this.resolveTemplate(key, input);
+
+        const bucket = await this.prisma.storageBucket.findUnique({
+            where: { tenantId_name: { tenantId, name: resolvedBucketName } },
+        });
+
+        if (!bucket) {
+            return { ...input, [resolvedKey]: null };
+        }
+
+        const data = (bucket.data as Record<string, unknown>) || {};
+        const value = data[resolvedKey] || null;
+
+        return { ...input, [resolvedKey]: value };
+    }
+
+    private async executeSuspend(
+        config: SuspendNodeConfig,
+        input: ExecutionInput
+    ): Promise<SuspendResult> {
+        // This node doesn't do anything but signal the execution service to pause.
+        return { ...input, isSuspended: true };
+    }
+
+    private async executeSetMetadata(
+        config: SetMetadataNodeConfig,
+        input: ExecutionInput,
+        executionId: string,
+        commonErrorContext: commonErrorContext
+    ): Promise<SetMetadataResult> {
+        const { metadata } = config;
+
+        if (!metadata) {
+            throw new NodeExecutionError({
+                ...commonErrorContext,
+                message: 'Metadata is not defined for SetMetadata operation',
+                userMessage: 'Metadata for the node is empty',
+                code: ErrorCode.NODE_EXECUTION_FAILED,
+            });
+        }
+
+        const resolvedMetadata = JSON.parse(this.resolveTemplate(JSON.stringify(metadata), input));
+
+        const execution = await this.prisma.execution.findUnique({
+            where: { id: executionId },
+            select: { metadata: true },
+        });
+
+        const currentMetadata = (execution?.metadata as Record<string, unknown>) || {};
+        const newMetadata = { ...currentMetadata, ...resolvedMetadata };
+
+        await this.prisma.execution.update({
+            where: { id: executionId },
+            data: { metadata: newMetadata as Prisma.InputJsonValue }, // Explicitly cast
+        });
+
+        return { success: true, metadata: newMetadata };
+    }
+
+    private async executeCreateTicket(
+        config: CreateTicketNodeConfig,
+        input: ExecutionInput,
+        commonErrorContext: commonErrorContext
+    ): Promise<CreateTicketResult> {
+        const { webhookUrl, subject, body } = config;
+
+        if (!webhookUrl) {
+            throw new NodeExecutionError({
+                ...commonErrorContext,
+                message: 'Webhook URL is not defined for Create Ticket operation',
+                userMessage: 'Webhook URL for ticket creation is empty',
+                code: ErrorCode.CONFIGURATION_ERROR, // Changed to CONFIGURATION_ERROR
+            });
+        }
+
+        const resolvedWebhookUrl = this.resolveTemplate(webhookUrl, input);
+        const resolvedSubject = this.resolveTemplate(subject || '', input);
+        const resolvedBody = this.resolveTemplate(body || '', input);
+
+        try {
+            const response = await axios.post(resolvedWebhookUrl, {
+                subject: resolvedSubject,
+                body: resolvedBody,
+                source: 'NanoFlow',
+                // Potentially include more context from input if desired
+                inputContext: input,
+            });
+
+            return {
+                success: true,
+                response: response.data,
+                webhookUrl: resolvedWebhookUrl,
+            };
+        } catch (error) {
+            const ticketError = new NodeExecutionError({
+                ...commonErrorContext,
+                message: `Failed to create ticket: ${error instanceof Error ? error.message : String(error)}`,
+                code: ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE, // Changed to EXTERNAL_SERVICE_UNAVAILABLE
+                userMessage: 'Failed to send ticket information to external system',
+                cause: error instanceof Error ? error : undefined,
+                context: { webhookUrl: resolvedWebhookUrl },
+            });
+            this.logger.error('Create Ticket node failed', { error: ticketError });
+            throw ticketError;
+        }
+    } private resolveTemplate(template: string, context: ExecutionInput): string {
         if (typeof template !== 'string') return String(template);
+
 
         return template.replace(/\{\{([^}]+)\}\}/g, (_, path) => {
             const value = this.getNestedValue(context, path.trim());
@@ -610,16 +931,15 @@ export class NodeExecutor {
 
     private async executeN8n(
         config: N8nNodeConfig,
-        input: ExecutionInput
+        input: ExecutionInput,
+        commonErrorContext: commonErrorContext
     ): Promise<N8nResult> {
         const { workflowId, waitForCompletion = true, timeout = 30000, inputMapping } = config;
 
         if (!workflowId) {
             throw new NodeExecutionError({
+                ...commonErrorContext,
                 message: 'n8n workflow ID is required',
-                nodeId: '',
-                nodeName: 'n8n',
-                nodeType: 'n8n',
                 code: ErrorCode.NODE_EXECUTION_FAILED,
             });
         }

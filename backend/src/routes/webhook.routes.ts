@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../server';
-import { ExecutionService } from '../services/execution.service';
+import { ExecutionService } from '../editor/execution/execution.service';
 
 const router = Router();
 

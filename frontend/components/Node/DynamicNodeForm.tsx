@@ -1,6 +1,8 @@
 
-import React from 'react';
-import { HelpCircle, ChevronDown } from 'lucide-react';
+import React, { useState } from 'react';
+import { HelpCircle, ChevronDown, Database } from 'lucide-react';
+import { WorkflowNode, Connection } from '@nanoflow/shared';
+import ExpressionBuilder from './ExpressionBuilder';
 
 interface Property {
     name: string;
@@ -16,26 +18,47 @@ interface DynamicNodeFormProps {
     properties: Property[];
     values: Record<string, any>;
     onChange: (key: string, value: any) => void;
+    nodes: WorkflowNode[];
+    connections: Connection[];
+    lang?: 'en' | 'es'; // Make optional to avoid breaking existing calls immediately
 }
 
-export default function DynamicNodeForm({ properties, values, onChange }: DynamicNodeFormProps) {
+export default function DynamicNodeForm({ properties, values, onChange, nodes, connections, lang = 'en' }: DynamicNodeFormProps) {
+    const [isBuilderOpen, setIsBuilderOpen] = useState(false);
+    const [activeField, setActiveField] = useState<string | null>(null);
+
+    const handleOpenBuilder = (fieldName: string) => {
+        setActiveField(fieldName);
+        setIsBuilderOpen(true);
+    };
+
+    const handleInsertExpression = (expression: string) => {
+        if (activeField) {
+            const currentValue = values[activeField] || '';
+            onChange(activeField, currentValue + expression);
+        }
+    };
+
     if (!properties || properties.length === 0) {
-        return <div className="text-slate-500 text-xs italic p-4">No configurable properties for this node.</div>;
+        return <div className="text-[var(--descriptor-color)] text-xs italic p-4">No configurable properties for this node.</div>;
     }
 
+    const inputClass = "w-full bg-[rgba(0,0,0,0.2)] border border-[var(--border-color)] rounded p-2 text-sm text-[var(--body-text-color)] focus:outline-none focus:border-[var(--highlight-color)] transition-colors";
+    const labelClass = "text-[11px] font-bold uppercase text-[var(--descriptor-color)]";
+
     return (
-        <div className="space-y-5">
+        <div className="space-y-4">
             {properties.map((prop) => {
                 const value = values[prop.name] !== undefined ? values[prop.name] : prop.default;
 
                 return (
                     <div key={prop.name} className="group">
-                        <div className="flex items-center gap-2 mb-2">
-                            <label className="text-xs font-semibold text-slate-300">
+                        <div className="flex items-center gap-2 mb-1">
+                            <label className={labelClass}>
                                 {prop.displayName}
                             </label>
                             {prop.description && (
-                                <div className="text-slate-500 hover:text-slate-300 cursor-help" title={prop.description}>
+                                <div className="text-[var(--descriptor-color)] opacity-70 hover:opacity-100 cursor-help" title={prop.description}>
                                     <HelpCircle size={12} />
                                 </div>
                             )}
@@ -48,23 +71,47 @@ export default function DynamicNodeForm({ properties, values, onChange }: Dynami
                                     <textarea
                                         value={value || ''}
                                         onChange={(e) => onChange(prop.name, e.target.value)}
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 hover:border-slate-600 transition-colors font-mono"
+                                        className={`${inputClass} font-mono`}
                                         rows={prop.typeOptions.rows}
                                     />
                                     {prop.typeOptions.expression && (
-                                        <div className="absolute top-2 right-2 text-[10px] bg-slate-800 text-blue-400 px-1.5 py-0.5 rounded border border-slate-700">
-                                            Expression
+                                        <div
+                                            className="absolute top-2 right-2 text-[var(--icon-color)] opacity-50 hover:opacity-100 cursor-pointer p-1 rounded hover:bg-white/10 transition-all"
+                                            title="Open Expression Builder"
+                                            onClick={() => handleOpenBuilder(prop.name)}
+                                        >
+                                            <Database size={14} />
                                         </div>
                                     )}
                                 </div>
                             ) : (
-                                <input
-                                    type="text"
-                                    value={value || ''}
-                                    onChange={(e) => onChange(prop.name, e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 hover:border-slate-600 transition-colors"
-                                />
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={value || ''}
+                                        onChange={(e) => onChange(prop.name, e.target.value)}
+                                        className={`${inputClass} ${prop.typeOptions?.expression ? 'pr-8' : ''}`}
+                                    />
+                                    {prop.typeOptions?.expression && (
+                                        <div
+                                            className="absolute top-1/2 -translate-y-1/2 right-2 text-[var(--icon-color)] opacity-50 hover:opacity-100 cursor-pointer p-1 rounded hover:bg-white/10 transition-all"
+                                            title="Open Expression Builder"
+                                            onClick={() => handleOpenBuilder(prop.name)}
+                                        >
+                                            <Database size={14} />
+                                        </div>
+                                    )}
+                                </div>
                             )
+                        )}
+
+                        {prop.type === 'number' && (
+                            <input
+                                type="number"
+                                value={value}
+                                onChange={(e) => onChange(prop.name, Number(e.target.value))}
+                                className={inputClass}
+                            />
                         )}
 
                         {prop.type === 'options' && (
@@ -72,20 +119,20 @@ export default function DynamicNodeForm({ properties, values, onChange }: Dynami
                                 <select
                                     value={value || ''}
                                     onChange={(e) => onChange(prop.name, e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 appearance-none focus:outline-none focus:border-blue-500 hover:border-slate-600 transition-colors pr-8"
+                                    className={`${inputClass} appearance-none pr-8`}
                                 >
                                     {prop.options?.map((opt) => (
-                                        <option key={opt.value} value={opt.value}>
+                                        <option key={opt.value} value={opt.value} className="bg-[var(--box-background-color)] text-[var(--body-text-color)]">
                                             {opt.name}
                                         </option>
                                     ))}
                                 </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} />
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--icon-color)] pointer-events-none" size={14} />
                             </div>
                         )}
 
                         {prop.type === 'boolean' && (
-                            <label className="flex items-center cursor-pointer gap-3">
+                            <label className="flex items-center cursor-pointer gap-3 pt-1">
                                 <div className="relative">
                                     <input
                                         type="checkbox"
@@ -93,17 +140,26 @@ export default function DynamicNodeForm({ properties, values, onChange }: Dynami
                                         checked={!!value}
                                         onChange={(e) => onChange(prop.name, e.target.checked)}
                                     />
-                                    <div className={`w-10 h-5 rounded-full shadow-inner transition-colors ${value ? 'bg-blue-600' : 'bg-slate-700'}`}></div>
-                                    <div className={`absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${value ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                                    <div className={`w-9 h-5 rounded-full shadow-inner transition-colors ${value ? 'bg-[var(--theme-color)]' : 'bg-[rgba(0,0,0,0.3)]'}`}></div>
+                                    <div className={`absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${value ? 'translate-x-4' : 'translate-x-0'}`}></div>
                                 </div>
-                                <span className="text-xs text-slate-400 select-none group-hover:text-slate-300 transition-colors">
-                                    {value ? 'On' : 'Off'}
+                                <span className="text-xs text-[var(--body-text-color)] select-none">
+                                    {value ? 'Active' : 'Inactive'}
                                 </span>
                             </label>
                         )}
                     </div>
                 );
             })}
+
+            <ExpressionBuilder
+                isOpen={isBuilderOpen}
+                onClose={() => setIsBuilderOpen(false)}
+                nodes={nodes}
+                connections={connections}
+                onInsert={handleInsertExpression}
+                lang={lang}
+            />
         </div>
     );
 }

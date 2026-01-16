@@ -1,13 +1,14 @@
 import { PrismaClient, ExecutionStatus, NodeLogStatus, TriggerType, Workflow, Prisma } from '@prisma/client';
-import { NodeExecutor } from './node-executor.service';
-import { ErrorNotificationService } from './error-notification.service';
-import { Logger, ContextLogger } from './logger.service';
+import { NodeExecutor } from '../node-executor.service';
+import { ErrorNotificationService } from '../../services/error-notification.service';
+import { Logger, ContextLogger } from '../../services/logger.service';
 import {
     WorkflowNode,
     WorkflowConnection,
     ExecutionInput,
     ExecutionOutput,
-} from '../types/workflow.types';
+    SuspendResult,
+} from '../../types/workflow.types';
 import {
     CustomError,
     ErrorCode,
@@ -15,8 +16,9 @@ import {
     NodeExecutionError,
     WorkflowError,
     wrapError,
-} from '../errors/custom-error';
-import { persistExecutionError } from '../utils/error-persistence';
+} from '../../errors/custom-error';
+import { persistExecutionError } from '../../utils/error-persistence';
+import { socketService } from './socket.service';
 
 interface ExecuteParams {
     workflowId: string;
@@ -24,6 +26,20 @@ interface ExecuteParams {
     trigger: TriggerType;
     input?: ExecutionInput;
     tenantId?: string;
+    startNodeId?: string;
+}
+
+interface ResumeParams {
+    executionId: string;
+    userId: string;
+    tenantId: string;
+    input?: ExecutionInput;
+}
+
+interface RunState {
+    nodeOutputs: Record<string, ExecutionOutput>;
+    executedNodes: Set<string>;
+    nodesToExecute: WorkflowNode[];
 }
 
 export class ExecutionService {
@@ -40,7 +56,7 @@ export class ExecutionService {
     }
 
     async execute(params: ExecuteParams) {
-        const { workflowId, userId, trigger, input = {}, tenantId } = params;
+        const { workflowId, userId, trigger, input = {}, tenantId, startNodeId } = params;
 
         try {
             // Fetch workflow
@@ -78,6 +94,7 @@ export class ExecutionService {
 
             const contextLogger = this.logger.child(executionContext);
             contextLogger.info('Workflow execution started');
+            socketService.emitLog(execution.id, 'Workflow execution started');
 
             // Run workflow asynchronously with proper error handling
             this.runWorkflow(
@@ -85,7 +102,8 @@ export class ExecutionService {
                 workflow,
                 input,
                 executionContext,
-                tenantId
+                tenantId,
+                startNodeId
             ).catch((error) => {
                 // This handles uncaught errors from runWorkflow
                 this.logger.error('Uncaught error in workflow execution', {
@@ -104,12 +122,155 @@ export class ExecutionService {
         }
     }
 
+    async replayExecution(params: {
+        executionId: string;
+        nodeId?: string;
+        userId: string;
+        tenantId: string;
+    }) {
+        const { executionId, nodeId, userId, tenantId } = params;
+
+        // Fetch original execution and its logs
+        const originalExecution = await this.prisma.execution.findUnique({
+            where: { id: executionId },
+            include: {
+                workflow: true,
+                nodeLogs: true
+            }
+        });
+
+        if (!originalExecution) {
+            throw new WorkflowError({
+                message: `Original execution not found: ${executionId}`,
+                code: ErrorCode.EXECUTION_NOT_FOUND,
+                workflowId: '',
+            });
+        }
+
+        // Create a new execution for the replay
+        const newExecution = await this.prisma.execution.create({
+            data: {
+                workflowId: originalExecution.workflowId,
+                userId,
+                trigger: originalExecution.trigger,
+                status: 'RUNNING',
+            },
+        });
+
+        const executionContext = {
+            executionId: newExecution.id,
+            workflowId: originalExecution.workflowId,
+            workflowName: originalExecution.workflow.name,
+            userId,
+            tenantId,
+            isReplay: true,
+            originalExecutionId: executionId,
+        };
+
+        const contextLogger = this.logger.child(executionContext);
+        contextLogger.info('Workflow replay started');
+        socketService.emitLog(newExecution.id, 'Workflow replay started');
+
+        // Prepare initial state from historical data if replaying from a specific node
+        if (nodeId) {
+            const log = originalExecution.nodeLogs.find(l => l.nodeId === nodeId);
+            if (!log) throw new Error('Node log not found for replay');
+
+            this.runWorkflow(
+                newExecution.id,
+                originalExecution.workflow,
+                log.input as any,
+                executionContext,
+                tenantId,
+                nodeId
+            ).catch(err => {
+                this.logger.error('Error in replayed workflow', { context: executionContext, error: err });
+            });
+        } else {
+            this.runWorkflow(
+                newExecution.id,
+                originalExecution.workflow,
+                {}, // Start from the beginning
+                executionContext,
+                tenantId
+            ).catch(err => {
+                this.logger.error('Error in replayed workflow', { context: executionContext, error: err });
+            });
+        }
+
+        return newExecution;
+    }
+
+    async resumeExecution(params: ResumeParams) {
+        const { executionId, userId, tenantId, input = {} } = params;
+
+        const execution = await this.prisma.execution.findFirst({
+            where: {
+                id: executionId,
+                workflow: { tenantId },
+                status: 'PAUSED'
+            },
+            include: { workflow: true },
+        });
+
+        if (!execution || !execution.workflow) {
+            throw new WorkflowError({
+                message: `Paused execution not found: ${executionId}`,
+                code: ErrorCode.EXECUTION_NOT_FOUND,
+                workflowId: '',
+            });
+        }
+
+        const contextLogger = this.logger.child({ executionId, workflowId: execution.workflowId, userId, tenantId, isResumed: true });
+        contextLogger.info('Workflow execution resumed');
+
+        // Update status to running
+        await this.prisma.execution.update({
+            where: { id: executionId },
+            data: { status: 'RUNNING', pausedAt: null },
+        });
+
+        const resumeState = execution.resumeState as any;
+        const allNodes = execution.workflow.nodes as unknown as WorkflowNode[];
+
+        // Restore state
+        const initialState: RunState = {
+            nodeOutputs: resumeState.nodeOutputs || {},
+            executedNodes: new Set(resumeState.executedNodes || []),
+            nodesToExecute: (resumeState.nodesToExecute || []).map((nodeId: string) => allNodes.find((n: WorkflowNode) => n.id === nodeId)).filter((n: WorkflowNode | undefined): n is WorkflowNode => !!n),
+        };
+
+        // Merge new input with the output of the node that paused the execution
+        const lastExecutedNodeId = Array.from(initialState.executedNodes).pop();
+        if (lastExecutedNodeId && initialState.nodeOutputs[lastExecutedNodeId]) {
+            Object.assign(initialState.nodeOutputs[lastExecutedNodeId], input);
+        }
+
+        this.runWorkflow(
+            execution.id,
+            execution.workflow,
+            {}, // Original input is already baked into the state
+            { executionId, workflowId: execution.workflowId, userId, tenantId },
+            tenantId,
+            undefined,
+            initialState
+        ).catch((error) => {
+            this.logger.error('Uncaught error in resumed workflow execution', {
+                error: error instanceof Error ? error : new Error(String(error)),
+            });
+        });
+
+        return execution;
+    }
+
     private async runWorkflow(
         executionId: string,
         workflow: Workflow,
         input: ExecutionInput,
         executionContext: Record<string, unknown>,
-        tenantId?: string
+        tenantId?: string,
+        startNodeId?: string,
+        initialState?: RunState
     ) {
         const startTime = Date.now();
         const contextLogger = this.logger.child(executionContext);
@@ -120,21 +281,96 @@ export class ExecutionService {
 
         try {
             // Validate workflow before execution
-            this.validateWorkflow(nodes, connections);
+            if (!initialState) { // Only validate on first run, not on resume
+                this.validateWorkflow(nodes, connections);
+            }
 
-            const nodeOutputs: Record<string, ExecutionOutput> = {};
-            const executedNodes = new Set<string>();
+            const nodeOutputs = initialState?.nodeOutputs || {};
+            const executedNodes = initialState?.executedNodes ? new Set(initialState.executedNodes) : new Set<string>();
 
-            const triggerNodes = nodes.filter(n =>
-                n.type === 'Webhook' || n.type === 'Trigger' || n.type === 'Schedule'
-            );
-
-            let nodesToExecute = triggerNodes.length > 0 ? triggerNodes : [nodes[0]];
+            let nodesToExecute: WorkflowNode[];
+            if (initialState) {
+                // If resuming, use the nodes that were pending execution
+                nodesToExecute = initialState.nodesToExecute || [];
+            } else if (startNodeId) {
+                nodesToExecute = nodes.filter(n => n.id === startNodeId);
+            } else {
+                const triggerNodes = nodes.filter(n =>
+                    n.type === 'Webhook' || n.type === 'Trigger' || n.type === 'Schedule'
+                );
+                nodesToExecute = triggerNodes.length > 0 ? triggerNodes : [nodes[0]];
+            }
 
             while (nodesToExecute.length > 0) {
+
                 const currentNode = nodesToExecute.shift()!;
 
+
+
                 if (executedNodes.has(currentNode.id)) continue;
+
+
+
+                // Skip disabled nodes
+
+                if (currentNode.enabled === false) {
+
+                    await this.prisma.nodeLog.create({
+
+                        data: {
+
+                            executionId,
+
+                            nodeId: currentNode.id,
+
+                            nodeName: currentNode.title,
+
+                            nodeType: currentNode.type,
+
+                            status: 'SKIPPED',
+
+                            input: {} as any,
+
+                        },
+
+                    });
+
+                    socketService.emitNodeStatus(executionId, currentNode.id, 'SKIPPED');
+
+                    executedNodes.add(currentNode.id); // Mark as "executed" to allow children to run
+
+
+
+                    // Add children of the skipped node to the execution queue
+
+                    const nextNodes = connections
+
+                        .filter(c => c.source === currentNode.id)
+
+                        .map(c => nodes.find(n => n.id === c.target))
+
+                        .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
+
+                    nodesToExecute.push(...nextNodes);
+
+
+
+                    continue;
+
+                }
+
+
+
+                // Check if all parents have been executed (Synchronization logic for Join/Advanced nodes)
+
+                const incomingConns = connections.filter(c => c.target === currentNode.id);
+                const allParentsExecuted = incomingConns.every(c => executedNodes.has(c.source));
+
+                if (incomingConns.length > 1 && !allParentsExecuted) {
+                    // If the node has multiple inputs and not all are ready, we skip it for now.
+                    // It will be re-queued when other parent nodes finish.
+                    continue;
+                }
 
                 const nodeInput = this.getNodeInput(currentNode.id, connections, nodeOutputs, input);
 
@@ -149,6 +385,9 @@ export class ExecutionService {
                     },
                 });
 
+                socketService.emitNodeStatus(executionId, currentNode.id, 'RUNNING');
+                socketService.emitLog(executionId, `Node execution started: ${currentNode.title}`, { nodeId: currentNode.id });
+
                 const nodeContext = {
                     ...executionContext,
                     nodeId: currentNode.id,
@@ -160,7 +399,28 @@ export class ExecutionService {
 
                 try {
                     nodeContextLogger.debug('Node execution started');
-                    const output = await this.nodeExecutor.execute(currentNode, nodeInput);
+                    const output = await this.nodeExecutor.execute(currentNode, nodeInput, tenantId, executionId);
+
+                    // Handle suspend signal
+                    if ((output as SuspendResult).isSuspended) {
+                        await this.prisma.execution.update({
+                            where: { id: executionId },
+                            data: {
+                                status: 'PAUSED',
+                                pausedAt: new Date(),
+                                resumeState: {
+                                    nodeOutputs,
+                                    executedNodes: Array.from(executedNodes),
+                                    nodesToExecute: nodesToExecute.map(n => n.id),
+                                } as any,
+                            },
+                        });
+                        contextLogger.info('Workflow execution paused');
+                        socketService.emitLog(executionId, 'Workflow execution paused', { nodeId: currentNode.id });
+                        socketService.emitExecutionStatus(executionId, 'PAUSED');
+                        return; // Stop execution
+                    }
+
                     const nodeDuration = Date.now() - nodeStartTime;
 
                     nodeOutputs[currentNode.id] = output;
@@ -175,6 +435,9 @@ export class ExecutionService {
                             duration: nodeDuration,
                         },
                     });
+
+                    socketService.emitNodeStatus(executionId, currentNode.id, 'SUCCESS', output);
+                    socketService.emitLog(executionId, `Node execution completed: ${currentNode.title}`, { nodeId: currentNode.id, duration: nodeDuration });
 
                     nodeContextLogger.debug('Node execution completed successfully', { duration: nodeDuration });
 
@@ -210,6 +473,9 @@ export class ExecutionService {
                             duration: nodeDuration,
                         },
                     });
+
+                    socketService.emitNodeStatus(executionId, currentNode.id, 'FAILED', { error: errorMessage });
+                    socketService.emitLog(executionId, `Node execution failed: ${currentNode.title}`, { nodeId: currentNode.id, error: errorMessage });
 
                     nodeContextLogger.error('Node execution failed', { error: wrappedError });
 

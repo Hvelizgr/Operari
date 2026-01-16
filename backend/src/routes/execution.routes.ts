@@ -1,11 +1,24 @@
 import { Router } from 'express';
 import { prisma } from '../server';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
-import { ExecutionService } from '../services/execution.service';
+import { ExecutionService } from '../editor/execution/execution.service';
 
 const router = Router();
 
-router.use(authenticate);
+// router.use(authenticate);
+
+// Set default anonymous user for public API access
+router.use((req: AuthRequest, _res, next) => {
+    if (!req.user) {
+        req.user = {
+            id: 'anonymous',
+            email: 'anonymous@nanoflow.local',
+            role: 'USER',
+            tenantId: 'default-tenant',
+        };
+    }
+    next();
+});
 
 /**
  * @swagger
@@ -293,6 +306,103 @@ router.post('/:id/cancel', async (req: AuthRequest, res) => {
     } catch (error) {
         req.log.error({ error }, 'Cancel execution error');
         res.status(500).json({ error: 'Failed to cancel execution' });
+    }
+});
+
+/**
+ * @swagger
+ * /executions/{id}/replay:
+ *   post:
+ *     summary: Replay an execution from a specific node
+ *     tags: [Executions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nodeId:
+ *                 type: string
+ *                 description: ID of the node to start replay from
+ *     responses:
+ *       202:
+ *         description: Replay started
+ *       404:
+ *         description: Execution or node log not found
+ */
+router.post('/:id/replay', async (req: AuthRequest, res) => {
+    try {
+        const executionId = req.params.id as string;
+        const { nodeId } = req.body;
+
+        const executionService = new ExecutionService(prisma);
+        const newExecution = await executionService.replayExecution({
+            executionId,
+            nodeId,
+            userId: req.user!.id,
+            tenantId: req.user!.tenantId,
+        });
+
+        res.status(202).json(newExecution);
+    } catch (error: any) {
+        req.log.error({ error }, 'Replay execution error');
+        res.status(error.status || 500).json({ error: error.message || 'Failed to replay execution' });
+    }
+});
+
+/**
+ * @swagger
+ * /executions/{id}/resume:
+ *   post:
+ *     summary: Resume a paused execution
+ *     tags: [Executions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               input:
+ *                 type: object
+ *                 description: Optional input data to merge for the resumed execution
+ *     responses:
+ *       200:
+ *         description: Execution resumed
+ *       404:
+ *         description: Paused execution not found
+ */
+router.post('/:id/resume', async (req: AuthRequest, res) => {
+    try {
+        const executionId = req.params.id as string;
+        const input = req.body.input || {};
+
+        const executionService = new ExecutionService(prisma);
+        const execution = await executionService.resumeExecution({
+            executionId,
+            userId: req.user!.id,
+            tenantId: req.user!.tenantId,
+            input,
+        });
+
+        res.status(200).json(execution);
+    } catch (error: any) {
+        req.log.error({ error }, 'Resume execution error');
+        res.status(error.status || 500).json({ error: error.message || 'Failed to resume execution' });
     }
 });
 

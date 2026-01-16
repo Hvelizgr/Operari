@@ -25,15 +25,77 @@ import type {
     ViewportState,
 } from '../types/editor.types';
 
-interface UseEditorCanvasProps {
-    lang: 'en' | 'es';
+// Helper: Get all descendant node IDs (handles nested frames)
+function getDescendantIds(parentId: string, nodes: WorkflowNode[]): Set<string> {
+    const descendants = new Set<string>();
+    const queue = [parentId];
+
+    while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        const children = nodes.filter(n => n.parentId === currentId);
+        for (const child of children) {
+            descendants.add(child.id);
+            if (child.type === 'custom.frame') {
+                queue.push(child.id); // Check for nested frame children
+            }
+        }
+    }
+
+    return descendants;
 }
 
-export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
+// Helper: Find the frame that contains a node based on position
+function findContainingFrame(node: WorkflowNode, nodes: WorkflowNode[]): string | undefined {
+    // Don't assign frame to itself or other frames
+    if (node.type === 'custom.frame') return undefined;
+
+    const frames = nodes.filter(n => n.type === 'custom.frame' && n.id !== node.id);
+
+    // Calculate node center (approximate node dimensions)
+    const nodeWidth = 275;
+    const nodeHeight = 120;
+    const nodeCenter = {
+        x: node.position.x + nodeWidth / 2,
+        y: node.position.y + nodeHeight / 2,
+    };
+
+    // Find the smallest (most nested) frame that contains this node
+    let containingFrame: WorkflowNode | undefined;
+    let smallestArea = Infinity;
+
+    for (const frame of frames) {
+        const frameConfig = frame.config as any;
+        const frameWidth = frameConfig?.width || 400;
+        const frameHeight = frameConfig?.height || 300;
+
+        const isInside =
+            nodeCenter.x >= frame.position.x &&
+            nodeCenter.x <= frame.position.x + frameWidth &&
+            nodeCenter.y >= frame.position.y &&
+            nodeCenter.y <= frame.position.y + frameHeight;
+
+        if (isInside) {
+            const area = frameWidth * frameHeight;
+            if (area < smallestArea) {
+                smallestArea = area;
+                containingFrame = frame;
+            }
+        }
+    }
+
+    return containingFrame?.id;
+}
+
+interface UseEditorCanvasProps {
+    lang: 'en' | 'es';
+    confettiCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
+}
+
+export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProps) {
     const windowSize = useWindowSize();
     const canvasRef = useRef<HTMLDivElement>(null);
     const { nodeTypes: dbNodeTypes } = useNodeTypes();
-    const { executeCommand, undo, redo, canUndo, canRedo } = useAdvancedUndoRedo(50);
+    const { executeCommand, undo, redo, canUndo, canRedo, history, currentIndex } = useAdvancedUndoRedo(50);
     const { highContrast, announceMessage } = useAccessibility();
     const [focusedNodeIndex, setFocusedNodeIndex] = useState(-1);
 
@@ -89,11 +151,13 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
         handleConfirmDeleteConnection,
         updateCreatingConnectionPosition,
         completeConnection,
+        createConnection,
         clearConnectionSelection,
     } = useEditorConnections({
         nodes,
         viewport,
         canvasRef,
+        confettiCanvasRef,
         executeCommand,
         announceMessage,
     });
@@ -132,6 +196,14 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
     const [deleteConnectionConfirm, setDeleteConnectionConfirm] = useState<DeleteConnectionConfirmState>({ open: false, connectionId: null });
     const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
     const [executionMetrics, setExecutionMetrics] = useState<ExecutionMetric[]>([]);
+    const [editorMode, setEditorMode] = useState<'move' | 'connect'>('move');
+    const [isRunDialogOpen, setIsRunDialogOpen] = useState(false);
+    const [isShortcutsGuideOpen, setIsShortcutsGuideOpen] = useState(false);
+
+    const handleOpenRunDialog = () => setIsRunDialogOpen(true);
+    const handleCloseRunDialog = () => setIsRunDialogOpen(false);
+    const handleOpenShortcutsGuide = () => setIsShortcutsGuideOpen(true);
+    const handleCloseShortcutsGuide = () => setIsShortcutsGuideOpen(false);
 
     // Onboarding effect
     useEffect(() => {
@@ -158,6 +230,7 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
         deleteConfirm,
         deleteConnectionConfirm,
         announceMessage,
+        setNodes,
     });
 
     // --- Event Handlers matching EditorCanvas logic ---
@@ -166,18 +239,21 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
         (e: MouseEvent<HTMLDivElement>) => {
             if (e.button === 0 && !draggingNode && !creatingConnection && canvasRef.current) {
                 const isShiftClick = e.shiftKey;
-                if (!isShiftClick) {
+
+                // Only pan if in move mode and not shift-clicking for box selection
+                if (editorMode === 'move' && !isShiftClick) {
+                    setIsPanning(!selectionBox);
+                    setPanStart({
+                        x: e.clientX - viewport.x,
+                        y: e.clientY - viewport.y,
+                    });
+                } else if (!isShiftClick) {
                     startSelectionBox(e.clientX, e.clientY);
                     setConfigNodeId(null);
                 }
-                setIsPanning(!isShiftClick && !selectionBox);
-                setPanStart({
-                    x: e.clientX - viewport.x,
-                    y: e.clientY - viewport.y,
-                });
             }
         },
-        [viewport.x, viewport.y, draggingNode, creatingConnection, selectionBox, startSelectionBox, setConfigNodeId]
+        [viewport.x, viewport.y, draggingNode, creatingConnection, selectionBox, startSelectionBox, setConfigNodeId, editorMode]
     );
 
     const handleNodeDragStartLocal = useCallback(
@@ -203,13 +279,41 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
                 y: e.clientY / viewport.zoom - nodeDragStart.y,
             };
 
-            setNodes((prevNodes: WorkflowNode[]) =>
-                prevNodes.map((node: WorkflowNode) =>
+            setNodes((prevNodes: WorkflowNode[]) => {
+                const draggedNode = prevNodes.find(n => n.id === draggingNode);
+                if (!draggedNode) return prevNodes;
+
+                // Calculate delta from old position to new position
+                const deltaX = newPosition.x - draggedNode.position.x;
+                const deltaY = newPosition.y - draggedNode.position.y;
+
+                // If dragging a frame, move all children too
+                if (draggedNode.type === 'custom.frame') {
+                    const childIds = getDescendantIds(draggingNode, prevNodes);
+                    return prevNodes.map((node: WorkflowNode) => {
+                        if (node.id === draggingNode) {
+                            return { ...node, position: newPosition };
+                        }
+                        if (childIds.has(node.id)) {
+                            return {
+                                ...node,
+                                position: {
+                                    x: node.position.x + deltaX,
+                                    y: node.position.y + deltaY,
+                                },
+                            };
+                        }
+                        return node;
+                    });
+                }
+
+                // Regular node drag
+                return prevNodes.map((node: WorkflowNode) =>
                     node.id === draggingNode
                         ? { ...node, position: newPosition }
                         : node
-                )
-            );
+                );
+            });
         },
         [draggingNode, nodeDragStart, viewport.zoom, setNodes]
     );
@@ -222,16 +326,55 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
             if (node) {
                 const finalPos = node.position;
 
+                // Check if node landed inside a frame (only for non-frame nodes)
+                const newParentId = findContainingFrame(node, nodes);
+                const oldParentId = node.parentId;
+
+                // For frames, also track children positions for undo
+                const isFrame = node.type === 'custom.frame';
+                const childIds = isFrame ? getDescendantIds(draggingNode, nodes) : new Set<string>();
+                const childrenInitialPositions = isFrame
+                    ? nodes.filter(n => childIds.has(n.id)).map(n => ({ id: n.id, position: { ...n.position } }))
+                    : [];
+                const childrenFinalPositions = isFrame
+                    ? nodes.filter(n => childIds.has(n.id)).map(n => ({ id: n.id, position: { ...n.position } }))
+                    : [];
+
+                // Calculate delta for undo of children
+                const deltaX = finalPos.x - initialPos.x;
+                const deltaY = finalPos.y - initialPos.y;
+
                 executeCommand({
                     execute: () => {
-                        setNodes(prev => prev.map(n =>
-                            n.id === draggingNode ? { ...n, position: finalPos } : n
-                        ));
+                        setNodes(prev => prev.map(n => {
+                            if (n.id === draggingNode) {
+                                return { ...n, position: finalPos, parentId: newParentId };
+                            }
+                            // Restore children final positions for frame drag
+                            const childFinal = childrenFinalPositions.find(c => c.id === n.id);
+                            if (childFinal) {
+                                return { ...n, position: childFinal.position };
+                            }
+                            return n;
+                        }));
                     },
                     undo: () => {
-                        setNodes(prev => prev.map(n =>
-                            n.id === draggingNode ? { ...n, position: { x: initialPos.x, y: initialPos.y } } : n
-                        ));
+                        setNodes(prev => prev.map(n => {
+                            if (n.id === draggingNode) {
+                                return { ...n, position: { x: initialPos.x, y: initialPos.y }, parentId: oldParentId };
+                            }
+                            // Restore children to initial positions
+                            if (childIds.has(n.id)) {
+                                return {
+                                    ...n,
+                                    position: {
+                                        x: n.position.x - deltaX,
+                                        y: n.position.y - deltaY,
+                                    },
+                                };
+                            }
+                            return n;
+                        }));
                     },
                 });
             }
@@ -302,6 +445,10 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
         setNodes(prev => [...prev, newNode]);
     }, [viewport, lang, windowSize, setNodes]);
 
+    const handleAddNode = useCallback((newNode: WorkflowNode) => {
+        setNodes(prev => [...prev, newNode]);
+    }, [setNodes]);
+
     const handleCanvasDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
@@ -345,11 +492,39 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
                     y: e.clientY / currentZoom - dragStart.y,
                 };
 
-                setNodes((prevNodes) =>
-                    prevNodes.map((n) =>
+                setNodes((prevNodes) => {
+                    const draggedNode = prevNodes.find(n => n.id === draggingNodeRef.current);
+                    if (!draggedNode) return prevNodes;
+
+                    // Calculate delta for hierarchical drag
+                    const deltaX = newPosition.x - draggedNode.position.x;
+                    const deltaY = newPosition.y - draggedNode.position.y;
+
+                    // If dragging a frame, move all children too
+                    if (draggedNode.type === 'custom.frame') {
+                        const childIds = getDescendantIds(draggingNodeRef.current!, prevNodes);
+                        return prevNodes.map((n) => {
+                            if (n.id === draggingNodeRef.current) {
+                                return { ...n, position: newPosition };
+                            }
+                            if (childIds.has(n.id)) {
+                                return {
+                                    ...n,
+                                    position: {
+                                        x: n.position.x + deltaX,
+                                        y: n.position.y + deltaY,
+                                    },
+                                };
+                            }
+                            return n;
+                        });
+                    }
+
+                    // Regular node drag
+                    return prevNodes.map((n) =>
                         n.id === draggingNodeRef.current ? { ...n, position: newPosition } : n
-                    )
-                );
+                    );
+                });
             } else if (isPanningRef.current) {
                 const start = panStartRef.current;
                 setViewport((prev) => ({
@@ -383,16 +558,29 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
     // Deletion Logic
     const handleConfirmDelete = useCallback(() => {
         if (deleteConfirm.nodeIds.length > 0) {
-            const deletedNodes = nodes.filter(n => deleteConfirm.nodeIds.includes(n.id));
+            // For frames, also collect all children that will be deleted
+            const allNodesToDelete = new Set(deleteConfirm.nodeIds);
+
+            for (const nodeId of deleteConfirm.nodeIds) {
+                const node = nodes.find(n => n.id === nodeId);
+                if (node?.type === 'custom.frame') {
+                    // Get all descendants of this frame
+                    const descendants = getDescendantIds(nodeId, nodes);
+                    descendants.forEach(id => allNodesToDelete.add(id));
+                }
+            }
+
+            const nodeIdsToDelete = Array.from(allNodesToDelete);
+            const deletedNodes = nodes.filter(n => allNodesToDelete.has(n.id));
             const deletedConnections = connections.filter(c =>
-                deleteConfirm.nodeIds.includes(c.source) || deleteConfirm.nodeIds.includes(c.target)
+                allNodesToDelete.has(c.source) || allNodesToDelete.has(c.target)
             );
 
             executeCommand({
                 execute: () => {
-                    setNodes((prev: WorkflowNode[]) => prev.filter(n => !deleteConfirm.nodeIds.includes(n.id)));
+                    setNodes((prev: WorkflowNode[]) => prev.filter(n => !allNodesToDelete.has(n.id)));
                     setConnections((prev: Connection[]) =>
-                        prev.filter(c => !deleteConfirm.nodeIds.includes(c.source) && !deleteConfirm.nodeIds.includes(c.target))
+                        prev.filter(c => !allNodesToDelete.has(c.source) && !allNodesToDelete.has(c.target))
                     );
                     setSelectedNodes(new Set());
                 },
@@ -431,6 +619,31 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
     const handleCancelDeleteConnection = useCallback(() => {
         setDeleteConnectionConfirm({ open: false, connectionId: null });
     }, []);
+
+    // Detach: Remove all connections from selected nodes
+    const handleDetachConnections = useCallback(() => {
+        if (selectedNodes.size === 0) return;
+
+        const selectedNodeIds = Array.from(selectedNodes);
+        const connectionsToRemove = connections.filter(c =>
+            selectedNodeIds.includes(c.source) || selectedNodeIds.includes(c.target)
+        );
+
+        if (connectionsToRemove.length === 0) return;
+
+        executeCommand({
+            execute: () => {
+                setConnections((prev: Connection[]) =>
+                    prev.filter(c =>
+                        !selectedNodeIds.includes(c.source) && !selectedNodeIds.includes(c.target)
+                    )
+                );
+            },
+            undo: () => {
+                setConnections((prev: Connection[]) => [...prev, ...connectionsToRemove]);
+            },
+        });
+    }, [selectedNodes, connections, executeCommand, setConnections]);
 
     const handleLoadWorkflow = useCallback((loadedNodes: WorkflowNode[], loadedConnections: Connection[]) => {
         setNodes(loadedNodes);
@@ -497,6 +710,19 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
         setViewport(newViewport);
     }, [setViewport]);
 
+    const handleContextMenuToggleEnable = useCallback(() => {
+        if (contextMenu?.nodeId) {
+            setNodes(prevNodes =>
+                prevNodes.map(node =>
+                    node.id === contextMenu.nodeId
+                        ? { ...node, enabled: !(node.enabled ?? true) }
+                        : node
+                )
+            );
+        }
+        handleCloseContextMenu();
+    }, [contextMenu, setNodes, handleCloseContextMenu]);
+
     const handleContextMenuDuplicate = useCallback(() => {
         if (contextMenu?.nodeId) {
             handleDuplicateNode(contextMenu.nodeId);
@@ -541,8 +767,12 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
         redo,
         canUndo,
         canRedo,
+        undoHistory: history,
+        undoIndex: currentIndex,
         selectionBox,
         getSelectionBoxStyle,
+        editorMode,
+        setEditorMode,
 
         // Handlers
         handleWheel,
@@ -562,17 +792,21 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
         handleDuplicateNode,
         handleContextMenuDuplicate,
         handleDeleteFromContextMenu,
-        handleNodeSelect,
-        handleNodeClick, // New stable handler
+        handleContextMenuToggleEnable,
+        handleNodeClick,
         handleNodeMove,
-        handleNodeUpdate,
+        handleNodeUpdate, // This is already here, just need to use it
+        onNodeUpdate: handleNodeUpdate, // Add this for clarity
+        setNodes, // Expose raw setter for batch updates (Auto-Layout)
         handleCloseConfigPanel,
+        setConfigNodeId,
         handleHighlightNodes,
         handleConnectionSelect: handleConnectionSelectLocal,
         handleConfirmDelete,
         handleCancelDelete,
         handleConfirmDeleteConnection: onConfirmDeleteConnection,
         handleCancelDeleteConnection,
+        handleDetachConnections,
         handleLoadWorkflow,
         handleSelectTemplate,
         handleSearchNodeSelect,
@@ -586,5 +820,10 @@ export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
         handleExecutionStateChange,
         handleNodeAddFromSearch,
         handleViewportChangeAdapter,
+        createConnection,
+        handleAddNode,
+        isRunDialogOpen,
+        handleOpenRunDialog,
+        handleCloseRunDialog,
     };
 }

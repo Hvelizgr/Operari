@@ -83,6 +83,91 @@ export interface N8nNodeConfig {
     inputMapping?: Record<string, string>; // Mapeo de inputs
 }
 
+export interface DecisionNodeConfig {
+    expression?: string; // Jexl expression
+}
+
+export interface SplitNodeConfig {
+    itemsPath?: string; // Path to array in input
+}
+
+export interface JoinNodeConfig {
+    mode?: 'wait_all' | 'first_wins';
+}
+
+export interface ShellCommandNodeConfig {
+    command?: string;
+}
+
+export interface StoreSetNodeConfig {
+    bucketName?: string;
+    key?: string;
+    value?: any;
+}
+
+export interface StoreGetNodeConfig {
+    bucketName?: string;
+    key?: string;
+}
+
+export interface SuspendNodeConfig {
+    // No config needed for now
+}
+
+export interface SetMetadataNodeConfig {
+    metadata?: Record<string, unknown>;
+}
+
+export interface CreateTicketNodeConfig {
+    webhookUrl?: string;
+    subject?: string;
+    body?: string;
+}
+
+export interface RepeatNodeConfig {
+    count?: number; // Number of times to repeat (default: 1)
+    parallel?: boolean; // Execute iterations in parallel (default: true)
+}
+
+export interface MultiplexNodeConfig {
+    targets?: string[]; // Array of target identifiers
+    stagger?: number; // Delay in ms between each target execution (default: 0)
+    continueThreshold?: number; // Percentage of successful executions required to continue (default: 100)
+}
+
+export interface LimitNodeConfig {
+    limitType?: 'time' | 'memory' | 'cpu' | 'concurrent' | 'queue' | 'daily'; // Type of limit
+    amount?: number; // Limit value (seconds for time, MB for memory, % for CPU, count for concurrent/queue/daily)
+    duration?: number; // Sustain period in seconds for CPU/memory limits
+    enabled?: boolean; // Whether the limit is active
+    onExceed?: 'abort' | 'warn' | 'skip'; // Action when limit is exceeded
+    notifyEmail?: string; // Email to notify when limit is exceeded
+    notifyWebhook?: string; // Webhook to call when limit is exceeded
+}
+
+export interface ActionNodeConfig {
+    actionType?: 'email' | 'webhook' | 'disable' | 'delete' | 'tag' | 'run_event' | 'channel'; // Type of post-job action
+    condition?: 'success' | 'error' | 'complete' | 'warning'; // When to trigger the action
+    enabled?: boolean; // Whether the action is active
+    // Email action config
+    emailTo?: string;
+    emailSubject?: string;
+    emailBody?: string;
+    emailTemplate?: string;
+    // Webhook action config
+    webhookUrl?: string;
+    webhookMethod?: 'GET' | 'POST' | 'PUT';
+    webhookHeaders?: Record<string, string>;
+    webhookBody?: string;
+    // Tag action config
+    tags?: string[];
+    // Run event action config
+    eventId?: string;
+    eventInput?: Record<string, unknown>;
+    // Channel action config (combines multiple notification targets)
+    channelTargets?: string[];
+}
+
 // Union type for all possible node configs
 export type NodeConfig =
     | HttpNodeConfig
@@ -93,6 +178,19 @@ export type NodeConfig =
     | DelayNodeConfig
     | LoopNodeConfig
     | N8nNodeConfig
+    | DecisionNodeConfig
+    | SplitNodeConfig
+    | JoinNodeConfig
+    | ShellCommandNodeConfig
+    | StoreSetNodeConfig
+    | StoreGetNodeConfig
+    | SuspendNodeConfig
+    | SetMetadataNodeConfig
+    | CreateTicketNodeConfig
+    | RepeatNodeConfig
+    | MultiplexNodeConfig
+    | LimitNodeConfig
+    | ActionNodeConfig
     | Record<string, unknown>;
 
 // Zod schema for generic node config (flexible but validated)
@@ -120,6 +218,19 @@ export type WorkflowNodeType =
     | 'Loop'
     | 'Iterator'
     | 'n8n'
+    | 'Decision'
+    | 'Split'
+    | 'Join'
+    | 'ShellCommand'
+    | 'StoreSet'
+    | 'StoreGet'
+    | 'Suspend'
+    | 'SetMetadata'
+    | 'CreateTicket'
+    | 'Repeat'
+    | 'Multiplex'
+    | 'Limit'
+    | 'Action'
     | string; // Allow custom types
 
 export interface WorkflowNode {
@@ -127,6 +238,7 @@ export interface WorkflowNode {
     type: WorkflowNodeType;
     title: string;
     position: NodePosition;
+    enabled?: boolean;
     config?: NodeConfig;
     inputs?: NodePort[];
     outputs?: NodePort[];
@@ -137,6 +249,7 @@ export const workflowNodeSchema = z.object({
     type: z.string().min(1),
     title: z.string().min(1),
     position: nodePositionSchema,
+    enabled: z.boolean().optional(),
     config: nodeConfigSchema,
     inputs: z.array(nodePortSchema).optional(),
     outputs: z.array(nodePortSchema).optional(),
@@ -256,6 +369,77 @@ export interface N8nResult extends ExecutionOutput {
     finishedAt?: string;
 }
 
+export interface DecisionResult extends ExecutionOutput {
+    decisionResult: boolean;
+    decisionValue: unknown;
+}
+
+export interface SplitResult extends ExecutionOutput {
+    splitItems: unknown[];
+    splitCount: number;
+    isSplit: boolean;
+}
+
+export interface JoinResult extends ExecutionOutput {
+    isJoined: boolean;
+    joinedAt: string;
+}
+
+export interface ShellCommandResult extends ExecutionOutput {
+    stdout?: string;
+    stderr?: string;
+}
+
+export interface StoreResult extends ExecutionOutput {
+    success: boolean;
+    key?: string;
+    value?: any;
+}
+
+export interface SuspendResult extends ExecutionOutput {
+    isSuspended: true;
+}
+
+export interface SetMetadataResult extends ExecutionOutput {
+    success: boolean;
+    metadata: Record<string, unknown>;
+}
+
+export interface CreateTicketResult extends ExecutionOutput {
+    success: boolean;
+    response: unknown;
+    webhookUrl: string;
+}
+
+export interface RepeatResult extends ExecutionOutput {
+    isRepeat: boolean;
+    repeatCount: number;
+    currentIteration: number;
+}
+
+export interface MultiplexResult extends ExecutionOutput {
+    isMultiplex: boolean;
+    targets: string[];
+    targetCount: number;
+    stagger: number;
+}
+
+export interface LimitResult extends ExecutionOutput {
+    isLimit: boolean;
+    limitType: string;
+    amount: number;
+    exceeded: boolean;
+    action: string;
+}
+
+export interface ActionResult extends ExecutionOutput {
+    isAction: boolean;
+    actionType: string;
+    condition: string;
+    executed: boolean;
+    result?: unknown;
+}
+
 // Union type for all possible node results
 export type NodeExecutionResult =
     | TriggerResult
@@ -266,6 +450,18 @@ export type NodeExecutionResult =
     | LoopResult
     | DatabaseResult
     | N8nResult
+    | DecisionResult
+    | SplitResult
+    | JoinResult
+    | ShellCommandResult
+    | StoreResult
+    | SuspendResult
+    | SetMetadataResult
+    | CreateTicketResult
+    | RepeatResult
+    | MultiplexResult
+    | LimitResult
+    | ActionResult
     | ExecutionOutput;
 
 // =============================================================================
