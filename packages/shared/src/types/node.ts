@@ -102,6 +102,10 @@ export interface ScheduleNodeConfig {
     timezone?: string;
 }
 
+export interface NoteNodeConfig {
+    text?: string;
+}
+
 // Union type for all possible node configs
 export type NodeConfig =
     | HttpNodeConfig
@@ -113,4 +117,5 @@ export type NodeConfig =
     | LoopNodeConfig
     | WebhookNodeConfig
     | ScheduleNodeConfig
+    | NoteNodeConfig
     | Record<string, unknown>;

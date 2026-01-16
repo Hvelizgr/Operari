@@ -11,21 +11,21 @@ interface GridLayerProps {
 function GridLayer({ viewport, highContrast }: GridLayerProps) {
     return (
         <svg
-            className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-50 transition-opacity duration-300"
-            style={{ zIndex: -1 }}
+            className="absolute top-0 left-0 w-full h-full pointer-events-none transition-opacity duration-300"
+            style={{ zIndex: 0 }}
         >
             <defs>
                 <pattern
                     id="grid"
-                    width={EDITOR_CONFIG.GRID.SIZE * viewport.zoom}
-                    height={EDITOR_CONFIG.GRID.SIZE * viewport.zoom}
+                    width={20 * viewport.zoom}
+                    height={20 * viewport.zoom}
                     patternUnits="userSpaceOnUse"
                 >
                     <circle
-                        cx={EDITOR_CONFIG.GRID.SIZE * viewport.zoom / 2}
-                        cy={EDITOR_CONFIG.GRID.SIZE * viewport.zoom / 2}
+                        cx={2 * viewport.zoom}
+                        cy={2 * viewport.zoom}
                         r={1}
-                        fill={highContrast ? '#444' : '#ffffff20'}
+                        fill="rgba(128,130,132,0.55)"
                     />
                 </pattern>
             </defs>
@@ -34,8 +34,8 @@ function GridLayer({ viewport, highContrast }: GridLayerProps) {
                 height="100%"
                 fill="url(#grid)"
                 animate={{
-                    x: viewport.x % (EDITOR_CONFIG.GRID.SIZE * viewport.zoom),
-                    y: viewport.y % (EDITOR_CONFIG.GRID.SIZE * viewport.zoom),
+                    x: viewport.x % (20 * viewport.zoom),
+                    y: viewport.y % (20 * viewport.zoom),
                 }}
                 transition={{
                     type: 'tween',

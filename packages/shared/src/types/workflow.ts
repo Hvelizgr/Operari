@@ -2,7 +2,7 @@
  * Core workflow types shared between frontend and backend
  */
 
-import { NodePort, NodeConfig } from './node';
+import { NodePort, NodeConfig, NoteNodeConfig } from './node';
 
 // =============================================================================
 // Position
@@ -24,16 +24,19 @@ export interface WorkflowNode {
     type: string;
     position: Position;
     title: string;
-    config?: NodeConfig;
+    config?: Record<string, any> | NoteNodeConfig;
     executionState?: ExecutionState;
-    executionData?: unknown;
+    enabled?: boolean;
     inputs?: NodePort[];
     outputs?: NodePort[];
+    parentId?: string; // Reference to parent frame node for grouping
 }
 
 // =============================================================================
 // Connection
 // =============================================================================
+
+export type ConnectionCondition = 'complete' | 'success' | 'error' | 'warning' | 'disabled';
 
 export interface Connection {
     id: string;
@@ -41,6 +44,7 @@ export interface Connection {
     target: string;
     sourcePort?: number;
     targetPort?: number;
+    condition?: ConnectionCondition; // Default: 'complete' - always executes
 }
 
 // =============================================================================

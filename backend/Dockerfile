@@ -1,8 +1,8 @@
-FROM node:20-alpine AS base
+FROM node:20 AS base
 
 FROM base AS deps
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+# standard images use glibc and have openssl
 
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
@@ -29,17 +29,16 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV production
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 expressjs
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 expressjs
 
-# Copy node_modules and shared package (needed for symlinks to work)
+# Copy node_modules and shared package
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/shared ./packages/shared
 
 # Copy backend artifacts
 COPY --from=builder /app/backend/package.json ./backend/
 COPY --from=builder /app/backend/dist ./backend/dist
-# Prisma might need schema
 COPY --from=builder /app/backend/prisma ./backend/prisma
 
 WORKDIR /app/backend

@@ -1,15 +1,11 @@
+'use client';
 
-import { useRef, MouseEvent, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import {
-    MoreHorizontal, CheckCircle2, AlertCircle, Loader2,
-} from 'lucide-react';
+import { MouseEvent, useRef, useEffect, useLayoutEffect } from 'react';
 import { NodeType, NODE_TYPES } from '../Node';
-
 import { WorkflowNode } from '@nanoflow/shared';
-
-// Removed local WorkflowNode interface
-
+// Import new CSS
+import './WorkflowNode.css';
+import * as Icons from 'lucide-react';
 
 interface EditorNodeProps {
     node: WorkflowNode;
@@ -26,18 +22,35 @@ interface EditorNodeProps {
     onClick: (nodeId: string) => void;
     onContextMenu?: (e: MouseEvent, nodeId: string) => void;
     onMove: (nodeId: string, direction: 'up' | 'down' | 'left' | 'right') => void;
+    editorMode?: 'move' | 'connect';
+    status?: 'RUNNING' | 'SUCCESS' | 'FAILED';
+    onSolderStart?: (nodeId: string, port: 'input' | 'output', initialX?: number, initialY?: number) => void;
+    onNodeDoubleClick?: (nodeId: string) => void;
+    onUpdate?: (nodeId: string, updates: Partial<WorkflowNode>) => void;
+    isConnected?: boolean;
 }
 
-// Helpers for connection lines (used by parent Canvas)
-// Updated to match the new visual anchor points
-export const getNodeInputPort = (node: WorkflowNode, portIndex: number = 0) => {
-    // Left center
-    return { x: node.position.x, y: node.position.y + 36 };
+// ... helpers logic remains ...
+export const getNodeInputPort = (node: WorkflowNode & { dimensions?: { height: number } }, portIndex: number = 0) => {
+    // ... logic ...
+    const type = node.type.toLowerCase();
+    if (type.includes('trigger') || type === 'start') return { x: node.position.x, y: node.position.y + 32 };
+    if (type.includes('controller') || type === 'condition') return { x: node.position.x, y: node.position.y + 32 };
+    if (type.includes('action') || type.includes('email') || type.includes('slack')) return { x: node.position.x, y: node.position.y + 32 };
+    if (type.includes('limit')) return { x: node.position.x + 32, y: node.position.y };
+    const height = node.dimensions?.height || 120;
+    return { x: node.position.x, y: node.position.y + (height / 2) };
 };
 
-export const getNodeOutputPort = (node: WorkflowNode, portIndex: number = 0) => {
-    // Right center
-    return { x: node.position.x + 220, y: node.position.y + 36 };
+export const getNodeOutputPort = (node: WorkflowNode & { dimensions?: { height: number } }, portIndex: number = 0) => {
+    // ... logic ...
+    const type = node.type.toLowerCase();
+    if (type.includes('trigger') || type === 'start') return { x: node.position.x + 64, y: node.position.y + 32 };
+    if (type.includes('controller') || type === 'condition') return { x: node.position.x + 128, y: node.position.y + 32 };
+    if (type.includes('action') || type.includes('email') || type.includes('slack')) return { x: node.position.x + 64, y: node.position.y + 32 };
+    if (type.includes('limit')) return { x: node.position.x + 32, y: node.position.y + 64 };
+    const height = node.dimensions?.height || 120;
+    return { x: node.position.x + 275, y: node.position.y + (height / 2) };
 };
 
 export default function EditorNode({
@@ -45,158 +58,300 @@ export default function EditorNode({
     typeDefinition,
     onDragStart,
     isDragging,
-    onPortDragStart,
-    isConnectionTarget,
     isSelected,
     isHighlighted,
     onClick,
     onContextMenu,
+    editorMode = 'move',
+    status,
+    onSolderStart,
+    onNodeDoubleClick,
+    onUpdate,
+    isConnected = true
 }: EditorNodeProps) {
-    // 1. Resolve Node Type Information
+    const nodeRef = useRef<HTMLDivElement>(null);
     const nodeType = typeDefinition || NODE_TYPES.find(t => t.type === node.type);
-    const nodeColor = nodeType?.color || 'bg-slate-600';
 
-    // 2. Resolve Ports (Inputs/Outputs)
-    // If not in DB definition, fallback to basic Trigger/Action logic
-    // 2. Resolve Ports (Inputs/Outputs) with Normalization
-    const rawInputs = (nodeType?.inputs as any[]) ||
-        (node?.type.toLowerCase().includes('trigger') ? [] : ['main']);
-    const inputPorts = rawInputs.map(p => typeof p === 'string' ? { name: p, type: p } : p);
+    // Measure Height
+    useLayoutEffect(() => {
+        if (!nodeRef.current || !onUpdate) return;
+        const resizeObserver = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                const { height } = entry.contentRect;
+                // Avoid infinite loops by checking threshold
+                const currentHeight = (node as any).dimensions?.height;
+                if (!currentHeight || Math.abs(currentHeight - height) > 2) {
+                    // Adding 4px for border/padding discrepancies if contentRect is smaller than offsetHeight
+                    // Actually contentRect is what we want if we center in content. 
+                    // But offsetHeight includes borders. 
+                    // Let's use bounding client rect for full visual height.
+                    const rect = entry.target.getBoundingClientRect();
+                    // Zoom affects this? No, we want logical pixels.
+                    // The observer gives pixels.
+                    // IMPORTANT: If zoom is applied on parent, observer results might be scaled.
+                    // But EditorNode is inside a transform. 
+                    // We need unscaled height?
+                    // Actually, if we use offsetHeight from the element, it is the layout height.
+                    const element = entry.target as HTMLElement;
+                    const finalHeight = element.offsetHeight;
 
-    const rawOutputs = (nodeType?.outputs as any[]) || ['main'];
-    const outputPorts = rawOutputs.map(p => typeof p === 'string' ? { name: p, type: p } : p);
+                    if (!currentHeight || Math.abs(currentHeight - finalHeight) > 2) {
+                        onUpdate(node.id, { dimensions: { height: finalHeight, width: element.offsetWidth } } as any);
+                    }
+                }
+            }
+        });
 
-    // 3. Render Handle Helper
-    const renderHandle = (port: any, index: number, isInput: boolean) => {
-        const isMain = port.type === 'main';
-        // AI ports (or anything not main) go to bottom
-        const isBottom = !isMain;
+        resizeObserver.observe(nodeRef.current);
+        return () => resizeObserver.disconnect();
+    }, [node.id, onUpdate, (node as any).dimensions?.height]);
 
-        // Style Logic
-        let shapeClass = "rounded-full"; // Default circle
-        const sizeClass = "w-3 h-3";
-        let colorClass = isInput ? "bg-slate-200 border-slate-500" : "bg-slate-200 border-slate-500";
-
-        if (isBottom) {
-            shapeClass = "rotate-45 rounded-[2px]"; // Diamond
-            colorClass = "bg-purple-400 border-purple-600 shadow-sm shadow-purple-500/50";
+    const renderIcon = (icon: any, size = 16) => {
+        if (!icon) return <Icons.Box size={size} />;
+        if (typeof icon === 'object' && icon !== null) return icon;
+        if (typeof icon === 'function') {
+            const I = icon;
+            return <I size={size} />;
         }
-
-        // Position Logic
-        let style: React.CSSProperties = {};
-
-        if (isMain) {
-            style = {
-                top: '50%',
-                marginTop: '-6px', // half height
-                [isInput ? 'left' : 'right']: '-6px', // half width overlap
-            };
-            // Main inputs allow "+" hover
-        } else {
-            // Bottom ports distributed
-            const relevantPorts = isInput ? inputPorts.filter(p => p.type !== 'main') : outputPorts.filter(p => p.type !== 'main');
-            const idx = relevantPorts.indexOf(port);
-            const count = relevantPorts.length;
-            // Distribute evenly
-            const step = 100 / (count + 1);
-            style = {
-                bottom: '-6px',
-                left: `${step * (idx + 1)}%`,
-                marginLeft: '-6px',
-            };
-        }
-
-        return (
-            <div
-                key={`${isInput ? 'in' : 'out'}-${port.name}-${index}`}
-                className={`absolute ${sizeClass} ${shapeClass} ${colorClass} border transition-all z-20 cursor-crosshair flex items-center justify-center group/handle`}
-                style={style}
-                onMouseDown={(e) => {
-                    e.stopPropagation();
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    onPortDragStart(node.id, port.name, isInput ? 'target' : 'source', {
-                        x: rect.x + rect.width / 2,
-                        y: rect.y + rect.height / 2
-                    });
-                }}
-            >
-                {/* Port Label Tooltip (Always visible for AI/Bottom ports) */}
-                {isBottom && (
-                    <div className="absolute top-4 text-[9px] font-bold text-slate-400 whitespace-nowrap bg-slate-900/90 px-1.5 py-0.5 rounded pointer-events-none uppercase tracking-wider shadow-sm border border-slate-800">
-                        {port.label || port.name}
-                    </div>
-                )}
-
-                {/* Hover Add Button (Only for main outputs usually, or main inputs) */}
-                {isMain && !isDragging && (
-                    <div className="hidden group-hover/handle:flex absolute -top-5 left-1/2 -translate-x-1/2 bg-blue-500 text-white rounded-full w-4 h-4 items-center justify-center text-[10px] shadow-sm animate-in fade-in zoom-in duration-200">
-                        +
-                    </div>
-                )}
-            </div>
-        );
+        return <Icons.Box size={size} />;
     };
 
+    // Determine Visual Type
+    const type = node.type.toLowerCase();
+    let visualType = 'job';
+    if (type.includes('trigger') || type === 'start') visualType = 'trigger';
+    else if (type.includes('controller') || type === 'condition') visualType = 'controller';
+    else if (type.includes('limit')) visualType = 'limit';
+    else if (type.includes('action') || type.includes('email') || type.includes('slack') || type.includes('discord')) visualType = 'action';
+
+    // Validation Badge
+    // Notes are handled in parent, triggers/starts don't always need inputs but should have outputs.
+    // If we only check "is connected to ANYTHING", then independent triggers show error?
+    // User requested: "Si un nodo requiere conexión". Triggers require output connection generally? Or is just fine alone?
+    // Usually a workflow needs flow. A trigger alone does nothing.
+    // The prop `isConnected` comes from `connections.some(...)`.
+    // So if a trigger has NO connections, it is isolated.
+    const showValidation = !isConnected;
+
+    // Don't show validation limits/controllers if logic implies optional? 
+    // Actually, let's stick to "Is it connected to anything?".
+    // We already moved Notes to separate component in NodesLayer, so no need to check here if logic was moved effectively.
+    // But `visualType` check might be safe.
+
+    const ValidationBadge = () => (
+        showValidation && (
+            <div
+                className="absolute -top-2 -right-2 z-50 bg-red-500 rounded-full w-5 h-5 flex items-center justify-center border border-white shadow-sm animate-pulse pointer-events-none"
+                title="Disconnected Node"
+            >
+                <Icons.AlertCircle size={12} className="text-white" />
+            </div>
+        )
+    );
+
+    const commonProps = {
+        id: `d_wfn_${node.id}`,
+        // ref: nodeRef,  <-- We will add ref to specific divs below
+        style: {
+            left: node.position.x,
+            top: node.position.y,
+            zIndex: isSelected || isDragging ? 10 : 3
+        },
+        onMouseDown: (e: MouseEvent) => {
+            if ((e.target as HTMLElement).closest('.wf_pole_button')) return;
+            if (editorMode !== 'connect') onDragStart(node.id, e);
+        },
+        onClick: (e: MouseEvent) => {
+            if ((e.target as HTMLElement).closest('.wf_pole_button')) return;
+            e.stopPropagation();
+            onClick(node.id);
+        },
+        onDoubleClick: (e: MouseEvent) => {
+            e.stopPropagation();
+            onNodeDoubleClick && onNodeDoubleClick(node.id);
+        },
+        onContextMenu: (e: MouseEvent) => onContextMenu && onContextMenu(e, node.id),
+    } as const;
+
+    // --- CONTROLLER (Pill) ---
+    if (visualType === 'controller') {
+        return (
+            <div
+                ref={nodeRef}
+                className={`wf_node wf_entity ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`}
+                {...commonProps}
+            >
+                <ValidationBadge />
+                <div className="wf_ent_controller">
+                    {/* Input Pole (Purple) */}
+                    <div
+                        className="wf_pole_button wf_input_pole"
+                        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                    >
+                        <Icons.ChevronRight size={12} />
+                    </div>
+
+                    <span className="flex items-center justify-center h-full w-full relative">
+                        {renderIcon(nodeType?.icon, 32)}
+                    </span>
+
+                    {/* Output Pole (Purple) */}
+                    <div
+                        className="wf_pole_button wf_output_pole"
+                        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                    >
+                        <Icons.ChevronRight size={12} />
+                    </div>
+                </div>
+                <span className="wf_ent_title">{nodeType?.category || 'Controller'}</span>
+                <span className="wf_ent_label">{node.title}</span>
+            </div>
+        );
+    }
+
+    // --- LIMIT (Diamond) ---
+    if (visualType === 'limit') {
+        return (
+            <div
+                className={`wf_node wf_entity ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`}
+                {...commonProps}
+            >
+                <ValidationBadge />
+                <div className="wf_ent_limit">
+                    {/* Up Pole (Input) - Handled by CSS rotation magic but we need structure */}
+                    <div
+                        className="wf_pole_button wf_up_pole"
+                        title="Input (Limit)"
+                        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                    >
+                        <Icons.ChevronDown size={12} style={{ transform: 'rotate(225deg)' }} /> {/* Counter rotate? CSS handles some */}
+                    </div>
+
+                    <span className="flex items-center justify-center h-full w-full relative" style={{ transform: 'rotate(-45deg)' }}>
+                        {renderIcon(nodeType?.icon, 32)}
+                    </span>
+
+                    {/* Down Pole (Output) - Implicitly handled or we add it? CSS says .wf_down_pole */}
+                    {/* For Limit, typically Output is NOT on the diamond tip in xyOps CSS, it's usually handled by .wf_down_pole relative to container? 
+                        Let's check CSS... Ah, wf_ent_limit > .wf_up_pole is styled. 
+                        Usually limits sit in the flow. Let's add standard poles but styled. 
+                        Actually, looking at CSS, .wf_ent_limit transforms rotate(45deg). 
+                        Inside it, content needs -45deg.
+                    */}
+                </div>
+                {/* For Limit, output is often just flow through or specific logic. We'll add a Down pole at bottom center of containing div if needed, 
+                    but sticking to strict CSS interpretation: Limit usually has UP pole (input). 
+                    Let's assume standard Output pole (Down) is attached to container.
+                    Wait, CSS .wf_pole_button.wf_down_pole is defined generally.
+                */}
+                <div
+                    className="wf_pole_button wf_down_pole"
+                    style={{ left: '50%', top: 'calc(100% + 5px)' }}
+                    onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                >
+                    <Icons.ChevronDown size={12} />
+                </div>
+
+                <span className="wf_ent_title">{nodeType?.category || 'Limit'}</span>
+                <span className="wf_ent_label">{node.title}</span>
+            </div>
+        );
+    }
+
+    // --- TRIGGER ---
+    if (visualType === 'trigger') {
+        return (
+            <div
+                className={`wf_node wf_entity ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`}
+                {...commonProps}
+            >
+                <ValidationBadge />
+                <div className="wf_ent_trigger">
+                    <span className="flex items-center justify-center h-full w-full relative" style={{ left: '-6px' }}>
+                        {renderIcon(nodeType?.icon, 32)}
+                    </span>
+                    <div
+                        className="wf_pole_button wf_output_pole"
+                        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                    >
+                        <Icons.ChevronRight size={12} />
+                    </div>
+                </div>
+                <span className="wf_ent_title">{nodeType?.category || 'Trigger'}</span>
+                <span className="wf_ent_label">{node.title}</span>
+            </div>
+        );
+    }
+
+    // --- ACTION (Semicircle) ---
+    if (visualType === 'action') {
+        return (
+            <div
+                className={`wf_node wf_entity ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`}
+                {...commonProps}
+            >
+                <ValidationBadge />
+                <div className="wf_ent_action">
+                    <div
+                        className="wf_pole_button wf_input_pole"
+                        onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                    >
+                        <Icons.ChevronRight size={12} />
+                    </div>
+                    <span className="flex items-center justify-center h-full w-full relative" style={{ left: '6px' }}>
+                        {renderIcon(nodeType?.icon, 32)}
+                    </span>
+                </div>
+                <span className="wf_ent_title">{nodeType?.category || 'Action'}</span>
+                <span className="wf_ent_label">{node.title}</span>
+            </div>
+        );
+    }
+
+    // --- JOB (Standard) ---
     return (
-        <motion.div
+        <div
             className={`
-                absolute w-[220px] rounded-xl flex flex-col
-                group transition-all duration-200
-                ${isSelected
-                    ? 'ring-2 ring-orange-400 shadow-lg shadow-orange-900/20 z-30'
-                    : 'hover:ring-1 hover:ring-slate-500 shadow-md shadow-black/40 z-10'}
-                ${isDragging ? 'cursor-grabbing scale-105 z-50' : 'cursor-grab'}
-                bg-[#18181b] border border-slate-700
+                wf_node wf_event 
+                ${isSelected ? 'selected' : ''}
+                ${isDragging ? 'dragging' : ''}
+                ${status === 'RUNNING' ? 'wf_active' : ''}
+                ${status === 'SUCCESS' ? 'wf_completed' : ''}
+                ${status === 'FAILED' ? 'wf_error' : ''}
             `}
-            style={{ x: node.position.x, y: node.position.y }}
-            initial={false}
-            onMouseDown={(e) => onDragStart(node.id, e)}
-            onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onClick(node.id);
-            }}
-            onContextMenu={(e) => onContextMenu && onContextMenu(e, node.id)}
+            ref={nodeRef}
+            {...commonProps}
         >
-            {/* --- HEADER --- */}
-            <div className="flex items-center gap-3 p-3 select-none">
-                {/* Icon Container */}
-                <div className={`
-                    w-10 h-10 rounded-lg flex items-center justify-center shadow-inner text-white shrink-0
-                    ${nodeColor}
-                `}>
-                    {nodeType?.icon}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <div className="text-[13px] font-bold text-slate-100 truncate leading-tight">
-                        {node.title}
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-                        {nodeType?.description?.en || node.type.split('.').pop()}
-                    </div>
-                </div>
-
-                {/* Status */}
-                {node.executionState && node.executionState !== 'idle' && (
-                    <div className="absolute -top-1 -right-1 bg-slate-900 rounded-full border border-slate-700 p-0.5 shadow-sm">
-                        {node.executionState === 'running' && <Loader2 size={14} className="text-blue-400 animate-spin" />}
-                        {node.executionState === 'success' && <CheckCircle2 size={14} className="text-emerald-500" />}
-                        {node.executionState === 'error' && <AlertCircle size={14} className="text-rose-500" />}
-                    </div>
-                )}
+            <ValidationBadge />
+            <div className="wf_event_title">
+                <span className="mr-1 opacity-50"><Icons.GripVertical size={16} /></span>
+                <span className="mr-2 inline-flex items-center">{renderIcon(nodeType?.icon, 16)}</span>
+                {node.title}
             </div>
 
-            {/* Settings Hover */}
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <MoreHorizontal size={14} className="text-slate-500 hover:text-slate-300" />
+            <div className="wf_body">
+                <div className="summary_grid double">
+                    <div>
+                        <div className="info_label">Category</div>
+                        <div className="info_value">{nodeType?.category || 'General'}</div>
+                    </div>
+                    <div>
+                        <div className="info_label">Type</div>
+                        <div className="info_value capitalize">{node.type.replace('_', ' ')}</div>
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                        <div className="info_label">Description</div>
+                        <div className="info_value truncate">{nodeType?.description?.en || ''}</div>
+                    </div>
+                </div>
             </div>
 
-            {/* --- PORTS --- */}
-            {inputPorts.map((p, i) => renderHandle(p, i, true))}
-            {outputPorts.map((p, i) => renderHandle(p, i, false))}
-
-        </motion.div>
+            <div className="wf_pole_button wf_input_pole" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}>
+                <Icons.ChevronRight size={12} />
+            </div>
+            <div className="wf_pole_button wf_output_pole" onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}>
+                <Icons.ChevronRight size={12} />
+            </div>
+        </div>
     );
 }

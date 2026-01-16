@@ -3,7 +3,7 @@
 import { AlertCircle } from 'lucide-react';
 import { Onboarding, ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES, EmptyStateMessage, ConfirmDialog, ContextMenu } from '../Common';
 import { WorkflowRunner, SaveLoadMenu, TemplateGallery } from '../Workflow';
-import { NodeConfigPanel } from '../Node';
+import PropertiesPanel from './PropertiesPanel';
 import { MiniMap, SearchBar, ZoomControls } from '../Navigation';
 import { MetricsDashboard } from '../Dashboard';
 import type { NodeType } from '../Node';
@@ -55,12 +55,21 @@ interface EditorOverlaysProps {
     onContextMenuClose: () => void;
     onContextMenuDuplicate: () => void;
     onContextMenuDelete: () => void;
+    onContextMenuToggleEnable: () => void;
+    onContextMenuTestFromNode: () => void;
 
     // Zoom
     onZoomIn: () => void;
     onZoomOut: () => void;
     onFitView: () => void;
     onResetZoom: () => void;
+
+    // Solder Drop
+    solderDropPos?: { x: number; y: number } | null;
+    onSolderDropCancel?: () => void;
+
+    // External Triggers
+    searchTrigger?: number;
 }
 
 export default function EditorOverlays({
@@ -98,19 +107,29 @@ export default function EditorOverlays({
     onContextMenuClose,
     onContextMenuDuplicate,
     onContextMenuDelete,
+    onContextMenuToggleEnable,
+    onContextMenuTestFromNode,
     onZoomIn,
     onZoomOut,
     onFitView,
     onResetZoom,
+    solderDropPos,
+    onSolderDropCancel,
+    searchTrigger
 }: EditorOverlaysProps & { selectedNodesCount: number }) {
     const configNode = configNodeId ? nodes.find(n => n.id === configNodeId) : null;
 
     return (
         <>
+            {/* ... other elements ... */}
             <div className="absolute bottom-4 right-4 bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg text-xs text-slate-300 font-mono pointer-events-none">
                 Zoom: {Math.round(viewport.zoom * 100)}% | Pan: ({Math.round(viewport.x)}, {Math.round(viewport.y)}) | Nodes: {nodes.length} | Selected: {selectedNodesCount}
             </div>
 
+            {/* ... other elements ... */}
+            {/* SearchBar gets searchTrigger */}
+
+            {/* ALERT: Recreating JSX context to match replace */}
             {cycleError && (
                 <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2">
                     <AlertCircle size={18} />
@@ -147,7 +166,35 @@ export default function EditorOverlays({
                 onHighlightNodes={onHighlightNodes}
                 lang={lang}
                 availableNodeTypes={dbNodeTypes}
+                externalTrigger={searchTrigger}
             />
+
+            {/* Contextual Search Bar for Solder Drop */}
+            {solderDropPos && (
+                <div onClick={(e) => e.stopPropagation()}>
+                    <SearchBar
+                        nodes={nodes}
+                        onNodeSelect={(id) => {
+                            onSearchNodeSelect(id);
+                            onSolderDropCancel && onSolderDropCancel();
+                        }}
+                        onNodeAdd={(type) => {
+                            onNodeAdd(type);
+                            // Ensure the parent canvas handles the connection logic
+                        }}
+                        onHighlightNodes={onHighlightNodes}
+                        lang={lang}
+                        availableNodeTypes={dbNodeTypes}
+                        position={solderDropPos}
+                        forceOpen={true}
+                    />
+                    {/* Invisible overlay to catch clicks outside and cancel solder */}
+                    <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => onSolderDropCancel && onSolderDropCancel()}
+                    />
+                </div>
+            )}
 
             <MetricsDashboard
                 metrics={executionMetrics}
@@ -196,12 +243,14 @@ export default function EditorOverlays({
             />
 
             {configNode && (
-                <NodeConfigPanel
+                <PropertiesPanel
                     node={configNode}
                     nodeTypeDefinition={dbNodeTypes.find(t => t.type === configNode.type)}
                     onUpdate={onConfigUpdate}
                     onClose={onConfigClose}
                     lang={lang}
+                    nodes={nodes}
+                    connections={connections}
                 />
             )}
 
@@ -212,6 +261,8 @@ export default function EditorOverlays({
                     onClose={onContextMenuClose}
                     onDuplicate={onContextMenuDuplicate}
                     onDelete={onContextMenuDelete}
+                    onToggleEnable={onContextMenuToggleEnable}
+                    onTestFromNode={onContextMenuTestFromNode}
                     lang={lang}
                     type={contextMenu.type}
                 />

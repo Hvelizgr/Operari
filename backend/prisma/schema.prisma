@@ -36,8 +36,23 @@ model Tenant {
 
   users     User[]
   workflows Workflow[]
+  storageBuckets StorageBucket[]
 
   @@index([slug])
+}
+
+model StorageBucket {
+  id        String   @id @default(uuid())
+  name      String
+  data      Json     @default("{}")
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
 }
 
 model Workflow {
@@ -75,6 +90,7 @@ model WorkflowNode {
   title      String
   positionX  Float
   positionY  Float
+  enabled    Boolean  @default(true)
   config     Json?    // Node-specific configuration (HTTP settings, email templates, etc.)
   inputs     Json?    // Array of input ports
   outputs    Json?    // Array of output ports
@@ -119,6 +135,9 @@ model Execution {
   completedAt DateTime?
   duration    Int?
   error       String?
+  pausedAt    DateTime?
+  resumeState Json?
+  metadata    Json?
 
   workflow        Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   user            User             @relation(fields: [userId], references: [id])
@@ -226,6 +245,7 @@ enum ExecutionStatus {
   SUCCESS
   FAILED
   CANCELLED
+  PAUSED
 }
 
 enum NodeLogStatus {

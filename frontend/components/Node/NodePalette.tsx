@@ -9,7 +9,7 @@ import {
     AlertCircle, CheckCircle, XCircle, List, Grid, Shuffle,
     Users, DollarSign, ShoppingBag, HardDrive, Smartphone, Radio,
     Twitter, Facebook, Instagram, Linkedin, CreditCard, Box,
-    Megaphone, Bell, Shield, Lock, Briefcase
+    Megaphone, Bell, Shield, Lock, Briefcase, Square, StickyNote
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
@@ -29,6 +29,7 @@ export interface NodeType {
 const CATEGORIES = [
     { id: 'triggers', label: { en: 'Triggers', es: 'Disparadores' }, icon: Play, color: 'text-green-400' },
     { id: 'core', label: { en: 'Core', es: 'Core' }, icon: Zap, color: 'text-blue-400' },
+    { id: 'organization', label: { en: 'Organization', es: 'Organización' }, icon: Folder, color: 'text-slate-400' },
     { id: 'ai', label: { en: 'AI & LLM', es: 'IA y LLM' }, icon: MessageSquare, color: 'text-rose-400' },
     { id: 'flow', label: { en: 'Flow', es: 'Flujo' }, icon: GitBranch, color: 'text-yellow-400' },
     { id: 'data', label: { en: 'Data', es: 'Datos' }, icon: Shuffle, color: 'text-purple-400' },
@@ -43,33 +44,163 @@ const CATEGORIES = [
 
 // n8n actual nodes
 const NODE_TYPES: NodeType[] = [
+    // === ORGANIZATION ===
+    {
+        type: 'custom.frame',
+        icon: <Square size={18} />,
+        label: { en: 'Frame', es: 'Marco' },
+        color: 'bg-slate-600',
+        category: 'organization',
+        description: { en: 'Group nodes together', es: 'Agrupar nodos' },
+        properties: [
+            { name: 'title', displayName: 'Title', type: 'string', default: 'Frame' },
+            { name: 'color', displayName: 'Color', type: 'color', default: '#3791f5' },
+        ]
+    },
+    {
+        type: 'custom.note',
+        icon: <StickyNote size={18} />,
+        label: { en: 'Note', es: 'Nota' },
+        color: 'bg-slate-600',
+        category: 'organization',
+        description: { en: 'Add a text note', es: 'Agregar nota de texto' },
+        properties: [
+            { name: 'text', displayName: 'Text', type: 'string', typeOptions: { rows: 5 }, default: '' },
+        ]
+    },
+
     // === AI & LLM ===
-    { type: 'n8n-nodes-base.openAi', icon: <MessageSquare size={18} />, label: { en: 'OpenAI', es: 'OpenAI' }, color: 'bg-rose-500', category: 'ai', description: { en: 'Interact with OpenAI models', es: 'Modelos OpenAI' } },
+    {
+        type: 'n8n-nodes-base.openAi',
+        icon: <MessageSquare size={18} />,
+        label: { en: 'OpenAI', es: 'OpenAI' },
+        color: 'bg-rose-500',
+        category: 'ai',
+        description: { en: 'Interact with OpenAI models', es: 'Modelos OpenAI' },
+        properties: [
+            { name: 'resource', displayName: 'Resource', type: 'options', options: [{ name: 'Chat', value: 'chat' }, { name: 'Image', value: 'image' }, { name: 'Audio', value: 'audio' }], default: 'chat' },
+            { name: 'model', displayName: 'Model', type: 'options', options: [{ name: 'GPT-4', value: 'gpt-4' }, { name: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' }], default: 'gpt-3.5-turbo' },
+            { name: 'prompt', displayName: 'Prompt', type: 'string', typeOptions: { rows: 5, expression: true } },
+            { name: 'systemMessage', displayName: 'System Message', type: 'string', typeOptions: { rows: 3, expression: true } }
+        ]
+    },
     { type: 'n8n-nodes-base.langChain', icon: <GitBranch size={18} />, label: { en: 'LangChain Agent', es: 'Agente LangChain' }, color: 'bg-rose-500', category: 'ai', description: { en: 'Build LLM chains', es: 'Cadenas LLM' }, inputs: ['main', 'ai_tool', 'ai_memory'] },
     { type: 'n8n-nodes-base.huggingFace', icon: <MessageSquare size={18} />, label: { en: 'HuggingFace', es: 'HuggingFace' }, color: 'bg-rose-500', category: 'ai', description: { en: 'HuggingFace models', es: 'Modelos HuggingFace' } },
     { type: 'n8n-nodes-base.anthropic', icon: <MessageSquare size={18} />, label: { en: 'Anthropic', es: 'Anthropic' }, color: 'bg-rose-500', category: 'ai', description: { en: 'Claude models', es: 'Modelos Claude' } },
     { type: 'n8n-nodes-base.stabilityAi', icon: <Box size={18} />, label: { en: 'Stability AI', es: 'Stability AI' }, color: 'bg-rose-500', category: 'ai', description: { en: 'Image generation', es: 'Generación imagenes' } },
 
     // === TRIGGERS ===
-    { type: 'n8n-nodes-base.webhook', icon: <Webhook size={18} />, label: { en: 'Webhook', es: 'Webhook' }, color: 'bg-green-500', category: 'triggers', description: { en: 'Starts on HTTP request', es: 'Inicia con HTTP request' } },
-    { type: 'n8n-nodes-base.scheduleTrigger', icon: <Clock size={18} />, label: { en: 'Schedule', es: 'Cronograma' }, color: 'bg-green-500', category: 'triggers', description: { en: 'Run on schedule', es: 'Ejecutar programado' } },
+    {
+        type: 'n8n-nodes-base.webhook',
+        icon: <Webhook size={18} />,
+        label: { en: 'Webhook', es: 'Webhook' },
+        color: 'bg-green-500',
+        category: 'triggers',
+        description: { en: 'Starts on HTTP request', es: 'Inicia con HTTP request' },
+        properties: [
+            { name: 'httpMethod', displayName: 'HTTP Method', type: 'options', options: [{ name: 'GET', value: 'GET' }, { name: 'POST', value: 'POST' }], default: 'GET' },
+            { name: 'path', displayName: 'Path', type: 'string', default: 'webhook-demo' },
+            { name: 'responseMode', displayName: 'Response Mode', type: 'options', options: [{ name: 'On Received', value: 'onReceived' }, { name: 'Last Node', value: 'lastNode' }], default: 'onReceived' }
+        ]
+    },
+    {
+        type: 'n8n-nodes-base.scheduleTrigger',
+        icon: <Clock size={18} />,
+        label: { en: 'Schedule', es: 'Cronograma' },
+        color: 'bg-green-500',
+        category: 'triggers',
+        description: { en: 'Run on schedule', es: 'Ejecutar programado' },
+        properties: [
+            { name: 'rule', displayName: 'Trigger Interval', type: 'options', options: [{ name: 'Seconds', value: 'seconds' }, { name: 'Minutes', value: 'minutes' }, { name: 'Hours', value: 'hours' }, { name: 'Days', value: 'days' }], default: 'minutes' },
+            { name: 'value', displayName: 'Value', type: 'number', default: 1 }
+        ]
+    },
     { type: 'n8n-nodes-base.manualTrigger', icon: <Play size={18} />, label: { en: 'Manual', es: 'Manual' }, color: 'bg-green-500', category: 'triggers', description: { en: 'Start manually', es: 'Iniciar manualmente' } },
     { type: 'n8n-nodes-base.cron', icon: <Clock size={18} />, label: { en: 'Cron', es: 'Cron' }, color: 'bg-green-500', category: 'triggers', description: { en: 'Unix cron schedule', es: 'Cronograma Unix' } },
 
     // === CORE ===
-    { type: 'n8n-nodes-base.httpRequest', icon: <Globe size={18} />, label: { en: 'HTTP Request', es: 'Petición HTTP' }, color: 'bg-blue-500', category: 'core', description: { en: 'Make HTTP requests', es: 'Hacer petición HTTP' } },
-    { type: 'n8n-nodes-base.code', icon: <Code size={18} />, label: { en: 'Code', es: 'Código' }, color: 'bg-blue-500', category: 'core', description: { en: 'Run JavaScript', es: 'Ejecutar JavaScript' } },
+    {
+        type: 'n8n-nodes-base.httpRequest',
+        icon: <Globe size={18} />,
+        label: { en: 'HTTP Request', es: 'Petición HTTP' },
+        color: 'bg-blue-500',
+        category: 'core',
+        description: { en: 'Make HTTP requests', es: 'Hacer petición HTTP' },
+        properties: [
+            { name: 'method', displayName: 'Method', type: 'options', options: [{ name: 'GET', value: 'GET' }, { name: 'POST', value: 'POST' }, { name: 'PUT', value: 'PUT' }, { name: 'DELETE', value: 'DELETE' }], default: 'GET' },
+            { name: 'url', displayName: 'URL', type: 'string', default: 'https://', typeOptions: { expression: true } },
+            { name: 'authentication', displayName: 'Authentication', type: 'options', options: [{ name: 'None', value: 'none' }, { name: 'Header Auth', value: 'headerAuth' }], default: 'none' },
+            { name: 'sendBody', displayName: 'Send Body', type: 'boolean', default: false }
+        ]
+    },
+    {
+        type: 'n8n-nodes-base.code',
+        icon: <Code size={18} />,
+        label: { en: 'Code', es: 'Código' },
+        color: 'bg-blue-500',
+        category: 'core',
+        description: { en: 'Run JavaScript', es: 'Ejecutar JavaScript' },
+        properties: [
+            { name: 'language', displayName: 'Language', type: 'options', options: [{ name: 'JavaScript', value: 'js' }], default: 'js' },
+            { name: 'code', displayName: 'Code', type: 'string', typeOptions: { rows: 10, expression: false }, default: '// Custom code here\nreturn items;' }
+        ]
+    },
     { type: 'n8n-nodes-base.function', icon: <Hash size={18} />, label: { en: 'Function', es: 'Función' }, color: 'bg-blue-500', category: 'core', description: { en: 'Transform data', es: 'Transformar datos' } },
     { type: 'n8n-nodes-base.set', icon: <Settings size={18} />, label: { en: 'Set', es: 'Set' }, color: 'bg-blue-500', category: 'core', description: { en: 'Set values', es: 'Fijar valores' } },
     { type: 'n8n-nodes-base.executeWorkflow', icon: <Play size={18} />, label: { en: 'Execute Workflow', es: 'Ejecutar Workflow' }, color: 'bg-blue-500', category: 'core', description: { en: 'Run another workflow', es: 'Ejecutar otro flujo' } },
 
     // === FLOW ===
-    { type: 'n8n-nodes-base.if', icon: <GitBranch size={18} />, label: { en: 'IF', es: 'SI' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Conditional logic', es: 'Lógica condicional' }, outputs: ['true', 'false'] },
+    {
+        type: 'n8n-nodes-base.if',
+        icon: <GitBranch size={18} />,
+        label: { en: 'IF', es: 'SI' },
+        color: 'bg-yellow-500',
+        category: 'flow',
+        description: { en: 'Conditional logic', es: 'Lógica condicional' },
+        outputs: ['true', 'false'],
+        properties: [
+            { name: 'conditions', displayName: 'Condition Type', type: 'options', options: [{ name: 'Boolean', value: 'boolean' }, { name: 'String', value: 'string' }, { name: 'Number', value: 'number' }], default: 'boolean' },
+            { name: 'value1', displayName: 'Value 1', type: 'string', typeOptions: { expression: true } },
+            { name: 'value2', displayName: 'Value 2', type: 'string', typeOptions: { expression: true } }
+        ]
+    },
     { type: 'n8n-nodes-base.switch', icon: <List size={18} />, label: { en: 'Switch', es: 'Switch' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Multiple routes', es: 'Rutas múltiples' }, outputs: ['0', '1', '2', '3'] },
     { type: 'n8n-nodes-base.merge', icon: <GitBranch size={18} className="rotate-180" />, label: { en: 'Merge', es: 'Unir' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Merge branches', es: 'Unir ramas' }, inputs: ['input 1', 'input 2'] },
     { type: 'n8n-nodes-base.wait', icon: <Pause size={18} />, label: { en: 'Wait', es: 'Esperar' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Pause workflow', es: 'Pausar flujo' } },
     { type: 'n8n-nodes-base.loop', icon: <RefreshCw size={18} />, label: { en: 'Loop', es: 'Bucle' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Loop over items', es: 'Iterar elementos' } },
     { type: 'n8n-nodes-base.errorTrigger', icon: <AlertCircle size={18} />, label: { en: 'Error Trigger', es: 'Disparador Error' }, color: 'bg-red-500', category: 'flow', description: { en: 'On error', es: 'En error' } },
+
+    // === ADVANCED CONTROLLER (xyOps Style) ===
+    {
+        type: 'n8n-nodes-base.controller',
+        icon: <Shuffle size={18} />,
+        label: { en: 'Controller', es: 'Controlador' },
+        color: 'bg-purple-600',
+        category: 'flow',
+        description: { en: 'Multiplex, Split, Join, Loop', es: 'Multiplexar, Dividir, Unir, Bucle' },
+        properties: [
+            {
+                name: 'controller',
+                displayName: 'Controller Type',
+                type: 'options',
+                options: [
+                    { name: 'Multiplex', value: 'multiplex' },
+                    { name: 'Wait', value: 'wait' },
+                    { name: 'Repeat (Loop)', value: 'repeat' },
+                    { name: 'Split', value: 'split' },
+                    { name: 'Join', value: 'join' },
+                    { name: 'Decision (If)', value: 'decision' }
+                ],
+                default: 'multiplex'
+            },
+            { name: 'stagger', displayName: 'Stagger (ms)', type: 'number', default: 0, description: 'Delay between parallel executions' },
+            { name: 'wait', displayName: 'Wait Time (sec)', type: 'number', default: 0, description: 'Time to pause execution' },
+            { name: 'repeat', displayName: 'Iterations', type: 'number', default: 1, description: 'Number of times to repeat' },
+            { name: 'split', displayName: 'Split Expression', type: 'string', typeOptions: { rows: 3, expression: true }, description: 'Expression to calculate split branches' },
+            { name: 'decision', displayName: 'Condition (If)', type: 'string', typeOptions: { rows: 3, expression: true }, description: 'Expression returning true/false' },
+            { name: 'continue', displayName: 'Continue %', type: 'number', default: 100, description: 'Percentage of traffic to continue' }
+        ]
+    },
 
     // === DATA ===
     { type: 'n8n-nodes-base.activeCampaign', icon: <Users size={18} />, label: { en: 'ActiveCampaign', es: 'ActiveCampaign' }, color: 'bg-purple-500', category: 'data', description: { en: 'Email marketing', es: 'Marketing email' } },

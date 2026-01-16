@@ -5,8 +5,8 @@ import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { logger } from '../services/logger.service';
 
-// Enable tracing only if enabled in env (default false unless JAEGER_ENDPOINT is set)
-const isTracingEnabled = process.env.ENABLE_TRACING === 'true' || !!process.env.JAEGER_ENDPOINT;
+// Enable tracing only if explicitly enabled in env
+const isTracingEnabled = process.env.ENABLE_TRACING === 'true';
 
 let sdk: NodeSDK | null = null;
 

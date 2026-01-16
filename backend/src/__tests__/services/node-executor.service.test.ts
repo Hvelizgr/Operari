@@ -1,4 +1,4 @@
-import { NodeExecutor } from '../../services/node-executor.service';
+import { NodeExecutor } from '../../editor/node-executor.service';
 import { WorkflowNode, ExecutionInput } from '../../types/workflow.types';
 import { ErrorCode } from '../../errors/custom-error';
 import { Logger } from '../../services/logger.service';
