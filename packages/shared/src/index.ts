@@ -10,6 +10,7 @@ export * from './types';
 export type {
     WorkflowNode,
     Connection,
+    ConnectionCondition,
     WorkflowDefinition,
     Position,
     ExecutionState,
