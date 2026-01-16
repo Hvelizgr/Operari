@@ -645,6 +645,28 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         });
     }, [selectedNodes, connections, executeCommand, setConnections]);
 
+    // Clear All: Remove all nodes and connections
+    const handleClearAll = useCallback(() => {
+        if (nodes.length === 0) return;
+
+        const allNodes = [...nodes];
+        const allConnections = [...connections];
+
+        executeCommand({
+            execute: () => {
+                setNodes([]);
+                setConnections([]);
+                setSelectedNodes(new Set());
+                setSelectedConnection(null);
+            },
+            undo: () => {
+                setNodes(allNodes);
+                setConnections(allConnections);
+            },
+            description: 'Clear all nodes',
+        });
+    }, [nodes, connections, executeCommand, setNodes, setConnections, setSelectedNodes, setSelectedConnection]);
+
     const handleLoadWorkflow = useCallback((loadedNodes: WorkflowNode[], loadedConnections: Connection[]) => {
         setNodes(loadedNodes);
         setConnections(loadedConnections);
@@ -807,6 +829,7 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         handleConfirmDeleteConnection: onConfirmDeleteConnection,
         handleCancelDeleteConnection,
         handleDetachConnections,
+        handleClearAll,
         handleLoadWorkflow,
         handleSelectTemplate,
         handleSearchNodeSelect,
