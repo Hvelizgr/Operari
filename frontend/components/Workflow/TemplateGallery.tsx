@@ -15,94 +15,106 @@ interface WorkflowTemplate {
 }
 
 const TEMPLATES: WorkflowTemplate[] = [
+    // 1. RSS Feed to Slack - Beginner (2 nodes)
     {
-        id: 'email-notification',
-        name: { en: 'Email Notification', es: 'Notificación por Email' },
-        description: { en: 'Send email when webhook is triggered', es: 'Enviar email cuando se activa webhook' },
-        category: 'email',
+        id: 'rss-to-slack',
+        name: { en: 'RSS Feed to Slack', es: 'Feed RSS a Slack' },
+        description: {
+            en: 'Get notified in Slack when new articles are published in any RSS feed',
+            es: 'Recibe notificaciones en Slack cuando se publican nuevos articulos en un feed RSS'
+        },
+        category: 'automation',
         nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Webhook Trigger', type: 'Webhook', config: { path: '/webhook' } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Send Email', type: 'Email', config: { to: 'recipient@example.com', subject: 'Notification', body: 'Hello!' } },
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'RSS Feed', type: 'Trigger', config: { feedUrl: 'https://example.com/rss', pollInterval: '15m' } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Send to Slack', type: 'Action', config: { channel: '#news', message: '{{title}}: {{link}}' } },
         ],
         connections: [{ id: 'conn-1', source: 'node-1', target: 'node-2' }],
     },
+    // 2. Google Sheets to Email - Beginner (2 nodes)
     {
-        id: 'data-processing',
-        name: { en: 'Data Processing', es: 'Procesamiento de Datos' },
-        description: { en: 'Transform and store data in database', es: 'Transformar y almacenar datos en base de datos' },
-        category: 'data',
-        nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Webhook', type: 'Webhook', config: { path: '/data' } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Transform Data', type: 'Transform', config: { expression: '$.data' } },
-            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Save to DB', type: 'Database', config: { operation: 'insert', table: 'records' } },
-        ],
-        connections: [
-            { id: 'conn-1', source: 'node-1', target: 'node-2' },
-            { id: 'conn-2', source: 'node-2', target: 'node-3' },
-        ],
-    },
-    {
-        id: 'conditional-workflow',
-        name: { en: 'Conditional Workflow', es: 'Flujo Condicional' },
-        description: { en: 'Branch workflow based on conditions', es: 'Ramificar flujo según condiciones' },
-        category: 'automation',
-        nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Start', type: 'Webhook', config: { path: '/start' } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Check Condition', type: 'Condition', config: { field: 'status', operator: 'equals', value: 'active' } },
-            { id: 'node-3', position: { x: 700, y: 80 }, title: 'Action A', type: 'Action', config: { action: 'process' } },
-            { id: 'node-4', position: { x: 700, y: 220 }, title: 'Action B', type: 'Email', config: { to: 'admin@example.com', subject: 'Alert', body: 'Condition failed' } },
-        ],
-        connections: [
-            { id: 'conn-1', source: 'node-1', target: 'node-2' },
-            { id: 'conn-2', source: 'node-2', target: 'node-3' },
-            { id: 'conn-3', source: 'node-2', target: 'node-4' },
-        ],
-    },
-    {
-        id: 'api-integration',
-        name: { en: 'API Integration', es: 'Integración API' },
-        description: { en: 'Fetch, transform and forward data', es: 'Obtener, transformar y reenviar datos' },
-        category: 'webhooks',
-        nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'HTTP Request', type: 'Webhook', config: { path: '/api' } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Transform', type: 'Transform', config: { expression: '$.result' } },
-            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Forward', type: 'Action', config: { action: 'forward' } },
-        ],
-        connections: [
-            { id: 'conn-1', source: 'node-1', target: 'node-2' },
-            { id: 'conn-2', source: 'node-2', target: 'node-3' },
-        ],
-    },
-    {
-        id: 'database-sync',
-        name: { en: 'Database Sync', es: 'Sincronización de DB' },
-        description: { en: 'Sync data between databases', es: 'Sincronizar datos entre bases de datos' },
-        category: 'data',
-        nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Read DB', type: 'Database', config: { operation: 'select', table: 'source' } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Transform', type: 'Transform', config: { expression: '$.records' } },
-            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Write DB', type: 'Database', config: { operation: 'upsert', table: 'target' } },
-        ],
-        connections: [
-            { id: 'conn-1', source: 'node-1', target: 'node-2' },
-            { id: 'conn-2', source: 'node-2', target: 'node-3' },
-        ],
-    },
-    {
-        id: 'email-digest',
-        name: { en: 'Email Digest', es: 'Resumen por Email' },
-        description: { en: 'Collect data and send summary email', es: 'Recopilar datos y enviar email resumen' },
+        id: 'sheets-to-email',
+        name: { en: 'Google Sheets New Row Alert', es: 'Alerta de Nueva Fila en Sheets' },
+        description: {
+            en: 'Send email notification when a new row is added to Google Sheets (form submissions, leads)',
+            es: 'Envia notificacion por email cuando se agrega una nueva fila en Google Sheets'
+        },
         category: 'email',
         nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Trigger', type: 'Webhook', config: { path: '/digest' } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Fetch Data', type: 'Database', config: { operation: 'select', table: 'items' } },
-            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Format Email', type: 'Transform', config: { expression: '$.items | format_digest' } },
-            { id: 'node-4', position: { x: 1000, y: 150 }, title: 'Send Digest', type: 'Email', config: { to: 'team@example.com', subject: 'Daily Digest', body: '{{formatted}}' } },
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'New Sheet Row', type: 'Trigger', config: { spreadsheetId: 'your-sheet-id', sheetName: 'Form Responses' } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Send Email', type: 'Email', config: { to: 'team@example.com', subject: 'New Form Submission', body: 'Name: {{name}}\nEmail: {{email}}' } },
+        ],
+        connections: [{ id: 'conn-1', source: 'node-1', target: 'node-2' }],
+    },
+    // 3. Daily Weather Alert - Beginner+ (3 nodes)
+    {
+        id: 'weather-alert',
+        name: { en: 'Daily Weather Forecast', es: 'Pronostico Diario del Clima' },
+        description: {
+            en: 'Get your daily weather forecast via email or Slack every morning',
+            es: 'Recibe tu pronostico del clima diario por email o Slack cada manana'
+        },
+        category: 'automation',
+        nodes: [
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Daily Schedule', type: 'Schedule', config: { cron: '0 7 * * *', timezone: 'America/New_York' } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Get Weather', type: 'HTTP', config: { url: 'https://api.openweathermap.org/data/2.5/weather?q=London', method: 'GET' } },
+            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Send Alert', type: 'Email', config: { to: 'user@example.com', subject: 'Weather Today', body: 'Temperature: {{temp}}C\nCondition: {{description}}' } },
         ],
         connections: [
             { id: 'conn-1', source: 'node-1', target: 'node-2' },
             { id: 'conn-2', source: 'node-2', target: 'node-3' },
-            { id: 'conn-3', source: 'node-3', target: 'node-4' },
+        ],
+    },
+    // 4. GitHub Issue to Discord - Beginner (2 nodes)
+    {
+        id: 'github-to-discord',
+        name: { en: 'GitHub Issues to Discord', es: 'Issues de GitHub a Discord' },
+        description: {
+            en: 'Post a Discord message when someone creates a new issue in your GitHub repo',
+            es: 'Publica un mensaje en Discord cuando alguien crea un nuevo issue en tu repo de GitHub'
+        },
+        category: 'webhooks',
+        nodes: [
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'GitHub Webhook', type: 'Webhook', config: { path: '/github-issues', events: ['issues.opened'] } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Discord Message', type: 'Action', config: { webhookUrl: 'https://discord.com/api/webhooks/...', message: 'New Issue: {{title}} by {{user}}' } },
+        ],
+        connections: [{ id: 'conn-1', source: 'node-1', target: 'node-2' }],
+    },
+    // 5. Social Media Scheduler - Beginner+ (3 nodes)
+    {
+        id: 'social-scheduler',
+        name: { en: 'Social Media Post Scheduler', es: 'Programador de Redes Sociales' },
+        description: {
+            en: 'Schedule and auto-publish posts from a spreadsheet to Twitter/X',
+            es: 'Programa y publica automaticamente posts desde una hoja de calculo a Twitter/X'
+        },
+        category: 'automation',
+        nodes: [
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Schedule', type: 'Schedule', config: { cron: '0 9,12,18 * * *', timezone: 'UTC' } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Get Next Post', type: 'Database', config: { operation: 'select', query: 'SELECT * FROM posts WHERE published = false LIMIT 1' } },
+            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Post to Twitter', type: 'Action', config: { platform: 'twitter', content: '{{content}}' } },
+        ],
+        connections: [
+            { id: 'conn-1', source: 'node-1', target: 'node-2' },
+            { id: 'conn-2', source: 'node-2', target: 'node-3' },
+        ],
+    },
+    // 6. Contact Form to CRM - Beginner+ (3 nodes)
+    {
+        id: 'form-to-crm',
+        name: { en: 'Contact Form to CRM', es: 'Formulario de Contacto a CRM' },
+        description: {
+            en: 'Save form submissions to a spreadsheet/CRM and send auto-reply email',
+            es: 'Guarda envios de formulario en una hoja de calculo/CRM y envia email de respuesta automatica'
+        },
+        category: 'data',
+        nodes: [
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Form Webhook', type: 'Webhook', config: { path: '/contact-form', method: 'POST' } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Save to Sheets', type: 'Database', config: { operation: 'insert', table: 'contacts', fields: ['name', 'email', 'message'] } },
+            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Send Confirmation', type: 'Email', config: { to: '{{email}}', subject: 'Thanks for contacting us!', body: 'Hi {{name}}, we received your message and will respond soon.' } },
+        ],
+        connections: [
+            { id: 'conn-1', source: 'node-1', target: 'node-2' },
+            { id: 'conn-2', source: 'node-2', target: 'node-3' },
         ],
     },
 ];
