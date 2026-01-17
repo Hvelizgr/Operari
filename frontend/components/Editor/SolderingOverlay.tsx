@@ -98,7 +98,7 @@ function PortButton({ node, portType, viewport, onClick }: PortButtonProps) {
             }}
         >
             <button
-                className="wf-pole-button soldering"
+                className="wf-pole-button soldering focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 transition-transform hover:scale-125 hover:bg-blue-600 active:scale-95"
                 style={{
                     ...getPortPosition(),
                     position: 'absolute',

@@ -17,7 +17,9 @@ const nextConfig: NextConfig = {
     root: path.join(__dirname, '..'),
   },
   experimental: {
-    // turbo config moved to root
+    // optimizePackageImports automatically tree-shakes barrel files
+    // drastically improving dev server start and build times.
+    optimizePackageImports: ['lucide-react', '@nanoflow/shared', 'date-fns', 'lodash'],
   },
   async rewrites() {
     const apiUrl = process.env.API_URL || 'http://localhost:4001';

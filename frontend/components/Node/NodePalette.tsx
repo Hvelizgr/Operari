@@ -326,6 +326,8 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
         >
             <button
                 onClick={() => setIsOpen(!isOpen)}
+                aria-expanded={isOpen}
+                aria-controls="node-palette-content"
                 className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white rounded-lg text-sm font-semibold transition-all shadow-lg shadow-orange-500/30 self-start"
             >
                 <Zap size={16} />
@@ -335,6 +337,7 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
+                        id="node-palette-content"
                         className="bg-[#1a1a2e] border border-[#2d2d44] rounded-xl shadow-2xl w-80 overflow-hidden"
                         initial={{ scale: 0.95, opacity: 0, y: -10 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}

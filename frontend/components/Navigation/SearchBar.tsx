@@ -179,7 +179,7 @@ export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightN
                         }}
                         onFocus={() => setIsOpen(true)}
                         placeholder={text.search}
-                        className="flex-1 bg-transparent text-white text-sm placeholder-gray-500 focus:outline-none"
+                        className="flex-1 bg-transparent text-white text-sm placeholder-gray-400 focus:outline-none"
                     />
                     {searchTerm && (
                         <button

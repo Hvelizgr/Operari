@@ -40,6 +40,13 @@ export default function ContextMenu({
 }: ContextMenuProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [position, setPosition] = useState({ x, y });
+    const [focusedIndex, setFocusedIndex] = useState(0);
+    const buttonsRef = useRef<(HTMLButtonElement | null)[]>([]);
+
+    // Focus the current item when focusedIndex changes
+    useEffect(() => {
+        buttonsRef.current[focusedIndex]?.focus();
+    }, [focusedIndex]);
 
     // Close on outside click
     useEffect(() => {
@@ -126,10 +133,15 @@ export default function ContextMenu({
 
     const items = type === 'node' ? nodeMenuItems : canvasMenuItems;
 
+    const activeItems = items.filter(item => item.action);
+    let buttonIndex = 0;
+
     return (
         <AnimatePresence>
             <motion.div
                 ref={ref}
+                role="menu"
+                aria-label={type === 'node' ? 'Node context menu' : 'Canvas context menu'}
                 className="fixed z-50 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden min-w-[180px]"
                 style={{ left: position.x, top: position.y }}
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -137,11 +149,33 @@ export default function ContextMenu({
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.1 }}
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        onClose();
+                    } else if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setFocusedIndex(prev => (prev + 1) % activeItems.length);
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setFocusedIndex(prev => (prev - 1 + activeItems.length) % activeItems.length);
+                    } else if (e.key === 'Home') {
+                        e.preventDefault();
+                        setFocusedIndex(0);
+                    } else if (e.key === 'End') {
+                        e.preventDefault();
+                        setFocusedIndex(activeItems.length - 1);
+                    }
+                }}
             >
-                {items.map((item, index) => (
-                    item.action && (
+                {items.map((item, index) => {
+                    if (!item.action) return null;
+                    const currentButtonIndex = buttonIndex++;
+                    return (
                         <button
                             key={index}
+                            ref={el => { buttonsRef.current[currentButtonIndex] = el; }}
+                            role="menuitem"
                             onClick={() => {
                                 if ((item as any).disabled) return;
                                 item.action?.();
@@ -153,8 +187,8 @@ export default function ContextMenu({
                             <item.icon size={16} className={item.color} />
                             <span className="text-sm text-slate-200">{item.label}</span>
                         </button>
-                    )
-                ))}
+                    );
+                })}
             </motion.div>
         </AnimatePresence>
     );

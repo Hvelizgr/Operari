@@ -1,10 +1,10 @@
 'use client';
 
-import { MouseEvent, useRef, useLayoutEffect } from 'react';
+import { MouseEvent, useRef, useLayoutEffect, memo } from 'react';
 import { NodeType, NODE_TYPES } from '../Node';
 import { WorkflowNode } from '@nanoflow/shared';
 import './WorkflowNode.css';
-import * as Icons from 'lucide-react';
+import { Box, AlertCircle, ChevronRight, ChevronDown, GripVertical } from 'lucide-react';
 // Import shared port utilities
 export { getNodeInputPort, getNodeOutputPort, getNodePortInfo } from '../../utils/nodePortUtils';
 
@@ -31,7 +31,7 @@ interface EditorNodeProps {
     isConnected?: boolean;
 }
 
-export default function EditorNode({
+function EditorNodeComponent({
     node,
     typeDefinition,
     onDragStart,
@@ -86,13 +86,13 @@ export default function EditorNode({
     }, [node.id, onUpdate, (node as any).dimensions?.height]);
 
     const renderIcon = (icon: any, size = 16) => {
-        if (!icon) return <Icons.Box size={size} />;
+        if (!icon) return <Box size={size} />;
         if (typeof icon === 'object' && icon !== null) return icon;
         if (typeof icon === 'function') {
             const I = icon;
             return <I size={size} />;
         }
-        return <Icons.Box size={size} />;
+        return <Box size={size} />;
     };
 
     // Determine Visual Type
@@ -123,7 +123,7 @@ export default function EditorNode({
                 className="absolute -top-2 -right-2 z-50 bg-red-500 rounded-full w-5 h-5 flex items-center justify-center border border-white shadow-sm animate-pulse pointer-events-none"
                 title="Disconnected Node"
             >
-                <Icons.AlertCircle size={12} className="text-white" />
+                <AlertCircle size={12} className="text-white" />
             </div>
         )
     );
@@ -165,9 +165,13 @@ export default function EditorNode({
                     {/* Input Pole (Purple) */}
                     <div
                         className="wf_pole_button wf_input_pole"
+                        role="button"
+                        aria-label={`Connect input for ${node.title}`}
+                        tabIndex={0}
                         onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input'); } }}
                     >
-                        <Icons.ChevronRight size={12} />
+                        <ChevronRight size={12} />
                     </div>
 
                     <span className="flex items-center justify-center h-full w-full relative">
@@ -177,9 +181,13 @@ export default function EditorNode({
                     {/* Output Pole (Purple) */}
                     <div
                         className="wf_pole_button wf_output_pole"
+                        role="button"
+                        aria-label={`Connect output for ${node.title}`}
+                        tabIndex={0}
                         onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output'); } }}
                     >
-                        <Icons.ChevronRight size={12} />
+                        <ChevronRight size={12} />
                     </div>
                 </div>
                 <span className="wf_ent_title">{nodeType?.category || 'Controller'}</span>
@@ -201,9 +209,13 @@ export default function EditorNode({
                     <div
                         className="wf_pole_button wf_up_pole"
                         title="Input (Limit)"
+                        role="button"
+                        aria-label={`Connect input for ${node.title}`}
+                        tabIndex={0}
                         onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input'); } }}
                     >
-                        <Icons.ChevronDown size={12} style={{ transform: 'rotate(225deg)' }} /> {/* Counter rotate? CSS handles some */}
+                        <ChevronDown size={12} style={{ transform: 'rotate(225deg)' }} /> {/* Counter rotate? CSS handles some */}
                     </div>
 
                     <span className="flex items-center justify-center h-full w-full relative" style={{ transform: 'rotate(-45deg)' }}>
@@ -226,9 +238,13 @@ export default function EditorNode({
                 <div
                     className="wf_pole_button wf_down_pole"
                     style={{ left: '50%', top: 'calc(100% + 5px)' }}
+                    role="button"
+                    aria-label={`Connect output for ${node.title}`}
+                    tabIndex={0}
                     onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output'); } }}
                 >
-                    <Icons.ChevronDown size={12} />
+                    <ChevronDown size={12} />
                 </div>
 
                 <span className="wf_ent_title">{nodeType?.category || 'Limit'}</span>
@@ -251,9 +267,13 @@ export default function EditorNode({
                     </span>
                     <div
                         className="wf_pole_button wf_output_pole"
+                        role="button"
+                        aria-label={`Connect output for ${node.title}`}
+                        tabIndex={0}
                         onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output'); } }}
                     >
-                        <Icons.ChevronRight size={12} />
+                        <ChevronRight size={12} />
                     </div>
                 </div>
                 <span className="wf_ent_title">{nodeType?.category || 'Trigger'}</span>
@@ -273,9 +293,13 @@ export default function EditorNode({
                 <div className="wf_ent_action">
                     <div
                         className="wf_pole_button wf_input_pole"
+                        role="button"
+                        aria-label={`Connect input for ${node.title}`}
+                        tabIndex={0}
                         onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input'); } }}
                     >
-                        <Icons.ChevronRight size={12} />
+                        <ChevronRight size={12} />
                     </div>
                     <span className="flex items-center justify-center h-full w-full relative" style={{ left: '6px' }}>
                         {renderIcon(nodeType?.icon, 32)}
@@ -303,7 +327,7 @@ export default function EditorNode({
         >
             <ValidationBadge />
             <div className="wf_event_title">
-                <span className="mr-1 opacity-50"><Icons.GripVertical size={16} /></span>
+                <span className="mr-1 opacity-50"><GripVertical size={16} /></span>
                 <span className="mr-2 inline-flex items-center">{renderIcon(nodeType?.icon, 16)}</span>
                 {node.title}
             </div>
@@ -325,12 +349,29 @@ export default function EditorNode({
                 </div>
             </div>
 
-            <div className="wf_pole_button wf_input_pole" onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}>
-                <Icons.ChevronRight size={12} />
+            <div
+                className="wf_pole_button wf_input_pole"
+                role="button"
+                aria-label={`Connect input for ${node.title}`}
+                tabIndex={0}
+                onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input'); } }}
+            >
+                <ChevronRight size={12} />
             </div>
-            <div className="wf_pole_button wf_output_pole" onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}>
-                <Icons.ChevronRight size={12} />
+            <div
+                className="wf_pole_button wf_output_pole"
+                role="button"
+                aria-label={`Connect output for ${node.title}`}
+                tabIndex={0}
+                onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output'); } }}
+            >
+                <ChevronRight size={12} />
             </div>
         </div>
     );
 }
+
+const EditorNode = memo(EditorNodeComponent);
+export default EditorNode;

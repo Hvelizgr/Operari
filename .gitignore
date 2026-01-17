@@ -70,3 +70,5 @@ backend/prisma/*.db-journal
 
 # Documentation (internal)
 /docs
+/others
+

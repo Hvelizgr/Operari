@@ -168,6 +168,8 @@ export default function MiniMap({ nodes, viewport, canvasSize, onViewportChange,
                                 ref={miniMapRef}
                                 className="relative bg-slate-950 cursor-pointer"
                                 style={{ width: MINIMAP_WIDTH, height: MINIMAP_HEIGHT }}
+                                role="img"
+                                aria-label="Workflow minimap showing an overview of all nodes and current viewport position. Click to navigate."
                                 onClick={handleMiniMapClick}
                                 onMouseMove={handleViewportDrag}
                                 onMouseUp={handleViewportDragEnd}

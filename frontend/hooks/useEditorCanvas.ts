@@ -593,6 +593,7 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         setDeleteConfirm({ open: false, nodeIds: [] });
     }, [deleteConfirm.nodeIds, nodes, connections, executeCommand, setNodes, setConnections, setSelectedNodes]);
 
+
     const handleCancelDelete = useCallback(() => {
         setDeleteConfirm({ open: false, nodeIds: [] });
     }, []);
@@ -701,17 +702,20 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     }, []);
 
     const handleDuplicateNode = useCallback((nodeId: string) => {
-        const node = nodes.find(n => n.id === nodeId);
-        if (node) {
-            const newNode = {
-                ...node,
-                id: `node-${Date.now()}`,
-                position: { x: node.position.x + 50, y: node.position.y + 50 },
-            };
-            setNodes((prev) => [...prev, newNode]);
-        }
+        setNodes((prev) => {
+            const node = prev.find(n => n.id === nodeId);
+            if (node) {
+                const newNode = {
+                    ...node,
+                    id: `node-${Date.now()}`,
+                    position: { x: node.position.x + 50, y: node.position.y + 50 },
+                };
+                return [...prev, newNode];
+            }
+            return prev;
+        });
         handleCloseContextMenu();
-    }, [nodes, setNodes, handleCloseContextMenu]);
+    }, [setNodes, handleCloseContextMenu]);
 
     const handleDeleteFromContextMenu = useCallback(() => {
         if (contextMenu?.nodeId) {

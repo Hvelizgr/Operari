@@ -45,7 +45,8 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
 
     const announceMessage = (message: string) => {
         setAnnouncement(message);
-        setTimeout(() => setAnnouncement(''), 100);
+        // Increased timeout to give screen readers enough time to announce the message
+        setTimeout(() => setAnnouncement(''), 1000);
     };
 
     // Only apply the high-contrast class after mounting to prevent hydration mismatch

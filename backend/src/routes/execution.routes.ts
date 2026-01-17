@@ -84,20 +84,20 @@ router.get('/', async (req: AuthRequest, res) => {
             ...(status && { status: status as any }),
         };
 
-        const [executions, total] = await Promise.all([
-            prisma.execution.findMany({
-                where,
-                skip,
-                take: parseInt(limit as string),
-                orderBy: { startedAt: 'desc' },
-                include: {
-                    workflow: { select: { id: true, name: true } },
-                    user: { select: { id: true, name: true, email: true } },
-                    _count: { select: { nodeLogs: true } },
-                },
-            }),
-            prisma.execution.count({ where }),
-        ]);
+        const countPromise = prisma.execution.count({ where });
+        const dataPromise = prisma.execution.findMany({
+            where,
+            skip,
+            take: parseInt(limit as string),
+            orderBy: { startedAt: 'desc' },
+            include: {
+                workflow: { select: { id: true, name: true } },
+                user: { select: { id: true, name: true, email: true } },
+                _count: { select: { nodeLogs: true } },
+            },
+        });
+
+        const [total, executions] = await Promise.all([countPromise, dataPromise]);
 
         res.json({
             executions,
