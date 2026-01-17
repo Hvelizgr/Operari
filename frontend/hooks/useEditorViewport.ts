@@ -3,7 +3,7 @@
  * Handles zoom, pan, fit view, and viewport transformations
  */
 
-import { useState, useCallback, useRef, RefObject, WheelEvent } from 'react';
+import { useState, useCallback, useRef, RefObject, WheelEvent, useEffect } from 'react';
 import { EDITOR_CONFIG } from '../config/editor.config';
 import type { ViewportState } from '../types/editor.types';
 import type { WorkflowNode } from '../components/Editor';
@@ -36,34 +36,57 @@ export function useEditorViewport({
         zoom: 1,
     });
 
-    const handleWheel = useCallback(
-        (e: WheelEvent<HTMLDivElement>) => {
+    // Use ref to access current viewport in the native event listener
+    const viewportRef = useRef(viewport);
+    useEffect(() => {
+        viewportRef.current = viewport;
+    }, [viewport]);
+
+    // Register wheel event with { passive: false } to allow preventDefault
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const handleNativeWheel = (e: globalThis.WheelEvent) => {
             e.preventDefault();
 
+            const currentViewport = viewportRef.current;
             const delta = -e.deltaY * EDITOR_CONFIG.ZOOM.SENSITIVITY;
             const newZoom = Math.min(
-                Math.max(viewport.zoom + delta, EDITOR_CONFIG.ZOOM.MIN),
+                Math.max(currentViewport.zoom + delta, EDITOR_CONFIG.ZOOM.MIN),
                 EDITOR_CONFIG.ZOOM.MAX
             );
 
-            if (canvasRef.current) {
-                const rect = canvasRef.current.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
 
-                const zoomPoint = {
-                    x: (mouseX - viewport.x) / viewport.zoom,
-                    y: (mouseY - viewport.y) / viewport.zoom,
-                };
+            const zoomPoint = {
+                x: (mouseX - currentViewport.x) / currentViewport.zoom,
+                y: (mouseY - currentViewport.y) / currentViewport.zoom,
+            };
 
-                setViewport({
-                    x: mouseX - zoomPoint.x * newZoom,
-                    y: mouseY - zoomPoint.y * newZoom,
-                    zoom: newZoom,
-                });
-            }
+            setViewport({
+                x: mouseX - zoomPoint.x * newZoom,
+                y: mouseY - zoomPoint.y * newZoom,
+                zoom: newZoom,
+            });
+        };
+
+        canvas.addEventListener('wheel', handleNativeWheel, { passive: false });
+
+        return () => {
+            canvas.removeEventListener('wheel', handleNativeWheel);
+        };
+    }, [canvasRef]);
+
+    // Keep the React event handler as a no-op for compatibility
+    const handleWheel = useCallback(
+        (e: WheelEvent<HTMLDivElement>) => {
+            // Wheel handling is done via native event listener with { passive: false }
+            // This handler is kept for API compatibility but does nothing
         },
-        [viewport, canvasRef]
+        []
     );
 
     const handleZoomIn = useCallback(() => {
