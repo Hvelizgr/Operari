@@ -6,15 +6,172 @@ import type { WorkflowNode } from '@nanoflow/shared';
 
 export type PortDirection = 'left' | 'right' | 'top' | 'bottom';
 
+// n8n-style port types
+export type PortType = 'main' | 'data' | 'error' | 'config';
+
 export interface PortInfo {
     x: number;
     y: number;
     direction: PortDirection;
 }
 
+// Advanced port definition (n8n-style)
+export interface AdvancedPort {
+    id: string;
+    type: PortType;
+    direction: PortDirection;
+    label?: string;
+    required?: boolean;
+    color?: string;
+    index: number;
+}
+
 export interface NodeWithDimensions extends WorkflowNode {
     dimensions?: { height: number; width: number };
 }
+
+// Port type colors (n8n-style) - CSS classes use these via .port-main, .port-data, etc.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const PORT_TYPE_COLORS: Record<PortType, string> = {
+    main: 'var(--theme-color)',      // Blue - main flow
+    data: 'var(--green)',            // Green - data transfer
+    error: 'var(--red)',             // Red - error handling
+    config: 'var(--purple)',         // Purple - configuration
+};
+
+// Port type labels - for reference
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const PORT_TYPE_LABELS: Record<PortType, string> = {
+    main: 'Main',
+    data: 'Data',
+    error: 'Error',
+    config: 'Config',
+};
+
+/**
+ * Get default ports for a node type
+ * @param nodeType - The node type string
+ * @returns Object with input and output port configurations
+ */
+export const getDefaultPorts = (nodeType: string): { inputs: AdvancedPort[]; outputs: AdvancedPort[] } => {
+    const type = nodeType.toLowerCase();
+
+    // Trigger nodes: only output (main)
+    if (type.includes('trigger') || type === 'start') {
+        return {
+            inputs: [],
+            outputs: [
+                { id: 'out-main-0', type: 'main', direction: 'right', label: 'Output', required: false, index: 0 }
+            ]
+        };
+    }
+
+    // Controller/Condition nodes: input + multiple outputs (true/false or multiple branches)
+    if (type.includes('controller') || type === 'condition' || type.includes('if') || type.includes('switch')) {
+        return {
+            inputs: [
+                { id: 'in-main-0', type: 'main', direction: 'left', label: 'Input', required: true, index: 0 }
+            ],
+            outputs: [
+                { id: 'out-main-0', type: 'main', direction: 'right', label: 'True', required: false, index: 0 },
+                { id: 'out-main-1', type: 'main', direction: 'right', label: 'False', required: false, index: 1 },
+            ]
+        };
+    }
+
+    // Action nodes: input only (main) + optional error output
+    if (type.includes('action') || type.includes('email') || type.includes('slack') || type.includes('discord')) {
+        return {
+            inputs: [
+                { id: 'in-main-0', type: 'main', direction: 'left', label: 'Input', required: true, index: 0 }
+            ],
+            outputs: [
+                { id: 'out-error-0', type: 'error', direction: 'bottom', label: 'Error', required: false, index: 0 }
+            ]
+        };
+    }
+
+    // Transform nodes: input + output (main) + optional data ports
+    if (type.includes('transform') || type.includes('set') || type.includes('merge') || type.includes('split')) {
+        return {
+            inputs: [
+                { id: 'in-main-0', type: 'main', direction: 'left', label: 'Input', required: true, index: 0 },
+                { id: 'in-data-0', type: 'data', direction: 'top', label: 'Data', required: false, index: 0 }
+            ],
+            outputs: [
+                { id: 'out-main-0', type: 'main', direction: 'right', label: 'Output', required: false, index: 0 }
+            ]
+        };
+    }
+
+    // AI/LLM nodes: input + config + output + error
+    if (type.includes('ai') || type.includes('llm') || type.includes('gpt') || type.includes('embedding')) {
+        return {
+            inputs: [
+                { id: 'in-main-0', type: 'main', direction: 'left', label: 'Input', required: true, index: 0 },
+                { id: 'in-config-0', type: 'config', direction: 'top', label: 'Model', required: false, index: 0 }
+            ],
+            outputs: [
+                { id: 'out-main-0', type: 'main', direction: 'right', label: 'Output', required: false, index: 0 },
+                { id: 'out-error-0', type: 'error', direction: 'bottom', label: 'Error', required: false, index: 0 }
+            ]
+        };
+    }
+
+    // Default: standard input/output
+    return {
+        inputs: [
+            { id: 'in-main-0', type: 'main', direction: 'left', label: 'Input', required: true, index: 0 }
+        ],
+        outputs: [
+            { id: 'out-main-0', type: 'main', direction: 'right', label: 'Output', required: false, index: 0 }
+        ]
+    };
+};
+
+/**
+ * Calculate port position based on direction, index, and total count
+ * @param nodePosition - Node position {x, y}
+ * @param nodeDimensions - Node dimensions {width, height}
+ * @param port - Port configuration
+ * @param totalPortsInDirection - Total ports in the same direction
+ * @returns Position {x, y}
+ */
+export const calculatePortPosition = (
+    nodePosition: { x: number; y: number },
+    nodeDimensions: { width: number; height: number },
+    port: AdvancedPort,
+    totalPortsInDirection: number
+): { x: number; y: number } => {
+    const { width, height } = nodeDimensions;
+    const spacing = 20; // Spacing between ports
+    const offset = (port.index - (totalPortsInDirection - 1) / 2) * spacing;
+
+    switch (port.direction) {
+        case 'left':
+            return {
+                x: nodePosition.x,
+                y: nodePosition.y + height / 2 + offset
+            };
+        case 'right':
+            return {
+                x: nodePosition.x + width,
+                y: nodePosition.y + height / 2 + offset
+            };
+        case 'top':
+            return {
+                x: nodePosition.x + width / 2 + offset,
+                y: nodePosition.y
+            };
+        case 'bottom':
+            return {
+                x: nodePosition.x + width / 2 + offset,
+                y: nodePosition.y + height
+            };
+        default:
+            return { x: nodePosition.x, y: nodePosition.y };
+    }
+};
 
 // Node dimensions constants (matching CSS in WorkflowNode.css)
 const NODE_DIMENSIONS = {
@@ -33,7 +190,7 @@ const NODE_DIMENSIONS = {
 export const getNodePortInfo = (
     node: NodeWithDimensions,
     portType: 'input' | 'output',
-    portIndex: number = 0
+    _portIndex: number = 0 // Reserved for future multi-port support
 ): PortInfo => {
     const type = node.type.toLowerCase();
 

@@ -37,8 +37,14 @@ import { socketService } from './editor/execution/socket.service';
 socketService.initialize(httpServer, env.FRONTEND_URL);
 
 app.use(helmet());
+
+// CORS configuration - support multiple origins in development
+const corsOrigins = env.NODE_ENV === 'development'
+    ? [env.FRONTEND_URL, /^http:\/\/localhost:\d+$/, /^http:\/\/192\.168\.\d+\.\d+:\d+$/]
+    : env.FRONTEND_URL;
+
 app.use(cors({
-    origin: env.FRONTEND_URL,
+    origin: corsOrigins,
     credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));

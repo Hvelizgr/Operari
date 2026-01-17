@@ -208,17 +208,18 @@ See the LICENSE.md file in this repository. */
     height: auto;
 }
 
-/* ... */
-
 .wf_event_title {
-    /* ... */
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--table-header-background-color);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--body-text-color);
     border-top-left-radius: 6px;
-    /* Match outer - 2px border */
     border-top-right-radius: 6px;
-    /* ... */
 }
-
-/* ... */
 
 .wf_pole_button {
     position: absolute;
@@ -852,6 +853,47 @@ body.dark .wf_condition {
     }
 }
 
+/* n8n-style rotating border animation */
+@property --border-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+@keyframes wf_rotate_border {
+    to {
+        --border-angle: 360deg;
+    }
+}
+
+.wf_node.wf_running {
+    position: relative;
+}
+
+.wf_node.wf_running::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    z-index: -1;
+    border-radius: inherit;
+    background: conic-gradient(
+        from var(--border-angle, 0deg),
+        transparent 0%,
+        var(--active-color, var(--theme-color)) 10%,
+        var(--active-color, var(--theme-color)) 15%,
+        transparent 25%
+    );
+    animation: wf_rotate_border 1.5s linear infinite;
+}
+
+/* Fallback for browsers without @property support */
+@supports not (background: conic-gradient(red, blue)) {
+    .wf_node.wf_running::before {
+        background: var(--active-color, var(--theme-color));
+        animation: wf_flash_kf 1s ease-in-out infinite;
+    }
+}
+
 .wf_event.wf_completed,
 .wf_entity.wf_completed>div {
     border: 2px solid var(--active-color) !important;
@@ -1023,4 +1065,462 @@ body.dark .button {
 
 .right {
     float: right;
+}
+
+/* ===== n8n-style ZOOM COMPENSATION ===== */
+/* Keeps UI elements readable at any zoom level */
+
+.wf_container {
+    --viewport-zoom: 1;
+    --zoom-compensation: calc(1 / var(--viewport-zoom, 1));
+    --min-zoom-scale: 0.75;
+    --max-zoom-scale: 1.5;
+}
+
+/* Clamp zoom compensation between min and max */
+.zoom-compensated {
+    --clamped-scale: clamp(
+        var(--min-zoom-scale),
+        var(--zoom-compensation),
+        var(--max-zoom-scale)
+    );
+    transform: scale(var(--clamped-scale));
+    transform-origin: center bottom;
+}
+
+/* Node toolbar zoom compensation */
+.node-hover-toolbar {
+    --clamped-scale: clamp(
+        var(--min-zoom-scale),
+        var(--zoom-compensation),
+        var(--max-zoom-scale)
+    );
+}
+
+/* Pole buttons should stay clickable at any zoom */
+.wf_pole_button {
+    min-width: 24px;
+    min-height: 24px;
+}
+
+/* At low zoom levels, scale up interactive elements */
+@container (max-width: 50%) {
+    .wf_pole_button {
+        transform: scale(1.5);
+    }
+}
+
+/* Labels should remain readable */
+.wf_ent_title,
+.wf_ent_label,
+.wf_trig_label {
+    /* Prevent text from becoming too small */
+    font-size: max(11px, calc(12px * var(--zoom-compensation, 1)));
+}
+
+/* ===== n8n-style TRIGGER ENHANCEMENTS ===== */
+
+.wf_trigger_enhanced {
+    position: relative;
+}
+
+/* Quick Run Button Wrapper */
+.trigger-quick-run-wrapper {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    z-index: 10;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s ease;
+}
+
+.wf_trigger_enhanced:hover .trigger-quick-run-wrapper {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Quick Run Button */
+.trigger-quick-run {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--green);
+    border: 2px solid white;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.15s ease;
+}
+
+.trigger-quick-run:hover {
+    background: var(--green-brighter);
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+.trigger-quick-run:active {
+    transform: scale(0.95);
+}
+
+/* Lightning Bolt Indicator */
+.trigger-indicator {
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--orange);
+    border: 2px solid white;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    z-index: 5;
+}
+
+/* Trigger glow effect on hover */
+.wf_trigger_enhanced .wf_ent_trigger {
+    transition: box-shadow 0.2s ease;
+}
+
+.wf_trigger_enhanced:hover .wf_ent_trigger {
+    box-shadow: 0 0 0 3px rgba(253, 126, 20, 0.3);
+}
+
+/* Trigger running state with rotating border */
+.wf_trigger_enhanced.wf_running .wf_ent_trigger {
+    position: relative;
+}
+
+.wf_trigger_enhanced.wf_running .wf_ent_trigger::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+    background: conic-gradient(
+        from var(--border-angle, 0deg),
+        transparent 0%,
+        var(--orange) 10%,
+        var(--orange) 15%,
+        transparent 25%
+    );
+    animation: wf_rotate_border 1.5s linear infinite;
+    z-index: -1;
+}
+
+/* ===== n8n-style FRAME NODE ENHANCEMENTS ===== */
+
+.wf_frame.collapsed {
+    height: 40px !important;
+    min-height: 40px;
+    overflow: hidden;
+}
+
+.wf_frame.locked {
+    cursor: not-allowed;
+}
+
+.wf_frame.locked .frame-title-bar {
+    cursor: default;
+}
+
+/* Frame collapse button */
+.frame-collapse-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--label-color);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.frame-collapse-btn:hover {
+    background: var(--border-color);
+    color: var(--body-text-color);
+}
+
+/* Frame lock button */
+.frame-lock-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--icon-color);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    opacity: 0.5;
+}
+
+.frame-lock-btn:hover {
+    opacity: 1;
+    color: var(--label-color);
+}
+
+.wf_frame.locked .frame-lock-btn {
+    opacity: 1;
+    color: var(--orange);
+}
+
+/* Note node toolbar */
+.wf_note .note-toolbar {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.wf_note:hover .note-toolbar,
+.wf_note.selected .note-toolbar {
+    opacity: 1;
+}
+
+/* Note content styling */
+.note-content h1,
+.note-content h2,
+.note-content h3 {
+    margin-top: 0;
+}
+
+.note-content ul,
+.note-content ol {
+    margin: 0;
+    padding-left: 0;
+}
+
+.note-content li {
+    margin: 2px 0;
+}
+
+/* ===== n8n-style ADVANCED PORT SYSTEM ===== */
+
+/* Port type colors */
+.wf_pole_button.port-main {
+    background: var(--theme-color);
+}
+
+.wf_pole_button.port-data {
+    background: var(--green);
+}
+
+.wf_pole_button.port-error {
+    background: var(--red);
+}
+
+.wf_pole_button.port-config {
+    background: var(--purple);
+}
+
+/* Port hover states */
+.wf_pole_button.port-main:hover {
+    background: var(--blue-highlight);
+}
+
+.wf_pole_button.port-data:hover {
+    background: var(--green-highlight);
+}
+
+.wf_pole_button.port-error:hover {
+    background: var(--red-highlight);
+}
+
+.wf_pole_button.port-config:hover {
+    background: var(--purple-highlight);
+}
+
+/* Port labels (shown on hover) */
+.port-label {
+    position: absolute;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: white;
+    background: var(--body-text-color);
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 10;
+}
+
+.wf_pole_button:hover + .port-label,
+.wf_pole_button:focus + .port-label {
+    opacity: 1;
+}
+
+/* Port label positions based on direction */
+.port-label.left {
+    right: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-right: 8px;
+}
+
+.port-label.right {
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 8px;
+}
+
+.port-label.top {
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+}
+
+.port-label.bottom {
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 8px;
+}
+
+/* Required port indicator */
+.wf_pole_button.port-required::after {
+    content: '*';
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--red);
+}
+
+/* Multiple ports positioning */
+.wf_port_group {
+    position: absolute;
+    display: flex;
+    gap: 4px;
+}
+
+.wf_port_group.left {
+    left: -12px;
+    top: 50%;
+    flex-direction: column;
+    transform: translateY(-50%);
+}
+
+.wf_port_group.right {
+    right: -12px;
+    top: 50%;
+    flex-direction: column;
+    transform: translateY(-50%);
+}
+
+.wf_port_group.top {
+    top: -12px;
+    left: 50%;
+    flex-direction: row;
+    transform: translateX(-50%);
+}
+
+.wf_port_group.bottom {
+    bottom: -12px;
+    left: 50%;
+    flex-direction: row;
+    transform: translateX(-50%);
+}
+
+/* ===== DYNAMIC NODE SIZING ===== */
+
+/* Node auto-height based on content */
+.wf_event.auto-height {
+    height: auto;
+    min-height: 80px;
+}
+
+/* Node size variants */
+.wf_event.size-compact {
+    width: 200px;
+}
+
+.wf_event.size-default {
+    width: 275px;
+}
+
+.wf_event.size-wide {
+    width: 400px;
+}
+
+/* Dynamic height calculation based on ports */
+.wf_event[data-port-count="1"] {
+    min-height: 80px;
+}
+
+.wf_event[data-port-count="2"] {
+    min-height: 110px;
+}
+
+.wf_event[data-port-count="3"] {
+    min-height: 140px;
+}
+
+.wf_event[data-port-count="4"] {
+    min-height: 170px;
+}
+
+.wf_event[data-port-count="5"] {
+    min-height: 200px;
+}
+
+/* Node with preview data */
+.wf_event.has-preview {
+    min-height: 150px;
+}
+
+.wf_event .preview-data {
+    padding: 8px;
+    margin-top: 8px;
+    background: var(--form-background-color);
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--label-color);
+    max-height: 100px;
+    overflow: auto;
+}
+
+/* ===== NODE BODY STYLES ===== */
+
+.wf_event .wf_body {
+    padding: 10px 12px;
+}
+
+.wf_event .summary_grid {
+    display: grid;
+    gap: 8px;
+}
+
+.wf_event .summary_grid.double {
+    grid-template-columns: 1fr 1fr;
+}
+
+.wf_event .info_label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--label-color);
+    margin-bottom: 2px;
+}
+
+.wf_event .info_value {
+    font-size: 12px;
+    color: var(--body-text-color);
 }

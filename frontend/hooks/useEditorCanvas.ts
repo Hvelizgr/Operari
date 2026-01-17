@@ -162,6 +162,49 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         announceMessage,
     });
 
+    // --- FETCH INITIAL WORKFLOW ---
+    useEffect(() => {
+        const fetchWorkflow = async () => {
+            try {
+                // If URL has ?reset=true, clear local storage
+                if (typeof window !== 'undefined' && window.location.search.includes('reset=true')) {
+                    localStorage.removeItem('nanoflow-workflow-current-workflow');
+                    window.history.replaceState({}, '', window.location.pathname); // remove query param
+                }
+
+                // Try to load from API
+                const response = await fetch('/api/workflows/current-workflow');
+                if (response.ok) {
+                    const data = await response.json();
+
+                    if (data.nodes && Array.isArray(data.nodes)) {
+                        console.log('Fetching workflow from server:', data.name);
+
+                        // Check if we have unsaved local changes that are NEWER?
+                        // For now, let's PRIORITIZE server if we are loading the page
+                        // But useAutosave might overwrite it back if we don't sync.
+
+                        setNodes(data.nodes);
+                        setConnections(data.connections || []);
+
+                        // Force sync local storage to match server to prevent conflict
+                        localStorage.setItem('nanoflow-workflow-current-workflow', JSON.stringify({
+                            nodes: data.nodes,
+                            connections: data.connections || [],
+                            version: '1.0',
+                            timestamp: data.updatedAt ? new Date(data.updatedAt).getTime() : Date.now(),
+                            workflowId: 'current-workflow'
+                        }));
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch initial workflow:', error);
+            }
+        };
+
+        fetchWorkflow();
+    }, [setNodes, setConnections]);
+
     // Selection management
     const {
         selectionBox,

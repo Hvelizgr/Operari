@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import type { WorkflowNode } from '@nanoflow/shared';
 import EditorNode from './EditorNode';
 import NoteNode from './NoteNode';
 import FrameNode from './FrameNode';
+import NodeHoverToolbar from './NodeHoverToolbar';
 import { NodeType } from '../Node';
 import type { ViewportState } from '../../types/editor.types';
 import type { MouseEvent } from 'react';
@@ -34,6 +35,13 @@ interface NodesLayerProps {
     onNodeDoubleClick?: (nodeId: string) => void;
     editorMode?: 'move' | 'connect';
     nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED'>;
+
+    // Toolbar handlers (n8n-style hover toolbar)
+    onNodeRun?: (nodeId: string) => void;
+    onNodeToggleDisable?: (nodeId: string) => void;
+    onNodeDelete?: (nodeId: string) => void;
+    onNodeDuplicate?: (nodeId: string) => void;
+    onNodeFocus?: (nodeId: string) => void;
 }
 
 export default function NodesLayer({
@@ -58,7 +66,32 @@ export default function NodesLayer({
     onNodeDoubleClick,
     editorMode = 'move',
     nodeStatuses = {},
+    // Toolbar handlers
+    onNodeRun,
+    onNodeToggleDisable,
+    onNodeDelete,
+    onNodeDuplicate,
+    onNodeFocus,
 }: NodesLayerProps) {
+    // Hover state for toolbar
+    const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+    const [toolbarPosition, setToolbarPosition] = useState<{ x: number; y: number } | null>(null);
+
+    // Handle node hover
+    const handleNodeMouseEnter = useCallback((nodeId: string, nodePosition: { x: number; y: number }, nodeWidth: number) => {
+        setHoveredNodeId(nodeId);
+        // Position toolbar at center-top of node
+        setToolbarPosition({
+            x: nodePosition.x + nodeWidth / 2,
+            y: nodePosition.y
+        });
+    }, []);
+
+    const handleNodeMouseLeave = useCallback(() => {
+        setHoveredNodeId(null);
+        setToolbarPosition(null);
+    }, []);
+
     // Sort nodes: frames first (lowest z-index), then notes, then regular nodes
     const sortedNodes = useMemo(() => {
         return [...nodes].sort((a, b) => {
@@ -70,6 +103,9 @@ export default function NodesLayer({
             return getOrder(a.type) - getOrder(b.type);
         });
     }, [nodes]);
+
+    // Get hovered node info for toolbar
+    const hoveredNode = hoveredNodeId ? nodes.find(n => n.id === hoveredNodeId) : null;
 
     return (
         <motion.div
@@ -113,30 +149,53 @@ export default function NodesLayer({
                 // Render EditorNode for all other types
                 const isConnected = connections.some(c => c.source === node.id || c.target === node.id);
                 return (
-                    <EditorNode
+                    <div
                         key={node.id}
-                        node={node}
-                        typeDefinition={nodeTypes.find(t => t.type === node.type)}
-                        isConnected={isConnected}
-                        onDragStart={onNodeDragStart}
-                        onDrag={onNodeDrag}
-                        onDragEnd={onNodeDragEnd}
-                        isDragging={draggingNode === node.id}
-                        onPortDragStart={onPortDragStart}
-                        onPortDragEnd={onPortDragEnd}
-                        isConnectionTarget={hoveredInputNode === node.id}
-                        isSelected={selectedNodes.has(node.id)}
-                        isHighlighted={highlightedNodes.includes(node.id) || focusedNodeIndex === index}
-                        onClick={(id) => onNodeClick(id)}
-                        onMove={onNodeMove}
-                        onSolderStart={onSolderStart}
-                        onNodeDoubleClick={onNodeDoubleClick}
-                        onUpdate={onNodeUpdate}
-                        editorMode={editorMode}
-                        status={nodeStatuses[node.id]}
-                    />
+                        onMouseEnter={() => handleNodeMouseEnter(node.id, node.position, 275)}
+                        onMouseLeave={handleNodeMouseLeave}
+                    >
+                        <EditorNode
+                            node={node}
+                            typeDefinition={nodeTypes.find(t => t.type === node.type)}
+                            isConnected={isConnected}
+                            onDragStart={onNodeDragStart}
+                            onDrag={onNodeDrag}
+                            onDragEnd={onNodeDragEnd}
+                            isDragging={draggingNode === node.id}
+                            onPortDragStart={onPortDragStart}
+                            onPortDragEnd={onPortDragEnd}
+                            isConnectionTarget={hoveredInputNode === node.id}
+                            isSelected={selectedNodes.has(node.id)}
+                            isHighlighted={highlightedNodes.includes(node.id) || focusedNodeIndex === index}
+                            onClick={(id) => onNodeClick(id)}
+                            onMove={onNodeMove}
+                            onSolderStart={onSolderStart}
+                            onNodeDoubleClick={onNodeDoubleClick}
+                            onUpdate={onNodeUpdate}
+                            editorMode={editorMode}
+                            status={nodeStatuses[node.id]}
+                        />
+                    </div>
                 );
             })}
+
+            {/* n8n-style Hover Toolbar */}
+            {hoveredNode && toolbarPosition && !draggingNode && (
+                <NodeHoverToolbar
+                    nodeId={hoveredNode.id}
+                    nodeTitle={hoveredNode.title}
+                    isVisible={true}
+                    isDisabled={false}
+                    isRunning={nodeStatuses[hoveredNode.id] === 'RUNNING'}
+                    position={toolbarPosition}
+                    zoom={viewport.zoom}
+                    onRun={onNodeRun}
+                    onToggleDisable={onNodeToggleDisable}
+                    onDelete={onNodeDelete}
+                    onDuplicate={onNodeDuplicate}
+                    onFocus={onNodeFocus}
+                />
+            )}
         </motion.div>
     );
 }

@@ -83,11 +83,11 @@ export function useEditorKeyboard({
                 e.preventDefault();
                 const newNodes: WorkflowNode[] = [];
                 const newSelectedNodeIds = new Set<string>();
-                
+
                 clipboard.forEach(nodeToPaste => {
                     const newNode: WorkflowNode = {
                         ...nodeToPaste,
-                        id: `node-${Date.now()}-${Math.random()}`,
+                        id: `node-${crypto.randomUUID()}`,
                         position: {
                             x: nodeToPaste.position.x + EDITOR_CONFIG.GRID.SIZE * 2,
                             y: nodeToPaste.position.y + EDITOR_CONFIG.GRID.SIZE * 2,
@@ -100,6 +100,31 @@ export function useEditorKeyboard({
                 setNodes(prevNodes => [...prevNodes, ...newNodes]);
                 setSelectedNodes(newSelectedNodeIds);
                 announceMessage(`${newNodes.length} node${newNodes.length > 1 ? 's' : ''} pasted.`);
+            }
+
+            // Duplicate (Ctrl+D) - Direct duplicate without clipboard
+            else if (isCtrlOrMeta && e.key === 'd' && selectedNodes.size > 0) {
+                e.preventDefault();
+                const nodesToDuplicate = nodes.filter(n => selectedNodes.has(n.id));
+                const newNodes: WorkflowNode[] = [];
+                const newSelectedNodeIds = new Set<string>();
+
+                nodesToDuplicate.forEach(nodeToDuplicate => {
+                    const newNode: WorkflowNode = {
+                        ...nodeToDuplicate,
+                        id: `node-${crypto.randomUUID()}`,
+                        position: {
+                            x: nodeToDuplicate.position.x + EDITOR_CONFIG.GRID.SIZE * 2,
+                            y: nodeToDuplicate.position.y + EDITOR_CONFIG.GRID.SIZE * 2,
+                        },
+                    };
+                    newNodes.push(newNode);
+                    newSelectedNodeIds.add(newNode.id);
+                });
+
+                setNodes(prevNodes => [...prevNodes, ...newNodes]);
+                setSelectedNodes(newSelectedNodeIds);
+                announceMessage(`${newNodes.length} node${newNodes.length > 1 ? 's' : ''} duplicated.`);
             }
         };
         window.addEventListener('keydown', handleKeyDown);

@@ -5,7 +5,7 @@ import { NodeType, NODE_TYPES } from '../Node';
 import { WorkflowNode } from '@nanoflow/shared';
 import './WorkflowNode.css';
 import { Box, AlertCircle, ChevronRight, ChevronDown, GripVertical } from 'lucide-react';
-// Import shared port utilities
+// Export shared port utilities for use in ConnectionsLayer
 export { getNodeInputPort, getNodeOutputPort, getNodePortInfo } from '../../utils/nodePortUtils';
 
 interface EditorNodeProps {
@@ -127,6 +127,7 @@ function EditorNodeComponent({
             </div>
         )
     );
+
 
     const commonProps = {
         id: `d_wfn_${node.id}`,
@@ -253,15 +254,41 @@ function EditorNodeComponent({
         );
     }
 
-    // --- TRIGGER ---
+    // --- TRIGGER (n8n-style with quick run button) ---
     if (visualType === 'trigger') {
         return (
             <div
-                className={`wf_node wf_entity ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`}
+                className={`wf_node wf_entity wf_trigger_enhanced ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active wf_running' : ''}`}
                 {...commonProps}
             >
                 <ValidationBadge />
+
+                {/* n8n-style Quick Run Button (appears on hover) */}
+                <div className="trigger-quick-run-wrapper">
+                    <button
+                        className="trigger-quick-run"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            // Trigger workflow execution from this node
+                            onNodeDoubleClick && onNodeDoubleClick(node.id);
+                        }}
+                        title="Run workflow from this trigger"
+                        aria-label="Run workflow"
+                    >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </button>
+                </div>
+
                 <div className="wf_ent_trigger">
+                    {/* Lightning bolt indicator for triggers */}
+                    <div className="trigger-indicator">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                        </svg>
+                    </div>
+
                     <span className="flex items-center justify-center h-full w-full relative" style={{ left: '-6px' }}>
                         {renderIcon(nodeType?.icon, 32)}
                     </span>
@@ -312,10 +339,11 @@ function EditorNodeComponent({
     }
 
     // --- JOB (Standard) ---
+    // Use simple input/output ports (original behavior) to maintain alignment with connections
     return (
         <div
             className={`
-                wf_node wf_event 
+                wf_node wf_event
                 ${isSelected ? 'selected' : ''}
                 ${isDragging ? 'dragging' : ''}
                 ${status === 'RUNNING' ? 'wf_active' : ''}
@@ -349,6 +377,7 @@ function EditorNodeComponent({
                 </div>
             </div>
 
+            {/* Simple input/output ports - positioned at vertical center */}
             <div
                 className="wf_pole_button wf_input_pole"
                 role="button"

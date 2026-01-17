@@ -16,9 +16,15 @@ export class SocketService {
     }
 
     initialize(server: HttpServer, frontendUrl: string) {
+        // Support multiple origins in development (localhost and local network IPs)
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const corsOrigin = isDevelopment
+            ? [frontendUrl, /^http:\/\/localhost:\d+$/, /^http:\/\/192\.168\.\d+\.\d+:\d+$/]
+            : frontendUrl;
+
         this.io = new SocketServer(server, {
             cors: {
-                origin: frontendUrl,
+                origin: corsOrigin,
                 methods: ['GET', 'POST'],
                 credentials: true,
             },

@@ -6,6 +6,8 @@ import { Connection } from '@nanoflow/shared';
 
 // Removed local Connection interface
 
+// n8n-style connection conditions
+export type ConnectionCondition = 'always' | 'success' | 'error' | 'true' | 'false';
 
 interface EditorConnectionProps {
     connection: Connection;
@@ -14,8 +16,27 @@ interface EditorConnectionProps {
     isSelected?: boolean;
     isExecuting?: boolean;
     isCyclic?: boolean;
+    condition?: ConnectionCondition;
+    executionStatus?: 'pending' | 'success' | 'failed';
     onClick?: (connectionId: string) => void;
 }
+
+// n8n-style condition colors
+const CONDITION_COLORS: Record<ConnectionCondition, string> = {
+    always: '#475569',   // Slate-600 (default)
+    success: '#22c55e',  // Green-500
+    error: '#ef4444',    // Red-500
+    true: '#3b82f6',     // Blue-500
+    false: '#f59e0b',    // Amber-500
+};
+
+const CONDITION_ICONS: Record<ConnectionCondition, string> = {
+    always: '',
+    success: '✓',
+    error: '✗',
+    true: 'T',
+    false: 'F',
+};
 
 export default function EditorConnection({
     connection,
@@ -24,6 +45,8 @@ export default function EditorConnection({
     isSelected = false,
     isExecuting = false,
     isCyclic = false,
+    condition = 'always',
+    executionStatus,
     onClick,
 }: EditorConnectionProps) {
     const dx = targetPos.x - sourcePos.x;
@@ -38,6 +61,10 @@ export default function EditorConnection({
       ${targetPos.x} ${targetPos.y}
   `;
 
+    // Calculate midpoint for condition badge
+    const midX = (sourcePos.x + targetPos.x) / 2;
+    const midY = (sourcePos.y + targetPos.y) / 2;
+
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (onClick) {
@@ -46,9 +73,20 @@ export default function EditorConnection({
     };
 
     const getStrokeColor = () => {
-        if (isCyclic) return "#ef4444";
-        if (isSelected) return "#3b82f6";
-        return isExecuting ? "#60a5fa" : "#475569"; // Blue when executing, Slate-600 otherwise
+        // Priority: cyclic > execution status > selected > condition
+        if (isCyclic) return '#ef4444';
+        if (executionStatus === 'failed') return '#ef4444';
+        if (executionStatus === 'success') return '#22c55e';
+        if (isSelected) return '#3b82f6';
+        if (isExecuting) return '#60a5fa';
+        return CONDITION_COLORS[condition];
+    };
+
+    const getStrokeDashArray = () => {
+        // Dashed line for error conditions
+        if (condition === 'error') return '8,4';
+        if (isCyclic) return '4,4';
+        return 'none';
     };
 
     return (
@@ -81,6 +119,7 @@ export default function EditorConnection({
                 stroke={getStrokeColor()}
                 strokeWidth={isCyclic ? "3" : isSelected ? "3" : "2"}
                 strokeLinecap="round"
+                strokeDasharray={getStrokeDashArray()}
                 className="group-hover:stroke-blue-400 transition-colors duration-300"
                 initial={{ pathLength: 0 }}
                 animate={{ pathLength: 1 }}
@@ -132,6 +171,35 @@ export default function EditorConnection({
                         }}
                     />
                 </>
+            )}
+
+            {/* Condition indicator - small, subtle badge only on hover */}
+            {condition !== 'always' && CONDITION_ICONS[condition] && (
+                <g
+                    transform={`translate(${midX}, ${midY})`}
+                    className="cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    onClick={handleClick}
+                >
+                    {/* Badge background - smaller and more subtle */}
+                    <circle
+                        r="8"
+                        fill={CONDITION_COLORS[condition]}
+                        stroke="var(--form-background-color)"
+                        strokeWidth="1.5"
+                        className="transition-all duration-200"
+                    />
+                    {/* Badge icon */}
+                    <text
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fill="white"
+                        fontSize="8"
+                        fontWeight="bold"
+                        style={{ userSelect: 'none' }}
+                    >
+                        {CONDITION_ICONS[condition]}
+                    </text>
+                </g>
             )}
         </g>
     );
