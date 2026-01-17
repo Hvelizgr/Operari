@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Check, X, AlertTriangle, Ban, Circle } from 'lucide-react';
-import type { ConnectionCondition } from '@nanoflow/shared';
+import { Check, X, AlertTriangle, Ban, Circle, GitBranch } from 'lucide-react';
+import type { ConnectionCondition, ComplexCondition } from '@nanoflow/shared';
 
 interface ConnectionConditionBadgeProps {
     condition: ConnectionCondition;
@@ -12,7 +12,7 @@ interface ConnectionConditionBadgeProps {
     zoom: number;
 }
 
-const CONDITION_CONFIG: Record<ConnectionCondition, { color: string; icon: typeof Check; label: string }> = {
+const CONDITION_CONFIG: Record<string, { color: string; icon: typeof Check; label: string }> = {
     complete: { color: '#3b82f6', icon: Circle, label: 'Complete' },
     success: { color: '#22c55e', icon: Check, label: 'Success' },
     error: { color: '#ef4444', icon: X, label: 'Error' },
@@ -20,7 +20,7 @@ const CONDITION_CONFIG: Record<ConnectionCondition, { color: string; icon: typeo
     disabled: { color: '#6b7280', icon: Ban, label: 'Disabled' },
 };
 
-const CONDITIONS: ConnectionCondition[] = ['complete', 'success', 'error', 'warning', 'disabled'];
+const CONDITIONS: Exclude<ConnectionCondition, ComplexCondition>[] = ['complete', 'success', 'error', 'warning', 'disabled'];
 
 export default function ConnectionConditionBadge({
     condition,
@@ -31,9 +31,6 @@ export default function ConnectionConditionBadge({
 }: ConnectionConditionBadgeProps) {
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
-
-    const config = CONDITION_CONFIG[condition];
-    const Icon = config.icon;
 
     // Close menu on click outside
     useEffect(() => {
@@ -48,6 +45,15 @@ export default function ConnectionConditionBadge({
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen]);
+
+    const isComplex = typeof condition === 'object';
+    const config = isComplex
+        ? { color: '#8b5cf6', icon: GitBranch, label: 'Custom Condition' }
+        : CONDITION_CONFIG[condition as string];
+
+    if (!config) return null;
+
+    const Icon = config.icon;
 
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();

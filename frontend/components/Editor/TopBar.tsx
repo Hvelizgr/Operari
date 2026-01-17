@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Moon, Sun, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3 } from 'lucide-react';
+import { Download, Moon, Sun, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Square, Settings2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import type { SaveStatus } from '../../hooks/useAutosave';
@@ -9,8 +9,10 @@ interface TopBarProps {
     lang: 'en' | 'es';
     workflowName: string;
     onRun: () => void;
+    onRunWithInput?: () => void;
     onDebug?: () => void;
     isExecuting?: boolean;
+    onStop?: () => void;
     onProperties?: () => void;
     onExport?: () => void;
     onImport?: (file: File) => void;
@@ -25,8 +27,10 @@ export default function TopBar({
     lang,
     workflowName,
     onRun,
+    onRunWithInput,
     onDebug,
     isExecuting,
+    onStop,
     onProperties,
     onExport,
     onImport,
@@ -139,6 +143,18 @@ export default function TopBar({
 
                             <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
 
+                            {/* Run with Input */}
+                            {onRunWithInput && (
+                                <button
+                                    onClick={() => { onRunWithInput(); setIsToolsMenuOpen(false); }}
+                                    disabled={isExecuting}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                                >
+                                    <Settings2 size={16} />
+                                    {lang === 'en' ? 'Run with Input...' : 'Ejecutar con valores...'}
+                                </button>
+                            )}
+
                             {/* Debug */}
                             {onDebug && (
                                 <button
@@ -154,16 +170,26 @@ export default function TopBar({
                     )}
                 </div>
 
-                {/* Run - Always visible */}
-                <button
-                    onClick={onRun}
-                    disabled={isExecuting}
-                    className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
-                    title={lang === 'en' ? 'Run Workflow (Ctrl+Enter)' : 'Ejecutar Flujo (Ctrl+Enter)'}
-                >
-                    <Zap size={16} className={isExecuting ? 'animate-pulse' : ''} />
-                    <span>{isExecuting ? (lang === 'en' ? 'Running...' : 'Ejecutando...') : (lang === 'en' ? 'Run' : 'Ejecutar')}</span>
-                </button>
+                {/* Run/Stop - Always visible */}
+                {isExecuting ? (
+                    <button
+                        onClick={onStop}
+                        className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
+                        title={lang === 'en' ? 'Stop Execution' : 'Detener Ejecución'}
+                    >
+                        <Square size={14} fill="currentColor" />
+                        <span>{lang === 'en' ? 'Stop' : 'Detener'}</span>
+                    </button>
+                ) : (
+                    <button
+                        onClick={onRun}
+                        className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+                        title={lang === 'en' ? 'Run Workflow (Ctrl+Enter)' : 'Ejecutar Flujo (Ctrl+Enter)'}
+                    >
+                        <Zap size={16} />
+                        <span>{lang === 'en' ? 'Run' : 'Ejecutar'}</span>
+                    </button>
+                )}
             </div>
 
             {/* Right: Secondary Actions */}

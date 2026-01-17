@@ -175,9 +175,39 @@ export function useAutosave({
         localStorage.setItem('nanoflow-autosave-enabled', enableAutosave.toString());
     }, [enableAutosave]);
 
+    // Force immediate save (for templates, before execution, etc.)
+    const forceSave = useCallback(async (overriddenNodes?: WorkflowNode[], overriddenConnections?: Connection[]) => {
+        if (isSavingRef.current) return;
+
+        isSavingRef.current = true;
+        setSaveStatus('saving');
+
+        const workflowData: WorkflowData = {
+            nodes: overriddenNodes || nodes,
+            connections: overriddenConnections || connections,
+            version: '1.0',
+            timestamp: Date.now(),
+            workflowId,
+        };
+
+        saveToLocalStorage(workflowData);
+
+        if (navigator.onLine) {
+            const success = await saveToBackend(workflowData);
+            setSaveStatus(success ? 'saved' : 'error');
+            isSavingRef.current = false;
+            return success;
+        } else {
+            setSaveStatus('saved');
+            isSavingRef.current = false;
+            return true;
+        }
+    }, [nodes, connections, workflowId, saveToLocalStorage, saveToBackend]);
+
     return {
         saveStatus,
         enableAutosave,
         setEnableAutosave,
+        forceSave,
     };
 }

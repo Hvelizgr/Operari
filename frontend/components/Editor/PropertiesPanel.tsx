@@ -34,9 +34,10 @@ interface PropertiesPanelProps {
     lang: 'en' | 'es';
     nodes: WorkflowNode[];
     connections: Connection[];
+    nodeOutputs?: Record<string, any>;
 }
 
-export default function PropertiesPanel({ node, nodeTypeDefinition, onUpdate, onClose, lang, nodes, connections }: PropertiesPanelProps) {
+export default function PropertiesPanel({ node, nodeTypeDefinition, onUpdate, onClose, lang, nodes, connections, nodeOutputs }: PropertiesPanelProps) {
     const [localTitle, setLocalTitle] = useState('');
     const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
 
@@ -155,6 +156,7 @@ export default function PropertiesPanel({ node, nodeTypeDefinition, onUpdate, on
                             lang={lang}
                             nodes={nodes}
                             connections={connections}
+                            nodeOutputs={nodeOutputs}
                         />
                     </div>
 
@@ -180,7 +182,7 @@ export default function PropertiesPanel({ node, nodeTypeDefinition, onUpdate, on
 }
 
 // Helper to keep main component clean
-function SettingsResolver({ node, localConfig, setLocalConfig, onUpdate, nodeTypeDefinition, lang, nodes, connections }: any) {
+function SettingsResolver({ node, localConfig, setLocalConfig, onUpdate, nodeTypeDefinition, lang, nodes, connections, nodeOutputs }: any) {
     const handleConfigChange = (key: string, value: any) => {
         const newConfig = { ...localConfig, [key]: value };
         setLocalConfig(newConfig);
@@ -210,6 +212,7 @@ function SettingsResolver({ node, localConfig, setLocalConfig, onUpdate, nodeTyp
                 onChange={(key, val) => handleConfigChange(key, val)}
                 nodes={nodes}
                 connections={connections}
+                nodeOutputs={nodeOutputs}
                 lang={lang}
             />
         );

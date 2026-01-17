@@ -244,7 +244,7 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     });
 
     // Autosave
-    const { saveStatus, enableAutosave, setEnableAutosave } = useAutosave({
+    const { saveStatus, enableAutosave, setEnableAutosave, forceSave } = useAutosave({
         nodes,
         connections,
         workflowId: 'current-workflow',
@@ -545,49 +545,79 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     useEffect(() => { panStartRef.current = panStart; }, [panStart]);
     useEffect(() => { selectionBoxRef.current = selectionBox; }, [selectionBox]);
 
+    // Refs for handlers to avoid restarting effect on node/viewport updates
+    const handleNodeDragEndLocalRef = useRef(handleNodeDragEndLocal);
+    const updateSelectionBoxRef = useRef(updateSelectionBox);
+    const clearSelectionBoxRef = useRef(clearSelectionBox);
+    const updateCreatingConnectionPositionRef = useRef(updateCreatingConnectionPosition);
+
+    useEffect(() => { handleNodeDragEndLocalRef.current = handleNodeDragEndLocal; }, [handleNodeDragEndLocal]);
+    useEffect(() => { updateSelectionBoxRef.current = updateSelectionBox; }, [updateSelectionBox]);
+    useEffect(() => { clearSelectionBoxRef.current = clearSelectionBox; }, [clearSelectionBox]);
+    useEffect(() => { updateCreatingConnectionPositionRef.current = updateCreatingConnectionPosition; }, [updateCreatingConnectionPosition]);
+
+    // Use current Nodes in ref to avoid dependency cycle in effect
+    const nodesRef = useRef(nodes);
+    useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+
     useEffect(() => {
+        let animationFrameId: number;
+
         const handleWindowMouseMove = (e: globalThis.MouseEvent) => {
             const currentZoom = viewportRef.current.zoom;
 
             if (draggingNodeRef.current) {
                 const dragStart = nodeDragStartRef.current;
-                const newPosition = {
-                    x: e.clientX / currentZoom - dragStart.x,
-                    y: e.clientY / currentZoom - dragStart.y,
-                };
+                const newX = e.clientX / currentZoom - dragStart.x;
+                const newY = e.clientY / currentZoom - dragStart.y;
 
-                setNodes((prevNodes) => {
-                    const draggedNode = prevNodes.find(n => n.id === draggingNodeRef.current);
-                    if (!draggedNode) return prevNodes;
+                // --- THROTTLE & OPTIMIZE UPDATES ---
+                // Cancel previous frame if exists to prevent stacking
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
-                    // Calculate delta for hierarchical drag
-                    const deltaX = newPosition.x - draggedNode.position.x;
-                    const deltaY = newPosition.y - draggedNode.position.y;
+                animationFrameId = requestAnimationFrame(() => {
+                    setNodes((prevNodes) => {
+                        const draggedNode = prevNodes.find(n => n.id === draggingNodeRef.current);
+                        if (!draggedNode) return prevNodes;
 
-                    // If dragging a frame, move all children too
-                    if (draggedNode.type === 'custom.frame') {
-                        const childIds = getDescendantIds(draggingNodeRef.current!, prevNodes);
-                        return prevNodes.map((n) => {
-                            if (n.id === draggingNodeRef.current) {
-                                return { ...n, position: newPosition };
-                            }
-                            if (childIds.has(n.id)) {
-                                return {
-                                    ...n,
-                                    position: {
-                                        x: n.position.x + deltaX,
-                                        y: n.position.y + deltaY,
-                                    },
-                                };
-                            }
-                            return n;
-                        });
-                    }
+                        // Basic diff check to prevent renders if mouse didn't move enough
+                        if (Math.abs(draggedNode.position.x - newX) < 0.1 && Math.abs(draggedNode.position.y - newY) < 0.1) {
+                            return prevNodes;
+                        }
 
-                    // Regular node drag
-                    return prevNodes.map((n) =>
-                        n.id === draggingNodeRef.current ? { ...n, position: newPosition } : n
-                    );
+                        const newPosition = { x: newX, y: newY };
+
+                        // Calculate delta for hierarchical drag
+                        const deltaX = newPosition.x - draggedNode.position.x;
+                        const deltaY = newPosition.y - draggedNode.position.y;
+
+                        // If dragging a frame, move all children too
+                        if (draggedNode.type === 'custom.frame') {
+                            const childIds = getDescendantIds(draggingNodeRef.current!, prevNodes);
+                            // Optimization: Check if children actually moved or just return prevNodes if logic fails?
+                            // Mapping is fine.
+                            return prevNodes.map((n) => {
+                                if (n.id === draggingNodeRef.current) {
+                                    return { ...n, position: newPosition };
+                                }
+                                if (childIds.has(n.id)) {
+                                    return {
+                                        ...n,
+                                        position: {
+                                            x: n.position.x + deltaX,
+                                            y: n.position.y + deltaY,
+                                        },
+                                    };
+                                }
+                                return n;
+                            });
+                        }
+
+                        // Regular node drag
+                        return prevNodes.map((n) =>
+                            n.id === draggingNodeRef.current ? { ...n, position: newPosition } : n
+                        );
+                    });
                 });
             } else if (isPanningRef.current) {
                 const start = panStartRef.current;
@@ -596,17 +626,19 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
                     x: e.clientX - start.x,
                     y: e.clientY - start.y,
                 }));
+            } else if (creatingConnection) {
+                updateCreatingConnectionPositionRef.current(e.clientX, e.clientY);
             } else if (selectionBoxRef.current) {
-                updateSelectionBox(e.clientX, e.clientY);
+                updateSelectionBoxRef.current(e.clientX, e.clientY);
             }
         };
 
         const handleWindowMouseUp = () => {
-            if (draggingNodeRef.current) handleNodeDragEndLocal();
+            if (draggingNodeRef.current) handleNodeDragEndLocalRef.current();
             if (isPanningRef.current) setIsPanning(false);
             if (creatingConnection) setCreatingConnection(null);
             if (draggingNodeType) setDraggingNodeType(null);
-            if (selectionBoxRef.current) clearSelectionBox();
+            if (selectionBoxRef.current) clearSelectionBoxRef.current();
         };
 
         if (draggingNode || isPanning || creatingConnection || draggingNodeType || selectionBox) {
@@ -617,7 +649,17 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
             window.removeEventListener('mousemove', handleWindowMouseMove);
             window.removeEventListener('mouseup', handleWindowMouseUp);
         };
-    }, [draggingNode, isPanning, creatingConnection, draggingNodeType, selectionBox, handleNodeDragEndLocal, updateSelectionBox, setViewport, setNodes, setCreatingConnection, setDraggingNodeType, clearSelectionBox]);
+    }, [
+        !!draggingNode,
+        isPanning,
+        !!creatingConnection,
+        !!draggingNodeType,
+        !!selectionBox,
+        setCreatingConnection,
+        setDraggingNodeType,
+        setViewport,
+        setNodes
+    ]);
 
     // Deletion Logic
     const handleConfirmDelete = useCallback(() => {
@@ -661,6 +703,38 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     const handleCancelDelete = useCallback(() => {
         setDeleteConfirm({ open: false, nodeIds: [] });
     }, []);
+
+    // Delete a single node by ID with proper connection cleanup (for hover toolbar)
+    const handleDeleteNodeById = useCallback((nodeId: string) => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        // For frames, collect all children that will be deleted
+        const allNodesToDelete = new Set([nodeId]);
+        if (node.type === 'custom.frame') {
+            const descendants = getDescendantIds(nodeId, nodes);
+            descendants.forEach(id => allNodesToDelete.add(id));
+        }
+
+        const deletedNodes = nodes.filter(n => allNodesToDelete.has(n.id));
+        const deletedConnections = connections.filter(c =>
+            allNodesToDelete.has(c.source) || allNodesToDelete.has(c.target)
+        );
+
+        executeCommand({
+            execute: () => {
+                setNodes((prev: WorkflowNode[]) => prev.filter(n => !allNodesToDelete.has(n.id)));
+                setConnections((prev: Connection[]) =>
+                    prev.filter(c => !allNodesToDelete.has(c.source) && !allNodesToDelete.has(c.target))
+                );
+                setSelectedNodes(new Set());
+            },
+            undo: () => {
+                setNodes((prev: WorkflowNode[]) => [...prev, ...deletedNodes]);
+                setConnections((prev: Connection[]) => [...prev, ...deletedConnections]);
+            },
+        });
+    }, [nodes, connections, executeCommand, setNodes, setConnections, setSelectedNodes]);
 
     const handleCanvasClick = useCallback((e: MouseEvent<HTMLDivElement>) => {
         if (e.target === e.currentTarget && !e.shiftKey) {
@@ -877,6 +951,7 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         saveStatus,
         enableAutosave,
         setEnableAutosave,
+        forceSave,
         showOnboarding,
         onboardingStep,
         contextMenu,
@@ -955,6 +1030,7 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         handleViewportChangeAdapter,
         createConnection,
         handleAddNode,
+        handleDeleteNodeById,
         isRunDialogOpen,
         handleOpenRunDialog,
         handleCloseRunDialog,

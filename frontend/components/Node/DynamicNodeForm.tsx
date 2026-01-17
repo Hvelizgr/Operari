@@ -21,9 +21,10 @@ interface DynamicNodeFormProps {
     nodes: WorkflowNode[];
     connections: Connection[];
     lang?: 'en' | 'es'; // Make optional to avoid breaking existing calls immediately
+    nodeOutputs?: Record<string, any>;
 }
 
-export default function DynamicNodeForm({ properties, values, onChange, nodes, connections, lang = 'en' }: DynamicNodeFormProps) {
+export default function DynamicNodeForm({ properties, values, onChange, nodes, connections, lang = 'en', nodeOutputs }: DynamicNodeFormProps) {
     const [isBuilderOpen, setIsBuilderOpen] = useState(false);
     const [activeField, setActiveField] = useState<string | null>(null);
 
@@ -159,6 +160,7 @@ export default function DynamicNodeForm({ properties, values, onChange, nodes, c
                 connections={connections}
                 onInsert={handleInsertExpression}
                 lang={lang}
+                nodeOutputs={nodeOutputs}
             />
         </div>
     );

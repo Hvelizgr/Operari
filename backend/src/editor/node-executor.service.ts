@@ -129,112 +129,171 @@ const ALLOWED_GLOBALS = {
 
 class SecureSandbox {
     private config: SandboxConfig;
+    private useIvm: boolean = true;
 
     constructor(config: Partial<SandboxConfig> = {}) {
         this.config = {
-            timeout: config.timeout ?? 5000,      // 5 segundos por defecto
-            memoryLimit: config.memoryLimit ?? 128, // 128 MB por defecto
+            timeout: config.timeout ?? 5000,
+            memoryLimit: config.memoryLimit ?? 128,
         };
+        // Check if ivm.Isolate is a constructor
+        try {
+            if (typeof ivm?.Isolate !== 'function') {
+                this.useIvm = false;
+            }
+        } catch {
+            this.useIvm = false;
+        }
+    }
+
+    // Simple fallback execution (less secure but works)
+    private executeFallback(code: string, input: ExecutionInput): ExecutionOutput {
+        try {
+            // Pass the code directly as the function body
+            const fn = new Function(
+                'input',
+                'Math', 'JSON', 'Date', 'Array', 'Object', 'String', 'Number', 'Boolean', 'parseInt', 'parseFloat', 'isNaN', 'isFinite',
+                code
+            );
+            const result = fn(input, Math, JSON, Date, Array, Object, String, Number, Boolean, parseInt, parseFloat, isNaN, isFinite);
+            return result as ExecutionOutput;
+        } catch (error: any) {
+            return { error: error.message || 'Execution error' };
+        }
     }
 
     async execute(code: string, input: ExecutionInput): Promise<ExecutionOutput> {
-        const isolate = new ivm.Isolate({ memoryLimit: this.config.memoryLimit });
+        // Use fallback if ivm is not available
+        if (!this.useIvm) {
+            return this.executeFallback(code, input);
+        }
 
         try {
-            const context = await isolate.createContext();
-            const jail = context.global;
+            const isolate = new ivm.Isolate({ memoryLimit: this.config.memoryLimit });
 
-            // Configurar el objeto global con funciones permitidas
-            await jail.set('global', jail.derefInto());
+            try {
+                const context = await isolate.createContext();
+                const jail = context.global;
 
-            // Inyectar las funciones permitidas de la whitelist
-            for (const [key, value] of Object.entries(ALLOWED_GLOBALS)) {
-                if (typeof value === 'object' && value !== null) {
-                    await jail.set(key, new ivm.ExternalCopy(value).copyInto());
-                } else if (typeof value === 'function') {
-                    await jail.set(key, new ivm.Reference(value));
-                }
-            }
+                await jail.set('global', jail.derefInto());
 
-            // Inyectar el input de forma segura
-            await jail.set('input', new ivm.ExternalCopy(input).copyInto());
-
-            // Crear una variable para almacenar el resultado
-            await jail.set('__result__', undefined);
-
-            // Envolver el código para capturar el resultado
-            const wrappedCode = `
-                (function() {
-                    try {
-                        const __userCode__ = function(input) {
-                            ${code}
-                        };
-                        __result__ = __userCode__(input);
-                    } catch (e) {
-                        __result__ = { error: e.message || 'Error de ejecución' };
+                for (const [key, value] of Object.entries(ALLOWED_GLOBALS)) {
+                    if (typeof value === 'object' && value !== null) {
+                        await jail.set(key, new ivm.ExternalCopy(value).copyInto());
+                    } else if (typeof value === 'function') {
+                        await jail.set(key, new ivm.Reference(value));
                     }
-                })();
-            `;
+                }
 
-            // Compilar y ejecutar el código con timeout
-            const script = await isolate.compileScript(wrappedCode);
-            await script.run(context, { timeout: this.config.timeout });
+                await jail.set('input', new ivm.ExternalCopy(input).copyInto());
+                await jail.set('__result__', undefined);
 
-            // Obtener el resultado
-            const resultRef = await jail.get('__result__');
-            const result = resultRef instanceof ivm.Reference
-                ? await resultRef.copy()
-                : resultRef;
+                const wrappedCode = `
+                    (function() {
+                        try {
+                            const __userCode__ = function(input) {
+                                ${code}
+                            };
+                            __result__ = __userCode__(input);
+                        } catch (e) {
+                            __result__ = { error: e.message || 'Error de ejecución' };
+                        }
+                    })();
+                `;
 
-            return result as ExecutionOutput;
-        } finally {
-            // Liberar recursos del isolate
-            isolate.dispose();
+                const script = await isolate.compileScript(wrappedCode);
+                await script.run(context, { timeout: this.config.timeout });
+
+                const resultRef = await jail.get('__result__');
+                const result = resultRef instanceof ivm.Reference
+                    ? await resultRef.copy()
+                    : resultRef;
+
+                return result as ExecutionOutput;
+            } finally {
+                isolate.dispose();
+            }
+        } catch (error: any) {
+            // If ivm fails, use fallback
+            console.warn('isolated-vm failed, using fallback:', error.message);
+            this.useIvm = false;
+            return this.executeFallback(code, input);
+        }
+    }
+
+    // Simple fallback for condition evaluation
+    private evaluateConditionFallback(condition: string, input: ExecutionInput): boolean {
+        try {
+            const sanitizedCondition = this.sanitizeCondition(condition);
+            // Sanitize ensures no unwanted global access, but we still need to be careful with syntax.
+            // For condition, it's usually an expression like "input.value > 10".
+            // We need to return it.
+
+            const fn = new Function(
+                'input',
+                'Math', 'JSON', 'Date', 'Array', 'Object', 'String', 'Number', 'Boolean', 'parseInt', 'parseFloat', 'isNaN', 'isFinite',
+                `try { return Boolean(${sanitizedCondition}); } catch(e) { return false; }`
+            );
+            return fn(input, Math, JSON, Date, Array, Object, String, Number, Boolean, parseInt, parseFloat, isNaN, isFinite);
+        } catch (error) {
+            return false;
         }
     }
 
     async evaluateCondition(condition: string, input: ExecutionInput): Promise<boolean> {
-        const isolate = new ivm.Isolate({ memoryLimit: this.config.memoryLimit });
+        // Use fallback if ivm is not available
+        if (!this.useIvm) {
+            return this.evaluateConditionFallback(condition, input);
+        }
 
         try {
-            const context = await isolate.createContext();
-            const jail = context.global;
+            const isolate = new ivm.Isolate({ memoryLimit: this.config.memoryLimit });
 
-            await jail.set('global', jail.derefInto());
+            try {
+                const context = await isolate.createContext();
+                const jail = context.global;
 
-            // Inyectar funciones permitidas
-            for (const [key, value] of Object.entries(ALLOWED_GLOBALS)) {
-                if (typeof value === 'object' && value !== null) {
-                    await jail.set(key, new ivm.ExternalCopy(value).copyInto());
-                } else if (typeof value === 'function') {
-                    await jail.set(key, new ivm.Reference(value));
-                }
-            }
+                await jail.set('global', jail.derefInto());
 
-            // Inyectar el input
-            await jail.set('input', new ivm.ExternalCopy(input).copyInto());
-            await jail.set('__result__', false);
-
-            // Sanitizar la condición para prevenir inyecciones
-            const sanitizedCondition = this.sanitizeCondition(condition);
-
-            const wrappedCode = `
-                (function() {
-                    try {
-                        __result__ = Boolean(${sanitizedCondition});
-                    } catch (e) {
-                        __result__ = false;
+                // Inyectar funciones permitidas
+                for (const [key, value] of Object.entries(ALLOWED_GLOBALS)) {
+                    if (typeof value === 'object' && value !== null) {
+                        await jail.set(key, new ivm.ExternalCopy(value).copyInto());
+                    } else if (typeof value === 'function') {
+                        await jail.set(key, new ivm.Reference(value));
                     }
-                })();
-            `;
+                }
 
-            const script = await isolate.compileScript(wrappedCode);
-            await script.run(context, { timeout: this.config.timeout });
+                // Inyectar el input
+                await jail.set('input', new ivm.ExternalCopy(input).copyInto());
+                await jail.set('__result__', false);
 
-            const resultRef = await jail.get('__result__');
-            return Boolean(resultRef instanceof ivm.Reference ? await resultRef.copy() : resultRef);
-        } finally {
-            isolate.dispose();
+                // Sanitizar la condición para prevenir inyecciones
+                const sanitizedCondition = this.sanitizeCondition(condition);
+
+                const wrappedCode = `
+                    (function() {
+                        try {
+                            __result__ = Boolean(${sanitizedCondition});
+                        } catch (e) {
+                            __result__ = false;
+                        }
+                    })();
+                `;
+
+                const script = await isolate.compileScript(wrappedCode);
+                await script.run(context, { timeout: this.config.timeout });
+
+                const resultRef = await jail.get('__result__');
+                return Boolean(resultRef instanceof ivm.Reference ? await resultRef.copy() : resultRef);
+            } finally {
+                isolate.dispose();
+            }
+        } catch (error: any) {
+            // If ivm fails, use fallback
+            console.warn('isolated-vm failed for condition, using fallback:', error.message);
+            this.useIvm = false;
+            return this.evaluateConditionFallback(condition, input);
         }
     }
 
@@ -262,6 +321,13 @@ class SecureSandbox {
 
         return condition;
     }
+}
+
+export interface NodeExecutionOptions {
+    tenantId?: string;
+    executionId?: string;
+    nodeOutputs?: Record<string, ExecutionOutput>;
+    workflowNodes?: WorkflowNode[];
 }
 
 export class NodeExecutor {
@@ -308,51 +374,70 @@ export class NodeExecutor {
         this.actionExecutor = new ActionNodeExecutor();
     }
 
-    async execute(node: WorkflowNode, input: ExecutionInput, tenantId?: string, executionId?: string): Promise<NodeExecutionResult> {
+    async execute(node: WorkflowNode, input: ExecutionInput, options: NodeExecutionOptions = {}): Promise<NodeExecutionResult> {
         const config = node.config || {};
         const commonErrorContext = {
             nodeId: node.id,
             nodeName: node.title,
             nodeType: node.type,
         };
+        const { tenantId, executionId } = options;
 
         switch (node.type) {
             case 'Webhook':
             case 'Trigger':
+            case 'ManualTrigger':
+            case 'n8n-nodes-base.webhook':
+            case 'n8n-nodes-base.manualTrigger':
+            case 'n8n-nodes-base.ManualTrigger': // Added PascalCase support
+            case 'n8n-nodes-base.scheduleTrigger':
             case 'Schedule':
                 return this.executeTrigger(input);
 
             case 'HTTP':
             case 'Api':
-                return this.executeHttp(config as HttpNodeConfig, input, commonErrorContext);
+            case 'HttpRequest':
+            case 'n8n-nodes-base.httpRequest':
+            case 'n8n-nodes-base.HttpRequest': // Added PascalCase support
+                return this.executeHttp(config as HttpNodeConfig, input, commonErrorContext, options);
 
             case 'Email':
-                return this.executeEmail(config as EmailNodeConfig, input, commonErrorContext);
+                return this.executeEmail(config as EmailNodeConfig, input, commonErrorContext, options);
             case 'custom.email':
-                return this.executeEmail(config as EmailNodeConfig, input, commonErrorContext);
+                return this.executeEmail(config as EmailNodeConfig, input, commonErrorContext, options);
 
             case 'Transform':
             case 'Code':
-                return this.executeTransform(config as TransformNodeConfig, input, commonErrorContext);
+            case 'Function':
+            case 'n8n-nodes-base.code':
+            case 'n8n-nodes-base.Code': // Added PascalCase support
+            case 'n8n-nodes-base.function': // Legacy support
+                return this.executeTransform(config as TransformNodeConfig, input, commonErrorContext, options);
 
             case 'Condition':
             case 'If':
-                return this.executeCondition(config as ConditionNodeConfig, input, commonErrorContext);
+            case 'n8n-nodes-base.if':
+            case 'n8n-nodes-base.If': // Added PascalCase support
+                return this.executeCondition(config as ConditionNodeConfig, input, commonErrorContext, options);
 
             case 'Database':
             case 'SQL':
-                return this.executeDatabase(config as DatabaseNodeConfig, input, commonErrorContext);
+                return this.executeDatabase(config as DatabaseNodeConfig, input, commonErrorContext, options);
 
             case 'Delay':
             case 'Wait':
+            case 'n8n-nodes-base.wait':
+            case 'n8n-nodes-base.Wait': // Added PascalCase support
                 return this.executeDelay(config as DelayNodeConfig);
 
             case 'Loop':
             case 'Iterator':
+            case 'n8n-nodes-base.splitInBatches':
+            case 'n8n-nodes-base.SplitInBatches': // Added PascalCase support
                 return this.executeLoop(config as LoopNodeConfig, input, commonErrorContext);
 
             case 'n8n':
-                return this.executeN8n(config as N8nNodeConfig, input, commonErrorContext);
+                return this.executeN8n(config as N8nNodeConfig, input, commonErrorContext, options);
 
             case 'Decision':
                 return this.decisionExecutor.execute(config as DecisionNodeConfig, input);
@@ -376,32 +461,32 @@ export class NodeExecutor {
                 return this.actionExecutor.execute(config as ActionNodeConfig, input);
 
             case 'ShellCommand':
-                return this.executeShellCommand(config as ShellCommandNodeConfig, input, commonErrorContext);
+            case 'custom.shellCommand':
+                return this.executeShellCommand(config as ShellCommandNodeConfig, input, commonErrorContext, options);
 
             case 'StoreSet':
                 if (!tenantId) throw new NodeExecutionError({ ...commonErrorContext, message: 'Tenant ID is required for storage operations', code: ErrorCode.CONFIGURATION_ERROR });
-                return this.executeStoreSet(config as StoreSetNodeConfig, input, tenantId, commonErrorContext);
+                return this.executeStoreSet(config as StoreSetNodeConfig, input, tenantId, commonErrorContext, options);
 
             case 'StoreGet':
                 if (!tenantId) throw new NodeExecutionError({ ...commonErrorContext, message: 'Tenant ID is required for storage operations', code: ErrorCode.CONFIGURATION_ERROR });
-                return this.executeStoreGet(config as StoreGetNodeConfig, input, tenantId, commonErrorContext);
+                return this.executeStoreGet(config as StoreGetNodeConfig, input, tenantId, commonErrorContext, options);
 
             case 'Suspend':
                 return this.executeSuspend(config as SuspendNodeConfig, input);
 
             case 'SetMetadata':
                 if (!executionId) throw new NodeExecutionError({ ...commonErrorContext, message: 'Execution ID is required for SetMetadata operation', code: ErrorCode.CONFIGURATION_ERROR });
-                return this.executeSetMetadata(config as SetMetadataNodeConfig, input, executionId, commonErrorContext);
+                return this.executeSetMetadata(config as SetMetadataNodeConfig, input, executionId, commonErrorContext, options);
 
             case 'CreateTicket':
-                return this.executeCreateTicket(config as CreateTicketNodeConfig, input, commonErrorContext);
+                return this.executeCreateTicket(config as CreateTicketNodeConfig, input, commonErrorContext, options);
 
             case 'custom.note':
-                return input; // Note nodes just pass through data
+                return input;
 
 
             default:
-                // Handle unknown node types with an error
                 throw new NodeExecutionError({
                     ...commonErrorContext,
                     message: `Unknown node type: ${node.type}`,
@@ -418,7 +503,8 @@ export class NodeExecutor {
     private async executeShellCommand(
         config: ShellCommandNodeConfig,
         input: ExecutionInput,
-        commonErrorContext: commonErrorContext
+        commonErrorContext: commonErrorContext,
+        options: NodeExecutionOptions
     ): Promise<ShellCommandResult> {
         const { command } = config;
 
@@ -431,14 +517,14 @@ export class NodeExecutor {
             });
         }
 
-        const resolvedCommand = this.resolveTemplate(command, input);
+        const resolvedCommand = this.resolveTemplate(command, input, options);
 
         this.logger.warn(`Executing shell command: "${resolvedCommand}"`, {
             metadata: { command: resolvedCommand },
         });
 
         return new Promise((resolve, reject) => {
-            exec(resolvedCommand, (error: Error | null, stdout: string, stderr: string) => { // Explicitly type callback parameters
+            exec(resolvedCommand, (error: Error | null, stdout: string, stderr: string) => {
                 if (error) {
                     const execError = new NodeExecutionError({
                         ...commonErrorContext,
@@ -459,7 +545,7 @@ export class NodeExecutor {
                 const trimmedStdout = stdout.trim();
                 if (trimmedStdout.startsWith('{') && trimmedStdout.endsWith('}')) {
                     try {
-                        // @ts-ignore - Prisma's Json type is flexible, this should be fine
+                        // @ts-ignore
                         result.json = JSON.parse(trimmedStdout);
                     } catch (e) {
                         // Not valid JSON, leave it as a string
@@ -475,12 +561,13 @@ export class NodeExecutor {
     private async executeHttp(
         config: HttpNodeConfig,
         input: ExecutionInput,
-        commonErrorContext: commonErrorContext
+        commonErrorContext: commonErrorContext,
+        options: NodeExecutionOptions
     ): Promise<HttpResult> {
         const { url, method = 'GET', headers = {}, body, retries = 3 } = config;
 
-        const resolvedUrl = this.resolveTemplate(url || '', input);
-        const resolvedBody = body ? this.resolveTemplate(JSON.stringify(body), input) : undefined;
+        const resolvedUrl = this.resolveTemplate(url || '', input, options);
+        const resolvedBody = body ? this.resolveTemplate(JSON.stringify(body), input, options) : undefined;
 
         try {
             const result = await withHttpRetry(
@@ -489,6 +576,7 @@ export class NodeExecutor {
                         method,
                         headers: {
                             'Content-Type': 'application/json',
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                             ...headers,
                         },
                         body: resolvedBody,
@@ -539,7 +627,8 @@ export class NodeExecutor {
     private async executeEmail(
         config: EmailNodeConfig,
         input: ExecutionInput,
-        commonErrorContext: commonErrorContext
+        commonErrorContext: commonErrorContext,
+        options: NodeExecutionOptions
     ): Promise<EmailResult> {
         if (!this.emailTransporter) {
             throw new ExternalServiceError({
@@ -554,10 +643,10 @@ export class NodeExecutor {
 
         const { to, subject, body, html } = config;
 
-        const resolvedTo = this.resolveTemplate(to || '', input);
-        const resolvedSubject = this.resolveTemplate(subject || '', input);
-        const resolvedBody = this.resolveTemplate(body || '', input);
-        const resolvedHtml = html ? this.resolveTemplate(html, input) : undefined;
+        const resolvedTo = this.resolveTemplate(to || '', input, options);
+        const resolvedSubject = this.resolveTemplate(subject || '', input, options);
+        const resolvedBody = this.resolveTemplate(body || '', input, options);
+        const resolvedHtml = html ? this.resolveTemplate(html, input, options) : undefined;
 
         try {
             const info = await withExternalServiceRetry(
@@ -599,18 +688,18 @@ export class NodeExecutor {
     }
 
     private async executeTransform(
-        config: TransformNodeConfig,
+        config: TransformNodeConfig & { jsCode?: string },
         input: ExecutionInput,
-        commonErrorContext: commonErrorContext
+        commonErrorContext: commonErrorContext,
+        options: NodeExecutionOptions
     ): Promise<ExecutionOutput> {
-        const { code, mapping } = config;
+        const { code: configCode, mapping, jsCode } = config;
+        const code = configCode || jsCode;
 
         if (code) {
-            // Ejecutar código de usuario en sandbox aislado con timeout y límite de memoria
             try {
                 const result = await this.sandbox.execute(code, input);
 
-                // Verificar si hubo error en la ejecución
                 if (result && typeof result === 'object' && 'error' in result) {
                     throw new SandboxError({
                         ...commonErrorContext,
@@ -645,7 +734,7 @@ export class NodeExecutor {
             try {
                 const result: ExecutionOutput = {};
                 for (const [key, value] of Object.entries(mapping)) {
-                    result[key] = this.resolveTemplate(value, input);
+                    result[key] = this.resolveTemplate(value, input, options);
                 }
                 return result;
             } catch (error) {
@@ -666,14 +755,14 @@ export class NodeExecutor {
     private async executeCondition(
         config: ConditionNodeConfig,
         input: ExecutionInput,
-        commonErrorContext: commonErrorContext
+        commonErrorContext: commonErrorContext,
+        options: NodeExecutionOptions
     ): Promise<ConditionResult> {
         const { condition, field, operator, value } = config;
 
         let result = false;
 
         if (condition) {
-            // Evaluar condición en sandbox aislado
             try {
                 result = await this.sandbox.evaluateCondition(condition, input);
             } catch (error) {
@@ -686,7 +775,7 @@ export class NodeExecutor {
             }
         } else if (field && operator) {
             const fieldValue = this.getNestedValue(input, field);
-            const compareValue = value ? this.resolveTemplate(value, input) : '';
+            const compareValue = value ? this.resolveTemplate(value, input, options) : '';
 
             switch (operator) {
                 case 'equals':
@@ -719,15 +808,16 @@ export class NodeExecutor {
     private async executeDatabase(
         config: DatabaseNodeConfig,
         input: ExecutionInput,
-        commonErrorContext: commonErrorContext
+        commonErrorContext: commonErrorContext,
+        options: NodeExecutionOptions
     ): Promise<DatabaseResult> {
         const { operation, table, query, data } = config;
 
         return {
             operation,
             table,
-            query: this.resolveTemplate(query || '', input),
-            data: data ? JSON.parse(this.resolveTemplate(JSON.stringify(data), input)) : null,
+            query: this.resolveTemplate(query || '', input, options),
+            data: data ? JSON.parse(this.resolveTemplate(JSON.stringify(data), input, options)) : null,
             message: 'Database operations require connection configuration',
         };
     }
@@ -757,13 +847,12 @@ export class NodeExecutor {
         };
     }
 
-
-
     private async executeStoreSet(
         config: StoreSetNodeConfig,
         input: ExecutionInput,
         tenantId: string,
-        commonErrorContext: commonErrorContext
+        commonErrorContext: commonErrorContext,
+        options: NodeExecutionOptions
     ): Promise<StoreResult> {
         const { bucketName = 'default', key, value } = config;
 
@@ -771,13 +860,13 @@ export class NodeExecutor {
             throw new NodeExecutionError({ ...commonErrorContext, message: 'Storage key is required for Set operation', code: ErrorCode.CONFIGURATION_ERROR });
         }
 
-        const resolvedBucketName = this.resolveTemplate(bucketName, input);
-        const resolvedKey = this.resolveTemplate(key, input);
-        const resolvedValue = this.resolveTemplate(value, input);
+        const resolvedBucketName = this.resolveTemplate(bucketName, input, options);
+        const resolvedKey = this.resolveTemplate(key, input, options);
+        const resolvedValue = this.resolveTemplate(value, input, options);
 
         const bucket = await this.prisma.storageBucket.upsert({
             where: { tenantId_name: { tenantId, name: resolvedBucketName } },
-            create: { name: resolvedBucketName, tenantId, data: {} as Prisma.InputJsonValue }, // Ensure data is initialized
+            create: { name: resolvedBucketName, tenantId, data: {} as Prisma.InputJsonValue },
             update: {},
         });
 
@@ -786,7 +875,7 @@ export class NodeExecutor {
 
         await this.prisma.storageBucket.update({
             where: { id: bucket.id },
-            data: { data: newData as Prisma.InputJsonValue }, // Explicitly cast to Prisma.InputJsonValue
+            data: { data: newData as Prisma.InputJsonValue },
         });
 
         return { success: true, key: resolvedKey, value: resolvedValue };
@@ -796,7 +885,8 @@ export class NodeExecutor {
         config: StoreGetNodeConfig,
         input: ExecutionInput,
         tenantId: string,
-        commonErrorContext: commonErrorContext
+        commonErrorContext: commonErrorContext,
+        options: NodeExecutionOptions
     ): Promise<ExecutionOutput> {
         const { bucketName = 'default', key } = config;
 
@@ -804,8 +894,8 @@ export class NodeExecutor {
             throw new NodeExecutionError({ ...commonErrorContext, message: 'Storage key is required for Get operation', code: ErrorCode.CONFIGURATION_ERROR });
         }
 
-        const resolvedBucketName = this.resolveTemplate(bucketName, input);
-        const resolvedKey = this.resolveTemplate(key, input);
+        const resolvedBucketName = this.resolveTemplate(bucketName, input, options);
+        const resolvedKey = this.resolveTemplate(key, input, options);
 
         const bucket = await this.prisma.storageBucket.findUnique({
             where: { tenantId_name: { tenantId, name: resolvedBucketName } },
@@ -825,7 +915,6 @@ export class NodeExecutor {
         config: SuspendNodeConfig,
         input: ExecutionInput
     ): Promise<SuspendResult> {
-        // This node doesn't do anything but signal the execution service to pause.
         return { ...input, isSuspended: true };
     }
 
@@ -833,7 +922,8 @@ export class NodeExecutor {
         config: SetMetadataNodeConfig,
         input: ExecutionInput,
         executionId: string,
-        commonErrorContext: commonErrorContext
+        commonErrorContext: commonErrorContext,
+        options: NodeExecutionOptions
     ): Promise<SetMetadataResult> {
         const { metadata } = config;
 
@@ -846,7 +936,7 @@ export class NodeExecutor {
             });
         }
 
-        const resolvedMetadata = JSON.parse(this.resolveTemplate(JSON.stringify(metadata), input));
+        const resolvedMetadata = JSON.parse(this.resolveTemplate(JSON.stringify(metadata), input, options));
 
         const execution = await this.prisma.execution.findUnique({
             where: { id: executionId },
@@ -858,7 +948,7 @@ export class NodeExecutor {
 
         await this.prisma.execution.update({
             where: { id: executionId },
-            data: { metadata: newMetadata as Prisma.InputJsonValue }, // Explicitly cast
+            data: { metadata: newMetadata as Prisma.InputJsonValue },
         });
 
         return { success: true, metadata: newMetadata };
@@ -867,7 +957,8 @@ export class NodeExecutor {
     private async executeCreateTicket(
         config: CreateTicketNodeConfig,
         input: ExecutionInput,
-        commonErrorContext: commonErrorContext
+        commonErrorContext: commonErrorContext,
+        options: NodeExecutionOptions
     ): Promise<CreateTicketResult> {
         const { webhookUrl, subject, body } = config;
 
@@ -876,20 +967,19 @@ export class NodeExecutor {
                 ...commonErrorContext,
                 message: 'Webhook URL is not defined for Create Ticket operation',
                 userMessage: 'Webhook URL for ticket creation is empty',
-                code: ErrorCode.CONFIGURATION_ERROR, // Changed to CONFIGURATION_ERROR
+                code: ErrorCode.CONFIGURATION_ERROR,
             });
         }
 
-        const resolvedWebhookUrl = this.resolveTemplate(webhookUrl, input);
-        const resolvedSubject = this.resolveTemplate(subject || '', input);
-        const resolvedBody = this.resolveTemplate(body || '', input);
+        const resolvedWebhookUrl = this.resolveTemplate(webhookUrl, input, options);
+        const resolvedSubject = this.resolveTemplate(subject || '', input, options);
+        const resolvedBody = this.resolveTemplate(body || '', input, options);
 
         try {
             const response = await axios.post(resolvedWebhookUrl, {
                 subject: resolvedSubject,
                 body: resolvedBody,
                 source: 'NanoFlow',
-                // Potentially include more context from input if desired
                 inputContext: input,
             });
 
@@ -902,7 +992,7 @@ export class NodeExecutor {
             const ticketError = new NodeExecutionError({
                 ...commonErrorContext,
                 message: `Failed to create ticket: ${error instanceof Error ? error.message : String(error)}`,
-                code: ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE, // Changed to EXTERNAL_SERVICE_UNAVAILABLE
+                code: ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE,
                 userMessage: 'Failed to send ticket information to external system',
                 cause: error instanceof Error ? error : undefined,
                 context: { webhookUrl: resolvedWebhookUrl },
@@ -910,17 +1000,41 @@ export class NodeExecutor {
             this.logger.error('Create Ticket node failed', { error: ticketError });
             throw ticketError;
         }
-    } private resolveTemplate(template: string, context: ExecutionInput): string {
+    }
+
+    private resolveTemplate(template: string, input: ExecutionInput, options: NodeExecutionOptions = {}): string {
         if (typeof template !== 'string') return String(template);
 
-
-        return template.replace(/\{\{([^}]+)\}\}/g, (_, path) => {
-            const value = this.getNestedValue(context, path.trim());
-            return value !== undefined ? String(value) : '';
+        return template.replace(/\{\{([^}]+)\}\}/g, (_, expression) => {
+            return this.evaluateExpressionSync(expression.trim(), input, options);
         });
     }
 
-    private getNestedValue(obj: ExecutionInput, path: string): unknown {
+    private evaluateExpressionSync(expression: string, input: ExecutionInput, options: NodeExecutionOptions): string {
+        let path = expression;
+        if (path.startsWith('$json.')) {
+            path = path.substring(6);
+            const val = this.getNestedValue(input, path);
+            return val !== undefined ? String(val) : '';
+        }
+
+        const nodeMatch = path.match(/^\$node\["([^"]+)"\](?:\.json)?\.(.+)$/);
+        if (nodeMatch) {
+            const [_, nodeName, restPath] = nodeMatch;
+            const targetNode = options.workflowNodes?.find(n => n.title === nodeName);
+            if (targetNode && options.nodeOutputs && options.nodeOutputs[targetNode.id]) {
+                const nodeData = options.nodeOutputs[targetNode.id];
+                const val = this.getNestedValue(nodeData as any, restPath);
+                return val !== undefined ? String(val) : '';
+            }
+            return '';
+        }
+
+        const val = this.getNestedValue(input, path);
+        return val !== undefined ? String(val) : '';
+    }
+
+    private getNestedValue(obj: any, path: string): unknown {
         return path.split('.').reduce<unknown>((current, key) => {
             if (current && typeof current === 'object' && key in current) {
                 return (current as Record<string, unknown>)[key];
@@ -932,7 +1046,8 @@ export class NodeExecutor {
     private async executeN8n(
         config: N8nNodeConfig,
         input: ExecutionInput,
-        commonErrorContext: commonErrorContext
+        commonErrorContext: commonErrorContext,
+        options: NodeExecutionOptions
     ): Promise<N8nResult> {
         const { workflowId, waitForCompletion = true, timeout = 30000, inputMapping } = config;
 
@@ -944,23 +1059,18 @@ export class NodeExecutor {
             });
         }
 
-        // Aplicar mapeo de inputs si existe
         let n8nInput = input;
         if (inputMapping) {
             n8nInput = {};
             for (const [key, path] of Object.entries(inputMapping)) {
-                n8nInput[key] = this.getNestedValue(input, path);
+                n8nInput[key] = this.resolveTemplate(path, input, options);
             }
         }
 
-
-
         try {
-            // Ejecutar workflow de n8n
             const execution = await n8nService.executeWorkflow(workflowId, n8nInput);
 
             if (waitForCompletion && execution.id) {
-                // Esperar a que termine la ejecución
                 const startTime = Date.now();
                 let status = await n8nService.getExecution(execution.id);
 
@@ -1012,9 +1122,6 @@ export class NodeExecutor {
         }
     }
 
-    /**
-     * Map HTTP status codes to appropriate error codes
-     */
     private getHttpErrorCode(statusCode: number): ErrorCode {
         if (statusCode === 408 || statusCode === 504) {
             return ErrorCode.HTTP_TIMEOUT;

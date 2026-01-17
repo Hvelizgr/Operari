@@ -113,6 +113,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         handleNodeAddFromSearch,
         handleViewportChangeAdapter,
         createConnection,
+        handleDeleteNodeById,
+        forceSave,
 
         isRunDialogOpen,
         handleOpenRunDialog,
@@ -140,8 +142,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         errorHandling: 'stop',
         timeout: 30000,
     });
-    const { executeWorkflow, executeFromNode, executing, currentExecutionId } = useWorkflowExecution('current-workflow');
-    const { logs, nodeStatuses } = useExecutionSocket(currentExecutionId);
+    const { executeWorkflow, executeFromNode, executing, currentExecutionId, setCurrentExecutionId } = useWorkflowExecution('current-workflow');
+    const { logs, nodeStatuses, nodeOutputs } = useExecutionSocket(currentExecutionId);
 
     // --- SNAPSHOT SYSTEM ---
     const [isSnapshotDialogOpen, setIsSnapshotDialogOpen] = useState(false);
@@ -183,27 +185,44 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         canvasRef,
         viewport,
         nodes,
-        onConnectionComplete: (sourceId, targetId) => {
+        onConnectionComplete: (sourceId, targetId, sourcePort, targetPort) => {
             // Create connection using the real system (xyOps integration complete!)
-            createConnection(sourceId, targetId);
+            createConnection(sourceId, targetId, sourcePort, targetPort);
         },
         isDrawMode
     });
 
     const handleExecuteWithInput = async (input: object) => {
         setShowTerminal(true);
+        // Ensure latest changes are saved before execution
+        await forceSave();
         await executeWorkflow(input, runMode);
     };
 
-    // Wrappers for Run/Debug
-    const handleOpenRun = () => {
+    // Direct execution (no modal)
+    const handleDirectRun = async () => {
+        setShowTerminal(true);
+        // Ensure latest changes are saved before execution
+        await forceSave();
+        await executeWorkflow({}, 'run');
+    };
+
+    // Open modal for run with custom input
+    const handleOpenRunWithInput = () => {
         setRunMode('run');
         handleOpenRunDialog();
     };
 
+    // Open modal for debug
     const handleOpenDebug = () => {
         setRunMode('debug');
         handleOpenRunDialog();
+    };
+
+    // Stop execution (placeholder - needs backend support)
+    const handleStopExecution = () => {
+        // TODO: Implement stop execution via API
+        console.log('Stop execution requested');
     };
 
     // Test From Node handler - executes workflow starting from a specific node
@@ -213,6 +232,44 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
             await executeFromNode(contextMenu.nodeId, {});
         }
         handleCloseContextMenu();
+    };
+
+    // --- Hover Toolbar Handlers (n8n-style) ---
+    const handleNodeRunFromToolbar = async (nodeId: string) => {
+        setShowTerminal(true);
+        await executeFromNode(nodeId, {});
+    };
+
+    const handleNodeToggleDisableFromToolbar = (nodeId: string) => {
+        setNodes((prevNodes: any[]) =>
+            prevNodes.map((node: any) =>
+                node.id === nodeId
+                    ? { ...node, enabled: !(node.enabled ?? true) }
+                    : node
+            )
+        );
+    };
+
+    // Note: handleNodeDeleteFromToolbar is now handled by handleDeleteNodeById from useEditorCanvas
+
+    const handleNodeDuplicateFromToolbar = (nodeId: string) => {
+        const node = nodes.find((n: any) => n.id === nodeId);
+        if (node) {
+            const newNode = {
+                ...node,
+                id: `${node.type}-${Date.now()}`,
+                position: {
+                    x: node.position.x + 50,
+                    y: node.position.y + 50,
+                },
+                title: `${node.title} (copy)`,
+            };
+            setNodes((prev: any[]) => [...prev, newNode]);
+        }
+    };
+
+    const handleNodeFocusFromToolbar = (nodeId: string) => {
+        setConfigNodeId(nodeId);
     };
 
     // Watch for successful execution to fire confetti
@@ -279,6 +336,18 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
     ], [lang, undo, redo, handleZoomIn, handleZoomOut, handleFitView, handleResetZoom, handleConfirmDelete, handleContextMenuDuplicate, handleAutoLayout, handleExecuteWithInput]);
 
+    const handleLoadWorkflowWrapped = (nodes: any[], connections: any[]) => {
+        setCurrentExecutionId(null);
+        handleLoadWorkflow(nodes, connections);
+    };
+
+    const handleSelectTemplateWrapped = async (nodes: any[], connections: any[]) => {
+        setCurrentExecutionId(null);
+        handleSelectTemplate(nodes, connections);
+        // Persist immediately so it's available for execution
+        await forceSave(nodes, connections);
+    };
+
     // Ctrl+K Listener
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -305,9 +374,11 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                         <TopBar
                             lang={lang}
                             workflowName={workflowProperties.name}
-                            onRun={handleOpenRun}
+                            onRun={handleDirectRun}
+                            onRunWithInput={handleOpenRunWithInput}
                             onDebug={handleOpenDebug}
                             isExecuting={executing}
+                            onStop={handleStopExecution}
                             onProperties={() => setIsWorkflowPropsOpen(true)}
                             onAddNode={() => setSearchTrigger(Date.now())}
                             onAutoLayout={handleAutoLayout}
@@ -331,7 +402,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                                     try {
                                         const json = JSON.parse(event.target?.result as string);
                                         if (json.nodes && json.connections) {
-                                            handleLoadWorkflow(json.nodes, json.connections);
+                                            handleLoadWorkflowWrapped(json.nodes, json.connections);
                                         } else {
                                             alert(lang === 'en' ? 'Invalid workflow file' : 'Archivo inválido');
                                         }
@@ -404,6 +475,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                         <ConnectionsLayer
                             connections={connections}
                             nodes={nodes}
+                            nodeTypes={dbNodeTypes}
                             viewport={viewport}
                             soldering={soldering}
                             selectedConnection={selectedConnection}
@@ -443,6 +515,13 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onNodeDoubleClick={setConfigNodeId}
                             editorMode={tool === 'draw' ? 'connect' : 'move'}
                             nodeStatuses={nodeStatuses}
+                            // Hover toolbar handlers (n8n-style)
+                            onNodeRun={handleNodeRunFromToolbar}
+                            onNodeToggleDisable={handleNodeToggleDisableFromToolbar}
+                            onNodeDelete={handleDeleteNodeById}
+                            onNodeDuplicate={handleNodeDuplicateFromToolbar}
+                            onNodeFocus={handleNodeFocusFromToolbar}
+                            lang={lang}
                         />
 
                         {/* Selection Box */}
@@ -495,9 +574,10 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onboardingStep={onboardingStep}
                             lang={lang}
                             selectedNodesCount={selectedNodes.size}
+                            nodeOutputs={nodeOutputs}
 
-                            onLoadWorkflow={handleLoadWorkflow}
-                            onSelectTemplate={handleSelectTemplate}
+                            onLoadWorkflow={handleLoadWorkflowWrapped}
+                            onSelectTemplate={handleSelectTemplateWrapped}
                             onViewportChange={handleViewportChangeAdapter}
                             onNodeAdd={handleNodeAddFromSearch}
                             onHighlightNodes={handleHighlightNodes}

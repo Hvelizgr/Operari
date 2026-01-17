@@ -187,28 +187,45 @@ const NODE_DIMENSIONS = {
  * @param portIndex - Index of the port (for nodes with multiple ports)
  * @returns PortInfo with x, y coordinates and direction
  */
+/**
+ * Get port position and direction for a node
+ * @param node - The workflow node
+ * @param portType - 'input' or 'output'
+ * @param portIndex - Index of the port (for nodes with multiple ports)
+ * @param totalPorts - Total number of ports on this side (defaults to 1)
+ * @returns PortInfo with x, y coordinates and direction
+ */
 export const getNodePortInfo = (
     node: NodeWithDimensions,
     portType: 'input' | 'output',
-    _portIndex: number = 0 // Reserved for future multi-port support
+    portIndex: number = 0,
+    totalPorts: number = 1
 ): PortInfo => {
-    const type = node.type.toLowerCase();
+    const lowerType = node.type.toLowerCase();
+    const lowerCategory = (node as any).category?.toLowerCase() || '';
+    const count = Math.max(1, totalPorts);
 
-    // Trigger / Start: Output ONLY (Right side of 64x64 entity)
-    // CSS: .wf_ent_trigger is 64x64, output pole at left: calc(100% + 1px), top: 50%
-    if (type.includes('trigger') || type === 'start') {
+    // Trigger / Start: Output ONLY - Small 64x64 circle/pill
+    if (lowerType.includes('trigger') || lowerType === 'start' || lowerCategory.includes('trigger')) {
         const { width, height } = NODE_DIMENSIONS.entity;
         if (portType === 'input') {
-            // Triggers typically don't have input, but if needed:
             return { x: node.position.x, y: node.position.y + (height / 2), direction: 'left' };
         }
-        // Output is at right edge (100% + offset)
         return { x: node.position.x + width, y: node.position.y + (height / 2), direction: 'right' };
     }
 
-    // Controller: Input (Left), Output (Right) - 128x64 pill shape
-    // CSS: .wf_ent_controller is 128x64
-    if (type.includes('controller') || type === 'condition') {
+    // Action/Service: Input (Left) - Small 64x64 circle/pill
+    if (lowerType.includes('action') || lowerType.includes('email') || lowerType.includes('slack') || lowerType.includes('discord') ||
+        lowerCategory.includes('ai') || lowerCategory.includes('integrations') || lowerType.includes('openai') || lowerType.includes('anthropic')) {
+        const { width, height } = NODE_DIMENSIONS.entity;
+        if (portType === 'input') {
+            return { x: node.position.x, y: node.position.y + (height / 2), direction: 'left' };
+        }
+        return { x: node.position.x + width, y: node.position.y + (height / 2), direction: 'right' };
+    }
+
+    // Controller: Input (Left), Output (Right) - 128x64 pill
+    if (lowerType.includes('controller') || lowerType.includes('condition') || lowerCategory.includes('control') || lowerCategory.includes('logic')) {
         const { width, height } = NODE_DIMENSIONS.controller;
         if (portType === 'input') {
             return { x: node.position.x, y: node.position.y + (height / 2), direction: 'left' };
@@ -216,40 +233,26 @@ export const getNodePortInfo = (
         return { x: node.position.x + width, y: node.position.y + (height / 2), direction: 'right' };
     }
 
-    // Action: Input (Left) - 64x64 semicircle on right
-    // CSS: .wf_ent_action is 64x64, input pole at left: calc(0% - 1px), top: 50%
-    if (type.includes('action') || type.includes('email') || type.includes('slack') || type.includes('discord')) {
+    // Limit: Input (Top), Output (Bottom) - 64x64 circle/pill
+    if (lowerType.includes('limit')) {
         const { width, height } = NODE_DIMENSIONS.entity;
         if (portType === 'input') {
-            return { x: node.position.x, y: node.position.y + (height / 2), direction: 'left' };
-        }
-        // Actions typically don't have output, but if needed:
-        return { x: node.position.x + width, y: node.position.y + (height / 2), direction: 'right' };
-    }
-
-    // Limit: Input (Top), Output (Bottom) - 64x64 diamond rotated 45deg
-    // CSS: .wf_ent_limit is 64x64 with transform: rotate(45deg) scale(0.7)
-    // The visual center remains the same, but poles are at top/bottom
-    if (type.includes('limit')) {
-        const { width, height } = NODE_DIMENSIONS.entity;
-        if (portType === 'input') {
-            // Input at top center
             return { x: node.position.x + (width / 2), y: node.position.y, direction: 'top' };
         }
-        // Output at bottom center
         return { x: node.position.x + (width / 2), y: node.position.y + height, direction: 'bottom' };
     }
 
-    // Standard Job (Event): Input (Left), Output (Right)
-    // CSS: .wf_event is 275px wide, variable height
-    // Poles are at left: calc(0% - 1px) and left: calc(100% + 1px), top: 50%
+    // Standard Job (Event): Input (Left), Output (Right) with multiple ports support - 275px box
     const height = node.dimensions?.height || NODE_DIMENSIONS.event.height;
     const width = node.dimensions?.width || NODE_DIMENSIONS.event.width;
 
+    // Calculate vertical position based on index and total count
+    const yOffset = (height * (portIndex + 1)) / (count + 1);
+
     if (portType === 'input') {
-        return { x: node.position.x, y: node.position.y + (height / 2), direction: 'left' };
+        return { x: node.position.x, y: node.position.y + yOffset, direction: 'left' };
     }
-    return { x: node.position.x + width, y: node.position.y + (height / 2), direction: 'right' };
+    return { x: node.position.x + width, y: node.position.y + yOffset, direction: 'right' };
 };
 
 /**
@@ -258,9 +261,10 @@ export const getNodePortInfo = (
  */
 export const getNodeInputPort = (
     node: NodeWithDimensions,
-    portIndex: number = 0
+    portIndex: number = 0,
+    totalPorts: number = 1
 ): { x: number; y: number } => {
-    const info = getNodePortInfo(node, 'input', portIndex);
+    const info = getNodePortInfo(node, 'input', portIndex, totalPorts);
     return { x: info.x, y: info.y };
 };
 
@@ -270,9 +274,10 @@ export const getNodeInputPort = (
  */
 export const getNodeOutputPort = (
     node: NodeWithDimensions,
-    portIndex: number = 0
+    portIndex: number = 0,
+    totalPorts: number = 1
 ): { x: number; y: number } => {
-    const info = getNodePortInfo(node, 'output', portIndex);
+    const info = getNodePortInfo(node, 'output', portIndex, totalPorts);
     return { x: info.x, y: info.y };
 };
 
@@ -324,4 +329,44 @@ export const validateConnection = (
     }
 
     return { isValid: true };
+};
+
+/**
+ * Math utilities for Bezier curves
+ */
+
+export const getControlPoint = (pos: { x: number, y: number }, direction: PortDirection, distance: number) => {
+    switch (direction) {
+        case 'left': return { x: pos.x - distance, y: pos.y };
+        case 'right': return { x: pos.x + distance, y: pos.y };
+        case 'top': return { x: pos.x, y: pos.y - distance };
+        case 'bottom': return { x: pos.x, y: pos.y + distance };
+        default: return { x: pos.x, y: pos.y };
+    }
+};
+
+export const getControlPoints = (
+    start: { x: number; y: number; direction: PortDirection },
+    end: { x: number; y: number; direction: PortDirection }
+) => {
+    const distX = Math.abs(end.x - start.x);
+    const distY = Math.abs(end.y - start.y);
+    const dist = Math.sqrt(distX * distX + distY * distY);
+    const curvature = Math.min(Math.max(dist * 0.4, 50), 200);
+
+    const cp1 = getControlPoint(start, start.direction, curvature);
+    const cp2 = getControlPoint(end, end.direction, curvature);
+    return { cp1, cp2, curvature };
+};
+
+export const getBezierPoint = (t: number, p0: { x: number; y: number }, p1: { x: number; y: number }, p2: { x: number; y: number }, p3: { x: number; y: number }) => {
+    const c0 = Math.pow(1 - t, 3);
+    const c1 = 3 * Math.pow(1 - t, 2) * t;
+    const c2 = 3 * (1 - t) * Math.pow(t, 2);
+    const c3 = Math.pow(t, 3);
+
+    return {
+        x: c0 * p0.x + c1 * p1.x + c2 * p2.x + c3 * p3.x,
+        y: c0 * p0.y + c1 * p1.y + c2 * p2.y + c3 * p3.y
+    };
 };

@@ -20,6 +20,7 @@ interface ExpressionBuilderProps {
     nodes: WorkflowNode[];
     connections: Connection[];
     lang: 'en' | 'es';
+    nodeOutputs?: Record<string, any>;
 }
 
 // Available expression functions
@@ -97,7 +98,7 @@ const FUNCTION_CATEGORIES = [
     { id: 'logic', label: { en: 'Logic', es: 'Lógica' } },
 ];
 
-export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, connections: _connections, lang }: ExpressionBuilderProps) {
+export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, connections: _connections, lang, nodeOutputs }: ExpressionBuilderProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedNodes, setExpandedNodes] = useState<string[]>([]);
     const [activeTab, setActiveTab] = useState<'nodes' | 'functions' | 'variables'>('nodes');
@@ -195,6 +196,13 @@ export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, co
         return { data: 'sample data', id: Math.floor(Math.random() * 1000) };
     };
 
+    const getOutputData = (node: WorkflowNode) => {
+        if (nodeOutputs && nodeOutputs[node.id]) {
+            return nodeOutputs[node.id];
+        }
+        return getMockOutput(node);
+    };
+
     const handleVariableClick = useCallback((nodeName: string, path: string[]) => {
         const pathString = path.map(p => `["${p}"]`).join('');
         const expression = `{{ $node["${nodeName}"].json${pathString} }}`;
@@ -266,33 +274,30 @@ export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, co
                         <div className="flex border-b border-gray-700 bg-[#16162a]">
                             <button
                                 onClick={() => setActiveTab('nodes')}
-                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                                    activeTab === 'nodes'
+                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${activeTab === 'nodes'
                                         ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/10'
                                         : 'text-gray-400 hover:text-white'
-                                }`}
+                                    }`}
                             >
                                 <FileJson size={14} />
                                 {text.tabs.nodes}
                             </button>
                             <button
                                 onClick={() => setActiveTab('functions')}
-                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                                    activeTab === 'functions'
+                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${activeTab === 'functions'
                                         ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/10'
                                         : 'text-gray-400 hover:text-white'
-                                }`}
+                                    }`}
                             >
                                 <FunctionSquare size={14} />
                                 {text.tabs.functions}
                             </button>
                             <button
                                 onClick={() => setActiveTab('variables')}
-                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                                    activeTab === 'variables'
+                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${activeTab === 'variables'
                                         ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/10'
                                         : 'text-gray-400 hover:text-white'
-                                }`}
+                                    }`}
                             >
                                 <Variable size={14} />
                                 {text.tabs.variables}
@@ -323,7 +328,7 @@ export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, co
                                     ) : (
                                         filteredNodes.map(node => {
                                             const isExpanded = expandedNodes.includes(node.id);
-                                            const mockData = getMockOutput(node);
+                                            const mockData = getOutputData(node);
                                             const nodeName = node.title || node.id;
 
                                             return (

@@ -1,35 +1,11 @@
 import useSWR from 'swr';
 import { createElement } from 'react';
-import dynamic from 'next/dynamic';
-import { Box } from 'lucide-react';
-
-// Dynamically import Lucide icons to avoid bundling the entire library
-// In a real production app, you might want a curated map or a more robust dynamic loader
-// This is a trade-off: much smaller initial bundle vs async icon loading
-const IconMap: Record<string, any> = {
-    // Common defaults to have instantly available
-    Box,
-};
-
-function getIcon(iconName: string) {
-    if (IconMap[iconName]) return IconMap[iconName];
-
-    // Fallback for unknown icons or lazy loading logic could go here
-    // For now, we default to Box to prevent crashes, or we could lazy load if we had a way to map strings to dynamic imports safely
-    // Since we can't dynamic import arbitrary strings in webpack easily without a large context,
-    // we will stick to a safe default if not found, or efficient mapping if we had a defined list.
-
-    // NOTE: Loading *all* icons dynamically by string is tricky in webpack/nextjs without generating a map.
-    // To solve the "import * as Icons" performance killer, we should ideally only import what we use.
-    // Since the DB defines icons by string, we have to map them.
-    // Ideally, this list should be generated or we accept that we only support a subset of icons.
-
-    return Box;
-}
-
-// Helper to lazy load specific icons if we ever wanted to support the full set without the cost:
-// const DynamicIcon = dynamic(() => import('lucide-react').then(mod => mod[iconName]))
-// But dynamic() creates a component, not an icon function.
+import {
+    Box, Globe, Database, MessageSquare, Mail,
+    Calendar, Clock, Zap, GitBranch, Play,
+    Cloud, Cpu, FileText, Layout, List, Users,
+    Search, Terminal, Share2, Settings, Layers, Activity
+} from 'lucide-react';
 
 export interface NodeType {
     id?: string;
@@ -39,36 +15,74 @@ export interface NodeType {
     color: string;
     category: string;
     description?: { en: string; es: string };
-    inputs?: string[] | any; // JSON from DB
+    subtitle?: { en: string; es: string };
+    inputs?: string[] | any;
     outputs?: string[] | any;
+    properties?: any[];
 }
+
+const IconMap: Record<string, any> = {
+    Box, Globe, Database, MessageSquare, Mail,
+    Calendar, Clock, Zap, GitBranch, Play,
+    Cloud, Cpu, FileText, Layout, List, Users,
+    Search, Terminal, Share2, Settings, Layers, Activity
+};
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 export function useNodeTypes() {
-    // SWR handles caching, revalidation, and deduping automatically
     const { data, error, isLoading } = useSWR('/api/node-types', fetcher, {
-        revalidateOnFocus: false, // Don't refetch just because window focused
-        dedupingInterval: 60000, // Dedupe requests for 1 minute
+        revalidateOnFocus: false,
+        dedupingInterval: 60000,
     });
 
-    // We process the data to attach the icon components
+    const getIconComponent = (node: any) => {
+        const type = node.type.toLowerCase();
+        const category = node.category.toLowerCase();
+
+        if (type.includes('google') || type.includes('http')) return Globe;
+        if (type.includes('openai') || type.includes('anthropic') || category.includes('ai') || type.includes('langchain')) return MessageSquare;
+        if (type.includes('mail') || type.includes('sendgrid') || type.includes('gmail')) return Mail;
+        if (type.includes('database') || type.includes('postgres') || type.includes('sql') || type.includes('mongodb') || type.includes('redis')) return Database;
+        if (type.includes('slack') || type.includes('discord') || type.includes('telegram')) return MessageSquare;
+        if (type.includes('aws') || type.includes('storage') || type.includes('s3') || type.includes('drive')) return Cloud;
+        if (category.includes('triggers') || type.includes('trigger')) return Play;
+        if (category.includes('logic') || category.includes('flow') || type.includes('filter') || type.includes('if')) return GitBranch;
+        if (type.includes('code') || type.includes('script') || type.includes('function') || type.includes('executable')) return Terminal;
+        if (type.includes('sheet') || type.includes('csv') || type.includes('excel') || type.includes('pdf') || type.includes('file')) return FileText;
+        if (type.includes('calendar')) return Calendar;
+        if (type.includes('search')) return Search;
+        if (type.includes('setting') || type.includes('config')) return Settings;
+        if (type.includes('user') || type.includes('customer')) return Users;
+
+        // Try mapping from DB icon string if provided
+        if (node.icon) {
+            const iconName = node.icon.charAt(0).toUpperCase() + node.icon.slice(1);
+            if (IconMap[iconName]) return IconMap[iconName];
+        }
+
+        return Box;
+    };
+
     const nodeTypes: NodeType[] = data ? data.map((node: any) => {
-        // If we want to support dynamic icons from the DB string, we need a smarter way than "import *"
-        // For now, we use a default to stop the massive bundle bloat.
-        // A better long-term fix is a mapping of allowed icons.
+        const IconComponent = getIconComponent(node);
+        // Ensure color is a valid tailwind class
+        let color = node.color || 'bg-slate-500';
+        if (!color.startsWith('bg-')) color = `bg-${color}`;
 
-        // TEMPORARY: To fix the "import *" performance cliff, we are defaulting to Box.
-        // If specific icons are critical, add them to IconMap above explicitly.
-        // import { Activity, Zap, ... } from 'lucide-react'; 
-        // IconMap = { Activity, Zap, ... };
-
-        const IconComponent = getIcon(node.icon);
+        const category = (node.category || 'integrations').toLowerCase();
 
         return {
             ...node,
+            type: node.type,
+            label: node.label || { en: node.displayName || node.name || node.type, es: node.displayName || node.name || node.type },
+            description: node.description ? (typeof node.description === 'string' ? { en: node.description, es: node.description } : node.description) : undefined,
+            subtitle: node.subtitle ? (typeof node.subtitle === 'string' ? { en: node.subtitle, es: node.subtitle } : node.subtitle) : undefined,
+            category,
+            color,
             inputs: node.inputs || [],
             outputs: node.outputs || [],
+            properties: node.properties || [],
             icon: createElement(IconComponent, { size: 18 })
         };
     }) : [];

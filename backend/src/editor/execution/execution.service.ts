@@ -287,6 +287,7 @@ export class ExecutionService {
 
             const nodeOutputs = initialState?.nodeOutputs || {};
             const executedNodes = initialState?.executedNodes ? new Set(initialState.executedNodes) : new Set<string>();
+            const nodeRetryCount = new Map<string, number>();
 
             let nodesToExecute: WorkflowNode[];
             if (initialState) {
@@ -296,7 +297,14 @@ export class ExecutionService {
                 nodesToExecute = nodes.filter(n => n.id === startNodeId);
             } else {
                 const triggerNodes = nodes.filter(n =>
-                    n.type === 'Webhook' || n.type === 'Trigger' || n.type === 'Schedule'
+                    n.type === 'Webhook' ||
+                    n.type === 'Trigger' ||
+                    n.type === 'Schedule' ||
+                    n.type === 'ManualTrigger' ||
+                    n.type === 'n8n-nodes-base.manualTrigger' ||
+                    n.type === 'n8n-nodes-base.ManualTrigger' ||
+                    n.type === 'n8n-nodes-base.webhook' ||
+                    n.type === 'n8n-nodes-base.scheduleTrigger'
                 );
                 nodesToExecute = triggerNodes.length > 0 ? triggerNodes : [nodes[0]];
             }
@@ -367,9 +375,15 @@ export class ExecutionService {
                 const allParentsExecuted = incomingConns.every(c => executedNodes.has(c.source));
 
                 if (incomingConns.length > 1 && !allParentsExecuted) {
-                    // If the node has multiple inputs and not all are ready, we skip it for now.
-                    // It will be re-queued when other parent nodes finish.
-                    continue;
+                    // Track retry count to prevent infinite loops
+                    const retryCount = nodeRetryCount.get(currentNode.id) || 0;
+
+                    if (retryCount < 100) { // Max 100 retries
+                        nodeRetryCount.set(currentNode.id, retryCount + 1);
+                        nodesToExecute.push(currentNode);
+                        continue;
+                    }
+                    // After max retries, proceed anyway (deadlock prevention)
                 }
 
                 const nodeInput = this.getNodeInput(currentNode.id, connections, nodeOutputs, input);
@@ -399,7 +413,12 @@ export class ExecutionService {
 
                 try {
                     nodeContextLogger.debug('Node execution started');
-                    const output = await this.nodeExecutor.execute(currentNode, nodeInput, tenantId, executionId);
+                    const output = await this.nodeExecutor.execute(currentNode, nodeInput, {
+                        tenantId,
+                        executionId,
+                        nodeOutputs,
+                        workflowNodes: nodes
+                    });
 
                     // Handle suspend signal
                     if ((output as SuspendResult).isSuspended) {
@@ -527,6 +546,10 @@ export class ExecutionService {
                 },
             });
 
+            // Emit execution status to frontend
+            socketService.emitExecutionStatus(executionId, 'SUCCESS');
+            socketService.emitLog(executionId, 'Workflow execution completed successfully', { duration });
+
             contextLogger.info('Workflow execution completed successfully', { duration });
         } catch (error) {
             const duration = Date.now() - startTime;
@@ -548,6 +571,10 @@ export class ExecutionService {
                     duration,
                 },
             });
+
+            // Emit execution status to frontend
+            socketService.emitExecutionStatus(executionId, 'FAILED');
+            socketService.emitLog(executionId, `Workflow execution failed: ${errorMessage}`, { error: errorMessage });
 
             contextLogger.error('Workflow execution failed', {
                 error: wrappedError,
@@ -664,11 +691,33 @@ export class ExecutionService {
             return initialInput;
         }
 
-        const input: ExecutionInput = {};
+        // Initialize input with initial data
+        const input: ExecutionInput = { ...initialInput };
+
+        // Ensure __inputs container exists for multi-port routing
+        if (!input.__inputs) {
+            input.__inputs = {};
+        }
 
         for (const conn of incomingConnections) {
-            if (nodeOutputs[conn.source]) {
-                Object.assign(input, nodeOutputs[conn.source]);
+            const sourceOutput = nodeOutputs[conn.source];
+
+            // Skip if source node didn't produce output (shouldn't happen if executing in order, but safe check)
+            if (!sourceOutput) continue;
+
+            if (!conn.targetPort || conn.targetPort === 0) {
+                // Main Input (Port 0): Merge directly into input object (flattened)
+                // This maintains backward compatibility with standard single-input nodes
+                Object.assign(input, sourceOutput);
+            } else {
+                // Secondary Inputs (Port > 0): Route to specific port index in __inputs
+                // This allows nodes like Agents to distinguish between "User Input" vs "Tools" vs "Memory"
+                const inputsMap = input.__inputs as Record<number, unknown>;
+
+                // If multiple nodes connect to the same port, we might want an array. 
+                // For now, let's store the last one, or maybe an array if it already exists?
+                // n8n often expects arrays for inputs. Let's start with direct assignment for simplicity.
+                inputsMap[conn.targetPort] = sourceOutput;
             }
         }
 

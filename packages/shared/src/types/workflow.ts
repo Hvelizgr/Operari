@@ -36,7 +36,13 @@ export interface WorkflowNode {
 // Connection
 // =============================================================================
 
-export type ConnectionCondition = 'complete' | 'success' | 'error' | 'warning' | 'disabled';
+export interface ComplexCondition {
+    field: string;
+    operator: string;
+    value: any;
+}
+
+export type ConnectionCondition = 'complete' | 'success' | 'error' | 'warning' | 'disabled' | ComplexCondition;
 
 export interface Connection {
     id: string;

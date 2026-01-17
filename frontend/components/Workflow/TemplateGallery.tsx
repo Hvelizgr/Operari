@@ -1,123 +1,11 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, Mail, Database, Webhook, Code, FileText } from 'lucide-react';
+import { X, Zap, Mail, Database, Webhook, Code, FileText, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import { useTemplates, WorkflowTemplate } from '../../hooks/useTemplates';
 
-interface WorkflowTemplate {
-    id: string;
-    name: { en: string; es: string };
-    description: { en: string; es: string };
-    category: 'email' | 'data' | 'webhooks' | 'automation';
-    nodes: WorkflowNode[];
-    connections: Connection[];
-}
-
-const TEMPLATES: WorkflowTemplate[] = [
-    // 1. RSS Feed to Slack - Beginner (2 nodes)
-    {
-        id: 'rss-to-slack',
-        name: { en: 'RSS Feed to Slack', es: 'Feed RSS a Slack' },
-        description: {
-            en: 'Get notified in Slack when new articles are published in any RSS feed',
-            es: 'Recibe notificaciones en Slack cuando se publican nuevos articulos en un feed RSS'
-        },
-        category: 'automation',
-        nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'RSS Feed', type: 'Trigger', config: { feedUrl: 'https://example.com/rss', pollInterval: '15m' } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Send to Slack', type: 'Action', config: { channel: '#news', message: '{{title}}: {{link}}' } },
-        ],
-        connections: [{ id: 'conn-1', source: 'node-1', target: 'node-2' }],
-    },
-    // 2. Google Sheets to Email - Beginner (2 nodes)
-    {
-        id: 'sheets-to-email',
-        name: { en: 'Google Sheets New Row Alert', es: 'Alerta de Nueva Fila en Sheets' },
-        description: {
-            en: 'Send email notification when a new row is added to Google Sheets (form submissions, leads)',
-            es: 'Envia notificacion por email cuando se agrega una nueva fila en Google Sheets'
-        },
-        category: 'email',
-        nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'New Sheet Row', type: 'Trigger', config: { spreadsheetId: 'your-sheet-id', sheetName: 'Form Responses' } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Send Email', type: 'Email', config: { to: 'team@example.com', subject: 'New Form Submission', body: 'Name: {{name}}\nEmail: {{email}}' } },
-        ],
-        connections: [{ id: 'conn-1', source: 'node-1', target: 'node-2' }],
-    },
-    // 3. Daily Weather Alert - Beginner+ (3 nodes)
-    {
-        id: 'weather-alert',
-        name: { en: 'Daily Weather Forecast', es: 'Pronostico Diario del Clima' },
-        description: {
-            en: 'Get your daily weather forecast via email or Slack every morning',
-            es: 'Recibe tu pronostico del clima diario por email o Slack cada manana'
-        },
-        category: 'automation',
-        nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Daily Schedule', type: 'Schedule', config: { cron: '0 7 * * *', timezone: 'America/New_York' } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Get Weather', type: 'HTTP', config: { url: 'https://api.openweathermap.org/data/2.5/weather?q=London', method: 'GET' } },
-            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Send Alert', type: 'Email', config: { to: 'user@example.com', subject: 'Weather Today', body: 'Temperature: {{temp}}C\nCondition: {{description}}' } },
-        ],
-        connections: [
-            { id: 'conn-1', source: 'node-1', target: 'node-2' },
-            { id: 'conn-2', source: 'node-2', target: 'node-3' },
-        ],
-    },
-    // 4. GitHub Issue to Discord - Beginner (2 nodes)
-    {
-        id: 'github-to-discord',
-        name: { en: 'GitHub Issues to Discord', es: 'Issues de GitHub a Discord' },
-        description: {
-            en: 'Post a Discord message when someone creates a new issue in your GitHub repo',
-            es: 'Publica un mensaje en Discord cuando alguien crea un nuevo issue en tu repo de GitHub'
-        },
-        category: 'webhooks',
-        nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'GitHub Webhook', type: 'Webhook', config: { path: '/github-issues', events: ['issues.opened'] } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Discord Message', type: 'Action', config: { webhookUrl: 'https://discord.com/api/webhooks/...', message: 'New Issue: {{title}} by {{user}}' } },
-        ],
-        connections: [{ id: 'conn-1', source: 'node-1', target: 'node-2' }],
-    },
-    // 5. Social Media Scheduler - Beginner+ (3 nodes)
-    {
-        id: 'social-scheduler',
-        name: { en: 'Social Media Post Scheduler', es: 'Programador de Redes Sociales' },
-        description: {
-            en: 'Schedule and auto-publish posts from a spreadsheet to Twitter/X',
-            es: 'Programa y publica automaticamente posts desde una hoja de calculo a Twitter/X'
-        },
-        category: 'automation',
-        nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Schedule', type: 'Schedule', config: { cron: '0 9,12,18 * * *', timezone: 'UTC' } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Get Next Post', type: 'Database', config: { operation: 'select', query: 'SELECT * FROM posts WHERE published = false LIMIT 1' } },
-            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Post to Twitter', type: 'Action', config: { platform: 'twitter', content: '{{content}}' } },
-        ],
-        connections: [
-            { id: 'conn-1', source: 'node-1', target: 'node-2' },
-            { id: 'conn-2', source: 'node-2', target: 'node-3' },
-        ],
-    },
-    // 6. Contact Form to CRM - Beginner+ (3 nodes)
-    {
-        id: 'form-to-crm',
-        name: { en: 'Contact Form to CRM', es: 'Formulario de Contacto a CRM' },
-        description: {
-            en: 'Save form submissions to a spreadsheet/CRM and send auto-reply email',
-            es: 'Guarda envios de formulario en una hoja de calculo/CRM y envia email de respuesta automatica'
-        },
-        category: 'data',
-        nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Form Webhook', type: 'Webhook', config: { path: '/contact-form', method: 'POST' } },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Save to Sheets', type: 'Database', config: { operation: 'insert', table: 'contacts', fields: ['name', 'email', 'message'] } },
-            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Send Confirmation', type: 'Email', config: { to: '{{email}}', subject: 'Thanks for contacting us!', body: 'Hi {{name}}, we received your message and will respond soon.' } },
-        ],
-        connections: [
-            { id: 'conn-1', source: 'node-1', target: 'node-2' },
-            { id: 'conn-2', source: 'node-2', target: 'node-3' },
-        ],
-    },
-];
 
 interface TemplateGalleryProps {
     onSelectTemplate: (nodes: WorkflowNode[], connections: Connection[]) => void;
@@ -127,6 +15,7 @@ interface TemplateGalleryProps {
 }
 
 export default function TemplateGallery({ onSelectTemplate, lang, isOpen: controlledIsOpen, onOpenChange }: TemplateGalleryProps) {
+    const { templates: TEMPLATES, isLoading } = useTemplates();
     const [internalIsOpen, setInternalIsOpen] = useState(false);
 
     // Support both controlled and uncontrolled modes
@@ -204,9 +93,14 @@ export default function TemplateGallery({ onSelectTemplate, lang, isOpen: contro
             {showInternalButton && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="absolute top-20 left-4 flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition-colors shadow-lg border border-slate-700 z-40"
+                    className="absolute top-20 left-4 flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg shadow-lg z-40 transition-colors"
+                    style={{
+                        backgroundColor: 'var(--box-background-color)',
+                        color: 'var(--body-text-color)',
+                        border: '1px solid var(--border-color)',
+                    }}
                 >
-                    <FileText size={16} />
+                    <FileText size={16} style={{ color: 'var(--label-color)' }} />
                     {text.openGallery}
                 </button>
             )}
@@ -222,19 +116,24 @@ export default function TemplateGallery({ onSelectTemplate, lang, isOpen: contro
                         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
 
                         <motion.div
-                            className="relative bg-slate-800 border border-slate-700 rounded-lg shadow-2xl p-6 max-w-5xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col"
+                            className="relative rounded-xl shadow-2xl p-6 max-w-5xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col"
+                            style={{
+                                backgroundColor: 'var(--box-background-color)',
+                                border: '1px solid var(--border-color)',
+                            }}
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
                         >
                             <div className="flex items-center justify-between mb-4">
                                 <div>
-                                    <h2 className="text-2xl font-bold text-slate-100">{text.title}</h2>
-                                    <p className="text-sm text-slate-400 mt-1">{text.subtitle}</p>
+                                    <h2 className="text-2xl font-bold" style={{ color: 'var(--body-text-color)' }}>{text.title}</h2>
+                                    <p className="text-sm mt-1" style={{ color: 'var(--label-color)' }}>{text.subtitle}</p>
                                 </div>
                                 <button
                                     onClick={() => setIsOpen(false)}
-                                    className="text-slate-400 hover:text-slate-200 transition-colors"
+                                    className="transition-colors hover:opacity-80"
+                                    style={{ color: 'var(--label-color)' }}
                                 >
                                     <X size={24} />
                                 </button>
@@ -245,10 +144,12 @@ export default function TemplateGallery({ onSelectTemplate, lang, isOpen: contro
                                     <button
                                         key={category.id}
                                         onClick={() => setSelectedCategory(category.id)}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedCategory === category.id
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                            }`}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors`}
+                                        style={{
+                                            backgroundColor: selectedCategory === category.id ? 'var(--blue)' : 'transparent',
+                                            color: selectedCategory === category.id ? '#fff' : 'var(--label-color)',
+                                            border: selectedCategory === category.id ? 'none' : '1px solid var(--border-color)',
+                                        }}
                                     >
                                         <category.icon size={16} />
                                         {category.label}
@@ -257,39 +158,57 @@ export default function TemplateGallery({ onSelectTemplate, lang, isOpen: contro
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto flex-1">
-                                {filteredTemplates.map((template) => (
-                                    <motion.div
-                                        key={template.id}
-                                        className="bg-slate-900 border border-slate-700 rounded-lg p-4 hover:border-blue-500 transition-colors cursor-pointer group"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                        onClick={() => handleSelectTemplate(template)}
-                                    >
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div className="flex items-center gap-2">
-                                                {getCategoryIcon(template.category)}
-                                                <h3 className="text-sm font-semibold text-slate-100">
-                                                    {template.name[lang]}
-                                                </h3>
-                                            </div>
-                                            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">
-                                                {template.nodes.length} nodes
-                                            </span>
-                                        </div>
-                                        <p className="text-xs text-slate-400 mb-4">
-                                            {template.description[lang]}
-                                        </p>
-                                        <button
-                                            className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleSelectTemplate(template);
+                                {isLoading ? (
+                                    <div className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center h-64 text-slate-400">
+                                        <Loader2 className="animate-spin mb-4" size={32} />
+                                        <p>Loading templates...</p>
+                                    </div>
+                                ) : filteredTemplates.length === 0 ? (
+                                    <div className="col-span-1 md:col-span-2 lg:col-span-3 flex items-center justify-center h-64 text-slate-500">
+                                        <p>No templates found.</p>
+                                    </div>
+                                ) : (
+                                    filteredTemplates.map((template) => (
+                                        <motion.div
+                                            key={template.id}
+                                            className="rounded-lg p-4 transition-all cursor-pointer group"
+                                            style={{
+                                                backgroundColor: 'var(--form-background-color)',
+                                                border: '1px solid var(--border-color)',
                                             }}
+                                            whileHover={{ scale: 1.02, borderColor: 'var(--blue)' }}
+                                            whileTap={{ scale: 0.98 }}
+                                            onClick={() => handleSelectTemplate(template)}
                                         >
-                                            {text.useTemplate}
-                                        </button>
-                                    </motion.div>
-                                ))}
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div style={{ color: 'var(--icon-color)' }}>
+                                                        {getCategoryIcon(template.category)}
+                                                    </div>
+                                                    <h3 className="text-sm font-semibold" style={{ color: 'var(--body-text-color)' }}>
+                                                        {template.name[lang]}
+                                                    </h3>
+                                                </div>
+                                                <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--box-background-color)', color: 'var(--label-color)', border: '1px solid var(--border-color)' }}>
+                                                    {template.nodes.length} nodes
+                                                </span>
+                                            </div>
+                                            <p className="text-xs mb-4" style={{ color: 'var(--label-color)' }}>
+                                                {template.description[lang]}
+                                            </p>
+                                            <button
+                                                className="w-full px-3 py-2 text-white text-sm font-medium rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                style={{ backgroundColor: 'var(--blue)' }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleSelectTemplate(template);
+                                                }}
+                                            >
+                                                {text.useTemplate}
+                                            </button>
+                                        </motion.div>
+                                    ))
+                                )}
                             </div>
                         </motion.div>
                     </motion.div>

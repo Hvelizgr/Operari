@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["tracing"]
 }
 
@@ -9,34 +9,33 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
+  id           String       @id @default(uuid())
+  email        String       @unique
   passwordHash String
   name         String?
-  role         Role     @default(USER)
+  role         Role         @default(USER)
   tenantId     String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  tenant     Tenant      @relation(fields: [tenantId], references: [id])
-  workflows  Workflow[]
-  executions Execution[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  credentials  Credential[]
+  executions   Execution[]
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  workflows    Workflow[]
 
   @@index([tenantId])
   @@index([email])
 }
 
 model Tenant {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  plan      Plan     @default(FREE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  users     User[]
-  workflows Workflow[]
+  id             String          @id @default(uuid())
+  name           String
+  slug           String          @unique
+  plan           Plan            @default(FREE)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   storageBuckets StorageBucket[]
+  users          User[]
+  workflows      Workflow[]
 
   @@index([slug])
 }
@@ -48,7 +47,6 @@ model StorageBucket {
   tenantId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, name])
@@ -56,69 +54,61 @@ model StorageBucket {
 }
 
 model Workflow {
-  id          String         @id @default(uuid())
-  name        String
-  description String?
-  // DEPRECATED: These JSON fields are kept for backward compatibility during migration
-  // They will be removed in a future version once all data is migrated
-  nodes       Json?
-  connections Json?
-  isActive    Boolean        @default(false)
-  schedule    String?
-  userId      String
-  tenantId    String
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  user              User                 @relation(fields: [userId], references: [id])
-  tenant            Tenant               @relation(fields: [tenantId], references: [id])
-  executions        Execution[]
-  // New normalized relationships
-  workflowNodes     WorkflowNode[]
+  id                  String               @id @default(uuid())
+  name                String
+  description         String?
+  nodes               Json?
+  connections         Json?
+  isActive            Boolean              @default(false)
+  schedule            String?
+  userId              String
+  tenantId            String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  executions          Execution[]
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
+  user                User                 @relation(fields: [userId], references: [id])
   workflowConnections WorkflowConnection[]
+  workflowNodes       WorkflowNode[]
 
   @@index([userId])
   @@index([tenantId])
   @@index([isActive])
 }
 
-// Normalized WorkflowNode model
 model WorkflowNode {
-  id         String   @id @default(uuid())
-  workflowId String
-  type       String
-  title      String
-  positionX  Float
-  positionY  Float
-  enabled    Boolean  @default(true)
-  config     Json?    // Node-specific configuration (HTTP settings, email templates, etc.)
-  inputs     Json?    // Array of input ports
-  outputs    Json?    // Array of output ports
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  workflow            Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  sourceConnections   WorkflowConnection[] @relation("SourceNode")
-  targetConnections   WorkflowConnection[] @relation("TargetNode")
+  id                String               @id @default(uuid())
+  workflowId        String
+  type              String
+  title             String
+  positionX         Float
+  positionY         Float
+  config            Json?
+  inputs            Json?
+  outputs           Json?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  enabled           Boolean              @default(true)
+  sourceConnections WorkflowConnection[] @relation("SourceNode")
+  targetConnections WorkflowConnection[] @relation("TargetNode")
+  workflow          Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   @@index([workflowId])
   @@index([type])
 }
 
-// Normalized WorkflowConnection model
 model WorkflowConnection {
-  id           String   @id @default(uuid())
+  id           String       @id @default(uuid())
   workflowId   String
   sourceNodeId String
-  sourcePort   Int?     // Index of the source port
+  sourcePort   Int?
   targetNodeId String
-  targetPort   Int?     // Index of the target port
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  workflow   Workflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  sourceNode WorkflowNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
-  targetNode WorkflowNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+  targetPort   Int?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  sourceNode   WorkflowNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode   WorkflowNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+  workflow     Workflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   @@index([workflowId])
   @@index([sourceNodeId])
@@ -126,23 +116,22 @@ model WorkflowConnection {
 }
 
 model Execution {
-  id          String          @id @default(uuid())
-  workflowId  String
-  userId      String
-  status      ExecutionStatus @default(PENDING)
-  trigger     TriggerType
-  startedAt   DateTime        @default(now())
-  completedAt DateTime?
-  duration    Int?
-  error       String?
-  pausedAt    DateTime?
-  resumeState Json?
-  metadata    Json?
-
-  workflow        Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  id              String           @id @default(uuid())
+  workflowId      String
+  userId          String
+  status          ExecutionStatus  @default(PENDING)
+  trigger         TriggerType
+  startedAt       DateTime         @default(now())
+  completedAt     DateTime?
+  duration        Int?
+  error           String?
+  metadata        Json?
+  pausedAt        DateTime?
+  resumeState     Json?
   user            User             @relation(fields: [userId], references: [id])
-  nodeLogs        NodeLog[]
+  workflow        Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   executionErrors ExecutionError[]
+  nodeLogs        NodeLog[]
 
   @@index([workflowId])
   @@index([userId])
@@ -151,7 +140,7 @@ model Execution {
 }
 
 model NodeLog {
-  id          String         @id @default(uuid())
+  id          String        @id @default(uuid())
   executionId String
   nodeId      String
   nodeName    String
@@ -160,11 +149,10 @@ model NodeLog {
   input       Json?
   output      Json?
   error       String?
-  startedAt   DateTime       @default(now())
+  startedAt   DateTime      @default(now())
   completedAt DateTime?
   duration    Int?
-
-  execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  execution   Execution     @relation(fields: [executionId], references: [id], onDelete: Cascade)
 
   @@index([executionId])
   @@index([nodeId])
@@ -172,24 +160,23 @@ model NodeLog {
 }
 
 model ExecutionError {
-  id            String        @id @default(uuid())
-  executionId   String
-  nodeLogId     String?
-  code          String
-  message       String
-  userMessage   String
-  severity      ErrorSeverity
-  isRetryable   Boolean       @default(false)
-  retryCount    Int           @default(0)
-  maxRetries    Int           @default(0)
-  context       Json?
-  stackTrace    String?
-  cause         Json?
-  createdAt     DateTime      @default(now())
-  resolvedAt    DateTime?
-  notifiedAt    DateTime?
-
-  execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  id          String        @id @default(uuid())
+  executionId String
+  nodeLogId   String?
+  code        String
+  message     String
+  userMessage String
+  severity    ErrorSeverity
+  isRetryable Boolean       @default(false)
+  retryCount  Int           @default(0)
+  maxRetries  Int           @default(0)
+  context     Json?
+  stackTrace  String?
+  cause       Json?
+  createdAt   DateTime      @default(now())
+  resolvedAt  DateTime?
+  notifiedAt  DateTime?
+  execution   Execution     @relation(fields: [executionId], references: [id], onDelete: Cascade)
 
   @@index([executionId])
   @@index([code])
@@ -198,33 +185,66 @@ model ExecutionError {
 }
 
 model ErrorNotificationConfig {
-  id          String                   @id @default(uuid())
+  id          String           @id @default(uuid())
   tenantId    String
   name        String
   type        NotificationType
   webhookUrl  String?
   email       String?
-  isActive    Boolean                  @default(true)
-  minSeverity ErrorSeverity            @default(HIGH)
-  errorCodes  String[]                 @default([])
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
+  isActive    Boolean          @default(true)
+  minSeverity ErrorSeverity    @default(HIGH)
+  errorCodes  String[]         @default([])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   @@index([tenantId])
   @@index([isActive])
 }
 
 model ScheduledJob {
-  id         String   @id @default(uuid())
-  workflowId String   @unique
+  id         String    @id @default(uuid())
+  workflowId String    @unique
   cronExpr   String
-  isActive   Boolean  @default(true)
+  isActive   Boolean   @default(true)
   lastRunAt  DateTime?
   nextRunAt  DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([isActive])
+}
+
+model NodeType {
+  id          String   @id @default(uuid())
+  type        String   @unique
+  category    String
+  icon        String
+  color       String
+  label       Json
+  description Json?
+  subtitle    Json?
+  inputs      Json?    @default("[]")
+  outputs     Json?    @default("[]")
+  properties  Json?    @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([type])
+}
+
+model Credential {
+  id        String   @id @default(uuid())
+  name      String
+  type      String
+  data      String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
 }
 
 enum Role {
@@ -275,34 +295,4 @@ enum NotificationType {
   EMAIL
   SLACK
   TEAMS
-}
-
-model NodeType {
-  id          String   @id @default(uuid())
-  type        String   @unique  // e.g. "n8n-nodes-base.webhook"
-  category    String   // e.g. "triggers"
-  
-  // Visuals
-  icon        String   // Lucide icon name
-  color       String   // Tailwind class or hex
-  
-  // I18n
-  label       Json     // { "en": "Webhook", "es": "Webhook" }
-  description Json?    // { "en": "...", "es": "..." }
-  subtitle    Json?    // Extra info shown in search
-  
-  // Logic & Ports
-  // e.g. [{ name: "main", type: "main", label: "Input" }, { name: "ai_tool", type: "ai_tool" }]
-  inputs      Json?    @default("[]") 
-  outputs     Json?    @default("[]")
-  
-  // Configuration UI Definition (Future proofing)
-  // Defines fields: name, type (string/select), options, etc.
-  properties  Json?    @default("[]")
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([category])
-  @@index([type])
 }

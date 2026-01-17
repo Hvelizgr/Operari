@@ -8,6 +8,7 @@ export type Direction = 'left' | 'right' | 'top' | 'bottom';
 export interface SolderState {
     startNodeId: string;
     startPort: PortType;
+    startPortIndex?: number;
     endPort: PortType;
     startDir: Direction;
     endDir: Direction;
@@ -18,7 +19,7 @@ interface UseEditorSolderingProps {
     canvasRef: React.RefObject<HTMLDivElement | null>;
     viewport: ViewportState;
     nodes: WorkflowNode[];
-    onConnectionComplete: (sourceId: string, targetId: string) => void;
+    onConnectionComplete: (sourceId: string, targetId: string, sourcePort?: number, targetPort?: number) => void;
     isDrawMode: boolean;
 }
 
@@ -44,7 +45,7 @@ export function useEditorSoldering({
     }, []);
 
     // Start solder (xyOps lines 905-910)
-    const startSolder = useCallback((nodeId: string, port: PortType, initialX?: number, initialY?: number) => {
+    const startSolder = useCallback((nodeId: string, port: PortType, initialX?: number, initialY?: number, portIndex?: number) => {
         const config = getDirMap(port);
 
         let mouseX = 0, mouseY = 0;
@@ -57,6 +58,7 @@ export function useEditorSoldering({
         setSoldering({
             startNodeId: nodeId,
             startPort: port,
+            startPortIndex: portIndex,
             endPort: config.endPort,
             startDir: config.startDir,
             endDir: config.endDir,
@@ -80,7 +82,7 @@ export function useEditorSoldering({
     }, [soldering, canvasRef]);
 
     // Complete solder (xyOps lines 1169-1227)
-    const completeSolder = useCallback((targetNodeId: string) => {
+    const completeSolder = useCallback((targetNodeId: string, targetPortIndex?: number) => {
         if (!soldering) return;
 
         if (soldering.startNodeId === targetNodeId) {
@@ -90,11 +92,15 @@ export function useEditorSoldering({
 
         let sourceId = soldering.startNodeId;
         let destId = targetNodeId;
+        let sourcePort = soldering.startPortIndex;
+        let targetPort = targetPortIndex;
+
         if (soldering.startPort === 'input' || soldering.startPort === 'up') {
             [sourceId, destId] = [destId, sourceId];
+            [sourcePort, targetPort] = [targetPortIndex, soldering.startPortIndex];
         }
 
-        onConnectionComplete(sourceId, destId);
+        onConnectionComplete(sourceId, destId, sourcePort, targetPort);
 
         if (canvasRef.current) {
             canvasRef.current.classList.remove('dragging');

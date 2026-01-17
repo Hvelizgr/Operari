@@ -17,12 +17,16 @@ export interface NodeStatusUpdate {
 export function useExecutionSocket(executionId: string | null) {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [nodeStatuses, setNodeStatuses] = useState<Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED'>>({});
+    const [nodeOutputs, setNodeOutputs] = useState<Record<string, any>>({});
+    const [executionStatus, setExecutionStatus] = useState<'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | null>(null);
     const socketRef = useRef<Socket | null>(null);
 
     useEffect(() => {
         if (!executionId) {
             setLogs([]);
             setNodeStatuses({});
+            setNodeOutputs({});
+            setExecutionStatus(null);
             return;
         }
 
@@ -46,6 +50,17 @@ export function useExecutionSocket(executionId: string | null) {
                 ...prev,
                 [update.nodeId]: update.status,
             }));
+
+            if (update.result) {
+                setNodeOutputs((prev) => ({
+                    ...prev,
+                    [update.nodeId]: update.result
+                }));
+            }
+        });
+
+        socket.on('execution_status', (status: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED') => {
+            setExecutionStatus(status);
         });
 
         socket.on('disconnect', () => {
@@ -65,6 +80,8 @@ export function useExecutionSocket(executionId: string | null) {
     return {
         logs,
         nodeStatuses,
+        nodeOutputs,
+        executionStatus,
         clearLogs,
     };
 }

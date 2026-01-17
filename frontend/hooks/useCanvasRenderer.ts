@@ -1,44 +1,10 @@
+
 // frontend/hooks/useCanvasRenderer.ts
 import { useEffect, useCallback, useRef } from 'react';
 import type { WorkflowNode, Connection } from '@nanoflow/shared';
 import type { ViewportState } from '../types/editor.types';
 import type { SolderState } from './useEditorSoldering';
-import { getNodePortInfo, PortDirection } from '../utils/nodePortUtils';
-
-const getControlPoint = (pos: { x: number, y: number }, direction: PortDirection, distance: number) => {
-    switch (direction) {
-        case 'left': return { x: pos.x - distance, y: pos.y };
-        case 'right': return { x: pos.x + distance, y: pos.y };
-        case 'top': return { x: pos.x, y: pos.y - distance };
-        case 'bottom': return { x: pos.x, y: pos.y + distance };
-    }
-};
-
-const getControlPoints = (
-    start: { x: number; y: number; direction: PortDirection },
-    end: { x: number; y: number; direction: PortDirection }
-) => {
-    const distX = Math.abs(end.x - start.x);
-    const distY = Math.abs(end.y - start.y);
-    const dist = Math.sqrt(distX * distX + distY * distY);
-    const curvature = Math.min(Math.max(dist * 0.4, 50), 200);
-
-    const cp1 = getControlPoint(start, start.direction, curvature);
-    const cp2 = getControlPoint(end, end.direction, curvature);
-    return { cp1, cp2, curvature }; // curvature for generic use if needed
-};
-
-const getBezierPoint = (t: number, p0: { x: number; y: number }, p1: { x: number; y: number }, p2: { x: number; y: number }, p3: { x: number; y: number }) => {
-    const c0 = Math.pow(1 - t, 3);
-    const c1 = 3 * Math.pow(1 - t, 2) * t;
-    const c2 = 3 * (1 - t) * Math.pow(t, 2);
-    const c3 = Math.pow(t, 3);
-
-    return {
-        x: c0 * p0.x + c1 * p1.x + c2 * p2.x + c3 * p3.x,
-        y: c0 * p0.y + c1 * p1.y + c2 * p2.y + c3 * p3.y
-    };
-};
+import { getNodePortInfo, PortDirection, getControlPoints, getBezierPoint } from '../utils/nodePortUtils';
 
 const drawSmartBezier = (
     ctx: CanvasRenderingContext2D,
@@ -48,12 +14,12 @@ const drawSmartBezier = (
 ) => {
     const { cp1, cp2 } = getControlPoints(start, end);
 
-    // Draw Line
+    // Draw Line - thinner, more elegant
     ctx.save();
-    ctx.strokeStyle = options.isCyclic ? '#ef4444' : options.color || '#888';
-    ctx.lineWidth = 1.6;
-    ctx.shadowBlur = options.isCyclic ? 8 : 0;
-    ctx.shadowColor = options.isCyclic ? 'rgba(239, 68, 68, 0.7)' : 'transparent';
+    ctx.strokeStyle = options.isCyclic ? '#ef4444' : options.color || '#64748b';
+    ctx.lineWidth = 1.2;
+    ctx.shadowBlur = options.isCyclic ? 6 : 0;
+    ctx.shadowColor = options.isCyclic ? 'rgba(239, 68, 68, 0.5)' : 'transparent';
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
     if (options.dashOffset !== undefined) {
@@ -78,10 +44,10 @@ const drawSmartBezier = (
 
             ctx.save();
             ctx.fillStyle = '#3b82f6'; // Blue data orb
-            ctx.shadowBlur = 6;
+            ctx.shadowBlur = 4;
             ctx.shadowColor = '#60a5fa';
             ctx.beginPath();
-            ctx.arc(pos.x, pos.y, 3, 0, Math.PI * 2);
+            ctx.arc(pos.x, pos.y, 2, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         }
@@ -91,6 +57,7 @@ const drawSmartBezier = (
 interface UseCanvasRendererProps {
     canvasRef: React.RefObject<HTMLCanvasElement | null>;
     nodes: WorkflowNode[];
+    nodeTypes?: any[]; // Allow generic usage
     connections: Connection[];
     viewport: ViewportState;
     soldering: SolderState | null;
@@ -101,6 +68,7 @@ interface UseCanvasRendererProps {
 export function useCanvasRenderer({
     canvasRef,
     nodes,
+    nodeTypes = [],
     connections,
     viewport,
     soldering,
@@ -113,6 +81,7 @@ export function useCanvasRenderer({
 
     // Use Refs to hold latest state for the animation loop
     const nodesRef = useRef(nodes);
+    const nodeTypesRef = useRef(nodeTypes);
     const connectionsRef = useRef(connections);
     const viewportRef = useRef(viewport);
     const solderingRef = useRef(soldering);
@@ -120,6 +89,7 @@ export function useCanvasRenderer({
     const nodeStatusesRef = useRef(nodeStatuses);
 
     useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+    useEffect(() => { nodeTypesRef.current = nodeTypes; }, [nodeTypes]);
     useEffect(() => { connectionsRef.current = connections; }, [connections]);
     useEffect(() => { viewportRef.current = viewport; }, [viewport]);
     useEffect(() => { solderingRef.current = soldering; }, [soldering]);
@@ -135,6 +105,7 @@ export function useCanvasRenderer({
 
         // Read from refs
         const _nodes = nodesRef.current;
+        const _nodeTypes = nodeTypesRef.current;
         const _connections = connectionsRef.current;
         const _viewport = viewportRef.current;
         const _soldering = solderingRef.current;
@@ -158,8 +129,15 @@ export function useCanvasRenderer({
             const targetNode = _nodes.find(n => n.id === conn.target);
             if (!sourceNode || !targetNode) return;
 
-            const startInfo = getNodePortInfo(sourceNode, 'output', conn.sourcePort || 0);
-            const endInfo = getNodePortInfo(targetNode, 'input', conn.targetPort || 0);
+            // Get port counts
+            const sourceNodeType = _nodeTypes.find((t: any) => t.type === sourceNode.type);
+            const targetNodeType = _nodeTypes.find((t: any) => t.type === targetNode.type);
+
+            const sourceOutputCount = Array.isArray(sourceNodeType?.outputs) ? sourceNodeType.outputs.length : 1;
+            const targetInputCount = Array.isArray(targetNodeType?.inputs) ? targetNodeType.inputs.length : 1;
+
+            const startInfo = getNodePortInfo(sourceNode, 'output', conn.sourcePort || 0, sourceOutputCount);
+            const endInfo = getNodePortInfo(targetNode, 'input', conn.targetPort || 0, targetInputCount);
 
             const sourceStatus = _nodeStatuses[conn.source];
             let flow: number | undefined = undefined;
@@ -177,7 +155,14 @@ export function useCanvasRenderer({
             const startNode = _nodes.find(n => n.id === _soldering.startNodeId);
             if (startNode) {
                 const portType = _soldering.startPort === 'input' ? 'input' : 'output';
-                const startInfo = getNodePortInfo(startNode, portType, 0);
+
+                // Calculate count for soldering start port
+                const startNodeType = _nodeTypes.find((t: any) => t.type === startNode.type);
+                let portCount = 1;
+                if (portType === 'input') portCount = Array.isArray(startNodeType?.inputs) ? startNodeType.inputs.length : 1;
+                else portCount = Array.isArray(startNodeType?.outputs) ? startNodeType.outputs.length : 1;
+
+                const startInfo = getNodePortInfo(startNode, portType, _soldering.startPortIndex || 0, portCount);
 
                 // Adjust for canvas space since soldering.mousePos is relative to canvas clientRect
                 const worldMousePos = {

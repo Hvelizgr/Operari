@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import type { WorkflowNode } from '@nanoflow/shared';
 import EditorNode from './EditorNode';
@@ -30,7 +30,7 @@ interface NodesLayerProps {
     onPortDragEnd: () => void;
     onNodeClick: (id: string) => void;
     onNodeMove: (nodeId: string, direction: 'up' | 'down' | 'left' | 'right') => void;
-    onSolderStart?: (nodeId: string, port: 'input' | 'output', initialX?: number, initialY?: number) => void;
+    onSolderStart?: (nodeId: string, port: 'input' | 'output', initialX?: number, initialY?: number, portIndex?: number) => void;
     onNodeUpdate: (nodeId: string, updates: Partial<WorkflowNode>) => void;
     onNodeDoubleClick?: (nodeId: string) => void;
     editorMode?: 'move' | 'connect';
@@ -42,6 +42,7 @@ interface NodesLayerProps {
     onNodeDelete?: (nodeId: string) => void;
     onNodeDuplicate?: (nodeId: string) => void;
     onNodeFocus?: (nodeId: string) => void;
+    lang: 'en' | 'es';
 }
 
 export default function NodesLayer({
@@ -72,13 +73,21 @@ export default function NodesLayer({
     onNodeDelete,
     onNodeDuplicate,
     onNodeFocus,
+    lang
 }: NodesLayerProps) {
     // Hover state for toolbar
     const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
     const [toolbarPosition, setToolbarPosition] = useState<{ x: number; y: number } | null>(null);
+    const [isToolbarHovered, setIsToolbarHovered] = useState(false);
+    const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Handle node hover
     const handleNodeMouseEnter = useCallback((nodeId: string, nodePosition: { x: number; y: number }, nodeWidth: number) => {
+        // Clear any pending hide timeout
+        if (hideTimeoutRef.current) {
+            clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+        }
         setHoveredNodeId(nodeId);
         // Position toolbar at center-top of node
         setToolbarPosition({
@@ -88,6 +97,25 @@ export default function NodesLayer({
     }, []);
 
     const handleNodeMouseLeave = useCallback(() => {
+        // Delay hiding to allow cursor to move to toolbar
+        hideTimeoutRef.current = setTimeout(() => {
+            if (!isToolbarHovered) {
+                setHoveredNodeId(null);
+                setToolbarPosition(null);
+            }
+        }, 150);
+    }, [isToolbarHovered]);
+
+    const handleToolbarMouseEnter = useCallback(() => {
+        if (hideTimeoutRef.current) {
+            clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+        }
+        setIsToolbarHovered(true);
+    }, []);
+
+    const handleToolbarMouseLeave = useCallback(() => {
+        setIsToolbarHovered(false);
         setHoveredNodeId(null);
         setToolbarPosition(null);
     }, []);
@@ -137,12 +165,19 @@ export default function NodesLayer({
                 // Render NoteNode for note type
                 if (node.type === 'custom.note') {
                     return (
-                        <NoteNode
+                        <div
                             key={node.id}
-                            node={node}
-                            isSelected={selectedNodes.has(node.id)}
-                            onUpdate={onNodeUpdate}
-                        />
+                            onMouseEnter={() => handleNodeMouseEnter(node.id, node.position, (node.config as any)?.width || 275)}
+                            onMouseLeave={handleNodeMouseLeave}
+                            onMouseDown={(e) => onNodeDragStart(node.id, e)}
+                        >
+                            <NoteNode
+                                node={node}
+                                isSelected={selectedNodes.has(node.id)}
+                                onUpdate={onNodeUpdate}
+                                zoom={viewport.zoom}
+                            />
+                        </div>
                     );
                 }
 
@@ -156,7 +191,7 @@ export default function NodesLayer({
                     >
                         <EditorNode
                             node={node}
-                            typeDefinition={nodeTypes.find(t => t.type === node.type)}
+                            typeDefinition={nodeTypes.find(t => t.type.toLowerCase() === node.type.toLowerCase())}
                             isConnected={isConnected}
                             onDragStart={onNodeDragStart}
                             onDrag={onNodeDrag}
@@ -174,6 +209,8 @@ export default function NodesLayer({
                             onUpdate={onNodeUpdate}
                             editorMode={editorMode}
                             status={nodeStatuses[node.id]}
+                            onRunFromNode={onNodeRun}
+                            lang={lang}
                         />
                     </div>
                 );
@@ -181,20 +218,25 @@ export default function NodesLayer({
 
             {/* n8n-style Hover Toolbar */}
             {hoveredNode && toolbarPosition && !draggingNode && (
-                <NodeHoverToolbar
-                    nodeId={hoveredNode.id}
-                    nodeTitle={hoveredNode.title}
-                    isVisible={true}
-                    isDisabled={false}
-                    isRunning={nodeStatuses[hoveredNode.id] === 'RUNNING'}
-                    position={toolbarPosition}
-                    zoom={viewport.zoom}
-                    onRun={onNodeRun}
-                    onToggleDisable={onNodeToggleDisable}
-                    onDelete={onNodeDelete}
-                    onDuplicate={onNodeDuplicate}
-                    onFocus={onNodeFocus}
-                />
+                <div
+                    onMouseEnter={handleToolbarMouseEnter}
+                    onMouseLeave={handleToolbarMouseLeave}
+                >
+                    <NodeHoverToolbar
+                        nodeId={hoveredNode.id}
+                        nodeTitle={hoveredNode.title}
+                        isVisible={true}
+                        isDisabled={hoveredNode.type === 'custom.note'}
+                        isRunning={nodeStatuses[hoveredNode.id] === 'RUNNING'}
+                        position={toolbarPosition}
+                        zoom={viewport.zoom}
+                        onRun={onNodeRun}
+                        onToggleDisable={onNodeToggleDisable}
+                        onDelete={onNodeDelete}
+                        onDuplicate={onNodeDuplicate}
+                        onFocus={onNodeFocus}
+                    />
+                </div>
             )}
         </motion.div>
     );

@@ -143,8 +143,32 @@ export function useEditorConnections({
     // Complete connection creation
     const completeConnection = useCallback(() => {
         if (creatingConnection && hoveredInputNode) {
+            // Prevent self-connections
+            if (creatingConnection.sourceNodeId === hoveredInputNode) {
+                announceMessage('Cannot connect a node to itself');
+                setCreatingConnection(null);
+                setHoveredInputNode(null);
+                return;
+            }
+
+            // Check if this connection would create a cycle
+            const testConnection = {
+                id: 'test',
+                source: creatingConnection.sourceNodeId,
+                target: hoveredInputNode,
+            };
+            const testConnections = [...connections, testConnection];
+            const cycleResult = hasCycle(nodes, testConnections);
+
+            if (cycleResult.hasCycle) {
+                announceMessage('Connection would create a cycle - not allowed');
+                setCreatingConnection(null);
+                setHoveredInputNode(null);
+                return;
+            }
+
             const newConnection: Connection = {
-                id: `conn-${Date.now()}`,
+                id: `conn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 source: creatingConnection.sourceNodeId,
                 target: hoveredInputNode,
                 sourcePort: 0,
@@ -169,26 +193,45 @@ export function useEditorConnections({
         }
         setCreatingConnection(null);
         setHoveredInputNode(null);
-    }, [creatingConnection, hoveredInputNode, executeCommand]);
+    }, [creatingConnection, hoveredInputNode, executeCommand, connections, nodes, announceMessage]);
 
     // Create connection programmatically (for soldering system - xyOps integration)
     const createConnection = useCallback(
-        (sourceNodeId: string, targetNodeId: string) => {
+        (sourceNodeId: string, targetNodeId: string, sourcePortIndex?: number, targetPortIndex?: number) => {
+            const sPort = sourcePortIndex || 0;
+            const tPort = targetPortIndex || 0;
+
+            // Prevent self-connections
+            if (sourceNodeId === targetNodeId) {
+                announceMessage('Cannot connect a node to itself');
+                return false;
+            }
+
             // Check if connection already exists (xyOps lines 1207-1212)
             const exists = connections.some(
-                (c) => c.source === sourceNodeId && c.target === targetNodeId
+                (c) => c.source === sourceNodeId && c.target === targetNodeId && (c.sourcePort || 0) === sPort && (c.targetPort || 0) === tPort
             );
             if (exists) {
                 announceMessage('Connection already exists');
                 return false;
             }
 
+            // Check if this connection would create a cycle
+            const testConnection = { id: 'test', source: sourceNodeId, target: targetNodeId };
+            const testConnections = [...connections, testConnection];
+            const cycleResult = hasCycle(nodes, testConnections);
+
+            if (cycleResult.hasCycle) {
+                announceMessage('Connection would create a cycle - not allowed');
+                return false;
+            }
+
             const newConnection: Connection = {
-                id: `conn-${Date.now()}`,
+                id: `conn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 source: sourceNodeId,
                 target: targetNodeId,
-                sourcePort: 0,
-                targetPort: 0,
+                sourcePort: sPort,
+                targetPort: tPort,
             };
 
             executeCommand({

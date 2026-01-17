@@ -1,0 +1,255 @@
+
+> nanoflow-frontend@1.0.0 build
+> next build
+
+   ▲ Next.js 15.5.9
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 3.2s
+   Linting and checking validity of types ...
+
+Failed to compile.
+
+./app/[lang]/(marketing)/components/EditorSimulation.tsx
+5:41  Warning: 'Play' is defined but never used.  @typescript-eslint/no-unused-vars
+5:47  Warning: 'Settings' is defined but never used.  @typescript-eslint/no-unused-vars
+5:57  Warning: 'X' is defined but never used.  @typescript-eslint/no-unused-vars
+52:77  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+79:44  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/[lang]/(marketing)/components/Features.tsx
+3:10  Warning: 'motion' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./app/[lang]/(marketing)/components/Hero.tsx
+5:22  Warning: 'Terminal' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./app/[lang]/(marketing)/components/Navbar.tsx
+20:11  Warning: 'backgroundOpacity' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+21:11  Warning: 'borderOpacity' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./app/[lang]/editor/page.tsx
+2:8  Warning: 'EditorSidebar' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/Common/ContextMenu.tsx
+180:46  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+184:48  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+185:142  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Editor/CommandPalette.tsx
+4:39  Warning: 'Zap' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/Editor/ConnectionBubblesLayer.tsx
+94:48  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+95:47  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+118:33  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+
+./components/Editor/ConnectionConditionBadge.tsx
+45:5  Error: React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render.  react-hooks/rules-of-hooks
+
+./components/Editor/ConnectionsLayer.tsx
+55:64  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+56:63  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Editor/EditorCanvas.tsx
+6:10  Warning: 'useAccessibility' is defined but never used.  @typescript-eslint/no-unused-vars
+12:39  Warning: 'Zap' is defined but never used.  @typescript-eslint/no-unused-vars
+12:44  Warning: 'Download' is defined but never used.  @typescript-eslint/no-unused-vars
+12:54  Warning: 'Upload' is defined but never used.  @typescript-eslint/no-unused-vars
+12:62  Warning: 'FileText' is defined but never used.  @typescript-eslint/no-unused-vars
+23:10  Warning: 'createNewNode' is defined but never used.  @typescript-eslint/no-unused-vars
+44:9  Warning: 'enableAutosave' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+45:9  Warning: 'setEnableAutosave' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+112:9  Warning: 'handleExecutionStateChange' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+123:11  Warning: The 'handleAutoLayout' function makes the dependencies of useMemo Hook (at line 293) change on every render. To fix this, wrap the definition of 'handleAutoLayout' in its own useCallback() Hook.  react-hooks/exhaustive-deps
+169:43  Warning: 'isMoveMode' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+180:9  Warning: 'resumeSolder' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+181:9  Warning: 'pausedSolder' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+193:11  Warning: The 'handleExecuteWithInput' function makes the dependencies of useMemo Hook (at line 293) change on every render. To fix this, wrap the definition of 'handleExecuteWithInput' in its own useCallback() Hook.  react-hooks/exhaustive-deps
+219:9  Warning: Unexpected console statement. Only these console methods are allowed: warn, error.  no-console
+249:11  Warning: 'handleSolderDropSelect' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+249:37  Warning: 'nodeId' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./components/Editor/EditorCanvas.utils.ts
+1:24  Warning: 'Connection' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/Editor/EditorConnection.tsx
+53:11  Warning: 'dy' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./components/Editor/EditorNode.tsx
+7:28  Warning: 'ChevronRight' is defined but never used.  @typescript-eslint/no-unused-vars
+7:42  Warning: 'ChevronDown' is defined but never used.  @typescript-eslint/no-unused-vars
+41:5  Warning: 'isHighlighted' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+50:5  Warning: 'onPortDragStart' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+63:48  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+69:27  Warning: 'rect' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+80:114  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+88:8  Warning: React Hook useLayoutEffect has a missing dependency: 'node'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+88:28  Warning: React Hook useLayoutEffect has a complex expression in the dependency array. Extract it to a separate variable so it can be statically checked.  react-hooks/exhaustive-deps
+88:37  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+90:31  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+153:13  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+174:116  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+175:107  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+188:116  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+189:107  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+214:116  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+215:107  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+241:112  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+242:103  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+269:29  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+296:116  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+297:107  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+322:116  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+323:107  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+381:108  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+382:99  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+389:108  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+390:99  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+
+./components/Editor/EditorOverlays.tsx
+50:46  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+110:5  Warning: 'onLoadWorkflow' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+206:29  Warning: Expected an assignment or function call and instead saw an expression.  @typescript-eslint/no-unused-expressions
+
+./components/Editor/EditorSidebar.tsx
+49:18  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Editor/FrameNode.tsx
+40:56  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+54:35  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+55:36  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+56:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+58:41  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+59:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+67:34  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+68:8  Warning: React Hook useEffect has a missing dependency: 'node.config'. Either include it or remove the dependency array. If 'setTitle' needs the current value of 'node.config', you can also switch to useReducer instead of useState and read 'node.config' in the reducer.  react-hooks/exhaustive-deps
+68:9  Warning: React Hook useEffect has a complex expression in the dependency array. Extract it to a separate variable so it can be statically checked.  react-hooks/exhaustive-deps
+68:25  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+81:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Editor/GridLayer.tsx
+3:10  Warning: 'EDITOR_CONFIG' is defined but never used.  @typescript-eslint/no-unused-vars
+11:32  Warning: 'highContrast' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./components/Editor/KeyboardShortcutsModal.tsx
+5:23  Warning: 'Command' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/Editor/NodeHoverToolbar.tsx
+4:44  Warning: 'MoreHorizontal' is defined but never used.  @typescript-eslint/no-unused-vars
+23:5  Warning: 'nodeTitle' is defined but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+35:12  Warning: 'showMenu' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./components/Editor/NodesLayer.tsx
+168:110  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Editor/NoteNode.tsx
+63:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+67:35  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+68:36  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+69:36  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Editor/PropertiesPanel.tsx
+9:35  Warning: 'TriggerModifiers' is defined but never used.  @typescript-eslint/no-unused-vars
+41:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+183:122  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+184:53  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Editor/WorkflowPropertiesPanel.tsx
+44:65  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Editor/terminal/LogTerminal.tsx
+14:50  Warning: 'isActive' is assigned a value but never used. Allowed unused args must match /^_/u.  @typescript-eslint/no-unused-vars
+
+./components/Navigation/MiniMap.tsx
+23:11  Warning: 'SCALE' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+111:8  Warning: React Hook useCallback has a missing dependency: 'fromMiniMapCoords'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+131:8  Warning: React Hook useCallback has a missing dependency: 'fromMiniMapCoords'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./components/Navigation/SearchBar.tsx
+6:5  Warning: 'Globe' is defined but never used.  @typescript-eslint/no-unused-vars
+6:12  Warning: 'Mail' is defined but never used.  @typescript-eslint/no-unused-vars
+6:18  Warning: 'Database' is defined but never used.  @typescript-eslint/no-unused-vars
+6:28  Warning: 'Clock' is defined but never used.  @typescript-eslint/no-unused-vars
+6:35  Warning: 'GitBranch' is defined but never used.  @typescript-eslint/no-unused-vars
+6:46  Warning: 'Code' is defined but never used.  @typescript-eslint/no-unused-vars
+6:52  Warning: 'MessageSquare' is defined but never used.  @typescript-eslint/no-unused-vars
+7:5  Warning: 'FileText' is defined but never used.  @typescript-eslint/no-unused-vars
+7:15  Warning: 'Calendar' is defined but never used.  @typescript-eslint/no-unused-vars
+7:25  Warning: 'Webhook' is defined but never used.  @typescript-eslint/no-unused-vars
+7:34  Warning: 'Send' is defined but never used.  @typescript-eslint/no-unused-vars
+7:40  Warning: 'Key' is defined but never used.  @typescript-eslint/no-unused-vars
+7:45  Warning: 'Zap' is defined but never used.  @typescript-eslint/no-unused-vars
+7:50  Warning: 'Settings' is defined but never used.  @typescript-eslint/no-unused-vars
+8:5  Warning: 'Cloud' is defined but never used.  @typescript-eslint/no-unused-vars
+8:12  Warning: 'Server' is defined but never used.  @typescript-eslint/no-unused-vars
+8:20  Warning: 'Hash' is defined but never used.  @typescript-eslint/no-unused-vars
+8:26  Warning: 'Play' is defined but never used.  @typescript-eslint/no-unused-vars
+8:32  Warning: 'Pause' is defined but never used.  @typescript-eslint/no-unused-vars
+8:39  Warning: 'RefreshCw' is defined but never used.  @typescript-eslint/no-unused-vars
+8:50  Warning: 'Filter' is defined but never used.  @typescript-eslint/no-unused-vars
+9:5  Warning: 'AlertCircle' is defined but never used.  @typescript-eslint/no-unused-vars
+9:18  Warning: 'List' is defined but never used.  @typescript-eslint/no-unused-vars
+9:24  Warning: 'Grid' is defined but never used.  @typescript-eslint/no-unused-vars
+9:30  Warning: 'Shuffle' is defined but never used.  @typescript-eslint/no-unused-vars
+9:39  Warning: 'Bell' is defined but never used.  @typescript-eslint/no-unused-vars
+100:8  Warning: React Hook useMemo has a missing dependency: 'availableNodeTypes'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+149:11  Warning: 'hasSearchResults' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+150:11  Warning: 'showCategories' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./components/Node/DynamicNodeForm.tsx
+11:15  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+19:28  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+20:36  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Node/ExpressionBuilder.tsx
+12:24  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+476:11  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Node/NodeConfigPanel.tsx
+21:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+73:22  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+160:122  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+161:53  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Node/NodePalette.tsx
+8:26  Warning: 'Link' is defined but never used.  @typescript-eslint/no-unused-vars
+9:31  Warning: 'XCircle' is defined but never used.  @typescript-eslint/no-unused-vars
+10:48  Warning: 'Smartphone' is defined but never used.  @typescript-eslint/no-unused-vars
+10:60  Warning: 'Radio' is defined but never used.  @typescript-eslint/no-unused-vars
+12:16  Warning: 'Bell' is defined but never used.  @typescript-eslint/no-unused-vars
+12:22  Warning: 'Shield' is defined but never used.  @typescript-eslint/no-unused-vars
+12:30  Warning: 'Lock' is defined but never used.  @typescript-eslint/no-unused-vars
+12:36  Warning: 'Briefcase' is defined but never used.  @typescript-eslint/no-unused-vars
+25:18  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Node/TriggerModifiersSection.tsx
+50:63  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Workflow/RunDialog.tsx
+11:16  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+98:30  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Workflow/SnapshotDialog.tsx
+66:30  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/Workflow/WorkflowRunner.tsx
+5:33  Warning: 'useEffect' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/ui/EditorSimulation.tsx
+3:18  Warning: 'useMotionValue' is defined but never used.  @typescript-eslint/no-unused-vars
+3:34  Warning: 'useTransform' is defined but never used.  @typescript-eslint/no-unused-vars
+4:20  Warning: 'useRef' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/ui/WorkflowSimulation.tsx
+44:10  Warning: 'executionStep' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+npm error Lifecycle script `build` failed with error:
+npm error code 1
+npm error path /home/hvelizgr/Documentos/GitHub/NanoFlow/frontend
+npm error workspace nanoflow-frontend@1.0.0
+npm error location /home/hvelizgr/Documentos/GitHub/NanoFlow/frontend
+npm error command failed
+npm error command sh -c next build

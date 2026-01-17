@@ -89,6 +89,9 @@ interface EditorOverlaysProps {
     // Metrics Dashboard Control
     isMetricsDashboardOpen?: boolean;
     onMetricsDashboardOpenChange?: (open: boolean) => void;
+
+    // Execution Data
+    nodeOutputs?: Record<string, any>;
 }
 
 export default function EditorOverlays({
@@ -107,6 +110,7 @@ export default function EditorOverlays({
     onboardingStep,
     lang,
     selectedNodesCount,
+    nodeOutputs,
     onLoadWorkflow,
     onSelectTemplate,
     onViewportChange,
@@ -153,15 +157,10 @@ export default function EditorOverlays({
 
     return (
         <>
-            {/* ... other elements ... */}
             <div className="absolute bottom-4 right-4 bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg text-xs text-slate-300 font-mono pointer-events-none">
                 Zoom: {Math.round(viewport.zoom * 100)}% | Pan: ({Math.round(viewport.x)}, {Math.round(viewport.y)}) | Nodes: {nodes.length} | Selected: {selectedNodesCount}
             </div>
 
-            {/* ... other elements ... */}
-            {/* SearchBar gets searchTrigger */}
-
-            {/* ALERT: Recreating JSX context to match replace */}
             {cycleError && (
                 <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-red-500/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2">
                     <AlertCircle size={18} />
@@ -196,7 +195,6 @@ export default function EditorOverlays({
                 externalTrigger={searchTrigger}
             />
 
-            {/* Contextual Search Bar for Solder Drop */}
             {solderDropPos && (
                 <div onClick={(e) => e.stopPropagation()}>
                     <SearchBar
@@ -207,7 +205,6 @@ export default function EditorOverlays({
                         }}
                         onNodeAdd={(type) => {
                             onNodeAdd(type);
-                            // Ensure the parent canvas handles the connection logic
                         }}
                         onHighlightNodes={onHighlightNodes}
                         lang={lang}
@@ -215,7 +212,6 @@ export default function EditorOverlays({
                         position={solderDropPos}
                         forceOpen={true}
                     />
-                    {/* Invisible overlay to catch clicks outside and cancel solder */}
                     <div
                         className="fixed inset-0 z-40"
                         onClick={() => onSolderDropCancel && onSolderDropCancel()}
@@ -229,7 +225,6 @@ export default function EditorOverlays({
                 isOpen={isMetricsDashboardOpen}
                 onOpenChange={onMetricsDashboardOpenChange}
             />
-
 
             {showOnboarding && (
                 <Onboarding
@@ -274,6 +269,7 @@ export default function EditorOverlays({
                     lang={lang}
                     nodes={nodes}
                     connections={connections}
+                    nodeOutputs={nodeOutputs}
                 />
             )}
 
@@ -288,7 +284,7 @@ export default function EditorOverlays({
                     onTestFromNode={onContextMenuTestFromNode}
                     lang={lang}
                     type={contextMenu.type}
-                    onAddNode={() => { onContextMenuClose(); /* trigger search */ }}
+                    onAddNode={() => { onContextMenuClose(); }}
                     onZoomIn={onZoomIn}
                     onZoomOut={onZoomOut}
                     onFitView={onFitView}

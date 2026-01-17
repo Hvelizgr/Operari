@@ -51,22 +51,29 @@
     --icon-color: rgb(185, 190, 200);
 }
 
-/* Dark mode overrides */
+/* Dark mode overrides - Simple AI Style */
 @media (prefers-color-scheme: dark) {
     :root {
         --yellow: rgb(204, 154, 6);
-        --gray: rgb(98, 107, 115);
+        --gray: rgb(113, 113, 122);
+        /* Zinc-500 */
 
-        --border-color: rgb(50, 50, 58);
-        --shadow-color: rgba(0, 0, 0, 0.0);
-        --background-color: rgb(24, 24, 32);
-        --box-background-color: rgb(32, 32, 38);
-        --form-background-color: rgb(40, 40, 48);
-        --table-header-background-color: rgba(200, 225, 255, 0.03);
+        --border-color: rgba(255, 255, 255, 0.08);
+        /* White/8% */
+        --shadow-color: rgba(0, 0, 0, 0.5);
+        --background-color: #09090b;
+        /* Zinc-950/Black */
+        --box-background-color: #070707;
+        /* Almost pure black */
+        --form-background-color: #121212;
+        --table-header-background-color: rgba(255, 255, 255, 0.03);
 
-        --label-color: rgb(145, 145, 170);
-        --body-text-color: rgb(170, 170, 200);
-        --icon-color: rgb(115, 115, 130);
+        --label-color: #a1a1aa;
+        /* Zinc-400 */
+        --body-text-color: #e4e4e7;
+        /* Zinc-200 */
+        --icon-color: #71717a;
+        /* Zinc-500 */
     }
 }
 
@@ -91,8 +98,9 @@ See the LICENSE.md file in this repository. */
     height: 100%;
 
     background-color: var(--box-background-color);
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="2" cy="2" r="1" fill="rgba(128,130,132,0.55)" /></svg>');
-    background-size: 20px 20px;
+    /* Subtle dot grid */
+    background-image: radial-gradient(circle, #27272a 1px, transparent 1px);
+    background-size: 24px 24px;
 
     cursor: grab;
 }
@@ -191,59 +199,168 @@ See the LICENSE.md file in this repository. */
 .wf_node {
     position: absolute;
     z-index: 3;
-    cursor: pointer;
+    cursor: grab;
+    transition: box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.15s ease-out;
+    border-radius: 12px;
 }
 
-.wf_node.selected {
-    cursor: default;
+.wf_node.dragging {
+    cursor: grabbing;
+    z-index: 50;
+    transform: scale(1.02);
 }
 
+/* Base Card Style - Simple AI Aesthetic */
 .wf_event {
-    background: var(--background-color);
-    border: 2px solid var(--border-color);
-    border-radius: 8px;
-    /* Refined from 16px */
-
-    width: 275px;
+    background: #ffffff;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
+    /* 0.625rem */
+    width: 260px;
     height: auto;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    overflow: visible;
+    transition: box-shadow 0.2s, border-color 0.2s, transform 0.1s;
 }
 
+@media (prefers-color-scheme: dark) {
+    .wf_event {
+        background: #121212;
+        /* Dark card bg */
+        border-color: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        /* Subtle glow on top edge */
+        background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.03), transparent 40px);
+    }
+}
+
+.wf_node.selected .wf_event {
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+}
+
+/* Header */
 .wf_event_title {
     display: flex;
     align-items: center;
-    padding: 8px 12px;
-    background: var(--table-header-background-color);
-    border-bottom: 1px solid var(--border-color);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--body-text-color);
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
+    padding: 10px 12px;
+    background: transparent;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    gap: 10px;
 }
 
+@media (prefers-color-scheme: dark) {
+    .wf_event_title {
+        background: transparent;
+        border-bottom-color: rgba(255, 255, 255, 0.05);
+    }
+}
+
+.node-icon-container {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f4f4f5;
+    /* Zinc-100 */
+    box-shadow: none;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.wf_node.selected .node-icon-container {
+    transform: none;
+}
+
+@media (prefers-color-scheme: dark) {
+    .node-icon-container {
+        background: #27272a;
+        /* Zinc-800 */
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+}
+
+.node-title-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.node-title-text {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1a1a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+@media (prefers-color-scheme: dark) {
+    .node-title-text {
+        color: #f3f4f6;
+    }
+}
+
+.node-subtitle-text {
+    font-size: 10px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+/* Content Body */
+.wf_body {
+    padding: 12px 14px;
+}
+
+.node-description {
+    font-size: 11px;
+    color: #4b5563;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+@media (prefers-color-scheme: dark) {
+    .node-description {
+        color: #9ca3af;
+    }
+}
+
+/* Ports - Modern n8n style is smaller circles */
 .wf_pole_button {
+    width: 12px;
+    height: 12px;
+    background: #ffffff;
+    border: 2px solid #3b82f6;
+    border-radius: 50%;
     position: absolute;
-    width: 24px;
-    height: 24px;
-    margin-top: -12px;
-    margin-left: -12px;
-    background: var(--theme-color);
-    border-radius: 999em;
-    z-index: 2;
-    cursor: pointer;
-
-    font-size: 16px;
-    line-height: 24px;
-    text-align: center;
-    color: white;
-
-    /* Larger clickable area */
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    z-index: 10;
+    cursor: crosshair;
+    transition: transform 0.2s, background 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .wf_pole_button:hover {
-    transform: scale(1.15);
-    box-shadow: 0 0 8px rgba(55, 145, 245, 0.5);
+    transform: scale(1.3);
+    background: #3b82f6;
+    border-color: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+    .wf_pole_button {
+        background: #1e1e2d;
+    }
 }
 
 /* ... */
@@ -271,15 +388,40 @@ See the LICENSE.md file in this repository. */
 /* .wf_pole_button.soldering { background: var(--label-color) !important; } */
 
 .wf_input_pole {
-    left: calc(0% - 1px);
+    left: -7px;
     top: 50%;
-    background: var(--blue);
+    margin-top: -6px;
 }
 
 .wf_output_pole {
-    left: calc(100% + 1px);
+    right: -7px;
     top: 50%;
-    background: var(--blue);
+    margin-top: -6px;
+}
+
+/* Multi-port spacing */
+.ports-container {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.ports-container-left {
+    left: 0;
+}
+
+.ports-container-right {
+    right: 0;
+}
+
+.ports-container .wf_pole_button {
+    position: relative;
+    pointer-events: auto;
 }
 
 .wf_down_pole {
@@ -300,8 +442,10 @@ See the LICENSE.md file in this repository. */
     background: var(--icon-color) !important;
 }
 
+/* Entity Nodes (Triggers, Controllers) */
 .wf_entity {
     width: 64px;
+    height: 64px;
 }
 
 .wf_entity:has(> .wf_ent_controller) {
@@ -325,10 +469,64 @@ See the LICENSE.md file in this repository. */
     border-color: var(--red) !important;
 }
 
+/* Entity Nodes (Triggers, Controllers) - Stylized Glass Shapes */
 .wf_ent_trigger,
 .wf_ent_action,
-.wf_ent_limit,
 .wf_ent_controller {
+    width: 60px;
+    /* Slightly more compact */
+    height: 60px;
+
+    /* Glassmorphism */
+    background: rgba(20, 20, 23, 0.7);
+    /* Deep dark semi-transparent */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    /* Border: Gradient-like subtle border */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    cursor: pointer;
+}
+
+/* Hover Effects - The "Stylized" Pop */
+.wf_ent_trigger:hover,
+.wf_ent_action:hover,
+.wf_ent_controller:hover {
+    transform: translateY(-2px) scale(1.05);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow:
+        0 8px 20px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.1),
+        inset 0 0 20px rgba(255, 255, 255, 0.02);
+}
+
+.wf_ent_trigger:active,
+.wf_ent_controller:active {
+    transform: translateY(0) scale(0.95);
+}
+
+@media (prefers-color-scheme: dark) {
+
+    .wf_ent_trigger,
+    .wf_ent_action,
+    .wf_ent_controller {
+        background: #0a0a0a;
+        /* Almost black */
+    }
+}
+
+.wf_ent_limit {
     position: relative;
     left: 0px;
     width: 64px;
@@ -339,37 +537,29 @@ See the LICENSE.md file in this repository. */
     color: var(--label-color);
     background: var(--background-color);
     border: 2px solid var(--border-color);
-
-    /* outline: 2px dashed var(--theme-color); */
-}
-
-.wf_ent_trigger {
-    border-radius: 999em 0px 0px 999em;
-    color: var(--orange);
-}
-
-.wf_ent_trigger.wf_option {
-    border-radius: 999em;
-    color: var(--cyan);
-}
-
-.wf_ent_action {
-    border-radius: 0px 999em 999em 0px;
-    color: var(--green);
-}
-
-.wf_ent_controller {
-    width: 128px;
-    left: 0px;
-    border-radius: 999em;
-    color: var(--purple);
-}
-
-.wf_ent_limit {
     border-radius: 0;
     transform-origin: center;
     transform: rotate(45deg) scale(0.7);
     color: var(--cyan);
+}
+
+
+.wf_ent_trigger.wf_option {
+    border-radius: 999em;
+}
+
+
+.wf_ent_controller {
+    width: 120px;
+    height: 48px;
+    /* Slightly slimmer pill */
+    border-radius: 999px;
+    /* Pill */
+}
+
+.wf_ent_limit>i.mdi:before {
+    transform-origin: center;
+    transform: rotate(-45deg) scale(1.25);
 }
 
 .wf_ent_title {
@@ -389,21 +579,34 @@ See the LICENSE.md file in this repository. */
     text-overflow: ellipsis;
 }
 
+/* Refined Label Positioning */
 .wf_ent_label {
     display: block;
     position: absolute;
     width: 128px;
-    top: 85px;
-    left: -32px;
+    left: -34px;
+    /* Centered visually relative to 60px node */
     text-align: center;
-    font-size: 12px;
-    font-weight: normal;
-    color: var(--label-color);
-    text-shadow: -1px -1px 1px var(--box-background-color), 1px -1px 1px var(--box-background-color), 1px 1px 1px var(--box-background-color), -1px 1px 1px var(--box-background-color);
 
+    top: 68px;
+    /* Tighter to the node */
+    font-size: 11px;
+    font-weight: 500;
+
+    color: var(--label-color);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+
+    opacity: 0.7;
+    transition: opacity 0.2s, color 0.2s;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+}
+
+.wf_node:hover .wf_ent_label {
+    opacity: 1;
+    color: var(--body-text-color);
 }
 
 .wf_ent_trigger>.wf_output_pole {
@@ -434,11 +637,6 @@ See the LICENSE.md file in this repository. */
     transform: translate(-32px, 0) scale(1) rotate(-45deg);
 }
 
-.wf_ent_limit>i.mdi:before {
-    transform-origin: center;
-    transform: rotate(-45deg) scale(1.25);
-}
-
 .wf_container.job_preview .wf_entity,
 .wf_container.job_preview .wf_condition,
 .wf_container.job_preview .wf_note {
@@ -449,20 +647,23 @@ See the LICENSE.md file in this repository. */
 
 .wf_condition {
     position: absolute;
-    width: 24px;
-    /* Refined from 32px */
-    height: 24px;
-    line-height: 24px;
-    font-size: 16px;
-    /* Scaled down */
-    text-align: center;
-    border-radius: 999px;
-    color: white;
-    z-index: 2;
+    width: 22px;
+    height: 22px;
+    background: white;
+    border: 1.5px solid #d1d5db;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 100;
     cursor: pointer;
-    text-shadow: 0px 1px 0px rgba(0, 0, 0, 0.5);
-    box-shadow: 0 0 0 2px var(--box-background-color);
-    /* Add white ring for separation */
+    transition: transform 0.2s, background 0.2s;
+}
+
+.wf_condition:hover {
+    transform: scale(1.1);
+    border-color: #3b82f6;
 }
 
 body.dark .wf_condition {
@@ -479,11 +680,12 @@ body.dark .wf_condition {
 
 .wf_condition.continue {
     background: var(--teal);
-    font-size: 24px;
 }
 
 .wf_condition.success {
-    background: var(--green);
+    background: #10b981;
+    border-color: #059669;
+    color: white;
 }
 
 .wf_condition.error {
@@ -492,7 +694,6 @@ body.dark .wf_condition {
 
 .wf_condition.warning {
     background: var(--yellow);
-    font-size: 28px;
 }
 
 .wf_condition.critical {
@@ -505,7 +706,6 @@ body.dark .wf_condition {
 
 .wf_condition.tag {
     background: var(--pink);
-    font-size: 28px;
 }
 
 .wf_condition.disabled {
@@ -514,42 +714,77 @@ body.dark .wf_condition {
 
 .wf_condition.start:hover {
     background: var(--orange-highlight);
+    box-shadow: 0 0 6px rgba(253, 126, 20, 0.5);
 }
 
 .wf_condition.complete:hover {
     background: var(--blue-highlight);
+    box-shadow: 0 0 6px rgba(0, 123, 255, 0.5);
 }
 
 .wf_condition.continue:hover {
     background: var(--teal-highlight);
+    box-shadow: 0 0 6px rgba(32, 201, 151, 0.5);
 }
 
 .wf_condition.success:hover {
     background: var(--green-highlight);
+    box-shadow: 0 0 6px rgba(40, 167, 69, 0.5);
 }
 
 .wf_condition.error:hover {
     background: var(--red-highlight);
+    box-shadow: 0 0 6px rgba(220, 53, 69, 0.5);
 }
 
 .wf_condition.warning:hover {
     background: var(--yellow-highlight);
+    box-shadow: 0 0 6px rgba(240, 200, 0, 0.5);
 }
 
 .wf_condition.critical:hover {
     background: var(--purple-highlight);
+    box-shadow: 0 0 6px rgba(140, 60, 220, 0.5);
 }
 
 .wf_condition.abort:hover {
     background: var(--gray-highlight);
+    box-shadow: 0 0 6px rgba(138, 147, 155, 0.5);
 }
 
 .wf_condition.tag:hover {
     background: var(--pink-highlight);
+    box-shadow: 0 0 6px rgba(232, 62, 140, 0.5);
 }
 
 .wf_condition.popped {
     outline: 2px dashed var(--theme-color);
+}
+
+/* Node States */
+.wf_active .wf_event {
+    border-color: #10b981;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+}
+
+.wf_active .wf_ent_trigger,
+.wf_active .wf_ent_action {
+    border-color: #10b981;
+    animation: pulse-active 2s infinite;
+}
+
+@keyframes pulse-active {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
 }
 
 .wf_trig_label {
@@ -876,13 +1111,11 @@ body.dark .wf_condition {
     inset: -3px;
     z-index: -1;
     border-radius: inherit;
-    background: conic-gradient(
-        from var(--border-angle, 0deg),
-        transparent 0%,
-        var(--active-color, var(--theme-color)) 10%,
-        var(--active-color, var(--theme-color)) 15%,
-        transparent 25%
-    );
+    background: conic-gradient(from var(--border-angle, 0deg),
+            transparent 0%,
+            var(--active-color, var(--theme-color)) 10%,
+            var(--active-color, var(--theme-color)) 15%,
+            transparent 25%);
     animation: wf_rotate_border 1.5s linear infinite;
 }
 
@@ -1079,29 +1312,21 @@ body.dark .button {
 
 /* Clamp zoom compensation between min and max */
 .zoom-compensated {
-    --clamped-scale: clamp(
-        var(--min-zoom-scale),
-        var(--zoom-compensation),
-        var(--max-zoom-scale)
-    );
+    --clamped-scale: clamp(var(--min-zoom-scale),
+            var(--zoom-compensation),
+            var(--max-zoom-scale));
     transform: scale(var(--clamped-scale));
     transform-origin: center bottom;
 }
 
 /* Node toolbar zoom compensation */
 .node-hover-toolbar {
-    --clamped-scale: clamp(
-        var(--min-zoom-scale),
-        var(--zoom-compensation),
-        var(--max-zoom-scale)
-    );
+    --clamped-scale: clamp(var(--min-zoom-scale),
+            var(--zoom-compensation),
+            var(--max-zoom-scale));
 }
 
-/* Pole buttons should stay clickable at any zoom */
-.wf_pole_button {
-    min-width: 24px;
-    min-height: 24px;
-}
+/* Pole buttons - zoom compensation handled by main definition */
 
 /* At low zoom levels, scale up interactive elements */
 @container (max-width: 50%) {
@@ -1203,13 +1428,11 @@ body.dark .button {
     position: absolute;
     inset: -4px;
     border-radius: inherit;
-    background: conic-gradient(
-        from var(--border-angle, 0deg),
-        transparent 0%,
-        var(--orange) 10%,
-        var(--orange) 15%,
-        transparent 25%
-    );
+    background: conic-gradient(from var(--border-angle, 0deg),
+            transparent 0%,
+            var(--orange) 10%,
+            var(--orange) 15%,
+            transparent 25%);
     animation: wf_rotate_border 1.5s linear infinite;
     z-index: -1;
 }
@@ -1358,8 +1581,8 @@ body.dark .button {
     z-index: 10;
 }
 
-.wf_pole_button:hover + .port-label,
-.wf_pole_button:focus + .port-label {
+.wf_pole_button:hover+.port-label,
+.wf_pole_button:focus+.port-label {
     opacity: 1;
 }
 

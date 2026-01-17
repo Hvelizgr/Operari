@@ -12,7 +12,9 @@ import workflowRoutes from './routes/workflow.routes';
 import executionRoutes from './routes/execution.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import nodeTypesRoutes from './routes/node-types.routes'; // Added import
+import templateRoutes from './routes/template.routes';
 import webhookRoutes from './routes/webhook.routes';
+import credentialRoutes from './routes/credential.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { SchedulerService } from './services/scheduler.service';
 import {
@@ -30,7 +32,8 @@ import { swaggerSpec } from './config/swagger.config';
 
 const app = express();
 const httpServer = createServer(app);
-const prisma = new PrismaClient();
+import { prisma } from './config/database';
+
 const PORT = env.PORT;
 
 import { socketService } from './editor/execution/socket.service';
@@ -57,6 +60,8 @@ app.use('/api/executions', executionRateLimiter, executionRoutes);
 app.use('/api/workflows', standardRateLimiter, workflowRoutes);
 app.use('/api/analytics', standardRateLimiter, analyticsRoutes);
 app.use('/api/node-types', standardRateLimiter, nodeTypesRoutes);
+app.use('/api/templates', standardRateLimiter, templateRoutes);
+app.use('/api/credentials', standardRateLimiter, credentialRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
 
 app.get('/health', (req, res) => {

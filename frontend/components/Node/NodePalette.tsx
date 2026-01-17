@@ -11,7 +11,8 @@ import {
     Twitter, Facebook, Instagram, Linkedin, CreditCard, Box,
     Megaphone, Bell, Shield, Lock, Briefcase, Square, StickyNote
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useNodeTypes, NodeType as API_NodeType } from '@/hooks/useNodeTypes';
 
 export interface NodeType {
     type: string;
@@ -20,26 +21,20 @@ export interface NodeType {
     color: string;
     category: string;
     description?: { en: string; es: string };
+    subtitle?: { en: string; es: string };
     inputs?: string[];  // e.g. ['main', 'ai_tool', 'ai_memory']
     outputs?: string[]; // e.g. ['main', 'main']
     properties?: any[]; // Dynamic form schema
 }
 
 // n8n-style categories
+// Initial base categories
 const CATEGORIES = [
-    { id: 'triggers', label: { en: 'Triggers', es: 'Disparadores' }, icon: Play, color: 'text-green-400' },
-    { id: 'core', label: { en: 'Core', es: 'Core' }, icon: Zap, color: 'text-blue-400' },
-    { id: 'organization', label: { en: 'Organization', es: 'Organización' }, icon: Folder, color: 'text-slate-400' },
+    { id: 'triggers', label: { en: 'Triggers', es: 'Disparadores' }, icon: Zap, color: 'text-orange-400' },
+    { id: 'core', label: { en: 'Core', es: 'Core' }, icon: Box, color: 'text-blue-400' },
     { id: 'ai', label: { en: 'AI & LLM', es: 'IA y LLM' }, icon: MessageSquare, color: 'text-rose-400' },
-    { id: 'flow', label: { en: 'Flow', es: 'Flujo' }, icon: GitBranch, color: 'text-yellow-400' },
-    { id: 'data', label: { en: 'Data', es: 'Datos' }, icon: Shuffle, color: 'text-purple-400' },
-    { id: 'social', label: { en: 'Social Media', es: 'Redes Sociales' }, icon: Users, color: 'text-sky-400' },
-    { id: 'communication', label: { en: 'Communication', es: 'Comunicación' }, icon: Send, color: 'text-orange-400' },
-    { id: 'marketing', label: { en: 'Marketing & CRM', es: 'Marketing y CRM' }, icon: Megaphone, color: 'text-pink-400' },
-    { id: 'productivity', label: { en: 'Productivity', es: 'Productividad' }, icon: Calendar, color: 'text-cyan-400' },
-    { id: 'storage', label: { en: 'Storage & Files', es: 'Archivos' }, icon: HardDrive, color: 'text-teal-400' },
-    { id: 'payment', label: { en: 'Finance & Payment', es: 'Pagos' }, icon: DollarSign, color: 'text-emerald-400' },
-    { id: 'developer', label: { en: 'Developer Tools', es: 'Desarrollo' }, icon: Code, color: 'text-slate-400' },
+    { id: 'organization', label: { en: 'Organization', es: 'Organización' }, icon: Folder, color: 'text-slate-400' },
+    { id: 'integrations', label: { en: 'Services', es: 'Servicios' }, icon: Globe, color: 'text-emerald-400' },
 ];
 
 // n8n actual nodes
@@ -266,8 +261,35 @@ interface NodePaletteProps {
 export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePaletteProps) {
     const lang = (langProp === 'en' || langProp === 'es') ? langProp : 'en';
     const [isOpen, setIsOpen] = useState(false);
-    const [expandedCategories, setExpandedCategories] = useState<string[]>(['triggers', 'core']);
+    const [expandedCategories, setExpandedCategories] = useState<string[]>(['triggers', 'core', 'ai', 'organization', 'integrations']);
     const [searchTerm, setSearchTerm] = useState('');
+
+    const { nodeTypes: apiNodes, loading } = useNodeTypes();
+
+    const allNodes = useMemo(() => {
+        // Filter out duplicates (keep local ones if type conflicts)
+        const localTypes = new Set(NODE_TYPES.map(n => n.type));
+        const filteredApi = apiNodes.filter(n => !localTypes.has(n.type));
+
+        return [...NODE_TYPES, ...filteredApi] as NodeType[];
+    }, [apiNodes]);
+
+    const categories = useMemo(() => {
+        const cats = [...CATEGORIES];
+        const coreIds = new Set(CATEGORIES.map(c => c.id));
+
+        // Find any nodes with categories not in our core list
+        const extraCategories = new Set<string>();
+        allNodes.forEach(node => {
+            if (!coreIds.has(node.category)) {
+                extraCategories.add(node.category);
+            }
+        });
+
+        // If there are extra categories, they will be shown in "Services" (integrations)
+        // because CATEGORIES already includes 'integrations' now.
+        return cats;
+    }, [allNodes]);
 
     const content = {
         en: {
@@ -284,7 +306,7 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
         },
     };
 
-    const text = content[lang] || content['en'];
+    const text = (content as any)[lang] || content['en'];
 
     const toggleCategory = (categoryId: string) => {
         setExpandedCategories(prev =>
@@ -295,22 +317,64 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
     };
 
     const filteredNodes = useMemo(() => {
-        if (!searchTerm) return NODE_TYPES;
+        if (!searchTerm) return allNodes;
         const term = searchTerm.toLowerCase();
-        return NODE_TYPES.filter(node =>
-            node.label[lang].toLowerCase().includes(term) ||
+        return allNodes.filter(node =>
+            (node.label[lang] || '').toLowerCase().includes(term) ||
             node.type.toLowerCase().includes(term) ||
-            node.description?.[lang].toLowerCase().includes(term)
+            (node.description?.[lang] || '').toLowerCase().includes(term)
         );
-    }, [searchTerm, lang]);
+    }, [searchTerm, lang, allNodes]);
 
-    const nodesByCategory = useMemo(() => {
-        const grouped: Record<string, NodeType[]> = {};
+    // Build the hierarchical tree
+    const categoryTree = useMemo(() => {
+        const root: Record<string, any> = {};
+
+        // 1. Initialize top-level categories
         CATEGORIES.forEach(cat => {
-            grouped[cat.id] = filteredNodes.filter(node => node.category === cat.id);
+            root[cat.id] = {
+                id: cat.id,
+                label: cat.label[lang],
+                icon: cat.icon,
+                color: cat.color,
+                nodes: [],
+                subCategories: {}
+            };
         });
-        return grouped;
-    }, [filteredNodes]);
+
+        // 2. Distribute nodes
+        filteredNodes.forEach(node => {
+            const parts = node.category.split('/');
+            const rootId = parts[0];
+
+            // If it doesn't match an existing top category, default to integrations
+            const targetRoot = root[rootId] ? rootId : 'integrations';
+            let current = root[targetRoot];
+
+            // If it was a path like integrations/google/sheets, handle sub-path
+            if (parts.length > 1) {
+                // start from index 1 if it matched "integrations"
+                // but wait, if category was "integrations/google", parts[0] is "integrations"
+                const subPathParts = parts.slice(1);
+                subPathParts.forEach((part, idx) => {
+                    const fullPath = [targetRoot, ...subPathParts.slice(0, idx + 1)].join('/');
+                    if (!current.subCategories[part]) {
+                        current.subCategories[part] = {
+                            id: fullPath,
+                            label: part.charAt(0).toUpperCase() + part.slice(1).replace('-', ' '),
+                            nodes: [],
+                            subCategories: {}
+                        };
+                    }
+                    current = current.subCategories[part];
+                });
+            }
+
+            current.nodes.push(node);
+        });
+
+        return root;
+    }, [filteredNodes, lang]);
 
     const hasResults = filteredNodes.length > 0;
 
@@ -339,15 +403,17 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
                     <motion.div
                         id="node-palette-content"
                         className="bg-[#1a1a2e] border border-[#2d2d44] rounded-xl shadow-2xl w-80 overflow-hidden"
-                        initial={{ scale: 0.95, opacity: 0, y: -10 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.95, opacity: 0, y: -10 }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
                     >
                         {/* Header */}
-                        <div className="p-4 border-b border-[#2d2d44] bg-[#16162a]">
+                        <div className="p-4 border-b border-[#2d2d44] bg-[#1a1a2e]">
                             <div className="flex items-center justify-between">
-                                <h3 className="text-base font-bold text-white">{text.title}</h3>
+                                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                    <Box size={18} className="text-orange-400" />
+                                    {text.title}
+                                </h3>
                                 <button
                                     onClick={() => setIsOpen(false)}
                                     className="text-gray-400 hover:text-white transition-colors"
@@ -398,61 +464,107 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
                                     ))}
                                 </div>
                             ) : (
-                                CATEGORIES.map((category) => {
-                                    const nodes = nodesByCategory[category.id];
-                                    if (nodes.length === 0) return null;
-                                    const isExpanded = expandedCategories.includes(category.id);
-                                    const CategoryIcon = category.icon;
-
-                                    return (
-                                        <div key={category.id} className="border-b border-[#2d2d44] last:border-0">
-                                            <button
-                                                onClick={() => toggleCategory(category.id)}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#22223a] transition-colors group"
-                                            >
-                                                <div className={`${category.color} transition-colors`}>
-                                                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                                </div>
-                                                <CategoryIcon size={16} className={category.color} />
-                                                <span className="text-sm font-medium text-gray-200 flex-1 text-left">
-                                                    {category.label[lang]}
-                                                </span>
-                                                <span className="text-xs text-gray-500 bg-[#2d2d44] px-2 py-0.5 rounded-full">
-                                                    {nodes.length}
-                                                </span>
-                                            </button>
-
-                                            <AnimatePresence>
-                                                {isExpanded && (
-                                                    <motion.div
-                                                        initial={{ height: 0, opacity: 0 }}
-                                                        animate={{ height: 'auto', opacity: 1 }}
-                                                        exit={{ height: 0, opacity: 0 }}
-                                                        transition={{ duration: 0.2 }}
-                                                        className="overflow-hidden bg-[#0d0d1a]/50"
-                                                    >
-                                                        <div className="p-2 pl-4">
-                                                            {nodes.map((nodeType) => (
-                                                                <NodeItem
-                                                                    key={nodeType.type}
-                                                                    nodeType={nodeType}
-                                                                    lang={lang}
-                                                                    onDragStart={onNodeDragStart}
-                                                                />
-                                                            ))}
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
-                                    );
-                                })
+                                CATEGORIES.map((cat) => (
+                                    <CategoryFolder
+                                        key={cat.id}
+                                        category={categoryTree[cat.id]}
+                                        lang={lang}
+                                        expandedCategories={expandedCategories}
+                                        onToggle={toggleCategory}
+                                        onNodeDragStart={onNodeDragStart}
+                                        depth={0}
+                                    />
+                                ))
                             )}
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
         </motion.div>
+    );
+}
+
+function CategoryFolder({
+    category,
+    lang,
+    expandedCategories,
+    onToggle,
+    onNodeDragStart,
+    depth = 0
+}: {
+    category: any;
+    lang: 'en' | 'es';
+    expandedCategories: string[];
+    onToggle: (id: string) => void;
+    onNodeDragStart: (nodeType: NodeType) => void;
+    depth?: number;
+}) {
+    if (!category) return null;
+    const isExpanded = expandedCategories.includes(category.id);
+    const hasSubCategories = Object.keys(category.subCategories).length > 0;
+    const hasNodes = category.nodes.length > 0;
+    if (!hasSubCategories && !hasNodes) return null;
+
+    const Icon = category.icon || Folder;
+
+    return (
+        <div className={`border-b border-[#2d2d44] last:border-0 ${depth > 0 ? 'bg-black/10' : ''}`}>
+            <button
+                onClick={() => onToggle(category.id)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#22223a] transition-colors group"
+                style={{ paddingLeft: `${(depth * 12) + 16}px` }}
+            >
+                <div className={`${category.color || 'text-slate-400'} transition-colors`}>
+                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </div>
+                <Icon size={16} className={category.color || 'text-slate-400'} />
+                <span className="text-sm font-medium text-gray-200 flex-1 text-left truncate">
+                    {category.label}
+                </span>
+                <span className="text-[10px] text-gray-500 bg-[#2d2d44] px-1.5 py-0.5 rounded-full">
+                    {category.nodes.length + Object.values(category.subCategories).reduce((acc: number, cur: any) => acc + cur.nodes.length, 0)}
+                </span>
+            </button>
+
+            <AnimatePresence>
+                {isExpanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                    >
+                        {/* Recursive Subcategories */}
+                        {Object.values(category.subCategories).map((sub: any) => (
+                            <CategoryFolder
+                                key={sub.id}
+                                category={sub}
+                                lang={lang}
+                                expandedCategories={expandedCategories}
+                                onToggle={onToggle}
+                                onNodeDragStart={onNodeDragStart}
+                                depth={depth + 1}
+                            />
+                        ))}
+
+                        {/* Nodes in this category */}
+                        {hasNodes && (
+                            <div className="p-2" style={{ paddingLeft: `${(depth * 12) + 16}px` }}>
+                                {category.nodes.map((nodeType: NodeType) => (
+                                    <NodeItem
+                                        key={nodeType.type}
+                                        nodeType={nodeType}
+                                        lang={lang}
+                                        onDragStart={onNodeDragStart}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
     );
 }
 
@@ -480,6 +592,11 @@ function NodeItem({
                 <div className="text-sm text-gray-200 font-medium truncate group-hover:text-white transition-colors">
                     {nodeType.label[lang]}
                 </div>
+                {nodeType.subtitle?.[lang] && (
+                    <div className="text-[10px] text-orange-400 font-medium uppercase tracking-wider mb-0.5">
+                        {nodeType.subtitle[lang]}
+                    </div>
+                )}
                 {nodeType.description && (
                     <div className="text-xs text-gray-500 truncate">
                         {nodeType.description[lang]}
