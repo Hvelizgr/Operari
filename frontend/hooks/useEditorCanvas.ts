@@ -184,13 +184,34 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
                         // For now, let's PRIORITIZE server if we are loading the page
                         // But useAutosave might overwrite it back if we don't sync.
 
-                        setNodes(data.nodes);
-                        setConnections(data.connections || []);
+                        // Filter out duplicate IDs (keep first occurrence)
+                        const seenNodeIds = new Set<string>();
+                        const uniqueNodes = data.nodes.filter((node: any) => {
+                            if (seenNodeIds.has(node.id)) {
+                                console.warn(`Duplicate node ID detected and removed: ${node.id}`);
+                                return false;
+                            }
+                            seenNodeIds.add(node.id);
+                            return true;
+                        });
+
+                        const seenConnIds = new Set<string>();
+                        const uniqueConnections = (data.connections || []).filter((conn: any) => {
+                            if (seenConnIds.has(conn.id)) {
+                                console.warn(`Duplicate connection ID detected and removed: ${conn.id}`);
+                                return false;
+                            }
+                            seenConnIds.add(conn.id);
+                            return true;
+                        });
+
+                        setNodes(uniqueNodes);
+                        setConnections(uniqueConnections);
 
                         // Force sync local storage to match server to prevent conflict
                         localStorage.setItem('nanoflow-workflow-current-workflow', JSON.stringify({
-                            nodes: data.nodes,
-                            connections: data.connections || [],
+                            nodes: uniqueNodes,
+                            connections: uniqueConnections,
                             version: '1.0',
                             timestamp: data.updatedAt ? new Date(data.updatedAt).getTime() : Date.now(),
                             workflowId: 'current-workflow'
@@ -712,15 +733,57 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     }, [nodes, connections, executeCommand, setNodes, setConnections, setSelectedNodes, setSelectedConnection]);
 
     const handleLoadWorkflow = useCallback((loadedNodes: WorkflowNode[], loadedConnections: Connection[]) => {
-        setNodes(loadedNodes);
-        setConnections(loadedConnections);
+        // Filter out duplicate IDs
+        const seenNodeIds = new Set<string>();
+        const uniqueNodes = loadedNodes.filter((node) => {
+            if (seenNodeIds.has(node.id)) {
+                console.warn(`Duplicate node ID in loaded workflow: ${node.id}`);
+                return false;
+            }
+            seenNodeIds.add(node.id);
+            return true;
+        });
+
+        const seenConnIds = new Set<string>();
+        const uniqueConnections = loadedConnections.filter((conn) => {
+            if (seenConnIds.has(conn.id)) {
+                console.warn(`Duplicate connection ID in loaded workflow: ${conn.id}`);
+                return false;
+            }
+            seenConnIds.add(conn.id);
+            return true;
+        });
+
+        setNodes(uniqueNodes);
+        setConnections(uniqueConnections);
         setSelectedNodes(new Set());
         setSelectedConnection(null);
     }, [setNodes, setConnections, setSelectedNodes, setSelectedConnection]);
 
     const handleSelectTemplate = useCallback((templateNodes: WorkflowNode[], templateConnections: Connection[]) => {
-        setNodes(templateNodes);
-        setConnections(templateConnections);
+        // Filter out duplicate IDs
+        const seenNodeIds = new Set<string>();
+        const uniqueNodes = templateNodes.filter((node) => {
+            if (seenNodeIds.has(node.id)) {
+                console.warn(`Duplicate node ID in template: ${node.id}`);
+                return false;
+            }
+            seenNodeIds.add(node.id);
+            return true;
+        });
+
+        const seenConnIds = new Set<string>();
+        const uniqueConnections = templateConnections.filter((conn) => {
+            if (seenConnIds.has(conn.id)) {
+                console.warn(`Duplicate connection ID in template: ${conn.id}`);
+                return false;
+            }
+            seenConnIds.add(conn.id);
+            return true;
+        });
+
+        setNodes(uniqueNodes);
+        setConnections(uniqueConnections);
         setSelectedNodes(new Set());
         setSelectedConnection(null);
     }, [setNodes, setConnections, setSelectedNodes, setSelectedConnection]);
