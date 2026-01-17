@@ -21,8 +21,8 @@ const TEMPLATES: WorkflowTemplate[] = [
         description: { en: 'Send email when webhook is triggered', es: 'Enviar email cuando se activa webhook' },
         category: 'email',
         nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Webhook Trigger', type: 'Webhook' },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Send Email', type: 'Email' },
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Webhook Trigger', type: 'Webhook', config: { path: '/webhook' } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Send Email', type: 'Email', config: { to: 'recipient@example.com', subject: 'Notification', body: 'Hello!' } },
         ],
         connections: [{ id: 'conn-1', source: 'node-1', target: 'node-2' }],
     },
@@ -32,9 +32,9 @@ const TEMPLATES: WorkflowTemplate[] = [
         description: { en: 'Transform and store data in database', es: 'Transformar y almacenar datos en base de datos' },
         category: 'data',
         nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Webhook', type: 'Webhook' },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Transform Data', type: 'Transform' },
-            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Save to DB', type: 'Database' },
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Webhook', type: 'Webhook', config: { path: '/data' } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Transform Data', type: 'Transform', config: { expression: '$.data' } },
+            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Save to DB', type: 'Database', config: { operation: 'insert', table: 'records' } },
         ],
         connections: [
             { id: 'conn-1', source: 'node-1', target: 'node-2' },
@@ -47,10 +47,10 @@ const TEMPLATES: WorkflowTemplate[] = [
         description: { en: 'Branch workflow based on conditions', es: 'Ramificar flujo según condiciones' },
         category: 'automation',
         nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Start', type: 'Webhook' },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Check Condition', type: 'Condition' },
-            { id: 'node-3', position: { x: 700, y: 80 }, title: 'Action A', type: 'Action' },
-            { id: 'node-4', position: { x: 700, y: 220 }, title: 'Action B', type: 'Email' },
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Start', type: 'Webhook', config: { path: '/start' } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Check Condition', type: 'Condition', config: { field: 'status', operator: 'equals', value: 'active' } },
+            { id: 'node-3', position: { x: 700, y: 80 }, title: 'Action A', type: 'Action', config: { action: 'process' } },
+            { id: 'node-4', position: { x: 700, y: 220 }, title: 'Action B', type: 'Email', config: { to: 'admin@example.com', subject: 'Alert', body: 'Condition failed' } },
         ],
         connections: [
             { id: 'conn-1', source: 'node-1', target: 'node-2' },
@@ -64,9 +64,9 @@ const TEMPLATES: WorkflowTemplate[] = [
         description: { en: 'Fetch, transform and forward data', es: 'Obtener, transformar y reenviar datos' },
         category: 'webhooks',
         nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'HTTP Request', type: 'Webhook' },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Transform', type: 'Transform' },
-            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Forward', type: 'Action' },
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'HTTP Request', type: 'Webhook', config: { path: '/api' } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Transform', type: 'Transform', config: { expression: '$.result' } },
+            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Forward', type: 'Action', config: { action: 'forward' } },
         ],
         connections: [
             { id: 'conn-1', source: 'node-1', target: 'node-2' },
@@ -79,9 +79,9 @@ const TEMPLATES: WorkflowTemplate[] = [
         description: { en: 'Sync data between databases', es: 'Sincronizar datos entre bases de datos' },
         category: 'data',
         nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Read DB', type: 'Database' },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Transform', type: 'Transform' },
-            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Write DB', type: 'Database' },
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Read DB', type: 'Database', config: { operation: 'select', table: 'source' } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Transform', type: 'Transform', config: { expression: '$.records' } },
+            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Write DB', type: 'Database', config: { operation: 'upsert', table: 'target' } },
         ],
         connections: [
             { id: 'conn-1', source: 'node-1', target: 'node-2' },
@@ -94,10 +94,10 @@ const TEMPLATES: WorkflowTemplate[] = [
         description: { en: 'Collect data and send summary email', es: 'Recopilar datos y enviar email resumen' },
         category: 'email',
         nodes: [
-            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Trigger', type: 'Webhook' },
-            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Fetch Data', type: 'Database' },
-            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Format Email', type: 'Transform' },
-            { id: 'node-4', position: { x: 1000, y: 150 }, title: 'Send Digest', type: 'Email' },
+            { id: 'node-1', position: { x: 100, y: 150 }, title: 'Trigger', type: 'Webhook', config: { path: '/digest' } },
+            { id: 'node-2', position: { x: 400, y: 150 }, title: 'Fetch Data', type: 'Database', config: { operation: 'select', table: 'items' } },
+            { id: 'node-3', position: { x: 700, y: 150 }, title: 'Format Email', type: 'Transform', config: { expression: '$.items | format_digest' } },
+            { id: 'node-4', position: { x: 1000, y: 150 }, title: 'Send Digest', type: 'Email', config: { to: 'team@example.com', subject: 'Daily Digest', body: '{{formatted}}' } },
         ],
         connections: [
             { id: 'conn-1', source: 'node-1', target: 'node-2' },
