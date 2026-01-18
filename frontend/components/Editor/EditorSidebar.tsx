@@ -14,7 +14,8 @@ import {
     User,
     ChevronLeft,
     ChevronRight,
-    Settings
+    Settings,
+    Key
 } from 'lucide-react';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -31,6 +32,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
         { id: 'dashboard', label: lang === 'en' ? 'Dashboard' : 'Panel', icon: LayoutDashboard, href: `/${lang}/dashboard` },
         { id: 'scheduler', label: lang === 'en' ? 'Schedules' : 'Horarios', icon: CalendarClock, href: `/${lang}/scheduler` },
         { id: 'workflows', label: lang === 'en' ? 'Workflows' : 'Flujos', icon: Share2, href: `/${lang}/workflows` },
+        { id: 'credentials', label: lang === 'en' ? 'Credentials' : 'Credenciales', icon: Key, href: `/${lang}/credentials` },
         { id: 'editor', label: lang === 'en' ? 'Editor' : 'Editor', icon: Activity, href: `/${lang}/editor` },
         { id: 'monitors', label: lang === 'en' ? 'Monitors' : 'Monitores', icon: Activity, href: `/${lang}/monitors` },
         { id: 'events', label: lang === 'en' ? 'Events' : 'Eventos', icon: Zap, href: `/${lang}/events` },

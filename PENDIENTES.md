@@ -100,7 +100,7 @@ Nuevo módulo `backend/src/scaling/`:
 
 - [x] Arreglar ciclo de persistencia
 - [x] Endpoint de debug
-- [ ] Gestor de Secretos (Vaults)
+- [x] Gestor de Secretos (Vaults)
 - [ ] Admin y RBAC
 - [ ] Nodos Wait/Delay, Loop/Repeat, Branch/Switch
 
@@ -108,7 +108,7 @@ Nuevo módulo `backend/src/scaling/`:
 
 - [x] **Dashboard Central:** Completado (nueva Tab System Monitor con gráficos en tiempo real).
 - [x] **Backend de Métricas:** Completado (API `/api/metrics`, guardado automático desde nodos).
-- [ ] **Alertas UI:** Interfaz para ver historial de alertas y configurar notificaciones.
+- [x] **Alertas UI:** Interfaz para ver historial de alertas y configurar notificaciones (Feed implementado).
 
 ### Fase 3: Avanzado
 

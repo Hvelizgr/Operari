@@ -7,6 +7,8 @@ export enum ErrorCode {
     VALIDATION_ERROR = 'ERR_1001',
     CONFIGURATION_ERROR = 'ERR_1002',
     TIMEOUT_ERROR = 'ERR_1003',
+    UNAUTHORIZED = 'ERR_1004',
+    FORBIDDEN = 'ERR_1005',
 
     // Workflow errors (2xxx)
     WORKFLOW_NOT_FOUND = 'ERR_2000',
@@ -151,6 +153,9 @@ export class CustomError extends Error {
 
             [ErrorCode.CONDITION_EVALUATION_FAILED]: 'Failed to evaluate the condition.',
             [ErrorCode.CONDITION_INVALID_SYNTAX]: 'The condition has invalid syntax.',
+            
+            [ErrorCode.UNAUTHORIZED]: 'You are not authorized to perform this action.',
+            [ErrorCode.FORBIDDEN]: 'You do not have permission to access this resource.',
         };
         return messages[code] || 'An error occurred.';
     }

@@ -18,6 +18,8 @@ import credentialRoutes from './routes/credential.routes';
 import n8nRoutes from './routes/n8n.routes';
 import gitRoutes from './routes/git.routes';
 import systemEventRoutes from './routes/system-event.routes';
+import alertRoutes from './routes/alert.routes';
+
 import metricRoutes from './routes/metric.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { SchedulerService } from './services/scheduler.service';
@@ -72,6 +74,7 @@ app.use('/api/git', standardRateLimiter, gitRoutes);
 app.use('/api/events', standardRateLimiter, systemEventRoutes);
 app.use('/api/metrics', standardRateLimiter, metricRoutes);
 app.use('/api/alerts', standardRateLimiter, alertRoutes);
+app.use('/api/credentials', standardRateLimiter, credentialRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
 
 app.get('/health', (req, res) => {

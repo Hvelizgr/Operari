@@ -1,112 +1,83 @@
 import { Response, NextFunction } from 'express';
-import { credentialService } from '../services/credential.service';
+import { credentialService, CreateCredentialInput } from '../services/credential.service';
+import { AuthRequest } from '../types/express';
 import { CustomError, ErrorCode } from '../errors/custom-error';
-import { AuthRequest } from '../middleware/auth.middleware';
-import { CredentialEnvironment } from '@prisma/client';
 
 export class CredentialController {
+    
+    /**
+     * Create a new credential
+     */
     async create(req: AuthRequest, res: Response, next: NextFunction) {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                throw new CustomError({ message: 'User not authenticated', code: ErrorCode.CONFIGURATION_ERROR });
+                throw new CustomError({ message: 'User ID required', code: ErrorCode.UNAUTHORIZED });
             }
 
-            const { name, type, data, description, scope } = req.body;
+            const input: CreateCredentialInput = req.body;
+            const credential = await credentialService.createCredential(userId, input);
 
-            if (!name || !type || !data) {
-                throw new CustomError({ message: 'Missing required fields: name, type, data', code: ErrorCode.VALIDATION_ERROR });
-            }
-
-            // Validate scope if provided
-            if (scope?.environment && !['DEVELOPMENT', 'STAGING', 'PRODUCTION', 'ALL'].includes(scope.environment)) {
-                throw new CustomError({ message: 'Invalid environment. Must be DEVELOPMENT, STAGING, PRODUCTION, or ALL', code: ErrorCode.VALIDATION_ERROR });
-            }
-
-            const credential = await credentialService.createCredential(userId, {
-                name,
-                type,
-                data,
-                description,
-                scope
-            });
             res.status(201).json(credential);
         } catch (error) {
             next(error);
         }
     }
 
-    async getAll(req: AuthRequest, res: Response, next: NextFunction) {
+    /**
+     * List all credentials for the user
+     */
+    async list(req: AuthRequest, res: Response, next: NextFunction) {
         try {
             const userId = req.user?.id;
-            if (!userId) throw new CustomError({ message: 'User not authenticated', code: ErrorCode.CONFIGURATION_ERROR });
-
-            const environment = req.query.environment as CredentialEnvironment | undefined;
-
-            const credentials = await credentialService.getCredentials(userId, environment);
-            res.json(credentials);
-        } catch (error) {
-            next(error);
-        }
-    }
-
-    async getForWorkflow(req: AuthRequest, res: Response, next: NextFunction) {
-        try {
-            const userId = req.user?.id;
-            if (!userId) throw new CustomError({ message: 'User not authenticated', code: ErrorCode.CONFIGURATION_ERROR });
-
-            const workflowId = req.params.workflowId as string;
-            const tags = req.query.tags ? (req.query.tags as string).split(',') : [];
-            const environment = (req.query.environment as CredentialEnvironment) || 'ALL';
-
-            if (!workflowId) {
-                throw new CustomError({ message: 'Workflow ID is required', code: ErrorCode.VALIDATION_ERROR });
+            if (!userId) {
+                throw new CustomError({ message: 'User ID required', code: ErrorCode.UNAUTHORIZED });
             }
 
-            const credentials = await credentialService.getCredentialsForWorkflow(
-                userId,
-                workflowId,
-                tags,
-                environment
-            );
+            // Optional: filter by environment from query
+            const environment = req.query.environment as any;
+            
+            const credentials = await credentialService.getCredentials(userId, environment);
+
             res.json(credentials);
         } catch (error) {
             next(error);
         }
     }
 
+    /**
+     * Update a credential
+     */
     async update(req: AuthRequest, res: Response, next: NextFunction) {
         try {
             const userId = req.user?.id;
-            const id = req.params.id as string;
-            if (!userId) throw new CustomError({ message: 'User not authenticated', code: ErrorCode.CONFIGURATION_ERROR });
-
-            const { name, data, description, scope } = req.body;
-
-            // Validate scope if provided
-            if (scope?.environment && !['DEVELOPMENT', 'STAGING', 'PRODUCTION', 'ALL'].includes(scope.environment)) {
-                throw new CustomError({ message: 'Invalid environment', code: ErrorCode.VALIDATION_ERROR });
+            const { id } = req.params;
+            if (!userId) {
+                throw new CustomError({ message: 'User ID required', code: ErrorCode.UNAUTHORIZED });
             }
 
-            const credential = await credentialService.updateCredential(userId, id, {
-                name,
-                data,
-                description,
-                scope
-            });
+            const updates = req.body;
+            const credential = await credentialService.updateCredential(userId, id, updates);
+
             res.json(credential);
         } catch (error) {
             next(error);
         }
     }
 
+    /**
+     * Delete a credential
+     */
     async delete(req: AuthRequest, res: Response, next: NextFunction) {
         try {
             const userId = req.user?.id;
-            const id = req.params.id as string;
-            if (!userId) throw new CustomError({ message: 'User not authenticated', code: ErrorCode.CONFIGURATION_ERROR });
+            const { id } = req.params;
+            if (!userId) {
+                throw new CustomError({ message: 'User ID required', code: ErrorCode.UNAUTHORIZED });
+            }
 
             await credentialService.deleteCredential(userId, id);
+
             res.status(204).send();
         } catch (error) {
             next(error);
