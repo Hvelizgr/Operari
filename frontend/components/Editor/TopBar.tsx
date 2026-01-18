@@ -137,6 +137,7 @@ export default function TopBar({
 
         return (
             <button
+                id="run-workflow-btn"
                 onClick={onRun}
                 className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
                 title={lang === 'en' ? 'Run Workflow (Ctrl+Enter)' : 'Ejecutar Flujo (Ctrl+Enter)'}
@@ -253,6 +254,7 @@ export default function TopBar({
                 {/* Tools Dropdown */}
                 <div className="relative" ref={toolsMenuRef}>
                     <button
+                        id="tools-menu-btn"
                         onClick={() => setIsToolsMenuOpen(!isToolsMenuOpen)}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                         title={lang === 'en' ? 'Tools' : 'Herramientas'}

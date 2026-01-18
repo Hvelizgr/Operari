@@ -38,16 +38,17 @@ Basado en `ANALISIS_COMPLETO_2026.md`, este plan prioriza los gaps críticos y s
   - [ ] Redactar guías de usuario ("Getting Started", "First Workflow").
   - [ ] Redactar guías para desarrolladores (Arquitectura, API Reference).
 - [ ] **Mejorar UX/UI (Onboarding)**
-  - [ ] Implementar tour guiado (Intro.js) en el editor.
-  - [ ] Crear plantillas de "Quick Start" categorizadas.
+  - [x] Implementar tour guiado (Interactive Tour con driver.js).
+  - [x] Crear plantillas de "Quick Start" categorizadas (API Mock implementada).
 
 ## 🧩 FASE 4: Expansión del Ecosistema (Semanas 7-8)
 
 **Objetivo:** Abrir la plataforma a la comunidad y terceros.
 
 - [ ] **Sistema de Plugins**
-  - [ ] Diseñar interfaz `NodePlugin` para cargar nodos dinámicamente.
-  - [ ] Crear un SDK básico para desarrollo de nodos.
+  - [x] Diseñar interfaz `NodePlugin` para cargar nodos dinámicamente.
+  - [x] Crear Service Loader para leer carpeta `/plugins` (Esqueleto).
+  - [x] Crear un SDK básico para desarrollo de nodos (`packages/nanoflow-sdk`).
 - [ ] **Aumentar Integraciones**
   - [ ] Priorizar nodos faltantes: Slack, Google Workspace, Stripe.
   - [ ] Implementar sistema de "Community Nodes".

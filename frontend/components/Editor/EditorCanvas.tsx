@@ -752,6 +752,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
                     {/* Floating Terminal Toggle */}
                     <button
+                        id="terminal-toggle"
                         onClick={() => setIsTerminalOpen(!isTerminalOpen)}
                         className={`absolute bottom-6 right-6 p-3 rounded-full shadow-2xl transition-all duration-300 z-50 group ${isTerminalOpen ? 'bg-slate-800 text-slate-400 rotate-90' : 'bg-blue-600 text-white hover:bg-blue-500 hover:scale-110'
                             }`}
@@ -764,7 +765,9 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     </button>
 
                     {/* Bottom Terminal Panel */}
-                    <div className={`
+                    <div 
+                        id="execution-terminal"
+                        className={`
                             absolute bottom-0 left-0 right-0 h-64 bg-slate-900/95 backdrop-blur-xl border-t border-slate-700 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] transition-all duration-500 ease-in-out z-40
                             ${isTerminalOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}
                         `}>
