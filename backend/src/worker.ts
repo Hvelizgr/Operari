@@ -4,6 +4,8 @@ import { QueueService } from './scaling/queue.service';
 import { logger } from './config/logger.config';
 import { NodeLoaderService } from './services/node-loader.service';
 
+import { PluginManager } from './plugins/PluginManager';
+
 async function startWorker() {
     try {
         logger.info('Starting NanoFlow Job Worker...');
@@ -12,9 +14,13 @@ async function startWorker() {
         await prisma.$connect();
         logger.info('Database connected');
 
-        // Initialize Dynamic Node Loader (needed for execution)
+        // Initialize Dynamic Node Loader (Legacy)
         await NodeLoaderService.getInstance().initialize();
-        logger.info('Node Loader initialized');
+
+        // Initialize Plugin System (Phase 4)
+        const pluginManager = new PluginManager(process.env.PLUGINS_DIR || './plugins');
+        await pluginManager.loadPlugins();
+        logger.info(`Initialized Plugin System. Loaded ${pluginManager.getAllPlugins().length} plugins.`);
 
         // Start Queue Processing
         const queueService = QueueService.getInstance();
