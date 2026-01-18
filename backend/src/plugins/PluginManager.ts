@@ -4,11 +4,19 @@ import path from 'path';
 import { NodePlugin } from './PluginInterface';
 
 export class PluginManager {
+    private static instance: PluginManager;
     private plugins: Map<string, NodePlugin> = new Map();
     private pluginsDir: string;
 
-    constructor(pluginsDir: string) {
+    private constructor(pluginsDir: string) {
         this.pluginsDir = pluginsDir;
+    }
+
+    public static getInstance(pluginsDir?: string): PluginManager {
+        if (!PluginManager.instance) {
+            PluginManager.instance = new PluginManager(pluginsDir || './plugins');
+        }
+        return PluginManager.instance;
     }
 
     public async loadPlugins(): Promise<void> {
@@ -28,18 +36,28 @@ export class PluginManager {
 
     private async loadPluginFromDir(dirPath: string): Promise<void> {
         try {
-            // Check for package.json or index.js
-            // This is a simplified loader. In production we might use 'require' dynamically
-            // or a more sophisticated sandbox like 'vm2' or 'isolated-vm'.
-            
-            // For MVP: assume index.ts/js exports a 'plugin' object conforming to NodePlugin
-            const entryPoint = path.join(dirPath, 'index.ts'); 
+            // Priority: index.ts (dev) -> index.js (prod)
+            let entryPoint = path.join(dirPath, 'index.ts');
+            if (!fs.existsSync(entryPoint)) {
+                entryPoint = path.join(dirPath, 'index.js');
+            }
             
             if (fs.existsSync(entryPoint)) {
-                // Dynamic import is tricky with TS-Node at runtime vs compiled JS.
-                // For this prototype, we'll simulate loading by just logging.
-                // In a real implementation, we'd use: const pluginModule = await import(entryPoint);
-                console.log(`[PluginManager] Detected potential plugin at ${dirPath}`);
+                // Clear cache for hot-reloading support
+                delete require.cache[require.resolve(entryPoint)];
+                
+                const pluginModule = require(entryPoint);
+                // Handle both 'export default' and 'module.exports'
+                const PluginClass = pluginModule.default || pluginModule;
+                
+                if (typeof PluginClass === 'function') {
+                    const pluginInstance = new PluginClass();
+                    if (pluginInstance.meta && typeof pluginInstance.execute === 'function') {
+                        const pluginName = pluginInstance.meta.name || path.basename(dirPath);
+                        this.plugins.set(pluginName, pluginInstance);
+                        console.log(`[PluginManager] Loaded plugin: ${pluginName} (v${pluginInstance.meta.version})`);
+                    }
+                }
             }
         } catch (error) {
             console.error(`[PluginManager] Failed to load plugin from ${dirPath}:`, error);

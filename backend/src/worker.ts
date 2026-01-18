@@ -18,7 +18,7 @@ async function startWorker() {
         await NodeLoaderService.getInstance().initialize();
 
         // Initialize Plugin System (Phase 4)
-        const pluginManager = new PluginManager(process.env.PLUGINS_DIR || './plugins');
+        const pluginManager = PluginManager.getInstance(process.env.PLUGINS_DIR || './plugins');
         await pluginManager.loadPlugins();
         logger.info(`Initialized Plugin System. Loaded ${pluginManager.getAllPlugins().length} plugins.`);
 

@@ -21,6 +21,7 @@ model User {
   executions   Execution[]
   tenant       Tenant       @relation(fields: [tenantId], references: [id])
   workflows    Workflow[]
+  auditLogs    AuditLog[]
 
   @@index([tenantId])
   @@index([email])
@@ -36,6 +37,7 @@ model Tenant {
   storageBuckets StorageBucket[]
   users          User[]
   workflows      Workflow[]
+  auditLogs      AuditLog[]
 
   @@index([slug])
 }
@@ -370,6 +372,27 @@ model AlertHistory {
   @@index([tenantId])
   @@index([createdAt])
   @@index([isRead])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  tenantId     String
+  userId       String
+  action       String   // e.g., "LOGIN", "CREDENTIAL_ACCESS", "WORKFLOW_UPDATE"
+  resourceType String   // e.g., "CREDENTIAL", "WORKFLOW"
+  resourceId   String
+  details      Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
 }
 
 model Template {

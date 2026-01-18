@@ -25,12 +25,35 @@ const prisma = new PrismaClient();
  *                 category: "Logic"
  *                 description: "Conditional logic"
  */
+import { NodeLoaderService } from '../services/node-loader.service';
+import { PluginManager } from '../plugins/PluginManager';
+
 router.get('/', async (req, res) => {
     try {
-        const nodeTypes = await prisma.nodeType.findMany({
+        const dbNodes = await prisma.nodeType.findMany({
             orderBy: { type: 'asc' }
         });
-        res.json(nodeTypes);
+
+        const dynamicNodes = NodeLoaderService.getInstance().getLoadedNodes().map(node => ({
+            id: node.id,
+            type: node.id,
+            category: node.executor?.meta?.category || 'Custom',
+            description: node.description,
+            name: node.name,
+            icon: node.executor?.meta?.icon
+        }));
+
+        const pluginNodes = PluginManager.getInstance().getAllPlugins().map((plugin: any) => ({
+            id: `plugin-${plugin.meta.name.toLowerCase().replace(/\s+/g, '-')}`,
+            type: `plugin-${plugin.meta.name.toLowerCase().replace(/\s+/g, '-')}`,
+            category: plugin.meta.category || 'Plugins',
+            description: plugin.meta.description,
+            name: plugin.meta.name,
+            icon: plugin.meta.icon,
+            isPlugin: true
+        }));
+
+        res.json([...dbNodes, ...dynamicNodes, ...pluginNodes]);
     } catch (error) {
         logger.error({ err: error }, 'Error fetching node types');
         res.status(500).json({ error: 'Failed to fetch node types' });

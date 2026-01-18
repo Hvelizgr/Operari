@@ -47,7 +47,7 @@ export class NodeLoaderService {
         let debounceTimer: NodeJS.Timeout;
 
         fs.watch(this.nodesDir, { recursive: true }, (eventType, filename) => {
-            if (!filename || !filename.endsWith('.js')) return;
+            if (!filename || (!filename.endsWith('.js') && !filename.endsWith('.ts'))) return;
 
             // Debounce to avoid double events
             clearTimeout(debounceTimer);
@@ -69,13 +69,16 @@ export class NodeLoaderService {
             const entries = fs.readdirSync(this.nodesDir, { withFileTypes: true });
 
             for (const entry of entries) {
-                // Support both single file .js nodes and folders with index.js
-                if (entry.isFile() && entry.name.endsWith('.js')) {
+                // Support both single file .js/.ts nodes and folders with index.js/ts
+                if (entry.isFile() && (entry.name.endsWith('.js') || entry.name.endsWith('.ts'))) {
                     await this.loadNodeFile(path.join(this.nodesDir, entry.name));
                 } else if (entry.isDirectory()) {
-                    const indexFile = path.join(this.nodesDir, entry.name, 'index.js');
-                    if (fs.existsSync(indexFile)) {
-                        await this.loadNodeFile(indexFile);
+                    const indexJs = path.join(this.nodesDir, entry.name, 'index.js');
+                    const indexTs = path.join(this.nodesDir, entry.name, 'index.ts');
+                    if (fs.existsSync(indexJs)) {
+                        await this.loadNodeFile(indexJs);
+                    } else if (fs.existsSync(indexTs)) {
+                        await this.loadNodeFile(indexTs);
                     }
                 }
             }
@@ -111,6 +114,10 @@ export class NodeLoaderService {
         } catch (error) {
             this.logger.error(`Failed to load node file: ${filePath}`, { error: error as Error });
         }
+    }
+    
+    public getLoadedNodes(): DynamicNodeDefinition[] {
+        return Array.from(this.nodes.values());
     }
     
     // Future: implement watch() with chokidar or @parcel/watcher

@@ -8,6 +8,7 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/guide/getting-started' },
+      { text: 'Developer', link: '/developer/architecture' },
       { text: 'API', link: '/api/reference' },
     ],
 
@@ -25,6 +26,14 @@ export default defineConfig({
           items: [
             { text: 'Workflows', link: '/guide/workflows' },
             { text: 'Executions', link: '/guide/executions' },
+          ]
+        }
+      ],
+      '/developer/': [
+        {
+          text: 'Architecture',
+          items: [
+            { text: 'System Overview', link: '/developer/architecture' },
           ]
         }
       ],

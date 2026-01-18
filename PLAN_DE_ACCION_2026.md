@@ -35,8 +35,8 @@ Basado en `ANALISIS_COMPLETO_2026.md`, este plan prioriza los gaps críticos y s
 
 - [ ] **Crear Portal de Documentación**
   - [x] Levantar Docusaurus o VitePress (VitePress Configurado).
-  - [ ] Redactar guías de usuario ("Getting Started", "First Workflow").
-  - [ ] Redactar guías para desarrolladores (Arquitectura, API Reference).
+  - [x] Redactar guías de usuario ("Getting Started" actualizado).
+  - [x] Redactar guías para desarrolladores (Arquitectura añadida).
 - [ ] **Mejorar UX/UI (Onboarding)**
   - [x] Implementar tour guiado (Interactive Tour con driver.js).
   - [x] Crear plantillas de "Quick Start" categorizadas (API Mock implementada).
@@ -50,8 +50,10 @@ Basado en `ANALISIS_COMPLETO_2026.md`, este plan prioriza los gaps críticos y s
   - [x] Crear Service Loader para leer carpeta `/plugins` (Esqueleto).
   - [x] Crear un SDK básico para desarrollo de nodos (`packages/nanoflow-sdk`).
 - [ ] **Aumentar Integraciones**
-  - [ ] Priorizar nodos faltantes: Slack, Google Workspace, Stripe.
-  - [ ] Implementar sistema de "Community Nodes".
+  - [x] Priorizar nodos faltantes: Slack (Real), Discord (Real), GitHub (Real).
+  - [x] Implementar sistema de "Community Nodes" (Plugin System v1).
+  - [x] Añadir Google Workspace (Drive, Calendar, Sheets), Stripe (Base).
+  - [x] Añadir integraciones rápidas: Weather, Twilio (Mock), Email (SMTP).
 
 ## 🏢 FASE 5: Características Enterprise (Q2 2026)
 
@@ -59,7 +61,7 @@ Basado en `ANALISIS_COMPLETO_2026.md`, este plan prioriza los gaps críticos y s
 
 - [ ] **Seguridad Avanzada**
   - [ ] Encriptar secretos (APIs keys) usando un gestor seguro.
-  - [ ] Implementar Audit Logs completos.
+  - [ ] Implementar Audit Logs 12completos.
   - [ ] Integrar SSO & 2FA.
 - [ ] **Escalabilidad Avanzada**
   - [ ] Implementar Multi-tenancy.

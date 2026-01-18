@@ -4,7 +4,8 @@ import {
     Box, Globe, Database, MessageSquare, Mail,
     Calendar, Clock, Zap, GitBranch, Play,
     Cloud, Cpu, FileText, Layout, List, Users,
-    Search, Terminal, Share2, Settings, Layers, Activity
+    Search, Terminal, Share2, Settings, Layers, Activity,
+    Github, Sun, CreditCard, MessageCircle, BarChart, ShoppingCart
 } from 'lucide-react';
 
 export interface NodeType {
@@ -25,7 +26,8 @@ const IconMap: Record<string, any> = {
     Box, Globe, Database, MessageSquare, Mail,
     Calendar, Clock, Zap, GitBranch, Play,
     Cloud, Cpu, FileText, Layout, List, Users,
-    Search, Terminal, Share2, Settings, Layers, Activity
+    Search, Terminal, Share2, Settings, Layers, Activity,
+    Github, Sun, CreditCard, MessageCircle, BarChart, ShoppingCart
 };
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
@@ -44,8 +46,13 @@ export function useNodeTypes() {
         if (type.includes('openai') || type.includes('anthropic') || category.includes('ai') || type.includes('langchain')) return MessageSquare;
         if (type.includes('mail') || type.includes('sendgrid') || type.includes('gmail')) return Mail;
         if (type.includes('database') || type.includes('postgres') || type.includes('sql') || type.includes('mongodb') || type.includes('redis')) return Database;
-        if (type.includes('slack') || type.includes('discord') || type.includes('telegram')) return MessageSquare;
+        if (type.includes('slack') || type.includes('discord') || type.includes('telegram') || type.includes('message')) return MessageCircle;
         if (type.includes('aws') || type.includes('storage') || type.includes('s3') || type.includes('drive')) return Cloud;
+        if (type.includes('weather') || type.includes('sun')) return Sun;
+        if (type.includes('github') || type.includes('git')) return Github;
+        if (type.includes('payment') || type.includes('stripe') || type.includes('billing')) return CreditCard;
+        if (type.includes('shopify') || type.includes('shop') || type.includes('cart')) return ShoppingCart;
+        if (type.includes('chart') || type.includes('stats') || type.includes('metrics')) return BarChart;
         if (category.includes('triggers') || type.includes('trigger')) return Play;
         if (category.includes('logic') || category.includes('flow') || type.includes('filter') || type.includes('if')) return GitBranch;
         if (type.includes('code') || type.includes('script') || type.includes('function') || type.includes('executable')) return Terminal;
