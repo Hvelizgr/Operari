@@ -9,22 +9,23 @@ datasource db {
 }
 
 model User {
-  id                    String       @id @default(uuid())
-  email                 String       @unique
-  passwordHash          String
-  name                  String?
-  role                  Role         @default(USER)
-  tenantId              String
-  twoFactorEnabled      Boolean      @default(false)
-  twoFactorSecret       String?
-  twoFactorBackupCodes  Json         @default("[]")
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
-  credentials           Credential[]
-  executions            Execution[]
-  tenant                Tenant       @relation(fields: [tenantId], references: [id])
-  workflows             Workflow[]
-  auditLogs             AuditLog[]
+  id                      String       @id @default(uuid())
+  email                   String       @unique
+  passwordHash            String
+  name                    String?
+  role                    Role         @default(USER)
+  tenantId                String
+  twoFactorEnabled        Boolean      @default(false)
+  twoFactorSecret         String?
+  twoFactorBackupCodes    Json         @default("[]")
+  notificationPreferences Json?        // User notification preferences
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  credentials             Credential[]
+  executions              Execution[]
+  tenant                  Tenant       @relation(fields: [tenantId], references: [id])
+  workflows               Workflow[]
+  auditLogs               AuditLog[]
 
   @@index([tenantId])
   @@index([email])
@@ -37,6 +38,7 @@ model Tenant {
   plan           Plan            @default(FREE)
   ssoConfig      Json?           // SSO configuration (provider, clientId, etc.)
   ipWhitelist    Json?           // IP whitelist configuration
+  billingInfo    Json?           // Stripe customer info and billing details
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   storageBuckets StorageBucket[]

@@ -24,6 +24,8 @@ import aiRoutes from './routes/ai.routes';
 import tenantRoutes from './routes/tenant.routes';
 import twoFactorRoutes from './routes/two-factor.routes';
 import ssoRoutes from './routes/sso.routes';
+import billingRoutes from './routes/billing.routes';
+import notificationRoutes from './routes/notification.routes';
 
 import metricRoutes from './routes/metric.routes';
 import { errorHandler } from './middleware/error.middleware';
@@ -85,6 +87,8 @@ app.use('/api/ai', standardRateLimiter, aiRoutes);
 app.use('/api/tenant', standardRateLimiter, tenantRoutes);
 app.use('/api/2fa', standardRateLimiter, twoFactorRoutes);
 app.use('/api/sso', standardRateLimiter, ssoRoutes);
+app.use('/api/billing', standardRateLimiter, billingRoutes);
+app.use('/api/notifications', standardRateLimiter, notificationRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
 
 app.get('/health', (req, res) => {
