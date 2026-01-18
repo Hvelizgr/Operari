@@ -462,6 +462,16 @@ export class ExecutionService {
 
                     const nextNodes = connections
                         .filter(c => c.source === currentNode.id)
+                        .filter(c => {
+                            const activePorts = (output as ExecutionOutput).__activePorts;
+                            // If no routing info (activePorts undefined), send to all outputs (default behavior)
+                            if (!activePorts) return true;
+                            
+                            // If specific ports are activated, only follow connections from those ports
+                            // Default to port 0 if sourcePort is missing
+                            const port = c.sourcePort || 0;
+                            return activePorts.includes(port);
+                        })
                         .map(c => nodes.find(n => n.id === c.target))
                         .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
 

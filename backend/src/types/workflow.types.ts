@@ -168,6 +168,10 @@ export interface ActionNodeConfig {
     channelTargets?: string[];
 }
 
+export interface SwitchNodeConfig {
+    expression?: string;
+}
+
 // Union type for all possible node configs
 export type NodeConfig =
     | HttpNodeConfig
@@ -191,6 +195,7 @@ export type NodeConfig =
     | MultiplexNodeConfig
     | LimitNodeConfig
     | ActionNodeConfig
+    | SwitchNodeConfig
     | Record<string, unknown>;
 
 // Zod schema for generic node config (flexible but validated)
@@ -307,6 +312,7 @@ export interface ExecutionInput {
 
 export interface ExecutionOutput {
     [key: string]: unknown;
+    __activePorts?: number[]; // For routing support (Switch node, etc.)
 }
 
 export interface ExecutionContext {
@@ -440,6 +446,12 @@ export interface ActionResult extends ExecutionOutput {
     result?: unknown;
 }
 
+export interface SwitchResult extends ExecutionOutput {
+    isSwitch: true;
+    result: boolean;
+    expression: string;
+}
+
 // Union type for all possible node results
 export type NodeExecutionResult =
     | TriggerResult
@@ -462,6 +474,7 @@ export type NodeExecutionResult =
     | MultiplexResult
     | LimitResult
     | ActionResult
+    | SwitchResult
     | ExecutionOutput;
 
 // =============================================================================
