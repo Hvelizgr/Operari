@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../server';
 import { authenticate, AuthRequest, requireRole } from '../middleware/auth.middleware';
+import { checkPlanLimits } from '../middleware/plan-limits.middleware';
 import { Role } from '@prisma/client';
 import { SchedulerService } from '../services/scheduler.service';
 import {
@@ -316,7 +317,7 @@ router.get('/:id/metadata', async (req: AuthRequest, res) => {
  *             example:
  *               error: "Name is required"
  */
-router.post('/', requireRole(Role.ADMIN, Role.USER), async (req: AuthRequest, res) => {
+router.post('/', requireRole(Role.ADMIN, Role.USER), checkPlanLimits('workflows'), async (req: AuthRequest, res) => {
     try {
         const data = workflowDefinitionSchema.parse(req.body);
 

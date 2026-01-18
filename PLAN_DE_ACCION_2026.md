@@ -68,8 +68,14 @@ Basado en `ANALISIS_COMPLETO_2026.md`, este plan prioriza los gaps críticos y s
   - [x] Modelo de datos con Tenant isolation.
   - [x] API de gestión de workspace (/api/tenant).
   - [x] Dashboard de administración con usuarios y audit logs.
-  - [ ] Límites por plan (FREE, PRO, ENTERPRISE).
+  - [x] Límites por plan (FREE, PRO, ENTERPRISE) con middleware.
+  - [x] API de usage stats (/api/tenant/usage).
   - [ ] Facturación y billing integrado.
+- [ ] **Sistema de Notificaciones**
+  - [x] NotificationService multi-canal (Email, Slack, Webhook, In-App).
+  - [x] Notificaciones de workflow failures.
+  - [x] Notificaciones de credential expiring.
+  - [ ] Configuración de preferencias por usuario.
 - [ ] **Escalabilidad Avanzada**
   - [ ] Implementar Multi-tenancy.
   - [ ] Configurar despliegue con Kubernetes (Helm Charts).
