@@ -75,6 +75,24 @@ export class GitController {
         }
     }
 
+    async importWorkflows(req: AuthRequest, res: Response, next: NextFunction) {
+        try {
+            const userId = req.user?.id;
+            const tenantId = req.user?.tenantId;
+            if (!userId || !tenantId) {
+                throw new CustomError({ message: 'User not authenticated', code: ErrorCode.CONFIGURATION_ERROR });
+            }
+
+            const { repoPath } = req.body;
+            const targetPath = this.getRepoPath(userId, repoPath);
+
+            const result = await gitService.importWorkflowsFromGit(targetPath, userId, tenantId);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
     async push(req: AuthRequest, res: Response, next: NextFunction) {
         try {
             const userId = req.user?.id;
@@ -82,10 +100,10 @@ export class GitController {
                 throw new CustomError({ message: 'User not authenticated', code: ErrorCode.CONFIGURATION_ERROR });
             }
 
-            const { remoteName, branch, repoPath } = req.body;
+            const { remoteName, branch, repoPath, sshKey } = req.body;
             const targetPath = this.getRepoPath(userId, repoPath);
 
-            const result = await gitService.push(targetPath, remoteName, branch);
+            const result = await gitService.push(targetPath, remoteName, branch, sshKey);
             res.json(result);
         } catch (error) {
             next(error);
@@ -99,10 +117,10 @@ export class GitController {
                 throw new CustomError({ message: 'User not authenticated', code: ErrorCode.CONFIGURATION_ERROR });
             }
 
-            const { remoteName, branch, repoPath } = req.body;
+            const { remoteName, branch, repoPath, sshKey } = req.body;
             const targetPath = this.getRepoPath(userId, repoPath);
 
-            const result = await gitService.pull(targetPath, remoteName, branch);
+            const result = await gitService.pull(targetPath, remoteName, branch, sshKey);
             res.json(result);
         } catch (error) {
             next(error);

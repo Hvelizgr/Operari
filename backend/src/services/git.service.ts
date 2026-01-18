@@ -8,6 +8,9 @@ export interface GitConfig {
     repoPath: string;
     remoteUrl?: string;
     branch?: string;
+    sshKey?: string; // Private key content
+    userName?: string;
+    userEmail?: string;
 }
 
 export interface ExportResult {
@@ -18,14 +21,41 @@ export interface ExportResult {
 }
 
 export class GitService {
-    private getGitInstance(repoPath: string): SimpleGit {
+    private getGitInstance(repoPath: string, sshKey?: string): SimpleGit {
         const options: Partial<SimpleGitOptions> = {
             baseDir: repoPath,
             binary: 'git',
             maxConcurrentProcesses: 6,
             trimmed: false,
         };
-        return simpleGit(options);
+
+        const git = simpleGit(options);
+
+        if (sshKey) {
+            // Write SSH key to temp file
+            const keyPath = path.join(repoPath, '.git_ssh_key');
+            fs.writeFileSync(keyPath, sshKey + '\n', { mode: 0o600 });
+            
+            // Configure git to use this key
+            // Note: Using a wrapper script or GIT_SSH_COMMAND can be tricky across OS.
+            // On Linux/Mac:
+            const sshCommand = `ssh -i "${keyPath}" -o Randomart=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null`;
+            git.env({ 
+                ...process.env,
+                GIT_SSH_COMMAND: sshCommand
+            });
+
+            // Clean up key on process exit? Ideally yes, but tricky here.
+            // For now, we rely on it being inside the repo folder which might be managed.
+        }
+
+        return git;
+    }
+
+    async configureUser(repoPath: string, name: string, email: string) {
+        const git = this.getGitInstance(repoPath);
+        await git.addConfig('user.name', name);
+        await git.addConfig('user.email', email);
     }
 
     async initRepository(repoPath: string): Promise<{ success: boolean; message: string }> {
@@ -169,9 +199,61 @@ export class GitService {
         }
     }
 
-    async push(repoPath: string, remoteName: string = 'origin', branch: string = 'main'): Promise<{ success: boolean; message: string }> {
+    async importWorkflowsFromGit(repoPath: string, userId: string, tenantId: string): Promise<{ success: boolean; importedCount: number; message: string }> {
         try {
-            const git = this.getGitInstance(repoPath);
+            const workflowsDir = path.join(repoPath, 'workflows');
+            if (!fs.existsSync(workflowsDir)) {
+                return { success: false, importedCount: 0, message: 'Workflows directory not found in repository' };
+            }
+
+            const files = fs.readdirSync(workflowsDir).filter(f => f.endsWith('.json'));
+            let count = 0;
+
+            for (const file of files) {
+                try {
+                    const content = fs.readFileSync(path.join(workflowsDir, file), 'utf-8');
+                    const workflowData = JSON.parse(content);
+                    
+                    if (workflowData.id && workflowData.name) {
+                        // Upsert workflow
+                        await prisma.workflow.upsert({
+                            where: { id: workflowData.id },
+                            update: {
+                                name: workflowData.name,
+                                nodes: workflowData.nodes || [],
+                                connections: workflowData.connections || [],
+                                updatedAt: new Date()
+                            },
+                            create: {
+                                id: workflowData.id,
+                                name: workflowData.name,
+                                nodes: workflowData.nodes || [],
+                                connections: workflowData.connections || [],
+                                userId,
+                                tenantId,
+                                isActive: false // Default to inactive on import for safety
+                            }
+                        });
+                        count++;
+                    }
+                } catch (e) {
+                    console.error(`Failed to import ${file}:`, e);
+                }
+            }
+
+            return { success: true, importedCount: count, message: `Successfully imported ${count} workflows` };
+        } catch (error) {
+             throw new CustomError({
+                message: 'Failed to import workflows from git',
+                code: ErrorCode.UNKNOWN_ERROR,
+                cause: error as Error
+            });
+        }
+    }
+
+    async push(repoPath: string, remoteName: string = 'origin', branch: string = 'main', sshKey?: string): Promise<{ success: boolean; message: string }> {
+        try {
+            const git = this.getGitInstance(repoPath, sshKey);
 
             const remotes = await git.getRemotes(true);
             if (remotes.length === 0) {
@@ -189,9 +271,9 @@ export class GitService {
         }
     }
 
-    async pull(repoPath: string, remoteName: string = 'origin', branch: string = 'main'): Promise<{ success: boolean; message: string; changes?: any }> {
+    async pull(repoPath: string, remoteName: string = 'origin', branch: string = 'main', sshKey?: string): Promise<{ success: boolean; message: string; changes?: any }> {
         try {
-            const git = this.getGitInstance(repoPath);
+            const git = this.getGitInstance(repoPath, sshKey);
             const result = await git.pull(remoteName, branch);
 
             return {

@@ -93,6 +93,26 @@ router.post('/export', gitController.exportWorkflows.bind(gitController));
 
 /**
  * @swagger
+ * /api/git/import:
+ *   post:
+ *     summary: Import workflows from git repository
+ *     tags: [Git]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               repoPath:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Workflows imported successfully
+ */
+router.post('/import', gitController.importWorkflows.bind(gitController));
+
+/**
+ * @swagger
  * /api/git/push:
  *   post:
  *     summary: Push commits to remote repository

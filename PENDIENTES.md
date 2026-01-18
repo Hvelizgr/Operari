@@ -51,18 +51,18 @@ NanoFlow es una plataforma de automatización de flujos de trabajo con un editor
 
 ### Backend - Nuevas Funcionalidades
 
-| Archivo                              | Funcionalidad                                       |
-| ------------------------------------ | --------------------------------------------------- |
-| `git.service.ts`                     | Exportar workflows a Git (init, commit, push, pull) |
-| `alert-condition-node.executor.ts`   | Alertas JEXL con deduplicación y cooldown           |
-| `threshold-node.executor.ts`         | Evaluar umbrales (gt, lt, between, etc.)            |
-| `compare-node.executor.ts`           | Comparar valores (eq, contains, matches)            |
-| `credential.service.ts`              | Scopes: environment, allowedWorkflows, allowedTags  |
-| `system-event.service.ts`            | Triggers internos (ALERT, WORKFLOW\_\*, CUSTOM)     |
-| `infrastructure-monitor.executor.ts` | Nodos: DiskUsage, CpuMonitor, MemoryMonitor         |
-| `network-monitor.executor.ts`        | Nodos: Ping, HttpHealthCheck                        |
-| `node-executor.service.ts`           | Sandbox seguro (Proxy, Denylist, Shadowing)         |
-| `node-loader.service.ts`             | Carga dinámica de nodos (Hot Reloading, .js files)  |
+| Archivo                              | Funcionalidad                                          |
+| ------------------------------------ | ------------------------------------------------------ |
+| `alert-condition-node.executor.ts`   | Alertas JEXL con deduplicación y cooldown              |
+| `threshold-node.executor.ts`         | Evaluar umbrales (gt, lt, between, etc.)               |
+| `compare-node.executor.ts`           | Comparar valores (eq, contains, matches)               |
+| `credential.service.ts`              | Scopes: environment, allowedWorkflows, allowedTags     |
+| `system-event.service.ts`            | Triggers internos (ALERT, WORKFLOW\_\*, CUSTOM)        |
+| `infrastructure-monitor.executor.ts` | Nodos: DiskUsage, CpuMonitor, MemoryMonitor            |
+| `network-monitor.executor.ts`        | Nodos: Ping, HttpHealthCheck                           |
+| `node-executor.service.ts`           | Sandbox seguro (Proxy, Denylist, Shadowing)            |
+| `node-loader.service.ts`             | Carga dinámica de nodos (Hot Reloading, .js files)     |
+| `git.service.ts`                     | Git Sync completo (SSH keys, Import/Export, Push/Pull) |
 
 ### Funcionalidades Base
 
@@ -79,14 +79,6 @@ NanoFlow es una plataforma de automatización de flujos de trabajo con un editor
 ## 📋 Pendientes por Dificultad
 
 ### 🟡 Media
-
-#### 4. Git Sync Completo
-
-Extender `git.service.ts`:
-
-- Gestión de claves SSH
-- Pull/merge con resolución de conflictos
-- UI para configurar repositorio
 
 ### 🔴 Muy Alta
 
