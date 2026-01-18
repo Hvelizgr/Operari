@@ -1747,3 +1747,65 @@ body.dark .button {
     font-size: 12px;
     color: var(--body-text-color);
 }
+
+/* ===== BLAST RADIUS (Impact Analysis) STYLES ===== */
+
+/* Dimmed state - nodes not in blast radius */
+.wf_node.blast-dimmed {
+    opacity: 0.25;
+    filter: grayscale(50%);
+    transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.wf_node.blast-dimmed:hover {
+    opacity: 0.5;
+}
+
+/* Focused node - the selected node for blast radius */
+.wf_node.blast-focused {
+    z-index: 20 !important;
+}
+
+.wf_node.blast-focused .wf_event,
+.wf_node.blast-focused .wf_ent_trigger,
+.wf_node.blast-focused .wf_ent_action,
+.wf_node.blast-focused .wf_ent_controller {
+    box-shadow: 0 0 0 3px var(--theme-color), 0 0 20px rgba(55, 145, 245, 0.4);
+}
+
+/* Affected nodes - downstream/upstream nodes in blast radius */
+.wf_node.blast-affected {
+    z-index: 15 !important;
+}
+
+.wf_node.blast-affected .wf_event {
+    border-color: var(--orange);
+    box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.3), 0 0 15px rgba(253, 126, 20, 0.2);
+}
+
+.wf_node.blast-affected .wf_ent_trigger,
+.wf_node.blast-affected .wf_ent_action,
+.wf_node.blast-affected .wf_ent_controller {
+    border-color: var(--orange) !important;
+    box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.3), 0 0 15px rgba(253, 126, 20, 0.2);
+}
+
+/* Pulse animation for affected nodes */
+@keyframes blast-pulse {
+    0% {
+        box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.3), 0 0 15px rgba(253, 126, 20, 0.2);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(253, 126, 20, 0.2), 0 0 25px rgba(253, 126, 20, 0.3);
+    }
+    100% {
+        box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.3), 0 0 15px rgba(253, 126, 20, 0.2);
+    }
+}
+
+.wf_node.blast-affected.blast-animate .wf_event,
+.wf_node.blast-affected.blast-animate .wf_ent_trigger,
+.wf_node.blast-affected.blast-animate .wf_ent_action,
+.wf_node.blast-affected.blast-animate .wf_ent_controller {
+    animation: blast-pulse 2s ease-in-out infinite;
+}

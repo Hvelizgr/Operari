@@ -79,9 +79,14 @@ class N8nService {
 
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await this.client.get('/workflows', { params: { limit: 1 } });
+      // Use raw axios to hit /healthz at root, bypassing /api/v1 and auth
+      const response = await axios.get(`${this.baseUrl}/healthz`, { timeout: 2000 });
       return response.status === 200;
     } catch (error) {
+      // Fallback: If healthz fails (older n8n), try the old method but catch 401 as "Alive but Unauthorized" (technically healthy)
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+          return true; 
+      }
       logger.warn({ err: error }, 'n8n health check failed');
       return false;
     }

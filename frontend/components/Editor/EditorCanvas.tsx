@@ -2,6 +2,9 @@
 
 import { useEditorCanvas } from '../../hooks/useEditorCanvas';
 import { getAutoLayout } from '../../utils/layoutUtils';
+import { calculateComplexityScore } from '../../utils/complexityScore';
+import { scanWorkflowSecurity } from '../../utils/securityScanner';
+import { lintWorkflow } from '../../utils/architectureLinter';
 import { ConnectionsLayer, ConnectionBubblesLayer, NodesLayer, GridLayer, EditorOverlays } from './';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import { useWorkflowExecution } from '../../hooks/useWorkflowExecution';
@@ -19,7 +22,6 @@ import SolderingOverlay from './SolderingOverlay';
 import RunDialog from '../Workflow/RunDialog';
 import CommandPalette, { CommandAction } from './CommandPalette';
 import TopBar from './TopBar';
-import EditorSidebar from './EditorSidebar';
 import { createNewNode } from './EditorCanvas.utils';
 import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertiesPanel';
 import './WorkflowNode.css';
@@ -119,6 +121,12 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         isRunDialogOpen,
         handleOpenRunDialog,
         handleCloseRunDialog,
+
+        // Blast Radius (Impact Analysis)
+        blastRadiusMode,
+        setBlastRadiusFocusedNode,
+        toggleBlastRadiusMode,
+        getNodeBlastRadiusStyle,
     } = useEditorCanvas({ lang, confettiCanvasRef });
 
     // Auto Layout Handler
@@ -126,6 +134,21 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         const { nodes: layoutedNodes } = getAutoLayout(nodes, connections);
         setNodes(layoutedNodes);
     };
+
+    // Complexity Score - calculated on every node/connection change
+    const complexityResult = useMemo(() => {
+        return calculateComplexityScore(nodes, connections);
+    }, [nodes, connections]);
+
+    // Security Scanner - scan nodes for hardcoded credentials
+    const securityResult = useMemo(() => {
+        return scanWorkflowSecurity(nodes);
+    }, [nodes]);
+
+    // Architecture Linter - validate best practices
+    const lintResult = useMemo(() => {
+        return lintWorkflow(nodes, connections);
+    }, [nodes, connections]);
 
     const [showTerminal, setShowTerminal] = useState(false);
     const [runMode, setRunMode] = useState<'run' | 'debug'>('run'); // New State
@@ -272,6 +295,15 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         setConfigNodeId(nodeId);
     };
 
+    // Blast Radius: When a node is clicked, update the focused node for blast radius
+    const handleNodeClickWithBlastRadius = (nodeId: string) => {
+        handleNodeClick(nodeId);
+        // Update blast radius focused node when in blast radius mode
+        if (blastRadiusMode !== 'off') {
+            setBlastRadiusFocusedNode(nodeId);
+        }
+    };
+
     // Watch for successful execution to fire confetti
     useEffect(() => {
         if (logs.length > 0) {
@@ -362,343 +394,349 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
     return (
         <>
-            <div className="flex h-screen w-full overflow-hidden bg-[var(--box-background-color)]">
-                {/* 1. Sidebar */}
-                <EditorSidebar lang={lang} />
 
-                {/* 2. Main Content Area */}
-                <div className="flex-1 flex flex-col relative h-full overflow-hidden">
+            {/* 2. Main Content Area */}
+            <div className="flex-1 flex flex-col relative h-full overflow-hidden">
 
-                    {/* 2.1 TopBar */}
-                    <div className="z-40">
-                        <TopBar
-                            lang={lang}
-                            workflowName={workflowProperties.name}
-                            onRun={handleDirectRun}
-                            onRunWithInput={handleOpenRunWithInput}
-                            onDebug={handleOpenDebug}
-                            isExecuting={executing}
-                            onStop={handleStopExecution}
-                            onProperties={() => setIsWorkflowPropsOpen(true)}
-                            onAddNode={() => setSearchTrigger(Date.now())}
-                            onAutoLayout={handleAutoLayout}
-                            saveStatus={saveStatus}
-                            onTemplates={() => setIsTemplateGalleryOpen(true)}
-                            onMetrics={() => setIsMetricsDashboardOpen(true)}
-                            onExport={() => {
-                                const data = JSON.stringify({ nodes, connections }, null, 2);
-                                const blob = new Blob([data], { type: 'application/json' });
-                                const url = URL.createObjectURL(blob);
-                                const link = document.createElement('a');
-                                link.href = url;
-                                link.download = `workflow-${new Date().toISOString().slice(0, 10)}.json`;
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                            }}
-                            onImport={(file) => {
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                    try {
-                                        const json = JSON.parse(event.target?.result as string);
-                                        if (json.nodes && json.connections) {
-                                            handleLoadWorkflowWrapped(json.nodes, json.connections);
-                                        } else {
-                                            alert(lang === 'en' ? 'Invalid workflow file' : 'Archivo inválido');
-                                        }
-                                    } catch (err) {
-                                        console.error(err);
-                                        alert('Error parsing JSON');
+                {/* 2.1 TopBar */}
+                <div className="z-40">
+                    <TopBar
+                        lang={lang}
+                        workflowName={workflowProperties.name}
+                        onRun={handleDirectRun}
+                        onRunWithInput={handleOpenRunWithInput}
+                        onDebug={handleOpenDebug}
+                        isExecuting={executing}
+                        onStop={handleStopExecution}
+                        onProperties={() => setIsWorkflowPropsOpen(true)}
+                        onAddNode={() => setSearchTrigger(Date.now())}
+                        onAutoLayout={handleAutoLayout}
+                        saveStatus={saveStatus}
+                        onTemplates={() => setIsTemplateGalleryOpen(true)}
+                        onMetrics={() => setIsMetricsDashboardOpen(true)}
+                        blastRadiusMode={blastRadiusMode}
+                        onToggleBlastRadius={toggleBlastRadiusMode}
+                        complexityScore={complexityResult.score}
+                        complexityLevel={complexityResult.level}
+                        securityIssueCount={securityResult.issues.length}
+                        securitySeverity={securityResult.highestSeverity}
+                        lintErrorCount={lintResult.errorCount}
+                        lintWarningCount={lintResult.warningCount}
+                        lintPassed={lintResult.passed}
+                        onExport={() => {
+                            const data = JSON.stringify({ nodes, connections }, null, 2);
+                            const blob = new Blob([data], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = `workflow-${new Date().toISOString().slice(0, 10)}.json`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        }}
+                        onImport={(file) => {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                try {
+                                    const json = JSON.parse(event.target?.result as string);
+                                    if (json.nodes && json.connections) {
+                                        handleLoadWorkflowWrapped(json.nodes, json.connections);
+                                    } else {
+                                        alert(lang === 'en' ? 'Invalid workflow file' : 'Archivo inválido');
                                     }
-                                };
-                                reader.readAsText(file);
-                            }}
-                        />
-                    </div>
+                                } catch (err) {
+                                    console.error(err);
+                                    alert('Error parsing JSON');
+                                }
+                            };
+                            reader.readAsText(file);
+                        }}
+                    />
+                </div>
 
-                    {/* 2.2 Canvas & Overlays */}
-                    <div
-                        id="workflow-canvas"
-                        ref={canvasRef}
-                        className={`
+                {/* 2.2 Canvas & Overlays */}
+                <div
+                    id="workflow-canvas"
+                    ref={canvasRef}
+                    className={`
                             wf_container wf_root relative w-full flex-1 overflow-hidden select-none
                             editor-mode-${tool}
                         `}
-                        style={{
-                            backgroundColor: 'var(--box-background-color)',
-                            backgroundImage: 'none'
-                        }}
-                        onWheel={handleWheel}
-                        onMouseDown={handleMouseDown}
-                        onMouseMove={(e) => {
-                            handleCanvasMouseMove(e);
-                            if (isSoldering) {
-                                updateSolderPosition(e.clientX, e.clientY);
-                            }
-                        }}
-                        onMouseUp={(e) => {
-                            if (isSoldering) {
-                                e.stopPropagation();
-                                pauseSolder();
-                                setSolderDropPos({ x: e.clientX, y: e.clientY });
-                            } else {
-                                handleCanvasMouseUp();
-                            }
-                        }}
-                        onMouseLeave={handleCanvasMouseUp}
-                        onDrop={handleCanvasDrop}
-                        onDragOver={handleCanvasDragOver}
-                        onClick={handleCanvasClick}
-                        onContextMenu={(e) => handleContextMenu(e, 'canvas')}
-                        role="application"
-                        aria-label={lang === 'en' ? 'Workflow editor canvas' : 'Lienzo del editor de flujo de trabajo'}
+                    style={{
+                        backgroundColor: 'var(--box-background-color)',
+                        backgroundImage: 'none'
+                    }}
+                    onWheel={handleWheel}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={(e) => {
+                        handleCanvasMouseMove(e);
+                        if (isSoldering) {
+                            updateSolderPosition(e.clientX, e.clientY);
+                        }
+                    }}
+                    onMouseUp={(e) => {
+                        if (isSoldering) {
+                            e.stopPropagation();
+                            pauseSolder();
+                            setSolderDropPos({ x: e.clientX, y: e.clientY });
+                        } else {
+                            handleCanvasMouseUp();
+                        }
+                    }}
+                    onMouseLeave={handleCanvasMouseUp}
+                    onDrop={handleCanvasDrop}
+                    onDragOver={handleCanvasDragOver}
+                    onClick={handleCanvasClick}
+                    onContextMenu={(e) => handleContextMenu(e, 'canvas')}
+                    role="application"
+                    aria-label={lang === 'en' ? 'Workflow editor canvas' : 'Lienzo del editor de flujo de trabajo'}
+                >
+                    <a
+                        href="#workflow-canvas"
+                        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
-                        <a
-                            href="#workflow-canvas"
-                            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        >
-                            {lang === 'en' ? 'Skip to workflow canvas' : 'Saltar al lienzo de flujo de trabajo'}
-                        </a>
+                        {lang === 'en' ? 'Skip to workflow canvas' : 'Saltar al lienzo de flujo de trabajo'}
+                    </a>
 
-                        <div id="canvas-instructions" className="sr-only">
-                            {lang === 'en'
-                                ? 'Use Tab to navigate between nodes, Arrow keys to move focus, Enter to select, Escape to deselect, Delete to remove selected nodes'
-                                : 'Use Tab para navegar entre nodos, teclas de flecha para mover el foco, Enter para seleccionar, Escape para deseleccionar, Delete para eliminar nodos seleccionados'}
-                        </div>
+                    <div id="canvas-instructions" className="sr-only">
+                        {lang === 'en'
+                            ? 'Use Tab to navigate between nodes, Arrow keys to move focus, Enter to select, Escape to deselect, Delete to remove selected nodes'
+                            : 'Use Tab para navegar entre nodos, teclas de flecha para mover el foco, Enter para seleccionar, Escape para deseleccionar, Delete para eliminar nodos seleccionados'}
+                    </div>
 
 
-                        <GridLayer
-                            viewport={viewport}
-                            highContrast={highContrast}
+                    <GridLayer
+                        viewport={viewport}
+                        highContrast={highContrast}
+                    />
+
+                    <ConnectionsLayer
+                        connections={connections}
+                        nodes={nodes}
+                        nodeTypes={dbNodeTypes}
+                        viewport={viewport}
+                        soldering={soldering}
+                        selectedConnection={selectedConnection}
+                        creatingConnection={creatingConnection}
+                        cyclicConnections={cyclicConnections}
+                        onConnectionClick={handleConnectionSelect}
+                        nodeStatuses={nodeStatuses}
+                    />
+
+                    <ConnectionBubblesLayer
+                        connections={connections}
+                        nodes={nodes}
+                        viewport={viewport}
+                        selectedConnection={selectedConnection}
+                        onConnectionClick={handleConnectionSelect}
+                    />
+
+                    <NodesLayer
+                        nodes={nodes}
+                        connections={connections}
+                        nodeTypes={dbNodeTypes}
+                        viewport={viewport}
+                        draggingNode={draggingNode}
+                        hoveredInputNode={hoveredInputNode}
+                        selectedNodes={selectedNodes}
+                        highlightedNodes={highlightedNodes}
+                        focusedNodeIndex={focusedNodeIndex}
+                        onNodeDragStart={handleNodeDragStart}
+                        onNodeDrag={handleNodeDrag}
+                        onNodeDragEnd={handleNodeDragEnd}
+                        onPortDragStart={handlePortDragStart}
+                        onPortDragEnd={handlePortDragEnd}
+                        onNodeClick={handleNodeClickWithBlastRadius}
+                        onNodeMove={handleNodeMove}
+                        onNodeUpdate={handleNodeUpdate}
+                        onSolderStart={startSolder}
+                        onNodeDoubleClick={setConfigNodeId}
+                        editorMode={tool === 'draw' ? 'connect' : 'move'}
+                        nodeStatuses={nodeStatuses}
+                        // Hover toolbar handlers (n8n-style)
+                        onNodeRun={handleNodeRunFromToolbar}
+                        onNodeToggleDisable={handleNodeToggleDisableFromToolbar}
+                        onNodeDelete={handleDeleteNodeById}
+                        onNodeDuplicate={handleNodeDuplicateFromToolbar}
+                        onNodeFocus={handleNodeFocusFromToolbar}
+                        lang={lang}
+                        getNodeBlastRadiusStyle={getNodeBlastRadiusStyle}
+                    />
+
+                    {/* Selection Box */}
+                    {selectionBox && getSelectionBoxStyle() && (
+                        <div
+                            id="d_wf_selection_draw"
+                            style={getSelectionBoxStyle()!}
                         />
+                    )}
 
-                        <ConnectionsLayer
-                            connections={connections}
+                    {/* Soldering Overlay */}
+                    {isSoldering && soldering && (
+                        <SolderingOverlay
                             nodes={nodes}
-                            nodeTypes={dbNodeTypes}
+                            solderingNodeId={soldering.startNodeId}
+                            solderingEndPort={soldering.endPort}
                             viewport={viewport}
-                            soldering={soldering}
-                            selectedConnection={selectedConnection}
-                            creatingConnection={creatingConnection}
-                            cyclicConnections={cyclicConnections}
-                            onConnectionClick={handleConnectionSelect}
-                            nodeStatuses={nodeStatuses}
+                            onPortClick={completeSolder}
                         />
+                    )}
 
-                        <ConnectionBubblesLayer
-                            connections={connections}
-                            nodes={nodes}
-                            viewport={viewport}
-                            selectedConnection={selectedConnection}
-                            onConnectionClick={handleConnectionSelect}
-                        />
+                    {/* Confetti Canvas */}
+                    <canvas
+                        ref={confettiCanvasRef}
+                        className="effects-canvas"
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            pointerEvents: 'none',
+                            zIndex: 200
+                        }}
+                    />
 
-                        <NodesLayer
-                            nodes={nodes}
-                            connections={connections}
-                            nodeTypes={dbNodeTypes}
-                            viewport={viewport}
-                            draggingNode={draggingNode}
-                            hoveredInputNode={hoveredInputNode}
-                            selectedNodes={selectedNodes}
-                            highlightedNodes={highlightedNodes}
-                            focusedNodeIndex={focusedNodeIndex}
-                            onNodeDragStart={handleNodeDragStart}
-                            onNodeDrag={handleNodeDrag}
-                            onNodeDragEnd={handleNodeDragEnd}
-                            onPortDragStart={handlePortDragStart}
-                            onPortDragEnd={handlePortDragEnd}
-                            onNodeClick={handleNodeClick}
-                            onNodeMove={handleNodeMove}
-                            onNodeUpdate={handleNodeUpdate}
-                            onSolderStart={startSolder}
-                            onNodeDoubleClick={setConfigNodeId}
-                            editorMode={tool === 'draw' ? 'connect' : 'move'}
-                            nodeStatuses={nodeStatuses}
-                            // Hover toolbar handlers (n8n-style)
-                            onNodeRun={handleNodeRunFromToolbar}
-                            onNodeToggleDisable={handleNodeToggleDisableFromToolbar}
-                            onNodeDelete={handleDeleteNodeById}
-                            onNodeDuplicate={handleNodeDuplicateFromToolbar}
-                            onNodeFocus={handleNodeFocusFromToolbar}
-                            lang={lang}
-                        />
+                    <EditorOverlays
+                        nodes={nodes}
+                        connections={connections}
+                        viewport={viewport}
+                        windowSize={windowSize}
+                        dbNodeTypes={dbNodeTypes}
+                        executionMetrics={executionMetrics}
+                        cycleError={cycleError}
+                        deleteConfirm={deleteConfirm}
+                        deleteConnectionConfirm={deleteConnectionConfirm}
+                        contextMenu={contextMenu}
+                        configNodeId={configNodeId}
+                        showOnboarding={showOnboarding}
+                        onboardingStep={onboardingStep}
+                        lang={lang}
+                        selectedNodesCount={selectedNodes.size}
+                        nodeOutputs={nodeOutputs}
 
-                        {/* Selection Box */}
-                        {selectionBox && getSelectionBoxStyle() && (
-                            <div
-                                id="d_wf_selection_draw"
-                                style={getSelectionBoxStyle()!}
-                            />
-                        )}
+                        onLoadWorkflow={handleLoadWorkflowWrapped}
+                        onSelectTemplate={handleSelectTemplateWrapped}
+                        onViewportChange={handleViewportChangeAdapter}
+                        onNodeAdd={handleNodeAddFromSearch}
+                        onHighlightNodes={handleHighlightNodes}
+                        onSearchNodeSelect={handleSearchNodeSelect}
 
-                        {/* Soldering Overlay */}
-                        {isSoldering && soldering && (
-                            <SolderingOverlay
-                                nodes={nodes}
-                                solderingNodeId={soldering.startNodeId}
-                                solderingEndPort={soldering.endPort}
-                                viewport={viewport}
-                                onPortClick={completeSolder}
-                            />
-                        )}
+                        onOnboardingNext={handleOnboardingNext}
+                        onOnboardingSkip={handleOnboardingSkip}
+                        onOnboardingClose={handleOnboardingClose}
 
-                        {/* Confetti Canvas */}
-                        <canvas
-                            ref={confettiCanvasRef}
-                            className="effects-canvas"
-                            style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                width: '100%',
-                                height: '100%',
-                                pointerEvents: 'none',
-                                zIndex: 200
-                            }}
-                        />
+                        onDeleteConfirm={handleConfirmDelete}
+                        onDeleteCancel={handleCancelDelete}
+                        onDeleteConnectionConfirm={handleConfirmDeleteConnection}
+                        onDeleteConnectionCancel={handleCancelDeleteConnection}
 
-                        <EditorOverlays
-                            nodes={nodes}
-                            connections={connections}
-                            viewport={viewport}
-                            windowSize={windowSize}
-                            dbNodeTypes={dbNodeTypes}
-                            executionMetrics={executionMetrics}
-                            cycleError={cycleError}
-                            deleteConfirm={deleteConfirm}
-                            deleteConnectionConfirm={deleteConnectionConfirm}
-                            contextMenu={contextMenu}
-                            configNodeId={configNodeId}
-                            showOnboarding={showOnboarding}
-                            onboardingStep={onboardingStep}
-                            lang={lang}
-                            selectedNodesCount={selectedNodes.size}
-                            nodeOutputs={nodeOutputs}
+                        onConfigUpdate={handleNodeUpdate}
+                        onConfigClose={handleCloseConfigPanel}
 
-                            onLoadWorkflow={handleLoadWorkflowWrapped}
-                            onSelectTemplate={handleSelectTemplateWrapped}
-                            onViewportChange={handleViewportChangeAdapter}
-                            onNodeAdd={handleNodeAddFromSearch}
-                            onHighlightNodes={handleHighlightNodes}
-                            onSearchNodeSelect={handleSearchNodeSelect}
+                        onContextMenuClose={handleCloseContextMenu}
+                        onContextMenuDuplicate={handleContextMenuDuplicate}
+                        onContextMenuDelete={handleDeleteFromContextMenu}
+                        onContextMenuToggleEnable={handleContextMenuToggleEnable}
+                        onContextMenuTestFromNode={handleTestFromNode}
+                        onContextMenuDetachConnections={handleDetachConnections}
 
-                            onOnboardingNext={handleOnboardingNext}
-                            onOnboardingSkip={handleOnboardingSkip}
-                            onOnboardingClose={handleOnboardingClose}
+                        onUndo={undo}
+                        onRedo={redo}
+                        onHistory={() => setIsSnapshotDialogOpen(true)}
+                        onShortcuts={() => setIsCommandPaletteOpen(true)}
+                        onSetModeMove={() => selectTool('move')}
+                        onSetModeDraw={() => selectTool('draw')}
+                        onClearAll={handleClearAll}
+                        canUndo={canUndo}
+                        canRedo={canRedo}
 
-                            onDeleteConfirm={handleConfirmDelete}
-                            onDeleteCancel={handleCancelDelete}
-                            onDeleteConnectionConfirm={handleConfirmDeleteConnection}
-                            onDeleteConnectionCancel={handleCancelDeleteConnection}
+                        onZoomIn={handleZoomIn}
+                        onZoomOut={handleZoomOut}
+                        onFitView={handleFitView}
+                        onResetZoom={handleResetZoom}
 
-                            onConfigUpdate={handleNodeUpdate}
-                            onConfigClose={handleCloseConfigPanel}
+                        solderDropPos={solderDropPos}
+                        onSolderDropCancel={handleSolderDropCancel}
+                        searchTrigger={searchTrigger}
+                        isTemplateGalleryOpen={isTemplateGalleryOpen}
+                        onTemplateGalleryOpenChange={setIsTemplateGalleryOpen}
+                        isMetricsDashboardOpen={isMetricsDashboardOpen}
+                        onMetricsDashboardOpenChange={setIsMetricsDashboardOpen}
+                    />
 
-                            onContextMenuClose={handleCloseContextMenu}
-                            onContextMenuDuplicate={handleContextMenuDuplicate}
-                            onContextMenuDelete={handleDeleteFromContextMenu}
-                            onContextMenuToggleEnable={handleContextMenuToggleEnable}
-                            onContextMenuTestFromNode={handleTestFromNode}
-                            onContextMenuDetachConnections={handleDetachConnections}
+                    <RunDialog
+                        isOpen={isRunDialogOpen}
+                        onClose={handleCloseRunDialog}
+                        onRun={handleExecuteWithInput}
+                        lang={lang}
+                        isExecuting={executing}
+                        logs={logs}
+                        executionId={currentExecutionId}
+                    />
 
-                            onUndo={undo}
-                            onRedo={redo}
-                            onHistory={() => setIsSnapshotDialogOpen(true)}
-                            onShortcuts={() => setIsCommandPaletteOpen(true)}
-                            onSetModeMove={() => selectTool('move')}
-                            onSetModeDraw={() => selectTool('draw')}
-                            onClearAll={handleClearAll}
-                            canUndo={canUndo}
-                            canRedo={canRedo}
+                    <SnapshotDialog
+                        isOpen={isSnapshotDialogOpen}
+                        onClose={() => setIsSnapshotDialogOpen(false)}
+                        snapshots={snapshots}
+                        onCreate={handleCreateSnapshot}
+                        onRestore={handleRestoreSnapshot}
+                        onDelete={deleteSnapshot}
+                        lang={lang}
+                    />
 
-                            onZoomIn={handleZoomIn}
-                            onZoomOut={handleZoomOut}
-                            onFitView={handleFitView}
-                            onResetZoom={handleResetZoom}
+                    <WorkflowPropertiesPanel
+                        isOpen={isWorkflowPropsOpen}
+                        properties={workflowProperties}
+                        onUpdate={(updates) => setWorkflowProperties(prev => ({ ...prev, ...updates }))}
+                        onClose={() => setIsWorkflowPropsOpen(false)}
+                        lang={lang}
+                    />
 
-                            solderDropPos={solderDropPos}
-                            onSolderDropCancel={handleSolderDropCancel}
-                            searchTrigger={searchTrigger}
-                            isTemplateGalleryOpen={isTemplateGalleryOpen}
-                            onTemplateGalleryOpenChange={setIsTemplateGalleryOpen}
-                            isMetricsDashboardOpen={isMetricsDashboardOpen}
-                            onMetricsDashboardOpenChange={setIsMetricsDashboardOpen}
-                        />
+                    {/* Floating Terminal Toggle */}
+                    <button
+                        onClick={() => setShowTerminal(!showTerminal)}
+                        className={`absolute bottom-6 right-6 p-3 rounded-full shadow-2xl transition-all duration-300 z-50 group ${showTerminal ? 'bg-slate-800 text-slate-400 rotate-90' : 'bg-blue-600 text-white hover:bg-blue-500 hover:scale-110'
+                            }`}
+                        title={lang === 'en' ? 'Toggle Terminal' : 'Alternar Terminal'}
+                    >
+                        {showTerminal ? <X size={20} /> : <TerminalIcon size={20} />}
+                        <span className="absolute right-full mr-3 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none uppercase tracking-widest font-bold border border-slate-700">
+                            {lang === 'en' ? 'Terminal' : 'Terminal'}
+                        </span>
+                    </button>
 
-                        <RunDialog
-                            isOpen={isRunDialogOpen}
-                            onClose={handleCloseRunDialog}
-                            onRun={handleExecuteWithInput}
-                            lang={lang}
-                            isExecuting={executing}
-                            logs={logs}
-                            executionId={currentExecutionId}
-                        />
-
-                        <SnapshotDialog
-                            isOpen={isSnapshotDialogOpen}
-                            onClose={() => setIsSnapshotDialogOpen(false)}
-                            snapshots={snapshots}
-                            onCreate={handleCreateSnapshot}
-                            onRestore={handleRestoreSnapshot}
-                            onDelete={deleteSnapshot}
-                            lang={lang}
-                        />
-
-                        <WorkflowPropertiesPanel
-                            isOpen={isWorkflowPropsOpen}
-                            properties={workflowProperties}
-                            onUpdate={(updates) => setWorkflowProperties(prev => ({ ...prev, ...updates }))}
-                            onClose={() => setIsWorkflowPropsOpen(false)}
-                            lang={lang}
-                        />
-
-                        {/* Floating Terminal Toggle */}
-                        <button
-                            onClick={() => setShowTerminal(!showTerminal)}
-                            className={`absolute bottom-6 right-6 p-3 rounded-full shadow-2xl transition-all duration-300 z-50 group ${showTerminal ? 'bg-slate-800 text-slate-400 rotate-90' : 'bg-blue-600 text-white hover:bg-blue-500 hover:scale-110'
-                                }`}
-                            title={lang === 'en' ? 'Toggle Terminal' : 'Alternar Terminal'}
-                        >
-                            {showTerminal ? <X size={20} /> : <TerminalIcon size={20} />}
-                            <span className="absolute right-full mr-3 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none uppercase tracking-widest font-bold border border-slate-700">
-                                {lang === 'en' ? 'Terminal' : 'Terminal'}
-                            </span>
-                        </button>
-
-                        {/* Bottom Terminal Panel */}
-                        <div className={`
+                    {/* Bottom Terminal Panel */}
+                    <div className={`
                             absolute bottom-0 left-0 right-0 h-64 bg-slate-900/95 backdrop-blur-xl border-t border-slate-700 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] transition-all duration-500 ease-in-out z-40
                             ${showTerminal ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}
                         `}>
-                            <div className="flex items-center justify-between px-4 py-2 bg-slate-800/50 border-b border-slate-700">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-2 h-2 rounded-full ${executing ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`} />
-                                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                                        {lang === 'en' ? 'Live Execution Log' : 'Registro de Ejecución en Vivo'}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setShowTerminal(false)}
-                                        className="p-1 text-slate-500 hover:text-white transition-colors"
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                </div>
+                        <div className="flex items-center justify-between px-4 py-2 bg-slate-800/50 border-b border-slate-700">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-2 h-2 rounded-full ${executing ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`} />
+                                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                                    {lang === 'en' ? 'Live Execution Log' : 'Registro de Ejecución en Vivo'}
+                                </span>
                             </div>
-                            <div className="w-full h-[calc(100%-40px)] p-1">
-                                <LogTerminal logs={logs} />
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setShowTerminal(false)}
+                                    className="p-1 text-slate-500 hover:text-white transition-colors"
+                                >
+                                    <X size={16} />
+                                </button>
                             </div>
                         </div>
-                        <CommandPalette
-                            isOpen={isCommandPaletteOpen}
-                            onClose={() => setIsCommandPaletteOpen(false)}
-                            actions={commandActions}
-                            lang={lang}
-                        />
+                        <div className="w-full h-[calc(100%-40px)] p-1">
+                            <LogTerminal logs={logs} />
+                        </div>
                     </div>
+                    <CommandPalette
+                        isOpen={isCommandPaletteOpen}
+                        onClose={() => setIsCommandPaletteOpen(false)}
+                        actions={commandActions}
+                        lang={lang}
+                    />
                 </div>
             </div>
         </>

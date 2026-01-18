@@ -1,10 +1,10 @@
 export const content = {
   seo: {
-    title: "NanoFlow - Enterprise Automation Platform",
-    description: "Build complex workflows with visual logic and code. The developer-friendly automation platform for mission-critical processes.",
+    title: "NanoFlow - n8n Governance & Education Platform",
+    description: "The missing layer for n8n. Auto-grading for schools, policy enforcement for enterprises, and health checks for developers.",
     openGraph: {
-      title: "NanoFlow - Automate Everything",
-      description: "Stop building internal tools from scratch. Orchestrate infrastructure, data, and AI agents with NanoFlow.",
+      title: "NanoFlow - Control Your Automation",
+      description: "Secure your n8n instances. manage students, enforce policies, and audit execution logs.",
     }
   },
   navigation: {
@@ -16,79 +16,79 @@ export const content = {
     getStarted: "Get Started"
   },
   hero: {
-    badge: "New: AI Agent Orchestration 2.0",
-    title: "Build Complex Workflows.\nZero Headaches.",
-    subtitle: "The developer-friendly automation platform for mission-critical processes. Combine visual simplicity with strict code control.",
-    ctaPrimary: "Start Building Free",
-    ctaSecondary: "View Documentation"
+    badge: "New: Workflow Doctor 1.0",
+    title: "The Governance Layer\nfor n8n Automation.",
+    subtitle: "Stop the chaos. Manage students, enforce security policies, and auto-grade workflows on your existing n8n instances.",
+    ctaPrimary: "Diagnose My Flows",
+    ctaSecondary: "For Schools & Teams"
   },
   editor: {
-    title: "Visual Logic, Code Power",
-    description: "Don't get stuck in rigid boxes. NanoFlow lets you drag, drop, and inject TypeScript functions anywhere in your pipeline.",
+    title: "Visualize & Audit",
+    description: "NanoFlow doesn't just build; it verifies. Our engine scans your n8n JSONs for security risks, bad practices, and grading criteria.",
     nodes: {
-      webhook: "Webhook Trigger",
-      transform: "Data Transform",
-      api: "External API",
-      db: "Postgres Insert"
+      webhook: "Policy Check",
+      transform: "Secret Scanner",
+      api: "Auto-Grader",
+      db: "Audit Log"
     }
   },
   useCases: {
-    title: "Enterprise Solutions",
+    title: "Who uses NanoFlow?",
     items: [
       {
-        title: "Infrastructure Orchestration",
-        description: "Automate provisioning and deployment pipelines across multi-cloud environments with total reliability."
+        title: "Education (Schools)",
+        description: "Auto-grade 30 student workflows instantly. Give each student a private secure workspace."
       },
       {
-        title: "Data Synchronization",
-        description: "Real-time bi-directional sync between CRM, ERP, and bespoke internal databases."
+        title: "Enterprise (DevOps)",
+        description: "Prevent 'Shadow IT'. Enforce policies like 'No HTTP calls to unknown IPs' before execution."
       },
       {
-        title: "AI Agent Workflows",
-        description: "Chain LLM calls, vector database lookups, and human-in-the-loop validation steps."
+        title: "Freelancers",
+        description: "The 'Workflow Doctor' analyzes your flows for performance bottlenecks and security leaks."
       }
     ]
   },
   howItWorks: {
-    title: "From Idea to Production",
+    title: "How it works",
     steps: [
       {
         title: "Connect",
-        description: "Integrate with 2000+ pre-built nodes or write your own custom connectors."
+        description: "Link your existing n8n instance URL and API Key. We don't host it; we manage it."
       },
       {
-        title: "Build",
-        description: "Design logic visually. Handle errors, loops, and conditions with granular control."
+        title: "Govern",
+        description: "Set rules: 'Students can't use Command Line nodes' or 'Require Auth for Webhooks'."
       },
       {
-        title: "Deploy",
-        description: "Push to a scalable serverless environment with one click. Monitor in real-time."
+        title: "Execute",
+        description: "Users run flows through NanoFlow. We intercept, validate, and then relay to n8n safely."
       }
     ]
   },
   features: {
-    headline: "Everything you need to build",
-    subheadline: "Powerful primitives for modern engineering teams.",
+    headline: "Governance Features",
+    subheadline: "The tools n8n Community Edition is missing.",
     items: [
-      { title: "Visual Editor", description: "Drag-and-drop workflow builder with real-time validation.", icon: "🎨" },
-      { title: "TypeScript Native", description: "Write custom logic in TypeScript with full type safety.", icon: "💻" },
-      { title: "AI Integration", description: "Native nodes for OpenAI, Anthropic, and localized LLMs.", icon: "🤖" },
-      { title: "Enterprise Security", description: "SSO, RBAC, and Audit Logs built-in from day one.", icon: "🔒" },
-      { title: "Real-time Metrics", description: "Monitor execution times, error rates, and throughput.", icon: "📊" },
-      { title: "Version Control", description: "Git integration for branching, diffs, and rollbacks.", icon: "git" }
+      { title: "Workflow Doctor", description: "Static analysis to detect exposed secrets and loops.", icon: "🩺" },
+      { title: "Classroom Mode", description: "Multi-user login and automatic grading for student tasks.", icon: "🎓" },
+      { title: "Policy Firewall", description: "Block specific nodes or domains at the gateway level.", icon: "🛡️" },
+      { title: "Audit Logs", description: "Trace exactly who executed what and when.", icon: "📜" },
+      { title: "Version Snaps", description: "Local history snapshots to rollback mistakes instantly.", icon: "⏪" },
+      { title: "SSO Gateway", description: "Login with Google/Microsoft before accessing n8n.", icon: "🔑" }
     ]
   },
   integrations: {
-    title: "Connect Your Stack",
-    subtitle: "Seamlessly integrate with the tools you already use.",
-    items: ["n8n", "Stripe", "Slack", "Postgres", "OpenAI", "GitHub", "Notion", "Discord"]
+    title: "Works with your Stack",
+    subtitle: "Compatible with self-hosted and cloud n8n instances.",
+    items: ["n8n", "Docker", "Kubernetes", "Postgres", "Auth0", "Google Workspace", "GitHub", "GitLab"]
   },
   testimonials: {
-    title: "Trusted by Builders",
+    title: "Trusted by Educators & CTOs",
     items: [
-      { quote: "NanoFlow saved us months of internal tool development.", author: "Sarah Jenkins", role: "CTO @ TechFlow" },
-      { quote: "The ability to drop into code whenever I need is a game changer.", author: "Mike Chen", role: "Lead Engineer" },
-      { quote: "Finally, an automation tool that treats infrastructure as code.", author: "Elena Rodriguez", role: "DevOps Lead" }
+      { quote: "NanoFlow allowed me to teach n8n to 50 students without them deleting each other's work.", author: "Prof. Sarah Jenkins", role: "Digital Skills Instructor" },
+      { quote: "Finally, I can look at the audit logs and see which dev broke production.", author: "Mike Chen", role: "CTO @ TechFlow" },
+      { quote: "The Workflow Doctor found an API Key I left exposed in a public repo. Lifesaver.", author: "Elena Rodriguez", role: "Freelance Automator" }
     ]
   },
   footer: {
@@ -100,18 +100,18 @@ export const content = {
     }
   },
   cta: {
-    title: "Ready to Scale?",
-    subtitle: "Join engineering teams at high-growth companies building better internal tools.",
-    button: "Start Your Free Trial"
+    title: "Secure Your Automation",
+    subtitle: "Join schools and companies adding a governance layer to their workflows.",
+    button: "Start Free Audit"
   },
   modal: {
-    title: "Get Enterprise Access",
-    subtitle: "Join the waitlist for our managed enterprise cloud. We'll send you an invite shortly.",
-    placeholder: "work@company.com",
+    title: "Get Governance Access",
+    subtitle: "Join the waitlist for the managed governance cloud.",
+    placeholder: "work@school.edu",
     button: "Request Early Access",
     processing: "Processing...",
     successTitle: "You're on the list!",
-    successDesc: "Check your inbox for next steps.",
+    successDesc: "We'll be in touch shortly.",
     successButton: "Close"
   }
 };

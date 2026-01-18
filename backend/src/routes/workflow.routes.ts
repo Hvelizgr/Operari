@@ -172,7 +172,7 @@ router.get('/', async (req: AuthRequest, res) => {
 router.get('/:id', async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.id as string;
-        const workflow = await prisma.workflow.findFirst({
+        let workflow = await prisma.workflow.findFirst({
             where: {
                 id: workflowId,
                 tenantId: req.user!.tenantId,
@@ -185,6 +185,26 @@ router.get('/:id', async (req: AuthRequest, res) => {
                 },
             },
         });
+
+        // Special handling for 'current-workflow' scratchpad
+        if (!workflow && workflowId === 'current-workflow') {
+             workflow = await prisma.workflow.create({
+                data: {
+                    id: 'current-workflow',
+                    name: 'Borrador (Scratchpad)',
+                    description: 'Tu espacio de trabajo temporal',
+                    nodes: [],
+                    connections: [],
+                    isActive: false,
+                    userId: req.user!.id,
+                    tenantId: req.user!.tenantId,
+                },
+                include: {
+                    user: { select: { id: true, name: true, email: true } },
+                    executions: true,
+                },
+            });
+        }
 
         if (!workflow) {
             return res.status(404).json({ error: 'Workflow not found' });

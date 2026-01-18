@@ -19,7 +19,15 @@ const nextConfig: NextConfig = {
   experimental: {
     // optimizePackageImports automatically tree-shakes barrel files
     // drastically improving dev server start and build times.
-    optimizePackageImports: ['lucide-react', '@nanoflow/shared', 'date-fns', 'lodash'],
+    optimizePackageImports: [
+      'lucide-react',
+      '@heroui/react',
+      'framer-motion',
+      'recharts',
+      '@nanoflow/shared',
+      'date-fns',
+      'lodash',
+    ],
   },
   async rewrites() {
     const apiUrl = process.env.API_URL || 'http://localhost:4001';

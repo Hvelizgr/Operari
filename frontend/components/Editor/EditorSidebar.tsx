@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
     LayoutDashboard,
     CalendarClock,
@@ -23,16 +25,17 @@ interface EditorSidebarProps {
 
 export default function EditorSidebar({ lang }: EditorSidebarProps) {
     const [collapsed, setCollapsed] = useState(false);
-    const [active, setActive] = useState('workflows');
+    const pathname = usePathname();
 
     const menuItems = [
-        { id: 'dashboard', label: lang === 'en' ? 'Dashboard' : 'Panel', icon: LayoutDashboard },
-        { id: 'schedules', label: lang === 'en' ? 'Schedules' : 'Horarios', icon: CalendarClock },
-        { id: 'workflows', label: lang === 'en' ? 'Workflows' : 'Flujos', icon: Share2 },
-        { id: 'monitors', label: lang === 'en' ? 'Monitors' : 'Monitores', icon: Activity },
-        { id: 'events', label: lang === 'en' ? 'Events' : 'Eventos', icon: Zap },
-        { id: 'tools', label: lang === 'en' ? 'Utilities' : 'Utilidades', icon: Wrench },
-        { id: 'admin', label: lang === 'en' ? 'Admin' : 'Admin', icon: ShieldCheck },
+        { id: 'dashboard', label: lang === 'en' ? 'Dashboard' : 'Panel', icon: LayoutDashboard, href: `/${lang}/dashboard` },
+        { id: 'scheduler', label: lang === 'en' ? 'Schedules' : 'Horarios', icon: CalendarClock, href: `/${lang}/scheduler` },
+        { id: 'workflows', label: lang === 'en' ? 'Workflows' : 'Flujos', icon: Share2, href: `/${lang}/workflows` },
+        { id: 'editor', label: lang === 'en' ? 'Editor' : 'Editor', icon: Activity, href: `/${lang}/editor` },
+        { id: 'monitors', label: lang === 'en' ? 'Monitors' : 'Monitores', icon: Activity, href: `/${lang}/monitors` },
+        { id: 'events', label: lang === 'en' ? 'Events' : 'Eventos', icon: Zap, href: `/${lang}/events` },
+        { id: 'utilities', label: lang === 'en' ? 'Utilities' : 'Utilidades', icon: Wrench, href: `/${lang}/utilities` },
+        { id: 'admin', label: lang === 'en' ? 'Admin' : 'Admin', icon: ShieldCheck, href: `/${lang}/admin` },
     ];
 
     return (
@@ -70,12 +73,12 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
             {/* Menu Items */}
             <div className="flex-1 overflow-y-auto py-2">
                 {menuItems.map(item => {
-                    const isActive = active === item.id;
+                    const isActive = pathname?.includes(item.id) || (item.id === 'editor' && pathname?.includes('/editor'));
                     const Icon = item.icon;
                     return (
-                        <div
+                        <Link
                             key={item.id}
-                            onClick={() => setActive(item.id)}
+                            href={item.href}
                             className={`
                                 flex items-center cursor-pointer mx-2 my-1 px-3 py-2 rounded-md transition-all duration-200
                                 ${isActive ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-white/5 text-gray-400 hover:text-white'}
@@ -94,7 +97,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                                     {item.label}
                                 </motion.span>
                             )}
-                        </div>
+                        </Link>
                     );
                 })}
             </div>

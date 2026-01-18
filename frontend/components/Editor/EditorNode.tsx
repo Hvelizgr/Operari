@@ -31,6 +31,7 @@ interface EditorNodeProps {
     isConnected?: boolean;
     onRunFromNode?: (nodeId: string) => void;
     lang: 'en' | 'es';
+    blastRadiusStyle?: 'focused' | 'affected' | 'dimmed' | 'normal';
 }
 
 function EditorNodeComponent({
@@ -50,7 +51,8 @@ function EditorNodeComponent({
     isConnected = true,
     onPortDragStart,
     onRunFromNode,
-    lang
+    lang,
+    blastRadiusStyle = 'normal',
 }: EditorNodeProps) {
     const nodeRef = useRef<HTMLDivElement>(null);
     const nodeType = typeDefinition || NODE_TYPES.find(t => t.type.toLowerCase() === node.type.toLowerCase());
@@ -155,13 +157,19 @@ function EditorNodeComponent({
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     };
 
+    // Blast radius CSS class
+    const blastRadiusClass = blastRadiusStyle === 'focused' ? 'blast-focused'
+        : blastRadiusStyle === 'affected' ? 'blast-affected'
+        : blastRadiusStyle === 'dimmed' ? 'blast-dimmed'
+        : '';
+
     // --- CONTROLLER (Pill Shape) ---
     if (visualType === 'controller') {
         const color = nodeType?.color || '#a855f7';
         return (
             <div
                 ref={nodeRef}
-                className={`wf_node ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`}
+                className={`wf_node ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''} ${blastRadiusClass}`}
                 {...commonProps}
             >
                 <ValidationBadge />
@@ -196,7 +204,7 @@ function EditorNodeComponent({
         return (
             <div
                 ref={nodeRef}
-                className={`wf_node ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`}
+                className={`wf_node ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''} ${blastRadiusClass}`}
                 {...commonProps}
             >
                 <ValidationBadge />
@@ -244,6 +252,7 @@ function EditorNodeComponent({
                 ${status === 'RUNNING' ? 'wf_active' : ''}
                 ${status === 'SUCCESS' ? 'wf_completed' : ''}
                 ${status === 'FAILED' ? 'wf_error' : ''}
+                ${blastRadiusClass}
             `}
             {...commonProps}
         >

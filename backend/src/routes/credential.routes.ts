@@ -22,6 +22,8 @@ router.use((req: AuthRequest, _res, next) => {
 
 router.post('/', credentialController.create.bind(credentialController));
 router.get('/', credentialController.getAll.bind(credentialController));
+router.get('/workflow/:workflowId', credentialController.getForWorkflow.bind(credentialController));
+router.put('/:id', credentialController.update.bind(credentialController));
 router.delete('/:id', credentialController.delete.bind(credentialController));
 
 export default router;

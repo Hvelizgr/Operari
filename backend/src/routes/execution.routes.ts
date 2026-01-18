@@ -406,4 +406,67 @@ router.post('/:id/resume', async (req: AuthRequest, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /executions/{workflowId}/debug:
+ *   post:
+ *     summary: Debug a workflow (similar to run but optimized for testing)
+ *     tags: [Executions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: workflowId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               input:
+ *                 type: object
+ *               startNodeId:
+ *                 type: string
+ *                 description: Optional node ID to start debugging from
+ *     responses:
+ *       202:
+ *         description: Debug execution started
+ *       404:
+ *         description: Workflow not found
+ */
+router.post('/:workflowId/debug', async (req: AuthRequest, res) => {
+    try {
+        const workflowId = req.params.workflowId as string;
+        const { input, startNodeId } = req.body;
+
+        const workflow = await prisma.workflow.findFirst({
+            where: {
+                id: workflowId,
+                tenantId: req.user!.tenantId,
+            },
+        });
+
+        if (!workflow) {
+            return res.status(404).json({ error: 'Workflow not found' });
+        }
+
+        const executionService = new ExecutionService(prisma);
+        const execution = await executionService.execute({
+            workflowId: workflow.id,
+            userId: req.user!.id,
+            trigger: 'MANUAL', // Debug runs are always MANUAL
+            input: input || {},
+            startNodeId, // Allow partial execution
+        });
+
+        res.status(202).json(execution);
+    } catch (error) {
+        req.log.error({ error }, 'Debug workflow error');
+        res.status(500).json({ error: 'Failed to start debug execution' });
+    }
+});
+
 export default router;

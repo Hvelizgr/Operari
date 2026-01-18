@@ -8,7 +8,6 @@ import UseCases from './components/UseCases';
 import HowItWorks from './components/HowItWorks';
 import Testimonials from './components/Testimonials';
 import CTA from './components/CTA';
-import Footer from './components/Footer';
 
 export async function generateStaticParams() {
     return [{ lang: 'en' }, { lang: 'es' }];
@@ -39,8 +38,6 @@ export default async function Page({
             <Testimonials content={content.testimonials} />
 
             <CTA content={content.cta} modalContent={content.modal} />
-
-            <Footer content={content.footer} />
         </main>
     );
 }

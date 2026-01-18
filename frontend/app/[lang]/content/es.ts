@@ -1,94 +1,94 @@
 export const content = {
   seo: {
-    title: "NanoFlow - Plataforma de Automatización Empresarial",
-    description: "Construya flujos complejos con lógica visual y código. La plataforma de automatización para procesos de misión crítica.",
+    title: "NanoFlow - Plataforma de Gobernanza y Educación n8n",
+    description: "La capa que le falta a n8n. Autocorrección para escuelas, políticas para empresas y chequeos de salud para desarrolladores.",
     openGraph: {
-      title: "NanoFlow - Automatice Todo",
-      description: "Deje de construir herramientas internas desde cero. Orqueste infraestructura, datos y agentes de IA con NanoFlow.",
+      title: "NanoFlow - Controla tu Automatización",
+      description: "Asegura tus instancias n8n. Gestiona estudiantes, impón políticas y audita logs.",
     }
   },
   navigation: {
     product: "Producto",
     solutions: "Soluciones",
     pricing: "Precios",
-    docs: "Documentación",
+    docs: "Docs",
     login: "Ingresar",
     getStarted: "Comenzar"
   },
   hero: {
-    badge: "Nuevo: Orquestación de Agentes IA 2.0",
-    title: "Construya Flujos Complejos.\nSin Dolores de Cabeza.",
-    subtitle: "La plataforma de automatización pensada para desarrolladores. Combine simplicidad visual con control total de código.",
-    ctaPrimary: "Empezar Gratis",
-    ctaSecondary: "Ver Documentación"
+    badge: "Nuevo: Workflow Doctor 1.0",
+    title: "La Capa de Gobernanza\npara Automatización n8n.",
+    subtitle: "Detén el caos. Gestiona estudiantes, impón políticas de seguridad y califica tareas automáticamente en tu n8n existente.",
+    ctaPrimary: "Diagnosticar Flujos",
+    ctaSecondary: "Para Escuelas y Equipos"
   },
   editor: {
-    title: "Lógica Visual, Potencia de Código",
-    description: "No se quede atrapado en cajas rígidas. NanoFlow le permite arrastrar, soltar e inyectar funciones TypeScript en cualquier parte de su pipeline.",
+    title: "Visualiza y Audita",
+    description: "NanoFlow no solo construye; verifica. Nuestro motor escanea tus JSONs de n8n buscando riesgos de seguridad, malas prácticas y criterios de calificación.",
     nodes: {
-      webhook: "Webhook Trigger",
-      transform: "Transformación de Datos",
-      api: "API Externa",
-      db: "Inserción Postgres"
+      webhook: "Chequeo Política",
+      transform: "Escáner Secretos",
+      api: "Auto-Calificador",
+      db: "Log Auditoría"
     }
   },
   useCases: {
-    title: "Soluciones Empresariales",
+    title: "¿Quién usa NanoFlow?",
     items: [
       {
-        title: "Orquestación de Infraestructura",
-        description: "Automatice el aprovisionamiento y despliegue en entornos multi-nube con total fiabilidad."
+        title: "Educación (Escuelas)",
+        description: "Califica automáticamente 30 tareas. Dale a cada alumno un espacio seguro y privado."
       },
       {
-        title: "Sincronización de Datos",
-        description: "Sincronización bidireccional en tiempo real entre CRM, ERP y bases de datos internas a medida."
+        title: "Empresas (DevOps)",
+        description: "Evita el 'Shadow IT'. Impón reglas como 'No llamadas HTTP a IPs desconocidas' antes de ejecutar."
       },
       {
-        title: "Flujos de Agentes IA",
-        description: "Encadene llamadas a LLMs, búsquedas en bases de datos vectoriales y validación humana."
+        title: "Freelancers",
+        description: "El 'Workflow Doctor' analiza tus flujos buscando cuellos de botella y fugas de seguridad."
       }
     ]
   },
   howItWorks: {
-    title: "De la Idea a Producción",
+    title: "Cómo funciona",
     steps: [
       {
         title: "Conectar",
-        description: "Integre con más de 2000 nodos preconstruidos o escriba sus propios conectores personalizados."
+        description: "Vincula tu URL y API Key de n8n. Nosotros no lo alojamos; lo gestionamos."
       },
       {
-        title: "Construir",
-        description: "Diseñe la lógica visualmente. Maneje errores, bucles y condiciones con control granular."
+        title: "Gobernar",
+        description: "Define reglas: 'Estudiantes no pueden usar nodos de Consola' o 'Requerir Auth para Webhooks'."
       },
       {
-        title: "Desplegar",
-        description: "Publique en un entorno serverless escalable con un clic. Monitoree en tiempo real."
+        title: "Ejecutar",
+        description: "Los usuarios corren flujos en NanoFlow. Interceptamos, validamos y enviamos a n8n de forma segura."
       }
     ]
   },
   features: {
-    headline: "Todo lo que necesita para construir",
-    subheadline: "Primitivas potentes para equipos de ingeniería modernos.",
+    headline: "Funciones de Gobernanza",
+    subheadline: "Las herramientas que le faltan a n8n Community Edition.",
     items: [
-      { title: "Editor Visual", description: "Constructor de flujos 'drag-and-drop' con validación en tiempo real.", icon: "🎨" },
-      { title: "Nativo TypeScript", description: "Escriba lógica personalizada en TypeScript con tipado seguro.", icon: "💻" },
-      { title: "Integración IA", description: "Nodos nativos para OpenAI, Anthropic y LLMs locales.", icon: "🤖" },
-      { title: "Seguridad Enterprise", description: "SSO, RBAC y Logs de Auditoría integrados desde el primer día.", icon: "🔒" },
-      { title: "Métricas en Tiempo Real", description: "Monitoree tiempos de ejecución, tasas de error y rendimiento.", icon: "📊" },
-      { title: "Control de Versiones", description: "Integración con Git para ramas, diferencias y rollbacks.", icon: "git" }
+      { title: "Workflow Doctor", description: "Análisis estático para detectar secretos expuestos y bucles.", icon: "🩺" },
+      { title: "Modo Aula", description: "Login multi-usuario y calificación automática para tareas.", icon: "🎓" },
+      { title: "Firewall de Políticas", description: "Bloquea nodos o dominios específicos a nivel de gateway.", icon: "🛡️" },
+      { title: "Logs de Auditoría", description: "Rastrea exactamente quién ejecutó qué y cuándo.", icon: "📜" },
+      { title: "Snapshots Locales", description: "Historial local para deshacer errores instantáneamente.", icon: "⏪" },
+      { title: "Gateway SSO", description: "Login con Google/Microsoft antes de acceder a n8n.", icon: "🔑" }
     ]
   },
   integrations: {
-    title: "Conecte su Stack",
-    subtitle: "Integre sin problemas con las herramientas que ya utiliza.",
-    items: ["n8n", "Stripe", "Slack", "Postgres", "OpenAI", "GitHub", "Notion", "Discord"]
+    title: "Funciona con tu Stack",
+    subtitle: "Compatible con instancias n8n self-hosted y cloud.",
+    items: ["n8n", "Docker", "Kubernetes", "Postgres", "Auth0", "Google Workspace", "GitHub", "GitLab"]
   },
   testimonials: {
-    title: "Confiado por Constructores",
+    title: "Confiado por Educadores y CTOs",
     items: [
-      { quote: "NanoFlow nos ahorró meses de desarrollo de herramientas internas.", author: "Sarah Jenkins", role: "CTO @ TechFlow" },
-      { quote: "La capacidad de bajar al código cuando lo necesito es un cambio de juego.", author: "Mike Chen", role: "Lead Engineer" },
-      { quote: "Finalmente, una herramienta de automatización que trata la infraestructura como código.", author: "Elena Rodriguez", role: "DevOps Lead" }
+      { quote: "NanoFlow me permitió enseñar n8n a 50 alumnos sin que se borraran el trabajo entre ellos.", author: "Prof. Sarah Jenkins", role: "Instructor Habilidades Digitales" },
+      { quote: "Finalmente puedo ver los logs de auditoría y saber qué dev rompió producción.", author: "Mike Chen", role: "CTO @ TechFlow" },
+      { quote: "El Workflow Doctor encontró una API Key expuesta en un repo público. Me salvó la vida.", author: "Elena Rodriguez", role: "Automator Freelance" }
     ]
   },
   footer: {
@@ -100,18 +100,18 @@ export const content = {
     }
   },
   cta: {
-    title: "¿Listo para Escalar?",
-    subtitle: "Únase a equipos de ingeniería en empresas de alto crecimiento que construyen mejores herramientas internas.",
-    button: "Comience su Prueba Gratuita"
+    title: "Asegura tu Automatización",
+    subtitle: "Únete a escuelas y empresas que añaden una capa de gobernanza a sus flujos.",
+    button: "Iniciar Auditoría Gratis"
   },
   modal: {
-    title: "Obtenga Acceso Empresarial",
-    subtitle: "Únase a la lista de espera para nuestra nube empresarial. Le enviaremos una invitación pronto.",
-    placeholder: "trabajo@empresa.com",
+    title: "Obtén Acceso de Gobernanza",
+    subtitle: "Únete a la lista de espera para la nube de gobernanza gestionada.",
+    placeholder: "trabajo@escuela.edu",
     button: "Solicitar Acceso",
     processing: "Procesando...",
     successTitle: "¡Estás en la lista!",
-    successDesc: "Revise su correo para los siguientes pasos.",
+    successDesc: "Estaremos en contacto pronto.",
     successButton: "Cerrar"
   }
 };

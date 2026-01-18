@@ -264,7 +264,7 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
     const [expandedCategories, setExpandedCategories] = useState<string[]>(['triggers', 'core', 'ai', 'organization', 'integrations']);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const { nodeTypes: apiNodes, loading } = useNodeTypes();
+    const { nodeTypes: apiNodes } = useNodeTypes();
 
     const allNodes = useMemo(() => {
         // Filter out duplicates (keep local ones if type conflicts)
@@ -274,22 +274,8 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
         return [...NODE_TYPES, ...filteredApi] as NodeType[];
     }, [apiNodes]);
 
-    const categories = useMemo(() => {
-        const cats = [...CATEGORIES];
-        const coreIds = new Set(CATEGORIES.map(c => c.id));
+    // Categories are static for now, reusing global CATEGORIES constant
 
-        // Find any nodes with categories not in our core list
-        const extraCategories = new Set<string>();
-        allNodes.forEach(node => {
-            if (!coreIds.has(node.category)) {
-                extraCategories.add(node.category);
-            }
-        });
-
-        // If there are extra categories, they will be shown in "Services" (integrations)
-        // because CATEGORIES already includes 'integrations' now.
-        return cats;
-    }, [allNodes]);
 
     const content = {
         en: {

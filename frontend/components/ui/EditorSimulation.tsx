@@ -1,7 +1,7 @@
 "use client";
 
-import { motion, useMotionValue, useTransform } from "framer-motion";
-import { useState, useRef } from "react";
+import { motion } from "framer-motion";
+import { useState } from "react";
 
 interface Node {
   id: string;

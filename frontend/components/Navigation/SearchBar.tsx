@@ -2,11 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Search, X, Plus, ChevronDown, ChevronRight, Folder,
-    Globe, Mail, Database, Clock, GitBranch, Code, MessageSquare,
-    FileText, Calendar, Webhook, Send, Key, Zap, Settings,
-    Cloud, Server, Hash, Play, Pause, RefreshCw, Filter,
-    AlertCircle, List, Grid, Shuffle, Bell
+    Search, X, Plus, ChevronDown, Folder
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { WorkflowNode } from '../Editor';
@@ -107,6 +103,7 @@ export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightN
 
     // Build the hierarchical tree
     const categoryTree = useMemo(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const root: Record<string, any> = {};
 
         // 1. Initialize top-level categories
@@ -185,9 +182,6 @@ export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightN
                 : [...prev, categoryId]
         );
     };
-
-    const hasSearchResults = searchTerm && (filteredAvailableNodes.length > 0 || filteredCanvasNodes.length > 0);
-    const showCategories = isOpen && !searchTerm;
 
     // Focus input when opened
     useEffect(() => {
@@ -364,6 +358,7 @@ function CategoryFolder({
                 <span className="text-sm font-semibold text-gray-200 flex-1 text-left truncate group-hover:text-white transition-colors">
                     {category.label}
                 </span>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 <span className="text-[10px] text-gray-400 font-mono bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
                     {category.nodes.length + Object.values(category.subCategories).reduce((acc: number, cur: any) => acc + cur.nodes.length, 0)}
                 </span>

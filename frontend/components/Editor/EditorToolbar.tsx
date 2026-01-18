@@ -1,7 +1,9 @@
 'use client';
 
-import { Undo2, Redo2, MousePointer2, Move, Copy, Trash2, Power, History as HistoryIcon, Unlink, Keyboard } from 'lucide-react';
+import { Undo2, Redo2, MousePointer2, Move, Copy, Trash2, Power, History as HistoryIcon, Unlink, Keyboard, Target } from 'lucide-react';
 import { CSSProperties } from 'react';
+
+type BlastRadiusMode = 'off' | 'downstream' | 'upstream' | 'both';
 
 interface EditorToolbarProps {
     // Undo/Redo
@@ -18,6 +20,10 @@ interface EditorToolbarProps {
     // Editor Mode
     editorMode: 'move' | 'connect';
     setEditorMode: (mode: 'move' | 'connect') => void;
+
+    // Blast Radius (Impact Analysis)
+    blastRadiusMode?: BlastRadiusMode;
+    onToggleBlastRadius?: () => void;
 
     // Selection Context
     selectedCount?: number;
@@ -40,6 +46,8 @@ export default function EditorToolbar({
     lang,
     editorMode,
     setEditorMode,
+    blastRadiusMode = 'off',
+    onToggleBlastRadius,
     selectedCount = 0,
     onDuplicate,
     onDelete,
@@ -163,6 +171,30 @@ export default function EditorToolbar({
                 title={lang === 'en' ? 'History' : 'Historial'}
             >
                 <HistoryIcon size={16} style={{ transform: 'scale(1.2)' }} />
+            </div>
+
+            <div className="wf_button_separator right"></div>
+
+            {/* --- GROUP 5: BLAST RADIUS (Impact Analysis) --- */}
+            <div
+                className={`button right ${blastRadiusMode !== 'off' ? 'primary' : ''}`}
+                onClick={onToggleBlastRadius}
+                title={
+                    lang === 'en'
+                        ? `Impact Analysis (${blastRadiusMode === 'off' ? 'Off' : blastRadiusMode === 'downstream' ? 'Downstream' : blastRadiusMode === 'upstream' ? 'Upstream' : 'Both'})`
+                        : `Análisis de Impacto (${blastRadiusMode === 'off' ? 'Apagado' : blastRadiusMode === 'downstream' ? 'Descendente' : blastRadiusMode === 'upstream' ? 'Ascendente' : 'Ambos'})`
+                }
+            >
+                <Target size={16} style={{ marginRight: '4px', transform: 'scale(1.2)' }} />
+                <span>
+                    {blastRadiusMode === 'off'
+                        ? (lang === 'en' ? 'Impact' : 'Impacto')
+                        : blastRadiusMode === 'downstream'
+                            ? (lang === 'en' ? 'Downstream' : 'Desc.')
+                            : blastRadiusMode === 'upstream'
+                                ? (lang === 'en' ? 'Upstream' : 'Asc.')
+                                : (lang === 'en' ? 'Both' : 'Ambos')}
+                </span>
             </div>
         </div>
     );

@@ -68,8 +68,9 @@ model Workflow {
   executions          Execution[]
   tenant              Tenant               @relation(fields: [tenantId], references: [id])
   user                User                 @relation(fields: [userId], references: [id])
-  workflowConnections WorkflowConnection[]
-  workflowNodes       WorkflowNode[]
+  workflowConnections  WorkflowConnection[]
+  workflowNodes        WorkflowNode[]
+  systemEventListeners SystemEventListener[]
 
   @@index([userId])
   @@index([tenantId])
@@ -243,8 +244,22 @@ model Credential {
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Scope fields for access control
+  environment    CredentialEnvironment @default(ALL)
+  allowedWorkflows String[]  // Array of workflow IDs that can use this credential
+  allowedTags      String[]  // Array of tags - workflows with these tags can use this credential
+  description      String?   // Optional description for the credential
+
   @@index([userId])
   @@index([type])
+  @@index([environment])
+}
+
+enum CredentialEnvironment {
+  DEVELOPMENT
+  STAGING
+  PRODUCTION
+  ALL
 }
 
 enum Role {
@@ -281,6 +296,32 @@ enum TriggerType {
   SCHEDULED
   WEBHOOK
   API
+  SYSTEM_EVENT
+}
+
+// System Event Listeners - workflows that listen to internal events
+model SystemEventListener {
+  id          String           @id @default(uuid())
+  workflowId  String
+  eventType   SystemEventType
+  eventFilter Json?            // Optional filter criteria (e.g., { "alertName": "HighCPU" })
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  workflow    Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, eventType])
+  @@index([eventType])
+  @@index([isActive])
+}
+
+enum SystemEventType {
+  ALERT_TRIGGERED      // When an alert condition fires
+  WORKFLOW_COMPLETED   // When another workflow completes successfully
+  WORKFLOW_FAILED      // When another workflow fails
+  WORKFLOW_STARTED     // When another workflow starts
+  CREDENTIAL_EXPIRING  // When a credential is about to expire
+  CUSTOM               // Custom user-defined events
 }
 
 enum ErrorSeverity {

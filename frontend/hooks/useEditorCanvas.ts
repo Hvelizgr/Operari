@@ -14,6 +14,7 @@ import { useEditorViewport } from '../hooks/useEditorViewport';
 import { useEditorNodes } from '../hooks/useEditorNodes';
 import { useEditorSelection } from '../hooks/useEditorSelection';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
+import { useBlastRadius } from '../hooks/useBlastRadius';
 import { createNewNode, createDroppedNode, generateExecutionMetrics } from '../components/Editor/EditorCanvas.utils';
 
 // Editor-specific types
@@ -161,6 +162,21 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         executeCommand,
         announceMessage,
     });
+
+    // Blast Radius (Impact Analysis)
+    const {
+        blastRadiusMode,
+        focusedNodeId: blastRadiusFocusedNode,
+        blastRadius,
+        affectedConnections: blastRadiusConnections,
+        setBlastRadiusMode,
+        setFocusedNode: setBlastRadiusFocusedNode,
+        toggleBlastRadiusMode,
+        isNodeInBlastRadius,
+        isNodeDimmed,
+        isConnectionInBlastRadius,
+        getNodeBlastRadiusStyle,
+    } = useBlastRadius({ connections });
 
     // --- FETCH INITIAL WORKFLOW ---
     useEffect(() => {
@@ -537,6 +553,8 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     const isPanningRef = useRef(isPanning);
     const panStartRef = useRef(panStart);
     const selectionBoxRef = useRef(selectionBox);
+    const creatingConnectionRef = useRef(creatingConnection);
+    const draggingNodeTypeRef = useRef(draggingNodeType);
 
     useEffect(() => { viewportRef.current = viewport; }, [viewport]);
     useEffect(() => { nodeDragStartRef.current = nodeDragStart; }, [nodeDragStart]);
@@ -544,6 +562,8 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     useEffect(() => { isPanningRef.current = isPanning; }, [isPanning]);
     useEffect(() => { panStartRef.current = panStart; }, [panStart]);
     useEffect(() => { selectionBoxRef.current = selectionBox; }, [selectionBox]);
+    useEffect(() => { creatingConnectionRef.current = creatingConnection; }, [creatingConnection]);
+    useEffect(() => { draggingNodeTypeRef.current = draggingNodeType; }, [draggingNodeType]);
 
     // Refs for handlers to avoid restarting effect on node/viewport updates
     const handleNodeDragEndLocalRef = useRef(handleNodeDragEndLocal);
@@ -559,6 +579,19 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     // Use current Nodes in ref to avoid dependency cycle in effect
     const nodesRef = useRef(nodes);
     useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+
+    // Refs for setters to avoid re-running the effect when they change
+    const setNodesRef = useRef(setNodes);
+    const setViewportRef = useRef(setViewport);
+    const setCreatingConnectionRef = useRef(setCreatingConnection);
+    const setDraggingNodeTypeRef = useRef(setDraggingNodeType);
+    const setIsPanningRef = useRef(setIsPanning);
+
+    useEffect(() => { setNodesRef.current = setNodes; }, [setNodes]);
+    useEffect(() => { setViewportRef.current = setViewport; }, [setViewport]);
+    useEffect(() => { setCreatingConnectionRef.current = setCreatingConnection; }, [setCreatingConnection]);
+    useEffect(() => { setDraggingNodeTypeRef.current = setDraggingNodeType; }, [setDraggingNodeType]);
+    useEffect(() => { setIsPanningRef.current = setIsPanning; }, [setIsPanning]);
 
     useEffect(() => {
         let animationFrameId: number;
@@ -576,7 +609,7 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
                 if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
                 animationFrameId = requestAnimationFrame(() => {
-                    setNodes((prevNodes) => {
+                    setNodesRef.current((prevNodes) => {
                         const draggedNode = prevNodes.find(n => n.id === draggingNodeRef.current);
                         if (!draggedNode) return prevNodes;
 
@@ -621,12 +654,12 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
                 });
             } else if (isPanningRef.current) {
                 const start = panStartRef.current;
-                setViewport((prev) => ({
+                setViewportRef.current((prev) => ({
                     ...prev,
                     x: e.clientX - start.x,
                     y: e.clientY - start.y,
                 }));
-            } else if (creatingConnection) {
+            } else if (creatingConnectionRef.current) {
                 updateCreatingConnectionPositionRef.current(e.clientX, e.clientY);
             } else if (selectionBoxRef.current) {
                 updateSelectionBoxRef.current(e.clientX, e.clientY);
@@ -635,9 +668,9 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
 
         const handleWindowMouseUp = () => {
             if (draggingNodeRef.current) handleNodeDragEndLocalRef.current();
-            if (isPanningRef.current) setIsPanning(false);
-            if (creatingConnection) setCreatingConnection(null);
-            if (draggingNodeType) setDraggingNodeType(null);
+            if (isPanningRef.current) setIsPanningRef.current(false);
+            if (creatingConnectionRef.current) setCreatingConnectionRef.current(null);
+            if (draggingNodeTypeRef.current) setDraggingNodeTypeRef.current(null);
             if (selectionBoxRef.current) clearSelectionBoxRef.current();
         };
 
@@ -655,10 +688,6 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         !!creatingConnection,
         !!draggingNodeType,
         !!selectionBox,
-        setCreatingConnection,
-        setDraggingNodeType,
-        setViewport,
-        setNodes
     ]);
 
     // Deletion Logic
@@ -1034,5 +1063,18 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         isRunDialogOpen,
         handleOpenRunDialog,
         handleCloseRunDialog,
+
+        // Blast Radius (Impact Analysis)
+        blastRadiusMode,
+        blastRadiusFocusedNode,
+        blastRadius,
+        blastRadiusConnections,
+        setBlastRadiusMode,
+        setBlastRadiusFocusedNode,
+        toggleBlastRadiusMode,
+        isNodeInBlastRadius,
+        isNodeDimmed,
+        isConnectionInBlastRadius,
+        getNodeBlastRadiusStyle,
     };
 }

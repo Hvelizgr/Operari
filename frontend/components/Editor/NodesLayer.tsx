@@ -43,6 +43,9 @@ interface NodesLayerProps {
     onNodeDuplicate?: (nodeId: string) => void;
     onNodeFocus?: (nodeId: string) => void;
     lang: 'en' | 'es';
+
+    // Blast Radius (Impact Analysis)
+    getNodeBlastRadiusStyle?: (nodeId: string) => 'focused' | 'affected' | 'dimmed' | 'normal';
 }
 
 export default function NodesLayer({
@@ -73,7 +76,9 @@ export default function NodesLayer({
     onNodeDelete,
     onNodeDuplicate,
     onNodeFocus,
-    lang
+    lang,
+    // Blast Radius
+    getNodeBlastRadiusStyle,
 }: NodesLayerProps) {
     // Hover state for toolbar
     const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -211,6 +216,7 @@ export default function NodesLayer({
                             status={nodeStatuses[node.id]}
                             onRunFromNode={onNodeRun}
                             lang={lang}
+                            blastRadiusStyle={getNodeBlastRadiusStyle?.(node.id)}
                         />
                     </div>
                 );

@@ -23,6 +23,8 @@ export default function Navbar({ content, lang }: NavbarProps) {
     useEffect(() => {
         const handleScroll = () => setIsScrolled(window.scrollY > 20);
         window.addEventListener('scroll', handleScroll);
+        // Initial check
+        handleScroll();
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
@@ -35,7 +37,7 @@ export default function Navbar({ content, lang }: NavbarProps) {
                     backgroundColor: `rgba(var(--background), ${isScrolled ? 0.8 : 0})`,
                     backdropFilter: isScrolled ? "blur(12px)" : "none",
                 }}
-                className={`w-full max-w-6xl rounded-2xl flex items-center justify-between px-6 py-4 transition-all duration-300 ${isScrolled ? 'border border-border shadow-sm' : ''}`}
+                className={`w-full max-w-6xl rounded-2xl flex items-center justify-between px-6 py-4 transition-all duration-300 ${isScrolled ? 'border border-white/10 shadow-lg shadow-black/20' : ''}`}
             >
                 {/* Logo */}
                 <Link href={`/${lang}`} className="flex items-center gap-2 font-bold text-xl tracking-tighter">
@@ -51,16 +53,16 @@ export default function Navbar({ content, lang }: NavbarProps) {
 
                 {/* Desktop Nav */}
                 <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
-                    <Link href="#" className="hover:text-foreground transition-colors">{content.product}</Link>
-                    <Link href="#" className="hover:text-foreground transition-colors">{content.solutions}</Link>
-                    <Link href="#" className="hover:text-foreground transition-colors">{content.pricing}</Link>
-                    <Link href="#" className="hover:text-foreground transition-colors">{content.docs}</Link>
+                    <Link href={`/${lang}/automation`} className="hover:text-foreground transition-colors">{content.product}</Link>
+                    <Link href={`/${lang}/solutions`} className="hover:text-foreground transition-colors">{content.solutions}</Link>
+                    <Link href={`/${lang}/pricing`} className="hover:text-foreground transition-colors">{content.pricing}</Link>
+                    <Link href={`/${lang}/docs`} className="hover:text-foreground transition-colors">{content.docs}</Link>
                 </nav>
 
                 {/* Listeners & Actions */}
                 <div className="hidden md:flex items-center gap-4">
                     <LanguageSwitcher lang={lang} />
-                    <Link href="#" className="text-sm font-medium hover:text-primary transition-colors">
+                    <Link href={`/${lang}/login`} className="text-sm font-medium hover:text-primary transition-colors">
                         {content.login}
                     </Link>
                     <Link
@@ -88,10 +90,10 @@ export default function Navbar({ content, lang }: NavbarProps) {
                     className="absolute top-20 left-4 right-4 bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-6 md:hidden"
                 >
                     <nav className="flex flex-col gap-4 text-lg font-medium">
-                        <Link href="#" className="hover:text-primary">{content.product}</Link>
-                        <Link href="#" className="hover:text-primary">{content.solutions}</Link>
-                        <Link href="#" className="hover:text-primary">{content.pricing}</Link>
-                        <Link href="#" className="hover:text-primary">{content.docs}</Link>
+                        <Link href={`/${lang}/automation`} className="hover:text-primary">{content.product}</Link>
+                        <Link href={`/${lang}/solutions`} className="hover:text-primary">{content.solutions}</Link>
+                        <Link href={`/${lang}/pricing`} className="hover:text-primary">{content.pricing}</Link>
+                        <Link href={`/${lang}/docs`} className="hover:text-primary">{content.docs}</Link>
                     </nav>
                     <div className="h-px bg-border" />
                     <div className="flex items-center justify-between">

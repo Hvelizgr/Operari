@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { content } from '../../content/en';
 import DemoRequestModal from './DemoRequestModal';
+import { GridPattern } from '@/components/ui/GridPattern';
 
 type CTAProps = {
     content: typeof content.cta;
@@ -18,8 +19,16 @@ export default function CTA({ content, modalContent }: CTAProps) {
         <>
             <section className="py-32 relative overflow-hidden">
                 {/* Background Ambience */}
-                <div className="absolute inset-0 bg-background" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px]" />
+                <div className="absolute inset-0 bg-background">
+                    <GridPattern
+                        width={40}
+                        height={40}
+                        x={-1}
+                        y={-1}
+                        className="stroke-blue-500/10 [mask-image:radial-gradient(600px_circle_at_center,white,transparent)]"
+                    />
+                </div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-500/10 rounded-full blur-[120px]" />
 
                 <div className="container relative z-10 px-4 text-center">
                     <motion.div

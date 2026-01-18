@@ -49,6 +49,24 @@ import { RepeatNodeExecutor } from './logic/repeat-node.executor';
 import { MultiplexNodeExecutor } from './logic/multiplex-node.executor';
 import { LimitNodeExecutor } from './logic/limit-node.executor';
 import { ActionNodeExecutor } from './logic/action-node.executor';
+import { AlertConditionNodeExecutor, AlertConditionNodeConfig } from './logic/alert-condition-node.executor';
+import { ThresholdNodeExecutor, ThresholdNodeConfig } from './logic/threshold-node.executor';
+import { CompareNodeExecutor, CompareNodeConfig } from './logic/compare-node.executor';
+import {
+    DiskUsageNodeExecutor,
+    DiskUsageConfig,
+    CpuMonitorNodeExecutor,
+    CpuMonitorConfig,
+    MemoryMonitorNodeExecutor,
+    MemoryMonitorConfig
+} from './logic/infrastructure-monitor.executor';
+import {
+    PingNodeExecutor,
+    PingConfig,
+    HttpHealthCheckNodeExecutor,
+    HttpHealthCheckConfig
+} from './logic/network-monitor.executor';
+import { NodeLoaderService } from '../services/node-loader.service'; // Import loader
 import { n8nService } from '../services/n8n.service';
 import {
     HttpError,
@@ -175,12 +193,17 @@ class SecureSandbox {
                 const context = await isolate.createContext();
                 const jail = context.global;
 
-                await jail.set('global', jail.derefInto());
+                // DO NOT expose 'global' directly to avoid prototype pollution or escaping
+                // await jail.set('global', jail.derefInto()); 
 
+                // Inject allowed globals strictly
                 for (const [key, value] of Object.entries(ALLOWED_GLOBALS)) {
                     if (typeof value === 'object' && value !== null) {
                         await jail.set(key, new ivm.ExternalCopy(value).copyInto());
                     } else if (typeof value === 'function') {
+                        // For functions, we need to be careful. Reference might allow calling back into host.
+                        // Ideally, we wrap them or only expose pure functions.
+                        // For now, keeping Reference but aware of risks.
                         await jail.set(key, new ivm.Reference(value));
                     }
                 }
@@ -188,11 +211,30 @@ class SecureSandbox {
                 await jail.set('input', new ivm.ExternalCopy(input).copyInto());
                 await jail.set('__result__', undefined);
 
+                // WRAPPER SÉGURO:
+                // 1. Ocultamos 'eval', 'Function', 'require' (aunque 'require' no existe en ivm por defecto)
+                // 2. Usamos 'use strict'
+                // 3. Ejecutamos el código de usuario dentro de una función anónima
                 const wrappedCode = `
                     (function() {
+                        'use strict';
+                        
+                        // Shadow dangerous globals just in case
+                        const eval = undefined;
+                        const require = undefined;
+                        const process = undefined;
+                        const setTimeout = undefined;
+                        const setInterval = undefined;
+                        
+                        // Bloquear constructor de funciones dinámicas
+                        const Function = undefined;
+                        const Promise = undefined; // Optional: block async if needed, but we usually want async
+
                         try {
                             const __userCode__ = function(input) {
+                                // User code starts here
                                 ${code}
+                                // User code ends here
                             };
                             __result__ = __userCode__(input);
                         } catch (e) {
@@ -253,7 +295,8 @@ class SecureSandbox {
                 const context = await isolate.createContext();
                 const jail = context.global;
 
-                await jail.set('global', jail.derefInto());
+                // DO NOT expose global
+                // await jail.set('global', jail.derefInto());
 
                 // Inyectar funciones permitidas
                 for (const [key, value] of Object.entries(ALLOWED_GLOBALS)) {
@@ -273,6 +316,12 @@ class SecureSandbox {
 
                 const wrappedCode = `
                     (function() {
+                        'use strict';
+                        const eval = undefined;
+                        const Function = undefined;
+                        const require = undefined;
+                        const process = undefined;
+                        
                         try {
                             __result__ = Boolean(${sanitizedCondition});
                         } catch (e) {
@@ -342,6 +391,14 @@ export class NodeExecutor {
     private multiplexExecutor: MultiplexNodeExecutor;
     private limitExecutor: LimitNodeExecutor;
     private actionExecutor: ActionNodeExecutor;
+    private alertConditionExecutor: AlertConditionNodeExecutor;
+    private thresholdExecutor: ThresholdNodeExecutor;
+    private compareExecutor: CompareNodeExecutor;
+    private diskUsageExecutor: DiskUsageNodeExecutor;
+    private cpuMonitorExecutor: CpuMonitorNodeExecutor;
+    private memoryMonitorExecutor: MemoryMonitorNodeExecutor;
+    private pingExecutor: PingNodeExecutor;
+    private httpCheckExecutor: HttpHealthCheckNodeExecutor;
 
     constructor(prisma?: PrismaClient) {
         // Inicializar el sandbox con configuración por defecto
@@ -372,6 +429,14 @@ export class NodeExecutor {
         this.multiplexExecutor = new MultiplexNodeExecutor();
         this.limitExecutor = new LimitNodeExecutor();
         this.actionExecutor = new ActionNodeExecutor();
+        this.alertConditionExecutor = new AlertConditionNodeExecutor();
+        this.thresholdExecutor = new ThresholdNodeExecutor();
+        this.compareExecutor = new CompareNodeExecutor();
+        this.diskUsageExecutor = new DiskUsageNodeExecutor();
+        this.cpuMonitorExecutor = new CpuMonitorNodeExecutor();
+        this.memoryMonitorExecutor = new MemoryMonitorNodeExecutor();
+        this.pingExecutor = new PingNodeExecutor();
+        this.httpCheckExecutor = new HttpHealthCheckNodeExecutor();
     }
 
     async execute(node: WorkflowNode, input: ExecutionInput, options: NodeExecutionOptions = {}): Promise<NodeExecutionResult> {
@@ -482,11 +547,53 @@ export class NodeExecutor {
             case 'CreateTicket':
                 return this.executeCreateTicket(config as CreateTicketNodeConfig, input, commonErrorContext, options);
 
+            case 'AlertCondition':
+            case 'Alert':
+                return this.alertConditionExecutor.execute(config as AlertConditionNodeConfig, input, node.id);
+
+            case 'Threshold':
+                return this.thresholdExecutor.execute(config as ThresholdNodeConfig, input);
+
+            case 'Compare':
+                return this.compareExecutor.execute(config as CompareNodeConfig, input);
+
+
             case 'custom.note':
                 return input;
 
+            case 'DiskUsage':
+                return this.diskUsageExecutor.execute(config as DiskUsageConfig, input);
+
+            case 'CpuMonitor':
+                return this.cpuMonitorExecutor.execute(config as CpuMonitorConfig, input);
+
+            case 'MemoryMonitor':
+                return this.memoryMonitorExecutor.execute(config as MemoryMonitorConfig, input);
+
+            case 'Ping':
+                return this.pingExecutor.execute(config as PingConfig, input);
+            
+            case 'HttpHealthCheck':
+                return this.httpCheckExecutor.execute(config as HttpHealthCheckConfig, input);
 
             default:
+                // Try dynamic nodes
+                const dynamicExecutor = NodeLoaderService.getInstance().getExecutor(node.type);
+                if (dynamicExecutor) {
+                     // Instantiate if it's a class constructable, or call execute directly if it's an instance
+                     // Simple assumption for now: if it has .prototype.execute, it's a class. 
+                     // Or we just assume the exported 'executor' is an INSTANCE or object with execute().
+                     // Let's assume it's an object/instance for simplicity in V1 logic.
+                     if (typeof dynamicExecutor.execute === 'function') {
+                         return dynamicExecutor.execute(config, input);
+                     }
+                     // If it's a class
+                     if (typeof dynamicExecutor === 'function') {
+                         const instance = new dynamicExecutor();
+                         return instance.execute(config, input);
+                     }
+                }
+
                 throw new NodeExecutionError({
                     ...commonErrorContext,
                     message: `Unknown node type: ${node.type}`,

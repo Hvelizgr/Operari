@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Square, ChevronRight, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 
 import { WorkflowNode } from '../Editor';
 

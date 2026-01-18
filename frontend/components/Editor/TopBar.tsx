@@ -1,9 +1,11 @@
 'use client';
 
-import { Download, Moon, Sun, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Square, Settings2 } from 'lucide-react';
+import { Download, Moon, Sun, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Square, Settings2, Target, Gauge, ShieldAlert, ShieldCheck, FileWarning, FileCheck } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import type { SaveStatus } from '../../hooks/useAutosave';
+
+type BlastRadiusMode = 'off' | 'downstream' | 'upstream' | 'both';
 
 interface TopBarProps {
     lang: 'en' | 'es';
@@ -21,6 +23,19 @@ interface TopBarProps {
     saveStatus?: SaveStatus;
     onTemplates?: () => void;
     onMetrics?: () => void;
+    // Blast Radius (Impact Analysis)
+    blastRadiusMode?: BlastRadiusMode;
+    onToggleBlastRadius?: () => void;
+    // Complexity Score
+    complexityScore?: number;
+    complexityLevel?: 'low' | 'medium' | 'high' | 'critical';
+    // Security Scanner
+    securityIssueCount?: number;
+    securitySeverity?: 'low' | 'medium' | 'high' | 'critical' | null;
+    // Architecture Linter
+    lintErrorCount?: number;
+    lintWarningCount?: number;
+    lintPassed?: boolean;
 }
 
 export default function TopBar({
@@ -38,7 +53,16 @@ export default function TopBar({
     onAutoLayout,
     saveStatus,
     onTemplates,
-    onMetrics
+    onMetrics,
+    blastRadiusMode = 'off',
+    onToggleBlastRadius,
+    complexityScore,
+    complexityLevel,
+    securityIssueCount = 0,
+    securitySeverity,
+    lintErrorCount = 0,
+    lintWarningCount = 0,
+    lintPassed = true,
 }: TopBarProps) {
     const { highContrast, toggleHighContrast } = useAccessibility();
     const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
@@ -91,6 +115,74 @@ export default function TopBar({
                 </div>
                 <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
                 {renderSaveStatus()}
+                {complexityScore !== undefined && complexityLevel && (
+                    <>
+                        <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+                        <div
+                            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                                complexityLevel === 'low' ? 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800' :
+                                complexityLevel === 'medium' ? 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800' :
+                                complexityLevel === 'high' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800' :
+                                'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
+                            }`}
+                            title={lang === 'en' ? `Complexity Score: ${complexityScore}` : `Puntuación de Complejidad: ${complexityScore}`}
+                        >
+                            <Gauge size={12} />
+                            <span>{complexityScore}</span>
+                        </div>
+                    </>
+                )}
+                {/* Security Badge */}
+                <>
+                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+                    {securityIssueCount === 0 ? (
+                        <div
+                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
+                            title={lang === 'en' ? 'No security issues detected' : 'No se detectaron problemas de seguridad'}
+                        >
+                            <ShieldCheck size={12} />
+                            <span>{lang === 'en' ? 'Secure' : 'Seguro'}</span>
+                        </div>
+                    ) : (
+                        <div
+                            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                                securitySeverity === 'critical' ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800' :
+                                securitySeverity === 'high' ? 'bg-red-100 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800' :
+                                securitySeverity === 'medium' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800' :
+                                'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800'
+                            }`}
+                            title={lang === 'en' ? `${securityIssueCount} security issue(s) detected` : `${securityIssueCount} problema(s) de seguridad detectado(s)`}
+                        >
+                            <ShieldAlert size={12} />
+                            <span>{securityIssueCount}</span>
+                        </div>
+                    )}
+                </>
+                {/* Lint Badge */}
+                <>
+                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+                    {lintPassed && lintWarningCount === 0 ? (
+                        <div
+                            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
+                            title={lang === 'en' ? 'No lint issues' : 'Sin problemas de lint'}
+                        >
+                            <FileCheck size={12} />
+                            <span>{lang === 'en' ? 'Valid' : 'Válido'}</span>
+                        </div>
+                    ) : (
+                        <div
+                            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                                lintErrorCount > 0
+                                    ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
+                                    : 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800'
+                            }`}
+                            title={lang === 'en' ? `${lintErrorCount} error(s), ${lintWarningCount} warning(s)` : `${lintErrorCount} error(es), ${lintWarningCount} advertencia(s)`}
+                        >
+                            <FileWarning size={12} />
+                            <span>{lintErrorCount + lintWarningCount}</span>
+                        </div>
+                    )}
+                </>
                 {onTemplates && (
                     <>
                         <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
@@ -140,6 +232,26 @@ export default function TopBar({
                                 <Wand2 size={16} />
                                 {lang === 'en' ? 'Auto Layout' : 'Organizar'}
                             </button>
+
+                            {/* Impact Analysis (Blast Radius) */}
+                            {onToggleBlastRadius && (
+                                <button
+                                    onClick={() => { onToggleBlastRadius(); setIsToolsMenuOpen(false); }}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                                        blastRadiusMode !== 'off'
+                                            ? 'text-orange-600 bg-orange-50 dark:bg-orange-900/20'
+                                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                    }`}
+                                >
+                                    <Target size={16} />
+                                    {lang === 'en' ? 'Impact Analysis' : 'Análisis de Impacto'}
+                                    <span className="ml-auto text-xs text-slate-400">
+                                        {blastRadiusMode === 'off' ? 'Off' :
+                                         blastRadiusMode === 'downstream' ? '↓' :
+                                         blastRadiusMode === 'upstream' ? '↑' : '↕'}
+                                    </span>
+                                </button>
+                            )}
 
                             <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
 

@@ -15,8 +15,12 @@ import nodeTypesRoutes from './routes/node-types.routes'; // Added import
 import templateRoutes from './routes/template.routes';
 import webhookRoutes from './routes/webhook.routes';
 import credentialRoutes from './routes/credential.routes';
+import n8nRoutes from './routes/n8n.routes';
+import gitRoutes from './routes/git.routes';
+import systemEventRoutes from './routes/system-event.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { SchedulerService } from './services/scheduler.service';
+import { NodeLoaderService } from './services/node-loader.service';
 import {
     authRateLimiter,
     executionRateLimiter,
@@ -62,6 +66,9 @@ app.use('/api/analytics', standardRateLimiter, analyticsRoutes);
 app.use('/api/node-types', standardRateLimiter, nodeTypesRoutes);
 app.use('/api/templates', standardRateLimiter, templateRoutes);
 app.use('/api/credentials', standardRateLimiter, credentialRoutes);
+app.use('/api/n8n', standardRateLimiter, n8nRoutes);
+app.use('/api/git', standardRateLimiter, gitRoutes);
+app.use('/api/events', standardRateLimiter, systemEventRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
 
 app.get('/health', (req, res) => {
@@ -85,6 +92,9 @@ async function main() {
 
         scheduler.start();
         logger.info('Scheduler started');
+
+        // Initialize Dynamic Node Loader
+        await NodeLoaderService.getInstance().initialize();
 
         httpServer.listen(PORT, () => {
             logger.info({ port: PORT }, `Server running on port ${PORT}`);
