@@ -1,12 +1,18 @@
 'use client';
 
 import { Card, CardBody, CardHeader, Divider, Button, Progress, Tabs, Tab, Chip, User, Link, Select, SelectItem, Popover, PopoverTrigger, PopoverContent } from "@heroui/react";
-import { Activity, CheckCircle, XCircle, AlertTriangle, Play, Clock, Zap, BookOpen, Terminal, Shield, GraduationCap, Video, FileJson, Share2, Crown, User as UserIcon, Lock, Stethoscope, Microscope, Gavel } from "lucide-react";
+import { Activity, CheckCircle, XCircle, AlertTriangle, Play, Clock, Zap, BookOpen, Terminal, Shield, GraduationCap, Video, FileJson, Share2, Crown, User as UserIcon, Lock, Stethoscope, Microscope, Gavel, Server } from "lucide-react";
 import { useSubscription, PlanType } from "@/context/SubscriptionContext";
 import { useState } from "react";
 import { ActivityChart, AnimatedStat } from "@/components/Dashboard/Analytics";
+import { MetricsDashboard } from "@/components/Dashboard/MetricsDashboard"; // Updated
 
 import useSWR from 'swr';
+// ... (rest of imports)
+
+// ... inside the component tabs ...
+
+
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -211,15 +217,13 @@ export default function DashboardPage() {
                     <GovernanceContent />
                 </Tab>
 
-                <Tab key="instances" title={
+                <Tab key="metrics" title={
                     <div className="flex items-center gap-2">
-                        <Activity size={16} />
-                        <span>Instances</span>
+                        <Server size={16} />
+                        <span>System Monitor</span>
                     </div>
                 }>
-                     <div className="p-12 text-center text-default-400">
-                        <p>Manage your connected n8n servers here.</p>
-                     </div>
+                     <MetricsDashboard />
                 </Tab>
             </Tabs>
         </div>

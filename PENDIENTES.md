@@ -51,18 +51,19 @@ NanoFlow es una plataforma de automatización de flujos de trabajo con un editor
 
 ### Backend - Nuevas Funcionalidades
 
-| Archivo                              | Funcionalidad                                          |
-| ------------------------------------ | ------------------------------------------------------ |
-| `alert-condition-node.executor.ts`   | Alertas JEXL con deduplicación y cooldown              |
-| `threshold-node.executor.ts`         | Evaluar umbrales (gt, lt, between, etc.)               |
-| `compare-node.executor.ts`           | Comparar valores (eq, contains, matches)               |
-| `credential.service.ts`              | Scopes: environment, allowedWorkflows, allowedTags     |
-| `system-event.service.ts`            | Triggers internos (ALERT, WORKFLOW\_\*, CUSTOM)        |
-| `infrastructure-monitor.executor.ts` | Nodos: DiskUsage, CpuMonitor, MemoryMonitor            |
-| `network-monitor.executor.ts`        | Nodos: Ping, HttpHealthCheck                           |
-| `node-executor.service.ts`           | Sandbox seguro (Proxy, Denylist, Shadowing)            |
-| `node-loader.service.ts`             | Carga dinámica de nodos (Hot Reloading, .js files)     |
-| `git.service.ts`                     | Git Sync completo (SSH keys, Import/Export, Push/Pull) |
+| Archivo                              | Funcionalidad                                           |
+| ------------------------------------ | ------------------------------------------------------- |
+| `alert-condition-node.executor.ts`   | Alertas JEXL con deduplicación y cooldown               |
+| `threshold-node.executor.ts`         | Evaluar umbrales (gt, lt, between, etc.)                |
+| `compare-node.executor.ts`           | Comparar valores (eq, contains, matches)                |
+| `credential.service.ts`              | Scopes: environment, allowedWorkflows, allowedTags      |
+| `system-event.service.ts`            | Triggers internos (ALERT, WORKFLOW\_\*, CUSTOM)         |
+| `infrastructure-monitor.executor.ts` | Nodos: DiskUsage, CpuMonitor, MemoryMonitor             |
+| `network-monitor.executor.ts`        | Nodos: Ping, HttpHealthCheck                            |
+| `node-executor.service.ts`           | Sandbox seguro (Proxy, Denylist, Shadowing)             |
+| `node-loader.service.ts`             | Carga dinámica de nodos (Hot Reloading, .js files)      |
+| `git.service.ts`                     | Git Sync completo (SSH keys, Import/Export, Push/Pull)  |
+| `metric.service.ts`                  | Almacenamiento de métricas y estadísticas (Time-series) |
 
 ### Funcionalidades Base
 
@@ -103,11 +104,11 @@ Nuevo módulo `backend/src/scaling/`:
 - [ ] Admin y RBAC
 - [ ] Nodos Wait/Delay, Loop/Repeat, Branch/Switch
 
-### Fase 2: Observabilidad
+### Fase 2: Observabilidad (En Progreso)
 
-- [ ] Dashboard Central
-- [ ] Monitores y Alertas UI
-- [ ] Versionado de Flujos
+- [x] **Dashboard Central:** Completado (nueva Tab System Monitor con gráficos en tiempo real).
+- [x] **Backend de Métricas:** Completado (API `/api/metrics`, guardado automático desde nodos).
+- [ ] **Alertas UI:** Interfaz para ver historial de alertas y configurar notificaciones.
 
 ### Fase 3: Avanzado
 

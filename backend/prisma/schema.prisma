@@ -337,3 +337,21 @@ enum NotificationType {
   SLACK
   TEAMS
 }
+
+model Metric {
+  id          String   @id @default(uuid())
+  tenantId    String
+  nodeId      String?
+  workflowId  String?
+  metricName  String
+  value       Float
+  unit        String?
+  tags        Json?
+  timestamp   DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([metricName])
+  @@index([workflowId])
+  @@index([nodeId])
+  @@index([tenantId])
+}

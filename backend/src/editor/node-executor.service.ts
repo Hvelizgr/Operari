@@ -439,7 +439,7 @@ export class NodeExecutor {
         this.httpCheckExecutor = new HttpHealthCheckNodeExecutor();
     }
 
-    async execute(node: WorkflowNode, input: ExecutionInput, options: NodeExecutionOptions = {}): Promise<NodeExecutionResult> {
+    async execute(node: WorkflowNode, rawInput: ExecutionInput, options: NodeExecutionOptions = {}): Promise<NodeExecutionResult> {
         const config = node.config || {};
         const commonErrorContext = {
             nodeId: node.id,
@@ -447,6 +447,19 @@ export class NodeExecutor {
             nodeType: node.type,
         };
         const { tenantId, executionId } = options;
+
+        // Enrich input with context
+        // We cast node to any because WorkflowNode interface might be strictly UI type but runtime has DB props
+        const input: ExecutionInput = {
+            ...rawInput,
+            _context: {
+                tenantId: tenantId,
+                executionId: executionId,
+                workflowId: (node as any).workflowId,
+                nodeId: node.id,
+                nodeTitle: node.title
+            }
+        };
 
         switch (node.type) {
             case 'Webhook':

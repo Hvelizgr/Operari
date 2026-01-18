@@ -3,6 +3,7 @@ import { ExecutionInput, NodeExecutionResult } from '../../types/workflow.types'
 import { NodeExecutionError, ErrorCode, ErrorSeverity } from '../../errors/custom-error';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { metricService } from '../../services/metric.service'; // Import MetricService
 
 const execAsync = promisify(exec);
 
@@ -42,6 +43,20 @@ export class DiskUsageNodeExecutor {
             const free = parseInt(parts[3]) * 1024;
             const percentage = parseFloat(parts[4].replace('%', ''));
 
+            // Record metric
+            const ctx = (input as any)._context;
+            if (ctx && ctx.tenantId) {
+                metricService.recordMetric({
+                    tenantId: ctx.tenantId,
+                    nodeId: ctx.nodeId,
+                    workflowId: ctx.workflowId,
+                    metricName: 'disk_usage_percent',
+                    value: percentage,
+                    unit: '%',
+                    tags: { path, totalBytes: total }
+                });
+            }
+
             return {
                 ...input,
                 disk: {
@@ -78,6 +93,20 @@ export class MemoryMonitorNodeExecutor {
             const unit = config.unit || 'MB';
             const divisor = unit === 'GB' ? 1024 * 1024 * 1024 : 1024 * 1024;
 
+            // Record metric
+            const ctx = (input as any)._context;
+            if (ctx && ctx.tenantId) {
+                metricService.recordMetric({
+                    tenantId: ctx.tenantId,
+                    nodeId: ctx.nodeId,
+                    workflowId: ctx.workflowId,
+                    metricName: 'memory_usage_percent',
+                    value: Number(usagePercent.toFixed(2)),
+                    unit: '%',
+                    tags: { totalBytes: total }
+                });
+            }
+
             return {
                 ...input,
                 memory: {
@@ -109,6 +138,20 @@ export class CpuMonitorNodeExecutor {
             // Calculate active usage currently
             // Simplest way is taking the avg of all cores times
             const usagePercent = await this.getRealCpuUsage(config.sampleTimeMs || 100);
+
+            // Record metric
+            const ctx = (input as any)._context;
+            if (ctx && ctx.tenantId) {
+                metricService.recordMetric({
+                    tenantId: ctx.tenantId,
+                    nodeId: ctx.nodeId,
+                    workflowId: ctx.workflowId,
+                    metricName: 'cpu_usage_percent',
+                    value: Number(usagePercent.toFixed(2)),
+                    unit: '%',
+                    tags: { cores: cpus.length, loadAvg1m: loadAvg[0] }
+                });
+            }
 
             return {
                 ...input,
