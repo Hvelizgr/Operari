@@ -1,0 +1,2291 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "NanoFlow API",
+    "version": "1.0.0",
+    "description": "API documentation for NanoFlow workflow automation platform",
+    "contact": {
+      "name": "NanoFlow Support"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001/api",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/alerts": {
+      "get": {
+        "summary": "Get recent alerts",
+        "tags": [
+          "Alerts"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "isRead",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of alerts"
+          }
+        }
+      }
+    },
+    "/api/alerts/stats": {
+      "get": {
+        "summary": "Get alert statistics (unread counts by severity)",
+        "tags": [
+          "Alerts"
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert stats"
+          }
+        }
+      }
+    },
+    "/api/alerts/mark-read": {
+      "post": {
+        "summary": "Mark alerts as read",
+        "tags": [
+          "Alerts"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "alertIds": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "all"
+                        ]
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success message"
+          }
+        }
+      }
+    },
+    "/analytics/dashboard": {
+      "get": {
+        "summary": "Get dashboard analytics",
+        "tags": [
+          "Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "type": "integer",
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard data",
+            "content": {
+              "application/json": {
+                "example": {
+                  "summary": {
+                    "totalWorkflows": 15,
+                    "activeWorkflows": 8,
+                    "totalExecutions": 1250,
+                    "successfulExecutions": 1200,
+                    "failedExecutions": 50,
+                    "successRate": 96
+                  },
+                  "recentExecutions": [
+                    {
+                      "id": "exec-1",
+                      "status": "SUCCESS",
+                      "startedAt": "2024-03-22T10:00:00Z"
+                    }
+                  ],
+                  "executionsByDay": [
+                    {
+                      "date": "2024-03-22",
+                      "count": 150,
+                      "status": "SUCCESS"
+                    }
+                  ],
+                  "topWorkflows": [
+                    {
+                      "workflowId": "wf-1",
+                      "_count": 500,
+                      "_avg": {
+                        "duration": 120
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/workflows/{id}/stats": {
+      "get": {
+        "summary": "Get specific workflow statistics",
+        "tags": [
+          "Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "type": "integer",
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow statistics",
+            "content": {
+              "application/json": {
+                "example": {
+                  "workflow": {
+                    "id": "wf-123",
+                    "name": "Order Processing"
+                  },
+                  "stats": {
+                    "totalExecutions": 500,
+                    "successCount": 480,
+                    "failedCount": 20,
+                    "successRate": 96,
+                    "avgDuration": 250
+                  },
+                  "executionHistory": [
+                    {
+                      "id": "exec-1",
+                      "status": "SUCCESS",
+                      "duration": 245
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Workflow not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analytics/usage": {
+      "get": {
+        "summary": "Get tenant usage statistics",
+        "tags": [
+          "Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "type": "integer",
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usage statistics",
+            "content": {
+              "application/json": {
+                "example": {
+                  "plan": "PRO",
+                  "usage": {
+                    "workflows": 8,
+                    "users": 3,
+                    "executions": 1250
+                  },
+                  "limits": {
+                    "workflows": 50,
+                    "executions": 5000,
+                    "users": 10
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "summary": "Register a new user and tenant",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password",
+                  "tenantName"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "tenantName": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "tenant": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "token": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "user": {
+                    "id": "cm5...",
+                    "email": "admin@company.com",
+                    "name": "Admin User",
+                    "role": "ADMIN"
+                  },
+                  "tenant": {
+                    "id": "tenant-123",
+                    "name": "My Company"
+                  },
+                  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or email already exists",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Email already registered"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Login user",
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "tenant": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "token": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "user": {
+                    "id": "cm5...",
+                    "email": "user@example.com",
+                    "name": "John Doe",
+                    "role": "USER"
+                  },
+                  "tenant": {
+                    "id": "tenant-123",
+                    "name": "Acme Corp"
+                  },
+                  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Invalid credentials"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Get current user profile",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User profile",
+            "content": {
+              "application/json": {
+                "example": {
+                  "user": {
+                    "id": "u-123",
+                    "email": "me@example.com",
+                    "name": "Me",
+                    "role": "ADMIN"
+                  },
+                  "tenant": {
+                    "id": "t-456",
+                    "name": "My Tenant",
+                    "plan": "FREE"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Refresh authentication token",
+        "tags": [
+          "Auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "New token generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Invalid or expired token"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/credentials": {
+      "post": {
+        "summary": "Create a new credential",
+        "tags": [
+          "Credentials"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "type",
+                  "data"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Credential created"
+          }
+        }
+      },
+      "get": {
+        "summary": "List credentials",
+        "tags": [
+          "Credentials"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of credentials"
+          }
+        }
+      }
+    },
+    "/api/credentials/{id}": {
+      "put": {
+        "summary": "Update a credential",
+        "tags": [
+          "Credentials"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Credential updated"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a credential",
+        "tags": [
+          "Credentials"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Credential deleted"
+          }
+        }
+      }
+    },
+    "/executions": {
+      "get": {
+        "summary": "List executions",
+        "tags": [
+          "Executions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "workflowId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RUNNING",
+                "COMPLETED",
+                "FAILED",
+                "CANCELLED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of executions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "executions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "startedAt": {
+                            "type": "string"
+                          },
+                          "duration": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    },
+                    "pagination": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "example": {
+                  "executions": [
+                    {
+                      "id": "exec-1",
+                      "workflowId": "wf-1",
+                      "status": "COMPLETED",
+                      "startedAt": "2024-03-20T10:00:00Z",
+                      "duration": 1500
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 50,
+                    "pages": 3
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/executions/{id}": {
+      "get": {
+        "summary": "Get execution details",
+        "tags": [
+          "Executions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Execution details",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "exec-1",
+                  "workflowId": "wf-1",
+                  "status": "FAILED",
+                  "error": "HTTP 500",
+                  "startedAt": "2024-03-20T10:00:00Z",
+                  "completedAt": "2024-03-20T10:00:02Z",
+                  "nodeLogs": [
+                    {
+                      "nodeId": "node-1",
+                      "status": "SUCCESS",
+                      "duration": 200
+                    },
+                    {
+                      "nodeId": "node-2",
+                      "status": "ERROR",
+                      "duration": 50,
+                      "error": "Connection timeout"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Execution not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Execution not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/executions/{workflowId}/run": {
+      "post": {
+        "summary": "Trigger manual execution",
+        "tags": [
+          "Executions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "type": "object",
+                    "description": "Initial input data for the workflow"
+                  }
+                }
+              },
+              "example": {
+                "input": {
+                  "email": "user@example.com",
+                  "sku": "PROD-123"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Execution started",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "exec-new-123",
+                  "status": "RUNNING",
+                  "trigger": "MANUAL"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Workflow not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/executions/{id}/cancel": {
+      "post": {
+        "summary": "Cancel a running execution",
+        "tags": [
+          "Executions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Execution cancelled",
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Execution cancelled"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Execution not found or not running",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Running execution not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/executions/{id}/replay": {
+      "post": {
+        "summary": "Replay an execution from a specific node",
+        "tags": [
+          "Executions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nodeId": {
+                    "type": "string",
+                    "description": "ID of the node to start replay from"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Replay started"
+          },
+          "404": {
+            "description": "Execution or node log not found"
+          }
+        }
+      }
+    },
+    "/executions/{id}/resume": {
+      "post": {
+        "summary": "Resume a paused execution",
+        "tags": [
+          "Executions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "type": "object",
+                    "description": "Optional input data to merge for the resumed execution"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Execution resumed"
+          },
+          "404": {
+            "description": "Paused execution not found"
+          }
+        }
+      }
+    },
+    "/executions/{workflowId}/debug": {
+      "post": {
+        "summary": "Debug a workflow (similar to run but optimized for testing)",
+        "tags": [
+          "Executions"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "type": "object"
+                  },
+                  "startNodeId": {
+                    "type": "string",
+                    "description": "Optional node ID to start debugging from"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Debug execution started"
+          },
+          "404": {
+            "description": "Workflow not found"
+          }
+        }
+      }
+    },
+    "/api/git/init": {
+      "post": {
+        "summary": "Initialize a git repository for workflow exports",
+        "tags": [
+          "Git"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repoPath": {
+                    "type": "string",
+                    "description": "Custom path for the repository (optional)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Repository initialized successfully"
+          }
+        }
+      }
+    },
+    "/api/git/remote": {
+      "post": {
+        "summary": "Configure a remote for the git repository",
+        "tags": [
+          "Git"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "remoteUrl"
+                ],
+                "properties": {
+                  "remoteUrl": {
+                    "type": "string"
+                  },
+                  "remoteName": {
+                    "type": "string",
+                    "default": "origin"
+                  },
+                  "repoPath": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Remote configured successfully"
+          }
+        }
+      }
+    },
+    "/api/git/export": {
+      "post": {
+        "summary": "Export workflows to git repository",
+        "tags": [
+          "Git"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "commitMessage": {
+                    "type": "string"
+                  },
+                  "workflowIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "repoPath": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workflows exported successfully"
+          }
+        }
+      }
+    },
+    "/api/git/import": {
+      "post": {
+        "summary": "Import workflows from git repository",
+        "tags": [
+          "Git"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repoPath": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workflows imported successfully"
+          }
+        }
+      }
+    },
+    "/api/git/push": {
+      "post": {
+        "summary": "Push commits to remote repository",
+        "tags": [
+          "Git"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "remoteName": {
+                    "type": "string",
+                    "default": "origin"
+                  },
+                  "branch": {
+                    "type": "string",
+                    "default": "main"
+                  },
+                  "repoPath": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pushed successfully"
+          }
+        }
+      }
+    },
+    "/api/git/pull": {
+      "post": {
+        "summary": "Pull changes from remote repository",
+        "tags": [
+          "Git"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "remoteName": {
+                    "type": "string",
+                    "default": "origin"
+                  },
+                  "branch": {
+                    "type": "string",
+                    "default": "main"
+                  },
+                  "repoPath": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pulled successfully"
+          }
+        }
+      }
+    },
+    "/api/git/status": {
+      "get": {
+        "summary": "Get git repository status",
+        "tags": [
+          "Git"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "repoPath",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Custom repository path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository status"
+          }
+        }
+      }
+    },
+    "/api/git/log": {
+      "get": {
+        "summary": "Get git commit history",
+        "tags": [
+          "Git"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "repoPath",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "maxCount",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Commit history"
+          }
+        }
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "summary": "Retrieve raw metrics",
+        "tags": [
+          "Metrics"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "workflowId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "nodeId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "metricName",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of metrics"
+          }
+        }
+      }
+    },
+    "/api/metrics/stats": {
+      "get": {
+        "summary": "Retrieve aggregated metric statistics",
+        "tags": [
+          "Metrics"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "workflowId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "metricName",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregated stats (min, max, avg, count)"
+          }
+        }
+      }
+    },
+    "/node-types": {
+      "get": {
+        "summary": "List available node types",
+        "tags": [
+          "NodeTypes"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of node types",
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "type": "HTTP",
+                    "category": "Core",
+                    "description": "Make HTTP requests"
+                  },
+                  {
+                    "type": "Condition",
+                    "category": "Logic",
+                    "description": "Conditional logic"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/types": {
+      "get": {
+        "summary": "Get available system event types",
+        "tags": [
+          "System Events"
+        ],
+        "responses": {
+          "200": {
+            "description": "List of event types"
+          }
+        }
+      }
+    },
+    "/api/events/listeners": {
+      "post": {
+        "summary": "Register a workflow to listen for system events",
+        "tags": [
+          "System Events"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "workflowId",
+                  "eventType"
+                ],
+                "properties": {
+                  "workflowId": {
+                    "type": "string"
+                  },
+                  "eventType": {
+                    "type": "string",
+                    "enum": [
+                      "ALERT_TRIGGERED",
+                      "WORKFLOW_COMPLETED",
+                      "WORKFLOW_FAILED",
+                      "WORKFLOW_STARTED",
+                      "CREDENTIAL_EXPIRING",
+                      "CUSTOM"
+                    ]
+                  },
+                  "eventFilter": {
+                    "type": "object"
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Listener registered"
+          }
+        }
+      }
+    },
+    "/api/events/listeners/{workflowId}": {
+      "get": {
+        "summary": "Get all event listeners for a workflow",
+        "tags": [
+          "System Events"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of listeners"
+          }
+        }
+      }
+    },
+    "/api/events/listeners/{workflowId}/{eventType}": {
+      "delete": {
+        "summary": "Unregister an event listener",
+        "tags": [
+          "System Events"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "eventType",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Listener removed"
+          }
+        }
+      }
+    },
+    "/api/events/emit": {
+      "post": {
+        "summary": "Emit a system event (triggers listening workflows)",
+        "tags": [
+          "System Events"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "type",
+                  "source"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "sourceName": {
+                    "type": "string"
+                  },
+                  "payload": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event emitted"
+          }
+        }
+      }
+    },
+    "/api/events/emit/custom/{eventName}": {
+      "post": {
+        "summary": "Emit a custom event by name",
+        "tags": [
+          "System Events"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "eventName",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Custom event emitted"
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "summary": "List users in the current tenant",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of users"
+          }
+        }
+      }
+    },
+    "/users/{id}/role": {
+      "put": {
+        "summary": "Update user role",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "role"
+                ],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "ADMIN",
+                      "USER",
+                      "VIEWER"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated"
+          }
+        }
+      }
+    },
+    "/webhook/{workflowId}": {
+      "post": {
+        "summary": "Trigger a workflow via webhook",
+        "tags": [
+          "Webhooks"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "event": "user.created",
+                "data": {
+                  "userId": "123",
+                  "email": "user@example.com"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Workflow triggered successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "executionId": "exec-webhook-123",
+                  "status": "RUNNING"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found or inactive",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Workflow not found or not active"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows": {
+      "get": {
+        "summary": "List workflows",
+        "tags": [
+          "Workflows"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of workflows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workflows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Workflow"
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "pages": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "workflows": [
+                    {
+                      "id": "wf-123",
+                      "name": "New Order Processing",
+                      "description": "Handles Shopify orders",
+                      "isActive": true,
+                      "updatedAt": "2024-03-21T15:30:00Z"
+                    }
+                  ],
+                  "pagination": {
+                    "page": 1,
+                    "limit": 10,
+                    "total": 1,
+                    "pages": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new workflow",
+        "tags": [
+          "Workflows"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "nodes",
+                  "connections"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  },
+                  "schedule": {
+                    "type": "string"
+                  },
+                  "nodes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "connections": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              },
+              "example": {
+                "name": "New Automation",
+                "description": "Created via API",
+                "nodes": [],
+                "connections": [],
+                "isActive": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Workflow created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "wf-new-789",
+                  "name": "New Automation",
+                  "createdAt": "2024-03-22T09:00:00Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Name is required"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{id}": {
+      "get": {
+        "summary": "Get a workflow by ID",
+        "tags": [
+          "Workflows"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow details",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "wf-123",
+                  "name": "Daily Report",
+                  "nodes": [
+                    {
+                      "id": "node-1",
+                      "type": "Schedule",
+                      "position": {
+                        "x": 0,
+                        "y": 0
+                      },
+                      "config": {
+                        "cron": "0 0 * * *"
+                      }
+                    }
+                  ],
+                  "connections": [
+                    {
+                      "id": "c-1",
+                      "source": "node-1",
+                      "target": "node-2"
+                    }
+                  ],
+                  "isActive": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Workflow not found"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a workflow",
+        "tags": [
+          "Workflows"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  },
+                  "schedule": {
+                    "type": "string"
+                  },
+                  "nodes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "connections": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              },
+              "example": {
+                "isActive": true,
+                "schedule": "0 * * * *"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workflow updated",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "wf-123",
+                  "isActive": true,
+                  "schedule": "0 * * * *"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a workflow",
+        "tags": [
+          "Workflows"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Workflow deleted"
+          },
+          "404": {
+            "description": "Workflow not found"
+          }
+        }
+      }
+    },
+    "/workflows/{id}/metadata": {
+      "get": {
+        "summary": "Get workflow metadata (updatedAt)",
+        "tags": [
+          "Workflows"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "lastModified": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found"
+          }
+        }
+      }
+    },
+    "/workflows/{id}/duplicate": {
+      "post": {
+        "summary": "Duplicate a workflow",
+        "tags": [
+          "Workflows"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Workflow duplicated",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "wf-copy-456",
+                  "name": "Original Name (Copy)",
+                  "nodes": []
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found"
+          }
+        }
+      }
+    }
+  },
+  "tags": []
+}

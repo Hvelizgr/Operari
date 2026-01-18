@@ -34,7 +34,7 @@ Basado en `ANALISIS_COMPLETO_2026.md`, este plan prioriza los gaps críticos y s
 **Objetivo:** Resolver la falta de documentación y mejorar el onboarding.
 
 - [ ] **Crear Portal de Documentación**
-  - [ ] Levantar Docusaurus o VitePress.
+  - [x] Levantar Docusaurus o VitePress (VitePress Configurado).
   - [ ] Redactar guías de usuario ("Getting Started", "First Workflow").
   - [ ] Redactar guías para desarrolladores (Arquitectura, API Reference).
 - [ ] **Mejorar UX/UI (Onboarding)**
