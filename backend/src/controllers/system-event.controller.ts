@@ -30,7 +30,7 @@ export class SystemEventController {
                 });
             }
 
-            if (!VALID_EVENT_TYPES.includes(eventType)) {
+            if (!VALID_EVENT_TYPES.includes(eventType as SystemEventType)) {
                 throw new CustomError({
                     message: `Invalid eventType. Must be one of: ${VALID_EVENT_TYPES.join(', ')}`,
                     code: ErrorCode.VALIDATION_ERROR
@@ -105,7 +105,7 @@ export class SystemEventController {
                 });
             }
 
-            if (!VALID_EVENT_TYPES.includes(type)) {
+            if (!VALID_EVENT_TYPES.includes(type as SystemEventType)) {
                 throw new CustomError({
                     message: `Invalid event type. Must be one of: ${VALID_EVENT_TYPES.join(', ')}`,
                     code: ErrorCode.VALIDATION_ERROR

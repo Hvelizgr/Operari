@@ -15,9 +15,10 @@ import {
     ChevronLeft,
     ChevronRight,
     Settings,
-    Key
+    Key,
+    BarChart3
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 interface EditorSidebarProps {
@@ -26,10 +27,23 @@ interface EditorSidebarProps {
 
 export default function EditorSidebar({ lang }: EditorSidebarProps) {
     const [collapsed, setCollapsed] = useState(false);
+    const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
     const pathname = usePathname();
+
+    useEffect(() => {
+        const storedUser = localStorage.getItem('nanoflow_user');
+        if (storedUser) {
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch (e) {
+                console.error('Failed to parse user', e);
+            }
+        }
+    }, []);
 
     const menuItems = [
         { id: 'dashboard', label: lang === 'en' ? 'Dashboard' : 'Panel', icon: LayoutDashboard, href: `/${lang}/dashboard` },
+        { id: 'analytics', label: lang === 'en' ? 'Analytics' : 'Analíticas', icon: BarChart3, href: `/${lang}/analytics` },
         { id: 'scheduler', label: lang === 'en' ? 'Schedules' : 'Horarios', icon: CalendarClock, href: `/${lang}/scheduler` },
         { id: 'workflows', label: lang === 'en' ? 'Workflows' : 'Flujos', icon: Share2, href: `/${lang}/workflows` },
         { id: 'credentials', label: lang === 'en' ? 'Credentials' : 'Credenciales', icon: Key, href: `/${lang}/credentials` },
@@ -37,8 +51,9 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
         { id: 'monitors', label: lang === 'en' ? 'Monitors' : 'Monitores', icon: Activity, href: `/${lang}/monitors` },
         { id: 'events', label: lang === 'en' ? 'Events' : 'Eventos', icon: Zap, href: `/${lang}/events` },
         { id: 'utilities', label: lang === 'en' ? 'Utilities' : 'Utilidades', icon: Wrench, href: `/${lang}/utilities` },
-        { id: 'admin', label: lang === 'en' ? 'Admin' : 'Admin', icon: ShieldCheck, href: `/${lang}/admin` },
-    ];
+        { id: 'users', label: lang === 'en' ? 'Users' : 'Usuarios', icon: ShieldCheck, href: `/${lang}/users`, roles: ['ADMIN'] },
+        { id: 'admin', label: lang === 'en' ? 'Admin' : 'Admin', icon: Settings, href: `/${lang}/admin`, roles: ['ADMIN'] },
+    ].filter(item => !item.roles || (user && item.roles.includes(user.role)));
 
     return (
         <motion.div
@@ -116,8 +131,9 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                         >
-                            <div className="text-xs font-bold text-white truncate">Administrator</div>
-                            <div className="text-[10px] text-gray-500 truncate">admin@xyops.io</div>
+                            <div className="text-xs font-bold text-white truncate">{user?.name || 'Guest'}</div>
+                            <div className="text-[10px] text-gray-500 truncate">{user?.email || 'Not logged in'}</div>
+                            {user && <div className="text-[9px] text-blue-400 font-mono mt-0.5 tracking-tighter uppercase">{user.role}</div>}
                         </motion.div>
                     )}
                 </div>
@@ -126,7 +142,14 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                         <Settings size={14} />
                     </button>
                     {!collapsed && (
-                        <button className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white" title="Logout">
+                        <button 
+                            className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white" 
+                            title="Logout"
+                            onClick={() => {
+                                localStorage.clear();
+                                window.location.href = `/${lang}/login`;
+                            }}
+                        >
                             <LogOut size={14} />
                         </button>
                     )}

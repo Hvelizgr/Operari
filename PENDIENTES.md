@@ -101,21 +101,24 @@ Nuevo módulo `backend/src/scaling/`:
 - [x] Arreglar ciclo de persistencia
 - [x] Endpoint de debug
 - [x] Gestor de Secretos (Vaults)
-- [ ] Admin y RBAC
-- [ ] Nodos Wait/Delay, Loop/Repeat, Branch/Switch
+- [x] Admin y RBAC (Backend middleware + Frontend manager)
+- [x] Nodos Wait/Delay, Loop/Repeat, Branch/Switch (Soporte de ciclos en motor habilitado)
 
-### Fase 2: Observabilidad (En Progreso)
+### Fase 2: Observabilidad (✅ Completada 2026-01-18)
 
 - [x] **Dashboard Central:** Completado (nueva Tab System Monitor con gráficos en tiempo real).
 - [x] **Backend de Métricas:** Completado (API `/api/metrics`, guardado automático desde nodos).
 - [x] **Alertas UI:** Interfaz para ver historial de alertas y configurar notificaciones (Feed implementado).
+- [x] **Heatmap de Ejecución:** Visualización de carga y fallos integrada en el editor.
+- [x] **Xy-Tracing:** Logs enriquecidos y explorador de trazas por nodo (OpenTelemetry + UI).
+- [x] **Panel de métricas globales:** Dashboard de analíticas avanzadas con Recharts.
 
 ### Fase 3: Avanzado
 
-- [ ] Visual Debugger con breakpoints
-- [ ] Colaboración en Tiempo Real
-- [ ] Marketplace de Plantillas
-- [ ] Asistente AI
+- [x] Visual Debugger con breakpoints
+- [x] Colaboración en Tiempo Real (Presencia + Sincronización)🤝.
+- [x] Marketplace de Plantillas
+- [x] Asistente AI
 
 ---
 

@@ -5,9 +5,13 @@ import Link from 'next/link';
 import { Lock, Mail, Github, Chrome, ArrowRight, Check } from "lucide-react";
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { apiFetch } from '@/utils/api';
 
 export default function LoginContent({ lang }: { lang: string }) {
     const [isLoading, setIsLoading] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -16,14 +20,28 @@ export default function LoginContent({ lang }: { lang: string }) {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+        setError(null);
 
-        if (planParam) {
-            localStorage.setItem('nanoflow_user_plan', planParam);
-        }
+        try {
+            const data = await apiFetch('/api/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ email, password }),
+            });
 
-        setTimeout(() => {
+            // Save auth data
+            localStorage.setItem('nanoflow_token', data.token);
+            localStorage.setItem('nanoflow_user', JSON.stringify(data.user));
+            localStorage.setItem('nanoflow_tenant', JSON.stringify(data.tenant));
+
+            if (planParam) {
+                localStorage.setItem('nanoflow_user_plan', planParam);
+            }
+
             router.push(`/${lang}/dashboard`);
-        }, 800);
+        } catch (err: any) {
+            setError(err.message || 'Login failed');
+            setIsLoading(false);
+        }
     };
 
     const isEs = lang === 'es';
@@ -59,10 +77,18 @@ export default function LoginContent({ lang }: { lang: string }) {
 
             <CardBody className="px-8 py-6">
                 <form onSubmit={handleLogin} className="flex flex-col gap-4">
+                    {error && (
+                        <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                            {error}
+                        </div>
+                    )}
+
                     <Input
                         type="email"
                         label={text.email}
                         placeholder={text.demoEmail}
+                        value={email}
+                        onValueChange={setEmail}
                         variant="bordered"
                         startContent={<Mail size={18} className="text-gray-400" />}
                         classNames={{
@@ -70,11 +96,15 @@ export default function LoginContent({ lang }: { lang: string }) {
                             label: "text-gray-300",
                             inputWrapper: "border-white/20 bg-white/5"
                         }}
+                        disabled={isLoading}
+                        required
                     />
                     <Input
                         type="password"
                         label={text.password}
                         placeholder={text.demoPassword}
+                        value={password}
+                        onValueChange={setPassword}
                         variant="bordered"
                         startContent={<Lock size={18} className="text-gray-400" />}
                         classNames={{
@@ -82,6 +112,8 @@ export default function LoginContent({ lang }: { lang: string }) {
                             label: "text-gray-300",
                             inputWrapper: "border-white/20 bg-white/5"
                         }}
+                        disabled={isLoading}
+                        required
                     />
 
                     <div className="flex items-center justify-between">

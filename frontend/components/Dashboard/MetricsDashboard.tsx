@@ -89,11 +89,18 @@ function MetricChart({ title, metricName, color, icon: Icon, unit }: MetricChart
 }
 
 import { AlertsFeed } from "./AlertsFeed";
+import { Modal, ModalContent, ModalHeader, ModalBody } from "@heroui/react";
+import type { ExecutionMetric } from '../../types/editor.types';
 
-// ... previous imports ...
+interface MetricsDashboardProps {
+    metrics?: ExecutionMetric[];
+    lang?: 'en' | 'es';
+    isOpen?: boolean;
+    onOpenChange?: (open: boolean) => void;
+}
 
-export function MetricsDashboard() {
-    return (
+export function MetricsDashboard({ isOpen, onOpenChange }: MetricsDashboardProps) {
+    const content = (
         <div className="space-y-6">
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold flex items-center gap-2">
@@ -133,5 +140,25 @@ export function MetricsDashboard() {
                 </Card>
             </div>
         </div>
+    );
+
+    if (isOpen === undefined) {
+        return content;
+    }
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onOpenChange={onOpenChange}
+            size="5xl"
+            scrollBehavior="inside"
+        >
+            <ModalContent>
+                <ModalHeader>Infrastructure Metrics</ModalHeader>
+                <ModalBody className="pb-6">
+                    {content}
+                </ModalBody>
+            </ModalContent>
+        </Modal>
     );
 }

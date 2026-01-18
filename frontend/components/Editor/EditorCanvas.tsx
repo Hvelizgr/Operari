@@ -12,7 +12,10 @@ import { useExecutionSocket } from '../../hooks/useExecutionSocket';
 import dynamic from 'next/dynamic';
 const LogTerminal = dynamic(() => import('./terminal/LogTerminal'), { ssr: false });
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Terminal as TerminalIcon, X, Zap, Download, Upload, FileText } from 'lucide-react';
+import { Terminal as TerminalIcon, X, Zap, Download, Upload, FileText, Bug, Globe, Sparkles } from 'lucide-react';
+import { apiFetch } from '../../utils/api';
+import PublishTemplateDialog from '../Workflow/PublishTemplateDialog';
+import AIAssistant from './AIAssistant';
 // ... existing imports
 import SnapshotDialog from '../Workflow/SnapshotDialog';
 import { useSnapshots } from '../../hooks/useSnapshots';
@@ -88,6 +91,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         handleContextMenuDuplicate,
         handleDeleteFromContextMenu,
         handleContextMenuToggleEnable,
+        handleContextMenuToggleBreakpoint,
         handleNodeClick,
         handleNodeMove,
         handleNodeUpdate,
@@ -150,12 +154,14 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         return lintWorkflow(nodes, connections);
     }, [nodes, connections]);
 
-    const [showTerminal, setShowTerminal] = useState(false);
-    const [runMode, setRunMode] = useState<'run' | 'debug'>('run'); // New State
-    const [solderDropPos, setSolderDropPos] = useState<{ x: number; y: number } | null>(null);
-    const [isWorkflowPropsOpen, setIsWorkflowPropsOpen] = useState(false);
+    const [isTerminalOpen, setIsTerminalOpen] = useState(true);
+    const [terminalTab, setTerminalTab] = useState<'logs' | 'history' | 'trace'>('logs');
     const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
+    const [isWorkflowPropsOpen, setIsWorkflowPropsOpen] = useState(false);
     const [isMetricsDashboardOpen, setIsMetricsDashboardOpen] = useState(false);
+    const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
+    const [runMode, setRunMode] = useState<'run' | 'debug'>('run');
+    const [solderDropPos, setSolderDropPos] = useState<{ x: number; y: number } | null>(null);
     const [workflowProperties, setWorkflowProperties] = useState<WorkflowProperties>({
         name: 'Untitled Workflow',
         description: '',
@@ -216,7 +222,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     });
 
     const handleExecuteWithInput = async (input: object) => {
-        setShowTerminal(true);
+        setIsTerminalOpen(true);
         // Ensure latest changes are saved before execution
         await forceSave();
         await executeWorkflow(input, runMode);
@@ -224,7 +230,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
     // Direct execution (no modal)
     const handleDirectRun = async () => {
-        setShowTerminal(true);
+        setIsTerminalOpen(true);
         // Ensure latest changes are saved before execution
         await forceSave();
         await executeWorkflow({}, 'run');
@@ -251,7 +257,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     // Test From Node handler - executes workflow starting from a specific node
     const handleTestFromNode = async () => {
         if (contextMenu?.nodeId) {
-            setShowTerminal(true);
+            setIsTerminalOpen(true);
             await executeFromNode(contextMenu.nodeId, {});
         }
         handleCloseContextMenu();
@@ -259,7 +265,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
     // --- Hover Toolbar Handlers (n8n-style) ---
     const handleNodeRunFromToolbar = async (nodeId: string) => {
-        setShowTerminal(true);
+        setIsTerminalOpen(true);
         await executeFromNode(nodeId, {});
     };
 
@@ -361,7 +367,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
         // Execution
         { id: 'run', label: lang === 'en' ? 'Run Workflow' : 'Ejecutar', shortcut: ['Ctrl', 'Enter'], action: () => handleExecuteWithInput({}) },
-        { id: 'terminal', label: lang === 'en' ? 'Toggle Terminal' : 'Alternar Terminal', action: () => setShowTerminal(p => !p) },
+        { id: 'terminal', label: lang === 'en' ? 'Toggle Terminal' : 'Alternar Terminal', action: () => setIsTerminalOpen(p => !p) },
 
         // Tools
         { id: 'history', label: lang === 'en' ? 'Version History' : 'Historial de Versiones', action: () => setIsSnapshotDialogOpen(true) },
@@ -373,11 +379,49 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         handleLoadWorkflow(nodes, connections);
     };
 
-    const handleSelectTemplateWrapped = async (nodes: any[], connections: any[]) => {
+    const handleSelectTemplateWrapped = async (templateNodes: any[], templateConnections: any[]) => {
         setCurrentExecutionId(null);
-        handleSelectTemplate(nodes, connections);
-        // Persist immediately so it's available for execution
-        await forceSave(nodes, connections);
+        // handleSelectTemplate returns the transformed nodes/connections with unique IDs
+        const { nodes: transformedNodes, connections: transformedConnections } = handleSelectTemplate(templateNodes, templateConnections);
+        // Persist the TRANSFORMED nodes (with new IDs) so backend matches frontend
+        await forceSave(transformedNodes, transformedConnections);
+    };
+
+    const handlePublishToMarketplace = async (data: any) => {
+        try {
+            await apiFetch('/api/templates/publish', {
+                method: 'POST',
+                body: JSON.stringify({
+                    ...data,
+                    nodes,
+                    connections
+                })
+            });
+        } catch (error) {
+            console.error('Failed to publish template', error);
+            throw error;
+        }
+    };
+
+    const handleApplyAIWorkflow = async (aiNodes: any[], aiConnections: any[]) => {
+        setCurrentExecutionId(null);
+        // handleSelectTemplate returns the transformed nodes/connections with unique IDs
+        const { nodes: transformedNodes, connections: transformedConnections } = handleSelectTemplate(aiNodes, aiConnections);
+        await forceSave(transformedNodes, transformedConnections);
+        
+        // Show success effect
+        const canvas = confettiCanvasRef.current;
+        if (canvas) {
+            import('canvas-confetti').then((confetti) => {
+                const myConfetti = (confetti as any).create(canvas as any, { resize: true });
+                myConfetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#3b82f6', '#8b5cf6', '#ec4899']
+                });
+            });
+        }
     };
 
     // Ctrl+K Listener
@@ -414,6 +458,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                         saveStatus={saveStatus}
                         onTemplates={() => setIsTemplateGalleryOpen(true)}
                         onMetrics={() => setIsMetricsDashboardOpen(true)}
+                        onPublish={() => setIsPublishDialogOpen(true)}
                         blastRadiusMode={blastRadiusMode}
                         onToggleBlastRadius={toggleBlastRadiusMode}
                         complexityScore={complexityResult.score}
@@ -582,6 +627,9 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                         />
                     )}
 
+                    {/* AI Assistant */}
+                    <AIAssistant onApplyWorkflow={handleApplyAIWorkflow} lang={lang} />
+
                     {/* Confetti Canvas */}
                     <canvas
                         ref={confettiCanvasRef}
@@ -638,6 +686,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                         onContextMenuDuplicate={handleContextMenuDuplicate}
                         onContextMenuDelete={handleDeleteFromContextMenu}
                         onContextMenuToggleEnable={handleContextMenuToggleEnable}
+                        onContextMenuToggleBreakpoint={handleContextMenuToggleBreakpoint}
                         onContextMenuTestFromNode={handleTestFromNode}
                         onContextMenuDetachConnections={handleDetachConnections}
 
@@ -663,6 +712,14 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                         onTemplateGalleryOpenChange={setIsTemplateGalleryOpen}
                         isMetricsDashboardOpen={isMetricsDashboardOpen}
                         onMetricsDashboardOpenChange={setIsMetricsDashboardOpen}
+                    />
+
+                    <PublishTemplateDialog
+                        isOpen={isPublishDialogOpen}
+                        onClose={() => setIsPublishDialogOpen(false)}
+                        onPublish={handlePublishToMarketplace}
+                        lang={lang}
+                        workflowName={workflowProperties.name}
                     />
 
                     <RunDialog
@@ -695,12 +752,12 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
                     {/* Floating Terminal Toggle */}
                     <button
-                        onClick={() => setShowTerminal(!showTerminal)}
-                        className={`absolute bottom-6 right-6 p-3 rounded-full shadow-2xl transition-all duration-300 z-50 group ${showTerminal ? 'bg-slate-800 text-slate-400 rotate-90' : 'bg-blue-600 text-white hover:bg-blue-500 hover:scale-110'
+                        onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+                        className={`absolute bottom-6 right-6 p-3 rounded-full shadow-2xl transition-all duration-300 z-50 group ${isTerminalOpen ? 'bg-slate-800 text-slate-400 rotate-90' : 'bg-blue-600 text-white hover:bg-blue-500 hover:scale-110'
                             }`}
                         title={lang === 'en' ? 'Toggle Terminal' : 'Alternar Terminal'}
                     >
-                        {showTerminal ? <X size={20} /> : <TerminalIcon size={20} />}
+                        {isTerminalOpen ? <X size={20} /> : <TerminalIcon size={20} />}
                         <span className="absolute right-full mr-3 px-2 py-1 bg-slate-900 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none uppercase tracking-widest font-bold border border-slate-700">
                             {lang === 'en' ? 'Terminal' : 'Terminal'}
                         </span>
@@ -709,7 +766,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     {/* Bottom Terminal Panel */}
                     <div className={`
                             absolute bottom-0 left-0 right-0 h-64 bg-slate-900/95 backdrop-blur-xl border-t border-slate-700 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] transition-all duration-500 ease-in-out z-40
-                            ${showTerminal ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}
+                            ${isTerminalOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}
                         `}>
                         <div className="flex items-center justify-between px-4 py-2 bg-slate-800/50 border-b border-slate-700">
                             <div className="flex items-center gap-3">
@@ -720,7 +777,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => setShowTerminal(false)}
+                                    onClick={() => setIsTerminalOpen(false)}
                                     className="p-1 text-slate-500 hover:text-white transition-colors"
                                 >
                                     <X size={16} />

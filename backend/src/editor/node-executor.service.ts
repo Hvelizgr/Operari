@@ -2,6 +2,8 @@
 import { exec } from 'child_process';
 import * as ivm from 'isolated-vm';
 import { SwitchNodeExecutor } from './logic/switch.executor';
+import { WaitNodeExecutor } from './logic/wait.executor';
+
 import { PrismaClient, Prisma } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
 import {
@@ -401,6 +403,8 @@ export class NodeExecutor {
     private memoryMonitorExecutor: MemoryMonitorNodeExecutor;
     private pingExecutor: PingNodeExecutor;
     private httpCheckExecutor: HttpHealthCheckNodeExecutor;
+    private switchExecutor: SwitchNodeExecutor;
+    private waitExecutor: WaitNodeExecutor;
 
     constructor(prisma?: PrismaClient) {
         // Inicializar el sandbox con configuración por defecto
@@ -439,6 +443,8 @@ export class NodeExecutor {
         this.memoryMonitorExecutor = new MemoryMonitorNodeExecutor();
         this.pingExecutor = new PingNodeExecutor();
         this.httpCheckExecutor = new HttpHealthCheckNodeExecutor();
+        this.switchExecutor = new SwitchNodeExecutor();
+        this.waitExecutor = new WaitNodeExecutor();
     }
 
     async execute(node: WorkflowNode, rawInput: ExecutionInput, options: NodeExecutionOptions = {}): Promise<NodeExecutionResult> {
@@ -473,6 +479,15 @@ export class NodeExecutor {
             case 'n8n-nodes-base.scheduleTrigger':
             case 'Schedule':
                 return this.executeTrigger(input);
+
+            case 'Switch':
+            case 'n8n-nodes-base.switch':
+                return this.switchExecutor.execute(node, input);
+
+            case 'Wait':
+            case 'Delay':
+            case 'n8n-nodes-base.wait':
+                return this.waitExecutor.execute(node, input);
 
             case 'HTTP':
             case 'Api':
@@ -512,6 +527,7 @@ export class NodeExecutor {
 
             case 'Loop':
             case 'Iterator':
+            case 'n8n-nodes-base.loop':
             case 'n8n-nodes-base.splitInBatches':
             case 'n8n-nodes-base.SplitInBatches': // Added PascalCase support
                 return this.executeLoop(config as LoopNodeConfig, input, commonErrorContext);
@@ -924,7 +940,11 @@ export class NodeExecutor {
             }
         }
 
-        return { ...input, conditionResult: result };
+        return { 
+            ...input, 
+            conditionResult: result,
+            __activePorts: result ? [0] : [1] 
+        };
     }
 
     private async executeDatabase(

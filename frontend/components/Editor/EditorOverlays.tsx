@@ -55,6 +55,7 @@ interface EditorOverlaysProps {
     onContextMenuDuplicate: () => void;
     onContextMenuDelete: () => void;
     onContextMenuToggleEnable: () => void;
+    onContextMenuToggleBreakpoint: () => void;
     onContextMenuTestFromNode: () => void;
     onContextMenuDetachConnections?: () => void;
 
@@ -130,6 +131,7 @@ export default function EditorOverlays({
     onContextMenuDuplicate,
     onContextMenuDelete,
     onContextMenuToggleEnable,
+    onContextMenuToggleBreakpoint,
     onContextMenuTestFromNode,
     onContextMenuDetachConnections,
     onUndo,
@@ -281,6 +283,7 @@ export default function EditorOverlays({
                     onDuplicate={onContextMenuDuplicate}
                     onDelete={onContextMenuDelete}
                     onToggleEnable={onContextMenuToggleEnable}
+                    onToggleBreakpoint={onContextMenuToggleBreakpoint}
                     onTestFromNode={onContextMenuTestFromNode}
                     lang={lang}
                     type={contextMenu.type}

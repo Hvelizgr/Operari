@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../config/database';
-import { AuthRequest } from '../types/express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import { CustomError, ErrorCode, ErrorSeverity } from '../errors/custom-error';
 import { SystemEventType } from '@prisma/client';
 

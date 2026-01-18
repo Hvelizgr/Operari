@@ -27,6 +27,7 @@ export interface WorkflowNode {
     config?: Record<string, any> | NoteNodeConfig;
     executionState?: ExecutionState;
     enabled?: boolean;
+    breakpoint?: boolean;
     inputs?: NodePort[];
     outputs?: NodePort[];
     parentId?: string; // Reference to parent frame node for grouping

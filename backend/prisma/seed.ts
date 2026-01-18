@@ -48,6 +48,34 @@ async function main() {
         });
         console.log('Created default workflow');
     }
+
+    // Seed Templates
+    const { WORKFLOW_TEMPLATES } = require('../src/data/templates');
+    console.log(`Seeding ${WORKFLOW_TEMPLATES.length} templates...`);
+
+    for (const t of WORKFLOW_TEMPLATES) {
+        await (prisma as any).template.upsert({
+            where: { id: t.id },
+            update: {
+                name: t.name,
+                description: t.description,
+                nodes: t.nodes,
+                connections: t.connections,
+                category: t.category,
+                isPublic: true
+            },
+            create: {
+                id: t.id,
+                name: t.name,
+                description: t.description,
+                nodes: t.nodes,
+                connections: t.connections,
+                category: t.category,
+                isPublic: true
+            }
+        });
+    }
+    console.log('Templates seeded successfully');
 }
 
 main()

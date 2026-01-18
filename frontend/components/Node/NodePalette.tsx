@@ -159,10 +159,44 @@ const NODE_TYPES: NodeType[] = [
             { name: 'value2', displayName: 'Value 2', type: 'string', typeOptions: { expression: true } }
         ]
     },
-    { type: 'n8n-nodes-base.switch', icon: <List size={18} />, label: { en: 'Switch', es: 'Switch' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Multiple routes', es: 'Rutas múltiples' }, outputs: ['0', '1', '2', '3'] },
+    { 
+        type: 'n8n-nodes-base.switch', 
+        icon: <List size={18} />, 
+        label: { en: 'Switch', es: 'Switch' }, 
+        color: 'bg-yellow-500', 
+        category: 'flow', 
+        description: { en: 'Multiple routes', es: 'Rutas múltiples' }, 
+        outputs: ['0', '1', '2', '3'],
+        properties: [
+            { name: 'expression', displayName: 'Expression', type: 'string', typeOptions: { rows: 3, expression: true }, description: 'JEXL Expression (e.g. input.value > 10). Returns true (Port 0) or false (Port 1).' }
+        ]
+    },
     { type: 'n8n-nodes-base.merge', icon: <GitBranch size={18} className="rotate-180" />, label: { en: 'Merge', es: 'Unir' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Merge branches', es: 'Unir ramas' }, inputs: ['input 1', 'input 2'] },
-    { type: 'n8n-nodes-base.wait', icon: <Pause size={18} />, label: { en: 'Wait', es: 'Esperar' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Pause workflow', es: 'Pausar flujo' } },
-    { type: 'n8n-nodes-base.loop', icon: <RefreshCw size={18} />, label: { en: 'Loop', es: 'Bucle' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Loop over items', es: 'Iterar elementos' } },
+    { 
+        type: 'n8n-nodes-base.wait', 
+        icon: <Pause size={18} />, 
+        label: { en: 'Wait', es: 'Esperar' }, 
+        color: 'bg-yellow-500', 
+        category: 'flow', 
+        description: { en: 'Pause workflow', es: 'Pausar flujo' },
+        properties: [
+            { name: 'amount', displayName: 'Amount', type: 'number', default: 5 },
+            { name: 'unit', displayName: 'Unit', type: 'options', options: [{name: 'Seconds', value: 'seconds'}, {name: 'Minutes', value: 'minutes'}, {name: 'Hours', value: 'hours'}], default: 'seconds' }
+        ]
+    },
+    { 
+        type: 'n8n-nodes-base.loop', 
+        icon: <RefreshCw size={18} />, 
+        label: { en: 'Loop', es: 'Bucle' }, 
+        color: 'bg-yellow-500', 
+        category: 'flow', 
+        description: { en: 'Loop over items', es: 'Iterar elementos' },
+        outputs: ['loop', 'done'],
+        properties: [
+            { name: 'batchSize', displayName: 'Batch Size', type: 'number', default: 1, description: 'Items per iteration' },
+            { name: 'maxIterations', displayName: 'Max Iterations', type: 'number', default: 100 }
+        ]
+    },
     { type: 'n8n-nodes-base.errorTrigger', icon: <AlertCircle size={18} />, label: { en: 'Error Trigger', es: 'Disparador Error' }, color: 'bg-red-500', category: 'flow', description: { en: 'On error', es: 'En error' } },
 
     // === ADVANCED CONTROLLER (xyOps Style) ===

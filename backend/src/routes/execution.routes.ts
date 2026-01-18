@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../server';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 import { ExecutionService } from '../editor/execution/execution.service';
+import { QueueService } from '../scaling/queue.service';
 
 const router = Router();
 
@@ -237,18 +238,23 @@ router.post('/:workflowId/run', async (req: AuthRequest, res) => {
             return res.status(404).json({ error: 'Workflow not found' });
         }
 
-        const executionService = new ExecutionService(prisma);
-        const execution = await executionService.execute({
+        const queueService = QueueService.getInstance();
+        const job = await queueService.enqueueExecution({
             workflowId: workflow.id,
             userId: req.user!.id,
             trigger: 'MANUAL',
             input: req.body.input || {},
         });
 
-        res.status(202).json(execution);
+        res.status(202).json({ 
+            message: 'Execution queued', 
+            jobId: job.id,
+            status: 'QUEUED',
+            workflowId: workflow.id
+        });
     } catch (error) {
         req.log.error({ error }, 'Run workflow error');
-        res.status(500).json({ error: 'Failed to run workflow' });
+        res.status(500).json({ error: 'Failed to queue workflow execution' });
     }
 });
 
@@ -453,8 +459,8 @@ router.post('/:workflowId/debug', async (req: AuthRequest, res) => {
             return res.status(404).json({ error: 'Workflow not found' });
         }
 
-        const executionService = new ExecutionService(prisma);
-        const execution = await executionService.execute({
+        const queueService = QueueService.getInstance();
+        const job = await queueService.enqueueExecution({
             workflowId: workflow.id,
             userId: req.user!.id,
             trigger: 'MANUAL', // Debug runs are always MANUAL
@@ -462,10 +468,14 @@ router.post('/:workflowId/debug', async (req: AuthRequest, res) => {
             startNodeId, // Allow partial execution
         });
 
-        res.status(202).json(execution);
+        res.status(202).json({ 
+            message: 'Debug execution queued', 
+            jobId: job.id, 
+            status: 'QUEUED' 
+        });
     } catch (error) {
         req.log.error({ error }, 'Debug workflow error');
-        res.status(500).json({ error: 'Failed to start debug execution' });
+        res.status(500).json({ error: 'Failed to queue debug execution' });
     }
 });
 

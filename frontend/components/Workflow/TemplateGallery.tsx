@@ -1,11 +1,10 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, Mail, Database, Webhook, Code, FileText, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { Modal, ModalContent, ModalHeader, ModalBody, Input, Card, CardBody, Skeleton, Tab, Tabs } from "@heroui/react";
+import { X, Zap, Mail, Database, Webhook, Code, FileText, Search, LayoutGrid, Sparkles, Filter } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import type { WorkflowNode, Connection } from '@nanoflow/shared';
 import { useTemplates, WorkflowTemplate } from '../../hooks/useTemplates';
-
 
 interface TemplateGalleryProps {
     onSelectTemplate: (nodes: WorkflowNode[], connections: Connection[]) => void;
@@ -14,65 +13,44 @@ interface TemplateGalleryProps {
     onOpenChange?: (open: boolean) => void;
 }
 
-export default function TemplateGallery({ onSelectTemplate, lang, isOpen: controlledIsOpen, onOpenChange }: TemplateGalleryProps) {
+export default function TemplateGallery({ onSelectTemplate, lang, isOpen, onOpenChange }: TemplateGalleryProps) {
     const { templates: TEMPLATES, isLoading } = useTemplates();
-    const [internalIsOpen, setInternalIsOpen] = useState(false);
-
-    // Support both controlled and uncontrolled modes
-    const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
-    const setIsOpen = (open: boolean) => {
-        if (onOpenChange) {
-            onOpenChange(open);
-        } else {
-            setInternalIsOpen(open);
-        }
-    };
+    const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-    const content = {
-        en: {
-            title: 'Workflow Templates',
-            subtitle: 'Start with a pre-built template',
-            all: 'All',
-            email: 'Email',
-            data: 'Data',
-            webhooks: 'Webhooks',
-            automation: 'Automation',
-            useTemplate: 'Use Template',
-            close: 'Close',
-            openGallery: 'Templates',
-        },
-        es: {
-            title: 'Plantillas de Flujo',
-            subtitle: 'Comienza con una plantilla predefinida',
-            all: 'Todas',
-            email: 'Email',
-            data: 'Datos',
-            webhooks: 'Webhooks',
-            automation: 'Automatización',
-            useTemplate: 'Usar Plantilla',
-            close: 'Cerrar',
-            openGallery: 'Plantillas',
-        },
+    const isEs = lang === 'es';
+
+    const text = {
+        title: isEs ? 'Marketplace de Plantillas' : 'Template Marketplace',
+        subtitle: isEs ? 'Encuentra y utiliza flujos pre-construidos por la comunidad' : 'Find and use pre-built workflows from the community',
+        search: isEs ? 'Buscar plantillas...' : 'Search templates...',
+        all: isEs ? 'Todas' : 'All',
+        use: isEs ? 'Usar Plantilla' : 'Use Template',
+        empty: isEs ? 'No se encontraron plantillas' : 'No templates found'
     };
 
-    const text = content[lang] || content['en'];
-
     const categories = [
-        { id: 'all', label: text.all, icon: FileText },
-        { id: 'email', label: text.email, icon: Mail },
-        { id: 'data', label: text.data, icon: Database },
-        { id: 'webhooks', label: text.webhooks, icon: Webhook },
-        { id: 'automation', label: text.automation, icon: Zap },
+        { id: 'all', label: text.all, icon: LayoutGrid },
+        { id: 'automation', label: isEs ? 'Automatización' : 'Automation', icon: Zap },
+        { id: 'data', label: isEs ? 'Datos' : 'Data', icon: Database },
+        { id: 'email', label: 'Email', icon: Mail },
+        { id: 'webhooks', label: 'Webhooks', icon: Webhook },
+        { id: 'ai', label: 'AI', icon: Sparkles },
     ];
 
-    const filteredTemplates = selectedCategory === 'all'
-        ? TEMPLATES
-        : TEMPLATES.filter(t => t.category === selectedCategory);
+    const filteredTemplates = useMemo(() => {
+        return TEMPLATES.filter(t => {
+            const matchesCategory = selectedCategory === 'all' || t.category === selectedCategory;
+            const matchesSearch = 
+                t.name[lang]?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                t.description[lang]?.toLowerCase().includes(searchQuery.toLowerCase());
+            return matchesCategory && matchesSearch;
+        });
+    }, [TEMPLATES, selectedCategory, searchQuery, lang]);
 
     const handleSelectTemplate = (template: WorkflowTemplate) => {
         onSelectTemplate(template.nodes, template.connections);
-        setIsOpen(false);
+        onOpenChange?.(false);
     };
 
     const getCategoryIcon = (category: string) => {
@@ -81,139 +59,155 @@ export default function TemplateGallery({ onSelectTemplate, lang, isOpen: contro
             case 'data': return <Database size={16} />;
             case 'webhooks': return <Webhook size={16} />;
             case 'automation': return <Zap size={16} />;
+            case 'ai': return <Sparkles size={16} />;
             default: return <Code size={16} />;
         }
     };
 
-    // Hide the internal button when controlled externally
-    const showInternalButton = controlledIsOpen === undefined;
+    const getCategoryColor = (category: string) => {
+        switch (category) {
+            case 'email': return 'primary';
+            case 'data': return 'success';
+            case 'webhooks': return 'warning';
+            case 'automation': return 'secondary';
+            case 'ai': return 'danger';
+            default: return 'default';
+        }
+    };
 
     return (
-        <>
-            {showInternalButton && (
-                <button
-                    onClick={() => setIsOpen(true)}
-                    className="absolute top-20 left-4 flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg shadow-lg z-40 transition-colors"
-                    style={{
-                        backgroundColor: 'var(--box-background-color)',
-                        color: 'var(--body-text-color)',
-                        border: '1px solid var(--border-color)',
-                    }}
-                >
-                    <FileText size={16} style={{ color: 'var(--label-color)' }} />
-                    {text.openGallery}
-                </button>
-            )}
-
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.div
-                        className="fixed inset-0 z-50 flex items-center justify-center"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                    >
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
-
-                        <motion.div
-                            className="relative rounded-xl shadow-2xl p-6 max-w-5xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col"
-                            style={{
-                                backgroundColor: 'var(--box-background-color)',
-                                border: '1px solid var(--border-color)',
-                            }}
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                        >
-                            <div className="flex items-center justify-between mb-4">
-                                <div>
-                                    <h2 className="text-2xl font-bold" style={{ color: 'var(--body-text-color)' }}>{text.title}</h2>
-                                    <p className="text-sm mt-1" style={{ color: 'var(--label-color)' }}>{text.subtitle}</p>
+        <Modal 
+            isOpen={isOpen} 
+            onOpenChange={onOpenChange}
+            size="5xl"
+            scrollBehavior="inside"
+            backdrop="blur"
+            classNames={{
+                base: "bg-slate-50 dark:bg-slate-950 max-h-[90vh]",
+                header: "border-b border-slate-200 dark:border-slate-800",
+                body: "p-6"
+            }}
+        >
+            <ModalContent>
+                {(onClose) => (
+                    <>
+                        <ModalHeader className="flex flex-col gap-1">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+                                    <LayoutGrid size={24} />
                                 </div>
-                                <button
-                                    onClick={() => setIsOpen(false)}
-                                    className="transition-colors hover:opacity-80"
-                                    style={{ color: 'var(--label-color)' }}
-                                >
-                                    <X size={24} />
-                                </button>
+                                <div>
+                                    <h2 className="text-2xl font-bold">{text.title}</h2>
+                                    <p className="text-sm font-normal text-slate-500">{text.subtitle}</p>
+                                </div>
                             </div>
-
-                            <div className="flex items-center gap-2 mb-6">
-                                {categories.map((category) => (
-                                    <button
-                                        key={category.id}
-                                        onClick={() => setSelectedCategory(category.id)}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors`}
-                                        style={{
-                                            backgroundColor: selectedCategory === category.id ? 'var(--blue)' : 'transparent',
-                                            color: selectedCategory === category.id ? '#fff' : 'var(--label-color)',
-                                            border: selectedCategory === category.id ? 'none' : '1px solid var(--border-color)',
-                                        }}
-                                    >
-                                        <category.icon size={16} />
-                                        {category.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto flex-1">
-                                {isLoading ? (
-                                    <div className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center h-64 text-slate-400">
-                                        <Loader2 className="animate-spin mb-4" size={32} />
-                                        <p>Loading templates...</p>
-                                    </div>
-                                ) : filteredTemplates.length === 0 ? (
-                                    <div className="col-span-1 md:col-span-2 lg:col-span-3 flex items-center justify-center h-64 text-slate-500">
-                                        <p>No templates found.</p>
-                                    </div>
-                                ) : (
-                                    filteredTemplates.map((template) => (
-                                        <motion.div
-                                            key={template.id}
-                                            className="rounded-lg p-4 transition-all cursor-pointer group"
-                                            style={{
-                                                backgroundColor: 'var(--form-background-color)',
-                                                border: '1px solid var(--border-color)',
+                        </ModalHeader>
+                        <ModalBody>
+                            <div className="flex flex-col gap-6">
+                                {/* Filters & Search */}
+                                <div className="flex flex-col md:flex-row gap-4 items-center justify-between sticky top-0 z-10 py-2 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md">
+                                    <div className="w-full md:w-auto">
+                                        <Tabs 
+                                            variant="underlined"
+                                            selectedKey={selectedCategory}
+                                            onSelectionChange={(key) => setSelectedCategory(key as string)}
+                                            classNames={{
+                                                tabList: "gap-6",
+                                                cursor: "w-full bg-blue-500",
+                                                tab: "max-w-fit px-0 h-12",
+                                                tabContent: "group-data-[selected=true]:text-blue-500 text-slate-500 font-semibold"
                                             }}
-                                            whileHover={{ scale: 1.02, borderColor: 'var(--blue)' }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => handleSelectTemplate(template)}
                                         >
-                                            <div className="flex items-start justify-between mb-3">
-                                                <div className="flex items-center gap-2">
-                                                    <div style={{ color: 'var(--icon-color)' }}>
-                                                        {getCategoryIcon(template.category)}
-                                                    </div>
-                                                    <h3 className="text-sm font-semibold" style={{ color: 'var(--body-text-color)' }}>
-                                                        {template.name[lang]}
-                                                    </h3>
-                                                </div>
-                                                <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--box-background-color)', color: 'var(--label-color)', border: '1px solid var(--border-color)' }}>
-                                                    {template.nodes.length} nodes
-                                                </span>
-                                            </div>
-                                            <p className="text-xs mb-4" style={{ color: 'var(--label-color)' }}>
-                                                {template.description[lang]}
-                                            </p>
-                                            <button
-                                                className="w-full px-3 py-2 text-white text-sm font-medium rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                                style={{ backgroundColor: 'var(--blue)' }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleSelectTemplate(template);
-                                                }}
+                                            {categories.map((c) => (
+                                                <Tab 
+                                                    key={c.id} 
+                                                    title={
+                                                        <div className="flex items-center gap-2">
+                                                            <c.icon size={16} />
+                                                            <span>{c.label}</span>
+                                                        </div>
+                                                    }
+                                                />
+                                            ))}
+                                        </Tabs>
+                                    </div>
+                                    <Input
+                                        className="w-full md:max-w-xs"
+                                        placeholder={text.search}
+                                        startContent={<Search size={18} className="text-slate-400" />}
+                                        value={searchQuery}
+                                        onValueChange={setSearchQuery}
+                                        variant="bordered"
+                                        classNames={{
+                                            inputWrapper: "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
+                                    {isLoading ? (
+                                        Array.from({ length: 6 }).map((_, i) => (
+                                            <Card key={i} className="h-48">
+                                                <CardBody className="gap-3">
+                                                    <Skeleton className="h-6 w-3/4 rounded-lg" />
+                                                    <Skeleton className="h-12 w-full rounded-lg" />
+                                                    <Skeleton className="h-8 w-1/2 rounded-lg mt-auto" />
+                                                </CardBody>
+                                            </Card>
+                                        ))
+                                    ) : filteredTemplates.length === 0 ? (
+                                        <div className="col-span-full py-20 flex flex-col items-center gap-4 text-slate-500">
+                                            <Filter size={48} className="opacity-20" />
+                                            <p className="text-xl font-medium">{text.empty}</p>
+                                        </div>
+                                    ) : (
+                                        filteredTemplates.map((template) => (
+                                            <Card
+                                                key={template.id}
+                                                isPressable
+                                                onPress={() => handleSelectTemplate(template)}
+                                                className="group border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all shadow-sm hover:shadow-xl hover:shadow-blue-500/10 h-full"
                                             >
-                                                {text.useTemplate}
-                                            </button>
-                                        </motion.div>
-                                    ))
-                                )}
+                                                <CardBody className="p-5 flex flex-col h-full">
+                                                    <div className="flex justify-between items-start mb-4">
+                                                        <div className={`p-2 rounded-lg bg-${getCategoryColor(template.category)}-500/10 text-${getCategoryColor(template.category)}-500 group-hover:bg-blue-500 group-hover:text-white transition-colors`}>
+                                                            {getCategoryIcon(template.category)}
+                                                        </div>
+                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-default-100 text-default-600">
+                                                            {template.nodes?.length || 0} Nodes
+                                                        </span>
+                                                    </div>
+
+                                                    <h3 className="text-lg font-bold mb-2 line-clamp-1 group-hover:text-blue-500 transition-colors">
+                                                        {template.name[lang] || template.name['en']}
+                                                    </h3>
+
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 line-clamp-3">
+                                                        {template.description[lang] || template.description['en']}
+                                                    </p>
+
+                                                    <div className="mt-auto flex items-center justify-between">
+                                                        <div className="flex -space-x-2">
+                                                            <div className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-900 bg-gradient-to-tr from-slate-200 to-slate-300" />
+                                                            <div className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-900 bg-gradient-to-tr from-blue-400 to-blue-500" />
+                                                        </div>
+                                                        <span
+                                                            className="font-bold hidden group-hover:inline-flex items-center justify-center px-3 py-1 text-sm rounded-lg bg-primary text-primary-foreground animate-in fade-in zoom-in duration-200"
+                                                        >
+                                                            {text.use}
+                                                        </span>
+                                                    </div>
+                                                </CardBody>
+                                            </Card>
+                                        ))
+                                    )}
+                                </div>
                             </div>
-                        </motion.div>
-                    </motion.div>
+                        </ModalBody>
+                    </>
                 )}
-            </AnimatePresence>
-        </>
+            </ModalContent>
+        </Modal>
     );
 }

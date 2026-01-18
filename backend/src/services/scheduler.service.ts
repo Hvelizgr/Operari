@@ -1,16 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 import cron from 'node-cron';
-import { ExecutionService } from '../editor/execution/execution.service';
+import { QueueService } from '../scaling/queue.service';
 import { logger } from '../config/logger.config';
 
 export class SchedulerService {
     private prisma: PrismaClient;
-    private executionService: ExecutionService;
+    private queueService: QueueService;
     private tasks: Map<string, cron.ScheduledTask>;
 
     constructor(prisma: PrismaClient) {
         this.prisma = prisma;
-        this.executionService = new ExecutionService(prisma);
+        this.queueService = QueueService.getInstance();
         this.tasks = new Map();
     }
 
@@ -57,7 +57,7 @@ export class SchedulerService {
                     return;
                 }
 
-                await this.executionService.execute({
+                await this.queueService.enqueueExecution({
                     workflowId: workflow.id,
                     userId: workflow.userId,
                     trigger: 'SCHEDULED',

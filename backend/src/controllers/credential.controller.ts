@@ -1,7 +1,8 @@
 import { Response, NextFunction } from 'express';
 import { credentialService, CreateCredentialInput } from '../services/credential.service';
-import { AuthRequest } from '../types/express';
+import { AuthRequest } from '../middleware/auth.middleware';
 import { CustomError, ErrorCode } from '../errors/custom-error';
+import { CredentialEnvironment } from '@prisma/client';
 
 export class CredentialController {
     
@@ -34,12 +35,23 @@ export class CredentialController {
                 throw new CustomError({ message: 'User ID required', code: ErrorCode.UNAUTHORIZED });
             }
 
-            // Optional: filter by environment from query
-            const environment = req.query.environment as any;
+            const id = req.query.id as string;
             
-            const credentials = await credentialService.getCredentials(userId, environment);
-
-            res.json(credentials);
+            if (id) {
+                // Get one
+                const cred = await credentialService.getCredential(id, req.user!.id);
+                if (!cred) {
+                    throw new CustomError({ message: 'Credential not found', code: ErrorCode.EXECUTION_NOT_FOUND });
+                }
+                res.json(cred);
+            } else {
+                // List all
+                // Filter by environment if provided
+                const environment = req.query.environment as CredentialEnvironment;
+                
+                const creds = await credentialService.getCredentials(req.user!.id, environment);
+                res.json(creds);
+            }
         } catch (error) {
             next(error);
         }
@@ -51,12 +63,12 @@ export class CredentialController {
     async update(req: AuthRequest, res: Response, next: NextFunction) {
         try {
             const userId = req.user?.id;
-            const { id } = req.params;
+            const id = req.params.id as string;
             if (!userId) {
                 throw new CustomError({ message: 'User ID required', code: ErrorCode.UNAUTHORIZED });
             }
 
-            const updates = req.body;
+            const updates = req.body as Partial<CreateCredentialInput>;
             const credential = await credentialService.updateCredential(userId, id, updates);
 
             res.json(credential);
@@ -71,7 +83,7 @@ export class CredentialController {
     async delete(req: AuthRequest, res: Response, next: NextFunction) {
         try {
             const userId = req.user?.id;
-            const { id } = req.params;
+            const id = req.params.id as string;
             if (!userId) {
                 throw new CustomError({ message: 'User ID required', code: ErrorCode.UNAUTHORIZED });
             }

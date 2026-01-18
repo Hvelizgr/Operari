@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { credentialController } from '../controllers/credential.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, requireRole } from '../middleware/auth.middleware';
+import { Role } from '@prisma/client';
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.use(authenticate);
  *       201:
  *         description: Credential created
  */
-router.post('/', credentialController.create.bind(credentialController));
+router.post('/', requireRole(Role.ADMIN, Role.USER), credentialController.create.bind(credentialController));
 
 /**
  * @swagger
@@ -75,7 +76,7 @@ router.get('/', credentialController.list.bind(credentialController));
  *       200:
  *         description: Credential updated
  */
-router.put('/:id', credentialController.update.bind(credentialController));
+router.put('/:id', requireRole(Role.ADMIN, Role.USER), credentialController.update.bind(credentialController));
 
 /**
  * @swagger
@@ -93,6 +94,6 @@ router.put('/:id', credentialController.update.bind(credentialController));
  *       204:
  *         description: Credential deleted
  */
-router.delete('/:id', credentialController.delete.bind(credentialController));
+router.delete('/:id', requireRole(Role.ADMIN), credentialController.delete.bind(credentialController));
 
 export default router;

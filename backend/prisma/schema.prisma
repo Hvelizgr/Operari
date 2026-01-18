@@ -371,3 +371,21 @@ model AlertHistory {
   @@index([createdAt])
   @@index([isRead])
 }
+
+model Template {
+  id          String   @id @default(uuid())
+  name        Json     // { en: string, es: string }
+  description Json?    // { en: string, es: string }
+  nodes       Json?
+  connections Json?
+  category    String?
+  icon        String?
+  tags        String[] @default([])
+  isPublic    Boolean  @default(false)
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([isPublic])
+}

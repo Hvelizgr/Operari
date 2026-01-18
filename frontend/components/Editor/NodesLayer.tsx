@@ -46,6 +46,12 @@ interface NodesLayerProps {
 
     // Blast Radius (Impact Analysis)
     getNodeBlastRadiusStyle?: (nodeId: string) => 'focused' | 'affected' | 'dimmed' | 'normal';
+
+    // Execution Heatmap
+    heatmapEnabled?: boolean;
+    getNodeHeatColor?: (nodeId: string) => string;
+    getNodeBorderColor?: (nodeId: string) => string;
+    getNodeStats?: (nodeId: string) => any;
 }
 
 export default function NodesLayer({
@@ -79,6 +85,11 @@ export default function NodesLayer({
     lang,
     // Blast Radius
     getNodeBlastRadiusStyle,
+    // Execution Heatmap
+    heatmapEnabled,
+    getNodeHeatColor,
+    getNodeBorderColor,
+    getNodeStats,
 }: NodesLayerProps) {
     // Hover state for toolbar
     const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -217,6 +228,11 @@ export default function NodesLayer({
                             onRunFromNode={onNodeRun}
                             lang={lang}
                             blastRadiusStyle={getNodeBlastRadiusStyle?.(node.id)}
+                            heatmapStyle={heatmapEnabled ? {
+                                backgroundColor: getNodeHeatColor?.(node.id),
+                                borderColor: getNodeBorderColor?.(node.id),
+                                stats: getNodeStats?.(node.id)
+                            } : undefined}
                         />
                     </div>
                 );

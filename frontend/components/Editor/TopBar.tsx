@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Moon, Sun, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Square, Settings2, Target, Gauge, ShieldAlert, ShieldCheck, FileWarning, FileCheck } from 'lucide-react';
+import { Download, Moon, Sun, Plus, Upload, FileText, Zap, Play, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Square, Settings2, Target, Gauge, ShieldAlert, ShieldCheck, FileWarning, FileCheck, Globe } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import type { SaveStatus } from '../../hooks/useAutosave';
@@ -15,6 +15,8 @@ interface TopBarProps {
     onDebug?: () => void;
     isExecuting?: boolean;
     onStop?: () => void;
+    onResume?: () => void;
+    executionStatus?: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | null;
     onProperties?: () => void;
     onExport?: () => void;
     onImport?: (file: File) => void;
@@ -23,6 +25,7 @@ interface TopBarProps {
     saveStatus?: SaveStatus;
     onTemplates?: () => void;
     onMetrics?: () => void;
+    onPublish?: () => void;
     // Blast Radius (Impact Analysis)
     blastRadiusMode?: BlastRadiusMode;
     onToggleBlastRadius?: () => void;
@@ -36,6 +39,9 @@ interface TopBarProps {
     lintErrorCount?: number;
     lintWarningCount?: number;
     lintPassed?: boolean;
+    // Execution Heatmap
+    heatmapEnabled?: boolean;
+    onToggleHeatmap?: () => void;
 }
 
 export default function TopBar({
@@ -46,6 +52,8 @@ export default function TopBar({
     onDebug,
     isExecuting,
     onStop,
+    onResume,
+    executionStatus,
     onProperties,
     onExport,
     onImport,
@@ -54,6 +62,7 @@ export default function TopBar({
     saveStatus,
     onTemplates,
     onMetrics,
+    onPublish,
     blastRadiusMode = 'off',
     onToggleBlastRadius,
     complexityScore,
@@ -63,6 +72,8 @@ export default function TopBar({
     lintErrorCount = 0,
     lintWarningCount = 0,
     lintPassed = true,
+    heatmapEnabled = false,
+    onToggleHeatmap,
 }: TopBarProps) {
     const { highContrast, toggleHighContrast } = useAccessibility();
     const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
@@ -94,6 +105,45 @@ export default function TopBar({
                 <Icon size={14} className={saveStatus === 'saving' ? 'animate-spin' : ''} />
                 {config.text}
             </span>
+        );
+    };
+
+    const renderExecutionButton = () => {
+        if (executionStatus === 'PAUSED') {
+            return (
+                <button
+                    onClick={onResume}
+                    className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors shadow-[0_0_15px_rgba(249,115,22,0.4)] animate-pulse"
+                    title={lang === 'en' ? 'Resume Execution' : 'Reanudar Ejecución'}
+                >
+                    <Play size={14} fill="currentColor" />
+                    <span>{lang === 'en' ? 'Resume' : 'Reanudar'}</span>
+                </button>
+            );
+        }
+
+        if (isExecuting) {
+            return (
+                <button
+                    onClick={onStop}
+                    className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
+                    title={lang === 'en' ? 'Stop Execution' : 'Detener Ejecución'}
+                >
+                    <Square size={14} fill="currentColor" />
+                    <span>{lang === 'en' ? 'Stop' : 'Detener'}</span>
+                </button>
+            );
+        }
+
+        return (
+            <button
+                onClick={onRun}
+                className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+                title={lang === 'en' ? 'Run Workflow (Ctrl+Enter)' : 'Ejecutar Flujo (Ctrl+Enter)'}
+            >
+                <Zap size={16} />
+                <span>{lang === 'en' ? 'Run' : 'Ejecutar'}</span>
+            </button>
         );
     };
 
@@ -253,6 +303,24 @@ export default function TopBar({
                                 </button>
                             )}
 
+                            {/* Execution Heatmap */}
+                            {onToggleHeatmap && (
+                                <button
+                                    onClick={() => { onToggleHeatmap(); setIsToolsMenuOpen(false); }}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                                        heatmapEnabled
+                                            ? 'text-red-600 bg-red-50 dark:bg-red-900/20'
+                                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                    }`}
+                                >
+                                    <BarChart3 size={16} />
+                                    {lang === 'en' ? 'Execution Heatmap' : 'Mapa de Calor'}
+                                    <span className="ml-auto text-xs text-slate-400">
+                                        {heatmapEnabled ? 'On' : 'Off'}
+                                    </span>
+                                </button>
+                            )}
+
                             <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
 
                             {/* Run with Input */}
@@ -282,26 +350,7 @@ export default function TopBar({
                     )}
                 </div>
 
-                {/* Run/Stop - Always visible */}
-                {isExecuting ? (
-                    <button
-                        onClick={onStop}
-                        className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
-                        title={lang === 'en' ? 'Stop Execution' : 'Detener Ejecución'}
-                    >
-                        <Square size={14} fill="currentColor" />
-                        <span>{lang === 'en' ? 'Stop' : 'Detener'}</span>
-                    </button>
-                ) : (
-                    <button
-                        onClick={onRun}
-                        className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
-                        title={lang === 'en' ? 'Run Workflow (Ctrl+Enter)' : 'Ejecutar Flujo (Ctrl+Enter)'}
-                    >
-                        <Zap size={16} />
-                        <span>{lang === 'en' ? 'Run' : 'Ejecutar'}</span>
-                    </button>
-                )}
+                {renderExecutionButton()}
             </div>
 
             {/* Right: Secondary Actions */}
@@ -349,6 +398,17 @@ export default function TopBar({
                 >
                     <Download size={18} />
                 </button>
+
+                {/* Publish to Marketplace */}
+                {onPublish && (
+                    <button
+                        onClick={onPublish}
+                        className="p-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        title={lang === 'en' ? 'Publish to Marketplace' : 'Publicar en Marketplace'}
+                    >
+                        <Globe size={18} />
+                    </button>
+                )}
 
                 <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
 

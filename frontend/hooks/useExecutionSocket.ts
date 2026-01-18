@@ -18,7 +18,7 @@ export function useExecutionSocket(executionId: string | null) {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [nodeStatuses, setNodeStatuses] = useState<Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED'>>({});
     const [nodeOutputs, setNodeOutputs] = useState<Record<string, any>>({});
-    const [executionStatus, setExecutionStatus] = useState<'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | null>(null);
+    const [executionStatus, setExecutionStatus] = useState<'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'QUEUED' | null>(null);
     const socketRef = useRef<Socket | null>(null);
 
     useEffect(() => {
@@ -59,7 +59,7 @@ export function useExecutionSocket(executionId: string | null) {
             }
         });
 
-        socket.on('execution_status', (status: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED') => {
+        socket.on('execution_status', (status: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'QUEUED') => {
             setExecutionStatus(status);
         });
 

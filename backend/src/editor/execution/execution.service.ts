@@ -19,8 +19,9 @@ import {
 } from '../../errors/custom-error';
 import { persistExecutionError } from '../../utils/error-persistence';
 import { socketService } from './socket.service';
+import { TracingService } from '../../services/tracing.service';
 
-interface ExecuteParams {
+export interface ExecuteParams {
     workflowId: string;
     userId: string;
     trigger: TriggerType;
@@ -29,7 +30,7 @@ interface ExecuteParams {
     startNodeId?: string;
 }
 
-interface ResumeParams {
+export interface ResumeParams {
     executionId: string;
     userId: string;
     tenantId: string;
@@ -97,14 +98,16 @@ export class ExecutionService {
             socketService.emitLog(execution.id, 'Workflow execution started');
 
             // Run workflow asynchronously with proper error handling
-            this.runWorkflow(
-                execution.id,
-                workflow,
-                input,
-                executionContext,
-                tenantId,
-                startNodeId
-            ).catch((error) => {
+            TracingService.traceWorkflow(execution.id, workflow.name, async () => {
+                await this.runWorkflow(
+                    execution.id,
+                    workflow,
+                    input,
+                    executionContext,
+                    tenantId,
+                    startNodeId
+                );
+            }).catch((error) => {
                 // This handles uncaught errors from runWorkflow
                 this.logger.error('Uncaught error in workflow execution', {
                     context: executionContext,
@@ -246,15 +249,17 @@ export class ExecutionService {
             Object.assign(initialState.nodeOutputs[lastExecutedNodeId], input);
         }
 
-        this.runWorkflow(
-            execution.id,
-            execution.workflow,
-            {}, // Original input is already baked into the state
-            { executionId, workflowId: execution.workflowId, userId, tenantId },
-            tenantId,
-            undefined,
-            initialState
-        ).catch((error) => {
+        TracingService.traceWorkflow(execution.id, (execution.workflow as any).name, async () => {
+             await this.runWorkflow(
+                execution.id,
+                execution.workflow,
+                {}, // Original input is already baked into the state
+                { executionId, workflowId: execution.workflowId, userId, tenantId },
+                tenantId,
+                undefined,
+                initialState
+            );
+        }).catch((error) => {
             this.logger.error('Uncaught error in resumed workflow execution', {
                 error: error instanceof Error ? error : new Error(String(error)),
             });
@@ -288,6 +293,7 @@ export class ExecutionService {
             const nodeOutputs = initialState?.nodeOutputs || {};
             const executedNodes = initialState?.executedNodes ? new Set(initialState.executedNodes) : new Set<string>();
             const nodeRetryCount = new Map<string, number>();
+            let totalExecutions = 0;
 
             let nodesToExecute: WorkflowNode[];
             if (initialState) {
@@ -310,13 +316,21 @@ export class ExecutionService {
             }
 
             while (nodesToExecute.length > 0) {
-
                 const currentNode = nodesToExecute.shift()!;
 
+                // Protection against infinite loops
+                totalExecutions++;
+                if (totalExecutions > 1000) {
+                    throw new CustomError({
+                        message: 'Workflow execution limit reached (1000 nodes). Possible infinite loop detected.',
+                        code: ErrorCode.NODE_EXECUTION_FAILED,
+                        severity: ErrorSeverity.CRITICAL
+                    });
+                }
 
-
-                if (executedNodes.has(currentNode.id)) continue;
-
+                // In a cycle-enabled engine, we don't skip executed nodes anymore,
+                // but we might still want to avoid redundant re-triggers if not from a loop.
+                // For now, we allow re-execution.
 
 
                 // Skip disabled nodes
@@ -357,7 +371,7 @@ export class ExecutionService {
 
                         .map(c => nodes.find(n => n.id === c.target))
 
-                        .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
+                        .filter((n): n is WorkflowNode => n !== undefined);
 
                     nodesToExecute.push(...nextNodes);
 
@@ -388,6 +402,26 @@ export class ExecutionService {
 
                 const nodeInput = this.getNodeInput(currentNode.id, connections, nodeOutputs, input);
 
+                // Check for breakpoint
+                if (currentNode.breakpoint) {
+                    await this.prisma.execution.update({
+                        where: { id: executionId },
+                        data: {
+                            status: 'PAUSED',
+                            pausedAt: new Date(),
+                            resumeState: {
+                                nodeOutputs,
+                                executedNodes: Array.from(executedNodes),
+                                nodesToExecute: [currentNode.id, ...nodesToExecute.map(n => n.id)],
+                            } as any,
+                        },
+                    });
+                    socketService.emitLog(executionId, `[BREAKPOINT] Hitted at: ${currentNode.title}`, { nodeId: currentNode.id });
+                    socketService.emitExecutionStatus(executionId, 'PAUSED');
+                    socketService.emitNodeStatus(executionId, currentNode.id, 'RUNNING'); // Mark as "about to run" or just use status signal
+                    return;
+                }
+
                 const nodeLog = await this.prisma.nodeLog.create({
                     data: {
                         executionId,
@@ -413,12 +447,21 @@ export class ExecutionService {
 
                 try {
                     nodeContextLogger.debug('Node execution started');
-                    const output = await this.nodeExecutor.execute(currentNode, nodeInput, {
-                        tenantId,
+                    
+                    const output = await TracingService.traceNode(
                         executionId,
-                        nodeOutputs,
-                        workflowNodes: nodes
-                    });
+                        currentNode.id,
+                        currentNode.title,
+                        currentNode.type,
+                        async () => {
+                            return await this.nodeExecutor.execute(currentNode, nodeInput, {
+                                tenantId,
+                                executionId,
+                                nodeOutputs,
+                                workflowNodes: nodes
+                            });
+                        }
+                    );
 
                     // Handle suspend signal
                     if ((output as SuspendResult).isSuspended) {
@@ -473,7 +516,7 @@ export class ExecutionService {
                             return activePorts.includes(port);
                         })
                         .map(c => nodes.find(n => n.id === c.target))
-                        .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
+                        .filter((n): n is WorkflowNode => n !== undefined);
 
                     nodesToExecute.push(...nextNodes);
                 } catch (error) {
@@ -638,8 +681,8 @@ export class ExecutionService {
             }
         }
 
-        // Check for cycles (simplified - could be enhanced with full DFS)
-        this.checkForCycles(nodeIds, connections);
+        // Cycles are now allowed for Loop support
+        // this.checkForCycles(nodeIds, connections);
     }
 
     /**

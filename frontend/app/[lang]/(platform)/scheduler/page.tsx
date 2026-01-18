@@ -58,9 +58,9 @@ export default function SchedulerPage() {
                                 <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${job.status === 'Active' ? 'bg-green-500/10 text-green-500' : 'bg-default-200 text-default-500'}`}>
                                     {job.status}
                                 </div>
-                                <Button isIconOnly variant="light" color="default" className="text-default-400">
+                                <div className="p-2 rounded-lg text-default-400 hover:bg-default-100 transition-colors">
                                     <Calendar size={18} />
-                                </Button>
+                                </div>
                             </div>
                         </CardBody>
                     </Card>

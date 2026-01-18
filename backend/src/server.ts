@@ -19,10 +19,13 @@ import n8nRoutes from './routes/n8n.routes';
 import gitRoutes from './routes/git.routes';
 import systemEventRoutes from './routes/system-event.routes';
 import alertRoutes from './routes/alert.routes';
+import userRoutes from './routes/user.routes';
+import aiRoutes from './routes/ai.routes';
 
 import metricRoutes from './routes/metric.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { SchedulerService } from './services/scheduler.service';
+import { QueueService } from './scaling/queue.service';
 import { NodeLoaderService } from './services/node-loader.service';
 import {
     authRateLimiter,
@@ -74,7 +77,8 @@ app.use('/api/git', standardRateLimiter, gitRoutes);
 app.use('/api/events', standardRateLimiter, systemEventRoutes);
 app.use('/api/metrics', standardRateLimiter, metricRoutes);
 app.use('/api/alerts', standardRateLimiter, alertRoutes);
-app.use('/api/credentials', standardRateLimiter, credentialRoutes);
+app.use('/api/users', standardRateLimiter, userRoutes);
+app.use('/api/ai', standardRateLimiter, aiRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
 
 app.get('/health', (req, res) => {
@@ -98,6 +102,15 @@ async function main() {
 
         scheduler.start();
         logger.info('Scheduler started');
+
+        // Initialize Queue (and Worker if enabled)
+        const queueService = QueueService.getInstance();
+        if (process.env.ENABLE_WORKER === 'true') {
+            queueService.startWorker();
+            logger.info('Queue Worker started in API process');
+        } else {
+            logger.info('Queue initialized (Worker disabled in API)');
+        }
 
         // Initialize Dynamic Node Loader
         await NodeLoaderService.getInstance().initialize();

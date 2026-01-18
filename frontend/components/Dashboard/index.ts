@@ -1,1 +1,1 @@
-export { default as MetricsDashboard } from './MetricsDashboard';
+export { MetricsDashboard } from './MetricsDashboard';

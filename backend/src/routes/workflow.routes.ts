@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../server';
-import { authenticate, AuthRequest } from '../middleware/auth.middleware';
+import { authenticate, AuthRequest, requireRole } from '../middleware/auth.middleware';
+import { Role } from '@prisma/client';
 import { SchedulerService } from '../services/scheduler.service';
 import {
     workflowDefinitionSchema,
@@ -315,7 +316,7 @@ router.get('/:id/metadata', async (req: AuthRequest, res) => {
  *             example:
  *               error: "Name is required"
  */
-router.post('/', async (req: AuthRequest, res) => {
+router.post('/', requireRole(Role.ADMIN, Role.USER), async (req: AuthRequest, res) => {
     try {
         const data = workflowDefinitionSchema.parse(req.body);
 
@@ -404,7 +405,7 @@ router.post('/', async (req: AuthRequest, res) => {
  *       404:
  *         description: Workflow not found
  */
-router.put('/:id', async (req: AuthRequest, res) => {
+router.put('/:id', requireRole(Role.ADMIN, Role.USER), async (req: AuthRequest, res) => {
     try {
         // Use partial schema for updates - only nodes and connections are required
         const updateSchema = z.object({
@@ -549,7 +550,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
  *       404:
  *         description: Workflow not found
  */
-router.delete('/:id', async (req: AuthRequest, res) => {
+router.delete('/:id', requireRole(Role.ADMIN), async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.id as string;
         const existing = await prisma.workflow.findFirst({

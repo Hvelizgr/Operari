@@ -4,7 +4,7 @@ import { MouseEvent, useRef, useLayoutEffect, memo } from 'react';
 import { NodeType, NODE_TYPES } from '../Node';
 import { WorkflowNode } from '@nanoflow/shared';
 import './WorkflowNode.css';
-import { Box, AlertCircle, ChevronRight, ChevronDown, GripVertical } from 'lucide-react';
+import { Box, AlertCircle, ChevronRight, ChevronDown, GripVertical, Zap, Bug } from 'lucide-react';
 // Export shared port utilities for use in ConnectionsLayer
 export { getNodeInputPort, getNodeOutputPort, getNodePortInfo } from '../../utils/nodePortUtils';
 
@@ -32,6 +32,16 @@ interface EditorNodeProps {
     onRunFromNode?: (nodeId: string) => void;
     lang: 'en' | 'es';
     blastRadiusStyle?: 'focused' | 'affected' | 'dimmed' | 'normal';
+    heatmapStyle?: {
+        backgroundColor?: string;
+        borderColor?: string;
+        stats?: {
+            executionCount: number;
+            avgDuration: number;
+            successCount: number;
+            failureCount: number;
+        };
+    };
 }
 
 function EditorNodeComponent({
@@ -53,6 +63,7 @@ function EditorNodeComponent({
     onRunFromNode,
     lang,
     blastRadiusStyle = 'normal',
+    heatmapStyle,
 }: EditorNodeProps) {
     const nodeRef = useRef<HTMLDivElement>(null);
     const nodeType = typeDefinition || NODE_TYPES.find(t => t.type.toLowerCase() === node.type.toLowerCase());
@@ -115,14 +126,24 @@ function EditorNodeComponent({
     const showValidation = !isConnected;
 
     const ValidationBadge = () => (
-        showValidation && (
-            <div
-                className="absolute -top-2 -right-2 z-50 bg-red-500 rounded-full w-5 h-5 flex items-center justify-center border border-white shadow-sm animate-pulse pointer-events-none"
-                title="Disconnected Node"
-            >
-                <AlertCircle size={12} className="text-white" />
-            </div>
-        )
+        <>
+            {showValidation && (
+                <div
+                    className="absolute -top-2 -right-2 z-50 bg-red-500 rounded-full w-5 h-5 flex items-center justify-center border border-white shadow-sm animate-pulse pointer-events-none"
+                    title="Disconnected Node"
+                >
+                    <AlertCircle size={12} className="text-white" />
+                </div>
+            )}
+            {node.breakpoint && (
+                <div 
+                    className="absolute -top-2 -left-2 z-50 bg-red-600 rounded-full w-4 h-4 flex items-center justify-center border border-white shadow-lg pointer-events-none"
+                    title="Breakpoint Active"
+                >
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                </div>
+            )}
+        </>
     );
 
 
@@ -162,6 +183,12 @@ function EditorNodeComponent({
         : blastRadiusStyle === 'affected' ? 'blast-affected'
         : blastRadiusStyle === 'dimmed' ? 'blast-dimmed'
         : '';
+
+    const heatmapOverlayStyle = heatmapStyle ? {
+        backgroundColor: heatmapStyle.backgroundColor,
+        borderColor: heatmapStyle.borderColor,
+        boxShadow: heatmapStyle.backgroundColor ? `0 0 15px ${heatmapStyle.backgroundColor}` : undefined,
+    } : {};
 
     // --- CONTROLLER (Pill Shape) ---
     if (visualType === 'controller') {
@@ -264,20 +291,53 @@ function EditorNodeComponent({
                         {renderIcon(nodeType?.icon, 18)}
                     </div>
                     <div className="node-title-group">
-                        <span className="node-title-text">{node.title}</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="node-title-text">{node.title}</span>
+                            {node.breakpoint && (
+                                <Bug size={12} className="text-red-500 animate-pulse" />
+                            )}
+                        </div>
                         {nodeType?.subtitle && !((nodeType.subtitle as any)[lang] || '').includes('={{') && (
                             <span className="node-subtitle-text">
                                 {(nodeType.subtitle as any)[lang] || (nodeType.subtitle as any).en}
                             </span>
                         )}
                     </div>
+                    {heatmapStyle?.stats && (
+                        <div className="ml-auto flex items-center gap-2">
+                            <div className="px-1.5 py-0.5 rounded bg-black/50 text-[10px] font-mono text-white flex items-center gap-1 border border-white/10">
+                                <Zap size={10} className="text-yellow-400" />
+                                {heatmapStyle.stats.executionCount}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="wf_body">
                     <p className="node-description">
                         {(nodeType?.description as any)?.[lang] || (nodeType?.description as any)?.en || 'No description available'}
                     </p>
+                    {heatmapStyle?.stats && (
+                        <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-400 font-medium">
+                            <span className="flex items-center gap-1">
+                                <AlertCircle size={10} className={heatmapStyle.stats.failureCount > 0 ? 'text-red-400' : 'text-gray-500'} />
+                                {heatmapStyle.stats.failureCount}
+                            </span>
+                            <span className="flex items-center gap-1">
+                                <ChevronRight size={10} />
+                                {Math.round(heatmapStyle.stats.avgDuration)}ms
+                            </span>
+                        </div>
+                    )}
                 </div>
+
+                {/* Heatmap Glow Overlay */}
+                {heatmapStyle && (
+                    <div 
+                        className="absolute inset-0 rounded-[inherit] pointer-events-none z-[-1] opacity-40 transition-all duration-500"
+                        style={heatmapOverlayStyle}
+                    />
+                )}
 
                 {/* Ports Container Left */}
                 <div className="ports-container ports-container-left">

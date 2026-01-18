@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { WorkflowNode, Connection } from '@nanoflow/shared';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
+
 export type SaveStatus = 'saving' | 'saved' | 'error' | 'conflict';
 
 interface AutosaveOptions {
@@ -41,7 +43,7 @@ export function useAutosave({
 
     const saveToBackend = useCallback(async (data: WorkflowData): Promise<boolean> => {
         try {
-            const response = await fetch(`/api/workflows/${workflowId}`, {
+            const response = await fetch(`${API_URL}/api/workflows/${workflowId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -75,7 +77,7 @@ export function useAutosave({
 
     const checkForConflicts = useCallback(async (): Promise<boolean> => {
         try {
-            const response = await fetch(`/api/workflows/${workflowId}/metadata`);
+            const response = await fetch(`${API_URL}/api/workflows/${workflowId}/metadata`);
 
             // If it's the scratchpad and doesn't exist yet, there's no conflict.
             if (response.status === 404 && workflowId === 'current-workflow') {

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Trash2, ToggleRight, Play, Plus, ZoomIn, ZoomOut, Maximize2, Undo2, Redo2, History, Keyboard, Link2Off, Move, Pencil, Eraser } from 'lucide-react';
+import { Copy, Trash2, ToggleRight, Play, Plus, ZoomIn, ZoomOut, Maximize2, Undo2, Redo2, History, Keyboard, Link2Off, Move, Pencil, Eraser, Bug } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
 interface ContextMenuProps {
@@ -11,6 +11,7 @@ interface ContextMenuProps {
     onDuplicate?: () => void;
     onDelete?: () => void;
     onToggleEnable?: () => void;
+    onToggleBreakpoint?: () => void;
     onTestFromNode?: () => void;
     lang: 'en' | 'es';
     type: 'node' | 'canvas';
@@ -33,7 +34,7 @@ interface ContextMenuProps {
 }
 
 export default function ContextMenu({
-    x, y, onClose, onDuplicate, onDelete, onToggleEnable, onTestFromNode, lang, type,
+    x, y, onClose, onDuplicate, onDelete, onToggleEnable, onToggleBreakpoint, onTestFromNode, lang, type,
     onAddNode, onZoomIn, onZoomOut, onFitView,
     onUndo, onRedo, onHistory, onShortcuts, onDetachConnections, onSetModeMove, onSetModeDraw, onClearAll,
     canUndo = true, canRedo = true
@@ -72,6 +73,7 @@ export default function ContextMenu({
         en: {
             duplicate: 'Duplicate',
             toggleEnable: 'Enable/Disable',
+            toggleBreakpoint: 'Toggle Breakpoint',
             delete: 'Delete',
             testFromNode: 'Test From Here',
             addNode: 'Add Node',
@@ -90,6 +92,7 @@ export default function ContextMenu({
         es: {
             duplicate: 'Duplicar',
             toggleEnable: 'Activar/Desactivar',
+            toggleBreakpoint: 'Alternar Punto de Interrupción',
             delete: 'Eliminar',
             testFromNode: 'Probar Desde Aquí',
             addNode: 'Agregar Nodo',
@@ -113,6 +116,7 @@ export default function ContextMenu({
         { icon: Play, label: text.testFromNode, action: onTestFromNode, color: 'text-green-400' },
         { icon: Copy, label: text.duplicate, action: onDuplicate, color: 'text-slate-300' },
         { icon: ToggleRight, label: text.toggleEnable, action: onToggleEnable, color: 'text-slate-300' },
+        { icon: Bug, label: text.toggleBreakpoint, action: onToggleBreakpoint, color: 'text-red-400' },
         { icon: Link2Off, label: text.detach, action: onDetachConnections, color: 'text-orange-400' },
         { icon: Trash2, label: text.delete, action: onDelete, color: 'text-red-400' },
     ];

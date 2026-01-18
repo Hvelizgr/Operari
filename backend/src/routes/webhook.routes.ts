@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../server';
 import { ExecutionService } from '../editor/execution/execution.service';
+import { QueueService } from '../scaling/queue.service';
 
 const router = Router();
 
@@ -52,8 +53,8 @@ router.post('/:workflowId', async (req, res) => {
             return res.status(404).json({ error: 'Workflow not found or not active' });
         }
 
-        const executionService = new ExecutionService(prisma);
-        const execution = await executionService.execute({
+        const queueService = QueueService.getInstance();
+        const job = await queueService.enqueueExecution({
             workflowId: workflow.id,
             userId: workflow.userId,
             trigger: 'WEBHOOK',
@@ -65,8 +66,9 @@ router.post('/:workflowId', async (req, res) => {
         });
 
         res.status(202).json({
-            executionId: execution.id,
-            status: execution.status,
+            message: 'Webhook received',
+            executionId: job.id, // Return Job ID instead of Execution ID (as execution might not exist yet)
+            status: 'QUEUED',
         });
     } catch (error) {
         req.log.error({ error }, 'Webhook error');

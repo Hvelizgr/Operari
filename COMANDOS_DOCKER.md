@@ -67,6 +67,16 @@ Si cambiaste nombres de servicios en el `docker-compose.yml`, pueden quedar cont
 docker-compose down --remove-orphans
 ```
 
+### Limpieza del Sistema (Liberar Espacio)
+
+Elimina todos los contenedores detenidos, redes no usadas e imágenes "colgantes" (builds antiguos).
+
+```bash
+docker system prune
+```
+
+Para una limpieza total (incluyendo imágenes no usadas): `docker system prune -a`
+
 ---
 
 ## 🛠 Desarrollo Híbrido (Recomendado)

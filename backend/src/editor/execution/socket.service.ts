@@ -33,6 +33,7 @@ export class SocketService {
         this.io.on('connection', (socket) => {
             logger.info({ socketId: socket.id }, 'Client connected to Socket.io');
 
+            // --- Execution Rooms ---
             socket.on('join_execution', (executionId: string) => {
                 socket.join(`execution:${executionId}`);
                 logger.debug({ socketId: socket.id, executionId }, 'Client joined execution room');
@@ -43,7 +44,47 @@ export class SocketService {
                 logger.debug({ socketId: socket.id, executionId }, 'Client left execution room');
             });
 
+            // --- Workflow Collaboration Rooms ---
+            socket.on('join_workflow', (data: { workflowId: string, user: any }) => {
+                const { workflowId, user } = data;
+                socket.join(`workflow:${workflowId}`);
+                // Store user info in socket for presence
+                (socket as any).workflowId = workflowId;
+                (socket as any).userData = user;
+                
+                socket.to(`workflow:${workflowId}`).emit('user_joined', { socketId: socket.id, user });
+                logger.debug({ socketId: socket.id, workflowId }, 'Client joined workflow collaboration');
+            });
+
+            socket.on('leave_workflow', (workflowId: string) => {
+                socket.leave(`workflow:${workflowId}`);
+                socket.to(`workflow:${workflowId}`).emit('user_left', { socketId: socket.id });
+                logger.debug({ socketId: socket.id, workflowId }, 'Client left workflow collaboration');
+            });
+
+            socket.on('workflow_changes', (data: { workflowId: string, changes: any }) => {
+                const { workflowId, changes } = data;
+                // Broadcast changes to everyone else in the room
+                socket.to(`workflow:${workflowId}`).emit('remote_workflow_changes', { 
+                    senderId: socket.id, 
+                    changes 
+                });
+            });
+
+            socket.on('cursor_move', (data: { workflowId: string, position: { x: number, y: number } }) => {
+                const { workflowId, position } = data;
+                socket.to(`workflow:${workflowId}`).emit('remote_cursor_move', {
+                    userId: socket.id,
+                    userData: (socket as any).userData,
+                    position
+                });
+            });
+
             socket.on('disconnect', () => {
+                const workflowId = (socket as any).workflowId;
+                if (workflowId) {
+                    socket.to(`workflow:${workflowId}`).emit('user_left', { socketId: socket.id });
+                }
                 logger.info({ socketId: socket.id }, 'Client disconnected from Socket.io');
             });
         });

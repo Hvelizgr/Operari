@@ -15,7 +15,10 @@ import { useEditorNodes } from '../hooks/useEditorNodes';
 import { useEditorSelection } from '../hooks/useEditorSelection';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useBlastRadius } from '../hooks/useBlastRadius';
+import { useExecutionHeatmap } from '../hooks/useExecutionHeatmap';
+import { apiFetch } from '../utils/api';
 import { createNewNode, createDroppedNode, generateExecutionMetrics } from '../components/Editor/EditorCanvas.utils';
+import { useCollaboration } from './useCollaboration';
 
 // Editor-specific types
 import type {
@@ -177,6 +180,64 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         isConnectionInBlastRadius,
         getNodeBlastRadiusStyle,
     } = useBlastRadius({ connections });
+
+    // Execution Heatmap
+    const [heatmapEnabled, setHeatmapEnabled] = useState(false);
+    const {
+        recordExecution,
+        getNodeHeatLevel,
+        getNodeHeatColor,
+        getNodeBorderColor,
+        getNodeStats,
+        clearStats
+    } = useExecutionHeatmap({ enabled: heatmapEnabled });
+
+    const toggleHeatmap = useCallback(async () => {
+        const newState = !heatmapEnabled;
+        setHeatmapEnabled(newState);
+
+        if (newState) {
+            try {
+                // Fetch stats from backend to populate heatmap (hardcoded ID for now as per system design)
+                const data = await apiFetch('/api/analytics/workflows/current-workflow/stats');
+                if (data.nodeStats && Array.isArray(data.nodeStats)) {
+                    clearStats();
+                    data.nodeStats.forEach((stat: any) => {
+                        // Adapt API response to Heatmap hook expected format
+                        recordExecution(
+                            stat.nodeId,
+                            stat.status === 'SUCCESS',
+                            stat._avg?.duration || 0
+                        );
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to fetch heatmap stats', error);
+            }
+        }
+    }, [heatmapEnabled, clearStats, recordExecution]);
+
+    // --- REAL-TIME COLLABORATION ---
+    const [currentUser, setCurrentUser] = useState<any>(null);
+    useEffect(() => {
+        const userStr = typeof window !== 'undefined' ? localStorage.getItem('nanoflow_user') : null;
+        if (userStr) {
+            setCurrentUser(JSON.parse(userStr));
+        } else {
+            setCurrentUser({ id: 'anon-' + Math.random().toString(36).substr(2, 5), name: 'Anonymous' });
+        }
+    }, []);
+
+    const { remoteUsers, broadcastChanges, broadcastCursor } = useCollaboration(
+        'current-workflow', // Global room for now
+        currentUser,
+        { nodes, connections, setNodes, setConnections }
+    );
+
+    // Broadcast local changes
+    useEffect(() => {
+        broadcastChanges({ nodes, connections });
+    }, [nodes, connections, broadcastChanges]);
 
     // --- FETCH INITIAL WORKFLOW ---
     useEffect(() => {
@@ -479,8 +540,13 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
             if (creatingConnection && canvasRef.current) {
                 updateCreatingConnectionPosition(e.clientX, e.clientY);
             }
+
+            // Sync cursor position for collaboration
+            const worldX = (e.clientX - viewport.x) / viewport.zoom;
+            const worldY = (e.clientY - viewport.y) / viewport.zoom;
+            broadcastCursor({ x: worldX, y: worldY });
         },
-        [isPanning, panStart, draggingNode, creatingConnection, selectionBox, viewport, nodes, setViewport, updateSelectionBox, updateCreatingConnectionPosition]
+        [isPanning, panStart, draggingNode, creatingConnection, selectionBox, viewport, nodes, setViewport, updateSelectionBox, updateCreatingConnectionPosition, broadcastCursor]
     );
 
     const handleCanvasMouseUp = useCallback(() => {
@@ -863,32 +929,53 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         setSelectedConnection(null);
     }, [setNodes, setConnections, setSelectedNodes, setSelectedConnection]);
 
-    const handleSelectTemplate = useCallback((templateNodes: WorkflowNode[], templateConnections: Connection[]) => {
-        // Filter out duplicate IDs
-        const seenNodeIds = new Set<string>();
-        const uniqueNodes = templateNodes.filter((node) => {
-            if (seenNodeIds.has(node.id)) {
-                console.warn(`Duplicate node ID in template: ${node.id}`);
-                return false;
-            }
-            seenNodeIds.add(node.id);
-            return true;
+    const handleSelectTemplate = useCallback((templateNodes: WorkflowNode[], templateConnections: Connection[]): { nodes: WorkflowNode[], connections: Connection[] } => {
+        // Generate unique IDs for all nodes to avoid conflicts with previous executions
+        const timestamp = Date.now();
+        const idMap = new Map<string, string>(); // Maps old ID to new ID
+
+        // Create nodes with new unique IDs
+        const newNodes = templateNodes.map((node, index) => {
+            const newId = `${node.type}-${timestamp}-${index}`;
+            idMap.set(node.id, newId);
+            return {
+                ...node,
+                id: newId,
+                // Update parentId if it exists (for frames)
+                parentId: node.parentId ? undefined : undefined, // Will be resolved after all IDs are mapped
+            };
         });
 
-        const seenConnIds = new Set<string>();
-        const uniqueConnections = templateConnections.filter((conn) => {
-            if (seenConnIds.has(conn.id)) {
-                console.warn(`Duplicate connection ID in template: ${conn.id}`);
-                return false;
+        // Update parentId references after all IDs are mapped
+        const nodesWithParents = newNodes.map(node => {
+            const originalNode = templateNodes.find(n => idMap.get(n.id) === node.id);
+            if (originalNode?.parentId && idMap.has(originalNode.parentId)) {
+                return { ...node, parentId: idMap.get(originalNode.parentId) };
             }
-            seenConnIds.add(conn.id);
-            return true;
+            return node;
         });
 
-        setNodes(uniqueNodes);
-        setConnections(uniqueConnections);
+        // Create connections with new IDs and updated source/target references
+        const newConnections = templateConnections.map((conn, index) => ({
+            ...conn,
+            id: `conn-${timestamp}-${index}`,
+            source: idMap.get(conn.source) || conn.source,
+            target: idMap.get(conn.target) || conn.target,
+        }));
+
+        // Filter out any connections with unmapped sources/targets
+        const validConnections = newConnections.filter(conn =>
+            nodesWithParents.some(n => n.id === conn.source) &&
+            nodesWithParents.some(n => n.id === conn.target)
+        );
+
+        setNodes(nodesWithParents);
+        setConnections(validConnections);
         setSelectedNodes(new Set());
         setSelectedConnection(null);
+
+        // Return transformed data for immediate use (e.g., forceSave)
+        return { nodes: nodesWithParents, connections: validConnections };
     }, [setNodes, setConnections, setSelectedNodes, setSelectedConnection]);
 
     const handleSearchNodeSelect = useCallback((nodeId: string) => {
@@ -951,6 +1038,19 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
                 prevNodes.map(node =>
                     node.id === contextMenu.nodeId
                         ? { ...node, enabled: !(node.enabled ?? true) }
+                        : node
+                )
+            );
+        }
+        handleCloseContextMenu();
+    }, [contextMenu, setNodes, handleCloseContextMenu]);
+
+    const handleContextMenuToggleBreakpoint = useCallback(() => {
+        if (contextMenu?.nodeId) {
+            setNodes(prevNodes =>
+                prevNodes.map(node =>
+                    node.id === contextMenu.nodeId
+                        ? { ...node, breakpoint: !node.breakpoint }
                         : node
                 )
             );
@@ -1029,6 +1129,7 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         handleContextMenuDuplicate,
         handleDeleteFromContextMenu,
         handleContextMenuToggleEnable,
+        handleContextMenuToggleBreakpoint,
         handleNodeClick,
         handleNodeMove,
         handleNodeUpdate, // This is already here, just need to use it
@@ -1076,5 +1177,17 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         isNodeDimmed,
         isConnectionInBlastRadius,
         getNodeBlastRadiusStyle,
+
+        // Execution Heatmap
+        heatmapEnabled,
+        toggleHeatmap,
+        getNodeHeatColor,
+        getNodeBorderColor,
+        getNodeStats,
+        clearStats,
+
+        // Collaboration
+        remoteUsers,
+        broadcastCursor,
     };
 }

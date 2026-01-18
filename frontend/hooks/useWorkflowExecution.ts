@@ -24,13 +24,16 @@ export function useWorkflowExecution(workflowId: string | null) {
             });
 
             if (!response.ok) {
-                // Determine if it was a 404 because debug endpoint is missing (common in dev), fallback to run?
-                // No, just throw error for now.
-                throw new Error(`Failed to start workflow execution (${mode})`);
+                const errorBody = await response.json().catch(() => ({}));
+                const errorMessage = errorBody.error || `HTTP ${response.status}: ${response.statusText}`;
+                throw new Error(`Failed to start workflow execution (${mode}): ${errorMessage}`);
             }
 
             const execution = await response.json();
-            setCurrentExecutionId(execution.id);
+            // In async mode, reliable execution ID comes later, but we get a jobId.
+            // If the backend returns an ID (synchronous or pre-created), use it.
+            // Otherwise, we might need to handle the 'QUEUED' state elsewhere or here.
+            setCurrentExecutionId(execution.id || execution.jobId);
             return execution;
         } catch (err: any) {
             setError(err.message);
@@ -59,7 +62,9 @@ export function useWorkflowExecution(workflowId: string | null) {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to start execution from node');
+                const errorBody = await response.json().catch(() => ({}));
+                const errorMessage = errorBody.error || `HTTP ${response.status}: ${response.statusText}`;
+                throw new Error(`Failed to start execution from node: ${errorMessage}`);
             }
 
             const execution = await response.json();
@@ -88,7 +93,9 @@ export function useWorkflowExecution(workflowId: string | null) {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to replay node');
+                const errorBody = await response.json().catch(() => ({}));
+                const errorMessage = errorBody.error || `HTTP ${response.status}: ${response.statusText}`;
+                throw new Error(`Failed to replay node: ${errorMessage}`);
             }
 
             const execution = await response.json();
@@ -102,10 +109,42 @@ export function useWorkflowExecution(workflowId: string | null) {
         }
     };
 
+    const resumeWorkflow = async (executionId: string, input: any = {}) => {
+        setExecuting(true);
+        setError(null);
+
+        try {
+            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
+            const response = await fetch(`${apiBase}/api/executions/${executionId}/resume`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ input }),
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.json().catch(() => ({}));
+                const errorMessage = errorBody.error || `HTTP ${response.status}: ${response.statusText}`;
+                throw new Error(`Failed to resume execution: ${errorMessage}`);
+            }
+
+            const execution = await response.json();
+            setCurrentExecutionId(execution.id);
+            return execution;
+        } catch (err: any) {
+            setError(err.message);
+            console.error('Resume error:', err);
+        } finally {
+            setExecuting(false);
+        }
+    };
+
     return {
         executeWorkflow,
         executeFromNode,
         replayNode,
+        resumeWorkflow,
         executing,
         currentExecutionId,
         error,

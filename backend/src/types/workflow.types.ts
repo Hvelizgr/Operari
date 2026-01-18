@@ -244,6 +244,7 @@ export interface WorkflowNode {
     title: string;
     position: NodePosition;
     enabled?: boolean;
+    breakpoint?: boolean;
     config?: NodeConfig;
     inputs?: NodePort[];
     outputs?: NodePort[];
@@ -255,6 +256,7 @@ export const workflowNodeSchema = z.object({
     title: z.string().min(1),
     position: nodePositionSchema,
     enabled: z.boolean().optional(),
+    breakpoint: z.boolean().optional(),
     config: nodeConfigSchema,
     inputs: z.array(nodePortSchema).optional(),
     outputs: z.array(nodePortSchema).optional(),

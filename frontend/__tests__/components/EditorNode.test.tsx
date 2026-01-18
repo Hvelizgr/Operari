@@ -25,6 +25,7 @@ const defaultProps = {
     onClick: jest.fn(),
     onMove: jest.fn(),
     onContextMenu: jest.fn(),
+    lang: 'en' as const,
 };
 
 describe('EditorNode', () => {

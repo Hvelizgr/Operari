@@ -61,6 +61,23 @@ export class CredentialService {
         }
     }
 
+    async getCredential(id: string, userId: string) {
+        const cred = await prisma.credential.findFirst({
+            where: { id, userId },
+            select: {
+                id: true,
+                name: true,
+                type: true,
+                description: true,
+                environment: true,
+                allowedWorkflows: true,
+                allowedTags: true,
+                createdAt: true,
+            }
+        });
+        return cred;
+    }
+
     async getCredentials(userId: string, environment?: CredentialEnvironment) {
         try {
             const where: any = { userId };
