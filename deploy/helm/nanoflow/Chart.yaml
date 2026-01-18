@@ -1,0 +1,13 @@
+apiVersion: v2
+name: nanoflow
+description: NanoFlow - Workflow Automation Platform
+type: application
+version: 0.1.0
+appVersion: '1.0.0'
+keywords:
+  - workflow
+  - automation
+  - n8n-alternative
+maintainers:
+  - name: NanoFlow Team
+    email: team@nanoflow.io

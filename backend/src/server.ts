@@ -22,6 +22,7 @@ import alertRoutes from './routes/alert.routes';
 import userRoutes from './routes/user.routes';
 import aiRoutes from './routes/ai.routes';
 import tenantRoutes from './routes/tenant.routes';
+import twoFactorRoutes from './routes/two-factor.routes';
 
 import metricRoutes from './routes/metric.routes';
 import { errorHandler } from './middleware/error.middleware';
@@ -81,6 +82,7 @@ app.use('/api/alerts', standardRateLimiter, alertRoutes);
 app.use('/api/users', standardRateLimiter, userRoutes);
 app.use('/api/ai', standardRateLimiter, aiRoutes);
 app.use('/api/tenant', standardRateLimiter, tenantRoutes);
+app.use('/api/2fa', standardRateLimiter, twoFactorRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
 
 app.get('/health', (req, res) => {

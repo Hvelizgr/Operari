@@ -1,0 +1,131 @@
+# Default values for nanoflow
+replicaCount:
+  api: 2
+  worker: 3
+
+image:
+  repository: ghcr.io/nanoflow/nanoflow
+  pullPolicy: IfNotPresent
+  tag: 'latest'
+
+imagePullSecrets: []
+nameOverride: ''
+fullnameOverride: ''
+
+# API Server configuration
+api:
+  port: 3001
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# Worker configuration
+worker:
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 2
+  port: 3000
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  auth:
+    database: nanoflow
+    username: nanoflow
+    password: '' # Set via --set or secrets
+  primary:
+    persistence:
+      size: 10Gi
+
+# Redis configuration
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: '' # Set via --set or secrets
+  master:
+    persistence:
+      size: 1Gi
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: nanoflow.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: api
+        - path: /webhook
+          pathType: Prefix
+          service: api
+  tls:
+    - secretName: nanoflow-tls
+      hosts:
+        - nanoflow.example.com
+
+# Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas:
+    api: 2
+    worker: 2
+  maxReplicas:
+    api: 10
+    worker: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ''
+
+# Pod Security
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Environment variables
+env:
+  NODE_ENV: production
+  JWT_SECRET: '' # Set via secrets
+  ENCRYPTION_KEY: '' # Set via secrets
+
+# Secrets (use external secrets manager in production)
+secrets:
+  create: true
+  jwtSecret: ''
+  encryptionKey: ''
+  smtpPassword: ''
+  slackWebhook: ''
