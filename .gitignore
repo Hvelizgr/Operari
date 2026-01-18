@@ -72,3 +72,7 @@ backend/prisma/*.db-journal
 /docs
 /others
 
+# Markdown files (except README)
+*.md
+!README.md
+!**/README.md
