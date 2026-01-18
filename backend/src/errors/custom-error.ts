@@ -9,6 +9,8 @@ export enum ErrorCode {
     TIMEOUT_ERROR = 'ERR_1003',
     UNAUTHORIZED = 'ERR_1004',
     FORBIDDEN = 'ERR_1005',
+    NOT_FOUND = 'ERR_1006',
+    TENANT_NOT_FOUND = 'ERR_1007',
 
     // Workflow errors (2xxx)
     WORKFLOW_NOT_FOUND = 'ERR_2000',
@@ -156,6 +158,8 @@ export class CustomError extends Error {
             
             [ErrorCode.UNAUTHORIZED]: 'You are not authorized to perform this action.',
             [ErrorCode.FORBIDDEN]: 'You do not have permission to access this resource.',
+            [ErrorCode.NOT_FOUND]: 'The requested resource was not found.',
+            [ErrorCode.TENANT_NOT_FOUND]: 'The workspace was not found.',
         };
         return messages[code] || 'An error occurred.';
     }

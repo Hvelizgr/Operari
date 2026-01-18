@@ -1,14 +1,21 @@
 'use client';
 
 import { Card, CardBody, CardHeader, Divider, Button, Tabs, Tab, Avatar, Input, Switch, Chip } from "@heroui/react";
-import { User, Shield, Key, Settings, Lock } from "lucide-react";
+import { User, Shield, List, Settings, Plus as PlusIcon } from "lucide-react";
+import { useTenant } from "@/hooks/useTenant";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 export default function AdminPage() {
+    const { tenant, users, auditLogs, loading } = useTenant();
+
+    if (loading) return <div className="p-8">Cargando...</div>;
+
     return (
         <div className="p-8 space-y-8 max-w-[1200px] mx-auto">
             <div className="mb-8">
                 <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-600 to-rose-600">
-                    Administración
+                    Administración: {tenant?.name}
                 </h1>
                 <p className="text-default-500 mt-2">Control centralizado de usuarios, roles y seguridad.</p>
             </div>
@@ -32,21 +39,54 @@ export default function AdminPage() {
                         </CardHeader>
                         <Divider className="my-2 bg-white/10" />
                         <CardBody className="space-y-4">
-                            {[1, 2, 3].map((u) => (
-                                <div key={u} className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
+                            {users?.map((u: any) => (
+                                <div key={u.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
                                     <div className="flex items-center gap-4">
-                                        <Avatar name={`User ${u}`} size="md" className="transition-transform hover:scale-105" src={`https://i.pravatar.cc/150?u=${u}`} />
+                                        <Avatar name={u.name} size="md" className="transition-transform hover:scale-105" src={`https://i.pravatar.cc/150?u=${u.id}`} />
                                         <div>
-                                            <p className="font-bold text-default-900">Usuario {u}</p>
-                                            <p className="text-xs text-default-500">usuario{u}@empresa.com</p>
+                                            <p className="font-bold text-default-900">{u.name || 'Sin nombre'}</p>
+                                            <p className="text-xs text-default-500">{u.email}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <Chip size="sm" color="default" variant="dot">Editor</Chip>
+                                        <Chip size="sm" color={u.role === 'ADMIN' ? 'danger' : 'default'} variant="dot">{u.role}</Chip>
                                         <Button size="sm" variant="light" color="danger">Revocar</Button>
                                     </div>
                                 </div>
                             ))}
+                        </CardBody>
+                    </Card>
+                </Tab>
+
+                {/* AUDIT LOGS TAB */}
+                <Tab key="logs" title={
+                    <div className="flex items-center gap-2">
+                        <List size={18} />
+                        <span>Audit Logs</span>
+                    </div>
+                }>
+                    <Card className="mt-4 p-4 border border-white/10 bg-white/5 backdrop-blur-md">
+                        <CardHeader>
+                            <h3 className="text-xl font-bold">Registro de Auditoría</h3>
+                            <p className="text-sm text-default-500">Historial de acciones críticas en el workspace.</p>
+                        </CardHeader>
+                        <Divider className="my-2 bg-white/10" />
+                        <CardBody>
+                            <div className="space-y-2">
+                                {auditLogs?.map((log: any) => (
+                                    <div key={log.id} className="text-xs p-2 rounded bg-black/20 flex justify-between items-center border-l-2 border-red-500">
+                                        <div>
+                                            <span className="font-bold text-red-400 mr-2">{log.action}</span>
+                                            <span className="text-default-400">por {log.user?.name || log.user?.email}</span>
+                                            <span className="mx-2 opacity-50">•</span>
+                                            <span className="italic">{log.resourceType}: {log.resourceId}</span>
+                                        </div>
+                                        <div className="text-default-500">
+                                            {format(new Date(log.createdAt), "HH:mm:ss d/MM", { locale: es })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </CardBody>
                     </Card>
                 </Tab>
@@ -117,15 +157,15 @@ export default function AdminPage() {
                     </div>
                 }>
                     <Card className="mt-4 p-6 border border-white/10 bg-white/5 backdrop-blur-md">
-                        <h3 className="text-xl font-bold mb-6">Variables de Entorno Globales</h3>
+                        <h3 className="text-xl font-bold mb-6">Configuración del Workspace</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Input label="Server URL" placeholder="https://api.nanoflow.com" defaultValue="https://api.nanoflow.com" variant="bordered" />
-                            <Input label="Webhook Base URL" placeholder="https://hooks.nanoflow.com" defaultValue="https://hooks.nanoflow.com" variant="bordered" />
-                            <Input label="Log Retention (Days)" type="number" defaultValue="30" variant="bordered" />
-                            <Input label="Max Execution Time (ms)" type="number" defaultValue="30000" variant="bordered" />
+                            <Input label="Workspace Name" placeholder="My Workspace" defaultValue={tenant?.name} variant="bordered" />
+                            <Input label="Workspace Slug" placeholder="my-workspace" defaultValue={tenant?.slug} variant="bordered" isReadOnly />
+                            <Input label="Storage Usage" defaultValue={`${(tenant?.storageUsage || 0) / 1024} MB`} variant="bordered" isReadOnly />
+                            <Input label="Plan Actual" defaultValue={tenant?.plan} variant="bordered" isReadOnly />
                         </div>
                         <div className="flex justify-end mt-6">
-                            <Button color="primary">Guardar Cambios</Button>
+                            <Button color="danger">Guardar Cambios</Button>
                         </div>
                     </Card>
                 </Tab>
@@ -133,5 +173,3 @@ export default function AdminPage() {
         </div>
     );
 }
-
-function PlusIcon() { return <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg> }
