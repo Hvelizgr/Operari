@@ -88,6 +88,10 @@ function MetricChart({ title, metricName, color, icon: Icon, unit }: MetricChart
     );
 }
 
+import { AlertsFeed } from "./AlertsFeed";
+
+// ... previous imports ...
+
 export function MetricsDashboard() {
     return (
         <div className="space-y-6">
@@ -95,9 +99,6 @@ export function MetricsDashboard() {
                 <h3 className="text-xl font-bold flex items-center gap-2">
                     <Server className="text-default-500" /> Infrastructure Health
                 </h3>
-                <div className="flex gap-2">
-                   {/* Filters could go here */}
-                </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -122,6 +123,14 @@ export function MetricsDashboard() {
                     icon={HardDrive} 
                     unit="%" 
                 />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <AlertsFeed />
+                {/* Placeholder for future logs or map */}
+                <Card className="bg-default-50/50 border-none h-[400px] flex items-center justify-center text-default-400">
+                    <p>System Logs (Coming Soon)</p>
+                </Card>
             </div>
         </div>
     );

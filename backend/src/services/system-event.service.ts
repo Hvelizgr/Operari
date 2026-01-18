@@ -5,12 +5,181 @@ import { CustomError, ErrorCode } from '../errors/custom-error';
 import { logger } from '../config/logger.config';
 
 export interface SystemEvent {
+    tenantId?: string;
     type: SystemEventType;
     source: string;           // ID of the source (workflowId, alertId, etc.)
     sourceName?: string;      // Human readable name
     payload: Record<string, any>;
     timestamp?: Date;
 }
+
+// ... lines 15-126 unchanged
+
+    /**
+     * Emit a system event - triggers all listening workflows
+     */
+    async emit(event: SystemEvent): Promise<{ triggered: number; executions: string[] }> {
+        const { type, source, sourceName, payload, tenantId } = event;
+        const timestamp = event.timestamp || new Date();
+
+        logger.info({ eventType: type, source, tenantId }, `Emitting system event`);
+
+        // Persist meaningful events to AlertHistory if tenantId is present
+        if (tenantId && (type === 'ALERT_TRIGGERED' || type === 'WORKFLOW_FAILED')) {
+            try {
+                const severity = type === 'WORKFLOW_FAILED' ? 'HIGH' : (payload.severity || 'MEDIUM');
+                const title = type === 'WORKFLOW_FAILED' ? `Workflow Failed: ${sourceName}` : (payload.alertTitle || `Alert: ${sourceName}`);
+                const message = type === 'WORKFLOW_FAILED' ? (payload.error || 'Unknown error') : (payload.alertMessage || JSON.stringify(payload));
+                
+                await this.prismaClient.alertHistory.create({
+                    data: {
+                        tenantId,
+                        type,
+                        severity: severity as any, // Cast to ErrorSeverity enum
+                        title,
+                        message,
+                        metadata: payload,
+                        createdAt: timestamp
+                    }
+                });
+            } catch (err) {
+                 logger.error({ err }, 'Failed to persist alert history');
+            }
+        }
+
+        try {
+            // Find all active listeners for this event type
+            const listeners = await this.getListenersForEvent(type);
+
+            const executions: string[] = [];
+            let triggered = 0;
+
+            for (const listener of listeners) {
+                // If event has tenantId, only trigger listeners for that tenant
+                // (Optional: cross-tenant system events might exist for admins, but safety first)
+                if (tenantId && listener.workflow.tenantId !== tenantId) {
+                    continue;
+                }
+
+                // Check if workflow is active
+                if (!listener.workflow.isActive) {
+                    logger.debug({ workflowId: listener.workflowId }, `Skipping inactive workflow`);
+                    continue;
+                }
+                
+                // ... rest of logic (filtering, execution)
+                // Need to ensure the loop continues correctly
+                
+                // Check event filter if present
+                if (listener.eventFilter) {
+                    if (!this.matchesFilter(payload, listener.eventFilter as Record<string, any>)) {
+                        logger.debug({ workflowId: listener.workflowId }, `Event filter not matched`);
+                        continue;
+                    }
+                }
+
+                try {
+                    // Execute the workflow with the event as input
+                    const execution = await this.executionService.execute({
+                        workflowId: listener.workflowId,
+                        userId: listener.workflow.userId,
+                        tenantId: listener.workflow.tenantId,
+                        trigger: 'SYSTEM_EVENT',
+                        input: {
+                            $event: {
+                                type,
+                                source,
+                                sourceName,
+                                payload,
+                                timestamp: timestamp.toISOString(),
+                            },
+                            ...payload,
+                        },
+                    });
+
+                    executions.push(execution.id);
+                    triggered++;
+
+                    logger.info({
+                        workflowId: listener.workflowId,
+                        executionId: execution.id,
+                        eventType: type
+                    }, `Triggered workflow from system event`);
+                } catch (error) {
+                    logger.error({
+                        workflowId: listener.workflowId,
+                        eventType: type,
+                        error
+                    }, `Failed to trigger workflow from system event`);
+                }
+            }
+
+            return { triggered, executions };
+        } catch (error) {
+            throw new CustomError({
+                message: 'Failed to emit system event',
+                code: ErrorCode.UNKNOWN_ERROR,
+                cause: error as Error
+            });
+        }
+    }
+
+    /**
+     * Convenience methods for common events
+     */
+    async emitAlertTriggered(alertName: string, alertData: Record<string, any>, tenantId?: string) {
+        return this.emit({
+            type: 'ALERT_TRIGGERED',
+            source: alertName,
+            sourceName: alertName,
+            tenantId,
+            payload: {
+                alertName,
+                ...alertData,
+            },
+        });
+    }
+
+    async emitWorkflowCompleted(workflowId: string, workflowName: string, result: any, tenantId?: string) {
+        return this.emit({
+            type: 'WORKFLOW_COMPLETED',
+            source: workflowId,
+            sourceName: workflowName,
+            tenantId,
+            payload: {
+                workflowId,
+                workflowName,
+                result,
+            },
+        });
+    }
+
+    async emitWorkflowFailed(workflowId: string, workflowName: string, error: string, tenantId?: string) {
+        return this.emit({
+            type: 'WORKFLOW_FAILED',
+            source: workflowId,
+            sourceName: workflowName,
+            tenantId,
+            payload: {
+                workflowId,
+                workflowName,
+                error,
+            },
+        });
+    }
+
+    async emitCustomEvent(eventName: string, payload: Record<string, any>, tenantId?: string) {
+        return this.emit({
+            type: 'CUSTOM',
+            source: eventName,
+            sourceName: eventName,
+            tenantId,
+            payload: {
+                eventName,
+                ...payload,
+            },
+        });
+    }
 
 export interface EventListenerConfig {
     workflowId: string;
@@ -130,10 +299,33 @@ export class SystemEventService {
      * Emit a system event - triggers all listening workflows
      */
     async emit(event: SystemEvent): Promise<{ triggered: number; executions: string[] }> {
-        const { type, source, sourceName, payload } = event;
+        const { type, source, sourceName, payload, tenantId } = event;
         const timestamp = event.timestamp || new Date();
 
-        logger.info({ eventType: type, source }, `Emitting system event`);
+        logger.info({ eventType: type, source, tenantId }, `Emitting system event`);
+
+        // Persist meaningful events to AlertHistory if tenantId is present
+        if (tenantId && (type === 'ALERT_TRIGGERED' || type === 'WORKFLOW_FAILED')) {
+            try {
+                const severity = type === 'WORKFLOW_FAILED' ? 'HIGH' : (payload.severity || 'MEDIUM');
+                const title = type === 'WORKFLOW_FAILED' ? `Workflow Failed: ${sourceName}` : (payload.alertTitle || `Alert: ${sourceName}`);
+                const message = type === 'WORKFLOW_FAILED' ? (payload.error || 'Unknown error') : (payload.alertMessage || JSON.stringify(payload));
+                
+                await this.prismaClient.alertHistory.create({
+                    data: {
+                        tenantId,
+                        type,
+                        severity: severity as any, // Cast to ErrorSeverity enum
+                        title,
+                        message,
+                        metadata: payload,
+                        createdAt: timestamp
+                    }
+                });
+            } catch (err) {
+                 logger.error({ err }, 'Failed to persist alert history');
+            }
+        }
 
         try {
             // Find all active listeners for this event type
@@ -206,11 +398,12 @@ export class SystemEventService {
     /**
      * Convenience methods for common events
      */
-    async emitAlertTriggered(alertName: string, alertData: Record<string, any>) {
+    async emitAlertTriggered(alertName: string, alertData: Record<string, any>, tenantId?: string) {
         return this.emit({
             type: 'ALERT_TRIGGERED',
             source: alertName,
             sourceName: alertName,
+            tenantId,
             payload: {
                 alertName,
                 ...alertData,
@@ -218,11 +411,12 @@ export class SystemEventService {
         });
     }
 
-    async emitWorkflowCompleted(workflowId: string, workflowName: string, result: any) {
+    async emitWorkflowCompleted(workflowId: string, workflowName: string, result: any, tenantId?: string) {
         return this.emit({
             type: 'WORKFLOW_COMPLETED',
             source: workflowId,
             sourceName: workflowName,
+            tenantId,
             payload: {
                 workflowId,
                 workflowName,
@@ -231,11 +425,12 @@ export class SystemEventService {
         });
     }
 
-    async emitWorkflowFailed(workflowId: string, workflowName: string, error: string) {
+    async emitWorkflowFailed(workflowId: string, workflowName: string, error: string, tenantId?: string) {
         return this.emit({
             type: 'WORKFLOW_FAILED',
             source: workflowId,
             sourceName: workflowName,
+            tenantId,
             payload: {
                 workflowId,
                 workflowName,
@@ -244,11 +439,12 @@ export class SystemEventService {
         });
     }
 
-    async emitCustomEvent(eventName: string, payload: Record<string, any>) {
+    async emitCustomEvent(eventName: string, payload: Record<string, any>, tenantId?: string) {
         return this.emit({
             type: 'CUSTOM',
             source: eventName,
             sourceName: eventName,
+            tenantId,
             payload: {
                 eventName,
                 ...payload,

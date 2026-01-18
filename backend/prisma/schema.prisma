@@ -355,3 +355,19 @@ model Metric {
   @@index([nodeId])
   @@index([tenantId])
 }
+
+model AlertHistory {
+  id        String          @id @default(uuid())
+  tenantId  String
+  type      SystemEventType
+  severity  ErrorSeverity   @default(MEDIUM)
+  title     String
+  message   String
+  metadata  Json?
+  isRead    Boolean         @default(false)
+  createdAt DateTime        @default(now())
+
+  @@index([tenantId])
+  @@index([createdAt])
+  @@index([isRead])
+}

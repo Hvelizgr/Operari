@@ -71,6 +71,7 @@ app.use('/api/n8n', standardRateLimiter, n8nRoutes);
 app.use('/api/git', standardRateLimiter, gitRoutes);
 app.use('/api/events', standardRateLimiter, systemEventRoutes);
 app.use('/api/metrics', standardRateLimiter, metricRoutes);
+app.use('/api/alerts', standardRateLimiter, alertRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
 
 app.get('/health', (req, res) => {
