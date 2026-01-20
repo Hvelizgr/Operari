@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Settings } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { WorkflowNode } from '@nanoflow/shared';
-import { NODE_TYPES, NodeType } from './NodePalette';
+import { NodeType } from './NodePalette';
+import { useNodeTypes } from '@/hooks/useNodeTypes';
 import DynamicNodeForm from './DynamicNodeForm';
 
 interface NodeConfigPanelProps {
@@ -20,8 +21,8 @@ export default function NodeConfigPanel({ node, nodeTypeDefinition, onUpdate, on
     const [localTitle, setLocalTitle] = useState('');
     const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
 
-    // ... existing initialization ...
-    const nodeTypeInfo = node ? NODE_TYPES.find(t => t.type === node.type) : null;
+    const { nodeTypes: allNodeTypes } = useNodeTypes();
+    const nodeTypeInfo = node ? allNodeTypes.find(t => t.type === node.type) : null;
     const nodeDescription = nodeTypeInfo?.description?.[lang];
 
     useEffect(() => {
@@ -143,7 +144,7 @@ export default function NodeConfigPanel({ node, nodeTypeDefinition, onUpdate, on
                                 localConfig={localConfig}
                                 setLocalConfig={setLocalConfig}
                                 onUpdate={onUpdate}
-                                nodeTypeDefinition={nodeTypeDefinition || NODE_TYPES.find(t => t.type === node?.type)}
+                                nodeTypeDefinition={nodeTypeDefinition || allNodeTypes.find(t => t.type === node?.type)}
                                 lang={lang}
                                 nodes={nodes}
                                 connections={[]}

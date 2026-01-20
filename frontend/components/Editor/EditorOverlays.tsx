@@ -230,10 +230,7 @@ export default function EditorOverlays({
 
             {showOnboarding && (
                 <Onboarding
-                    currentStep={onboardingStep}
                     steps={lang === 'es' ? ONBOARDING_STEPS_ES : ONBOARDING_STEPS_EN}
-                    onNext={onOnboardingNext}
-                    onSkip={onOnboardingSkip}
                     onClose={onOnboardingClose}
                 />
             )}

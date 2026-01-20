@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { WorkflowNode } from '../Editor';
-import { NODE_TYPES, NodeType, CATEGORIES } from '../Node';
+import { NodeType, CATEGORIES } from '../Node';
 
 interface SearchBarProps {
     nodes: WorkflowNode[];
@@ -73,13 +73,8 @@ export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightN
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Filter available nodes (for adding new)
     const filteredAvailableNodes = useMemo(() => {
-        // Merge local types with DB types to avoid losing local-only nodes (like Frame)
-        const dbNodes = availableNodeTypes || [];
-        const localTypes = new Set(dbNodes.map(n => n.type));
-        const uniqueLocal = NODE_TYPES.filter(n => !localTypes.has(n.type));
-        const sourceNodes = [...uniqueLocal, ...dbNodes];
+        const sourceNodes = availableNodeTypes || [];
 
         if (!searchTerm) return sourceNodes;
         const term = searchTerm.toLowerCase();

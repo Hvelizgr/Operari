@@ -1,116 +1,264 @@
 
 import { NextResponse } from 'next/server';
 
+// Templates using real n8n node types for direct execution without intervention
 const TEMPLATES = [
     {
-        id: 'webhook-slack',
-        category: 'webhooks',
+        id: 'hello-world',
+        category: 'data',
         name: {
-            en: 'Webhook to Slack Notification',
-            es: 'Notificación de Webhook a Slack'
+            en: 'Hello World',
+            es: 'Hola Mundo'
         },
         description: {
-            en: 'Receive data via a webhook request and post a formatted message to a Slack channel.',
-            es: 'Recibe datos mediante una petición webhook y publica un mensaje formateado en un canal de Slack.'
+            en: 'Simple workflow that generates a greeting message. Perfect for testing!',
+            es: 'Flujo simple que genera un mensaje de saludo. ¡Perfecto para probar!'
         },
         nodes: [
             {
-                id: 'webhook-1',
-                type: 'webhook',
-                position: { x: 100, y: 100 },
-                data: { path: '/notify', method: 'POST' },
-                title: 'Receive Data'
+                id: 'node-1',
+                type: 'n8n-nodes-base.manualTrigger',
+                position: { x: 100, y: 200 },
+                title: 'Start',
+                config: {}
             },
             {
-                id: 'slack-1',
-                type: 'slack',
-                position: { x: 400, y: 100 },
-                data: { channel: '#general', message: 'New data received!' },
-                title: 'Send to Slack'
+                id: 'node-2',
+                type: 'n8n-nodes-base.code',
+                position: { x: 350, y: 200 },
+                title: 'Generate Message',
+                config: { jsCode: 'return { message: "Hello World!", timestamp: new Date().toISOString() };' }
             }
         ],
         connections: [
-            {
-                id: 'c1',
-                source: 'webhook-1',
-                target: 'slack-1',
-                sourceHandle: 'output',
-                targetHandle: 'input'
-            }
+            { id: 'c1', source: 'node-1', target: 'node-2' }
         ]
     },
     {
-        id: 'cron-db-cleanup',
+        id: 'random-user-api',
+        category: 'data',
+        name: {
+            en: 'Random User Fetcher',
+            es: 'Obtener Usuario Aleatorio'
+        },
+        description: {
+            en: 'Fetches random user data from an API and formats the result.',
+            es: 'Obtiene datos de usuario aleatorio de una API y formatea el resultado.'
+        },
+        nodes: [
+            {
+                id: 'node-1',
+                type: 'n8n-nodes-base.manualTrigger',
+                position: { x: 100, y: 200 },
+                title: 'Start',
+                config: {}
+            },
+            {
+                id: 'node-2',
+                type: 'n8n-nodes-base.httpRequest',
+                position: { x: 350, y: 200 },
+                title: 'Fetch User',
+                config: { url: 'https://randomuser.me/api/', method: 'GET' }
+            },
+            {
+                id: 'node-3',
+                type: 'n8n-nodes-base.code',
+                position: { x: 600, y: 200 },
+                title: 'Format Result',
+                config: { jsCode: 'const user = input.data?.results?.[0] || {};\nreturn { name: user.name?.first + " " + user.name?.last, email: user.email, country: user.location?.country };' }
+            }
+        ],
+        connections: [
+            { id: 'c1', source: 'node-1', target: 'node-2' },
+            { id: 'c2', source: 'node-2', target: 'node-3' }
+        ]
+    },
+    {
+        id: 'number-processor',
         category: 'automation',
         name: {
-            en: 'Daily Database Cleanup',
-            es: 'Limpieza Diaria de Base de Datos'
+            en: 'Number Processor',
+            es: 'Procesador de Números'
         },
         description: {
-            en: 'Runs every night at midnight to delete old records from the database.',
-            es: 'Se ejecuta cada noche a medianoche para eliminar registros antiguos de la base de datos.'
+            en: 'Generates random numbers, categorizes them, and produces statistics.',
+            es: 'Genera números aleatorios, los categoriza y produce estadísticas.'
         },
         nodes: [
             {
-                id: 'schedule-1',
-                type: 'schedule',
-                position: { x: 100, y: 100 },
-                data: { cron: '0 0 * * *' },
-                title: 'Every Midnight'
+                id: 'node-1',
+                type: 'n8n-nodes-base.manualTrigger',
+                position: { x: 100, y: 200 },
+                title: 'Start',
+                config: {}
             },
             {
-                id: 'postgres-1',
-                type: 'postgres',
-                position: { x: 400, y: 100 },
-                data: { query: 'DELETE FROM logs WHERE created_at < NOW() - INTERVAL \'30 days\'' },
-                title: 'Delete Old Logs'
+                id: 'node-2',
+                type: 'n8n-nodes-base.code',
+                position: { x: 350, y: 200 },
+                title: 'Generate Numbers',
+                config: { jsCode: 'return Array.from({length: 5}, (_, i) => ({ id: i+1, value: Math.floor(Math.random() * 100) }));' }
+            },
+            {
+                id: 'node-3',
+                type: 'n8n-nodes-base.code',
+                position: { x: 600, y: 200 },
+                title: 'Categorize',
+                config: { jsCode: 'const nums = Array.isArray(input) ? input : [];\nreturn nums.map(n => ({ ...n, category: n.value > 75 ? "HIGH" : n.value > 25 ? "MEDIUM" : "LOW" }));' }
+            },
+            {
+                id: 'node-4',
+                type: 'n8n-nodes-base.code',
+                position: { x: 850, y: 200 },
+                title: 'Statistics',
+                config: { jsCode: 'const nums = Array.isArray(input) ? input : [];\nconst high = nums.filter(n => n.category === "HIGH").length;\nconst med = nums.filter(n => n.category === "MEDIUM").length;\nconst low = nums.filter(n => n.category === "LOW").length;\nreturn { high, medium: med, low, total: nums.length, timestamp: new Date().toISOString() };' }
             }
         ],
         connections: [
-            {
-                id: 'c2',
-                source: 'schedule-1',
-                target: 'postgres-1',
-                sourceHandle: 'output',
-                targetHandle: 'input'
-            }
+            { id: 'c1', source: 'node-1', target: 'node-2' },
+            { id: 'c2', source: 'node-2', target: 'node-3' },
+            { id: 'c3', source: 'node-3', target: 'node-4' }
         ]
     },
     {
-        id: 'form-email-confirm',
-        category: 'email',
+        id: 'conditional-flow',
+        category: 'automation',
         name: {
-            en: 'Form Submission Auto-Reply',
-            es: 'Auto-respuesta de Formulario'
+            en: 'Conditional Branching',
+            es: 'Flujo Condicional'
         },
         description: {
-            en: 'Send an automatic "Thank You" email when a user submits a contact form.',
-            es: 'Envía un correo automático de "Gracias" cuando un usuario envía un formulario de contacto.'
+            en: 'Demonstrates IF/ELSE branching based on random score values.',
+            es: 'Demuestra bifurcación SI/SINO basada en valores de puntaje aleatorios.'
         },
         nodes: [
             {
-                id: 'webhook-form',
-                type: 'webhook',
-                position: { x: 100, y: 100 },
-                data: { path: '/contact-form', method: 'POST' },
-                title: 'Form Submit'
+                id: 'node-1',
+                type: 'n8n-nodes-base.manualTrigger',
+                position: { x: 100, y: 200 },
+                title: 'Start',
+                config: {}
             },
             {
-                id: 'email-1',
-                type: 'email',
-                position: { x: 400, y: 100 },
-                data: { subject: 'We received your message', body: 'Thanks for contacting us!' },
-                title: 'Send Reply'
+                id: 'node-2',
+                type: 'n8n-nodes-base.code',
+                position: { x: 350, y: 200 },
+                title: 'Generate Score',
+                config: { jsCode: 'return { score: Math.floor(Math.random() * 100), threshold: 50 };' }
+            },
+            {
+                id: 'node-3',
+                type: 'n8n-nodes-base.if',
+                position: { x: 600, y: 200 },
+                title: 'Check Score',
+                config: { conditions: { number: [{ value1: '={{$json.score}}', operation: 'larger', value2: 50 }] } }
+            },
+            {
+                id: 'node-4',
+                type: 'n8n-nodes-base.code',
+                position: { x: 900, y: 100 },
+                title: 'High Score',
+                config: { jsCode: 'return { result: "HIGH", message: "Score above threshold!", score: input.score };' }
+            },
+            {
+                id: 'node-5',
+                type: 'n8n-nodes-base.code',
+                position: { x: 900, y: 300 },
+                title: 'Low Score',
+                config: { jsCode: 'return { result: "LOW", message: "Score below threshold", score: input.score };' }
             }
         ],
         connections: [
+            { id: 'c1', source: 'node-1', target: 'node-2' },
+            { id: 'c2', source: 'node-2', target: 'node-3' },
+            { id: 'c3', source: 'node-3', target: 'node-4', sourcePort: 0, condition: 'success' },
+            { id: 'c4', source: 'node-3', target: 'node-5', sourcePort: 1, condition: 'warning' }
+        ]
+    },
+    {
+        id: 'json-api-test',
+        category: 'webhooks',
+        name: {
+            en: 'JSONPlaceholder Test',
+            es: 'Prueba JSONPlaceholder'
+        },
+        description: {
+            en: 'Fetches posts from JSONPlaceholder API and analyzes them.',
+            es: 'Obtiene posts de la API JSONPlaceholder y los analiza.'
+        },
+        nodes: [
             {
-                id: 'c3',
-                source: 'webhook-form',
-                target: 'email-1',
-                sourceHandle: 'output',
-                targetHandle: 'input'
+                id: 'node-1',
+                type: 'n8n-nodes-base.manualTrigger',
+                position: { x: 100, y: 200 },
+                title: 'Start',
+                config: {}
+            },
+            {
+                id: 'node-2',
+                type: 'n8n-nodes-base.httpRequest',
+                position: { x: 350, y: 200 },
+                title: 'Fetch Posts',
+                config: { url: 'https://jsonplaceholder.typicode.com/posts?_limit=5', method: 'GET' }
+            },
+            {
+                id: 'node-3',
+                type: 'n8n-nodes-base.code',
+                position: { x: 600, y: 200 },
+                title: 'Extract Data',
+                config: { jsCode: 'return Array.isArray(input.data) ? input.data : [];' }
+            },
+            {
+                id: 'node-4',
+                type: 'n8n-nodes-base.code',
+                position: { x: 850, y: 200 },
+                title: 'Analyze',
+                config: { jsCode: 'const posts = Array.isArray(input) ? input : [];\nreturn { count: posts.length, titles: posts.map(p => p.title?.substring(0, 30)), timestamp: new Date().toISOString() };' }
             }
+        ],
+        connections: [
+            { id: 'c1', source: 'node-1', target: 'node-2' },
+            { id: 'c2', source: 'node-2', target: 'node-3' },
+            { id: 'c3', source: 'node-3', target: 'node-4' }
+        ]
+    },
+    {
+        id: 'weather-check',
+        category: 'data',
+        name: {
+            en: 'Weather Report',
+            es: 'Reporte del Clima'
+        },
+        description: {
+            en: 'Fetches current weather data and generates a formatted report.',
+            es: 'Obtiene datos del clima actual y genera un reporte formateado.'
+        },
+        nodes: [
+            {
+                id: 'node-1',
+                type: 'n8n-nodes-base.manualTrigger',
+                position: { x: 100, y: 200 },
+                title: 'Start',
+                config: {}
+            },
+            {
+                id: 'node-2',
+                type: 'n8n-nodes-base.httpRequest',
+                position: { x: 350, y: 200 },
+                title: 'Get Weather',
+                config: { url: 'https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&current_weather=true', method: 'GET' }
+            },
+            {
+                id: 'node-3',
+                type: 'n8n-nodes-base.code',
+                position: { x: 600, y: 200 },
+                title: 'Format Report',
+                config: { jsCode: 'const w = input.data?.current_weather || {};\nreturn { location: "New York", temperature: w.temperature + "°C", windspeed: w.windspeed + " km/h", time: w.time || new Date().toISOString() };' }
+            }
+        ],
+        connections: [
+            { id: 'c1', source: 'node-1', target: 'node-2' },
+            { id: 'c2', source: 'node-2', target: 'node-3' }
         ]
     }
 ];

@@ -5,13 +5,13 @@ import { z } from 'zod';
 // =============================================================================
 
 export interface NodePort {
-    id: string;
-    label: string;
+  id: string;
+  label: string;
 }
 
 export const nodePortSchema = z.object({
-    id: z.string(),
-    label: z.string(),
+  id: z.string(),
+  label: z.string(),
 });
 
 // =============================================================================
@@ -19,13 +19,13 @@ export const nodePortSchema = z.object({
 // =============================================================================
 
 export interface NodePosition {
-    x: number;
-    y: number;
+  x: number;
+  y: number;
 }
 
 export const nodePositionSchema = z.object({
-    x: z.number(),
-    y: z.number(),
+  x: z.number(),
+  y: z.number(),
 });
 
 // =============================================================================
@@ -33,170 +33,193 @@ export const nodePositionSchema = z.object({
 // =============================================================================
 
 export interface HttpNodeConfig {
-    url?: string;
-    method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-    headers?: Record<string, string>;
-    body?: unknown;
-    retries?: number; // Number of retry attempts for failed HTTP requests
+  url?: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  headers?: Record<string, string>;
+  body?: unknown;
+  retries?: number; // Number of retry attempts for failed HTTP requests
 }
 
 export interface EmailNodeConfig {
-    to?: string;
-    subject?: string;
-    body?: string;
-    html?: string;
+  to?: string;
+  subject?: string;
+  body?: string;
+  html?: string;
 }
 
 export interface TransformNodeConfig {
-    code?: string;
-    mapping?: Record<string, string>;
+  code?: string;
+  mapping?: Record<string, string>;
 }
 
 export interface ConditionNodeConfig {
-    condition?: string;
-    field?: string;
-    operator?: 'equals' | 'notEquals' | 'contains' | 'greaterThan' | 'lessThan' | 'isEmpty' | 'isNotEmpty';
-    value?: string;
+  condition?: string;
+  field?: string;
+  operator?:
+    | 'equals'
+    | 'notEquals'
+    | 'contains'
+    | 'greaterThan'
+    | 'lessThan'
+    | 'isEmpty'
+    | 'isNotEmpty';
+  value?: string;
 }
 
 export interface DatabaseNodeConfig {
-    operation?: 'select' | 'insert' | 'update' | 'delete';
-    table?: string;
-    query?: string;
-    data?: Record<string, unknown>;
+  operation?: 'select' | 'insert' | 'update' | 'delete';
+  table?: string;
+  query?: string;
+  data?: Record<string, unknown>;
 }
 
 export interface DelayNodeConfig {
-    duration?: number;
+  duration?: number;
 }
 
 export interface LoopNodeConfig {
-    items?: unknown[];
-    itemsPath?: string;
+  items?: unknown[];
+  itemsPath?: string;
 }
 
 export interface N8nNodeConfig {
-    workflowId?: string;           // ID del workflow de n8n a ejecutar
-    workflowName?: string;         // Nombre para mostrar
-    waitForCompletion?: boolean;   // Esperar a que termine la ejecución
-    timeout?: number;              // Timeout en ms
-    inputMapping?: Record<string, string>; // Mapeo de inputs
+  workflowId?: string; // ID del workflow de n8n a ejecutar
+  workflowName?: string; // Nombre para mostrar
+  waitForCompletion?: boolean; // Esperar a que termine la ejecución
+  timeout?: number; // Timeout en ms
+  inputMapping?: Record<string, string>; // Mapeo de inputs
 }
 
 export interface DecisionNodeConfig {
-    expression?: string; // Jexl expression
+  expression?: string; // Jexl expression
 }
 
 export interface SplitNodeConfig {
-    itemsPath?: string; // Path to array in input
+  itemsPath?: string; // Path to array in input
 }
 
 export interface JoinNodeConfig {
-    mode?: 'wait_all' | 'first_wins';
+  mode?: 'wait_all' | 'first_wins';
 }
 
 export interface ShellCommandNodeConfig {
-    command?: string;
+  command?: string;
 }
 
 export interface StoreSetNodeConfig {
-    bucketName?: string;
-    key?: string;
-    value?: any;
+  bucketName?: string;
+  key?: string;
+  value?: any;
 }
 
 export interface StoreGetNodeConfig {
-    bucketName?: string;
-    key?: string;
+  bucketName?: string;
+  key?: string;
 }
 
 export interface SuspendNodeConfig {
-    // No config needed for now
+  // No config needed for now
 }
 
 export interface SetMetadataNodeConfig {
-    metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CreateTicketNodeConfig {
-    webhookUrl?: string;
-    subject?: string;
-    body?: string;
+  webhookUrl?: string;
+  subject?: string;
+  body?: string;
 }
 
 export interface RepeatNodeConfig {
-    count?: number; // Number of times to repeat (default: 1)
-    parallel?: boolean; // Execute iterations in parallel (default: true)
+  count?: number; // Number of times to repeat (default: 1)
+  parallel?: boolean; // Execute iterations in parallel (default: true)
 }
 
 export interface MultiplexNodeConfig {
-    targets?: string[]; // Array of target identifiers
-    stagger?: number; // Delay in ms between each target execution (default: 0)
-    continueThreshold?: number; // Percentage of successful executions required to continue (default: 100)
+  targets?: string[]; // Array of target identifiers
+  stagger?: number; // Delay in ms between each target execution (default: 0)
+  continueThreshold?: number; // Percentage of successful executions required to continue (default: 100)
 }
 
 export interface LimitNodeConfig {
-    limitType?: 'time' | 'memory' | 'cpu' | 'concurrent' | 'queue' | 'daily'; // Type of limit
-    amount?: number; // Limit value (seconds for time, MB for memory, % for CPU, count for concurrent/queue/daily)
-    duration?: number; // Sustain period in seconds for CPU/memory limits
-    enabled?: boolean; // Whether the limit is active
-    onExceed?: 'abort' | 'warn' | 'skip'; // Action when limit is exceeded
-    notifyEmail?: string; // Email to notify when limit is exceeded
-    notifyWebhook?: string; // Webhook to call when limit is exceeded
+  limitType?: 'time' | 'memory' | 'cpu' | 'concurrent' | 'queue' | 'daily'; // Type of limit
+  amount?: number; // Limit value (seconds for time, MB for memory, % for CPU, count for concurrent/queue/daily)
+  duration?: number; // Sustain period in seconds for CPU/memory limits
+  enabled?: boolean; // Whether the limit is active
+  onExceed?: 'abort' | 'warn' | 'skip'; // Action when limit is exceeded
+  notifyEmail?: string; // Email to notify when limit is exceeded
+  notifyWebhook?: string; // Webhook to call when limit is exceeded
 }
 
 export interface ActionNodeConfig {
-    actionType?: 'email' | 'webhook' | 'disable' | 'delete' | 'tag' | 'run_event' | 'channel'; // Type of post-job action
-    condition?: 'success' | 'error' | 'complete' | 'warning'; // When to trigger the action
-    enabled?: boolean; // Whether the action is active
-    // Email action config
-    emailTo?: string;
-    emailSubject?: string;
-    emailBody?: string;
-    emailTemplate?: string;
-    // Webhook action config
-    webhookUrl?: string;
-    webhookMethod?: 'GET' | 'POST' | 'PUT';
-    webhookHeaders?: Record<string, string>;
-    webhookBody?: string;
-    // Tag action config
-    tags?: string[];
-    // Run event action config
-    eventId?: string;
-    eventInput?: Record<string, unknown>;
-    // Channel action config (combines multiple notification targets)
-    channelTargets?: string[];
+  actionType?: 'email' | 'webhook' | 'disable' | 'delete' | 'tag' | 'run_event' | 'channel'; // Type of post-job action
+  condition?: 'success' | 'error' | 'complete' | 'warning'; // When to trigger the action
+  enabled?: boolean; // Whether the action is active
+  // Email action config
+  emailTo?: string;
+  emailSubject?: string;
+  emailBody?: string;
+  emailTemplate?: string;
+  // Webhook action config
+  webhookUrl?: string;
+  webhookMethod?: 'GET' | 'POST' | 'PUT';
+  webhookHeaders?: Record<string, string>;
+  webhookBody?: string;
+  // Tag action config
+  tags?: string[];
+  // Run event action config
+  eventId?: string;
+  eventInput?: Record<string, unknown>;
+  // Channel action config (combines multiple notification targets)
+  channelTargets?: string[];
 }
 
 export interface SwitchNodeConfig {
-    expression?: string;
+  expression?: string;
+}
+
+export interface BinaryNodeConfig {
+  operation?: 'read' | 'write' | 'convert' | 'compress' | 'decompress';
+  filePath?: string;
+  content?: string;
+  encoding?: 'utf8' | 'base64' | 'binary';
+}
+
+export interface BinaryResult extends ExecutionOutput {
+  filePath?: string;
+  content?: string;
+  encoding?: 'utf8' | 'base64' | 'binary';
+  size?: number;
+  read?: boolean;
+  written?: boolean;
 }
 
 // Union type for all possible node configs
 export type NodeConfig =
-    | HttpNodeConfig
-    | EmailNodeConfig
-    | TransformNodeConfig
-    | ConditionNodeConfig
-    | DatabaseNodeConfig
-    | DelayNodeConfig
-    | LoopNodeConfig
-    | N8nNodeConfig
-    | DecisionNodeConfig
-    | SplitNodeConfig
-    | JoinNodeConfig
-    | ShellCommandNodeConfig
-    | StoreSetNodeConfig
-    | StoreGetNodeConfig
-    | SuspendNodeConfig
-    | SetMetadataNodeConfig
-    | CreateTicketNodeConfig
-    | RepeatNodeConfig
-    | MultiplexNodeConfig
-    | LimitNodeConfig
-    | ActionNodeConfig
-    | SwitchNodeConfig
-    | Record<string, unknown>;
+  | HttpNodeConfig
+  | EmailNodeConfig
+  | TransformNodeConfig
+  | ConditionNodeConfig
+  | DatabaseNodeConfig
+  | DelayNodeConfig
+  | LoopNodeConfig
+  | N8nNodeConfig
+  | DecisionNodeConfig
+  | SplitNodeConfig
+  | JoinNodeConfig
+  | ShellCommandNodeConfig
+  | StoreSetNodeConfig
+  | StoreGetNodeConfig
+  | SuspendNodeConfig
+  | SetMetadataNodeConfig
+  | CreateTicketNodeConfig
+  | RepeatNodeConfig
+  | MultiplexNodeConfig
+  | LimitNodeConfig
+  | ActionNodeConfig
+  | SwitchNodeConfig
+  | Record<string, unknown>;
 
 // Zod schema for generic node config (flexible but validated)
 export const nodeConfigSchema = z.record(z.string(), z.unknown()).optional();
@@ -206,60 +229,60 @@ export const nodeConfigSchema = z.record(z.string(), z.unknown()).optional();
 // =============================================================================
 
 export type WorkflowNodeType =
-    | 'Webhook'
-    | 'Trigger'
-    | 'Schedule'
-    | 'HTTP'
-    | 'Api'
-    | 'Email'
-    | 'Transform'
-    | 'Code'
-    | 'Condition'
-    | 'If'
-    | 'Database'
-    | 'SQL'
-    | 'Delay'
-    | 'Wait'
-    | 'Loop'
-    | 'Iterator'
-    | 'n8n'
-    | 'Decision'
-    | 'Split'
-    | 'Join'
-    | 'ShellCommand'
-    | 'StoreSet'
-    | 'StoreGet'
-    | 'Suspend'
-    | 'SetMetadata'
-    | 'CreateTicket'
-    | 'Repeat'
-    | 'Multiplex'
-    | 'Limit'
-    | 'Action'
-    | string; // Allow custom types
+  | 'Webhook'
+  | 'Trigger'
+  | 'Schedule'
+  | 'HTTP'
+  | 'Api'
+  | 'Email'
+  | 'Transform'
+  | 'Code'
+  | 'Condition'
+  | 'If'
+  | 'Database'
+  | 'SQL'
+  | 'Delay'
+  | 'Wait'
+  | 'Loop'
+  | 'Iterator'
+  | 'n8n'
+  | 'Decision'
+  | 'Split'
+  | 'Join'
+  | 'ShellCommand'
+  | 'StoreSet'
+  | 'StoreGet'
+  | 'Suspend'
+  | 'SetMetadata'
+  | 'CreateTicket'
+  | 'Repeat'
+  | 'Multiplex'
+  | 'Limit'
+  | 'Action'
+  | string; // Allow custom types
 
 export interface WorkflowNode {
-    id: string;
-    type: WorkflowNodeType;
-    title: string;
-    position: NodePosition;
-    enabled?: boolean;
-    breakpoint?: boolean;
-    config?: NodeConfig;
-    inputs?: NodePort[];
-    outputs?: NodePort[];
+  id: string;
+  type: WorkflowNodeType;
+  title: string;
+  position: NodePosition;
+  enabled?: boolean;
+  breakpoint?: boolean;
+  config?: NodeConfig;
+  inputs?: NodePort[];
+  outputs?: NodePort[];
 }
 
 export const workflowNodeSchema = z.object({
-    id: z.string().min(1),
-    type: z.string().min(1),
-    title: z.string().min(1),
-    position: nodePositionSchema,
-    enabled: z.boolean().optional(),
-    breakpoint: z.boolean().optional(),
-    config: nodeConfigSchema,
-    inputs: z.array(nodePortSchema).optional(),
-    outputs: z.array(nodePortSchema).optional(),
+  id: z.string().min(1),
+  type: z.string().min(1),
+  title: z.string().min(1),
+  position: nodePositionSchema,
+  enabled: z.boolean().optional(),
+  breakpoint: z.boolean().optional(),
+  config: nodeConfigSchema,
+  inputs: z.array(nodePortSchema).optional(),
+  outputs: z.array(nodePortSchema).optional(),
 });
 
 // =============================================================================
@@ -267,19 +290,19 @@ export const workflowNodeSchema = z.object({
 // =============================================================================
 
 export interface WorkflowConnection {
-    id: string;
-    source: string;      // Source node ID
-    target: string;      // Target node ID
-    sourcePort?: number; // Index of source port
-    targetPort?: number; // Index of target port
+  id: string;
+  source: string; // Source node ID
+  target: string; // Target node ID
+  sourcePort?: number; // Index of source port
+  targetPort?: number; // Index of target port
 }
 
 export const workflowConnectionSchema = z.object({
-    id: z.string().min(1),
-    source: z.string().min(1),
-    target: z.string().min(1),
-    sourcePort: z.number().int().min(0).optional(),
-    targetPort: z.number().int().min(0).optional(),
+  id: z.string().min(1),
+  source: z.string().min(1),
+  target: z.string().min(1),
+  sourcePort: z.number().int().min(0).optional(),
+  targetPort: z.number().int().min(0).optional(),
 });
 
 // =============================================================================
@@ -287,21 +310,21 @@ export const workflowConnectionSchema = z.object({
 // =============================================================================
 
 export interface WorkflowDefinition {
-    name: string;
-    description?: string;
-    nodes: WorkflowNode[];
-    connections: WorkflowConnection[];
-    isActive?: boolean;
-    schedule?: string;
+  name: string;
+  description?: string;
+  nodes: WorkflowNode[];
+  connections: WorkflowConnection[];
+  isActive?: boolean;
+  schedule?: string;
 }
 
 export const workflowDefinitionSchema = z.object({
-    name: z.string().min(1).optional().default('Untitled Workflow'),
-    description: z.string().optional(),
-    nodes: z.array(workflowNodeSchema),
-    connections: z.array(workflowConnectionSchema),
-    isActive: z.boolean().optional(),
-    schedule: z.string().optional(),
+  name: z.string().min(1).optional().default('Untitled Workflow'),
+  description: z.string().optional(),
+  nodes: z.array(workflowNodeSchema),
+  connections: z.array(workflowConnectionSchema),
+  isActive: z.boolean().optional(),
+  schedule: z.string().optional(),
 });
 
 // =============================================================================
@@ -309,19 +332,19 @@ export const workflowDefinitionSchema = z.object({
 // =============================================================================
 
 export interface ExecutionInput {
-    [key: string]: unknown;
+  [key: string]: unknown;
 }
 
 export interface ExecutionOutput {
-    [key: string]: unknown;
-    __activePorts?: number[]; // For routing support (Switch node, etc.)
+  [key: string]: unknown;
+  __activePorts?: number[]; // For routing support (Switch node, etc.)
 }
 
 export interface ExecutionContext {
-    workflowId: string;
-    executionId: string;
-    input: ExecutionInput;
-    output: ExecutionOutput;
+  workflowId: string;
+  executionId: string;
+  input: ExecutionInput;
+  output: ExecutionOutput;
 }
 
 // =============================================================================
@@ -329,170 +352,170 @@ export interface ExecutionContext {
 // =============================================================================
 
 export interface TriggerResult extends ExecutionOutput {
-    triggered: boolean;
-    timestamp: string;
+  triggered: boolean;
+  timestamp: string;
 }
 
 export interface HttpResult extends ExecutionOutput {
-    status: number;
-    statusText: string;
-    headers: Record<string, string>;
-    data: unknown;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  data: unknown;
 }
 
 export interface EmailResult extends ExecutionOutput {
-    messageId: string;
-    accepted: string[];
-    rejected: string[];
+  messageId: string;
+  accepted: string[];
+  rejected: string[];
 }
 
 export interface ConditionResult extends ExecutionOutput {
-    conditionResult: boolean;
+  conditionResult: boolean;
 }
 
 export interface DelayResult extends ExecutionOutput {
-    delayed: boolean;
-    duration: number;
+  delayed: boolean;
+  duration: number;
 }
 
 export interface LoopResult extends ExecutionOutput {
-    items: unknown[];
-    count: number;
+  items: unknown[];
+  count: number;
 }
 
 export interface DatabaseResult extends ExecutionOutput {
-    operation?: string;
-    table?: string;
-    query: string;
-    data: unknown;
-    message: string;
+  operation?: string;
+  table?: string;
+  query: string;
+  data: unknown;
+  message: string;
 }
 
 export interface N8nResult extends ExecutionOutput {
-    executionId: string;
-    workflowId: string;
-    status: 'success' | 'error' | 'waiting' | 'running';
-    data: unknown;
-    startedAt: string;
-    finishedAt?: string;
+  executionId: string;
+  workflowId: string;
+  status: 'success' | 'error' | 'waiting' | 'running';
+  data: unknown;
+  startedAt: string;
+  finishedAt?: string;
 }
 
 export interface DecisionResult extends ExecutionOutput {
-    decisionResult: boolean;
-    decisionValue: unknown;
+  decisionResult: boolean;
+  decisionValue: unknown;
 }
 
 export interface SplitResult extends ExecutionOutput {
-    splitItems: unknown[];
-    splitCount: number;
-    isSplit: boolean;
+  splitItems: unknown[];
+  splitCount: number;
+  isSplit: boolean;
 }
 
 export interface JoinResult extends ExecutionOutput {
-    isJoined: boolean;
-    joinedAt: string;
+  isJoined: boolean;
+  joinedAt: string;
 }
 
 export interface ShellCommandResult extends ExecutionOutput {
-    stdout?: string;
-    stderr?: string;
+  stdout?: string;
+  stderr?: string;
 }
 
 export interface StoreResult extends ExecutionOutput {
-    success: boolean;
-    key?: string;
-    value?: any;
+  success: boolean;
+  key?: string;
+  value?: any;
 }
 
 export interface SuspendResult extends ExecutionOutput {
-    isSuspended: true;
+  isSuspended: true;
 }
 
 export interface SetMetadataResult extends ExecutionOutput {
-    success: boolean;
-    metadata: Record<string, unknown>;
+  success: boolean;
+  metadata: Record<string, unknown>;
 }
 
 export interface CreateTicketResult extends ExecutionOutput {
-    success: boolean;
-    response: unknown;
-    webhookUrl: string;
+  success: boolean;
+  response: unknown;
+  webhookUrl: string;
 }
 
 export interface RepeatResult extends ExecutionOutput {
-    isRepeat: boolean;
-    repeatCount: number;
-    currentIteration: number;
+  isRepeat: boolean;
+  repeatCount: number;
+  currentIteration: number;
 }
 
 export interface MultiplexResult extends ExecutionOutput {
-    isMultiplex: boolean;
-    targets: string[];
-    targetCount: number;
-    stagger: number;
+  isMultiplex: boolean;
+  targets: string[];
+  targetCount: number;
+  stagger: number;
 }
 
 export interface LimitResult extends ExecutionOutput {
-    isLimit: boolean;
-    limitType: string;
-    amount: number;
-    exceeded: boolean;
-    action: string;
+  isLimit: boolean;
+  limitType: string;
+  amount: number;
+  exceeded: boolean;
+  action: string;
 }
 
 export interface ActionResult extends ExecutionOutput {
-    isAction: boolean;
-    actionType: string;
-    condition: string;
-    executed: boolean;
-    result?: unknown;
+  isAction: boolean;
+  actionType: string;
+  condition: string;
+  executed: boolean;
+  result?: unknown;
 }
 
 export interface SwitchResult extends ExecutionOutput {
-    isSwitch: true;
-    result: boolean;
-    expression: string;
+  isSwitch: true;
+  result: boolean;
+  expression: string;
 }
 
 // Union type for all possible node results
 export type NodeExecutionResult =
-    | TriggerResult
-    | HttpResult
-    | EmailResult
-    | ConditionResult
-    | DelayResult
-    | LoopResult
-    | DatabaseResult
-    | N8nResult
-    | DecisionResult
-    | SplitResult
-    | JoinResult
-    | ShellCommandResult
-    | StoreResult
-    | SuspendResult
-    | SetMetadataResult
-    | CreateTicketResult
-    | RepeatResult
-    | MultiplexResult
-    | LimitResult
-    | ActionResult
-    | SwitchResult
-    | ExecutionOutput;
+  | TriggerResult
+  | HttpResult
+  | EmailResult
+  | ConditionResult
+  | DelayResult
+  | LoopResult
+  | DatabaseResult
+  | N8nResult
+  | DecisionResult
+  | SplitResult
+  | JoinResult
+  | ShellCommandResult
+  | StoreResult
+  | SuspendResult
+  | SetMetadataResult
+  | CreateTicketResult
+  | RepeatResult
+  | MultiplexResult
+  | LimitResult
+  | ActionResult
+  | SwitchResult
+  | ExecutionOutput;
 
 // =============================================================================
 // Type Guards
 // =============================================================================
 
 export function isWorkflowNode(obj: unknown): obj is WorkflowNode {
-    return workflowNodeSchema.safeParse(obj).success;
+  return workflowNodeSchema.safeParse(obj).success;
 }
 
 export function isWorkflowConnection(obj: unknown): obj is WorkflowConnection {
-    return workflowConnectionSchema.safeParse(obj).success;
+  return workflowConnectionSchema.safeParse(obj).success;
 }
 
 export function isWorkflowDefinition(obj: unknown): obj is WorkflowDefinition {
-    return workflowDefinitionSchema.safeParse(obj).success;
+  return workflowDefinitionSchema.safeParse(obj).success;
 }
 
 // =============================================================================

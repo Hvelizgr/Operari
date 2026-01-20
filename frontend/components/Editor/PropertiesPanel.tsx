@@ -4,11 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Settings } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { WorkflowNode, Connection } from '@nanoflow/shared';
-import { NODE_TYPES, NodeType } from '../Node/NodePalette';
+import { NodeType } from '../Node/NodePalette';
+import { useNodeTypes } from '@/hooks/useNodeTypes';
 import DynamicNodeForm from '../Node/DynamicNodeForm';
 import TriggerModifiersSection, { TriggerModifiers, DEFAULT_TRIGGER_MODIFIERS } from '../Node/TriggerModifiersSection';
 
-// Helper to check if a node type is a trigger
 const TRIGGER_TYPES = [
     'n8n-nodes-base.webhook',
     'n8n-nodes-base.scheduleTrigger',
@@ -26,6 +26,31 @@ function isTriggerNode(nodeType: string): boolean {
     );
 }
 
+function getNodeTypeWithProperties(apiNodeType: NodeType | undefined, allNodeTypes: NodeType[], nodeType: string | undefined): NodeType | undefined {
+    if (!nodeType) return apiNodeType;
+
+    const hasApiProperties = apiNodeType?.properties && apiNodeType.properties.length > 0;
+
+    if (hasApiProperties) {
+        return apiNodeType;
+    }
+
+    const localNodeType = allNodeTypes.find(t => t.type === nodeType);
+    const hasLocalProperties = localNodeType?.properties && localNodeType.properties.length > 0;
+
+    if (hasLocalProperties) {
+        if (apiNodeType) {
+            return {
+                ...apiNodeType,
+                properties: localNodeType.properties
+            };
+        }
+        return localNodeType;
+    }
+
+    return apiNodeType || localNodeType;
+}
+
 interface PropertiesPanelProps {
     node: WorkflowNode | null;
     nodeTypeDefinition?: NodeType;
@@ -40,8 +65,9 @@ interface PropertiesPanelProps {
 export default function PropertiesPanel({ node, nodeTypeDefinition, onUpdate, onClose, lang, nodes, connections, nodeOutputs }: PropertiesPanelProps) {
     const [localTitle, setLocalTitle] = useState('');
     const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
-
-    const nodeTypeInfo = node ? NODE_TYPES.find(t => t.type === node.type) : null;
+    
+    const { nodeTypes: allNodeTypes } = useNodeTypes();
+    const nodeTypeInfo = node ? allNodeTypes.find(t => t.type === node.type) : null;
     const nodeDescription = nodeTypeInfo?.description?.[lang];
 
     useEffect(() => {
@@ -152,7 +178,7 @@ export default function PropertiesPanel({ node, nodeTypeDefinition, onUpdate, on
                             localConfig={localConfig}
                             setLocalConfig={setLocalConfig}
                             onUpdate={onUpdate}
-                            nodeTypeDefinition={nodeTypeDefinition || NODE_TYPES.find(t => t.type === node?.type)}
+                            nodeTypeDefinition={getNodeTypeWithProperties(nodeTypeDefinition, allNodeTypes, node?.type)}
                             lang={lang}
                             nodes={nodes}
                             connections={connections}

@@ -1,7 +1,7 @@
 'use client';
 
 import { MouseEvent, useRef, useLayoutEffect, memo } from 'react';
-import { NodeType, NODE_TYPES } from '../Node';
+import { NodeType } from '../Node';
 import { WorkflowNode } from '@nanoflow/shared';
 import './WorkflowNode.css';
 import { Box, AlertCircle, ChevronRight, ChevronDown, GripVertical, Zap, Bug } from 'lucide-react';
@@ -66,7 +66,7 @@ function EditorNodeComponent({
     heatmapStyle,
 }: EditorNodeProps) {
     const nodeRef = useRef<HTMLDivElement>(null);
-    const nodeType = typeDefinition || NODE_TYPES.find(t => t.type.toLowerCase() === node.type.toLowerCase());
+    const nodeType = typeDefinition;
 
     // Measure Height
     const lastHeightRef = useRef<number>((node as any).dimensions?.height || 0);

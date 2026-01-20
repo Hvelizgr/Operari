@@ -60,6 +60,10 @@ interface N8nTag {
 class N8nService {
   private client: AxiosInstance;
   private baseUrl: string;
+  private iconMap: Map<string, string> = new Map();
+  private sessionCookies: string = '';
+  private lastLoginAttempt: number = 0;
+  private loginCooldown: number = 60000; // 1 minute cooldown between login attempts
 
   constructor() {
     this.baseUrl = process.env.N8N_BASE_URL || 'http://localhost:5678';
@@ -75,6 +79,56 @@ class N8nService {
     });
   }
 
+  /**
+   * Login to n8n and get session cookies for internal API access
+   */
+  private async loginToN8n(): Promise<boolean> {
+    const email = process.env.N8N_EMAIL;
+    const password = process.env.N8N_PASSWORD;
+
+    if (!email || !password) {
+      console.warn('⚠️ N8N_EMAIL and N8N_PASSWORD not configured. Cannot login to n8n.');
+      return false;
+    }
+
+    // Cooldown to prevent too many login attempts
+    const now = Date.now();
+    if (now - this.lastLoginAttempt < this.loginCooldown && this.sessionCookies) {
+      return true; // Use existing session
+    }
+    this.lastLoginAttempt = now;
+
+    try {
+      console.log('🔐 Attempting login to n8n...');
+      const response = await axios.post(
+        `${this.baseUrl}/rest/login`,
+        { emailOrLdapLoginId: email, password },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000,
+          withCredentials: true,
+        }
+      );
+
+      // Extract cookies from response headers
+      const setCookieHeaders = response.headers['set-cookie'];
+      if (setCookieHeaders && Array.isArray(setCookieHeaders)) {
+        this.sessionCookies = setCookieHeaders
+          .map((cookie: string) => cookie.split(';')[0])
+          .join('; ');
+        console.log('✅ Successfully logged into n8n');
+        return true;
+      }
+
+      console.warn('⚠️ Login succeeded but no cookies received');
+      return false;
+    } catch (error: any) {
+      console.error('❌ Failed to login to n8n:', error.response?.data?.message || error.message);
+      this.sessionCookies = '';
+      return false;
+    }
+  }
+
   // ==================== Health Check ====================
 
   async healthCheck(): Promise<boolean> {
@@ -85,7 +139,7 @@ class N8nService {
     } catch (error) {
       // Fallback: If healthz fails (older n8n), try the old method but catch 401 as "Alive but Unauthorized" (technically healthy)
       if (axios.isAxiosError(error) && error.response?.status === 401) {
-          return true; 
+        return true;
       }
       logger.warn({ err: error }, 'n8n health check failed');
       return false;
@@ -301,6 +355,17 @@ class N8nService {
   // ==================== NanoFlow Integration ====================
 
   /**
+   * Ejecuta un nodo n8n individual (wrapper simple para NodeExecutor)
+   */
+  async executeNode(
+    nodeType: string,
+    config: Record<string, unknown>,
+    inputData?: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    return this.executeN8nNode(nodeType, config, inputData) as Promise<Record<string, unknown>>;
+  }
+
+  /**
    * Ejecuta un nodo n8n individual desde NanoFlow
    */
   async executeN8nNode(
@@ -361,7 +426,7 @@ class N8nService {
       const maxAttempts = 30;
 
       while (!finalExecution.finished && attempts < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         finalExecution = await this.getExecution(execution.id);
         attempts++;
       }
@@ -411,11 +476,316 @@ class N8nService {
   }
 
   /**
+   * Gets an icon file path for a specific node name by searching local filesystem
+   * Supports multiple naming conventions (camelCase, PascalCase, lowercase)
+   */
+  getNodeIconPath(nodeName: string): string | null {
+    // 1. Try exact match first
+    if (this.iconMap.has(nodeName)) return this.iconMap.get(nodeName)!;
+
+    // 2. Try lowercase variant
+    const lowerName = nodeName.toLowerCase();
+    if (this.iconMap.has(lowerName)) return this.iconMap.get(lowerName)!;
+
+    // 3. Try common n8n naming variations
+    // Some nodes are stored as "httpRequest" in cache but queried as "HttpRequest"
+    const variations = [
+      nodeName,
+      lowerName,
+      nodeName.replace(/([A-Z])/g, '_$1').toLowerCase(), // camelCase to snake_case
+      nodeName.charAt(0).toLowerCase() + nodeName.slice(1), // first letter lowercase
+    ];
+
+    for (const key of this.iconMap.keys()) {
+      for (const variation of variations) {
+        if (key.toLowerCase() === variation.toLowerCase()) {
+          return this.iconMap.get(key)!;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Obtiene y adapta las definiciones de nodos directamente desde la instancia n8n.
+   * Esto reemplaza la necesidad de tenerlos en la base de datos local.
+   *
+   * Estrategia:
+   * 1. Intentar con sesión autenticada (login + cookies)
+   * 2. Fallback a API key (si configurada)
+   * 3. Fallback a caché local
+   * 4. Fallback a escaneo de archivos
+   */
+  async getRemoteNodeDefinitions(): Promise<any[]> {
+    const fs = require('fs');
+    const path = require('path');
+    const cacheFile = path.resolve(process.cwd(), 'data/cache/n8n-nodes.json');
+
+    // 1. Intentar con sesión autenticada (login automático)
+    try {
+      const loggedIn = await this.loginToN8n();
+
+      if (loggedIn && this.sessionCookies) {
+        console.log(`🌐 Connecting to n8n API with session at ${this.baseUrl}/types/nodes.json...`);
+        const response = await axios.get(`${this.baseUrl}/types/nodes.json`, {
+          headers: {
+            'Cookie': this.sessionCookies,
+            'Content-Type': 'application/json',
+          },
+          timeout: 15000,
+        });
+
+        const nodesParams = response.data;
+
+        if (Array.isArray(nodesParams) && nodesParams.length > 0) {
+          // Success! Save to cache
+          try {
+            const cacheDir = path.dirname(cacheFile);
+            if (!fs.existsSync(cacheDir)) {
+              fs.mkdirSync(cacheDir, { recursive: true });
+            }
+            fs.writeFileSync(cacheFile, JSON.stringify(nodesParams, null, 2));
+            console.log(`💾 Cache Updated: Saved ${nodesParams.length} nodes with full properties to ${cacheFile}`);
+          } catch (writeErr) {
+            console.error('⚠️ Failed to write to cache:', writeErr);
+          }
+
+          return this.mapN8nNodesToNanoFlow(nodesParams);
+        }
+      }
+    } catch (error: any) {
+      console.error('⚠️ Session-based API failed:', error.message);
+      this.sessionCookies = ''; // Clear invalid session
+    }
+
+    // 2. Fallback: Try with API key (for public endpoints)
+    try {
+      const apiKey = process.env.N8N_API_KEY;
+      if (apiKey) {
+        console.log(`🔑 Trying n8n API with API key...`);
+        const response = await axios.get(`${this.baseUrl}/types/nodes.json`, {
+          headers: { 'X-N8N-API-KEY': apiKey },
+          timeout: 8000,
+        });
+
+        const nodesParams = response.data;
+        if (Array.isArray(nodesParams) && nodesParams.length > 0) {
+          try {
+            const cacheDir = path.dirname(cacheFile);
+            if (!fs.existsSync(cacheDir)) {
+              fs.mkdirSync(cacheDir, { recursive: true });
+            }
+            fs.writeFileSync(cacheFile, JSON.stringify(nodesParams, null, 2));
+            console.log(`💾 Cache Updated: Saved ${nodesParams.length} nodes to ${cacheFile}`);
+          } catch (writeErr) {
+            console.error('⚠️ Failed to write to cache:', writeErr);
+          }
+          return this.mapN8nNodesToNanoFlow(nodesParams);
+        }
+      }
+    } catch (error: any) {
+      console.error('⚠️ API key method also failed. Checking cache...');
+    }
+
+    // 2. Intentar Caché Local (JSON Completo)
+    try {
+      if (fs.existsSync(cacheFile)) {
+        console.log(`📦 Reading from cache: ${cacheFile}`);
+        const cachedContent = fs.readFileSync(cacheFile, 'utf-8');
+        const cachedNodes = JSON.parse(cachedContent);
+        if (Array.isArray(cachedNodes) && cachedNodes.length > 0) {
+          console.log(`✅ Cache Hit: Loaded ${cachedNodes.length} nodes with full properties.`);
+          return this.mapN8nNodesToNanoFlow(cachedNodes);
+        }
+      }
+    } catch (cacheErr) {
+      console.error('⚠️ Cache file corrupt or unreadable.');
+    }
+
+    // 3. Fallback Final: Escaneo de Archivos (Sin propiedades para TS)
+    console.warn(
+      '🔻 All caches failed. Scanning local filesystem (Metadata only for .ts files)...'
+    );
+    try {
+      const localNodes = this.readLocalFallbackNodes();
+      if (localNodes.length > 0) {
+        return this.mapN8nNodesToNanoFlow(localNodes);
+      }
+    } catch (localError) {
+      console.error('🔴 Fatal: Filesystem scan failed:', localError);
+    }
+
+    return [];
+  }
+
+  // Helper para mapear (extraído para reusar)
+  private mapN8nNodesToNanoFlow(nodesParams: any[]): any[] {
+    return nodesParams
+      .map((n8nNode: any) => {
+        // 1. Base Categories from n8n (Convert to slug parts)
+        let parts: string[] = [];
+        if (n8nNode.codex && n8nNode.codex.categories && n8nNode.codex.categories.length > 0) {
+          parts = n8nNode.codex.categories.map((c: string) =>
+            c.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+          );
+        } else if (n8nNode.group && n8nNode.group.length > 0) {
+          parts = n8nNode.group.map((g: string) => g.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+        }
+
+        if (parts.length === 0) parts = ['others'];
+
+        // 2. Intelligent Vendor Grouping (Create explicit folders for popular stacks)
+        const name = (n8nNode.displayName || n8nNode.name || '').toLowerCase();
+
+        if (name.startsWith('google')) {
+          // Ensure 'google' is root folder
+          if (parts[0] !== 'google') parts = ['google', ...parts];
+        } else if (name.startsWith('aws') || name.startsWith('amazon')) {
+          if (parts[0] !== 'aws') parts = ['aws', ...parts];
+        } else if (name.startsWith('microsoft') || name.startsWith('azure')) {
+          if (parts[0] !== 'microsoft') parts = ['microsoft', ...parts];
+        } else if (name.includes('slack')) parts = ['communication', 'slack'];
+        else if (name.includes('discord')) parts = ['communication', 'discord'];
+        else if (name.includes('telegram')) parts = ['communication', 'telegram'];
+        else if (name.includes('postgres') || name.includes('mysql') || name.includes('mongo'))
+          parts = ['data', 'database'];
+        else if (name.includes('openai') || name.includes('gpt')) parts = ['ai', 'openai'];
+
+        // 3. Mark Triggers visually
+        const isTrigger = name.includes('trigger') || parts.includes('trigger');
+
+        // Generate hierarchical ID (e.g., "google/analytics", "ai/openai/model")
+        let categoryId = parts.join('/');
+
+        // Icon URL - Proxy through our own backend to solve auth/cross-origin issues
+        const iconUrl = `/api/n8n/node-icons/${n8nNode.name}`;
+
+        const safeLabel = n8nNode.displayName || n8nNode.name || 'Unknown Node';
+
+        // Avoid double prefix - n8nNode.name might already include 'n8n-nodes-base.'
+        const nodeType = n8nNode.name?.startsWith('n8n-nodes-base.')
+          ? n8nNode.name
+          : `n8n-nodes-base.${n8nNode.name}`;
+
+        return {
+          type: nodeType,
+          category: categoryId,
+          icon: 'Box',
+          iconUrl,
+          color: isTrigger ? 'bg-green-500' : 'bg-blue-500',
+          label: { en: safeLabel, es: safeLabel },
+          description: { en: `Integration for ${safeLabel}`, es: '' },
+          inputs: n8nNode.inputs || [],
+          outputs: n8nNode.outputs || [],
+          properties: n8nNode.properties || [],
+        };
+      })
+      .sort((a: any, b: any) => (a.label?.en || '').localeCompare(b.label?.en || ''));
+  }
+
+  private readLocalFallbackNodes(): any[] {
+    const fs = require('fs');
+    const path = require('path');
+    const nodes: any[] = [];
+    const nodesBase = path.resolve(process.cwd(), '../others/n8n/packages/nodes-base/nodes');
+
+    console.log(`📂 Scanning local nodes and icons in: ${nodesBase}`);
+
+    if (!fs.existsSync(nodesBase)) {
+      console.warn('Local n8n folder not found.');
+      return [];
+    }
+
+    const tsRegex = {
+      displayName: /displayName:\s*['"](.+?)['"]/,
+      name: /name:\s*['"](.+?)['"]/,
+      icon: /icon:\s*['"](.+?)['"]/,
+      description: /description:\s*['"](.+?)['"]/,
+      group: /group:\s*\[\s*(['"].+?['"])\s*\]/,
+    };
+
+    const self = this;
+    function scan(dir: string) {
+      if (!fs.existsSync(dir)) return;
+      const files = fs.readdirSync(dir);
+
+      for (const file of files) {
+        const fullPath = path.join(dir, file);
+        const stat = fs.statSync(fullPath);
+
+        if (stat.isDirectory()) {
+          scan(fullPath);
+        } else if (file.endsWith('.svg') || file.endsWith('.png')) {
+          // Cache icons: typically nodeName.svg or similar
+          const nodeNameGuess = file.split('.')[0].toLowerCase();
+          // Cache all naming variations
+          self.iconMap.set(nodeNameGuess, fullPath);
+          const pascalCase = nodeNameGuess.charAt(0).toUpperCase() + nodeNameGuess.slice(1);
+          self.iconMap.set(pascalCase, fullPath);
+        } else if (file.endsWith('.node.json')) {
+          try {
+            const content = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
+            if (!content.name) content.name = file.replace('.node.json', '');
+            nodes.push(content);
+
+            // If JSON has an icon field, try to find it in same dir
+            if (content.icon && content.icon.startsWith('file:')) {
+              const iconName = content.icon.replace('file:', '');
+              const iconPath = path.join(dir, iconName);
+              if (fs.existsSync(iconPath)) {
+                self.iconMap.set(content.name, iconPath);
+              }
+            }
+          } catch (e) {}
+        } else if (file.endsWith('.node.ts')) {
+          try {
+            const content = fs.readFileSync(fullPath, 'utf-8');
+            if (content.includes('INodeType')) {
+              const nameMatch = content.match(tsRegex.name);
+              const displayNameMatch = content.match(tsRegex.displayName);
+
+              if (nameMatch && displayNameMatch) {
+                const name = nameMatch[1];
+                const node: any = {
+                  name,
+                  displayName: displayNameMatch[1],
+                  description: content.match(tsRegex.description)?.[1] || '',
+                  icon: content.match(tsRegex.icon)?.[1] || 'fa:cube',
+                  group: content.match(tsRegex.group)?.[1]?.replace(/['"]/g, '').split(',') || [],
+                  properties: [],
+                };
+                nodes.push(node);
+
+                // Try to find icon mentioned in TS
+                if (node.icon && node.icon.startsWith('file:')) {
+                  const iconName = node.icon.replace('file:', '');
+                  const iconPath = path.join(dir, iconName);
+                  if (fs.existsSync(iconPath)) {
+                    self.iconMap.set(name, iconPath);
+                  }
+                }
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    }
+    scan(nodesBase);
+
+    const uniqueNodes = Array.from(new Map(nodes.map(item => [item.name, item])).values());
+    console.log(`✅ Loaded ${uniqueNodes.length} nodes and cached ${this.iconMap.size} icons.`);
+    return uniqueNodes;
+  }
+
+  /**
    * Convierte un nodo de NanoFlow a formato n8n
    */
-  convertNanoFlowNodeToN8n(
-    nanoflowNode: { type: string; data: Record<string, unknown>; position: { x: number; y: number } }
-  ): N8nNode {
+  convertNanoFlowNodeToN8n(nanoflowNode: {
+    type: string;
+    data: Record<string, unknown>;
+    position: { x: number; y: number };
+  }): N8nNode {
     const typeMapping: Record<string, string> = {
       'n8n-webhook': 'n8n-nodes-base.webhook',
       'n8n-http': 'n8n-nodes-base.httpRequest',
@@ -431,7 +801,7 @@ class N8nService {
       name: (nanoflowNode.data.label as string) || 'Node',
       type: typeMapping[nanoflowNode.type] || nanoflowNode.type,
       position: [nanoflowNode.position.x, nanoflowNode.position.y],
-      parameters: nanoflowNode.data.parameters as Record<string, unknown> || {},
+      parameters: (nanoflowNode.data.parameters as Record<string, unknown>) || {},
     };
   }
 }
