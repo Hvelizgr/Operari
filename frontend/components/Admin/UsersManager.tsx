@@ -5,7 +5,7 @@ import { apiFetch } from '@/utils/api';
 import { Card, CardBody, CardHeader, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, User, Select, SelectItem, Button } from "@heroui/react";
 import { Shield, Mail, Calendar, UserCog } from "lucide-react";
 
-export default function UsersManager() {
+export function UsersManager() {
     const [users, setUsers] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 

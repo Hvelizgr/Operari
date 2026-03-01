@@ -75,9 +75,16 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
     };
 
     const filteredNodes = useMemo(() => {
-        if (!searchTerm) return allNodes;
+        if (!allNodes) return [];
+        
+        // Deduplicate by type to prevent React key errors
+        const uniqueNodes = Array.from(
+            new Map(allNodes.map(node => [node.type, node])).values()
+        );
+
+        if (!searchTerm) return uniqueNodes;
         const term = searchTerm.toLowerCase();
-        return allNodes.filter(node =>
+        return uniqueNodes.filter(node =>
             (node.label[lang] || '').toLowerCase().includes(term) ||
             node.type.toLowerCase().includes(term) ||
             (node.description?.[lang] || '').toLowerCase().includes(term)

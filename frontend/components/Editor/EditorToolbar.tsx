@@ -1,31 +1,22 @@
 'use client';
 
-import { Undo2, Redo2, MousePointer2, Move, Copy, Trash2, Power, History as HistoryIcon, Unlink, Keyboard, Target } from 'lucide-react';
+import { Undo2, Redo2, MousePointer2, Move, Copy, Trash2, Power, History as HistoryIcon, Unlink, Keyboard, Target, FileText, BrainCircuit, Loader2 } from 'lucide-react';
 import { CSSProperties } from 'react';
 
 type BlastRadiusMode = 'off' | 'downstream' | 'upstream' | 'both';
 
 interface EditorToolbarProps {
-    // Undo/Redo
     undo: () => void;
     redo: () => void;
     canUndo: boolean;
     canRedo: boolean;
     undoDescription?: string;
     redoDescription?: string;
-
-    // Language
     lang: 'en' | 'es';
-
-    // Editor Mode
-    editorMode: 'move' | 'connect';
-    setEditorMode: (mode: 'move' | 'connect') => void;
-
-    // Blast Radius (Impact Analysis)
+    editorMode: 'select' | 'pan' | 'move' | 'connect';
+    setEditorMode: (mode: 'select' | 'pan' | 'move' | 'connect') => void;
     blastRadiusMode?: BlastRadiusMode;
     onToggleBlastRadius?: () => void;
-
-    // Selection Context
     selectedCount?: number;
     onDuplicate?: () => void;
     onDelete?: () => void;
@@ -33,6 +24,9 @@ interface EditorToolbarProps {
     onDetach?: () => void;
     onOpenShortcuts: () => void;
     onOpenHistory: () => void;
+    onGenerateDocs?: () => void;
+    onRunAIAnalysis?: () => void;
+    isAILoading?: boolean;
     style?: CSSProperties;
 }
 
@@ -55,8 +49,12 @@ export default function EditorToolbar({
     onDetach,
     onOpenShortcuts,
     onOpenHistory,
+    onGenerateDocs,
+    onRunAIAnalysis,
+    isAILoading = false,
     style
 }: EditorToolbarProps) {
+
     const undoTitle = (lang === 'en' ? 'Undo (Ctrl+Z)' : 'Deshacer (Ctrl+Z)') + (undoDescription ? `: ${undoDescription}` : '');
     const redoTitle = (lang === 'en' ? 'Redo (Ctrl+Y)' : 'Rehacer (Ctrl+Y)') + (redoDescription ? `: ${redoDescription}` : '');
 
@@ -195,6 +193,27 @@ export default function EditorToolbar({
                                 ? (lang === 'en' ? 'Upstream' : 'Asc.')
                                 : (lang === 'en' ? 'Both' : 'Ambos')}
                 </span>
+            </div>
+
+            <div className="wf_button_separator right"></div>
+
+            {/* --- GROUP 6: AI INTELLIGENCE --- */}
+            <div
+                className={`button right ${isAILoading ? 'disabled' : ''}`}
+                onClick={onRunAIAnalysis}
+                title={lang === 'en' ? 'AI Workflow Analysis' : 'Análisis de Workflow con IA'}
+            >
+                {isAILoading ? <Loader2 size={16} className="animate-spin mr-1" /> : <BrainCircuit size={16} className="mr-1" />}
+                <span>{lang === 'en' ? 'AI Analysis' : 'Análisis IA'}</span>
+            </div>
+
+            <div
+                className={`button right ${isAILoading ? 'disabled' : ''}`}
+                onClick={onGenerateDocs}
+                title={lang === 'en' ? 'Generate AI Documentation' : 'Generar Documentación con IA'}
+            >
+                {isAILoading ? <Loader2 size={16} className="animate-spin mr-1" /> : <FileText size={16} className="mr-1" />}
+                <span>{lang === 'en' ? 'AI Doc' : 'Doc IA'}</span>
             </div>
         </div>
     );

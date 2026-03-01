@@ -1,8 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
-import { HelpCircle, ChevronDown, ChevronRight, Database, Settings2 } from 'lucide-react';
+import { HelpCircle, ChevronDown, ChevronRight, Database, Settings2, Plus, Trash2 } from 'lucide-react';
+
 import { WorkflowNode, Connection } from '@nanoflow/shared';
 import ExpressionBuilder from './ExpressionBuilder';
+import { apiFetch } from '../../utils/api';
+
 
 interface DisplayOptions {
     show?: Record<string, string[]>;
@@ -17,8 +20,10 @@ interface Property {
     description?: string;
     required?: boolean;
     options?: { name: string; value: string; description?: string }[];
-    typeOptions?: { rows?: number; expression?: boolean };
+    typeOptions?: { rows?: number; expression?: boolean; loadOptionsMethod?: string; widget?: 'keyValue' };
     displayOptions?: DisplayOptions;
+
+
 }
 
 function shouldShowProperty(prop: Property, values: Record<string, any>): boolean {
@@ -55,6 +60,115 @@ interface DynamicNodeFormProps {
     nodeOutputs?: Record<string, any>;
 }
 
+function KeyValueList({ value, onChange, inputClass }: { value: any, onChange: (val: any) => void, inputClass: string }) {
+    // Ensure value is an object
+    const entries = useMemo(() => {
+        if (!value) return [];
+        if (typeof value === 'string') {
+            try { return Object.entries(JSON.parse(value)); } catch { return []; }
+        }
+        if (typeof value === 'object') return Object.entries(value);
+        return [];
+    }, [value]);
+
+    const handleAdd = () => {
+        const newObj = { ...(typeof value === 'object' ? value : {}), '': '' };
+        onChange(newObj);
+    };
+
+    const handleChange = (oldKey: string, newKey: string, newValue: string) => {
+        const newObj = { ...value };
+        if (oldKey !== newKey) {
+            delete newObj[oldKey];
+            newObj[newKey] = newValue;
+        } else {
+            newObj[oldKey] = newValue;
+        }
+        onChange(newObj);
+    };
+
+    const handleDelete = (keyToDelete: string) => {
+        const newObj = { ...value };
+        delete newObj[keyToDelete];
+        onChange(newObj);
+    };
+
+    return (
+        <div className="space-y-2">
+            {entries.map(([key, val], idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                    <input 
+                        type="text" 
+                        placeholder="Key"
+                        value={key} 
+                        onChange={(e) => handleChange(key, e.target.value, val as string)}
+                        className={inputClass}
+                    />
+                    <span className="text-[var(--descriptor-color)] px-1">:</span>
+                    <input 
+                        type="text" 
+                        placeholder="Value (or expression)"
+                        value={val as string} 
+                        onChange={(e) => handleChange(key, key, e.target.value)}
+                        className={inputClass}
+                    />
+                    <button 
+                        onClick={() => handleDelete(key)}
+                        className="p-1 text-[var(--descriptor-color)] hover:text-red-400 transition-colors"
+                    >
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+            ))}
+            <button 
+                onClick={handleAdd}
+                className="flex items-center gap-1 text-xs text-[var(--theme-color)] hover:underline mt-1"
+            >
+                <Plus size={12} /> Add Field
+            </button>
+        </div>
+    );
+}
+
+function AsyncSelect({ prop, value, onChange, inputClass }: { prop: Property, value: any, onChange: (key: string, value: any) => void, inputClass: string }) {
+
+    const [options, setOptions] = useState<{ name: string; value: string }[]>(prop.options || []);
+    const [loading, setLoading] = useState(false);
+
+    React.useEffect(() => {
+        if (prop.typeOptions?.loadOptionsMethod === 'getWorkflows') {
+            setLoading(true);
+            apiFetch('/api/workflows')
+                .then((data: any[]) => {
+                    setOptions(data.map(w => ({ name: w.name, value: w.id })));
+                })
+                .catch(err => console.error("Failed to load options", err))
+                .finally(() => setLoading(false));
+        }
+    }, [prop.typeOptions?.loadOptionsMethod]);
+
+    return (
+        <div className="relative">
+            <select
+                value={value || ''}
+                onChange={(e) => onChange(prop.name, e.target.value)}
+                className={`${inputClass} appearance-none pr-8`}
+                disabled={loading}
+            >
+                <option value="" disabled>Select an option...</option>
+                {options.map((opt) => (
+                    <option key={opt.value} value={opt.value} className="bg-[var(--box-background-color)] text-[var(--body-text-color)]">
+                        {opt.name}
+                    </option>
+                ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--icon-color)] pointer-events-none" size={14} />
+            {loading && <div className="absolute right-8 top-1/2 -translate-y-1/2 text-[var(--descriptor-color)] text-xs">Loading...</div>}
+        </div>
+    );
+}
+
+
 function PropertyInput({ 
     prop, 
     value, 
@@ -84,7 +198,14 @@ function PropertyInput({
                 )}
             </div>
 
-            {prop.type === 'string' && (
+
+            {prop.type === 'json' && prop.typeOptions?.widget === 'keyValue' ? (
+                <KeyValueList 
+                    value={value} 
+                    onChange={(val) => onChange(prop.name, val)}
+                    inputClass={inputClass}
+                />
+            ) : (prop.type === 'string' || prop.type === 'json') ? (
                 prop.typeOptions?.rows ? (
                     <div className="relative">
                         <textarea
@@ -122,7 +243,7 @@ function PropertyInput({
                         )}
                     </div>
                 )
-            )}
+            ) : null}
 
             {prop.type === 'number' && (
                 <input
@@ -134,21 +255,14 @@ function PropertyInput({
             )}
 
             {prop.type === 'options' && (
-                <div className="relative">
-                    <select
-                        value={value || ''}
-                        onChange={(e) => onChange(prop.name, e.target.value)}
-                        className={`${inputClass} appearance-none pr-8`}
-                    >
-                        {prop.options?.map((opt) => (
-                            <option key={opt.value} value={opt.value} className="bg-[var(--box-background-color)] text-[var(--body-text-color)]">
-                                {opt.name}
-                            </option>
-                        ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--icon-color)] pointer-events-none" size={14} />
-                </div>
+                <AsyncSelect 
+                    prop={prop} 
+                    value={value} 
+                    onChange={onChange} 
+                    inputClass={inputClass} 
+                />
             )}
+
 
             {prop.type === 'boolean' && (
                 <label className="flex items-center cursor-pointer gap-3 pt-1">

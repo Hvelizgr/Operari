@@ -16,21 +16,34 @@ import {
     ChevronRight,
     Settings,
     Key,
-    BarChart3
+    BarChart3,
+    CreditCard,
+    BookOpen,
+    Terminal,
+    Bot
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useSubscription } from '@/context/SubscriptionContext';
 
 interface EditorSidebarProps {
     lang: 'en' | 'es';
 }
 
 export default function EditorSidebar({ lang }: EditorSidebarProps) {
-    const [collapsed, setCollapsed] = useState(false);
-    const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
     const pathname = usePathname();
+    const isEditorPage = pathname?.endsWith('/editor') || pathname?.match(/\/[a-z]{2}\/editor$/);
+    
+    const [collapsed, setCollapsed] = useState(isEditorPage ? true : false);
+    const [mounted, setMounted] = useState(false);
+    const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
+    const { plan, features } = useSubscription();
 
     useEffect(() => {
+        setMounted(true);
+        if (isEditorPage) {
+            setCollapsed(true);
+        }
         const storedUser = localStorage.getItem('nanoflow_user');
         if (storedUser) {
             try {
@@ -39,120 +52,170 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                 console.error('Failed to parse user', e);
             }
         }
-    }, []);
+    }, [isEditorPage]);
 
-    const menuItems = [
-        { id: 'dashboard', label: lang === 'en' ? 'Dashboard' : 'Panel', icon: LayoutDashboard, href: `/${lang}/dashboard` },
-        { id: 'analytics', label: lang === 'en' ? 'Analytics' : 'Analíticas', icon: BarChart3, href: `/${lang}/analytics` },
-        { id: 'scheduler', label: lang === 'en' ? 'Schedules' : 'Horarios', icon: CalendarClock, href: `/${lang}/scheduler` },
-        { id: 'workflows', label: lang === 'en' ? 'Workflows' : 'Flujos', icon: Share2, href: `/${lang}/workflows` },
-        { id: 'credentials', label: lang === 'en' ? 'Credentials' : 'Credenciales', icon: Key, href: `/${lang}/credentials` },
-        { id: 'editor', label: lang === 'en' ? 'Editor' : 'Editor', icon: Activity, href: `/${lang}/editor` },
-        { id: 'monitors', label: lang === 'en' ? 'Monitors' : 'Monitores', icon: Activity, href: `/${lang}/monitors` },
-        { id: 'events', label: lang === 'en' ? 'Events' : 'Eventos', icon: Zap, href: `/${lang}/events` },
-        { id: 'utilities', label: lang === 'en' ? 'Utilities' : 'Utilidades', icon: Wrench, href: `/${lang}/utilities` },
-        { id: 'users', label: lang === 'en' ? 'Users' : 'Usuarios', icon: ShieldCheck, href: `/${lang}/users`, roles: ['ADMIN'] },
-        { id: 'admin', label: lang === 'en' ? 'Admin' : 'Admin', icon: Settings, href: `/${lang}/admin`, roles: ['ADMIN'] },
-    ].filter(item => !item.roles || (user && item.roles.includes(user.role)));
+    const sections = [
+        {
+            title: lang === 'en' ? 'Main' : 'Principal',
+            items: [
+                { id: 'dashboard', label: lang === 'en' ? 'Dashboard' : 'Panel', icon: LayoutDashboard, href: `/${lang}/dashboard`, show: true },
+                { id: 'workflows', label: lang === 'en' ? 'Workflows' : 'Flujos', icon: Share2, href: `/${lang}/workflows`, show: true },
+                { id: 'agents', label: lang === 'en' ? 'Agents' : 'Agentes', icon: Bot, href: `/${lang}/agents`, show: true },
+                { id: 'editor', label: lang === 'en' ? 'Editor' : 'Editor', icon: Activity, href: `/${lang}/editor`, show: true },
+            ]
+        },
+        {
+            title: lang === 'en' ? 'Activity' : 'Actividad',
+            items: [
+                { id: 'analytics', label: lang === 'en' ? 'Analytics' : 'Analíticas', icon: BarChart3, href: `/${lang}/analytics`, show: true },
+                { id: 'monitors', label: lang === 'en' ? 'Monitors' : 'Monitores', icon: Activity, href: `/${lang}/monitors`, show: true },
+                { id: 'events', label: lang === 'en' ? 'Events' : 'Eventos', icon: Zap, href: `/${lang}/events`, show: true },
+            ]
+        },
+        {
+            title: lang === 'en' ? 'Tools' : 'Herramientas',
+            items: [
+                { id: 'credentials', label: lang === 'en' ? 'Credentials' : 'Credenciales', icon: Key, href: `/${lang}/credentials`, show: true },
+                { id: 'nodes', label: lang === 'en' ? 'Explore Nodes' : 'Explorar Nodos', icon: BookOpen, href: `/${lang}/nodes`, show: true },
+                { id: 'scheduler', label: lang === 'en' ? 'Schedules' : 'Horarios', icon: CalendarClock, href: `/${lang}/scheduler`, show: true },
+                { id: 'utilities', label: lang === 'en' ? 'Utilities' : 'Utilidades', icon: Terminal, href: `/${lang}/utilities`, show: true },
+            ]
+        }
+    ];
+
+    if (!mounted) return null;
 
     return (
         <motion.div
-            className="h-screen bg-[var(--sidebar-background-color)] flex flex-col border-r border-[var(--border-color)] relative z-50 text-[var(--sidebar-text-color)]"
-            initial={{ width: 220 }}
-            animate={{ width: collapsed ? 50 : 220 }}
+            className="h-screen bg-[#09090b] flex flex-col border-r border-[#27272a] relative z-50 text-[#a1a1aa] shadow-xl"
+            initial={{ width: 240 }}
+            animate={{ width: collapsed ? 64 : 240 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            style={{
-                '--sidebar-background-color': '#2a2f3a',
-                '--sidebar-text-color': '#ccc',
-                '--sidebar-active-background': '#3b82f6',
-                '--sidebar-active-text': '#fff'
-            } as any}
         >
             {/* Header / Logo */}
-            <div className="h-[50px] flex items-center justify-between px-3 border-b border-[var(--border-color)] bg-[rgba(0,0,0,0.1)]">
+            <div className="h-[60px] flex items-center justify-between px-4 border-b border-[#27272a] bg-[#09090b]">
                 {!collapsed && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="font-bold text-lg tracking-wider text-white"
+                        className="flex items-center gap-2 font-bold text-lg tracking-tight text-white"
                     >
+                        <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center">
+                            <Zap size={14} className="text-white" fill="currentColor" />
+                        </div>
                         NanoFlow
                     </motion.div>
                 )}
+                 {/* Mobile / Collapse Toggle */}
                 <button
                     onClick={() => setCollapsed(!collapsed)}
-                    className="p-1 hover:bg-white/10 rounded transition-colors"
+                    className={`p-1.5 hover:bg-[#27272a] rounded-md transition-colors text-[#a1a1aa] hover:text-white ${collapsed ? 'mx-auto' : ''}`}
                 >
                     {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                 </button>
             </div>
 
             {/* Menu Items */}
-            <div className="flex-1 overflow-y-auto py-2">
-                {menuItems.map(item => {
-                    const isActive = pathname?.includes(item.id) || (item.id === 'editor' && pathname?.includes('/editor'));
-                    const Icon = item.icon;
+            <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 custom-scrollbar">
+                {sections.map((section, idx) => {
+                    const visibleItems = section.items.filter(i => i.show);
+                    if (visibleItems.length === 0) return null;
+
                     return (
-                        <Link
-                            key={item.id}
-                            href={item.href}
-                            className={`
-                                flex items-center cursor-pointer mx-2 my-1 px-3 py-2 rounded-md transition-all duration-200
-                                ${isActive ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-white/5 text-gray-400 hover:text-white'}
-                            `}
-                            title={collapsed ? item.label : ''}
-                        >
-                            <div className="min-w-[20px] flex justify-center">
-                                <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-                            </div>
+                        <div key={idx} className="mb-6">
                             {!collapsed && (
-                                <motion.span
-                                    className="ml-3 text-sm font-medium truncate"
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                >
-                                    {item.label}
-                                </motion.span>
+                                <div className="px-4 mb-2 text-xs font-semibold uppercase tracking-wider text-[#52525b]">
+                                    {section.title}
+                                </div>
                             )}
-                        </Link>
+                            <div className="space-y-0.5 px-2">
+                                {visibleItems.map(item => {
+                                    const isActive = pathname?.includes(item.id) || (item.id === 'editor' && pathname?.includes('/editor'));
+                                    const Icon = item.icon;
+                                    return (
+                                        <Link
+                                            key={item.id}
+                                            href={item.href}
+                                            onClick={(e) => {
+                                                if (isEditorPage && item.id === 'nodes') {
+                                                    e.preventDefault();
+                                                    // Trigger node palette via custom event since we can't easily pass props across layout boundary
+                                                    window.dispatchEvent(new CustomEvent('nanoflow:open-node-palette'));
+                                                }
+                                            }}
+                                            className={`
+                                                flex items-center cursor-pointer px-3 py-2 rounded-md transition-all duration-200 group
+                                                ${isActive 
+                                                    ? 'bg-blue-600/10 text-blue-500' 
+                                                    : 'hover:bg-[#27272a] text-[#a1a1aa] hover:text-[#f4f4f5]'}
+                                            `}
+                                            title={collapsed ? item.label : ''}
+                                        >
+                                            <div className={`min-w-[20px] flex justify-center ${isActive ? 'text-blue-500' : 'text-[#71717a] group-hover:text-[#f4f4f5]'}`}>
+                                                <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                                            </div>
+                                            {!collapsed && (
+                                                <motion.span
+                                                    className="ml-3 text-sm font-medium truncate"
+                                                    initial={{ opacity: 0, x: -5 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                >
+                                                    {item.label}
+                                                </motion.span>
+                                            )}
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                            {collapsed && <div className="mx-2 my-2 h-[1px] bg-[#27272a]" />}
+                        </div>
                     );
                 })}
             </div>
 
-            {/* Footer / User */}
-            <div className="p-2 border-t border-[var(--border-color)] bg-[rgba(0,0,0,0.2)]">
-                <div className={`flex items-center ${collapsed ? 'justify-center' : 'px-2'} py-2 rounded hover:bg-white/5 cursor-pointer text-gray-400 hover:text-white transition-colors`}>
-                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center border border-slate-600">
-                        <User size={16} />
+            {/* Footer / User Area */}
+            <div className="p-3 border-t border-[#27272a] bg-[#09090b]">
+                {/* User Info Block */}
+                <div className={`flex items-center ${collapsed ? 'justify-center' : 'px-2'} py-2 mb-2 rounded-lg bg-[#27272a]/50 border border-[#27272a]`}>
+                     <div className="w-8 h-8 min-w-[32px] rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center border border-white/10 shadow-inner">
+                        <span className="text-xs font-bold text-white">
+                            {user?.name?.[0]?.toUpperCase() || 'U'}
+                        </span>
                     </div>
                     {!collapsed && (
                         <motion.div
-                            className="ml-3 overflow-hidden"
+                            className="ml-3 overflow-hidden flex-1"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                         >
-                            <div className="text-xs font-bold text-white truncate">{user?.name || 'Guest'}</div>
-                            <div className="text-[10px] text-gray-500 truncate">{user?.email || 'Not logged in'}</div>
-                            {user && <div className="text-[9px] text-blue-400 font-mono mt-0.5 tracking-tighter uppercase">{user.role}</div>}
+                            <div className="text-sm font-medium text-[#f4f4f5] truncate">{user?.name || 'Guest User'}</div>
+                            <div className="text-xs text-[#71717a] truncate">{plan.toUpperCase()} PLAN</div>
                         </motion.div>
                     )}
                 </div>
-                <div className={`mt-1 flex items-center ${collapsed ? 'justify-center' : 'justify-end gap-2'}`}>
-                    <button className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white" title="Settings">
-                        <Settings size={14} />
+
+                {/* Settings Actions */}
+                <div className={`flex items-center ${collapsed ? 'flex-col gap-2' : 'justify-between gap-1'}`}>
+                    <Link 
+                        href={`/${lang}/settings/profile`}
+                        className={`flex items-center justify-center p-2 hover:bg-[#27272a] rounded-md text-[#a1a1aa] hover:text-white transition-colors ${!collapsed ? 'flex-1' : 'w-full'}`}
+                        title="User Settings"
+                    >
+                         <Settings size={16} />
+                         {!collapsed && <span className="ml-2 text-xs">Settings</span>}
+                    </Link>
+                    
+                    <button 
+                         className={`flex items-center justify-center p-2 hover:bg-red-900/20 hover:text-red-400 rounded-md text-[#a1a1aa] transition-colors ${!collapsed ? 'flex-1' : 'w-full'}`}
+                         title="Logout"
+                         onClick={() => {
+                             localStorage.clear();
+                             window.location.href = `/${lang}/login`;
+                         }}
+                    >
+                         <LogOut size={16} />
+                         {!collapsed && <span className="ml-2 text-xs">Logout</span>}
                     </button>
-                    {!collapsed && (
-                        <button 
-                            className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white" 
-                            title="Logout"
-                            onClick={() => {
-                                localStorage.clear();
-                                window.location.href = `/${lang}/login`;
-                            }}
-                        >
-                            <LogOut size={14} />
-                        </button>
-                    )}
                 </div>
             </div>
         </motion.div>

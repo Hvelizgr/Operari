@@ -65,7 +65,8 @@ export default function FrameNode({
     // Sync title from config
     useEffect(() => {
         setTitle((node.config as any)?.title || 'Frame');
-    }, [(node.config as any)?.title]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [node.config]);
 
     const handleTitleBlur = () => {
         setIsEditing(false);

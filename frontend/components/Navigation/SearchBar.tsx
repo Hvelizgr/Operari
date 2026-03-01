@@ -76,9 +76,14 @@ export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightN
     const filteredAvailableNodes = useMemo(() => {
         const sourceNodes = availableNodeTypes || [];
 
-        if (!searchTerm) return sourceNodes;
+        // Deduplicate by type to prevent React key errors
+        const uniqueNodes = Array.from(
+            new Map(sourceNodes.map(node => [node.type, node])).values()
+        );
+
+        if (!searchTerm) return uniqueNodes;
         const term = searchTerm.toLowerCase();
-        return sourceNodes.filter(t =>
+        return uniqueNodes.filter(t =>
             (t.label[lang] || t.label['en'] || '').toLowerCase().includes(term) ||
             t.type.toLowerCase().includes(term) ||
             (t.description?.[lang] || '').toLowerCase().includes(term) ||

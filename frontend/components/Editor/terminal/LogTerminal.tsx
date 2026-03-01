@@ -23,13 +23,24 @@ export default function LogTerminal({ logs = [], isActive = false }: LogTerminal
         const term = new Terminal({
             cursorBlink: true,
             theme: {
-                background: '#0f172a', // slate-900
+                background: '#09090b', // zinc-950/black
                 foreground: '#cbd5e1', // slate-300
-                cursor: '#3b82f6',     // blue-500
+                cursor: '#a855f7',     // purple-500
+                selectionBackground: 'rgba(168, 85, 247, 0.3)',
+                black: '#09090b',
+                red: '#ef4444',
+                green: '#22c55e',
+                yellow: '#eab308',
+                blue: '#3b82f6',
+                magenta: '#a855f7',
+                cyan: '#06b6d4',
+                white: '#f8fafc',
             },
-            fontSize: 12,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+            fontSize: 13,
+            lineHeight: 1.4,
+            fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
             convertEol: true,
+            rows: 20
         });
 
         const fitAddon = new FitAddon();
@@ -72,8 +83,8 @@ export default function LogTerminal({ logs = [], isActive = false }: LogTerminal
     }, []);
 
     return (
-        <div className="w-full h-full rounded-lg overflow-hidden border border-slate-700 bg-slate-900 shadow-inner">
-            <div ref={terminalRef} className="w-full h-full p-2" />
+        <div className="w-full h-full rounded-b-xl overflow-hidden border-t-0 border border-white/5 bg-[#09090b]">
+            <div ref={terminalRef} className="w-full h-full p-2 custom-scrollbar" />
         </div>
     );
 }

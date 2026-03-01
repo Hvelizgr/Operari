@@ -57,7 +57,7 @@ function NodeHoverToolbarComponent({
     `;
 
     const tooltipClass = `
-        absolute -bottom-8 left-1/2 -translate-x-1/2
+        absolute bottom-full mb-2 left-1/2 -translate-x-1/2
         px-2 py-1 text-[10px] font-medium
         bg-slate-900 text-white rounded
         opacity-0 group-hover:opacity-100

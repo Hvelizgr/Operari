@@ -2,8 +2,9 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Map, Minimize2, Maximize2 } from 'lucide-react';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { WorkflowNode } from '../Editor';
+import { useEditorThemeOptional } from '../../context/EditorThemeContext';
 
 interface MiniMapProps {
     nodes: WorkflowNode[];
@@ -14,9 +15,16 @@ interface MiniMapProps {
 }
 
 export default function MiniMap({ nodes, viewport, canvasSize, onViewportChange, lang }: MiniMapProps) {
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    const themeContext = useEditorThemeOptional();
+    const [isCollapsed, setIsCollapsed] = useState(themeContext?.config.minimapCollapsed ?? true);
     const [isDragging, setIsDragging] = useState(false);
     const miniMapRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (themeContext?.config.minimapCollapsed !== undefined) {
+            setIsCollapsed(themeContext.config.minimapCollapsed);
+        }
+    }, [themeContext?.config.minimapCollapsed]);
 
     const MINIMAP_WIDTH = 240;
     const MINIMAP_HEIGHT = 180;
@@ -108,6 +116,7 @@ export default function MiniMap({ nodes, viewport, canvasSize, onViewportChange,
         const newY = -(worldCoords.y - canvasSize.height / viewport.zoom / 2) * viewport.zoom;
 
         onViewportChange(newX, newY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [bounds, scale, viewport.zoom, canvasSize, onViewportChange]);
 
     const handleViewportDragStart = useCallback((e: React.MouseEvent) => {
@@ -128,6 +137,7 @@ export default function MiniMap({ nodes, viewport, canvasSize, onViewportChange,
         const newY = -(worldCoords.y - canvasSize.height / viewport.zoom / 2) * viewport.zoom;
 
         onViewportChange(newX, newY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isDragging, bounds, scale, viewport.zoom, canvasSize, onViewportChange]);
 
     const handleViewportDragEnd = useCallback(() => {

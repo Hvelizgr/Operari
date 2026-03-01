@@ -3,20 +3,26 @@ import { NodeType } from '../Node';
 import { ExecutionMetric, ViewportState } from '../../types/editor.types';
 
 export const createNewNode = (
-    nodeType: NodeType,
+    nodeType: NodeType | string,
     viewport: ViewportState,
     windowSize: { width: number; height: number },
-    lang: 'en' | 'es'
+    lang: 'en' | 'es',
+    position?: { x: number; y: number }
 ): WorkflowNode => {
-    const centerX = (windowSize.width / 2 - viewport.x) / viewport.zoom;
-    const centerY = (windowSize.height / 2 - viewport.y) / viewport.zoom;
+    const centerX = position?.x ?? (windowSize.width / 2 - viewport.x) / viewport.zoom;
+    const centerY = position?.y ?? (windowSize.height / 2 - viewport.y) / viewport.zoom;
+    
+    const nodeTypeObj = typeof nodeType === 'string' ? null : nodeType;
+    const type = typeof nodeType === 'string' ? nodeType : nodeType.type;
+    const title = nodeTypeObj?.label?.[lang] ?? type;
+    
     return {
         id: `node-${Date.now()}`,
-        position: { x: centerX - 128, y: centerY - 32 },
-        title: nodeType.label[lang],
-        type: nodeType.type,
-        inputs: [{ id: 'in', label: 'Input' }], // Should ideally come from nodeType definition
-        outputs: [{ id: 'out', label: 'Output' }], // " "
+        position: { x: position ? centerX : centerX - 128, y: position ? centerY : centerY - 32 },
+        title,
+        type,
+        inputs: [{ id: 'in', label: 'Input' }],
+        outputs: [{ id: 'out', label: 'Output' }],
     };
 };
 

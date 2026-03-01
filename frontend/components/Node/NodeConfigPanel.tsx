@@ -1,12 +1,14 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings } from 'lucide-react';
+import { X, Settings, Palette, Sparkles, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { WorkflowNode } from '@nanoflow/shared';
 import { NodeType } from './NodePalette';
 import { useNodeTypes } from '@/hooks/useNodeTypes';
 import DynamicNodeForm from './DynamicNodeForm';
+import { apiFetch } from '@/utils/api';
+import NodeComments from './NodeComments';
 
 interface NodeConfigPanelProps {
     node: WorkflowNode | null;
@@ -20,19 +22,51 @@ interface NodeConfigPanelProps {
 export default function NodeConfigPanel({ node, nodeTypeDefinition, onUpdate, onClose, lang, nodes }: NodeConfigPanelProps) {
     const [localTitle, setLocalTitle] = useState('');
     const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
+    const [localColor, setLocalColor] = useState<string | undefined>(undefined);
+    const [isSuggesting, setIsSuggesting] = useState(false);
 
     const { nodeTypes: allNodeTypes } = useNodeTypes();
     const nodeTypeInfo = node ? allNodeTypes.find(t => t.type === node.type) : null;
     const nodeDescription = nodeTypeInfo?.description?.[lang];
+    const defaultColor = nodeTypeInfo?.color || '#3b82f6';
 
     useEffect(() => {
         if (node) {
             setLocalTitle(node.title);
             setLocalConfig(node.config || {});
+            setLocalColor(node.color);
         }
     }, [node]);
 
-    // ... existing content object ...
+    const handleAISuggest = async () => {
+        if (!node || isSuggesting) return;
+
+        setIsSuggesting(true);
+        try {
+            const workflowContext = {
+                nodes: nodes,
+                connections: [], // We could pass connections if needed, but for now nodes are enough
+            };
+
+            const result = await apiFetch('/api/ai/suggest-config', {
+                method: 'POST',
+                body: JSON.stringify({
+                    node,
+                    workflowContext,
+                    lang
+                })
+            });
+
+            if (result.config) {
+                setLocalConfig(result.config);
+                onUpdate(node.id, { config: result.config });
+            }
+        } catch (error) {
+            console.error('Failed to get AI suggestion:', error);
+        } finally {
+            setIsSuggesting(false);
+        }
+    };
 
     const content = {
         en: {
@@ -41,6 +75,7 @@ export default function NodeConfigPanel({ node, nodeTypeDefinition, onUpdate, on
             nodeType: 'Type',
             settings: 'Properties',
             close: 'Close',
+            aiSuggest: 'AI Auto-complete'
         },
         es: {
             title: 'Configuración',
@@ -48,8 +83,10 @@ export default function NodeConfigPanel({ node, nodeTypeDefinition, onUpdate, on
             nodeType: 'Tipo',
             settings: 'Propiedades',
             close: 'Cerrar',
+            aiSuggest: 'Auto-completar con IA'
         },
     };
+
 
     const text = content[lang] || content['en'];
 
@@ -129,14 +166,72 @@ export default function NodeConfigPanel({ node, nodeTypeDefinition, onUpdate, on
                                 </p>
                             )}
                         </div>
+
+                        {/* Appearance / Color */}
+                        <div className="mt-4">
+                            <label className="block text-[11px] font-bold uppercase text-[var(--descriptor-color)] mb-1 flex items-center gap-1">
+                                <Palette size={12} />
+                                {lang === 'es' ? 'Color' : 'Color'}
+                            </label>
+                            <div className="flex items-center gap-2">
+                            <input
+                                type="color"
+                                value={localColor || defaultColor}
+                                onChange={(e) => {
+                                    setLocalColor(e.target.value);
+                                    if (node) onUpdate(node.id, { color: e.target.value });
+                                }}
+                                className="w-10 h-8 rounded border border-[var(--border-color)] cursor-pointer bg-transparent"
+                            />
+                                <input
+                                    type="text"
+                                    value={localColor || defaultColor}
+                                    onChange={(e) => {
+                                        setLocalColor(e.target.value);
+                                        if (node) onUpdate(node.id, { color: e.target.value });
+                                    }}
+                                    placeholder="#hex"
+                                    className="flex-1 bg-black/20 border border-[var(--border-color)] rounded p-2 text-xs text-[var(--body-text-color)] font-mono focus:outline-none focus:border-[var(--highlight-color)]"
+                                />
+                                <button
+                                    onClick={() => {
+                                        setLocalColor(undefined);
+                                        if (node) onUpdate(node.id, { color: undefined });
+                                    }}
+                                    className="text-[10px] text-[var(--descriptor-color)] hover:text-[var(--highlight-color)] px-2"
+                                    title={lang === 'es' ? 'Usar color por defecto' : 'Use default color'}
+                                >
+                                    Reset
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Dynamic Settings */}
                     <div>
-                        <h3 className="text-[12px] font-bold uppercase text-[var(--highlight-color)] mb-3 flex items-center gap-2">
-                            <span className="w-1 h-3 bg-[var(--highlight-color)] rounded-full inline-block"></span>
-                            {text.settings}
-                        </h3>
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-[12px] font-bold uppercase text-[var(--highlight-color)] flex items-center gap-2">
+                                <span className="w-1 h-3 bg-[var(--highlight-color)] rounded-full inline-block"></span>
+                                {text.settings}
+                            </h3>
+                            <button
+                                onClick={handleAISuggest}
+                                disabled={isSuggesting}
+                                className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold uppercase transition-all ${
+                                    isSuggesting 
+                                    ? 'bg-purple-500/20 text-purple-300 cursor-not-allowed' 
+                                    : 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/30'
+                                }`}
+                                title={text.aiSuggest}
+                            >
+                                {isSuggesting ? (
+                                    <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                    <Sparkles size={12} />
+                                )}
+                                {text.aiSuggest}
+                            </button>
+                        </div>
 
                         <div className="space-y-4">
                             <SettingsResolver
@@ -150,6 +245,15 @@ export default function NodeConfigPanel({ node, nodeTypeDefinition, onUpdate, on
                                 connections={[]}
                             />
                         </div>
+                    </div>
+
+                    {/* Node Comments */}
+                    <div className="mt-8 pt-6 border-t border-[var(--border-color)]">
+                        <NodeComments 
+                            workflowId="current-workflow" 
+                            nodeId={node.id} 
+                            lang={lang} 
+                        />
                     </div>
                 </div>
             </motion.div>

@@ -56,6 +56,7 @@ interface EditorOverlaysProps {
     onContextMenuDelete: () => void;
     onContextMenuToggleEnable: () => void;
     onContextMenuToggleBreakpoint: () => void;
+    onContextMenuTogglePinData?: () => void;
     onContextMenuTestFromNode: () => void;
     onContextMenuDetachConnections?: () => void;
 
@@ -93,6 +94,9 @@ interface EditorOverlaysProps {
 
     // Execution Data
     nodeOutputs?: Record<string, any>;
+
+    // UI State
+    isTerminalOpen?: boolean;
 }
 
 export default function EditorOverlays({
@@ -132,6 +136,7 @@ export default function EditorOverlays({
     onContextMenuDelete,
     onContextMenuToggleEnable,
     onContextMenuToggleBreakpoint,
+    onContextMenuTogglePinData,
     onContextMenuTestFromNode,
     onContextMenuDetachConnections,
     onUndo,
@@ -153,13 +158,17 @@ export default function EditorOverlays({
     isTemplateGalleryOpen,
     onTemplateGalleryOpenChange,
     isMetricsDashboardOpen,
-    onMetricsDashboardOpenChange
+    onMetricsDashboardOpenChange,
+    isTerminalOpen = false
 }: EditorOverlaysProps & { selectedNodesCount: number }) {
     const configNode = configNodeId ? nodes.find(n => n.id === configNodeId) : null;
 
     return (
         <>
-            <div className="absolute bottom-4 right-4 bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg text-xs text-slate-300 font-mono pointer-events-none">
+            <div 
+                className={`absolute right-4 bg-slate-800/80 backdrop-blur-sm px-3 py-2 rounded-lg text-xs text-slate-300 font-mono pointer-events-none transition-all duration-500 ease-in-out z-50`}
+                style={{ bottom: isTerminalOpen ? '21rem' : '1rem' }}
+            >
                 Zoom: {Math.round(viewport.zoom * 100)}% | Pan: ({Math.round(viewport.x)}, {Math.round(viewport.y)}) | Nodes: {nodes.length} | Selected: {selectedNodesCount}
             </div>
 
@@ -203,7 +212,7 @@ export default function EditorOverlays({
                         nodes={nodes}
                         onNodeSelect={(id) => {
                             onSearchNodeSelect(id);
-                            onSolderDropCancel && onSolderDropCancel();
+                            if (onSolderDropCancel) onSolderDropCancel();
                         }}
                         onNodeAdd={(type) => {
                             onNodeAdd(type);
@@ -281,6 +290,8 @@ export default function EditorOverlays({
                     onDelete={onContextMenuDelete}
                     onToggleEnable={onContextMenuToggleEnable}
                     onToggleBreakpoint={onContextMenuToggleBreakpoint}
+                    onTogglePinData={onContextMenuTogglePinData}
+                    isPinned={contextMenu.nodeId ? nodes.find(n => n.id === contextMenu.nodeId)?.pinnedData !== undefined : false}
                     onTestFromNode={onContextMenuTestFromNode}
                     lang={lang}
                     type={contextMenu.type}

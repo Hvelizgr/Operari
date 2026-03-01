@@ -5,8 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import useSWR from 'swr';
 import { useState } from 'react';
 import { Activity, HardDrive, Cpu, Server } from 'lucide-react';
-
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+import { safeFetcher } from '../../hooks/useSWRConfig';
 
 interface MetricChartProps {
     title: string;
@@ -18,7 +17,7 @@ interface MetricChartProps {
 
 function MetricChart({ title, metricName, color, icon: Icon, unit }: MetricChartProps) {
     // Fetch last 50 data points
-    const { data } = useSWR(`/api/metrics?metricName=${metricName}&limit=50`, fetcher, { refreshInterval: 5000 });
+    const { data } = useSWR(`/api/metrics?metricName=${metricName}&limit=50`, safeFetcher, { refreshInterval: 5000 });
 
     // Transform data for Recharts
     // Backend returns [{ timestamp: '...', value: 123 }, ...] descending

@@ -4,11 +4,10 @@ import { Card, CardBody, CardHeader, Button, Chip } from "@heroui/react";
 import useSWR from 'swr';
 import { AlertTriangle, CheckCircle, Info, XCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+import { safeFetcher } from '../../hooks/useSWRConfig';
 
 export function AlertsFeed() {
-    const { data, mutate } = useSWR('/api/alerts?limit=10&isRead=false', fetcher, { refreshInterval: 10000 });
+    const { data, mutate } = useSWR('/api/alerts?limit=10&isRead=false', safeFetcher, { refreshInterval: 10000 });
 
     const alerts = data?.data || [];
     const totalUnread = data?.pagination?.total || 0;

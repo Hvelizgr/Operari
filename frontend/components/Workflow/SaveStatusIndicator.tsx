@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import type { SaveStatus } from '../../hooks/useAutosave';
 
 interface SaveStatusIndicatorProps {
@@ -38,6 +38,12 @@ export default function SaveStatusIndicator({ saveStatus, lang }: SaveStatusIndi
             text: lang === 'en' ? 'Conflict' : 'Conflicto',
             className: 'text-yellow-400',
             iconClassName: ''
+        },
+        retrying: {
+            icon: RefreshCw,
+            text: lang === 'en' ? 'Retrying...' : 'Reintentando...',
+            className: 'text-orange-400',
+            iconClassName: 'animate-spin'
         }
     };
 

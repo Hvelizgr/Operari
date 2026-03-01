@@ -33,6 +33,7 @@ interface NodesLayerProps {
     onSolderStart?: (nodeId: string, port: 'input' | 'output', initialX?: number, initialY?: number, portIndex?: number) => void;
     onNodeUpdate: (nodeId: string, updates: Partial<WorkflowNode>) => void;
     onNodeDoubleClick?: (nodeId: string) => void;
+    onContextMenu?: (e: MouseEvent, nodeId: string) => void;
     editorMode?: 'move' | 'connect';
     nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED'>;
 
@@ -74,6 +75,7 @@ export default function NodesLayer({
     onNodeMove,
     onNodeUpdate,
     onNodeDoubleClick,
+    onContextMenu,
     editorMode = 'move',
     nodeStatuses = {},
     // Toolbar handlers
@@ -222,6 +224,7 @@ export default function NodesLayer({
                             onMove={onNodeMove}
                             onSolderStart={onSolderStart}
                             onNodeDoubleClick={onNodeDoubleClick}
+                            onContextMenu={onContextMenu}
                             onUpdate={onNodeUpdate}
                             editorMode={editorMode}
                             status={nodeStatuses[node.id]}

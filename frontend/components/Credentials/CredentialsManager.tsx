@@ -10,10 +10,15 @@ import {
 import { Plus, Trash2, Edit2, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+const fetcher = async (url: string) => {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+};
 
 export function CredentialsManager() {
-    const { data: credentials, error, mutate, isLoading } = useSWR('/api/credentials', fetcher);
+    const { data: credentials = [], error, mutate, isLoading } = useSWR('/api/credentials', fetcher);
     const { isOpen,onOpen, onOpenChange } = useDisclosure();
     const [viewMode, setViewMode] = useState(false); // For viewing secrets (future feature)
 
@@ -84,7 +89,7 @@ export function CredentialsManager() {
                     <h2 className="text-lg font-semibold">Stored Credentials</h2>
                     <p className="text-small text-default-500">Manage secure keys, tokens, and certificates for your workflows.</p>
                 </div>
-                <Button color="primary" endContent={<Plus className="w-4 h-4" />} onPress={onOpen}>
+                <Button color="primary" radius="full" endContent={<Plus className="w-4 h-4" />} onPress={onOpen}>
                     New Credential
                 </Button>
             </div>

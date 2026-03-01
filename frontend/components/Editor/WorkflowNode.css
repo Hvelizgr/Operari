@@ -1809,3 +1809,426 @@ body.dark .button {
 .wf_node.blast-affected.blast-animate .wf_ent_controller {
     animation: blast-pulse 2s ease-in-out infinite;
 }
+
+/* ===== n8n-STYLE NODE DESIGN ===== */
+
+.wf_event.wf_event_n8n {
+    display: flex;
+    align-items: stretch;
+    padding: 0;
+    width: 180px;
+    min-height: 56px;
+    background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    overflow: visible;
+    gap: 0;
+    transition: all 0.2s ease;
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.4),
+        0 1px 3px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.wf_event.wf_event_n8n:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
+    box-shadow: 
+        0 8px 20px rgba(0, 0, 0, 0.5),
+        0 2px 6px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.wf_node.selected .wf_event.wf_event_n8n {
+    border-color: var(--node-color, #3b82f6);
+    box-shadow: 
+        0 0 0 2px color-mix(in srgb, var(--node-color, #3b82f6) 40%, transparent),
+        0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Icon wrapper - colored vertical bar on left (n8n signature style) */
+.n8n-node-icon-wrapper {
+    width: 42px;
+    min-width: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--node-color, #3b82f6);
+    border-radius: 9px 0 0 9px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Subtle diagonal stripe pattern overlay like n8n */
+.n8n-node-icon-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 4px,
+        rgba(0, 0, 0, 0.04) 4px,
+        rgba(0, 0, 0, 0.04) 8px
+    );
+    opacity: 0.3;
+}
+
+/* Subtle glow inside icon wrapper */
+.n8n-node-icon-wrapper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.n8n-node-icon {
+    position: relative;
+    z-index: 1;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.n8n-node-icon svg {
+    width: 18px;
+    height: 18px;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+/* Content area - title and subtitle */
+.n8n-node-content {
+    flex: 1;
+    padding: 10px 12px 10px 10px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+}
+
+.n8n-node-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.n8n-node-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #fafafa;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+}
+
+.n8n-node-subtitle {
+    font-size: 10px;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+    max-width: 110px;
+}
+
+/* Stats badge */
+.n8n-node-stats {
+    padding-right: 8px;
+    display: flex;
+    align-items: center;
+}
+
+.n8n-stat-badge {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 5px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 600;
+    color: #9ca3af;
+}
+
+/* Running state animation for n8n style */
+.wf_node.wf_running .wf_event.wf_event_n8n {
+    border-color: transparent;
+    animation: n8n-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes n8n-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--node-color, #3b82f6) 40%, transparent); }
+    50% { box-shadow: 0 0 0 6px transparent; }
+}
+
+.wf_node.wf_running .wf_event.wf_event_n8n::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 12px;
+    z-index: -1;
+    background: conic-gradient(
+        from var(--border-angle, 0deg),
+        var(--node-color, #3b82f6) 0%,
+        var(--node-color, #3b82f6) 12%,
+        transparent 20%,
+        transparent 80%,
+        var(--node-color, #3b82f6) 88%,
+        var(--node-color, #3b82f6) 100%
+    );
+    animation: wf_rotate_border 1.2s linear infinite;
+}
+
+/* Success state */
+.wf_node.wf_completed .wf_event.wf_event_n8n {
+    border-color: #10b981;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Error state */
+.wf_node.wf_error .wf_event.wf_event_n8n {
+    border-color: #ef4444;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Port adjustments for n8n style */
+.wf_event.wf_event_n8n .ports-container {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    gap: 8px;
+}
+
+.wf_event.wf_event_n8n .ports-container-left {
+    left: -5px;
+}
+
+.wf_event.wf_event_n8n .ports-container-right {
+    right: -5px;
+}
+
+.wf_event.wf_event_n8n .wf_pole_button {
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
+    margin-top: 0;
+    width: 10px;
+    height: 10px;
+    background: #27272a;
+    border: 2px solid #52525b;
+    transition: all 0.15s ease;
+}
+
+.wf_event.wf_event_n8n .wf_pole_button:hover {
+    transform: scale(1.4);
+    background: var(--node-color, #3b82f6);
+    border-color: white;
+    box-shadow: 0 0 8px var(--node-color, #3b82f6);
+}
+
+/* ===== TRIGGER - DIAMOND/RHOMBUS SHAPE (n8n style) ===== */
+
+/* Trigger node wrapper */
+.wf_node.wf_trigger_diamond {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Diamond shape */
+.trigger-diamond-shape {
+    width: 56px;
+    height: 56px;
+    transform: rotate(45deg);
+    background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%);
+    border: 2px dashed rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.2s ease;
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.trigger-diamond-shape:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: rotate(45deg) scale(1.05);
+}
+
+.wf_node.selected .trigger-diamond-shape {
+    border-color: var(--node-color, #f97316);
+    border-style: solid;
+    box-shadow: 
+        0 0 0 3px color-mix(in srgb, var(--node-color, #f97316) 30%, transparent),
+        0 8px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Inner content - counter-rotated */
+.trigger-diamond-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    background: var(--node-color, #f97316);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(-45deg);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Diagonal stripes overlay */
+.trigger-diamond-inner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 3px,
+        rgba(0, 0, 0, 0.1) 3px,
+        rgba(0, 0, 0, 0.1) 6px
+    );
+    opacity: 0.5;
+}
+
+/* Top shine */
+.trigger-diamond-inner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+/* Icon */
+.trigger-diamond-icon {
+    position: relative;
+    z-index: 1;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* Port wrapper - positioned on the right corner */
+.trigger-port-wrapper {
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%) rotate(-45deg);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.trigger-port-wrapper .wf_pole_button {
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
+    margin-top: 0;
+    width: 10px;
+    height: 10px;
+    background: #27272a;
+    border: 2px solid var(--node-color, #f97316);
+    transition: all 0.15s ease;
+}
+
+.trigger-port-wrapper .wf_pole_button:hover {
+    transform: scale(1.4);
+    background: var(--node-color, #f97316);
+    border-color: white;
+    box-shadow: 0 0 8px var(--node-color, #f97316);
+}
+
+/* Label below diamond */
+.trigger-label-container {
+    margin-top: 8px;
+    text-align: center;
+    max-width: 100px;
+}
+
+.trigger-label-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+.wf_node.selected .trigger-label-text {
+    color: #fafafa;
+}
+
+/* Running state */
+.wf_node.wf_running.wf_trigger_diamond .trigger-diamond-shape {
+    border-color: transparent;
+}
+
+.wf_node.wf_running.wf_trigger_diamond .trigger-diamond-shape::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: inherit;
+    background: conic-gradient(
+        from var(--border-angle, 0deg),
+        var(--node-color, #f97316) 0%,
+        var(--node-color, #f97316) 12%,
+        transparent 20%,
+        transparent 80%,
+        var(--node-color, #f97316) 88%,
+        var(--node-color, #f97316) 100%
+    );
+    animation: wf_rotate_border 1.2s linear infinite;
+    z-index: -1;
+}
+
+/* Success state */
+.wf_node.wf_completed.wf_trigger_diamond .trigger-diamond-shape {
+    border-color: #10b981;
+    border-style: solid;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+/* Error state */
+.wf_node.wf_error.wf_trigger_diamond .trigger-diamond-shape {
+    border-color: #ef4444;
+    border-style: solid;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+/* ===== CONTROLLER - PILL/ROUNDED RECTANGLE ===== */
+.wf_event.wf_event_n8n.wf_event_controller {
+    border-radius: 28px;
+    min-height: 48px;
+    background: linear-gradient(135deg, #1c1c20 0%, #252529 100%);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.wf_event.wf_event_n8n.wf_event_controller .n8n-node-icon-wrapper {
+    border-radius: 27px 0 0 27px;
+    background: linear-gradient(135deg, var(--node-color, #a855f7) 0%, color-mix(in srgb, var(--node-color, #a855f7) 70%, #000) 100%);
+}
+
+.wf_event.wf_event_n8n.wf_event_controller:hover {
+    border-color: rgba(168, 85, 247, 0.6);
+}
+
+.wf_node.selected .wf_event.wf_event_n8n.wf_event_controller {
+    border-color: var(--node-color, #a855f7);
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.25);
+}

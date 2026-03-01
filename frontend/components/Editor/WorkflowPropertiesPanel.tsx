@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, FileText, Clock, ToggleLeft, ToggleRight, Save, Tag } from 'lucide-react';
+import { X, FileText, Clock, ToggleLeft, ToggleRight, Save, Tag, ShieldCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export interface WorkflowProperties {
@@ -9,12 +9,16 @@ export interface WorkflowProperties {
     name: string;
     description: string;
     isActive: boolean;
+    requiresApproval: boolean;
     schedule: string | null;
     tags?: string[];
     errorHandling?: 'stop' | 'continue' | 'retry';
     timeout?: number;
     retryCount?: number;
     retryDelay?: number;
+    slaMaxDuration?: number;
+    slaMinSuccessRate?: number;
+    slaAlertOnBreach?: boolean;
 }
 
 interface WorkflowPropertiesPanelProps {
@@ -69,6 +73,8 @@ export default function WorkflowPropertiesPanel({
             descriptionPlaceholder: 'Describe what this workflow does...',
             active: 'Active',
             activeDescription: 'Enable or disable this workflow',
+            requiresApproval: 'Requires Approval',
+            requiresApprovalDescription: 'Activations must be reviewed by an administrator',
             schedule: 'Schedule (Cron)',
             schedulePlaceholder: '0 * * * * (every hour)',
             scheduleDescription: 'Cron expression for scheduled execution',
@@ -84,6 +90,11 @@ export default function WorkflowPropertiesPanel({
             retryDelay: 'Retry Delay (ms)',
             save: 'Save Changes',
             close: 'Close',
+            slaTitle: 'Service Level Agreement (SLA)',
+            slaMaxDuration: 'Max Duration (ms)',
+            slaMinSuccessRate: 'Min Success Rate (%)',
+            slaAlertOnBreach: 'Alert on Breach',
+            slaAlertDescription: 'Notify when SLA is not met',
         },
         es: {
             title: 'Propiedades del Flujo',
@@ -93,6 +104,8 @@ export default function WorkflowPropertiesPanel({
             descriptionPlaceholder: 'Describe qué hace este flujo...',
             active: 'Activo',
             activeDescription: 'Activar o desactivar este flujo',
+            requiresApproval: 'Requiere Aprobación',
+            requiresApprovalDescription: 'Las activaciones deben ser revisadas por un administrador',
             schedule: 'Programación (Cron)',
             schedulePlaceholder: '0 * * * * (cada hora)',
             scheduleDescription: 'Expresión cron para ejecución programada',
@@ -108,6 +121,11 @@ export default function WorkflowPropertiesPanel({
             retryDelay: 'Retraso de Reintento (ms)',
             save: 'Guardar Cambios',
             close: 'Cerrar',
+            slaTitle: 'Acuerdo de Nivel de Servicio (SLA)',
+            slaMaxDuration: 'Duración Máxima (ms)',
+            slaMinSuccessRate: 'Tasa de Éxito Mínima (%)',
+            slaAlertOnBreach: 'Alerta por Incumplimiento',
+            slaAlertDescription: 'Notificar cuando no se cumpla el SLA',
         }
     };
 
@@ -188,6 +206,24 @@ export default function WorkflowPropertiesPanel({
                                 }`}
                             >
                                 {localProps.isActive ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+                            </button>
+                        </div>
+
+                        {/* Requires Approval Toggle */}
+                        <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg border border-slate-700">
+                            <div>
+                                <div className="text-sm text-slate-200 font-medium">{text.requiresApproval || 'Requires Approval'}</div>
+                                <div className="text-xs text-slate-500">{text.requiresApprovalDescription || 'Activations must be reviewed by an administrator'}</div>
+                            </div>
+                            <button
+                                onClick={() => handleChange('requiresApproval', !localProps.requiresApproval)}
+                                className={`p-2 rounded-lg transition-colors ${
+                                    localProps.requiresApproval
+                                        ? 'bg-blue-500/20 text-blue-400'
+                                        : 'bg-slate-700 text-slate-400'
+                                }`}
+                            >
+                                {localProps.requiresApproval ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
                             </button>
                         </div>
 
@@ -305,6 +341,62 @@ export default function WorkflowPropertiesPanel({
                                 </div>
                             </div>
                         )}
+
+                        {/* Divider */}
+                        <div className="h-px bg-slate-700" />
+
+                        {/* SLA Configuration */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 text-blue-400">
+                                <ShieldCheck size={16} />
+                                <h4 className="text-xs font-bold uppercase tracking-wider">{text.slaTitle}</h4>
+                            </div>
+
+                            <div className="space-y-4 p-3 bg-blue-500/5 rounded-lg border border-blue-500/20">
+                                <div>
+                                    <label className={labelClass}>{text.slaMaxDuration}</label>
+                                    <input
+                                        type="number"
+                                        value={localProps.slaMaxDuration || ''}
+                                        onChange={(e) => handleChange('slaMaxDuration', parseInt(e.target.value) || undefined)}
+                                        placeholder="5000"
+                                        className={`${inputClass} font-mono`}
+                                        min={0}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className={labelClass}>{text.slaMinSuccessRate}</label>
+                                    <input
+                                        type="number"
+                                        value={localProps.slaMinSuccessRate || ''}
+                                        onChange={(e) => handleChange('slaMinSuccessRate', parseFloat(e.target.value) || undefined)}
+                                        placeholder="99.9"
+                                        className={`${inputClass} font-mono`}
+                                        min={0}
+                                        max={100}
+                                        step={0.1}
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="text-xs text-slate-200 font-medium">{text.slaAlertOnBreach}</div>
+                                        <div className="text-[10px] text-slate-500">{text.slaAlertDescription}</div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleChange('slaAlertOnBreach', !localProps.slaAlertOnBreach)}
+                                        className={`p-1.5 rounded-lg transition-colors ${
+                                            localProps.slaAlertOnBreach
+                                                ? 'bg-blue-500/20 text-blue-400'
+                                                : 'bg-slate-700 text-slate-400'
+                                        }`}
+                                    >
+                                        {localProps.slaAlertOnBreach ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Footer */}

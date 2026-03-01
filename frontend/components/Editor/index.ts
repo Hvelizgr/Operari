@@ -12,3 +12,6 @@ export { default as GridLayer } from './GridLayer';
 export { default as NoteNode } from './NoteNode';
 export { default as WorkflowPropertiesPanel } from './WorkflowPropertiesPanel';
 export type { WorkflowProperties } from './WorkflowPropertiesPanel';
+export { default as WorkflowPermissionsModal } from './WorkflowPermissionsModal';
+export { default as TopBar } from './TopBar';
+export { default as ExecutionMonitor } from './ExecutionMonitor';
