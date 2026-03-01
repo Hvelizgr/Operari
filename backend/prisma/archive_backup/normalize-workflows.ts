@@ -140,7 +140,7 @@ async function migrateWorkflows(): Promise<MigrationStats> {
                     for (const connection of connections) {
                         try {
                             // Find the actual node IDs in the database
-                            const sourceNode = await prisma.workflowNode.findFirst({
+                            const _sourceNode = await prisma.workflowNode.findFirst({
                                 where: {
                                     workflowId: workflow.id,
                                     // Match by the original node structure
@@ -149,7 +149,7 @@ async function migrateWorkflows(): Promise<MigrationStats> {
                                 select: { id: true },
                             });
 
-                            const targetNode = await prisma.workflowNode.findFirst({
+                            const _targetNode = await prisma.workflowNode.findFirst({
                                 where: {
                                     workflowId: workflow.id,
                                 },

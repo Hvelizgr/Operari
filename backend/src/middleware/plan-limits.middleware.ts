@@ -1,5 +1,5 @@
 
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { prisma } from '../server';
 import { AuthRequest } from '../middleware/auth.middleware';
 
@@ -27,6 +27,18 @@ const PLAN_LIMITS = {
         features: {
             customDomains: true,
             sso: false,
+            auditLogs: true,
+            prioritySupport: true
+        }
+    },
+    GROWTH: {
+        maxWorkflows: 100,
+        maxExecutionsPerMonth: 100000,
+        maxNodesPerWorkflow: 200,
+        maxUsers: 25,
+        features: {
+            customDomains: true,
+            sso: true,
             auditLogs: true,
             prioritySupport: true
         }
@@ -72,7 +84,10 @@ export const checkPlanLimits = (resource: 'workflows' | 'executions' | 'users') 
                 return res.status(404).json({ error: 'Tenant not found' });
             }
 
-            const limits = PLAN_LIMITS[tenant.plan];
+            const limits = PLAN_LIMITS[tenant.plan as keyof typeof PLAN_LIMITS];
+            if (!limits) {
+                return res.status(500).json({ error: 'Invalid plan configuration' });
+            }
 
             // Check specific resource limits
             switch (resource) {
@@ -100,7 +115,7 @@ export const checkPlanLimits = (resource: 'workflows' | 'executions' | 'users') 
                     }
                     break;
 
-                case 'executions':
+                case 'executions': {
                     // Check monthly execution count
                     const startOfMonth = new Date();
                     startOfMonth.setDate(1);
@@ -123,6 +138,7 @@ export const checkPlanLimits = (resource: 'workflows' | 'executions' | 'users') 
                         });
                     }
                     break;
+                }
             }
 
             // Attach plan info to request for downstream use

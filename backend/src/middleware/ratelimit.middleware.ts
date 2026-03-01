@@ -5,6 +5,10 @@ import { RedisStore } from 'rate-limit-redis';
 import { redisConfig } from '../config/redis.config';
 import { logger } from '../services/logger.service';
 
+const getJwtSecret = (): string | null => {
+    return process.env.JWT_SECRET || null;
+};
+
 /**
  * Rate limit configuration for different endpoint types
  */
@@ -51,11 +55,12 @@ const RATE_LIMIT_CONFIGS: Record<RateLimitTier, RateLimitConfig> = {
 const getUserIdentifier = (req: Request): string => {
     // Try to extract from JWT without failing the request
     const authHeader = req.headers.authorization;
+    const jwtSecret = getJwtSecret();
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ') && jwtSecret) {
         try {
             const token = authHeader.substring(7);
-            const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+            const decoded = jwt.verify(token, jwtSecret) as {
                 userId?: string;
                 tenantId?: string;
             };

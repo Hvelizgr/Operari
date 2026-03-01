@@ -48,6 +48,11 @@ export const requestLogger = pinoHttp({
 });
 
 export const addUserContext = (req: Request, res: Response, next: NextFunction) => {
+    const requestId = (req as any).id || req.headers['x-request-id'];
+    if (requestId) {
+        res.setHeader('x-request-id', requestId);
+    }
+    
     if ((req as any).user) {
         const user = (req as any).user;
         req.log = req.log.child({

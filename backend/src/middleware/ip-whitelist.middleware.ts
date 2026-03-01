@@ -88,8 +88,15 @@ function getClientIP(req: Request): string | null {
  */
 function isIPInCIDR(ip: string, cidr: string): boolean {
     const [range, bits] = cidr.split('/');
-    const mask = ~(Math.pow(2, 32 - parseInt(bits)) - 1);
-    
+    const bitsNum = parseInt(bits, 10);
+
+    // Validate CIDR bits
+    if (Number.isNaN(bitsNum) || bitsNum < 0 || bitsNum > 32) {
+        return false;
+    }
+
+    const mask = ~(Math.pow(2, 32 - bitsNum) - 1);
+
     const ipNum = ipToNumber(ip);
     const rangeNum = ipToNumber(range);
 

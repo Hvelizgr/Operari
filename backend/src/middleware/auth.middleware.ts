@@ -12,6 +12,14 @@ export interface AuthRequest extends Request {
     };
 }
 
+const getJwtSecret = (): string => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        throw new Error('JWT_SECRET environment variable is not configured');
+    }
+    return secret;
+};
+
 export const authenticate = async (
     req: AuthRequest,
     res: Response,
@@ -25,7 +33,7 @@ export const authenticate = async (
         }
 
         const token = authHeader.substring(7);
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+        const decoded = jwt.verify(token, getJwtSecret()) as {
             userId: string;
             email: string;
             role: string;
@@ -66,3 +74,16 @@ export const requireRole = (...roles: Role[]) => {
         next();
     };
 };
+
+export const authMiddleware = authenticate;
+
+// Alias for authorize (same as requireRole)
+export const authorize = requireRole;
+
+// Helper function to safely extract header values as string
+export function getHeaderString(headerValue: string | string[] | undefined): string {
+    if (Array.isArray(headerValue)) {
+        return headerValue[0] || '';
+    }
+    return headerValue || '';
+}
