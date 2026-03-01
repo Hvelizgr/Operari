@@ -1,5 +1,3 @@
-
-// @ts-nocheck
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient({
@@ -98,7 +96,7 @@ async function main() {
     ];
 
     // Delete old one
-    try { await prisma.workflow.delete({ where: { id: 'current-workflow' } }); } catch { }
+    try { await prisma.workflow.delete({ where: { id: 'current-workflow' } }); } catch { /* ignore if not exists */ }
 
     // Create new one
     await prisma.workflow.create({

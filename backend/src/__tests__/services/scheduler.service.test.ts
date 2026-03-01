@@ -84,7 +84,7 @@ describe('SchedulerService', () => {
         mockPrisma.workflow.findUnique.mockResolvedValue(workflow);
         
         // Trigger the cron callback manually
-        let cronCallback: Function | undefined;
+        let cronCallback: (() => void) | undefined;
         (cron.schedule as jest.Mock).mockImplementation((expr, cb) => {
             cronCallback = cb;
             return mockTask;

@@ -17,7 +17,7 @@ export class GoogleDriveNode {
     async execute(input: any, context: any) {
         context.log('Executing Google Drive Node...');
         
-        const { operation, fileId, fileName, folderId, content } = input;
+        const { operation, fileId: _fileId, fileName, folderId, content: _content } = input;
         
         // Mocking Google Drive API
         await new Promise(resolve => setTimeout(resolve, 700));

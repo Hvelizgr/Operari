@@ -4,7 +4,7 @@ import { CustomError, ErrorCode, ErrorSeverity } from '../errors/custom-error';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
-const SALT_LENGTH = 64;
+const _SALT_LENGTH = 64;
 // Key length for AES-256 is 32 bytes
 
 function getKey(): Buffer {
@@ -16,8 +16,15 @@ function getKey(): Buffer {
             severity: ErrorSeverity.CRITICAL
         });
     }
+    if (key.length < 16) {
+        throw new CustomError({
+            message: 'ENCRYPTION_KEY must be at least 16 characters for security',
+            code: ErrorCode.CONFIGURATION_ERROR,
+            severity: ErrorSeverity.CRITICAL
+        });
+    }
     // Hash the key to ensure 32 bytes length
-    return crypto.createHash('sha256').update(String(key)).digest();
+    return crypto.createHash('sha256').update(key).digest();
 }
 
 /**

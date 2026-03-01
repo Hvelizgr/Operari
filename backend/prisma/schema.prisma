@@ -15,10 +15,12 @@ model User {
   name                    String?
   role                    Role         @default(USER)
   tenantId                String
+  emailVerified           Boolean      @default(false)
+  emailVerifiedAt         DateTime?
   twoFactorEnabled        Boolean      @default(false)
   twoFactorSecret         String?
   twoFactorBackupCodes    Json         @default("[]")
-  notificationPreferences Json?        // User notification preferences
+  notificationPreferences Json? // User notification preferences
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt
   credentials             Credential[]
@@ -26,6 +28,10 @@ model User {
   tenant                  Tenant       @relation(fields: [tenantId], references: [id])
   workflows               Workflow[]
   auditLogs               AuditLog[]
+  nodeComments            NodeComment[]
+  workflowPermissions     WorkflowPermission[]
+  workflowApprovals       WorkflowApproval[] @relation("Requester")
+  reviewedApprovals       WorkflowApproval[] @relation("Reviewer")
 
   @@index([tenantId])
   @@index([email])
@@ -36,17 +42,59 @@ model Tenant {
   name           String
   slug           String          @unique
   plan           Plan            @default(FREE)
-  ssoConfig      Json?           // SSO configuration (provider, clientId, etc.)
-  ipWhitelist    Json?           // IP whitelist configuration
-  billingInfo    Json?           // Stripe customer info and billing details
+  ssoConfig      Json? // SSO configuration (provider, clientId, etc.)
+  ipWhitelist    Json? // IP whitelist configuration
+  billingInfo    Json? // Stripe customer info and billing details
+  themeConfig    Json? // White-labeling (logo, primary color, etc.)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   storageBuckets StorageBucket[]
   users          User[]
   workflows      Workflow[]
   auditLogs      AuditLog[]
+  n8nInstances   N8nInstance[]
+  globalVariables GlobalVariable[]
 
   @@index([slug])
+}
+
+model N8nInstance {
+  id          String          @id @default(uuid())
+  name        String
+  url         String
+  apiKey      String?
+  status      String          @default("UNKNOWN")
+  cpuUsage    Float           @default(0)
+  ramUsage    Float           @default(0)
+  version     String?
+  tenantId    String
+  environment EnvironmentType @default(DEVELOPMENT)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([environment])
+}
+
+enum EnvironmentType {
+  DEVELOPMENT
+  STAGING
+  PRODUCTION
+}
+
+model GlobalVariable {
+  id          String   @id @default(uuid())
+  key         String
+  value       String
+  description String?
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
 }
 
 model StorageBucket {
@@ -63,23 +111,27 @@ model StorageBucket {
 }
 
 model Workflow {
-  id                  String               @id @default(uuid())
-  name                String
-  description         String?
-  nodes               Json?
-  connections         Json?
-  isActive            Boolean              @default(false)
-  schedule            String?
-  userId              String
-  tenantId            String
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  executions          Execution[]
-  tenant              Tenant               @relation(fields: [tenantId], references: [id])
-  user                User                 @relation(fields: [userId], references: [id])
+  id                   String                @id @default(uuid())
+  name                 String
+  description          String?
+  nodes                Json?
+  connections          Json?
+  isActive             Boolean               @default(false)
+  schedule             String?
+  userId               String
+  tenantId             String
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  executions           Execution[]
+  tenant               Tenant                @relation(fields: [tenantId], references: [id])
+  user                 User                  @relation(fields: [userId], references: [id])
   workflowConnections  WorkflowConnection[]
   workflowNodes        WorkflowNode[]
   systemEventListeners SystemEventListener[]
+  permissions          WorkflowPermission[]
+  approvals            WorkflowApproval[]
+  requiresApproval     Boolean               @default(false)
+  slaDefinition        SLADefinition?
 
   @@index([userId])
   @@index([tenantId])
@@ -158,6 +210,7 @@ model NodeLog {
   status      NodeLogStatus
   input       Json?
   output      Json?
+  testResults Json?         // Results of automated tests: Array<{ id, name, passed, error? }>
   error       String?
   startedAt   DateTime      @default(now())
   completedAt DateTime?
@@ -254,14 +307,52 @@ model Credential {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Scope fields for access control
-  environment    CredentialEnvironment @default(ALL)
-  allowedWorkflows String[]  // Array of workflow IDs that can use this credential
-  allowedTags      String[]  // Array of tags - workflows with these tags can use this credential
-  description      String?   // Optional description for the credential
+  environment      CredentialEnvironment @default(ALL)
+  allowedWorkflows String[] // Array of workflow IDs that can use this credential
+  allowedTags      String[] // Array of tags - workflows with these tags can use this credential
+  description      String? // Optional description for the credential
 
   @@index([userId])
   @@index([type])
   @@index([environment])
+}
+
+model NodeComment {
+  id         String   @id @default(uuid())
+  workflowId String
+  nodeId     String
+  userId     String
+  content    String
+  parentId   String?  // For threaded replies
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id])
+  parent     NodeComment? @relation("Thread", fields: [parentId], references: [id])
+  replies    NodeComment[] @relation("Thread")
+
+  @@index([workflowId, nodeId])
+  @@index([userId])
+}
+
+model WorkflowPermission {
+  id         String         @id @default(uuid())
+  workflowId String
+  userId     String
+  level      AccessLevel
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  workflow   Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, userId])
+  @@index([workflowId])
+  @@index([userId])
+}
+
+enum AccessLevel {
+  READ
+  WRITE
+  ADMIN
 }
 
 enum CredentialEnvironment {
@@ -280,6 +371,7 @@ enum Role {
 enum Plan {
   FREE
   PRO
+  GROWTH
   ENTERPRISE
 }
 
@@ -310,14 +402,14 @@ enum TriggerType {
 
 // System Event Listeners - workflows that listen to internal events
 model SystemEventListener {
-  id          String           @id @default(uuid())
+  id          String          @id @default(uuid())
   workflowId  String
   eventType   SystemEventType
-  eventFilter Json?            // Optional filter criteria (e.g., { "alertName": "HighCPU" })
-  isActive    Boolean          @default(true)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  workflow    Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  eventFilter Json? // Optional filter criteria (e.g., { "alertName": "HighCPU" })
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  workflow    Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   @@unique([workflowId, eventType])
   @@index([eventType])
@@ -325,12 +417,12 @@ model SystemEventListener {
 }
 
 enum SystemEventType {
-  ALERT_TRIGGERED      // When an alert condition fires
-  WORKFLOW_COMPLETED   // When another workflow completes successfully
-  WORKFLOW_FAILED      // When another workflow fails
-  WORKFLOW_STARTED     // When another workflow starts
-  CREDENTIAL_EXPIRING  // When a credential is about to expire
-  CUSTOM               // Custom user-defined events
+  ALERT_TRIGGERED // When an alert condition fires
+  WORKFLOW_COMPLETED // When another workflow completes successfully
+  WORKFLOW_FAILED // When another workflow fails
+  WORKFLOW_STARTED // When another workflow starts
+  CREDENTIAL_EXPIRING // When a credential is about to expire
+  CUSTOM // Custom user-defined events
 }
 
 enum ErrorSeverity {
@@ -348,15 +440,15 @@ enum NotificationType {
 }
 
 model Metric {
-  id          String   @id @default(uuid())
-  tenantId    String
-  nodeId      String?
-  workflowId  String?
-  metricName  String
-  value       Float
-  unit        String?
-  tags        Json?
-  timestamp   DateTime @default(now())
+  id         String   @id @default(uuid())
+  tenantId   String
+  nodeId     String?
+  workflowId String?
+  metricName String
+  value      Float
+  unit       String?
+  tags       Json?
+  timestamp  DateTime @default(now())
 
   @@index([timestamp])
   @@index([metricName])
@@ -385,16 +477,16 @@ model AuditLog {
   id           String   @id @default(uuid())
   tenantId     String
   userId       String
-  action       String   // e.g., "LOGIN", "CREDENTIAL_ACCESS", "WORKFLOW_UPDATE"
-  resourceType String   // e.g., "CREDENTIAL", "WORKFLOW"
+  action       String // e.g., "LOGIN", "CREDENTIAL_ACCESS", "WORKFLOW_UPDATE"
+  resourceType String // e.g., "CREDENTIAL", "WORKFLOW"
   resourceId   String
   details      Json?
   ipAddress    String?
   userAgent    String?
   createdAt    DateTime @default(now())
 
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
-  user         User     @relation(fields: [userId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
 
   @@index([tenantId])
   @@index([userId])
@@ -404,8 +496,8 @@ model AuditLog {
 
 model Template {
   id          String   @id @default(uuid())
-  name        Json     // { en: string, es: string }
-  description Json?    // { en: string, es: string }
+  name        Json // { en: string, es: string }
+  description Json? // { en: string, es: string }
   nodes       Json?
   connections Json?
   category    String?
@@ -418,4 +510,121 @@ model Template {
 
   @@index([category])
   @@index([isPublic])
+}
+
+model AIFeedback {
+  id         String   @id @default(uuid())
+  messageId  String
+  workflowId String
+  feedback   String // 'positive' | 'negative'
+  createdAt  DateTime @default(now())
+
+  @@index([workflowId])
+  @@index([feedback])
+  @@index([createdAt])
+}
+
+model WorkflowVersion {
+  id          String   @id @default(uuid())
+  workflowId  String
+  version     Int
+  name        String?
+  description String?
+  nodes       Json?
+  connections Json?
+  commitSha   String?
+  commitUrl   String?
+  userId      String
+  createdAt   DateTime @default(now())
+
+  @@unique([workflowId, version])
+  @@index([workflowId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model GitHubIntegration {
+  id           String   @id @default(uuid())
+  tenantId     String   @unique
+  accessToken  String
+  refreshToken String?
+  owner        String
+  repo         String
+  branch       String   @default("main")
+  path         String   @default("workflows")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model WorkflowApproval {
+  id              String         @id @default(uuid())
+  workflowId      String
+  requesterId     String
+  reviewerId      String?
+  status          ApprovalStatus @default(PENDING)
+  requestType     ApprovalType
+  comment         String?
+  reviewerComment String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  workflow        Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  requester       User           @relation("Requester", fields: [requesterId], references: [id])
+  reviewer        User?          @relation("Reviewer", fields: [reviewerId], references: [id])
+
+  @@index([workflowId])
+  @@index([requesterId])
+  @@index([reviewerId])
+  @@index([status])
+}
+
+model SLADefinition {
+  id          String   @id @default(uuid())
+  tenantId    String
+  workflowId  String?  @unique // Can be global or per workflow
+  name        String
+  description String?
+  maxDuration Int?     // in milliseconds
+  minSuccessRate Float? // percentage (0-100)
+  alertOnBreach Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  complianceHistory SLACompliance[]
+  workflow    Workflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model SLACompliance {
+  id              String   @id @default(uuid())
+  slaId           String
+  executionId     String?
+  status          SLAStatus
+  breachType      String?  // 'DURATION' | 'ERROR' | 'THROUGHPUT'
+  actualValue     Float
+  thresholdValue  Float
+  timestamp       DateTime @default(now())
+  
+  sla             SLADefinition @relation(fields: [slaId], references: [id], onDelete: Cascade)
+
+  @@index([slaId])
+  @@index([timestamp])
+}
+
+enum SLAStatus {
+  COMPLIANT
+  BREACHED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ApprovalType {
+  ACTIVATION
+  DEPLOYMENT
 }

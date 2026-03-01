@@ -1,4 +1,4 @@
-import { CustomError, ErrorCode, HttpError, ExternalServiceError, ErrorSeverity } from '../errors/custom-error';
+import { CustomError, ErrorCode, HttpError, ExternalServiceError } from '../errors/custom-error';
 import { Logger } from '../services/logger.service';
 
 /**

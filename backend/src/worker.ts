@@ -2,9 +2,6 @@ import './config/env.config'; // Load env vars
 import { prisma } from './config/database';
 import { QueueService } from './scaling/queue.service';
 import { logger } from './config/logger.config';
-import { NodeLoaderService } from './services/node-loader.service';
-
-import { PluginManager } from './plugins/PluginManager';
 
 async function startWorker() {
     try {
@@ -14,19 +11,11 @@ async function startWorker() {
         await prisma.$connect();
         logger.info('Database connected');
 
-        // Initialize Dynamic Node Loader (Legacy)
-        await NodeLoaderService.getInstance().initialize();
-
-        // Initialize Plugin System (Phase 4)
-        const pluginManager = PluginManager.getInstance(process.env.PLUGINS_DIR || './plugins');
-        await pluginManager.loadPlugins();
-        logger.info(`Initialized Plugin System. Loaded ${pluginManager.getAllPlugins().length} plugins.`);
-
         // Start Queue Processing
         const queueService = QueueService.getInstance();
         queueService.startWorker();
         
-        logger.info('Worker is ready and processing jobs 🚀');
+        logger.info('Worker is ready and processing jobs');
 
         // Graceful Shutdown
         const shutdown = async () => {

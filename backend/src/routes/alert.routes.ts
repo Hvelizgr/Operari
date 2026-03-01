@@ -29,6 +29,18 @@ router.get('/', alertController.getAlerts.bind(alertController));
 
 /**
  * @swagger
+ * /api/alerts/insights:
+ *   get:
+ *     summary: Get smart insights (correlated error patterns)
+ *     tags: [Alerts]
+ *     responses:
+ *       200:
+ *         description: List of smart insights
+ */
+router.get('/insights', alertController.getInsights.bind(alertController));
+
+/**
+ * @swagger
  * /api/alerts/stats:
  *   get:
  *     summary: Get alert statistics (unread counts by severity)

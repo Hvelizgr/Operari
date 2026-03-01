@@ -203,4 +203,65 @@ router.get('/status', gitController.getStatus.bind(gitController));
  */
 router.get('/log', gitController.getLog.bind(gitController));
 
+/**
+ * @swagger
+ * /api/git/branches:
+ *   get:
+ *     summary: Get git branches
+ *     tags: [Git]
+ *     responses:
+ *       200:
+ *         description: List of branches
+ */
+router.get('/branches', gitController.getBranches.bind(gitController));
+
+/**
+ * @swagger
+ * /api/git/checkout:
+ *   post:
+ *     summary: Checkout a branch
+ *     tags: [Git]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [branch]
+ *             properties:
+ *               branch: { type: string }
+ *               create: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Branch changed
+ */
+router.post('/checkout', gitController.checkout.bind(gitController));
+
+/**
+ * @swagger
+ * /api/git/diff/{workflowId}:
+ *   get:
+ *     summary: Get diff for a workflow
+ *     tags: [Git]
+ */
+router.get('/diff/:workflowId', gitController.getDiff.bind(gitController));
+
+/**
+ * @swagger
+ * /api/git/config:
+ *   get:
+ *     summary: Get GitHub integration config
+ *     tags: [Git]
+ */
+router.get('/config', gitController.getConfig.bind(gitController));
+
+/**
+ * @swagger
+ * /api/git/config:
+ *   post:
+ *     summary: Save GitHub integration config
+ *     tags: [Git]
+ */
+router.post('/config', gitController.saveConfig.bind(gitController));
+
 export default router;

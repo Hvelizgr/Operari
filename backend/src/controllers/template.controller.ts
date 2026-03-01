@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/database';
+import { TemplateMarketplaceService } from '../services/template-marketplace.service';
 
 export class TemplateController {
     static async getTemplates(req: Request, res: Response) {
@@ -73,5 +74,26 @@ export class TemplateController {
             res.status(500).json({ error: 'Failed to publish template' });
         }
     }
-}
 
+    static async deployFleet(req: Request, res: Response) {
+        try {
+            const { templateId, instanceIds } = req.body;
+            const tenantId = (req as any).user.tenantId;
+
+            if (!templateId || !instanceIds || !Array.isArray(instanceIds)) {
+                return res.status(400).json({ error: 'templateId and instanceIds[] are required' });
+            }
+
+            const results = await TemplateMarketplaceService.getInstance().deployTemplateToFleet(
+                templateId,
+                instanceIds,
+                tenantId
+            );
+
+            res.json(results);
+        } catch (error: any) {
+            console.error('Error deploying template to fleet:', error);
+            res.status(500).json({ error: error.message || 'Failed to deploy template to fleet' });
+        }
+    }
+}

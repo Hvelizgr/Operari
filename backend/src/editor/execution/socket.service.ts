@@ -101,12 +101,13 @@ export class SocketService {
         });
     }
 
-    emitNodeStatus(executionId: string, nodeId: string, status: string, result?: any) {
+    emitNodeStatus(executionId: string, nodeId: string, status: string, result?: any, testResults?: any) {
         if (!this.io) return;
         this.io.to(`execution:${executionId}`).emit('node_status', {
             nodeId,
             status,
             result,
+            testResults,
             timestamp: new Date().toISOString(),
         });
     }

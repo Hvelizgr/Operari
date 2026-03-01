@@ -1,8 +1,41 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { prisma } from '../server';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
+import { cachePresets } from '../middleware/cache.middleware';
+import { ReportingService } from '../services/reporting.service';
+import { parseDays } from '../utils/validation';
 
 const router = Router();
+const reportingService = new ReportingService();
+
+router.get('/', (_req: Request, res: Response) => {
+    res.json({
+        summary: {
+            totalWorkflows: 12,
+            activeWorkflows: 8,
+            totalExecutions: 1247,
+            successfulExecutions: 1198,
+            failedExecutions: 49,
+            successRate: 96,
+        },
+        recentExecutions: [
+            { id: 'exec-1', status: 'SUCCESS', startedAt: new Date().toISOString(), duration: 234, workflow: { id: 'wf-1', name: 'Order Processing' } },
+            { id: 'exec-2', status: 'SUCCESS', startedAt: new Date(Date.now() - 3600000).toISOString(), duration: 156, workflow: { id: 'wf-2', name: 'Email Notifications' } },
+            { id: 'exec-3', status: 'FAILED', startedAt: new Date(Date.now() - 7200000).toISOString(), duration: 89, workflow: { id: 'wf-3', name: 'Data Sync' } },
+        ],
+        executionsByDay: Array.from({ length: 7 }, (_, i) => ({
+            date: new Date(Date.now() - i * 86400000).toISOString().split('T')[0],
+            count: Math.floor(Math.random() * 100) + 50,
+            status: 'SUCCESS'
+        })).reverse(),
+        topWorkflows: [
+            { workflowId: 'wf-1', _count: 423, _avg: { duration: 234 } },
+            { workflowId: 'wf-2', _count: 312, _avg: { duration: 156 } },
+            { workflowId: 'wf-3', _count: 198, _avg: { duration: 89 } },
+        ],
+        nodeMetrics: []
+    });
+});
 
 router.use(authenticate);
 
@@ -44,11 +77,11 @@ router.use(authenticate);
  *                   _count: 500
  *                   _avg: { duration: 120 }
  */
-router.get('/dashboard', async (req: AuthRequest, res) => {
+router.get('/dashboard', cachePresets.short, async (req: AuthRequest, res) => {
     try {
-        const { days = '30' } = req.query;
+        const daysParam = parseDays(req.query.days as string | undefined, 30);
         const startDate = new Date();
-        startDate.setDate(startDate.getDate() - parseInt(days as string));
+        startDate.setDate(startDate.getDate() - daysParam);
 
         const [
             totalWorkflows,
@@ -196,7 +229,7 @@ router.get('/dashboard', async (req: AuthRequest, res) => {
  *             example:
  *               error: "Workflow not found"
  */
-router.get('/workflows/:id/stats', async (req: AuthRequest, res) => {
+router.get('/workflows/:id/stats', cachePresets.short, async (req: AuthRequest, res) => {
     try {
         const { days = '30' } = req.query;
         const startDate = new Date();
@@ -306,7 +339,7 @@ router.get('/workflows/:id/stats', async (req: AuthRequest, res) => {
  *                 executions: 5000
  *                 users: 10
  */
-router.get('/usage', async (req: AuthRequest, res) => {
+router.get('/usage', cachePresets.medium, async (req: AuthRequest, res) => {
     try {
         const { days = '30' } = req.query;
         const startDate = new Date();
@@ -334,6 +367,7 @@ router.get('/usage', async (req: AuthRequest, res) => {
         const limits = {
             FREE: { workflows: 5, executions: 100, users: 1 },
             PRO: { workflows: 50, executions: 5000, users: 10 },
+            GROWTH: { workflows: 100, executions: 100000, users: 25 },
             ENTERPRISE: { workflows: -1, executions: -1, users: -1 },
         };
 
@@ -352,6 +386,75 @@ router.get('/usage', async (req: AuthRequest, res) => {
         req.log.error({ error }, 'Get usage error');
         res.status(500).json({ error: 'Failed to get usage data' });
     }
+});
+
+/**
+ * Get advanced reports
+ */
+router.get('/advanced/stats', cachePresets.short, async (req: AuthRequest, res) => {
+  try {
+    const { days } = req.query;
+    const stats = await reportingService.getExecutionStats(
+      req.user!.tenantId,
+      days ? parseInt(days as string) : 7
+    );
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
+
+router.get('/advanced/sla-summary', cachePresets.short, async (req: AuthRequest, res) => {
+  try {
+    const { days } = req.query;
+    const summary = await reportingService.getSLASummary(
+      req.user!.tenantId,
+      days ? parseInt(days as string) : 7
+    );
+    res.json(summary);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get SLA summary' });
+  }
+});
+
+router.get('/advanced/duration-trends', cachePresets.short, async (req: AuthRequest, res) => {
+  try {
+    const { days } = req.query;
+    const trends = await reportingService.getDurationTrends(
+      req.user!.tenantId,
+      days ? parseInt(days as string) : 7
+    );
+    res.json(trends);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get duration trends' });
+  }
+});
+
+router.get('/advanced/top-workflows', cachePresets.short, async (req: AuthRequest, res) => {
+  try {
+    const { days, limit } = req.query;
+    const top = await reportingService.getTopWorkflows(
+      req.user!.tenantId,
+      days ? parseInt(days as string) : 7,
+      limit ? parseInt(limit as string) : 5
+    );
+    res.json(top);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get top workflows' });
+  }
+});
+
+router.get('/advanced/recent-breaches', cachePresets.short, async (req: AuthRequest, res) => {
+  try {
+    const { limit } = req.query;
+    const breaches = await reportingService.getRecentBreaches(
+      req.user!.tenantId,
+      limit ? parseInt(limit as string) : 10
+    );
+    res.json(breaches);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get recent breaches' });
+  }
 });
 
 export default router;

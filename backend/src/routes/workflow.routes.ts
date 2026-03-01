@@ -2,10 +2,9 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../server';
-import { authenticate, AuthRequest, requireRole } from '../middleware/auth.middleware';
-import { checkPlanLimits } from '../middleware/plan-limits.middleware';
-import { Role } from '@prisma/client';
-import { SchedulerService } from '../services/scheduler.service';
+import { AuthRequest } from '../middleware/auth.middleware';
+import { checkWorkflowAccess } from '../middleware/rbac.middleware';
+import { RBACService } from '../services/rbac.service';
 import {
     workflowDefinitionSchema,
     workflowNodeSchema,
@@ -14,21 +13,55 @@ import {
     WorkflowConnection,
     WorkflowDefinition,
 } from '../types/workflow.types';
-import { WorkflowValidatorService, ValidationSeverity } from '../services/workflow-validator.service';
+import { WorkflowValidatorService } from '../services/workflow-validator.service';
+import { WorkflowImportService } from '../services/workflow-import.service';
+import { gitService } from '../services/git.service';
+import { workflowDiffService } from '../services/workflow-diff.service';
 
 const router = Router();
 
 // Authentication disabled for free usage per n8n policies
 // router.use(authenticate);
 
-// Set default anonymous user for public API access
-router.use((req: AuthRequest, _res, next) => {
+// Set default anonymous user for public API access (editor free usage)
+router.use(async (req: AuthRequest, _res, next) => {
     if (!req.user) {
+        // Check if anonymous user exists, create if not
+        let anonymousUser = await prisma.user.findUnique({
+            where: { id: 'anonymous' }
+        });
+        
+        if (!anonymousUser) {
+            // First ensure default tenant exists
+            await prisma.tenant.upsert({
+                where: { id: 'default-tenant' },
+                update: {},
+                create: {
+                    id: 'default-tenant',
+                    name: 'Default Tenant',
+                    slug: 'default',
+                    plan: 'FREE',
+                },
+            });
+            
+            // Then create anonymous user
+            anonymousUser = await prisma.user.create({
+                data: {
+                    id: 'anonymous',
+                    email: 'anonymous@nanoflow.local',
+                    name: 'Anonymous User',
+                    passwordHash: 'not-used',
+                    role: 'USER',
+                    tenantId: 'default-tenant',
+                },
+            });
+        }
+        
         req.user = {
-            id: 'anonymous',
-            email: 'anonymous@nanoflow.local',
-            role: 'USER',
-            tenantId: 'default-tenant',
+            id: anonymousUser.id,
+            email: anonymousUser.email,
+            role: anonymousUser.role,
+            tenantId: anonymousUser.tenantId,
         };
     }
     next();
@@ -135,6 +168,33 @@ router.get('/', async (req: AuthRequest, res) => {
 
 /**
  * @swagger
+ * /workflows/{id}/diff:
+ *   get:
+ *     summary: Compare two workflow versions
+ *     tags: [Workflows]
+ */
+router.get('/:id/diff', checkWorkflowAccess('READ'), async (req: AuthRequest, res) => {
+    try {
+        const workflowId = req.params.id as string;
+        const { v1, v2 } = req.query;
+
+        if (!v1 || !v2) {
+            return res.status(400).json({ error: 'v1 and v2 version numbers are required' });
+        }
+
+        const diff = await workflowDiffService.compareVersions(
+            workflowId,
+            parseInt(v1 as string),
+            parseInt(v2 as string)
+        );
+        res.json(diff);
+    } catch (error) {
+        res.status(500).json({ error: error instanceof Error ? error.message : 'Diff failed' });
+    }
+});
+
+/**
+ * @swagger
  * /workflows/{id}:
  *   get:
  *     summary: Get a workflow by ID
@@ -171,7 +231,7 @@ router.get('/', async (req: AuthRequest, res) => {
  *             example:
  *               error: "Workflow not found"
  */
-router.get('/:id', async (req: AuthRequest, res) => {
+router.get('/:id', checkWorkflowAccess('READ'), async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.id as string;
         let workflow = await prisma.workflow.findFirst({
@@ -185,6 +245,13 @@ router.get('/:id', async (req: AuthRequest, res) => {
                     take: 10,
                     orderBy: { startedAt: 'desc' },
                 },
+                approvals: {
+                    take: 1,
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        reviewer: { select: { name: true, email: true } }
+                    }
+                }
             },
         });
 
@@ -204,6 +271,13 @@ router.get('/:id', async (req: AuthRequest, res) => {
                 include: {
                     user: { select: { id: true, name: true, email: true } },
                     executions: true,
+                    approvals: {
+                        take: 1,
+                        orderBy: { createdAt: 'desc' },
+                        include: {
+                            reviewer: { select: { name: true, email: true } }
+                        }
+                    }
                 },
             });
         }
@@ -317,7 +391,7 @@ router.get('/:id/metadata', async (req: AuthRequest, res) => {
  *             example:
  *               error: "Name is required"
  */
-router.post('/', requireRole(Role.ADMIN, Role.USER), checkPlanLimits('workflows'), async (req: AuthRequest, res) => {
+router.post('/', async (req: AuthRequest, res) => {
     try {
         const data = workflowDefinitionSchema.parse(req.body);
 
@@ -406,7 +480,7 @@ router.post('/', requireRole(Role.ADMIN, Role.USER), checkPlanLimits('workflows'
  *       404:
  *         description: Workflow not found
  */
-router.put('/:id', requireRole(Role.ADMIN, Role.USER), async (req: AuthRequest, res) => {
+router.put('/:id', checkWorkflowAccess('WRITE'), async (req: AuthRequest, res) => {
     try {
         // Use partial schema for updates - only nodes and connections are required
         const updateSchema = z.object({
@@ -475,7 +549,29 @@ router.put('/:id', requireRole(Role.ADMIN, Role.USER), async (req: AuthRequest, 
 
         if (data.name !== undefined) updateData.name = data.name;
         if (data.description !== undefined) updateData.description = data.description;
-        if (data.isActive !== undefined) updateData.isActive = data.isActive;
+        if (data.isActive !== undefined) {
+            // Check for approval requirement
+            if (data.isActive === true && existing.requiresApproval && req.user!.role !== 'ADMIN') {
+                // Check if there is an approved request for activation
+                const approvedRequest = await prisma.workflowApproval.findFirst({
+                    where: {
+                        workflowId,
+                        status: 'APPROVED',
+                        requestType: 'ACTIVATION'
+                    },
+                    orderBy: { updatedAt: 'desc' }
+                });
+
+                if (!approvedRequest) {
+                    return res.status(403).json({
+                        error: 'Approval required',
+                        message: 'This workflow requires administrator approval before it can be activated.',
+                        requiresApproval: true
+                    });
+                }
+            }
+            updateData.isActive = data.isActive;
+        }
         if (data.schedule !== undefined) updateData.schedule = data.schedule;
 
         // Construct full workflow object for validation
@@ -502,6 +598,10 @@ router.put('/:id', requireRole(Role.ADMIN, Role.USER), async (req: AuthRequest, 
             where: { id: workflowId },
             data: updateData,
         });
+
+        // Trigger Git Sync if configured (async background task)
+        gitService.syncWorkflowToGit(req.user!.tenantId, workflow.id, req.user!.id)
+            .catch(err => req.log.error({ err, workflowId: workflow.id }, 'Git auto-sync failed'));
 
         if (data.schedule) {
             await prisma.scheduledJob.upsert({
@@ -551,7 +651,7 @@ router.put('/:id', requireRole(Role.ADMIN, Role.USER), async (req: AuthRequest, 
  *       404:
  *         description: Workflow not found
  */
-router.delete('/:id', requireRole(Role.ADMIN), async (req: AuthRequest, res) => {
+router.delete('/:id', checkWorkflowAccess('ADMIN'), async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.id as string;
         const existing = await prisma.workflow.findFirst({
@@ -605,7 +705,7 @@ router.delete('/:id', requireRole(Role.ADMIN), async (req: AuthRequest, res) => 
  *       404:
  *         description: Workflow not found
  */
-router.post('/:id/duplicate', async (req: AuthRequest, res) => {
+router.post('/:id/duplicate', checkWorkflowAccess('READ'), async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.id as string;
         const existing = await prisma.workflow.findFirst({
@@ -632,10 +732,192 @@ router.post('/:id/duplicate', async (req: AuthRequest, res) => {
             },
         });
 
+        // Add ADMIN permission for the creator of the duplicate
+        await RBACService.getInstance().setWorkflowPermission(workflow.id, req.user!.id, 'ADMIN');
+
         res.status(201).json(workflow);
     } catch (error) {
         req.log.error({ error }, 'Duplicate workflow error');
         res.status(500).json({ error: 'Failed to duplicate workflow' });
+    }
+});
+
+/**
+ * Permissions Management
+ */
+
+router.get('/:id/permissions', checkWorkflowAccess('ADMIN'), async (req: AuthRequest, res) => {
+    try {
+        const permissions = await RBACService.getInstance().getWorkflowPermissions(req.params.id as string);
+        res.json(permissions);
+    } catch {
+        res.status(500).json({ error: 'Failed to fetch permissions' });
+    }
+});
+
+router.post('/:id/permissions', checkWorkflowAccess('ADMIN'), async (req: AuthRequest, res) => {
+    try {
+        const { userId, email, level } = req.body;
+
+        let targetUserId = userId;
+
+        if (!targetUserId && email) {
+            const user = await prisma.user.findUnique({
+                where: { email }
+            });
+            if (!user) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+            targetUserId = user.id;
+        }
+
+        if (!targetUserId || !level) {
+            return res.status(400).json({ error: 'userId or email, and level are required' });
+        }
+
+        const permission = await RBACService.getInstance().setWorkflowPermission(req.params.id as string, targetUserId, level);
+        res.json(permission);
+    } catch {
+        res.status(500).json({ error: 'Failed to set permission' });
+    }
+});
+
+router.delete('/:id/permissions/:userId', checkWorkflowAccess('ADMIN'), async (req: AuthRequest, res) => {
+    try {
+        await RBACService.getInstance().removeWorkflowPermission(req.params.id as string, req.params.userId as string);
+        res.status(204).send();
+    } catch {
+        res.status(500).json({ error: 'Failed to remove permission' });
+    }
+});
+
+/**
+ * @swagger
+ * /workflows/import/url:
+ *   post:
+ *     summary: Import workflow from URL
+ *     tags: [Workflows]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [url]
+ *             properties:
+ *               url: { type: string }
+ *               name: { type: string }
+ *               save: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Import result
+ */
+router.post('/import/url', async (req: AuthRequest, res) => {
+    try {
+        const { url, name, save } = req.body;
+        
+        if (!url) {
+            return res.status(400).json({ error: 'URL is required' });
+        }
+
+        const result = await WorkflowImportService.importFromUrl(url);
+
+        if (!result.success) {
+            return res.status(400).json({
+                error: result.error,
+                warnings: result.warnings,
+                transformations: result.transformations
+            });
+        }
+
+        if (save && result.workflow) {
+            const workflow = await prisma.workflow.create({
+                data: {
+                    name: name || result.workflow.name,
+                    description: result.workflow.description || `Imported from ${result.workflow.source.type}`,
+                    nodes: result.workflow.nodes as unknown as Prisma.InputJsonValue,
+                    connections: result.workflow.connections as unknown as Prisma.InputJsonValue,
+                    isActive: false,
+                    userId: req.user!.id,
+                    tenantId: req.user!.tenantId,
+                },
+            });
+
+            return res.json({
+                ...result,
+                savedWorkflow: workflow
+            });
+        }
+
+        res.json(result);
+    } catch (error) {
+        req.log.error({ error }, 'Import from URL error');
+        res.status(500).json({ error: 'Failed to import workflow' });
+    }
+});
+
+/**
+ * @swagger
+ * /workflows/import/json:
+ *   post:
+ *     summary: Import workflow from JSON
+ *     tags: [Workflows]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [data]
+ *             properties:
+ *               data: { type: object }
+ *               name: { type: string }
+ *               save: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Import result
+ */
+router.post('/import/json', async (req: AuthRequest, res) => {
+    try {
+        const { data, name, save } = req.body;
+        
+        if (!data) {
+            return res.status(400).json({ error: 'JSON data is required' });
+        }
+
+        const result = WorkflowImportService.importFromJson(data);
+
+        if (!result.success) {
+            return res.status(400).json({
+                error: result.error,
+                warnings: result.warnings,
+                transformations: result.transformations
+            });
+        }
+
+        if (save && result.workflow) {
+            const workflow = await prisma.workflow.create({
+                data: {
+                    name: name || result.workflow.name,
+                    description: result.workflow.description || `Imported from ${result.workflow.source.type}`,
+                    nodes: result.workflow.nodes as unknown as Prisma.InputJsonValue,
+                    connections: result.workflow.connections as unknown as Prisma.InputJsonValue,
+                    isActive: false,
+                    userId: req.user!.id,
+                    tenantId: req.user!.tenantId,
+                },
+            });
+
+            return res.json({
+                ...result,
+                savedWorkflow: workflow
+            });
+        }
+
+        res.json(result);
+    } catch (error) {
+        req.log.error({ error }, 'Import from JSON error');
+        res.status(500).json({ error: 'Failed to import workflow' });
     }
 });
 

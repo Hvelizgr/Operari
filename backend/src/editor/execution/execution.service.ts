@@ -1,7 +1,9 @@
-import { PrismaClient, ExecutionStatus, NodeLogStatus, TriggerType, Workflow, Prisma } from '@prisma/client';
+import { PrismaClient, TriggerType, Workflow, Prisma } from '@prisma/client';
+import jexl from 'jexl';
 import { NodeExecutor } from '../node-executor.service';
 import { ErrorNotificationService } from '../../services/error-notification.service';
-import { Logger, ContextLogger } from '../../services/logger.service';
+import { Logger } from '../../services/logger.service';
+import { quotaMonitorService } from '../../services/quota-monitor.service';
 import {
     WorkflowNode,
     WorkflowConnection,
@@ -13,13 +15,19 @@ import {
     CustomError,
     ErrorCode,
     ErrorSeverity,
-    NodeExecutionError,
     WorkflowError,
     wrapError,
 } from '../../errors/custom-error';
 import { persistExecutionError } from '../../utils/error-persistence';
 import { socketService } from './socket.service';
 import { TracingService } from '../../services/tracing.service';
+import { n8nService } from '../../services/n8n.service';
+import { retryService } from '../../services/retry.service';
+import { SLAService } from '../../services/sla.service';
+
+import { mockDataService } from '../../services/mock-data.service';
+
+export type ExecutionMode = 'native' | 'n8n';
 
 export interface ExecuteParams {
     workflowId: string;
@@ -28,6 +36,8 @@ export interface ExecuteParams {
     input?: ExecutionInput;
     tenantId?: string;
     startNodeId?: string;
+    executionMode?: ExecutionMode;
+    testMode?: boolean; // If true, use mocks and record test results
 }
 
 export interface ResumeParams {
@@ -48,19 +58,24 @@ export class ExecutionService {
     private nodeExecutor: NodeExecutor;
     private logger: Logger;
     private notificationService: ErrorNotificationService;
+    private slaService: SLAService;
+    private defaultExecutionMode: ExecutionMode = 'native';
 
     constructor(prisma: PrismaClient) {
         this.prisma = prisma;
         this.nodeExecutor = new NodeExecutor(prisma);
         this.logger = Logger.getInstance();
         this.notificationService = new ErrorNotificationService(prisma);
+        this.slaService = new SLAService();
+        
+        this.defaultExecutionMode = (process.env.EXECUTION_MODE as ExecutionMode) || 'native';
     }
 
     async execute(params: ExecuteParams) {
-        const { workflowId, userId, trigger, input = {}, tenantId, startNodeId } = params;
+        const { workflowId, userId, trigger, input = {}, tenantId, startNodeId, executionMode, testMode = false } = params;
+        const mode = executionMode || this.defaultExecutionMode;
 
         try {
-            // Fetch workflow
             const workflow = await this.prisma.workflow.findUnique({
                 where: { id: workflowId },
             });
@@ -74,46 +89,57 @@ export class ExecutionService {
                 });
             }
 
-            // Create execution record
             const execution = await this.prisma.execution.create({
                 data: {
                     workflowId,
                     userId,
                     trigger,
                     status: 'RUNNING',
+                    metadata: testMode ? { testMode: true } : undefined,
                 },
             });
 
-            // Create context logger for this execution
             const executionContext = {
                 executionId: execution.id,
                 workflowId,
                 workflowName: workflow.name,
                 userId,
                 tenantId,
+                executionMode: mode,
+                testMode,
             };
 
             const contextLogger = this.logger.child(executionContext);
-            contextLogger.info('Workflow execution started');
-            socketService.emitLog(execution.id, 'Workflow execution started');
+            contextLogger.info(`Workflow execution started (mode: ${mode}, testMode: ${testMode})`);
+            socketService.emitLog(execution.id, `Workflow execution started (mode: ${mode}, testMode: ${testMode})`);
 
-            // Run workflow asynchronously with proper error handling
-            TracingService.traceWorkflow(execution.id, workflow.name, async () => {
-                await this.runWorkflow(
-                    execution.id,
-                    workflow,
-                    input,
-                    executionContext,
-                    tenantId,
-                    startNodeId
-                );
-            }).catch((error) => {
-                // This handles uncaught errors from runWorkflow
-                this.logger.error('Uncaught error in workflow execution', {
-                    context: executionContext,
-                    error: error instanceof Error ? error : new Error(String(error)),
+            if (mode === 'n8n' && !startNodeId) {
+                this.runWorkflowViaN8n(execution.id, workflow, input, executionContext, tenantId)
+                    .catch((error) => {
+                        this.logger.error('Uncaught error in n8n workflow execution', {
+                            context: executionContext,
+                            error: error instanceof Error ? error : new Error(String(error)),
+                        });
+                    });
+            } else {
+                TracingService.traceWorkflow(execution.id, workflow.name, async () => {
+                    await this.runWorkflow(
+                        execution.id,
+                        workflow,
+                        input,
+                        executionContext,
+                        tenantId,
+                        startNodeId,
+                        undefined,
+                        testMode
+                    );
+                }).catch((error) => {
+                    this.logger.error('Uncaught error in workflow execution', {
+                        context: executionContext,
+                        error: error instanceof Error ? error : new Error(String(error)),
+                    });
                 });
-            });
+            }
 
             return execution;
         } catch (error) {
@@ -122,6 +148,125 @@ export class ExecutionService {
                 error: wrappedError,
             });
             throw wrappedError;
+        }
+    }
+
+    private async runWorkflowViaN8n(
+        executionId: string,
+        workflow: Workflow,
+        input: ExecutionInput,
+        executionContext: Record<string, unknown>,
+        tenantId?: string
+    ) {
+        const startTime = Date.now();
+        const contextLogger = this.logger.child(executionContext);
+
+        try {
+            const n8nAvailable = await n8nService.isN8nAvailable();
+            if (!n8nAvailable) {
+                contextLogger.warn('n8n not available, falling back to native execution');
+                socketService.emitLog(executionId, 'n8n not available, using native execution');
+                return this.runWorkflow(executionId, workflow, input, executionContext, tenantId);
+            }
+
+            socketService.emitLog(executionId, 'Executing workflow via n8n...');
+
+            const result = await n8nService.executeNanoFlowWorkflow(workflow, input, {
+                waitForCompletion: true,
+                timeout: 120000,
+                deleteAfterExecution: true,
+            });
+
+            const duration = Date.now() - startTime;
+
+            const nodes = workflow.nodes as unknown as WorkflowNode[];
+            const nodeOutputs = (result.result?.nodeOutputs as Record<string, unknown>) || {};
+
+            for (const node of nodes) {
+                const nodeOutput = nodeOutputs[node.id];
+                const status = result.status === 'success' ? 'SUCCESS' : (result.status === 'error' ? 'FAILED' : 'SKIPPED');
+
+                await this.prisma.nodeLog.create({
+                    data: {
+                        executionId,
+                        nodeId: node.id,
+                        nodeName: node.title,
+                        nodeType: node.type,
+                        status: status as any,
+                        input: input as unknown as Prisma.InputJsonValue,
+                        output: (nodeOutput || {}) as unknown as Prisma.InputJsonValue,
+                        completedAt: new Date(),
+                    },
+                });
+
+                socketService.emitNodeStatus(executionId, node.id, status as any, nodeOutput);
+            }
+
+            if (result.status === 'success') {
+                await this.prisma.execution.update({
+                    where: { id: executionId },
+                    data: {
+                        status: 'SUCCESS',
+                        completedAt: new Date(),
+                        duration,
+                    },
+                });
+
+                socketService.emitExecutionStatus(executionId, 'SUCCESS');
+                socketService.emitLog(executionId, 'Workflow execution completed via n8n', { duration });
+                contextLogger.info('Workflow executed successfully via n8n', { duration, metadata: { n8nExecutionId: result.executionId } });
+            } else {
+                const errorMessage = result.error || 'n8n execution failed';
+
+                await this.prisma.execution.update({
+                    where: { id: executionId },
+                    data: {
+                        status: 'FAILED',
+                        error: errorMessage,
+                        completedAt: new Date(),
+                        duration,
+                    },
+                });
+
+                socketService.emitExecutionStatus(executionId, 'FAILED');
+                socketService.emitLog(executionId, `Workflow execution failed: ${errorMessage}`, { error: errorMessage });
+                contextLogger.error('Workflow execution failed via n8n', { metadata: { duration, errorMessage } });
+            }
+
+            if (tenantId) {
+                quotaMonitorService.checkAndNotifyTenant(tenantId).catch((err) => {
+                    this.logger.warn('Failed to check quota notification', { error: err });
+                });
+            }
+
+            // Check SLA compliance
+            this.slaService.checkExecutionCompliance(executionId).catch((err) => {
+                this.logger.warn('Failed to check SLA compliance', { error: err });
+            });
+
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            const wrappedError = wrapError(error, executionContext);
+
+            await persistExecutionError(this.prisma, wrappedError, executionId);
+
+            const errorMessage = wrappedError instanceof CustomError
+                ? wrappedError.userMessage
+                : error instanceof Error ? error.message : 'Unknown error';
+
+            await this.prisma.execution.update({
+                where: { id: executionId },
+                data: {
+                    status: 'FAILED',
+                    error: errorMessage,
+                    completedAt: new Date(),
+                    duration,
+                },
+            });
+
+            socketService.emitExecutionStatus(executionId, 'FAILED');
+            socketService.emitLog(executionId, `Workflow execution failed: ${errorMessage}`, { error: errorMessage });
+            contextLogger.error('Workflow execution failed via n8n', { error: wrappedError, metadata: { duration } });
         }
     }
 
@@ -243,6 +388,8 @@ export class ExecutionService {
             nodesToExecute: (resumeState.nodesToExecute || []).map((nodeId: string) => allNodes.find((n: WorkflowNode) => n.id === nodeId)).filter((n: WorkflowNode | undefined): n is WorkflowNode => !!n),
         };
 
+        const testMode = !!resumeState.testMode;
+
         // Merge new input with the output of the node that paused the execution
         const lastExecutedNodeId = Array.from(initialState.executedNodes).pop();
         if (lastExecutedNodeId && initialState.nodeOutputs[lastExecutedNodeId]) {
@@ -257,7 +404,8 @@ export class ExecutionService {
                 { executionId, workflowId: execution.workflowId, userId, tenantId },
                 tenantId,
                 undefined,
-                initialState
+                initialState,
+                testMode
             );
         }).catch((error) => {
             this.logger.error('Uncaught error in resumed workflow execution', {
@@ -275,10 +423,11 @@ export class ExecutionService {
         executionContext: Record<string, unknown>,
         tenantId?: string,
         startNodeId?: string,
-        initialState?: RunState
+        initialState?: RunState,
+        testMode: boolean = false
     ) {
         const startTime = Date.now();
-        const contextLogger = this.logger.child(executionContext);
+        const contextLogger = this.logger.child({ ...executionContext, testMode });
 
         // Cast Prisma JSON fields to typed arrays
         const nodes = workflow.nodes as unknown as WorkflowNode[];
@@ -316,7 +465,8 @@ export class ExecutionService {
             }
 
             while (nodesToExecute.length > 0) {
-                const currentNode = nodesToExecute.shift()!;
+                const currentNode = nodesToExecute.shift();
+                if (!currentNode) break;
 
                 // Protection against infinite loops
                 totalExecutions++;
@@ -328,81 +478,47 @@ export class ExecutionService {
                     });
                 }
 
-                // In a cycle-enabled engine, we don't skip executed nodes anymore,
-                // but we might still want to avoid redundant re-triggers if not from a loop.
-                // For now, we allow re-execution.
-
-
                 // Skip disabled nodes
-
                 if (currentNode.enabled === false) {
-
                     await this.prisma.nodeLog.create({
-
                         data: {
-
                             executionId,
-
                             nodeId: currentNode.id,
-
                             nodeName: currentNode.title,
-
                             nodeType: currentNode.type,
-
                             status: 'SKIPPED',
-
                             input: {} as any,
-
                         },
-
                     });
 
                     socketService.emitNodeStatus(executionId, currentNode.id, 'SKIPPED');
-
-                    executedNodes.add(currentNode.id); // Mark as "executed" to allow children to run
-
-
-
-                    // Add children of the skipped node to the execution queue
+                    executedNodes.add(currentNode.id);
 
                     const nextNodes = connections
-
                         .filter(c => c.source === currentNode.id)
-
                         .map(c => nodes.find(n => n.id === c.target))
-
                         .filter((n): n is WorkflowNode => n !== undefined);
 
                     nodesToExecute.push(...nextNodes);
-
-
-
                     continue;
-
                 }
 
-
-
-                // Check if all parents have been executed (Synchronization logic for Join/Advanced nodes)
-
+                // Check if all parents have been executed
                 const incomingConns = connections.filter(c => c.target === currentNode.id);
                 const allParentsExecuted = incomingConns.every(c => executedNodes.has(c.source));
 
                 if (incomingConns.length > 1 && !allParentsExecuted) {
-                    // Track retry count to prevent infinite loops
                     const retryCount = nodeRetryCount.get(currentNode.id) || 0;
-
-                    if (retryCount < 100) { // Max 100 retries
+                    if (retryCount < 100) { 
                         nodeRetryCount.set(currentNode.id, retryCount + 1);
                         nodesToExecute.push(currentNode);
                         continue;
                     }
-                    // After max retries, proceed anyway (deadlock prevention)
                 }
 
                 const nodeInput = this.getNodeInput(currentNode.id, connections, nodeOutputs, input);
 
-                // Check for breakpoint
+                // Check for breakpoint (only in normal mode, or maybe also in test mode? Let's allow it in test mode too)
                 if (currentNode.breakpoint) {
                     await this.prisma.execution.update({
                         where: { id: executionId },
@@ -413,12 +529,13 @@ export class ExecutionService {
                                 nodeOutputs,
                                 executedNodes: Array.from(executedNodes),
                                 nodesToExecute: [currentNode.id, ...nodesToExecute.map(n => n.id)],
+                                testMode,
                             } as any,
                         },
                     });
                     socketService.emitLog(executionId, `[BREAKPOINT] Hitted at: ${currentNode.title}`, { nodeId: currentNode.id });
                     socketService.emitExecutionStatus(executionId, 'PAUSED');
-                    socketService.emitNodeStatus(executionId, currentNode.id, 'RUNNING'); // Mark as "about to run" or just use status signal
+                    socketService.emitNodeStatus(executionId, currentNode.id, 'RUNNING');
                     return;
                 }
 
@@ -441,6 +558,7 @@ export class ExecutionService {
                     nodeId: currentNode.id,
                     nodeName: currentNode.title,
                     nodeType: currentNode.type,
+                    testMode,
                 };
                 const nodeContextLogger = this.logger.child(nodeContext);
                 const nodeStartTime = Date.now();
@@ -454,12 +572,30 @@ export class ExecutionService {
                         currentNode.title,
                         currentNode.type,
                         async () => {
-                            return await this.nodeExecutor.execute(currentNode, nodeInput, {
-                                tenantId,
-                                executionId,
-                                nodeOutputs,
-                                workflowNodes: nodes
-                            });
+                            // IF TEST MODE: Use mock data if available or generate it
+                            if (testMode) {
+                                return await mockDataService.generateMockOutput(currentNode);
+                            }
+
+                            const retryOptions = currentNode.retryOptions?.enabled ? {
+                                maxRetries: currentNode.retryOptions.maxRetries,
+                                initialDelay: currentNode.retryOptions.initialDelay,
+                                maxDelay: currentNode.retryOptions.maxDelay,
+                                backoffFactor: currentNode.retryOptions.backoffFactor,
+                            } : { maxRetries: 0 };
+
+                            return await retryService.executeWithRetry(
+                                () => this.nodeExecutor.execute(currentNode, nodeInput, {
+                                    tenantId,
+                                    executionId,
+                                    nodeOutputs,
+                                    workflowNodes: nodes
+                                }),
+                                retryOptions,
+                                (error, attempt, delay) => {
+                                    socketService.emitLog(executionId, `[RETRY] Attempt ${attempt} for node ${currentNode.title} in ${delay}ms`, { nodeId: currentNode.id, error: error.message });
+                                }
+                            );
                         }
                     );
 
@@ -485,6 +621,17 @@ export class ExecutionService {
 
                     const nodeDuration = Date.now() - nodeStartTime;
 
+                    // Run automated tests if defined
+                    const testResults = await this.runNodeTests(currentNode, output);
+                    if (testResults && testResults.length > 0) {
+                        const failedTests = testResults.filter(r => !r.passed);
+                        if (failedTests.length > 0) {
+                            socketService.emitLog(executionId, `[TESTS] ${failedTests.length} tests failed for node: ${currentNode.title}`, { nodeId: currentNode.id, failedTests });
+                        } else {
+                            socketService.emitLog(executionId, `[TESTS] All tests passed for node: ${currentNode.title}`, { nodeId: currentNode.id });
+                        }
+                    }
+
                     nodeOutputs[currentNode.id] = output;
                     executedNodes.add(currentNode.id);
 
@@ -493,12 +640,13 @@ export class ExecutionService {
                         data: {
                             status: 'SUCCESS',
                             output: output as unknown as Prisma.InputJsonValue,
+                            testResults: testResults as any,
                             completedAt: new Date(),
                             duration: nodeDuration,
                         },
                     });
 
-                    socketService.emitNodeStatus(executionId, currentNode.id, 'SUCCESS', output);
+                    socketService.emitNodeStatus(executionId, currentNode.id, 'SUCCESS', output, testResults);
                     socketService.emitLog(executionId, `Node execution completed: ${currentNode.title}`, { nodeId: currentNode.id, duration: nodeDuration });
 
                     nodeContextLogger.debug('Node execution completed successfully', { duration: nodeDuration });
@@ -602,6 +750,18 @@ export class ExecutionService {
             // Emit execution status to frontend
             socketService.emitExecutionStatus(executionId, 'SUCCESS');
             socketService.emitLog(executionId, 'Workflow execution completed successfully', { duration });
+
+            // Check quota after execution (async, don't block)
+            if (tenantId) {
+                quotaMonitorService.checkAndNotifyTenant(tenantId).catch((err) => {
+                    this.logger.warn('Failed to check quota notification', { error: err });
+                });
+            }
+
+            // Check SLA compliance
+            this.slaService.checkExecutionCompliance(executionId).catch((err) => {
+                this.logger.warn('Failed to check SLA compliance', { error: err });
+            });
 
             contextLogger.info('Workflow execution completed successfully', { duration });
         } catch (error) {
@@ -775,5 +935,42 @@ export class ExecutionService {
         }
 
         return input;
+    }
+
+    private async runNodeTests(node: WorkflowNode, output: any): Promise<any[]> {
+        const nodeData = node as any;
+        if (!nodeData.tests || !Array.isArray(nodeData.tests) || nodeData.tests.length === 0) {
+            return [];
+        }
+
+        const results = [];
+        for (const test of nodeData.tests) {
+            try {
+                // Evaluate condition using jexl
+                const passed = await jexl.eval(test.condition, { output });
+                results.push({
+                    id: test.id,
+                    name: test.name,
+                    passed: !!passed,
+                    severity: test.severity,
+                });
+            } catch (err) {
+                this.logger.error(`Error evaluating test condition for node ${node.id}`, {
+                    error: err as Error,
+                    metadata: {
+                        testId: test.id,
+                        condition: test.condition,
+                    }
+                });
+                results.push({
+                    id: test.id,
+                    name: test.name,
+                    passed: false,
+                    severity: test.severity,
+                    error: err instanceof Error ? err.message : String(err),
+                });
+            }
+        }
+        return results;
     }
 }

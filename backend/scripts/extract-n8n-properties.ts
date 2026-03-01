@@ -490,7 +490,7 @@ main()
         process.exit(1);
     })
     .finally(async () => {
-        await prisma.\$disconnect();
+        await prisma.$disconnect();
     });
 `;
 

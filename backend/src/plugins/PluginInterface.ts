@@ -11,7 +11,9 @@ export interface NodePluginMetadata {
 
 export interface NodePluginContext {
     log: (message: string) => void;
-    // We can expose safe internal services here later
+    nodeId?: string;
+    executionId?: string;
+    workflowId?: string;
 }
 
 export interface NodePlugin {

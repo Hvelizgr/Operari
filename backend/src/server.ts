@@ -4,7 +4,6 @@ import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
-import { PrismaClient } from '@prisma/client';
 import { env } from './config/env.config';
 
 import authRoutes from './routes/auth.routes';
@@ -26,12 +25,23 @@ import twoFactorRoutes from './routes/two-factor.routes';
 import ssoRoutes from './routes/sso.routes';
 import billingRoutes from './routes/billing.routes';
 import notificationRoutes from './routes/notification.routes';
+import communityNodesRoutes from './routes/community-nodes.routes';
+import skillRoutes from './routes/skill.routes';
+import commentRoutes from './routes/comment.routes';
+import importRoutes from './routes/import.routes';
+import approvalRoutes from './routes/approval.routes';
+import slaRoutes from './routes/sla.routes';
+import adminRoutes from './routes/admin.routes';
+import globalVariableRoutes from './routes/global-variable.routes';
+import fleetRoutes from './routes/fleet.routes';
+import environmentRoutes from './routes/environment.routes';
+import { quotaMonitorService } from './services/quota-monitor.service';
+
 
 import metricRoutes from './routes/metric.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { SchedulerService } from './services/scheduler.service';
 import { QueueService } from './scaling/queue.service';
-import { NodeLoaderService } from './services/node-loader.service';
 import {
     authRateLimiter,
     executionRateLimiter,
@@ -40,6 +50,7 @@ import {
     cleanupRateLimiters,
 } from './middleware/ratelimit.middleware';
 import { requestLogger, addUserContext } from './middleware/logger.middleware';
+import { sanitizationMiddleware } from './middleware/sanitization.middleware';
 import { logger } from './config/logger.config';
 // Swagger Documentation
 import swaggerUi from 'swagger-ui-express';
@@ -66,6 +77,7 @@ app.use(cors({
     credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
+app.use(sanitizationMiddleware);
 
 app.use(requestLogger);
 app.use(addUserContext);
@@ -89,7 +101,18 @@ app.use('/api/2fa', standardRateLimiter, twoFactorRoutes);
 app.use('/api/sso', standardRateLimiter, ssoRoutes);
 app.use('/api/billing', standardRateLimiter, billingRoutes);
 app.use('/api/notifications', standardRateLimiter, notificationRoutes);
+app.use('/api/community-nodes', standardRateLimiter, communityNodesRoutes);
+app.use('/api/skills', standardRateLimiter, skillRoutes);
+app.use('/api/comments', standardRateLimiter, commentRoutes);
+app.use('/api/import', standardRateLimiter, importRoutes);
+app.use('/api/approvals', standardRateLimiter, approvalRoutes);
+app.use('/api/slas', standardRateLimiter, slaRoutes);
+app.use('/api/admin', standardRateLimiter, adminRoutes);
+app.use('/api/global-variables', standardRateLimiter, globalVariableRoutes);
+app.use('/api/fleet', standardRateLimiter, fleetRoutes);
+app.use('/api/environment', standardRateLimiter, environmentRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
+
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -122,11 +145,19 @@ async function main() {
             logger.info('Queue initialized (Worker disabled in API)');
         }
 
-        // Initialize Dynamic Node Loader
-        await NodeLoaderService.getInstance().initialize();
+        // Start Quota Monitor (check every hour)
+        quotaMonitorService.startPeriodicCheck(60);
 
         httpServer.listen(PORT, () => {
             logger.info({ port: PORT }, `Server running on port ${PORT}`);
+        });
+
+        httpServer.on('error', (err: NodeJS.ErrnoException) => {
+            if (err.code === 'EADDRINUSE') {
+                logger.error({ port: PORT }, `Port ${PORT} is already in use. Run 'npm run kill:ports' or use a different port.`);
+                process.exit(1);
+            }
+            throw err;
         });
     } catch (error) {
         logger.error({ error }, 'Failed to start server');
@@ -137,6 +168,7 @@ async function main() {
 process.on('SIGINT', async () => {
     logger.info('Shutting down gracefully...');
     scheduler.stop();
+    quotaMonitorService.stopPeriodicCheck();
     cleanupRateLimiters();
     await prisma.$disconnect();
     logger.info('Server stopped');

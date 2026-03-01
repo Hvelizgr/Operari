@@ -40,7 +40,7 @@ async function importNodes() {
     console.log(`Import completed. Processed ${count} node files.`);
 }
 
-function camelToTitleCase(text: string) {
+function _camelToTitleCase(text: string) {
     if (!text) return '';
     const result = text.replace(/([A-Z])/g, " $1");
     return result.charAt(0).toUpperCase() + result.slice(1).trim();

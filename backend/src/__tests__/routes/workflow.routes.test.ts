@@ -1,6 +1,5 @@
 import express from 'express';
 import request from 'supertest';
-import { PrismaClient } from '@prisma/client';
 
 // Mock dependencies BEFORE importing routes
 jest.mock('../../server', () => ({

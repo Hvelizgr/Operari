@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 import { billingService } from '../services/billing.service';
-import { requireFeature } from '../middleware/plan-limits.middleware';
 import Stripe from 'stripe';
 
 const router = Router();

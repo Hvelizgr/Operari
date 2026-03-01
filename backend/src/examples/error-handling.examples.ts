@@ -88,40 +88,35 @@ async function executeNode(node: any, input: any) {
 import { HttpError, ErrorCode } from '@/errors/custom-error';
 import { withHttpRetry } from '@/utils/retry';
 
-async function makeHttpRequest(config: any, input: any) {
-    try {
-        const result = await withHttpRetry(
-            async () => {
-                const response = await fetch(config.url, {
-                    method: config.method || 'GET',
-                    headers: { 'Content-Type': 'application/json', ...config.headers },
-                    body: config.body ? JSON.stringify(config.body) : undefined,
+async function makeHttpRequest(config: any, _input: any) {
+    const result = await withHttpRetry(
+        async () => {
+            const response = await fetch(config.url, {
+                method: config.method || 'GET',
+                headers: { 'Content-Type': 'application/json', ...config.headers },
+                body: config.body ? JSON.stringify(config.body) : undefined,
+            });
+
+            // Throw on error status
+            if (!response.ok) {
+                throw new HttpError({
+                    message: `HTTP ${response.status}: ${response.statusText}`,
+                    code: response.status === 404 ? ErrorCode.HTTP_REQUEST_FAILED : ErrorCode.HTTP_REQUEST_FAILED,
+                    statusCode: response.status,
+                    url: config.url,
                 });
-
-                // Throw on error status
-                if (!response.ok) {
-                    throw new HttpError({
-                        message: `HTTP ${response.status}: ${response.statusText}`,
-                        code: response.status === 404 ? ErrorCode.HTTP_REQUEST_FAILED : ErrorCode.HTTP_REQUEST_FAILED,
-                        statusCode: response.status,
-                        url: config.url,
-                    });
-                }
-
-                return response.json();
-            },
-            `HTTP ${config.method || 'GET'} to ${config.url}`,
-            {
-                maxRetries: config.retries || 3,
-                timeout: 30000,
             }
-        );
 
-        return result;
-    } catch (error) {
-        // Already wrapped in HttpError or CustomError
-        throw error;
-    }
+            return response.json();
+        },
+        `HTTP ${config.method || 'GET'} to ${config.url}`,
+        {
+            maxRetries: config.retries || 3,
+            timeout: 30000,
+        }
+    );
+
+    return result;
 }
 
 // ============================================================================

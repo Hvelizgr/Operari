@@ -117,9 +117,7 @@ export interface StoreGetNodeConfig {
   key?: string;
 }
 
-export interface SuspendNodeConfig {
-  // No config needed for now
-}
+export type SuspendNodeConfig = Record<string, never>;
 
 export interface SetMetadataNodeConfig {
   metadata?: Record<string, unknown>;
@@ -179,20 +177,123 @@ export interface SwitchNodeConfig {
   expression?: string;
 }
 
-export interface BinaryNodeConfig {
-  operation?: 'read' | 'write' | 'convert' | 'compress' | 'decompress';
-  filePath?: string;
-  content?: string;
-  encoding?: 'utf8' | 'base64' | 'binary';
+export interface WebScraperNodeConfig {
+  url?: string;
+  mode?: 'fast' | 'advanced'; // fast: Cheerio, advanced: Jina AI / Markdown
+  selector?: string;
+  extractText?: boolean;
+  extractHtml?: boolean;
+  extractLinks?: boolean;
+  extractImages?: boolean;
 }
 
-export interface BinaryResult extends ExecutionOutput {
+// AI & Integration Node Configs
+export interface LLMNodeConfig {
+  provider?: string;
+  model?: string;
+  prompt?: string;
+  systemPrompt?: string;
+  inputField?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
+export interface SlackNodeConfig {
+  message?: string;
+  channel?: string;
+  webhookUrl?: string;
+}
+
+export interface TelegramNodeConfig {
+  operation?: 'sendMessage' | 'sendPhoto' | 'sendDocument';
+  chatId?: string;
+  message?: string;
+  parseMode?: 'HTML' | 'Markdown';
+}
+
+export interface BinaryNodeConfig {
+  operation?: 'read' | 'write';
   filePath?: string;
+  encoding?: string;
   content?: string;
-  encoding?: 'utf8' | 'base64' | 'binary';
-  size?: number;
-  read?: boolean;
-  written?: boolean;
+}
+
+export interface CryptoNodeConfig {
+  operation?: 'hash' | 'sign' | 'random';
+  algorithm?: string;
+  inputField?: string;
+  key?: string;
+  encoding?: string;
+}
+
+export interface DateTimeNodeConfig {
+  operation?: 'now' | 'format' | 'add' | 'subtract' | 'diff' | 'parse';
+  inputField?: string;
+  format?: string;
+  amount?: number;
+  unit?: string;
+}
+
+export interface DocumentParserNodeConfig {
+  inputField?: string;
+  parser?: string;
+}
+
+export interface EmbeddingsNodeConfig {
+  provider?: string;
+  model?: string;
+  inputField?: string;
+  dimensions?: number;
+}
+
+export interface HtmlExtractNodeConfig {
+  inputField?: string;
+  sourceData?: string;
+  selector?: string;
+  extractType?: 'text' | 'html' | 'attribute';
+  attribute?: string;
+  multiple?: boolean;
+}
+
+export interface MemoryNodeConfig {
+  operation?: 'get' | 'set' | 'delete' | 'list';
+  namespace?: string;
+  key?: string;
+  value?: unknown;
+}
+
+export interface PerplexityNodeConfig {
+  model?: string;
+  query?: string;
+  inputField?: string;
+}
+
+export interface SpreadsheetNodeConfig {
+  operation?: 'read' | 'write' | 'append';
+  filePath?: string;
+  headers?: boolean;
+  data?: unknown[][];
+}
+
+export interface TextSplitterNodeConfig {
+  chunkSize?: number;
+  chunkOverlap?: number;
+  inputField?: string;
+}
+
+export interface VectorStoreNodeConfig {
+  operation?: 'upsert' | 'query' | 'delete';
+  provider?: string;
+  collection?: string;
+  queryVector?: number[];
+  topK?: number;
+  ids?: string[];
+}
+
+export interface CompareDatasetsNodeConfig {
+  inputField1?: string;
+  inputField2?: string;
+  compareFields?: string[];
 }
 
 // Union type for all possible node configs
@@ -219,6 +320,22 @@ export type NodeConfig =
   | LimitNodeConfig
   | ActionNodeConfig
   | SwitchNodeConfig
+  | WebScraperNodeConfig
+  | LLMNodeConfig
+  | SlackNodeConfig
+  | TelegramNodeConfig
+  | BinaryNodeConfig
+  | CryptoNodeConfig
+  | DateTimeNodeConfig
+  | DocumentParserNodeConfig
+  | EmbeddingsNodeConfig
+  | HtmlExtractNodeConfig
+  | MemoryNodeConfig
+  | PerplexityNodeConfig
+  | SpreadsheetNodeConfig
+  | TextSplitterNodeConfig
+  | VectorStoreNodeConfig
+  | CompareDatasetsNodeConfig
   | Record<string, unknown>;
 
 // Zod schema for generic node config (flexible but validated)
@@ -261,6 +378,13 @@ export type WorkflowNodeType =
   | 'Action'
   | string; // Allow custom types
 
+export interface WorkflowNodeTest {
+  id: string;
+  name: string;
+  condition: string; // Jexl expression
+  severity: 'error' | 'warning';
+}
+
 export interface WorkflowNode {
   id: string;
   type: WorkflowNodeType;
@@ -271,7 +395,23 @@ export interface WorkflowNode {
   config?: NodeConfig;
   inputs?: NodePort[];
   outputs?: NodePort[];
+  tests?: WorkflowNodeTest[];
+  mockOutput?: ExecutionOutput;
+  retryOptions?: {
+    enabled: boolean;
+    maxRetries?: number;
+    initialDelay?: number;
+    maxDelay?: number;
+    backoffFactor?: number;
+  };
 }
+
+export const workflowNodeTestSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  condition: z.string(),
+  severity: z.enum(['error', 'warning']),
+});
 
 export const workflowNodeSchema = z.object({
   id: z.string().min(1),
@@ -283,6 +423,15 @@ export const workflowNodeSchema = z.object({
   config: nodeConfigSchema,
   inputs: z.array(nodePortSchema).optional(),
   outputs: z.array(nodePortSchema).optional(),
+  tests: z.array(workflowNodeTestSchema).optional(),
+  mockOutput: z.record(z.string(), z.unknown()).optional(),
+  retryOptions: z.object({
+    enabled: z.boolean(),
+    maxRetries: z.number().int().min(0).optional(),
+    initialDelay: z.number().int().min(0).optional(),
+    maxDelay: z.number().int().min(0).optional(),
+    backoffFactor: z.number().min(1).optional(),
+  }).optional(),
 });
 
 // =============================================================================
@@ -477,6 +626,123 @@ export interface SwitchResult extends ExecutionOutput {
   expression: string;
 }
 
+export interface WebScraperResult extends ExecutionOutput {
+  url: string;
+  mode: string;
+  title?: string;
+  text?: string;
+  html?: string;
+  markdown?: string;
+  links?: string[];
+  images?: string[];
+  metadata?: Record<string, any>;
+}
+
+// AI & Integration Node Results
+export interface LLMResult extends ExecutionOutput {
+  response?: string;
+  model?: string;
+}
+
+export interface SlackResult extends ExecutionOutput {
+  success: boolean;
+  response?: unknown;
+  channel?: string;
+}
+
+export interface TelegramResult extends ExecutionOutput {
+  success: boolean;
+  response?: unknown;
+  chatId?: string;
+}
+
+export interface BinaryResult extends ExecutionOutput {
+  read?: boolean;
+  written?: boolean;
+  filePath?: string;
+  size?: number;
+  data?: string;
+}
+
+export interface CryptoResult extends ExecutionOutput {
+  result?: string;
+  algorithm?: string;
+  encoding?: string;
+}
+
+export interface DateTimeResult extends ExecutionOutput {
+  result?: string | number;
+  formatted?: string;
+  timestamp?: number;
+}
+
+export interface DocumentParserResult extends ExecutionOutput {
+  text?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface EmbeddingsResult extends ExecutionOutput {
+  embeddings?: number[][];
+  model?: string;
+  dimensions?: number;
+}
+
+export interface HtmlExtractResult extends ExecutionOutput {
+  extracted?: string | string[];
+  count?: number;
+}
+
+export interface MemoryResult extends ExecutionOutput {
+  success: boolean;
+  key?: string;
+  value?: unknown;
+  keys?: string[];
+}
+
+export interface PerplexityResult extends ExecutionOutput {
+  response?: string;
+  citations?: string[];
+  model?: string;
+}
+
+export interface SpreadsheetResult extends ExecutionOutput {
+  data?: unknown[][];
+  rows?: number;
+  columns?: number;
+  success?: boolean;
+}
+
+export interface TextSplitterResult extends ExecutionOutput {
+  chunks?: string[];
+  count?: number;
+}
+
+export interface VectorStoreResult extends ExecutionOutput {
+  success?: boolean;
+  count?: number;
+  ids?: string[];
+  matches?: Array<{
+    id: string;
+    score: number;
+    text?: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  sources?: Array<{
+    index: number;
+    id: string;
+    text?: string;
+    score: number;
+    metadata?: Record<string, unknown>;
+  }>;
+}
+
+export interface CompareDatasetsResult extends ExecutionOutput {
+  matches?: unknown[];
+  differences?: unknown[];
+  merged?: unknown[];
+  count?: number;
+}
+
 // Union type for all possible node results
 export type NodeExecutionResult =
   | TriggerResult
@@ -500,7 +766,45 @@ export type NodeExecutionResult =
   | LimitResult
   | ActionResult
   | SwitchResult
+  | WebScraperResult
+  | LLMResult
+  | SlackResult
+  | TelegramResult
+  | BinaryResult
+  | CryptoResult
+  | DateTimeResult
+  | DocumentParserResult
+  | EmbeddingsResult
+  | HtmlExtractResult
+  | MemoryResult
+  | PerplexityResult
+  | SpreadsheetResult
+  | TextSplitterResult
+  | VectorStoreResult
+  | CompareDatasetsResult
   | ExecutionOutput;
+
+// =============================================================================
+// Workflow Type (for tests and services)
+// =============================================================================
+
+export interface WorkflowConnectionAlt {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  sourcePort?: string;
+  targetPort?: string;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+  nodes: WorkflowNode[];
+  connections: WorkflowConnectionAlt[];
+  isActive?: boolean;
+  schedule?: string;
+}
 
 // =============================================================================
 // Type Guards

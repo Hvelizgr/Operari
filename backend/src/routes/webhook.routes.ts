@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { prisma } from '../server';
-import { ExecutionService } from '../editor/execution/execution.service';
 import { QueueService } from '../scaling/queue.service';
 
 const router = Router();

@@ -108,6 +108,48 @@ const NODES = [
     defineNode('n8n-nodes-base.langChain', 'ai', 'GitBranch', 'LangChain', 'LangChain', 'LLM Chains'),
     defineNode('n8n-nodes-base.anthropic', 'ai', 'MessageSquare', 'Anthropic', 'Anthropic', 'Claude Models'),
     defineNode('n8n-nodes-base.perplexity', 'ai', 'Search', 'Perplexity', 'Perplexity', 'AI Search'),
+    defineNode('WebScraper', 'core', 'Globe', 'Web Scraper', 'Extractor Web', 'Scrape content from any website (Fast/Advanced)', [{ name: 'main', type: 'main' }], [{ name: 'main', type: 'main' }], [
+        {
+            displayName: 'URL',
+            name: 'url',
+            type: 'string',
+            default: '',
+            placeholder: 'https://example.com',
+            description: 'The URL of the page to scrape',
+            required: true,
+        },
+        {
+            displayName: 'Mode',
+            name: 'mode',
+            type: 'options',
+            options: [
+                { name: 'Fast (Cheerio)', value: 'fast' },
+                { name: 'Advanced (Jina AI / Markdown)', value: 'advanced' },
+            ],
+            default: 'fast',
+            description: 'Fast is best for static HTML. Advanced is best for LLM integration and markdown.',
+        },
+        {
+            displayName: 'Selector',
+            name: 'selector',
+            type: 'string',
+            default: 'body',
+            placeholder: '.content-class',
+            description: 'CSS Selector to target specific content (Fast mode only)',
+        },
+        {
+            displayName: 'Extract Links',
+            name: 'extractLinks',
+            type: 'boolean',
+            default: false,
+        },
+        {
+            displayName: 'Extract Images',
+            name: 'extractImages',
+            type: 'boolean',
+            default: false,
+        }
+    ]),
 ];
 
 async function main() {

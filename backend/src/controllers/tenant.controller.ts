@@ -1,9 +1,9 @@
-
 import { Response, NextFunction } from 'express';
 import { prisma } from '../server';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { CustomError, ErrorCode } from '../errors/custom-error';
 import { auditService, AuditAction } from '../services/audit.service';
+import { safeParseInt } from '../utils/validation';
 
 export class TenantController {
     /**
@@ -50,11 +50,14 @@ export class TenantController {
                 throw new CustomError({ message: 'Only admins can update workspace settings', code: ErrorCode.UNAUTHORIZED });
             }
 
-            const { name } = req.body;
+            const { name, themeConfig } = req.body;
             
             const tenant = await prisma.tenant.update({
                 where: { id: tenantId },
-                data: { name }
+                data: { 
+                    name,
+                    themeConfig: themeConfig || undefined
+                }
             });
 
             await auditService.log({
@@ -104,8 +107,8 @@ export class TenantController {
     async getAuditLogs(req: AuthRequest, res: Response, next: NextFunction) {
         try {
             const tenantId = req.user?.tenantId;
-            const limit = parseInt(req.query.limit as string) || 50;
-            const offset = parseInt(req.query.offset as string) || 0;
+            const limit = safeParseInt(req.query.limit as string, 50);
+            const offset = safeParseInt(req.query.offset as string, 0);
 
             const logs = await prisma.auditLog.findMany({
                 where: { tenantId },

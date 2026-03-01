@@ -93,7 +93,7 @@ function extractProperties(content: string): NodeProperty[] {
             const nameMatch = propStr.match(/name:\s*['"`](\w+)['"`]/);
             const displayNameMatch = propStr.match(/displayName:\s*['"`]([^'"`]+)['"`]/);
             const typeMatch = propStr.match(/type:\s*['"`](\w+)['"`]/);
-            const defaultMatch = propStr.match(/default:\s*['"`]?([^,\n\}]+?)['"`]?\s*[,\n\}]/);
+            const defaultMatch = propStr.match(/default:\s*['"`]?([^,\n}]+?)['"`]?\s*[,\n}]/);
             const descMatch = propStr.match(/description:\s*['"`]([^'"`]+)['"`]/);
 
             if (nameMatch && displayNameMatch && typeMatch) {
@@ -104,7 +104,7 @@ function extractProperties(content: string): NodeProperty[] {
                 };
 
                 if (defaultMatch) {
-                    let defaultVal = defaultMatch[1].trim();
+                    const defaultVal = defaultMatch[1].trim();
                     if (defaultVal === 'true') prop.default = true;
                     else if (defaultVal === 'false') prop.default = false;
                     else if (!isNaN(Number(defaultVal))) prop.default = Number(defaultVal);

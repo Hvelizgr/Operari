@@ -2,7 +2,8 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { CustomError, ErrorCode, ErrorSeverity } from '../errors/custom-error';
-import { SystemEventType } from '@prisma/client';
+import { correlationService } from '../services/correlation.service';
+import { safeParseInt } from '../utils/validation';
 
 export class AlertController {
     
@@ -20,8 +21,8 @@ export class AlertController {
                 });
             }
 
-            const limit = parseInt(req.query.limit as string) || 20;
-            const offset = parseInt(req.query.offset as string) || 0;
+            const limit = safeParseInt(req.query.limit as string, 20);
+            const offset = safeParseInt(req.query.offset as string, 0);
             const isRead = req.query.isRead === 'true' ? true : (req.query.isRead === 'false' ? false : undefined);
             const severity = req.query.severity as string;
 
@@ -53,6 +54,21 @@ export class AlertController {
                     offset
                 }
             });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Get smart insights (correlated error patterns)
+     */
+    async getInsights(req: AuthRequest, res: Response, next: NextFunction) {
+        try {
+            const tenantId = req.user?.tenantId;
+            if (!tenantId) throw new CustomError({ message: 'Unauthorized', code: ErrorCode.UNAUTHORIZED });
+
+            const insights = await correlationService.getGlobalInsights(tenantId);
+            res.json(insights);
         } catch (error) {
             next(error);
         }

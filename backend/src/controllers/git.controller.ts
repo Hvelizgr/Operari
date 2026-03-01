@@ -161,6 +161,86 @@ export class GitController {
             next(error);
         }
     }
+
+    async getBranches(req: AuthRequest, res: Response, next: NextFunction) {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                throw new CustomError({ message: 'User not authenticated', code: ErrorCode.CONFIGURATION_ERROR });
+            }
+
+            const repoPath = req.query.repoPath as string | undefined;
+            const targetPath = this.getRepoPath(userId, repoPath);
+
+            const result = await gitService.getBranches(targetPath);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async checkout(req: AuthRequest, res: Response, next: NextFunction) {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                throw new CustomError({ message: 'User not authenticated', code: ErrorCode.CONFIGURATION_ERROR });
+            }
+
+            const { branch, create, repoPath } = req.body;
+            const targetPath = this.getRepoPath(userId, repoPath);
+
+            const result = await gitService.checkout(targetPath, branch, create);
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async getDiff(req: AuthRequest, res: Response, next: NextFunction) {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                throw new CustomError({ message: 'User not authenticated', code: ErrorCode.CONFIGURATION_ERROR });
+            }
+
+            const workflowId = req.params.workflowId as string;
+            const repoPath = req.query.repoPath as string | undefined;
+            const targetPath = this.getRepoPath(userId, repoPath);
+
+            const diff = await gitService.getDiff(targetPath, workflowId);
+            res.json({ diff });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async getConfig(req: AuthRequest, res: Response, next: NextFunction) {
+        try {
+            const tenantId = req.user?.tenantId;
+            if (!tenantId) {
+                throw new CustomError({ message: 'Tenant not identified', code: ErrorCode.CONFIGURATION_ERROR });
+            }
+
+            const config = await gitService.getIntegrationConfig(tenantId);
+            res.json(config || {});
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async saveConfig(req: AuthRequest, res: Response, next: NextFunction) {
+        try {
+            const tenantId = req.user?.tenantId;
+            if (!tenantId) {
+                throw new CustomError({ message: 'Tenant not identified', code: ErrorCode.CONFIGURATION_ERROR });
+            }
+
+            const config = await gitService.saveIntegrationConfig(tenantId, req.body);
+            res.json(config);
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 export const gitController = new GitController();

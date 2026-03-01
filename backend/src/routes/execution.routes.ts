@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { prisma } from '../server';
-import { authenticate, AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest } from '../middleware/auth.middleware';
 import { ExecutionService } from '../editor/execution/execution.service';
 import { QueueService } from '../scaling/queue.service';
+import { parsePagination } from '../utils/validation';
 
 const router = Router();
 
@@ -76,8 +77,8 @@ router.use((req: AuthRequest, _res, next) => {
  */
 router.get('/', async (req: AuthRequest, res) => {
     try {
-        const { page = '1', limit = '20', workflowId, status } = req.query;
-        const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+        const { workflowId, status } = req.query;
+        const { page, limit, skip } = parsePagination(req.query as { page?: string; limit?: string });
 
         const where = {
             workflow: { tenantId: req.user!.tenantId },
@@ -89,7 +90,7 @@ router.get('/', async (req: AuthRequest, res) => {
         const dataPromise = prisma.execution.findMany({
             where,
             skip,
-            take: parseInt(limit as string),
+            take: limit,
             orderBy: { startedAt: 'desc' },
             include: {
                 workflow: { select: { id: true, name: true } },
@@ -103,10 +104,10 @@ router.get('/', async (req: AuthRequest, res) => {
         res.json({
             executions,
             pagination: {
-                page: parseInt(page as string),
-                limit: parseInt(limit as string),
+                page,
+                limit,
                 total,
-                pages: Math.ceil(total / parseInt(limit as string)),
+                pages: Math.ceil(total / limit),
             },
         });
     } catch (error) {
@@ -227,12 +228,28 @@ router.get('/:id', async (req: AuthRequest, res) => {
 router.post('/:workflowId/run', async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.workflowId as string;
-        const workflow = await prisma.workflow.findFirst({
+        let workflow = await prisma.workflow.findFirst({
             where: {
                 id: workflowId,
                 tenantId: req.user!.tenantId,
             },
         });
+
+        // Special handling for 'current-workflow' scratchpad - create if not exists
+        if (!workflow && workflowId === 'current-workflow') {
+            workflow = await prisma.workflow.create({
+                data: {
+                    id: 'current-workflow',
+                    name: 'Borrador (Scratchpad)',
+                    description: 'Tu espacio de trabajo temporal',
+                    nodes: [],
+                    connections: [],
+                    isActive: false,
+                    userId: req.user!.id,
+                    tenantId: req.user!.tenantId,
+                },
+            });
+        }
 
         if (!workflow) {
             return res.status(404).json({ error: 'Workflow not found' });
@@ -249,6 +266,7 @@ router.post('/:workflowId/run', async (req: AuthRequest, res) => {
         res.status(202).json({ 
             message: 'Execution queued', 
             jobId: job.id,
+            id: (job as any).data?.id || (job as any).id,
             status: 'QUEUED',
             workflowId: workflow.id
         });
@@ -448,12 +466,28 @@ router.post('/:workflowId/debug', async (req: AuthRequest, res) => {
         const workflowId = req.params.workflowId as string;
         const { input, startNodeId } = req.body;
 
-        const workflow = await prisma.workflow.findFirst({
+        let workflow = await prisma.workflow.findFirst({
             where: {
                 id: workflowId,
                 tenantId: req.user!.tenantId,
             },
         });
+
+        // Special handling for 'current-workflow' scratchpad - create if not exists
+        if (!workflow && workflowId === 'current-workflow') {
+            workflow = await prisma.workflow.create({
+                data: {
+                    id: 'current-workflow',
+                    name: 'Borrador (Scratchpad)',
+                    description: 'Tu espacio de trabajo temporal',
+                    nodes: [],
+                    connections: [],
+                    isActive: false,
+                    userId: req.user!.id,
+                    tenantId: req.user!.tenantId,
+                },
+            });
+        }
 
         if (!workflow) {
             return res.status(404).json({ error: 'Workflow not found' });
@@ -470,12 +504,79 @@ router.post('/:workflowId/debug', async (req: AuthRequest, res) => {
 
         res.status(202).json({ 
             message: 'Debug execution queued', 
-            jobId: job.id, 
+            jobId: job.id,
+            id: (job as any).data?.id || (job as any).id,
             status: 'QUEUED' 
         });
     } catch (error) {
         req.log.error({ error }, 'Debug workflow error');
         res.status(500).json({ error: 'Failed to queue debug execution' });
+    }
+});
+
+/**
+ * @swagger
+ * /executions/{workflowId}/test:
+ *   post:
+ *     summary: Run workflow in Test Mode (using mocks and running assertions)
+ *     tags: [Executions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: workflowId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               input:
+ *                 type: object
+ *     responses:
+ *       202:
+ *         description: Test execution started
+ *       404:
+ *         description: Workflow not found
+ */
+router.post('/:workflowId/test', async (req: AuthRequest, res) => {
+    try {
+        const workflowId = req.params.workflowId as string;
+        const { input } = req.body;
+
+        const workflow = await prisma.workflow.findFirst({
+            where: {
+                id: workflowId,
+                tenantId: req.user!.tenantId,
+            },
+        });
+
+        if (!workflow) {
+            return res.status(404).json({ error: 'Workflow not found' });
+        }
+
+        const queueService = QueueService.getInstance();
+        const job = await queueService.enqueueExecution({
+            workflowId: workflow.id,
+            userId: req.user!.id,
+            trigger: 'API',
+            input: input || {},
+            testMode: true, // IMPORTANT: Enable test mode
+        });
+
+        res.status(202).json({ 
+            message: 'Test execution queued', 
+            jobId: job.id,
+            id: (job as any).data?.id || (job as any).id,
+            status: 'QUEUED',
+            testMode: true
+        });
+    } catch (error) {
+        req.log.error({ error }, 'Test workflow error');
+        res.status(500).json({ error: 'Failed to queue test execution' });
     }
 });
 

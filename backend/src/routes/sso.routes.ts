@@ -54,10 +54,10 @@ router.get('/:tenantSlug/login', async (req, res, next) => {
  * @swagger
  * /sso/callback:
  *   get:
- *     summary: SSO callback handler
+ *     summary: SSO callback handler (OAuth2)
  *     tags: [SSO]
  */
-router.get('/callback', async (req, res, next) => {
+router.get('/callback', async (req, res, _next) => {
     try {
         const { code, state, error } = req.query;
 
@@ -103,6 +103,79 @@ router.get('/callback', async (req, res, next) => {
     } catch (error) {
         console.error('SSO callback error:', error);
         res.redirect(`${process.env.FRONTEND_URL}/login?error=sso_failed`);
+    }
+});
+
+/**
+ * @swagger
+ * /sso/saml/callback:
+ *   post:
+ *     summary: SAML Assertion Consumer Service
+ *     tags: [SSO]
+ */
+router.post('/saml/callback', async (req, res, _next) => {
+    try {
+        const { SAMLResponse, RelayState } = req.body;
+
+        if (!RelayState || !stateTokens.has(RelayState)) {
+            return res.redirect(`${process.env.FRONTEND_URL}/login?error=invalid_state`);
+        }
+
+        const stateData = stateTokens.get(RelayState)!;
+        stateTokens.delete(RelayState);
+
+        const tenant = await prisma.tenant.findUnique({
+            where: { slug: stateData.tenantSlug }
+        });
+
+        if (!tenant) return res.redirect(`${process.env.FRONTEND_URL}/login?error=tenant_not_found`);
+
+        const config = await ssoService.getConfig(tenant.id);
+        if (!config || config.provider !== 'saml') {
+            return res.redirect(`${process.env.FRONTEND_URL}/login?error=invalid_provider`);
+        }
+
+        const ssoUser = await ssoService.processSAMLResponse(config, SAMLResponse);
+        const { user, isNew } = await ssoService.findOrCreateUser(tenant.id, ssoUser);
+        const token = ssoService.generateToken(user);
+
+        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}&new=${isNew}`);
+    } catch (error) {
+        console.error('SAML callback error:', error);
+        res.redirect(`${process.env.FRONTEND_URL}/login?error=saml_failed`);
+    }
+});
+
+/**
+ * @swagger
+ * /sso/{tenantSlug}/ldap:
+ *   post:
+ *     summary: LDAP Login
+ *     tags: [SSO]
+ */
+router.post('/:tenantSlug/ldap', async (req, res, _next) => {
+    try {
+        const { tenantSlug } = req.params;
+        const { username, password } = req.body;
+
+        const tenant = await prisma.tenant.findUnique({
+            where: { slug: tenantSlug }
+        });
+
+        if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+        const config = await ssoService.getConfig(tenant.id);
+        if (!config || config.provider !== 'ldap') {
+            return res.status(400).json({ error: 'LDAP not configured' });
+        }
+
+        const ssoUser = await ssoService.authenticateLDAP(config, username, password);
+        const { user, isNew } = await ssoService.findOrCreateUser(tenant.id, ssoUser);
+        const token = ssoService.generateToken(user);
+
+        res.json({ token, isNew });
+    } catch (error) {
+        res.status(401).json({ error: 'LDAP Authentication failed' });
     }
 });
 
