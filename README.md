@@ -11,6 +11,17 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
+## Required Ports
+
+| Service  | Port | Description           |
+|----------|------|-----------------------|
+| Frontend | 3000 | Next.js dev server    |
+| Backend  | 4001 | Express API server    |
+| Postgres | 5433 | Database (Docker)     |
+| Redis    | 6379 | Cache/Queue (Docker)  |
+
+If ports are in use, run: `npm run kill:ports`
+
 ## Tech Stack
 
 - Next.js 15 (App Router)

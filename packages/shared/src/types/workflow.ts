@@ -19,6 +19,13 @@ export interface Position {
 
 export type ExecutionState = 'idle' | 'running' | 'success' | 'error';
 
+export interface NodeTest {
+    id: string;
+    name: string;
+    condition: string; // JavaScript expression to evaluate output (e.g. "output.success === true")
+    severity: 'error' | 'warning';
+}
+
 export interface WorkflowNode {
     id: string;
     type: string;
@@ -28,9 +35,13 @@ export interface WorkflowNode {
     executionState?: ExecutionState;
     enabled?: boolean;
     breakpoint?: boolean;
+    pinnedData?: any; // Pinned output data for debug - skips execution and returns this data
+    tests?: NodeTest[]; // Automated tests for this node
     inputs?: NodePort[];
     outputs?: NodePort[];
     parentId?: string; // Reference to parent frame node for grouping
+    color?: string; // Custom color override for the node
+    parameters?: Record<string, any>; // Node parameters (operation-specific)
 }
 
 // =============================================================================
@@ -66,6 +77,7 @@ export interface WorkflowDefinition {
     connections: Connection[];
     isActive?: boolean;
     schedule?: string;
+    requiresApproval?: boolean;
     createdAt?: string;
     updatedAt?: string;
 }

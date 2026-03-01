@@ -9,3 +9,13 @@ api
 coverage
 dist
 Test
+others/
+backend/data/
+backend/coverage/
+frontend/coverage/
+deploy/
+docs/
+docs-site/
+mobile/
+plugins/
+scripts/

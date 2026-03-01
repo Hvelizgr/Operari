@@ -1,1 +1,12 @@
-# lint-staged
+#!/bin/sh
+
+# Check for secrets in staged files
+SECRETS_PATTERN="(password|secret|api.?key|token|credential).*[=:].*(\'|\")[a-zA-Z0-9]{16,}"
+if git diff --cached --name-only | xargs grep -lE "$SECRETS_PATTERN" 2>/dev/null | grep -v ".env"; then
+  echo "WARNING: Possible secrets detected in staged files!"
+  echo "Please review before committing."
+  exit 1
+fi
+
+npx lint-staged
+npm run typecheck
