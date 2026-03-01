@@ -8,7 +8,7 @@ export default defineConfig({
     workers: process.env.CI ? 1 : undefined,
     reporter: 'html',
     use: {
-        baseURL: 'http://localhost:3005',
+        baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3001',
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
     },
@@ -26,9 +26,9 @@ export default defineConfig({
             use: { ...devices['Desktop Safari'] },
         },
     ],
-    webServer: {
-        command: 'npm run dev -- -p 3005',
-        url: 'http://localhost:3005',
-        reuseExistingServer: !process.env.CI,
-    },
+    webServer: process.env.CI ? {
+        command: 'npm run dev',
+        url: 'http://localhost:3001',
+        reuseExistingServer: false,
+    } : undefined,
 });

@@ -79,6 +79,7 @@ export default function EditorSimulation({ content }: EditorProps) {
 
         const timeout = setTimeout(runWorkflow, 1000);
         return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (

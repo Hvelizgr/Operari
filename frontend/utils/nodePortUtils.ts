@@ -174,19 +174,41 @@ export const calculatePortPosition = (
 };
 
 // Node dimensions constants (matching CSS in WorkflowNode.css)
+// NOTE: These must match the actual rendered sizes in CSS
 const NODE_DIMENSIONS = {
-    entity: { width: 64, height: 64 },        // .wf_ent_trigger, .wf_ent_action, .wf_ent_limit
-    controller: { width: 128, height: 64 },   // .wf_ent_controller
-    event: { width: 275, height: 120 },       // .wf_event (standard job)
+    // Trigger diamond shape: 56x56 but rotated 45deg, effective bounding box is ~79x79
+    // However, the port position is calculated from the original position
+    trigger: { width: 56, height: 56 },
+    // Controller n8n style: 180x56 card
+    controller: { width: 180, height: 56 },
+    // Standard n8n card: 180x56
+    n8n: { width: 180, height: 56 },
+    // Legacy event card: 260x100
+    event: { width: 260, height: 100 },
 };
 
 /**
- * Get port position and direction for a node
- * @param node - The workflow node
- * @param portType - 'input' or 'output'
- * @param portIndex - Index of the port (for nodes with multiple ports)
- * @returns PortInfo with x, y coordinates and direction
+ * Check if node is a trigger type
  */
+const isTriggerNode = (node: NodeWithDimensions): boolean => {
+    const lowerType = node.type.toLowerCase();
+    const lowerCategory = ((node as any).category || '').toLowerCase();
+    
+    return lowerType.includes('trigger') || lowerType === 'start' || lowerCategory.includes('trigger');
+};
+
+/**
+ * Check if node is a controller/condition type
+ */
+const isControllerNode = (node: NodeWithDimensions): boolean => {
+    const lowerType = node.type.toLowerCase();
+    const lowerCategory = ((node as any).category || '').toLowerCase();
+    
+    return lowerType.includes('controller') || lowerType.includes('condition') || 
+           lowerType.includes('if') || lowerType.includes('switch') ||
+           lowerCategory.includes('control') || lowerCategory.includes('logic');
+};
+
 /**
  * Get port position and direction for a node
  * @param node - The workflow node
@@ -201,58 +223,77 @@ export const getNodePortInfo = (
     portIndex: number = 0,
     totalPorts: number = 1
 ): PortInfo => {
-    const lowerType = node.type.toLowerCase();
-    const lowerCategory = (node as any).category?.toLowerCase() || '';
     const count = Math.max(1, totalPorts);
 
-    // Trigger / Start: Output ONLY - Small 64x64 circle/pill
-    if (lowerType.includes('trigger') || lowerType === 'start' || lowerCategory.includes('trigger')) {
-        const { width, height } = NODE_DIMENSIONS.entity;
+    // Trigger nodes - diamond shape 56x56 rotated 45deg
+    // The diamond's visual width after rotation is ~79px (56 * sqrt(2))
+    // The output port is positioned at the right corner of the diamond
+    if (isTriggerNode(node)) {
+        const size = NODE_DIMENSIONS.trigger.width;
+        const centerX = node.position.x + (size / 2);
+        const centerY = node.position.y + (size / 2);
+        
+        // For a rotated square, the right corner is at centerX + (size / sqrt(2))
+        // But since CSS uses right: -10px from the rotated container, we approximate
+        // The effective output port position is at the rightmost point of the diamond
+        const diagonalOffset = size / Math.sqrt(2); // ~39.6 for size=56
+        
         if (portType === 'input') {
-            return { x: node.position.x, y: node.position.y + (height / 2), direction: 'left' };
+            // Input would be at the left corner
+            return { x: centerX - diagonalOffset, y: centerY, direction: 'left' };
         }
-        return { x: node.position.x + width, y: node.position.y + (height / 2), direction: 'right' };
+        // Output port is at the right corner of the diamond
+        return { x: centerX + diagonalOffset, y: centerY, direction: 'right' };
     }
 
-    // Action/Service: Input (Left) - Small 64x64 circle/pill
-    if (lowerType.includes('action') || lowerType.includes('email') || lowerType.includes('slack') || lowerType.includes('discord') ||
-        lowerCategory.includes('ai') || lowerCategory.includes('integrations') || lowerType.includes('openai') || lowerType.includes('anthropic')) {
-        const { width, height } = NODE_DIMENSIONS.entity;
-        if (portType === 'input') {
-            return { x: node.position.x, y: node.position.y + (height / 2), direction: 'left' };
-        }
-        return { x: node.position.x + width, y: node.position.y + (height / 2), direction: 'right' };
-    }
-
-    // Controller: Input (Left), Output (Right) - 128x64 pill
-    if (lowerType.includes('controller') || lowerType.includes('condition') || lowerCategory.includes('control') || lowerCategory.includes('logic')) {
+    // Controller nodes - n8n style card 180x56
+    if (isControllerNode(node)) {
         const { width, height } = NODE_DIMENSIONS.controller;
+        const centerY = node.position.y + (height / 2);
+        
         if (portType === 'input') {
-            return { x: node.position.x, y: node.position.y + (height / 2), direction: 'left' };
+            return { x: node.position.x, y: centerY, direction: 'left' };
         }
-        return { x: node.position.x + width, y: node.position.y + (height / 2), direction: 'right' };
+        return { x: node.position.x + width, y: centerY, direction: 'right' };
     }
 
-    // Limit: Input (Top), Output (Bottom) - 64x64 circle/pill
-    if (lowerType.includes('limit')) {
-        const { width, height } = NODE_DIMENSIONS.entity;
+    // Limit nodes - diamond style with top/bottom ports
+    if (node.type.toLowerCase().includes('limit')) {
+        const { width, height } = NODE_DIMENSIONS.trigger;
+        const centerX = node.position.x + (width / 2);
+        
         if (portType === 'input') {
-            return { x: node.position.x + (width / 2), y: node.position.y, direction: 'top' };
+            return { x: centerX, y: node.position.y, direction: 'top' };
         }
-        return { x: node.position.x + (width / 2), y: node.position.y + height, direction: 'bottom' };
+        return { x: centerX, y: node.position.y + height, direction: 'bottom' };
     }
 
-    // Standard Job (Event): Input (Left), Output (Right) with multiple ports support - 275px box
-    const height = node.dimensions?.height || NODE_DIMENSIONS.event.height;
-    const width = node.dimensions?.width || NODE_DIMENSIONS.event.width;
+    // Standard n8n style job nodes - use custom dimensions or default 180x56
+    // If node has measured dimensions, use those; otherwise use n8n defaults
+    const height = node.dimensions?.height || NODE_DIMENSIONS.n8n.height;
+    const width = node.dimensions?.width || NODE_DIMENSIONS.n8n.width;
 
-    // Calculate vertical position based on index and total count
-    const yOffset = (height * (portIndex + 1)) / (count + 1);
+    // For multiple ports, distribute them vertically around center
+    const centerY = node.position.y + (height / 2);
+    
+    if (count === 1) {
+        // Single port - center it
+        if (portType === 'input') {
+            return { x: node.position.x, y: centerY, direction: 'left' };
+        }
+        return { x: node.position.x + width, y: centerY, direction: 'right' };
+    }
+    
+    // Multiple ports - distribute with spacing
+    const spacing = Math.min(16, (height - 20) / count);
+    const totalHeight = spacing * (count - 1);
+    const startY = centerY - (totalHeight / 2);
+    const portY = startY + (spacing * portIndex);
 
     if (portType === 'input') {
-        return { x: node.position.x, y: node.position.y + yOffset, direction: 'left' };
+        return { x: node.position.x, y: portY, direction: 'left' };
     }
-    return { x: node.position.x + width, y: node.position.y + yOffset, direction: 'right' };
+    return { x: node.position.x + width, y: portY, direction: 'right' };
 };
 
 /**

@@ -81,27 +81,33 @@ export default function SecurityPage() {
             </div>
             <div className="relative z-10">
             <div className="max-w-4xl mx-auto text-center mb-20">
-                <div className="w-16 h-16 bg-green-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6 text-green-500">
-                    <Shield size={32} />
+                <div className="w-20 h-20 bg-green-500/10 rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-green-500/20 shadow-[0_0_30px_rgba(34,197,94,0.15)] animate-pulse">
+                    <Shield size={40} className="text-green-500" />
                 </div>
-                <h1 className="text-5xl font-bold mb-6">{text.title}</h1>
-                <p className="text-xl text-gray-400">{text.subtitle}</p>
+                <h1 className="text-5xl md:text-7xl font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400 tracking-tight">{text.title}</h1>
+                <p className="text-xl md:text-2xl text-gray-400 leading-relaxed font-light">{text.subtitle}</p>
             </div>
 
-            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 mb-20">
+            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 mb-32">
                 {text.features.map((feature, idx) => (
-                    <div key={idx} className="flex gap-4">
-                        <div className="p-3 bg-white/5 rounded-xl h-fit">{feature.icon}</div>
-                        <div>
-                            <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
-                            <p className="text-gray-400 leading-relaxed">{feature.desc}</p>
+                    <div key={idx} className="group p-8 rounded-3xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all duration-300 backdrop-blur-sm relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-bl-[100px] -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+                        
+                        <div className="w-14 h-14 bg-black/50 rounded-2xl flex items-center justify-center mb-6 border border-white/10 shadow-lg group-hover:scale-110 transition-transform duration-500">
+                            {feature.icon}
                         </div>
+                        <h3 className="text-2xl font-bold mb-4 text-white group-hover:text-green-400 transition-colors">{feature.title}</h3>
+                        <p className="text-gray-400 text-lg leading-relaxed font-light group-hover:text-gray-300 transition-colors">{feature.desc}</p>
                     </div>
                 ))}
             </div>
 
             <div className="max-w-3xl mx-auto">
-                <h2 className="text-3xl font-bold text-center mb-8">{text.faqTitle}</h2>
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 tracking-tight">
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500">
+                        {text.faqTitle}
+                    </span>
+                </h2>
                 <Accordion selectionMode="multiple" variant="splitted">
                     {text.faq.map((item, idx) => (
                         <AccordionItem key={idx} aria-label={item.title} title={item.title}>

@@ -1,5 +1,6 @@
 import useSWR from 'swr';
 import { WorkflowNode, Connection } from '@nanoflow/shared';
+import { safeFetcher } from './useSWRConfig';
 
 export interface WorkflowTemplate {
     id: string;
@@ -7,22 +8,26 @@ export interface WorkflowTemplate {
         en: string;
         es: string;
     };
-    description: {
+    description?: {
         en: string;
         es: string;
-    };
-    category: 'email' | 'data' | 'webhooks' | 'automation';
+    } | null;
+    category?: 'email' | 'data' | 'webhooks' | 'automation' | 'ai' | string | null;
     nodes: WorkflowNode[];
     connections: Connection[];
 }
 
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
 
 export function useTemplates() {
-    const { data, error, isLoading } = useSWR<WorkflowTemplate[]>('/api/templates', fetcher, {
-        revalidateOnFocus: false,
-        dedupingInterval: 60000,
-    });
+    const { data, error, isLoading } = useSWR<WorkflowTemplate[]>(
+        `${API_URL}/api/templates?public=true`,
+        safeFetcher,
+        {
+            revalidateOnFocus: false,
+            dedupingInterval: 60000,
+        }
+    );
 
     return {
         templates: data || [],

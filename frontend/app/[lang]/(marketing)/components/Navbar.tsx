@@ -30,15 +30,13 @@ export default function Navbar({ content, lang }: NavbarProps) {
 
     return (
         <motion.header
-            className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center pt-4 px-4"
+            className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 transition-all duration-300"
+            style={{
+                backgroundColor: `rgba(9, 9, 11, ${isScrolled ? 0.6 : 0})`, // #09090b with opacity
+                backdropFilter: isScrolled ? "blur(16px)" : "none",
+            }}
         >
-            <motion.div
-                style={{
-                    backgroundColor: `rgba(var(--background), ${isScrolled ? 0.8 : 0})`,
-                    backdropFilter: isScrolled ? "blur(12px)" : "none",
-                }}
-                className={`w-full max-w-6xl rounded-2xl flex items-center justify-between px-6 py-4 transition-all duration-300 ${isScrolled ? 'border border-white/10 shadow-lg shadow-black/20' : ''}`}
-            >
+            <div className="max-w-7xl mx-auto flex items-center justify-between px-6 h-20">
                 {/* Logo */}
                 <Link href={`/${lang}`} className="flex items-center gap-2 font-bold text-xl tracking-tighter">
                     <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground">
@@ -66,7 +64,7 @@ export default function Navbar({ content, lang }: NavbarProps) {
                         {content.login}
                     </Link>
                     <Link
-                        href="#"
+                        href={`/${lang}/register`}
                         className="text-sm font-bold bg-foreground text-background px-4 py-2 rounded-lg hover:bg-foreground/80 transition-colors"
                     >
                         {content.getStarted}
@@ -80,7 +78,7 @@ export default function Navbar({ content, lang }: NavbarProps) {
                 >
                     {mobileMenuOpen ? <X /> : <Menu />}
                 </button>
-            </motion.div>
+            </div>
 
             {/* Mobile Menu Overlay */}
             {mobileMenuOpen && (
@@ -100,9 +98,11 @@ export default function Navbar({ content, lang }: NavbarProps) {
                         <span className="text-muted-foreground text-sm">{content.login}</span>
                         <LanguageSwitcher lang={lang} />
                     </div>
-                    <button className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-xl">
-                        {content.getStarted}
-                    </button>
+                    <Link href={`/${lang}/register`} className="w-full">
+                        <button className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-xl">
+                            {content.getStarted}
+                        </button>
+                    </Link>
                 </motion.div>
             )}
         </motion.header>

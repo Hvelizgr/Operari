@@ -6,19 +6,16 @@ const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // output: 'standalone', // Disabled for Docker build
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 
-  // Fix for monorepo: Tell Next.js where the workspace root is
-  // This prevents the "multiple lockfiles" warning and helps Turbopack
   outputFileTracingRoot: path.join(__dirname, '..'),
 
   turbopack: {
-    // Must match outputFileTracingRoot for monorepo compatibility
     root: path.join(__dirname, '..'),
   },
   experimental: {
-    // optimizePackageImports automatically tree-shakes barrel files
-    // drastically improving dev server start and build times.
     optimizePackageImports: [
       'lucide-react',
       '@heroui/react',

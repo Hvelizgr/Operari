@@ -35,7 +35,7 @@ export default function Testimonials({ content }: TestimonialsProps) {
                                         <User className="w-5 h-5 text-primary" />
                                     </div>
                                     <div>
-                                        <p className="font-semibold text-foreground">{item.author}</p>
+                                        <p className="text-lg font-semibold text-foreground">{item.author}</p>
                                         <p className="text-sm text-muted-foreground">{item.role}</p>
                                     </div>
                                 </div>

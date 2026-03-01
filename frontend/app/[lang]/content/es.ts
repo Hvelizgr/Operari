@@ -88,7 +88,7 @@ export const content = {
     items: [
       { quote: "NanoFlow me permitió enseñar n8n a 50 alumnos sin que se borraran el trabajo entre ellos.", author: "Prof. Sarah Jenkins", role: "Instructor Habilidades Digitales" },
       { quote: "Finalmente puedo ver los logs de auditoría y saber qué dev rompió producción.", author: "Mike Chen", role: "CTO @ TechFlow" },
-      { quote: "El Workflow Doctor encontró una API Key expuesta en un repo público. Me salvó la vida.", author: "Elena Rodriguez", role: "Automator Freelance" }
+      { quote: "El Workflow Doctor encontró una API Key expuesta en un repo público. Me salvó la vida.", author: "Hector Veliz", role: "Automator Freelance" }
     ]
   },
   footer: {

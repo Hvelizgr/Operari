@@ -7,6 +7,7 @@ import {
     Search, Terminal, Share2, Settings, Layers, Activity,
     Github, Sun, CreditCard, MessageCircle, BarChart, ShoppingCart
 } from 'lucide-react';
+import { safeFetcher } from './useSWRConfig';
 
 export interface NodeType {
     id?: string;
@@ -30,10 +31,8 @@ const IconMap: Record<string, any> = {
     Github, Sun, CreditCard, MessageCircle, BarChart, ShoppingCart
 };
 
-const fetcher = (url: string) => fetch(url).then(r => r.json());
-
 export function useNodeTypes() {
-    const { data, error, isLoading } = useSWR('/api/node-types', fetcher, {
+    const { data, error, isLoading } = useSWR('/api/node-types', safeFetcher, {
         revalidateOnFocus: false,
         dedupingInterval: 60000,
     });
@@ -71,15 +70,22 @@ export function useNodeTypes() {
         return Box;
     };
 
-    const nodeTypes: NodeType[] = data ? data.map((node: any) => {
+    const nodeTypes: NodeType[] = data ? (data as any[]).reduce((acc: NodeType[], node: any) => {
+        // Skip if we already have this node type to prevent React key errors
+        if (acc.find(t => t.type === node.type)) return acc;
+
         const IconComponent = getIconComponent(node);
-        // Ensure color is a valid tailwind class
-        let color = node.color || 'bg-slate-500';
-        if (!color.startsWith('bg-')) color = `bg-${color}`;
+        // Ensure color is a valid tailwind class or hex color
+        let color = node.color || '#64748b'; // slate-500 hex
+        const isHex = /^#([0-9A-F]{3}){1,2}$/i.test(color);
+        const isRgb = /^rgb/.test(color);
+        if (!isHex && !isRgb && !color.startsWith('bg-') && !color.includes('-')) {
+            color = `bg-${color}`;
+        }
 
         const category = (node.category || 'integrations').toLowerCase();
 
-        return {
+        acc.push({
             ...node,
             type: node.type,
             label: node.label || { en: node.displayName || node.name || node.type, es: node.displayName || node.name || node.type },
@@ -91,8 +97,9 @@ export function useNodeTypes() {
             outputs: node.outputs || [],
             properties: node.properties || [],
             icon: createElement(IconComponent, { size: 18 })
-        };
-    }) : [];
+        });
+        return acc;
+    }, []) : [];
 
     return { nodeTypes, loading: isLoading, error };
 }

@@ -36,6 +36,14 @@ export function useEditorViewport({
         zoom: 1,
     });
 
+    const initializedRef = useRef(false);
+
+    useEffect(() => {
+        if (!initializedRef.current && windowSize.width > 0 && windowSize.height > 0 && nodes.length === 0) {
+            initializedRef.current = true;
+        }
+    }, [windowSize.width, windowSize.height, nodes.length]);
+
     // Use ref to access current viewport in the native event listener
     const viewportRef = useRef(viewport);
     useEffect(() => {

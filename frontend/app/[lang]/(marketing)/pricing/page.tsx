@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardBody, CardHeader, Button, Tooltip, Chip } from "@heroui/react";
-import { Check, Shield, GraduationCap, Stethoscope, Building2 } from "lucide-react";
+import { Check, Shield, GraduationCap, Stethoscope, Building2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { content as contentEn } from '@/app/[lang]/content/en';
 import { content as contentEs } from '@/app/[lang]/content/es';
@@ -24,7 +24,7 @@ export default function PricingPage({ params }: { params: Promise<{ lang: string
     const text = {
         title: isEs ? "Planes para cada Rol" : "Plans for every Role",
         subtitle: isEs ? "Desde diagnóstico de flujos hasta gobernanza corporativa." : "From workflow diagnostics to corporate governance.",
-        student: isEs ? "Estudiante / Free" : "Student / Free",
+        student: isEs ? "Dev / Free" : "Student / Free",
         edu: isEs ? "Escuelas / Pro" : "Education / Pro",
         corp: isEs ? "Gobierno IT" : "IT Governance",
         ctaFree: isEs ? "Empezar Gratis" : "Start Free",
@@ -127,51 +127,72 @@ export default function PricingPage({ params }: { params: Promise<{ lang: string
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10 max-w-[1400px] mx-auto">
                     {plans.map((plan, i) => (
-                        <Card
-                            key={i}
-                            className={`
-                                p-6 border-transparent bg-white/5 backdrop-blur-md h-full
-                                ${plan.highlight ? 'ring-2 ring-orange-500 scale-105 shadow-2xl shadow-orange-500/20 z-10' : 'hover:scale-105 transition-transform border border-white/5 data-[hover=true]:border-white/10'}
-                            `}
-                        >
-                            <CardHeader className="flex flex-col items-start gap-4 pb-0">
-                                <div className="p-3 bg-white/5 rounded-xl">
-                                    {plan.icon}
-                                </div>
-                                <div className="w-full">
-                                    <div className="flex justify-between items-center">
-                                         <h3 className="text-xl font-bold">{plan.name}</h3>
-                                         {plan.highlight && <Chip size="sm" color="primary" variant="flat">Best Value</Chip>}
+                        <div key={i} className="relative group">
+                            {/* Glow Effect for Highlighted Plan */}
+                            {plan.highlight && (
+                                <div className="absolute inset-0 bg-gradient-to-r from-orange-600 to-pink-600 blur-[40px] opacity-20 group-hover:opacity-40 transition-opacity duration-500 rounded-[2rem]" />
+                            )}
+                            
+                            <Card
+                                className={`
+                                    h-full p-8 border bg-[#09090b] relative overflow-hidden transition-all duration-300
+                                    ${plan.highlight 
+                                        ? 'border-orange-500/50 shadow-2xl shadow-orange-900/20 scale-[1.02] z-10' 
+                                        : 'border-white/10 hover:border-white/20 hover:bg-white/5'}
+                                    rounded-[2rem]
+                                `}
+                            >
+                                {plan.highlight && (
+                                    <div className="absolute top-0 right-0 p-4">
+                                        <div className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-widest text-orange-400 bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
+                                            <Sparkles size={10} /> Popular
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-gray-400 mt-2 h-12 leading-relaxed">{plan.desc}</p>
-                                </div>
-                            </CardHeader>
-                            <CardBody className="py-8">
-                                <div className="flex items-end gap-1 mb-8">
-                                    <span className="text-4xl font-bold">{plan.price}</span>
-                                    {plan.period && <span className="text-gray-400 mb-1 font-mono text-sm">{plan.period}</span>}
-                                </div>
-                                <ul className="space-y-4 mb-8">
-                                    {plan.features.map((feat, j) => (
-                                        <li key={j} className="flex items-center gap-3 text-sm">
-                                            <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center text-green-500 shrink-0">
-                                                <Check size={12} strokeWidth={3} />
-                                            </div>
-                                            <span className="text-gray-300">{feat}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                                <Button
-                                    className="w-full font-bold"
-                                    color={plan.highlight ? "warning" : "default"}
-                                    variant={plan.highlight ? "solid" : "bordered"}
-                                    size="lg"
-                                    onClick={() => handleSubscribe(plan.id)}
-                                >
-                                    {plan.cta}
-                                </Button>
-                            </CardBody>
-                        </Card>
+                                )}
+
+                                <CardHeader className="flex flex-col items-start gap-6 pb-0 px-0">
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${plan.highlight ? 'bg-orange-500/20 text-orange-500' : 'bg-white/5 text-gray-400'} transition-colors`}>
+                                        {plan.icon}
+                                    </div>
+                                    <div className="w-full">
+                                        <h3 className="text-xl font-bold text-white">{plan.name}</h3>
+                                        <p className="text-sm text-gray-400 mt-2 min-h-[40px] leading-relaxed font-light">{plan.desc}</p>
+                                    </div>
+                                </CardHeader>
+
+                                <CardBody className="py-8 px-0 flex flex-col flex-1">
+                                    <div className="flex items-baseline gap-1 mb-8">
+                                        <span className="text-5xl font-bold text-white tracking-tight">{plan.price}</span>
+                                        {plan.period && <span className="text-gray-500 font-medium text-sm">{plan.period}</span>}
+                                    </div>
+
+                                    <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent w-full mb-8" />
+
+                                    <ul className="space-y-4 mb-8 flex-1">
+                                        {plan.features.map((feat, j) => (
+                                            <li key={j} className="flex items-start gap-3 text-sm group/item">
+                                                <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${plan.highlight ? 'bg-orange-500/20 text-orange-500' : 'bg-white/10 text-gray-500 group-hover/item:text-white group-hover/item:bg-white/20'} transition-colors`}>
+                                                    <Check size={10} strokeWidth={3} />
+                                                </div>
+                                                <span className="text-gray-300 font-light">{feat}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    
+                                    <Button
+                                        className={`w-full font-bold h-12 rounded-xl text-md transition-all mt-auto ${
+                                            plan.highlight 
+                                                ? 'bg-gradient-to-r from-orange-600 to-pink-600 text-white shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:brightness-110' 
+                                                : 'bg-white text-black hover:bg-gray-200'
+                                        }`}
+                                        variant="solid"
+                                        onPress={() => handleSubscribe(plan.id)}
+                                    >
+                                        {plan.cta}
+                                    </Button>
+                                </CardBody>
+                            </Card>
+                        </div>
                     ))}
                 </div>
             </div>

@@ -1,4 +1,5 @@
 import { EditorCanvas } from '@/components/Editor';
+import '@/styles/editor-themes.css';
 
 export default async function EditorPage({
     params,

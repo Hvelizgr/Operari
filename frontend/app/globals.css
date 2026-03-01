@@ -50,7 +50,9 @@
 @layer base {
   body {
     @apply bg-background text-foreground tracking-tight antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 }
 
@@ -60,7 +62,51 @@
   }
 
   .glass {
-    @apply bg-white/10 backdrop-blur-lg border border-white/20;
+    @apply border border-white/20 bg-white/10 backdrop-blur-lg;
+  }
+
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
+  }
+
+  .animate-marquee-reverse {
+    animation: marquee-reverse 30s linear infinite;
+  }
+
+  @keyframes marquee {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes marquee-reverse {
+    0% {
+      transform: translateX(-50%);
+    }
+    100% {
+      transform: translateX(0);
+    }
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #52525b;
   }
 }
 
@@ -93,12 +139,12 @@
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease-in-out; /* Smooth transitions */
-  @apply bg-gray-200 border-gray-400 dark:bg-gray-700 dark:border-gray-500; /* Subtle colors */
+  @apply border-gray-400 bg-gray-200 dark:border-gray-500 dark:bg-gray-700; /* Subtle colors */
 }
 
 /* Common hover effect - glow without scaling */
 .wf-pole-button:hover {
-  @apply bg-blue-400 border-blue-600 dark:bg-blue-600 dark:border-blue-400; /* Highlight color on hover */
+  @apply border-blue-600 bg-blue-400 dark:border-blue-400 dark:bg-blue-600; /* Highlight color on hover */
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4); /* Tailwind blue-500 equivalent for glow */
 }
 
@@ -130,15 +176,12 @@
   display: none;
 }
 
-
-
 .wf-pole-button.soldering {
   background: rgb(251, 146, 60);
   animation: pulse-solder 1s infinite;
 }
 
 @keyframes pulse-solder {
-
   0%,
   100% {
     opacity: 1;
@@ -175,7 +218,6 @@
 }
 
 @keyframes tracker-pulse {
-
   0%,
   100% {
     transform: scale(1);
@@ -212,21 +254,23 @@
 
 /* Node Hover States in Draw Mode */
 @keyframes pulse-hover {
-
   0%,
   100% {
-    box-shadow: 0 0 0 3px rgb(59, 130, 246),
+    box-shadow:
+      0 0 0 3px rgb(59, 130, 246),
       0 0 10px rgba(59, 130, 246, 0.3);
   }
 
   50% {
-    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.7),
+    box-shadow:
+      0 0 0 5px rgba(59, 130, 246, 0.7),
       0 0 20px rgba(59, 130, 246, 0.5);
   }
 }
 
 .editor-mode-draw .wf-node:hover {
-  box-shadow: 0 0 0 3px rgb(59, 130, 246),
+  box-shadow:
+    0 0 0 3px rgb(59, 130, 246),
     0 0 20px rgba(59, 130, 246, 0.4);
   transform: scale(1.02);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);

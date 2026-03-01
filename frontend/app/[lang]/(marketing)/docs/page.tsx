@@ -18,7 +18,7 @@ export default function DocsPage({ params }: { params: Promise<{ lang: string }>
                 title: isEs ? "Primeros Pasos" : "Getting Started",
                 icon: <BookOpen className="text-blue-400" />,
                 links: [
-                    { label: isEs ? "Instalación Rápida" : "Quick Installation", href: "#" },
+                    { label: isEs ? "Instalación Rápida" : "Quick Installation", href: `/${lang}/docs/getting-started` },
                     { label: isEs ? "Conectando tu n8n" : "Connecting your n8n", href: "#" },
                     { label: isEs ? "Tu primer análisis" : "Your first analysis", href: "#" }
                 ]

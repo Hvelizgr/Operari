@@ -50,20 +50,24 @@ export default function Features({ content }: FeaturesProps) {
             const Icon = icons[feature.icon as keyof typeof icons] || Zap;
             return (
               <ScrollReveal key={feature.title} delay={index * 0.1} width="100%">
-                <div className="h-full p-8 rounded-2xl border border-white/5 bg-white/5 hover:bg-white/10 transition-all duration-300 backdrop-blur-md group hover:-translate-y-2 hover:shadow-2xl hover:shadow-blue-500/10 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 via-blue-500/0 to-purple-500/0 group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-all duration-500" />
+                <motion.div 
+                  whileHover={{ y: -5 }}
+                  className="h-full p-8 rounded-3xl border border-white/5 bg-[#09090b] hover:bg-white/[0.02] transition-colors relative overflow-hidden group"
+                >
+                  {/* Hover Gradient Blob */}
+                  <div className="absolute -right-10 -top-10 w-32 h-32 bg-blue-500/20 blur-[50px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 relative z-10 shadow-lg shadow-blue-500/5">
-                    <Icon className="w-7 h-7 text-blue-400 group-hover:text-blue-300 transition-colors" />
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/5 flex items-center justify-center mb-6 shadow-inner group-hover:shadow-blue-500/10 group-hover:border-blue-500/20 transition-all duration-300">
+                    <Icon className="w-7 h-7 text-gray-400 group-hover:text-blue-400 transition-colors" />
                   </div>
                   
-                  <h3 className="text-xl font-bold mb-3 text-white group-hover:text-blue-200 transition-colors relative z-10">
+                  <h3 className="text-xl font-bold mb-3 text-white group-hover:text-blue-200 transition-colors">
                     {feature.title}
                   </h3>
-                  <p className="text-gray-400 leading-relaxed text-sm relative z-10 group-hover:text-gray-300 transition-colors">
+                  <p className="text-gray-400 leading-relaxed text-sm font-light">
                     {feature.description}
                   </p>
-                </div>
+                </motion.div>
               </ScrollReveal>
             );
           })}

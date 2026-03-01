@@ -43,7 +43,7 @@ export default function SolutionsPage({ params }: { params: Promise<{ lang: stri
                 isEs ? "Diagnóstico de Flujos con IA" : "AI Workflow Diagnostics",
                 isEs ? "Gestión Multi-Cliente" : "Multi-Client Management",
                 isEs ? "Editor JSON Avanzado" : "Advanced JSON Editor",
-                isEs ? "Webhooks de Alta Concurrencia" : "High Concurrency Webhooks"
+                isEs ? "Webhooks Escalables" : "Scalable Webhooks"
             ],
             cta: isEs ? "Empezar Gratis" : "Start Free"
         }
@@ -94,91 +94,109 @@ export default function SolutionsPage({ params }: { params: Promise<{ lang: stri
                 animate="visible"
             >
                 {/* SCHOOLS */}
-                <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                    <div className="order-2 lg:order-1 relative">
-                        <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-3xl blur-2xl" />
-                        <Card className="bg-white/5 border-white/10 backdrop-blur-xl p-8 relative">
-                            <CardHeader>
-                                <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center text-blue-400 mb-4">
-                                    <GraduationCap size={24} />
+                <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                    <div className="order-2 lg:order-1 relative group">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-[2.5rem] blur opacity-20 group-hover:opacity-40 transition-opacity duration-1000" />
+                        <Card className="bg-[#09090b] border-white/10 p-10 relative rounded-[2.5rem] overflow-hidden">
+                            <div className="absolute top-0 right-0 p-8 opacity-20">
+                                <GraduationCap size={120} className="text-blue-500" />
+                            </div>
+                            
+                            <CardHeader className="p-0 mb-8 relative z-10">
+                                <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400 border border-blue-500/20 shadow-lg shadow-blue-500/10 mb-6">
+                                    <GraduationCap size={32} />
                                 </div>
-                            </CardHeader>
-                            <CardBody className="space-y-6">
-                                <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">
+                                <h3 className="text-3xl font-bold text-white">
                                     {text.schools.title}
                                 </h3>
-                                <p className="text-gray-400 text-lg">
+                            </CardHeader>
+                            <CardBody className="p-0 space-y-8 relative z-10">
+                                <p className="text-gray-400 text-lg leading-relaxed font-light">
                                     {text.schools.desc}
                                 </p>
-                                <ul className="space-y-3">
+                                <ul className="space-y-4">
                                     {text.schools.features.map((feat, i) => (
-                                        <li key={i} className="flex items-center gap-3">
-                                            <CheckCircle2 size={18} className="text-blue-500" />
-                                            <span className="text-gray-300">{feat}</span>
+                                        <li key={i} className="flex items-center gap-4 group/item">
+                                            <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover/item:bg-blue-500 group-hover/item:text-white transition-colors">
+                                                <CheckCircle2 size={14} />
+                                            </div>
+                                            <span className="text-gray-300 font-light">{feat}</span>
                                         </li>
                                     ))}
                                 </ul>
-                                <Button color="primary" variant="shadow" className="w-full mt-4 font-bold" endContent={<ArrowRight size={16} />}>
+                                <Button 
+                                    className="w-full bg-blue-600 text-white font-bold h-14 rounded-xl shadow-lg shadow-blue-900/20 hover:bg-blue-500"
+                                    endContent={<ArrowRight size={20} />}
+                                >
                                     {text.schools.cta}
                                 </Button>
                             </CardBody>
                         </Card>
                     </div>
-                    <div className="order-1 lg:order-2 space-y-6 lg:pl-12">
-                         <div className="flex items-center gap-4 text-blue-400 font-mono text-sm uppercase tracking-widest">
-                            <BookOpen size={16} />{isEs ? 'Educación' : 'Education'}
+                    <div className="order-1 lg:order-2 space-y-8 lg:pl-12">
+                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-900/20 border border-blue-500/30 text-blue-400 font-mono text-sm uppercase tracking-widest">
+                            <BookOpen size={14} /> {isEs ? 'Educación' : 'Education'}
                          </div>
-                         <h2 className="text-4xl font-bold">{isEs ? 'Formando la Próxima Generación' : 'Training the Next Generation'}</h2>
-                         <p className="text-gray-400 leading-relaxed text-lg">
+                         <h2 className="text-5xl font-bold leading-tight">{isEs ? 'Formando la Próxima Generación' : 'Training the Next Generation'}</h2>
+                         <p className="text-gray-400 leading-relaxed text-xl font-light">
                             {isEs 
                               ? 'Los profesores necesitan calificar miles de flujos sin revisión manual. Los estudiantes necesitan un sandbox que se sienta real pero proteja la infraestructura. NanoFlow cierra esta brecha con el ' 
                               : 'Professors need a way to grade thousands of student workflows without manual review. Students need a sandbox that feels real but protects infrastructure. NanoFlow bridges this gap with '}
-                            <span className="text-blue-400 font-bold">{isEs ? 'Modo Aula' : 'Classroom Mode'}</span>.
+                            <span className="text-blue-400 font-semibold">{isEs ? 'Modo Aula' : 'Classroom Mode'}</span>.
                          </p>
                     </div>
                 </motion.div>
 
                 {/* ENTERPRISE */}
-                <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                    <div className="space-y-6 lg:pr-12">
-                         <div className="flex items-center gap-4 text-purple-400 font-mono text-sm uppercase tracking-widest">
-                            <Building2 size={16} />{isEs ? 'Empresas' : 'Enterprise'}
+                <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                    <div className="space-y-8 lg:pr-12">
+                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-900/20 border border-purple-500/30 text-purple-400 font-mono text-sm uppercase tracking-widest">
+                            <Building2 size={14} /> {isEs ? 'Empresas' : 'Enterprise'}
                          </div>
-                         <h2 className="text-4xl font-bold">{isEs ? 'Gobernanza Sin Compromisos' : 'Uncompromising Governance'}</h2>
-                         <p className="text-gray-400 leading-relaxed text-lg">
+                         <h2 className="text-5xl font-bold leading-tight">{isEs ? 'Gobernanza Sin Compromisos' : 'Uncompromising Governance'}</h2>
+                         <p className="text-gray-400 leading-relaxed text-xl font-light">
                             {isEs 
                               ? 'El Shadow IT es un riesgo. NanoFlow lleva la ' 
                               : 'Shadow IT is a risk. NanoFlow brings '}
-                            <span className="text-purple-400 font-bold">{isEs ? 'disciplina DevOps' : 'DevOps discipline'}</span>
+                            <span className="text-purple-400 font-semibold">{isEs ? 'disciplina DevOps' : 'DevOps discipline'}</span>
                             {isEs 
                               ? ' al low-code. Controla exactamente qué nodos pueden usarse, quién puede desplegar a producción y audita cada paso de ejecución.' 
                               : ' to low-code. Control exactly which nodes can be used, who can deploy to production, and audit every single execution step.'}
                          </p>
                     </div>
-                    <div className="relative">
-                        <div className="absolute -inset-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-3xl blur-2xl" />
-                        <Card className="bg-white/5 border-white/10 backdrop-blur-xl p-8 relative">
-                            <CardHeader>
-                                <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center text-purple-400 mb-4">
-                                    <Shield size={24} />
+                    <div className="relative group">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-[2.5rem] blur opacity-20 group-hover:opacity-40 transition-opacity duration-1000" />
+                        <Card className="bg-[#09090b] border-white/10 p-10 relative rounded-[2.5rem] overflow-hidden">
+                            <div className="absolute top-0 right-0 p-8 opacity-20">
+                                <Shield size={120} className="text-purple-500" />
+                            </div>
+                            
+                            <CardHeader className="p-0 mb-8 relative z-10">
+                                <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center text-purple-400 border border-purple-500/20 shadow-lg shadow-purple-500/10 mb-6">
+                                    <Shield size={32} />
                                 </div>
-                            </CardHeader>
-                            <CardBody className="space-y-6">
-                                <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                                <h3 className="text-3xl font-bold text-white">
                                     {text.enterprise.title}
                                 </h3>
-                                <p className="text-gray-400 text-lg">
+                            </CardHeader>
+                            <CardBody className="p-0 space-y-8 relative z-10">
+                                <p className="text-gray-400 text-lg leading-relaxed font-light">
                                     {text.enterprise.desc}
                                 </p>
-                                <ul className="space-y-3">
+                                <ul className="space-y-4">
                                     {text.enterprise.features.map((feat, i) => (
-                                        <li key={i} className="flex items-center gap-3">
-                                            <Lock size={18} className="text-purple-500" />
-                                            <span className="text-gray-300">{feat}</span>
+                                        <li key={i} className="flex items-center gap-4 group/item">
+                                            <div className="w-6 h-6 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400 group-hover/item:bg-purple-500 group-hover/item:text-white transition-colors">
+                                                <Lock size={14} />
+                                            </div>
+                                            <span className="text-gray-300 font-light">{feat}</span>
                                         </li>
                                     ))}
                                 </ul>
-                                <Button color="secondary" variant="shadow" className="w-full mt-4 font-bold" endContent={<ArrowRight size={16} />}>
+                                <Button 
+                                    className="w-full bg-purple-600 text-white font-bold h-14 rounded-xl shadow-lg shadow-purple-900/20 hover:bg-purple-500"
+                                    endContent={<ArrowRight size={20} />}
+                                >
                                     {text.enterprise.cta}
                                 </Button>
                             </CardBody>
@@ -187,46 +205,55 @@ export default function SolutionsPage({ params }: { params: Promise<{ lang: stri
                 </motion.div>
 
                 {/* DEVS */}
-                <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                     <div className="order-2 lg:order-1 relative">
-                        <div className="absolute -inset-4 bg-gradient-to-r from-orange-500/20 to-yellow-500/20 rounded-3xl blur-2xl" />
-                        <Card className="bg-white/5 border-white/10 backdrop-blur-xl p-8 relative">
-                            <CardHeader>
-                                <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center text-orange-400 mb-4">
-                                    <Terminal size={24} />
+                <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                     <div className="order-2 lg:order-1 relative group">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-orange-600 to-yellow-600 rounded-[2.5rem] blur opacity-20 group-hover:opacity-40 transition-opacity duration-1000" />
+                        <Card className="bg-[#09090b] border-white/10 p-10 relative rounded-[2.5rem] overflow-hidden">
+                            <div className="absolute top-0 right-0 p-8 opacity-20">
+                                <Terminal size={120} className="text-orange-500" />
+                            </div>
+                            
+                            <CardHeader className="p-0 mb-8 relative z-10">
+                                <div className="w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center text-orange-400 border border-orange-500/20 shadow-lg shadow-orange-500/10 mb-6">
+                                    <Terminal size={32} />
                                 </div>
-                            </CardHeader>
-                            <CardBody className="space-y-6">
-                                <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-yellow-400">
+                                <h3 className="text-3xl font-bold text-white">
                                     {text.devs.title}
                                 </h3>
-                                <p className="text-gray-400 text-lg">
+                            </CardHeader>
+                            <CardBody className="p-0 space-y-8 relative z-10">
+                                <p className="text-gray-400 text-lg leading-relaxed font-light">
                                     {text.devs.desc}
                                 </p>
-                                <ul className="space-y-3">
+                                <ul className="space-y-4">
                                     {text.devs.features.map((feat, i) => (
-                                        <li key={i} className="flex items-center gap-3">
-                                            <Zap size={18} className="text-orange-500" />
-                                            <span className="text-gray-300">{feat}</span>
+                                        <li key={i} className="flex items-center gap-4 group/item">
+                                            <div className="w-6 h-6 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-400 group-hover/item:bg-orange-500 group-hover/item:text-white transition-colors">
+                                                <Zap size={14} />
+                                            </div>
+                                            <span className="text-gray-300 font-light">{feat}</span>
                                         </li>
                                     ))}
                                 </ul>
-                                <Button className="w-full mt-4 font-bold bg-gradient-to-r from-orange-500 to-yellow-500 text-black border-none" endContent={<ArrowRight size={16} />}>
+                                <Button 
+                                    className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-black font-bold h-14 rounded-xl shadow-lg shadow-orange-900/20 hover:opacity-90 border-none"
+                                    endContent={<ArrowRight size={20} />}
+                                >
                                     {text.devs.cta}
                                 </Button>
                             </CardBody>
                         </Card>
                     </div>
-                    <div className="order-1 lg:order-2 space-y-6 lg:pl-12">
-                         <div className="flex items-center gap-4 text-orange-400 font-mono text-sm uppercase tracking-widest">
-                            <Laptop size={16} />{isEs ? 'Desarrolladores' : 'Developers'}
+                    <div className="order-1 lg:order-2 space-y-8 lg:pl-12">
+                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-900/20 border border-orange-500/30 text-orange-400 font-mono text-sm uppercase tracking-widest">
+                            <Laptop size={14} /> {isEs ? 'Desarrolladores' : 'Developers'}
                          </div>
-                         <h2 className="text-4xl font-bold">{isEs ? 'Hecho para Constructores' : 'Built for Builders'}</h2>
-                         <p className="text-gray-400 leading-relaxed text-lg">
+                         <h2 className="text-5xl font-bold leading-tight mb-6">{isEs ? 'Hecho para Constructores' : 'Built for Builders'}</h2>
+                         <p className="text-gray-400 leading-relaxed text-xl font-light">
                             {isEs 
                               ? 'Deja de hacer clic y empieza a programar. NanoFlow respeta tu experiencia. Usa nuestras herramientas de ' 
                               : 'Stop clicking and start coding. NanoFlow respects your expertise. Use our '}
-                            <span className="text-orange-400 font-bold">{isEs ? 'Análisis Estático' : 'Static Analysis'}</span>
+                            <span className="text-orange-400 font-semibold">{isEs ? 'Análisis Estático' : 'Static Analysis'}</span>
                             {isEs 
                               ? ' para encontrar errores antes de que lleguen a producción y gestiona múltiples instancias de clientes desde un solo dashboard.' 
                               : ' tools to find bugs before they hit production and manage multiple client instances from a single dashboard.'}

@@ -88,7 +88,7 @@ export const content = {
     items: [
       { quote: "NanoFlow allowed me to teach n8n to 50 students without them deleting each other's work.", author: "Prof. Sarah Jenkins", role: "Digital Skills Instructor" },
       { quote: "Finally, I can look at the audit logs and see which dev broke production.", author: "Mike Chen", role: "CTO @ TechFlow" },
-      { quote: "The Workflow Doctor found an API Key I left exposed in a public repo. Lifesaver.", author: "Elena Rodriguez", role: "Freelance Automator" }
+      { quote: "The Workflow Doctor found an API Key I left exposed in a public repo. Lifesaver.", author: "Hector Veliz", role: "Freelance Automator" }
     ]
   },
   footer: {

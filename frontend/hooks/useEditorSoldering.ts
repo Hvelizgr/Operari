@@ -68,7 +68,7 @@ export function useEditorSoldering({
         if (canvasRef.current) {
             canvasRef.current.classList.add('dragging');
         }
-    }, [isDrawMode, getDirMap, canvasRef]);
+    }, [getDirMap, canvasRef]);
 
     // Update mouse position (xyOps lines 944-950)
     const updateSolderPosition = useCallback((clientX: number, clientY: number) => {
@@ -80,6 +80,17 @@ export function useEditorSoldering({
 
         setSoldering(prev => prev ? { ...prev, mousePos: { x, y } } : null);
     }, [soldering, canvasRef]);
+
+    // Cancel solder (xyOps lines 990-1007)
+    const cancelSolder = useCallback(() => {
+        if (!soldering && !pausedSolder) return;
+
+        if (canvasRef.current) {
+            canvasRef.current.classList.remove('dragging');
+        }
+        setSoldering(null);
+        setPausedSolder(null);
+    }, [soldering, pausedSolder, canvasRef]);
 
     // Complete solder (xyOps lines 1169-1227)
     const completeSolder = useCallback((targetNodeId: string, targetPortIndex?: number) => {
@@ -106,18 +117,7 @@ export function useEditorSoldering({
             canvasRef.current.classList.remove('dragging');
         }
         setSoldering(null);
-    }, [soldering, onConnectionComplete, canvasRef]);
-
-    // Cancel solder (xyOps lines 990-1007)
-    const cancelSolder = useCallback(() => {
-        if (!soldering && !pausedSolder) return;
-
-        if (canvasRef.current) {
-            canvasRef.current.classList.remove('dragging');
-        }
-        setSoldering(null);
-        setPausedSolder(null);
-    }, [soldering, pausedSolder, canvasRef]);
+    }, [soldering, onConnectionComplete, canvasRef, cancelSolder]);
 
     // ESC key to cancel (xyOps behavior)
     useEffect(() => {

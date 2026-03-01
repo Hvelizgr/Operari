@@ -44,10 +44,10 @@ export default function Footer({ content }: FooterProps) {
                         <p className="text-sm text-muted-foreground mb-6">
                             {text.tagline}
                         </p>
-                        <div className="flex gap-4 text-muted-foreground">
-                            <Github className="w-5 h-5 hover:text-foreground cursor-pointer transition-colors" />
-                            <Twitter className="w-5 h-5 hover:text-foreground cursor-pointer transition-colors" />
-                            <Linkedin className="w-5 h-5 hover:text-foreground cursor-pointer transition-colors" />
+                        <div className="flex gap-6 text-muted-foreground mt-6">
+                            <Github className="w-6 h-6 hover:text-foreground cursor-pointer transition-colors" />
+                            <Twitter className="w-6 h-6 hover:text-foreground cursor-pointer transition-colors" />
+                            <Linkedin className="w-6 h-6 hover:text-foreground cursor-pointer transition-colors" />
                         </div>
                     </div>
 

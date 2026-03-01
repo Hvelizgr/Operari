@@ -1,5 +1,5 @@
 
-import { useRef, useState, useCallback, useEffect, MouseEvent, DragEvent } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo, MouseEvent, DragEvent } from 'react';
 import { WorkflowNode, Connection } from '@nanoflow/shared';
 import { ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from '../components/Common';
 import { useAdvancedUndoRedo } from '../hooks/useAdvancedUndoRedo';
@@ -19,6 +19,10 @@ import { useExecutionHeatmap } from '../hooks/useExecutionHeatmap';
 import { apiFetch } from '../utils/api';
 import { createNewNode, createDroppedNode, generateExecutionMetrics } from '../components/Editor/EditorCanvas.utils';
 import { useCollaboration } from './useCollaboration';
+import { getAutoLayout } from '../utils/layoutUtils';
+import { calculateComplexityScore } from '../utils/complexityScore';
+import { scanWorkflowSecurity } from '../utils/securityScanner';
+import { lintWorkflow } from '../utils/architectureLinter';
 
 // Editor-specific types
 import type {
@@ -222,7 +226,12 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     useEffect(() => {
         const userStr = typeof window !== 'undefined' ? localStorage.getItem('nanoflow_user') : null;
         if (userStr) {
-            setCurrentUser(JSON.parse(userStr));
+            try {
+                setCurrentUser(JSON.parse(userStr));
+            } catch {
+                localStorage.removeItem('nanoflow_user');
+                setCurrentUser({ id: 'anon-' + Math.random().toString(36).substr(2, 5), name: 'Anonymous' });
+            }
         } else {
             setCurrentUser({ id: 'anon-' + Math.random().toString(36).substr(2, 5), name: 'Anonymous' });
         }
@@ -586,8 +595,11 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         });
     }, [setNodes]);
 
-    const handleNodeAddFromSearch = useCallback((nodeType: NodeType) => {
-        const newNode = createNewNode(nodeType, viewport, windowSize, lang);
+    const handleNodeAddFromSearch = useCallback((nodeType: NodeType | string, x?: number, y?: number) => {
+        const position = (x !== undefined && y !== undefined) 
+            ? { x: (x - viewport.x) / viewport.zoom, y: (y - viewport.y) / viewport.zoom }
+            : undefined;
+        const newNode = createNewNode(nodeType, viewport, windowSize, lang, position);
         setNodes(prev => [...prev, newNode]);
     }, [viewport, lang, windowSize, setNodes]);
 
@@ -603,9 +615,49 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     const handleCanvasDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
 
-        if (!draggingNodeType || !canvasRef.current) return;
+        if (!canvasRef.current) return;
 
         const rect = canvasRef.current.getBoundingClientRect();
+
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            const fileExtension = file.name.split('.').pop()?.toLowerCase();
+            
+            let nodeType = 'ReadFile';
+            if (fileExtension === 'pdf') {
+                nodeType = 'ExtractTextFromPDF';
+            } else if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(fileExtension || '')) {
+                nodeType = 'ExtractTextFromImage';
+            } else if (['csv', 'xlsx', 'xls'].includes(fileExtension || '')) {
+                nodeType = 'SpreadsheetFile';
+            } else if (['json'].includes(fileExtension || '')) {
+                nodeType = 'ReadJSON';
+            }
+
+            const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+            const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+            
+            const newNode: WorkflowNode = {
+                id: `${nodeType}-${Date.now()}`,
+                type: nodeType,
+                title: file.name,
+                position: { x, y },
+                config: { 
+                    fileName: file.name,
+                    fileSize: file.size,
+                    mimeType: file.type,
+                },
+                inputs: [],
+                outputs: [{ id: 'output', label: 'Output' }],
+                enabled: true,
+            };
+
+            setNodes((prev: WorkflowNode[]) => [...prev, newNode]);
+            return;
+        }
+
+        if (!draggingNodeType) return;
+
         const newNode = createDroppedNode(draggingNodeType, e.clientX, e.clientY, rect, viewport, lang);
 
         setNodes((prev: WorkflowNode[]) => [...prev, newNode]);
@@ -675,16 +727,20 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
                 if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
                 animationFrameId = requestAnimationFrame(() => {
+                    const draggedNodeId = draggingNodeRef.current;
+                    if (!draggedNodeId) return;
+
                     setNodesRef.current((prevNodes) => {
-                        const draggedNode = prevNodes.find(n => n.id === draggingNodeRef.current);
+                        const draggedNode = prevNodes.find(n => n.id === draggedNodeId);
                         if (!draggedNode) return prevNodes;
 
+                        const newPosition = { x: newX, y: newY };
+
                         // Basic diff check to prevent renders if mouse didn't move enough
-                        if (Math.abs(draggedNode.position.x - newX) < 0.1 && Math.abs(draggedNode.position.y - newY) < 0.1) {
+                        if (Math.abs(draggedNode.position.x - newPosition.x) < 0.5 && 
+                            Math.abs(draggedNode.position.y - newPosition.y) < 0.5) {
                             return prevNodes;
                         }
-
-                        const newPosition = { x: newX, y: newY };
 
                         // Calculate delta for hierarchical drag
                         const deltaX = newPosition.x - draggedNode.position.x;
@@ -692,11 +748,9 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
 
                         // If dragging a frame, move all children too
                         if (draggedNode.type === 'custom.frame') {
-                            const childIds = getDescendantIds(draggingNodeRef.current!, prevNodes);
-                            // Optimization: Check if children actually moved or just return prevNodes if logic fails?
-                            // Mapping is fine.
+                            const childIds = getDescendantIds(draggedNodeId, prevNodes);
                             return prevNodes.map((n) => {
-                                if (n.id === draggingNodeRef.current) {
+                                if (n.id === draggedNodeId) {
                                     return { ...n, position: newPosition };
                                 }
                                 if (childIds.has(n.id)) {
@@ -714,7 +768,7 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
 
                         // Regular node drag
                         return prevNodes.map((n) =>
-                            n.id === draggingNodeRef.current ? { ...n, position: newPosition } : n
+                            n.id === draggedNodeId ? { ...n, position: newPosition } : n
                         );
                     });
                 });
@@ -1058,6 +1112,25 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         handleCloseContextMenu();
     }, [contextMenu, setNodes, handleCloseContextMenu]);
 
+    const handleContextMenuTogglePinData = useCallback(() => {
+        if (contextMenu?.nodeId) {
+            setNodes(prevNodes =>
+                prevNodes.map(node => {
+                    if (node.id === contextMenu.nodeId) {
+                        if (node.pinnedData !== undefined) {
+                            const { pinnedData, ...rest } = node;
+                            return rest;
+                        } else {
+                            return { ...node, pinnedData: { message: 'Pinned output - replace with actual data' } };
+                        }
+                    }
+                    return node;
+                })
+            );
+        }
+        handleCloseContextMenu();
+    }, [contextMenu, setNodes, handleCloseContextMenu]);
+
     const handleContextMenuDuplicate = useCallback(() => {
         if (contextMenu?.nodeId) {
             handleDuplicateNode(contextMenu.nodeId);
@@ -1067,6 +1140,28 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     const handleNodeClick = useCallback((nodeId: string) => {
         handleNodeSelect(nodeId, false);
     }, [handleNodeSelect]);
+
+    // Memoized analysis results
+    const complexityResult = useMemo(() => 
+        calculateComplexityScore(nodes, connections), 
+        [nodes, connections]
+    );
+
+    const securityResult = useMemo(() => 
+        scanWorkflowSecurity(nodes), 
+        [nodes]
+    );
+
+    const lintResult = useMemo(() => 
+        lintWorkflow(nodes, connections), 
+        [nodes, connections]
+    );
+
+    // Auto-layout handler
+    const handleAutoLayout = useCallback(() => {
+        const result = getAutoLayout(nodes, connections);
+        setNodes(result.nodes);
+    }, [nodes, connections, setNodes]);
 
     return {
         // Refs
@@ -1130,6 +1225,7 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         handleDeleteFromContextMenu,
         handleContextMenuToggleEnable,
         handleContextMenuToggleBreakpoint,
+        handleContextMenuTogglePinData,
         handleNodeClick,
         handleNodeMove,
         handleNodeUpdate, // This is already here, just need to use it
@@ -1189,5 +1285,11 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         // Collaboration
         remoteUsers,
         broadcastCursor,
+
+        // Analysis Results
+        complexityResult,
+        securityResult,
+        lintResult,
+        handleAutoLayout,
     };
 }

@@ -3,13 +3,14 @@ import type { WorkflowNode, Connection } from '@nanoflow/shared';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
 
-export type SaveStatus = 'saving' | 'saved' | 'error' | 'conflict';
+export type SaveStatus = 'saving' | 'saved' | 'error' | 'conflict' | 'retrying';
 
 interface AutosaveOptions {
     nodes: WorkflowNode[];
     connections: Connection[];
     workflowId: string;
     debounceMs?: number;
+    maxRetries?: number;
 }
 
 interface WorkflowData {
@@ -20,17 +21,22 @@ interface WorkflowData {
     workflowId: string;
 }
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export function useAutosave({
     nodes,
     connections,
     workflowId,
     debounceMs = 2000,
+    maxRetries = 3,
 }: AutosaveOptions) {
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
     const [enableAutosave, setEnableAutosave] = useState(true);
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
     const lastSavedTimestampRef = useRef<number>(0);
     const isSavingRef = useRef(false);
+    const retryCountRef = useRef(0);
+    const pendingDataRef = useRef<WorkflowData | null>(null);
 
     const saveToLocalStorage = useCallback((data: WorkflowData) => {
         try {
@@ -41,12 +47,17 @@ export function useAutosave({
         }
     }, [workflowId]);
 
-    const saveToBackend = useCallback(async (data: WorkflowData): Promise<boolean> => {
+    const saveToBackendWithRetry = useCallback(async (data: WorkflowData, retryCount = 0): Promise<boolean> => {
         try {
+            const token = localStorage.getItem('nanoflow_token');
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
             const response = await fetch(`${API_URL}/api/workflows/${workflowId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
                 },
                 body: JSON.stringify({
                     nodes: data.nodes,
@@ -54,12 +65,21 @@ export function useAutosave({
                     version: data.version,
                     lastModified: data.timestamp,
                 }),
+                signal: controller.signal,
             });
+
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
                 if (response.status === 409) {
                     setSaveStatus('conflict');
                     return false;
+                }
+                if (response.status >= 500 && retryCount < maxRetries) {
+                    setSaveStatus('retrying');
+                    const delay = Math.min(1000 * Math.pow(2, retryCount), 8000);
+                    await sleep(delay);
+                    return saveToBackendWithRetry(data, retryCount + 1);
                 }
                 const errorText = await response.text();
                 console.error('Backend save failed:', response.status, errorText);
@@ -68,16 +88,32 @@ export function useAutosave({
 
             const result = await response.json();
             lastSavedTimestampRef.current = result.timestamp || data.timestamp;
+            retryCountRef.current = 0;
             return true;
         } catch (error) {
-            console.error('Backend save error:', error);
+            if (error instanceof Error && error.name === 'AbortError') {
+                console.warn('Save request timed out');
+            }
+            if (retryCount < maxRetries) {
+                setSaveStatus('retrying');
+                const delay = Math.min(1000 * Math.pow(2, retryCount), 8000);
+                await sleep(delay);
+                return saveToBackendWithRetry(data, retryCount + 1);
+            }
+            console.error('Backend save error after retries:', error);
+            pendingDataRef.current = data;
             return false;
         }
-    }, [workflowId]);
+    }, [workflowId, maxRetries]);
 
     const checkForConflicts = useCallback(async (): Promise<boolean> => {
         try {
-            const response = await fetch(`${API_URL}/api/workflows/${workflowId}/metadata`);
+            const token = localStorage.getItem('nanoflow_token');
+            const response = await fetch(`${API_URL}/api/workflows/${workflowId}/metadata`, {
+                headers: {
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                }
+            });
 
             // If it's the scratchpad and doesn't exist yet, there's no conflict.
             if (response.status === 404 && workflowId === 'current-workflow') {
@@ -125,14 +161,15 @@ export function useAutosave({
                 return;
             }
 
-            const success = await saveToBackend(workflowData);
+            const success = await saveToBackendWithRetry(workflowData);
             setSaveStatus(success ? 'saved' : 'error');
         } else {
+            pendingDataRef.current = workflowData;
             setSaveStatus('saved');
         }
 
         isSavingRef.current = false;
-    }, [nodes, connections, workflowId, enableAutosave, saveToLocalStorage, saveToBackend, checkForConflicts]);
+    }, [nodes, connections, workflowId, enableAutosave, saveToLocalStorage, saveToBackendWithRetry, checkForConflicts]);
 
     useEffect(() => {
         if (!enableAutosave) {
@@ -157,14 +194,23 @@ export function useAutosave({
 
     useEffect(() => {
         const handleOnline = () => {
-            if (enableAutosave && saveStatus === 'error') {
+            if (pendingDataRef.current) {
+                saveToBackendWithRetry(pendingDataRef.current).then(success => {
+                    if (success) {
+                        pendingDataRef.current = null;
+                        setSaveStatus('saved');
+                    } else {
+                        setSaveStatus('error');
+                    }
+                });
+            } else if (enableAutosave && saveStatus === 'error') {
                 performSave();
             }
         };
 
         window.addEventListener('online', handleOnline);
         return () => window.removeEventListener('online', handleOnline);
-    }, [enableAutosave, saveStatus, performSave]);
+    }, [enableAutosave, saveStatus, performSave, saveToBackendWithRetry]);
 
     useEffect(() => {
         const savedPreference = localStorage.getItem('nanoflow-autosave-enabled');
@@ -177,7 +223,6 @@ export function useAutosave({
         localStorage.setItem('nanoflow-autosave-enabled', enableAutosave.toString());
     }, [enableAutosave]);
 
-    // Force immediate save (for templates, before execution, etc.)
     const forceSave = useCallback(async (overriddenNodes?: WorkflowNode[], overriddenConnections?: Connection[]) => {
         if (isSavingRef.current) return;
 
@@ -195,21 +240,35 @@ export function useAutosave({
         saveToLocalStorage(workflowData);
 
         if (navigator.onLine) {
-            const success = await saveToBackend(workflowData);
+            const success = await saveToBackendWithRetry(workflowData);
             setSaveStatus(success ? 'saved' : 'error');
             isSavingRef.current = false;
             return success;
         } else {
+            pendingDataRef.current = workflowData;
             setSaveStatus('saved');
             isSavingRef.current = false;
             return true;
         }
-    }, [nodes, connections, workflowId, saveToLocalStorage, saveToBackend]);
+    }, [nodes, connections, workflowId, saveToLocalStorage, saveToBackendWithRetry]);
+
+    const recoverFromLocalStorage = useCallback(() => {
+        try {
+            const saved = localStorage.getItem(`nanoflow-workflow-${workflowId}`);
+            if (saved) {
+                return JSON.parse(saved) as WorkflowData;
+            }
+        } catch (error) {
+            console.error('Failed to recover from localStorage:', error);
+        }
+        return null;
+    }, [workflowId]);
 
     return {
         saveStatus,
         enableAutosave,
         setEnableAutosave,
         forceSave,
+        recoverFromLocalStorage,
     };
 }

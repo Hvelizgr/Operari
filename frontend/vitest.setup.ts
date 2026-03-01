@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
-// @ts-ignore
+// @ts-expect-error Vitest mock for jest global
 global.jest = vi;
 
 Object.defineProperty(window, 'matchMedia', {
