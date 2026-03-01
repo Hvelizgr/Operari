@@ -254,4 +254,6 @@ export class SystemEventService {
             },
         });
     }
-}export const systemEventService = new SystemEventService();
+}
+
+export const systemEventService = new SystemEventService();

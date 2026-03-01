@@ -1,53 +1,82 @@
+import { parse } from 'url';
 
-import crypto from 'crypto';
+function isIPv4(str: string): boolean {
+  const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$/;
+  return ipv4Regex.test(str);
+}
+
+function isIPv6(str: string): boolean {
+  const ipv6Regex = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
+  return ipv6Regex.test(str);
+}
+
+function isIP(str: string): boolean {
+  return isIPv4(str) || isIPv6(str);
+}
 
 export class SecurityService {
-    private static instance: SecurityService;
-    private readonly algorithm = 'aes-256-gcm';
-    private readonly key: Buffer;
+  static isSafeUrl(urlString: string): boolean {
+    try {
+      const parsed = parse(urlString);
+      if (!parsed.hostname) return false;
 
-    private constructor() {
-        const secret = process.env.ENCRYPTION_KEY || 'default_secret_key_32_chars_long!!';
-        // Ensure key is 32 bytes
-        this.key = crypto.scryptSync(secret, 'salt', 32);
+      const privateRanges = [
+        /^127\./,
+        /^10\./,
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+        /^192\.168\./,
+        /^169\.254\./,
+        /^::1$/,
+        /^fc00:/,
+        /^fe80:/,
+        /^localhost$/i
+      ];
+
+      if (isIP(parsed.hostname)) {
+        return !privateRanges.some(regex => regex.test(parsed.hostname!));
+      }
+
+      if (/^localhost$/i.test(parsed.hostname)) {
+        return false;
+      }
+
+      return true; 
+    } catch {
+      return false;
+    }
+  }
+
+  static redactPII(data: any): any {
+    if (typeof data === 'string') {
+      return data
+        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL_REDACTED]')
+        .replace(/\b(?:\d[ -]*?){13,16}\b/g, '[CARD_REDACTED]')
+        .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, '[PHONE_REDACTED]');
     }
 
-    public static getInstance(): SecurityService {
-        if (!SecurityService.instance) {
-            SecurityService.instance = new SecurityService();
+    if (Array.isArray(data)) {
+      return data.map(item => this.redactPII(item));
+    }
+
+    if (typeof data === 'object' && data !== null) {
+      const redacted: any = {};
+      for (const key in data) {
+        if (['password', 'secret', 'token', 'apiKey', 'key'].some(k => key.toLowerCase().includes(k))) {
+          redacted[key] = '[SENSITIVE_REDACTED]';
+        } else {
+          redacted[key] = this.redactPII(data[key]);
         }
-        return SecurityService.instance;
+      }
+      return redacted;
     }
 
-    public encrypt(text: string): string {
-        const iv = crypto.randomBytes(12);
-        const cipher = crypto.createCipheriv(this.algorithm, this.key, iv);
-        
-        let encrypted = cipher.update(text, 'utf8', 'hex');
-        encrypted += cipher.final('hex');
-        
-        const authTag = cipher.getAuthTag().toString('hex');
-        
-        // Format: iv:authTag:encryptedData
-        return `${iv.toString('hex')}:${authTag}:${encrypted}`;
-    }
+    return data;
+  }
 
-    public decrypt(encryptedText: string): string {
-        try {
-            const [ivHex, authTagHex, encryptedData] = encryptedText.split(':');
-            
-            const iv = Buffer.from(ivHex, 'hex');
-            const authTag = Buffer.from(authTagHex, 'hex');
-            const decipher = crypto.createDecipheriv(this.algorithm, this.key, iv);
-            
-            decipher.setAuthTag(authTag);
-            
-            let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-            decrypted += decipher.final('utf8');
-            
-            return decrypted;
-        } catch (error) {
-            throw new Error('Failed to decrypt data. Key might be invalid or data corrupted.');
-        }
-    }
+  static sanitizeInput(input: string): string {
+    return input
+      .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, '')
+      .replace(/on\w+="[^"]*"/gim, '')
+      .replace(/javascript:/gim, '');
+  }
 }

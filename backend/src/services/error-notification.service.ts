@@ -2,6 +2,8 @@ import { PrismaClient } from '@prisma/client';
 import { CustomError, ErrorSeverity } from '../errors/custom-error';
 import { Logger } from './logger.service';
 import { markErrorAsNotified } from '../utils/error-persistence';
+import { EmailService } from './email.service';
+import { SlackService } from './integrations/slack.service';
 
 /**
  * Error notification payload
@@ -112,6 +114,10 @@ export class ErrorNotificationService {
                     await this.sendEmailNotification(config.email as string, payload);
                     break;
 
+                case 'SLACK':
+                    await this.sendSlackNotification(config.slackWebhookUrl as string, payload);
+                    break;
+
                 default:
                     this.logger.warn(`Unknown notification type: ${config.type}`);
                     return;
@@ -169,29 +175,74 @@ export class ErrorNotificationService {
     }
 
     /**
-     * Send email notification
-     */
-    private async sendEmailNotification(
-        email: string,
-        payload: ErrorNotificationPayload
-    ): Promise<void> {
-        // This would integrate with your email service
-        // For now, we'll log it as a placeholder
-        this.logger.info(`Email notification would be sent to ${email}`, {
-            metadata: {
-                errorCode: payload.errorCode,
-                severity: payload.severity,
-            },
+* Send email notification
+*/
+private async sendEmailNotification(
+email: string,
+payload: ErrorNotificationPayload
+): Promise<void> {
+const emailService = EmailService.getInstance();
+
+if (!emailService.isConfigured()) {
+this.logger.warn('Email notification requested but SMTP not configured');
+return;
+}
+        await emailService.send({
+            to: email,
+            subject: `NanoFlow Alert: [${payload.severity.toUpperCase()}] Error in ${payload.workflowName || 'Workflow'}`,
+            html: this.formatEmailBody(payload),
         });
 
-        // TODO: Integrate with actual email service (SendGrid, AWS SES, etc.)
-        // Example:
-        // const emailService = EmailService.getInstance();
-        // await emailService.send({
-        //     to: email,
-        //     subject: `[${payload.severity.toUpperCase()}] Error in workflow ${payload.workflowName}`,
-        //     html: this.formatEmailBody(payload),
-        // });
+        this.logger.debug('Email error notification sent', { metadata: { email } });
+    }
+
+    /**
+     * Send Slack notification
+     */
+    private async sendSlackNotification(
+        webhookUrl: string,
+        payload: ErrorNotificationPayload
+    ): Promise<void> {
+        const slackService = SlackService.getInstance();
+        const message = this.formatSlackMessage(payload);
+        await slackService.sendMessage(webhookUrl, message);
+        this.logger.debug('Slack error notification sent');
+    }
+
+    private formatEmailBody(payload: ErrorNotificationPayload): string {
+return `
+<div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+<h2 style="color: #ef4444;">🚨 NanoFlow Execution Error</h2>
+<p>An error occurred during the execution of a critical workflow.</p>
+
+<table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+<tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #f4f4f5;">Workflow:</td><td style="padding: 8px; border-bottom: 1px solid #f4f4f5;">${payload.workflowName || 'Unknown'}</td></tr>
+<tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #f4f4f5;">Severity:</td><td style="padding: 8px; border-bottom: 1px solid #f4f4f5; color: #ef4444;">${payload.severity.toUpperCase()}</td></tr>
+<tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #f4f4f5;">Node:</td><td style="padding: 8px; border-bottom: 1px solid #f4f4f5;">${payload.nodeName || payload.nodeType || 'System'}</td></tr>
+<tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #f4f4f5;">Error:</td><td style="padding: 8px; border-bottom: 1px solid #f4f4f5; font-family: monospace;">${payload.errorMessage}</td></tr>
+<tr><td style="padding: 8px; font-weight: bold; border-bottom: 1px solid #f4f4f5;">Timestamp:</td><td style="padding: 8px; border-bottom: 1px solid #f4f4f5;">${payload.timestamp}</td></tr>
+</table>
+
+<div style="text-align: center; margin-top: 30px;">
+<a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/workflows/${payload.workflowId}/executions/${payload.executionId}" 
+style="background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+View Execution Details
+</a>
+</div>
+</div>
+`;
+    }
+
+    private formatSlackMessage(payload: ErrorNotificationPayload): string {
+        const severityEmoji = payload.severity === 'critical' ? '🔴' : (payload.severity === 'high' ? '🟠' : '🟡');
+        return `${severityEmoji} *NanoFlow Error Alert*
+*Workflow:* ${payload.workflowName || 'Unknown'} (${payload.workflowId})
+*Node:* ${payload.nodeName || payload.nodeType || 'System'}
+*Error:* \`${payload.errorMessage}\`
+*Severity:* ${payload.severity.toUpperCase()}
+*Timestamp:* ${payload.timestamp}
+
+<${process.env.FRONTEND_URL || 'http://localhost:3000'}/workflows/${payload.workflowId}/executions/${payload.executionId}|View Execution Details>`;
     }
 
     /**

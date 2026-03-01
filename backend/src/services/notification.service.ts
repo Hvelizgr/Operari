@@ -1,4 +1,4 @@
-
+import nodemailer from 'nodemailer';
 import { prisma } from '../server';
 import { logger } from '../config/logger.config';
 
@@ -43,7 +43,7 @@ export class NotificationService {
      * Send a notification through multiple channels
      */
     public async send(payload: NotificationPayload): Promise<void> {
-        const { tenantId, userId, title, message, priority, channels, metadata, actionUrl } = payload;
+        const { tenantId, userId, title, message: _message, priority, channels, metadata: _metadata, actionUrl: _actionUrl } = payload;
 
         console.log('[NotificationService] Sending notification:', { tenantId, userId, title, priority, channels });
 
@@ -71,7 +71,7 @@ export class NotificationService {
      */
     private async sendEmail(payload: NotificationPayload): Promise<void> {
         try {
-            const { tenantId, userId, title, message } = payload;
+            const { tenantId: _tenantId, userId, title, message } = payload;
 
             // Get user email
             if (!userId) return;
@@ -83,8 +83,6 @@ export class NotificationService {
 
             if (!user?.email) return;
 
-            const nodemailer = require('nodemailer');
-            
             if (!process.env.SMTP_HOST) {
                 logger.warn('SMTP not configured, skipping email notification');
                 return;
@@ -194,7 +192,7 @@ export class NotificationService {
      */
     private async sendInApp(payload: NotificationPayload): Promise<void> {
         try {
-            const { tenantId, userId, title, message, priority, metadata } = payload;
+            const { tenantId, userId: _userId, title, message, priority, metadata } = payload;
 
             await prisma.alertHistory.create({
                 data: {

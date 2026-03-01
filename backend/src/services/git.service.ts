@@ -3,6 +3,7 @@ import { prisma } from '../config/database';
 import { CustomError, ErrorCode } from '../errors/custom-error';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 
 export interface GitConfig {
     repoPath: string;
@@ -346,6 +347,136 @@ export class GitService {
                 cause: error as Error
             });
         }
+    }
+
+    async getBranches(repoPath: string): Promise<{ current: string; all: string[] }> {
+        try {
+            const git = this.getGitInstance(repoPath);
+            const branches = await git.branch();
+            return {
+                current: branches.current,
+                all: branches.all
+            };
+        } catch (error) {
+            throw new CustomError({
+                message: 'Failed to get branches',
+                code: ErrorCode.UNKNOWN_ERROR,
+                cause: error as Error
+            });
+        }
+    }
+
+    async checkout(repoPath: string, branch: string, create: boolean = false): Promise<{ success: boolean; message: string }> {
+        try {
+            const git = this.getGitInstance(repoPath);
+            if (create) {
+                await git.checkoutLocalBranch(branch);
+            } else {
+                await git.checkout(branch);
+            }
+            return { success: true, message: `Checked out to ${branch}` };
+        } catch (error) {
+            throw new CustomError({
+                message: `Failed to checkout branch ${branch}`,
+                code: ErrorCode.UNKNOWN_ERROR,
+                cause: error as Error
+            });
+        }
+    }
+
+    async getDiff(repoPath: string, workflowId: string): Promise<string> {
+        try {
+            const git = this.getGitInstance(repoPath);
+            const workflowsDir = path.join(repoPath, 'workflows');
+            
+            // Find the file for this workflow
+            if (!fs.existsSync(workflowsDir)) {
+                return 'Repository not initialized or workflows directory missing';
+            }
+
+            const files = fs.readdirSync(workflowsDir);
+            const workflowFile = files.find(f => f.endsWith(`${workflowId}.json`));
+
+            if (!workflowFile) {
+                return 'Workflow not found in repository';
+            }
+
+            const filePath = path.join('workflows', workflowFile);
+            const diff = await git.diff([filePath]);
+            
+            return diff || 'No differences';
+        } catch (error) {
+            throw new CustomError({
+                message: 'Failed to get diff',
+                code: ErrorCode.UNKNOWN_ERROR,
+                cause: error as Error
+            });
+        }
+    }
+
+    async getIntegrationConfig(tenantId: string): Promise<any> {
+        return prisma.gitHubIntegration.findUnique({
+            where: { tenantId }
+        });
+    }
+
+    async saveIntegrationConfig(tenantId: string, data: any): Promise<any> {
+        return prisma.gitHubIntegration.upsert({
+            where: { tenantId },
+            update: data,
+            create: {
+                tenantId,
+                ...data
+            }
+        });
+    }
+
+    async syncWorkflowToGit(tenantId: string, workflowId: string, userId: string): Promise<any> {
+        const config = await this.getIntegrationConfig(tenantId);
+        if (!config) return null;
+
+        const repoBase = path.join(os.homedir(), '.nanoflow', 'git-repos');
+        const repoPath = path.join(repoBase, tenantId, config.repo);
+
+        // Ensure repo exists
+        if (!fs.existsSync(repoPath)) {
+            await this.initRepository(repoPath);
+            const remoteUrl = `https://${config.accessToken}@github.com/${config.owner}/${config.repo}.git`;
+            await this.configureRemote(repoPath, remoteUrl);
+        }
+
+        // Pull latest
+        try {
+            await this.pull(repoPath, 'origin', config.branch);
+        } catch (e) {
+            // Ignore pull errors if repo is empty or new
+        }
+
+        // Export and commit
+        const result = await this.exportWorkflowsToGit(
+            userId,
+            repoPath,
+            `Auto-commit workflow ${workflowId} update`,
+            [workflowId]
+        );
+
+        if (result.success && result.commitHash) {
+            // Push
+            await this.push(repoPath, 'origin', config.branch);
+            
+            // Update workflow version with commit info
+            await prisma.workflowVersion.create({
+                data: {
+                    workflowId,
+                    version: Math.floor(Date.now() / 1000), // Simple versioning
+                    commitSha: result.commitHash,
+                    userId,
+                    createdAt: new Date()
+                }
+            });
+        }
+
+        return result;
     }
 }
 

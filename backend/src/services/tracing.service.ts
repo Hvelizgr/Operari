@@ -1,5 +1,4 @@
 import { trace, Span, SpanStatusCode } from '@opentelemetry/api';
-import { logger } from './logger.service';
 
 export class TracingService {
     private static tracer = trace.getTracer('nanoflow-engine');

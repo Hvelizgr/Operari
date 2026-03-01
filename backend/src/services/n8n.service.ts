@@ -5,6 +5,9 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { logger } from '../config/logger.config';
+import { Workflow } from '@prisma/client';
+import { transformNanoFlowToN8n, transformN8nResultToNanoFlow } from './n8n-workflow-transformer';
+import { WorkflowNode } from '../types/workflow.types';
 
 interface N8nWorkflow {
   id?: string;
@@ -599,7 +602,7 @@ class N8nService {
           return this.mapN8nNodesToNanoFlow(cachedNodes);
         }
       }
-    } catch (cacheErr) {
+    } catch {
       console.error('⚠️ Cache file corrupt or unreadable.');
     }
 
@@ -656,7 +659,7 @@ class N8nService {
         const isTrigger = name.includes('trigger') || parts.includes('trigger');
 
         // Generate hierarchical ID (e.g., "google/analytics", "ai/openai/model")
-        let categoryId = parts.join('/');
+        const categoryId = parts.join('/');
 
         // Icon URL - Proxy through our own backend to solve auth/cross-origin issues
         const iconUrl = `/api/n8n/node-icons/${n8nNode.name}`;
@@ -705,8 +708,7 @@ class N8nService {
       group: /group:\s*\[\s*(['"].+?['"])\s*\]/,
     };
 
-    const self = this;
-    function scan(dir: string) {
+    const scan = (dir: string): void => {
       if (!fs.existsSync(dir)) return;
       const files = fs.readdirSync(dir);
 
@@ -720,9 +722,9 @@ class N8nService {
           // Cache icons: typically nodeName.svg or similar
           const nodeNameGuess = file.split('.')[0].toLowerCase();
           // Cache all naming variations
-          self.iconMap.set(nodeNameGuess, fullPath);
+          this.iconMap.set(nodeNameGuess, fullPath);
           const pascalCase = nodeNameGuess.charAt(0).toUpperCase() + nodeNameGuess.slice(1);
-          self.iconMap.set(pascalCase, fullPath);
+          this.iconMap.set(pascalCase, fullPath);
         } else if (file.endsWith('.node.json')) {
           try {
             const content = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
@@ -734,10 +736,10 @@ class N8nService {
               const iconName = content.icon.replace('file:', '');
               const iconPath = path.join(dir, iconName);
               if (fs.existsSync(iconPath)) {
-                self.iconMap.set(content.name, iconPath);
+                this.iconMap.set(content.name, iconPath);
               }
             }
-          } catch (e) {}
+          } catch { /* skip invalid JSON files */ }
         } else if (file.endsWith('.node.ts')) {
           try {
             const content = fs.readFileSync(fullPath, 'utf-8');
@@ -762,15 +764,15 @@ class N8nService {
                   const iconName = node.icon.replace('file:', '');
                   const iconPath = path.join(dir, iconName);
                   if (fs.existsSync(iconPath)) {
-                    self.iconMap.set(name, iconPath);
+                    this.iconMap.set(name, iconPath);
                   }
                 }
               }
             }
-          } catch (e) {}
+          } catch { /* skip files that can't be parsed */ }
         }
       }
-    }
+    };
     scan(nodesBase);
 
     const uniqueNodes = Array.from(new Map(nodes.map(item => [item.name, item])).values());
@@ -803,6 +805,200 @@ class N8nService {
       position: [nanoflowNode.position.x, nanoflowNode.position.y],
       parameters: (nanoflowNode.data.parameters as Record<string, unknown>) || {},
     };
+  }
+
+  // ==================== Full Workflow Execution via n8n ====================
+
+  /**
+   * Ejecuta un workflow completo de NanoFlow en n8n
+   * Este es el método principal que usa n8n como motor de ejecución
+   */
+  async executeNanoFlowWorkflow(
+    workflow: Workflow,
+    inputData?: Record<string, unknown>,
+    options?: {
+      waitForCompletion?: boolean;
+      timeout?: number;
+      deleteAfterExecution?: boolean;
+    }
+  ): Promise<{
+    executionId: string;
+    n8nWorkflowId: string;
+    status: 'running' | 'success' | 'error' | 'waiting';
+    result?: Record<string, unknown>;
+    error?: string;
+  }> {
+    const {
+      waitForCompletion = true,
+      timeout = 60000,
+      deleteAfterExecution = true,
+    } = options || {};
+
+    let n8nWorkflowId: string | undefined;
+
+    try {
+      const n8nWorkflow = transformNanoFlowToN8n(workflow);
+      logger.info({ workflowName: workflow.name }, 'Transforming NanoFlow workflow to n8n format');
+
+      const createdWorkflow = await this.createWorkflow(n8nWorkflow as any);
+      n8nWorkflowId = createdWorkflow.id;
+
+      if (!n8nWorkflowId) {
+        throw new Error('Failed to create n8n workflow - no ID returned');
+      }
+
+      logger.info({ n8nWorkflowId, workflowName: workflow.name }, 'Created temporary n8n workflow');
+
+      const execution = await this.executeWorkflow(n8nWorkflowId, inputData);
+      logger.info({ executionId: execution.id, n8nWorkflowId }, 'Started n8n workflow execution');
+
+      if (!waitForCompletion) {
+        return {
+          executionId: execution.id,
+          n8nWorkflowId,
+          status: 'running',
+        };
+      }
+
+      const finalExecution = await this.waitForExecution(execution.id, timeout);
+
+      const nodes = workflow.nodes as unknown as WorkflowNode[];
+      const nodeIdToName = new Map<string, string>();
+      nodes.forEach((node, index) => {
+        const safeName = node.title.replace(/[^a-zA-Z0-9_]/g, '_') || `Node_${index}`;
+        nodeIdToName.set(node.id, safeName);
+      });
+
+      const result = transformN8nResultToNanoFlow(finalExecution as any, nodeIdToName);
+
+      if (deleteAfterExecution && n8nWorkflowId) {
+        try {
+          await this.deleteWorkflow(n8nWorkflowId);
+          logger.info({ n8nWorkflowId }, 'Deleted temporary n8n workflow');
+        } catch (deleteError) {
+          logger.warn({ n8nWorkflowId, error: deleteError }, 'Failed to delete temporary workflow');
+        }
+      }
+
+      const isSuccess = finalExecution.status === 'success' || finalExecution.finished;
+
+      return {
+        executionId: execution.id,
+        n8nWorkflowId: n8nWorkflowId!,
+        status: isSuccess ? 'success' : 'error',
+        result: result as Record<string, unknown>,
+        error: isSuccess ? undefined : 'Workflow execution failed',
+      };
+    } catch (error) {
+      logger.error({ error, workflowId: workflow.id }, 'Error executing workflow via n8n');
+
+      if (deleteAfterExecution && n8nWorkflowId) {
+        try {
+          await this.deleteWorkflow(n8nWorkflowId);
+        } catch (deleteError) {
+          logger.warn({ n8nWorkflowId, error: deleteError }, 'Failed to cleanup workflow after error');
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Espera a que una ejecución de n8n termine
+   */
+  async waitForExecution(executionId: string, timeout: number = 60000): Promise<N8nExecution> {
+    const startTime = Date.now();
+    const pollInterval = 1000;
+
+    while (Date.now() - startTime < timeout) {
+      const execution = await this.getExecution(executionId);
+
+      if (execution.finished || execution.status === 'success' || execution.status === 'error') {
+        return execution;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+
+    throw new Error(`Execution ${executionId} timed out after ${timeout}ms`);
+  }
+
+  /**
+   * Obtiene el estado de una ejecución con detalles de cada nodo
+   */
+  async getExecutionDetails(executionId: string): Promise<{
+    status: string;
+    finished: boolean;
+    nodeResults: Record<string, {
+      status: 'success' | 'error' | 'running' | 'waiting';
+      output?: unknown;
+      error?: string;
+      startedAt?: string;
+      finishedAt?: string;
+    }>;
+    error?: string;
+  }> {
+    const execution = await this.getExecution(executionId);
+    
+    const nodeResults: Record<string, any> = {};
+    const runData = execution.data?.resultData?.runData as Record<string, any> | undefined;
+
+    if (runData) {
+      for (const [nodeName, executions] of Object.entries(runData)) {
+        const executionsArray = executions as any[];
+        if (!Array.isArray(executionsArray) || executionsArray.length === 0) {
+          continue;
+        }
+        const lastExecution = executionsArray[executionsArray.length - 1];
+
+        nodeResults[nodeName] = {
+          status: lastExecution?.error ? 'error' : 'success',
+          output: lastExecution?.data?.main?.[0]?.map((item: any) => item.json),
+          error: lastExecution?.error?.message,
+          startedAt: lastExecution?.startTime,
+          finishedAt: lastExecution?.executionTime
+            ? new Date(new Date(lastExecution.startTime).getTime() + lastExecution.executionTime).toISOString()
+            : undefined,
+        };
+      }
+    }
+
+    return {
+      status: execution.status,
+      finished: execution.finished,
+      nodeResults,
+      error: execution.status === 'error' ? 'Execution failed' : undefined,
+    };
+  }
+
+  /**
+   * Cancela una ejecución en progreso
+   */
+  async cancelExecution(executionId: string): Promise<void> {
+    try {
+      await this.client.post(`/executions/${executionId}/stop`);
+      logger.info({ executionId }, 'Execution cancelled');
+    } catch (error) {
+      logger.error({ error, executionId }, 'Failed to cancel execution');
+      throw error;
+    }
+  }
+
+  /**
+   * Verifica si n8n está disponible y configurado correctamente
+   */
+  async isN8nAvailable(): Promise<boolean> {
+    try {
+      const healthy = await this.healthCheck();
+      if (!healthy) return false;
+
+      await this.getWorkflows();
+      return true;
+    } catch (error) {
+      logger.warn({ error }, 'n8n is not available or not configured correctly');
+      return false;
+    }
   }
 }
 
