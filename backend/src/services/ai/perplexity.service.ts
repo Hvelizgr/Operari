@@ -9,7 +9,7 @@ export class PerplexityService {
         return PerplexityService.instance;
     }
 
-    async searchCallback(query: string, model: string = 'sonar-small-online', apiKey?: string): Promise<string> {
+    async searchCallback(query: string, model: string = 'sonar-small-online', _apiKey?: string): Promise<string> {
         // Mock Implementation for now to avoid actual API calls during Dev
         // In Prod: 
         /*

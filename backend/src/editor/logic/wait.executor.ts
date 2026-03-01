@@ -1,5 +1,4 @@
 import { NodeExecutionResult, ExecutionInput, WorkflowNode } from '../../types/workflow.types';
-import { CustomError, ErrorCode } from '../../errors/custom-error';
 
 export class WaitNodeExecutor {
     async execute(node: WorkflowNode, input: ExecutionInput): Promise<NodeExecutionResult> {

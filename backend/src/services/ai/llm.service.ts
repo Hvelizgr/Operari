@@ -10,11 +10,11 @@ export class LLMService {
     }
 
     async chatCompletion(
-        prompt: string, 
-        provider: string = 'openai', 
+        prompt: string,
+        provider: string = 'openai',
         model: string = 'gpt-3.5-turbo',
-        apiKey?: string,
-        systemMessage?: string
+        _apiKey?: string,
+        _systemMessage?: string
     ): Promise<string> {
         
         if (provider === 'local_mock') {

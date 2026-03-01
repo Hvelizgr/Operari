@@ -1,5 +1,5 @@
 import { ExecutionInput, NodeExecutionResult } from '../../types/workflow.types';
-import { NodeExecutionError, ErrorCode, ErrorSeverity } from '../../errors/custom-error';
+import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import axios from 'axios';
@@ -44,7 +44,7 @@ export class PingNodeExecutor {
             
             const startTime = Date.now();
             const { stdout } = await execAsync(cmd);
-            const duration = Date.now() - startTime;
+            const _duration = Date.now() - startTime;
 
             // Parse output for stats (packet loss, avg time)
             // Example line: "3 packets transmitted, 3 received, 0% packet loss, time 2003ms"

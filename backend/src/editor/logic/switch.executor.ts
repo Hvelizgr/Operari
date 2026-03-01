@@ -1,6 +1,6 @@
-import { NodeExecutionResult, ExecutionInput, SwitchResult, WorkflowNode, SwitchNodeConfig } from '../../types/workflow.types';
+import { NodeExecutionResult, ExecutionInput, WorkflowNode, SwitchNodeConfig } from '../../types/workflow.types';
 import jexl from 'jexl';
-import { CustomError, ErrorCode, ErrorSeverity } from '../../errors/custom-error';
+import { CustomError, ErrorCode } from '../../errors/custom-error';
 
 export class SwitchNodeExecutor {
     async execute(node: WorkflowNode, input: ExecutionInput): Promise<NodeExecutionResult> {

@@ -1,7 +1,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const pdf = require('pdf-parse');
 import * as mammoth from 'mammoth';
 import * as cheerio from 'cheerio';

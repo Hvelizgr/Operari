@@ -53,7 +53,7 @@ export class AlertConditionNodeExecutor {
 
             // Get or initialize state for this node
             const stateKey = `${nodeId}`;
-            let state = alertState.get(stateKey) || { count: 0, lastTriggered: 0 };
+            const state = alertState.get(stateKey) || { count: 0, lastTriggered: 0 };
 
             // Check cooldown
             const now = Date.now();

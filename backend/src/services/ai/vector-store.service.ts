@@ -17,7 +17,7 @@ export class VectorStoreService {
         return VectorStoreService.instance;
     }
 
-    async upsert(provider: string, collection: string, docs: VectorDocument[], config: any): Promise<any> {
+    async upsert(provider: string, collection: string, docs: VectorDocument[], _config: any): Promise<any> {
         if (provider === 'memory') {
             const current = this.memoryStore.get(collection) || [];
             // Simple append for now (should dedupe by ID)
@@ -34,7 +34,7 @@ export class VectorStoreService {
         throw new Error(`Unknown provider: ${provider}`);
     }
 
-    async search(provider: string, collection: string, queryVector: number[], limit: number = 5, config: any): Promise<any[]> {
+    async search(provider: string, collection: string, queryVector: number[], limit: number = 5, _config: any): Promise<any[]> {
         if (provider === 'memory') {
             const docs = this.memoryStore.get(collection) || [];
             if (docs.length === 0) return [];

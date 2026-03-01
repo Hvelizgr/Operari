@@ -27,7 +27,7 @@ export class ThresholdNodeExecutor {
             threshold,
             thresholdMin,
             thresholdMax,
-            outputOnMatch = 'continue'
+            outputOnMatch: _outputOnMatch = 'continue'
         } = config;
 
         if (!valuePath) {
