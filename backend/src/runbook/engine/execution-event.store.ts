@@ -12,20 +12,27 @@ import { reduceRunState, type ReplayableEvent } from './run-state.reducer';
  * compatibility (a future variant doesn't need a migration), but the
  * service boundary is strongly typed.
  *
- * What this commit ships:
+ * Surface:
  *   - append(executionId, tenantId, event)
  *   - listEvents(executionId)
  *   - reduceState(executionId)  → RunState
- *   - listInFlightExecutions(tenantId)  → for the worker startup loop
+ *   - listInFlightExecutions(tenantId)  → worker startup
+ *   - listTenantsWithEvents()  → worker startup tenant enumeration
  *
- * What this commit DOES NOT ship (tracked separately):
- *   - The worker loop that resumes runs at startup
- *   - Integration into ExecutionService.runWorkflow — today the engine
- *     still mutates state in memory and emits to AuditService for
- *     compliance. ExecutionEventStore is the durable copy that the
- *     follow-up wires into the same code paths.
- *   - Hash chaining or tamper detection (intentional — AuditEvent
- *     covers tamper at the tenant level; this table is for liveness).
+ * What this DOES NOT cover (intentional / phase 4):
+ *   - Hash chaining or tamper detection. AuditEvent covers tamper at
+ *     the tenant level; this table is for liveness, not forensics.
+ *   - Step replay execution. The worker (resume-worker.ts) currently
+ *     ABANDONS interrupted runs by appending run.failed. Phase 4 will
+ *     replace ABANDON with RESUME by re-feeding step.completed
+ *     outputs to the runtime — see ADR 0003 phase 4.
+ *
+ * Wiring status (closes the circle):
+ *   - ExecutionService dual-writes to this store + audit chain via
+ *     `safeAppendEvent`, gated on NANORUN_DURABLE_ENGINE
+ *   - The cancel route appends run.cancelled directly
+ *   - The resume worker reads via listInFlightExecutions + reduceState
+ *     at server startup
  */
 export class ExecutionEventStore {
     constructor(private readonly prisma: PrismaClient) { }

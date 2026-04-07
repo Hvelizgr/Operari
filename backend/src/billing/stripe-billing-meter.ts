@@ -9,28 +9,22 @@ import type { BillableEvent, BillingMeter } from './billing-meter.types';
  *   - Event-type → Stripe-meter-name mapping (the runtime uses
  *     stable internal names like "run.started"; Stripe wants meter
  *     names registered ahead of time in the dashboard)
- *   - A pluggable `sendMeterEvent` function so production passes a
- *     real `fetch('https://api.stripe.com/v1/billing/meter_events')`
- *     and tests pass a fake
  *   - Idempotency key passthrough (Stripe deduplicates within 24h)
- *   - Best-effort error handling (returns false instead of throwing)
+ *   - Best-effort error handling (returns false instead of throwing
+ *     so the request hot path never blocks on a Stripe outage)
  *
- * What this commit does NOT ship
- *   - The actual fetch call. Production wiring will pass a function
- *     that hits Stripe's API with the secret key from
- *     `STRIPE_SECRET_KEY` and the right form encoding. Once the
- *     billing integration lands, that's a single file change.
+ * Pluggable HTTP layer: the constructor takes a `sendMeterEvent`
+ * function so the actual fetch call can be swapped. The production
+ * wiring is `buildStripeMeterEventSender({ secretKey })` from
+ * `stripe-http-client.ts` — POST `/v1/billing/meter_events` with
+ * form encoding and Bearer auth, no SDK dependency. Tests inject
+ * fakes.
+ *
+ * What this DOES NOT cover (out of scope for this file)
  *   - Webhook handling for `customer.subscription.*` events from
  *     Stripe (the inverse direction — Stripe telling NanoRun a
- *     customer cancelled).
- *   - Meter aggregation. Stripe handles aggregation server-side;
- *     this client just sends raw events.
- *
- * Why a skeleton: the load-bearing decision is the contract shape
- * (BillableEvent, the meter name mapping, the idempotency strategy).
- * Shipping it now lets the runtime call meter.record() at the right
- * lifecycle points TODAY without touching Stripe credentials. When
- * the cloud beta lands, the HTTP layer drops in.
+ *     customer cancelled). Lives in a future webhooks/stripe.routes.ts.
+ *   - Meter aggregation. Stripe handles that server-side.
  */
 
 export type SendMeterEventFn = (input: {

@@ -38,7 +38,7 @@ export interface ApprovalExecutorOptions {
  * The executor emits an `approval.requested` audit event when the
  * Approval row is created. The matching `approval.granted` /
  * `approval.rejected` events are emitted by the resolution endpoint
- * (TODO: not yet implemented — track in IMPLEMENTACION_NANORUN.md P1).
+ * `POST /api/v1/approvals/:id/grant|reject` via ApprovalService.
  */
 export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
     readonly type = 'approval';

@@ -8,32 +8,26 @@ import { AuthTransportError } from './auth-provider.types';
  * What this ships
  *   - The right interface so routes can opt into WorkOS via
  *     `NANORUN_AUTH_PROVIDER=workos` without rewriting auth call sites
- *   - The token-shape decoding (JWT minted by WorkOS, RS256-signed
- *     against WorkOS's JWKS endpoint)
- *   - A pluggable token-verification function so the production HTTP
- *     fetch can be added without touching this file
  *   - Tenant resolution: WorkOS organizations map 1:1 to NanoRun
- *     tenants via `Tenant.workosOrganizationId` (column added when
- *     the cloud beta migration lands)
+ *     tenants via `Tenant.workosOrganizationId` (added by the
+ *     `add_tenant_external_ids` migration)
  *   - Local user upsert: on a successful WorkOS verify, create the
  *     User row if missing. WorkOS owns identity; NanoRun owns
  *     authorization (RBAC + per-tenant resources).
  *
- * What this DOES NOT ship
- *   - The actual `fetch('https://api.workos.com/sso/jwks')` call.
- *     The constructor takes a `verifyJwksToken` function so a
- *     production wiring can pass the real HTTP call and tests can
- *     pass a fake.
- *   - Webhook handling for user.updated / user.deleted events from
- *     WorkOS. Cloud beta only.
- *   - SSO / SAML flow initiation. WorkOS owns the hosted UI; the
- *     backend only sees the resulting bearer token.
+ * Pluggable verification: the constructor takes a `verifyJwksToken`
+ * function so the actual JWKS HTTP call can be swapped. The
+ * production wiring is `WorkOSJwksVerifier.asVerifyTokenFn()` which
+ * uses `node:crypto` + `fetch` to verify RS256 against the WorkOS
+ * JWKS endpoint with kid rotation, alg=none/HS256 attack protection,
+ * and a per-instance JWKS cache. Tests inject fakes.
  *
- * Why a skeleton instead of the full integration: the surface area
- * (interface, env flag, route layer ignorance) is the load-bearing
- * design. The HTTP layer is a one-file change once we have a WorkOS
- * test account. Shipping the skeleton now means the rest of the
- * codebase compiles against the right contract today.
+ * What this DOES NOT cover (out of scope for this file)
+ *   - Webhook handling for user.updated / user.deleted events from
+ *     WorkOS. The inverse direction — WorkOS telling NanoRun a user
+ *     changed — lives in a future webhooks/workos.routes.ts.
+ *   - SSO / SAML flow initiation. WorkOS owns the hosted UI; the
+ *     backend only sees the resulting bearer token at request time.
  */
 
 /**
