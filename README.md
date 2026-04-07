@@ -97,7 +97,7 @@ This is the part Show HN will dig into anyway, so it's better up here than burie
 | Area | State | Tracked in |
 |---|---|---|
 | **GitHub App OAuth + status checks** | Connected accounts model exists, OAuth dance not wired | P1 #9 in `IMPLEMENTACION_NANORUN.md` |
-| **Slack notifications actually sending** | `notify` step exists in the catalog but doesn't call a real Slack webhook yet | Tier 0 #4 in [`post-pivot-cleanup-audit.md`](./docs/post-pivot-cleanup-audit.md) |
+| **Secrets resolution at runtime** | The R3.4 Secret Picker UI lets you select a connected account and stores the reference as `{{secrets.<id>}}`, but the runbook engine's `resolveTemplate` does not yet have a `secrets` branch. Until then, pass webhook tokens via `vars` (set per trigger) or accept that they live in the YAML for self-host single-tenant. | Backlog (engine work) |
 | **Sentry / Datadog payload parsing** | Webhook receiver verifies HMAC and routes to runbooks; provider-specific parsing is stubbed | P1 #9 |
 | **AI agent tools** | The orchestrator streams responses; it does NOT yet have read access to past runs / step logs as tools. Today it only sees what the side-panel sends in the prompt | Backlog item, no eta |
 | **Database step** | Hardened to allow `migrate`/`health`/`backup` only, but still a passthrough stub. Real Prisma wiring is not in | Backlog |
@@ -241,7 +241,8 @@ steps:
     type: notify
     name: Slack #releases
     config:
-      channel: "{{secrets.slack_webhook}}"
+      channel: slack
+      webhookUrl: "{{vars.slack_webhook}}"
       message: "Deploy of {{vars.image}} to {{vars.namespace}} complete."
 ```
 
@@ -413,7 +414,9 @@ Honest, time-boxed, conservative.
 
 **Now → 4 weeks (pre-launch)**
 
-- Slack notify that actually sends
+- Wire `{{secrets.<id>}}` resolution into the runbook engine so the
+  Secret Picker UI is end-to-end (the picker exists, the runtime
+  resolution is the missing half)
 - One real webhook integration end-to-end (GitHub or Sentry, not both)
 - JSON Schema validation in the in-app YAML save modal (the schema is
   shipping today, the editor still uses semantic-only validation)
