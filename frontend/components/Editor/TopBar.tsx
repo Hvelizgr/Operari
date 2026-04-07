@@ -74,7 +74,7 @@ export default function TopBar({
             {/* Left: Branding & Workflow Info */}
             <div className="flex items-center gap-4">
                 <div className="font-bold text-xl bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-                    NanoFlow
+                    NanoRun
                 </div>
                 <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
                 <div className="flex items-center gap-2">

@@ -26,7 +26,7 @@ export function useExecutionSocket(executionId: string | null) {
             return;
         }
 
-        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
         const socket = io(backendUrl, {
             withCredentials: true,
         });

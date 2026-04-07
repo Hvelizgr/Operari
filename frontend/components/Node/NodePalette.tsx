@@ -9,7 +9,8 @@ import {
     AlertCircle, CheckCircle, XCircle, List, Grid, Shuffle,
     Users, DollarSign, ShoppingBag, HardDrive, Smartphone, Radio,
     Twitter, Facebook, Instagram, Linkedin, CreditCard, Box,
-    Megaphone, Bell, Shield, Lock, Briefcase, Square, StickyNote
+    Megaphone, Bell, Shield, Lock, Briefcase, Square, StickyNote,
+    Terminal, UserCheck, Wrench
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
@@ -25,8 +26,9 @@ export interface NodeType {
     properties?: any[]; // Dynamic form schema
 }
 
-// n8n-style categories
+// NanoRun + n8n-style categories
 const CATEGORIES = [
+    { id: 'devops', label: { en: 'DevOps', es: 'DevOps' }, icon: Terminal, color: 'text-emerald-400' },
     { id: 'triggers', label: { en: 'Triggers', es: 'Disparadores' }, icon: Play, color: 'text-green-400' },
     { id: 'core', label: { en: 'Core', es: 'Core' }, icon: Zap, color: 'text-blue-400' },
     { id: 'organization', label: { en: 'Organization', es: 'Organización' }, icon: Folder, color: 'text-slate-400' },
@@ -42,8 +44,71 @@ const CATEGORIES = [
     { id: 'developer', label: { en: 'Developer Tools', es: 'Desarrollo' }, icon: Code, color: 'text-slate-400' },
 ];
 
-// n8n actual nodes
+// NanoRun nodes + legacy nodes
 const NODE_TYPES: NodeType[] = [
+    // === DEVOPS (NanoRun) ===
+    {
+        type: 'shell',
+        icon: <Terminal size={18} />,
+        label: { en: 'Shell Command', es: 'Comando Shell' },
+        color: 'bg-emerald-600',
+        category: 'devops',
+        description: { en: 'Run a shell command (bash/sh)', es: 'Ejecutar un comando shell' },
+        inputs: ['main'],
+        outputs: ['main'],
+        properties: [
+            { name: 'command', displayName: 'Command', type: 'string', default: 'echo "Hello from NanoRun"' },
+            { name: 'cwd', displayName: 'Working Directory', type: 'string', default: '' },
+            { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 60000 },
+        ]
+    },
+    {
+        type: 'approval',
+        icon: <UserCheck size={18} />,
+        label: { en: 'Approval Gate', es: 'Aprobación Manual' },
+        color: 'bg-amber-600',
+        category: 'devops',
+        description: { en: 'Pause until a human approves', es: 'Pausar hasta que un humano apruebe' },
+        inputs: ['main'],
+        outputs: ['approved', 'rejected'],
+        properties: [
+            { name: 'message', displayName: 'Message to approvers', type: 'string', default: 'Approve to continue' },
+            { name: 'approvers', displayName: 'Approver emails (comma-separated)', type: 'string', default: '' },
+        ]
+    },
+    {
+        type: 'notify',
+        icon: <Bell size={18} />,
+        label: { en: 'Notify', es: 'Notificar' },
+        color: 'bg-pink-600',
+        category: 'devops',
+        description: { en: 'Send to Slack, Discord, or webhook', es: 'Enviar a Slack, Discord o webhook' },
+        inputs: ['main'],
+        outputs: ['main'],
+        properties: [
+            { name: 'channel', displayName: 'Channel', type: 'options', options: [
+                { name: 'Slack', value: 'slack' },
+                { name: 'Discord', value: 'discord' },
+                { name: 'Generic Webhook', value: 'webhook' },
+            ], default: 'slack' },
+            { name: 'webhookUrl', displayName: 'Webhook URL', type: 'string', default: '' },
+            { name: 'message', displayName: 'Message', type: 'string', default: 'Runbook step completed' },
+            { name: 'title', displayName: 'Title (optional)', type: 'string', default: '' },
+        ]
+    },
+    {
+        type: 'wait',
+        icon: <Clock size={18} />,
+        label: { en: 'Wait', es: 'Esperar' },
+        color: 'bg-gray-600',
+        category: 'devops',
+        description: { en: 'Pause for a fixed duration', es: 'Pausar una duración fija' },
+        inputs: ['main'],
+        outputs: ['main'],
+        properties: [
+            { name: 'durationMs', displayName: 'Duration (ms)', type: 'number', default: 5000 },
+        ]
+    },
     // === ORGANIZATION ===
     {
         type: 'custom.frame',

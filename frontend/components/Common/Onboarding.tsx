@@ -114,12 +114,12 @@ export default function Onboarding({
 export function EmptyStateMessage({ lang }: { lang: 'en' | 'es' }) {
     const content = {
         en: {
-            title: 'Welcome to NanoFlow Editor',
+            title: 'Welcome to NanoRun Editor',
             description: 'Start building your workflow by adding nodes and connecting them.',
             cta: 'Add Your First Node',
         },
         es: {
-            title: 'Bienvenido al Editor NanoFlow',
+            title: 'Bienvenido al Editor NanoRun',
             description: 'Comienza a construir tu flujo agregando nodos y conectándolos.',
             cta: 'Agregar Tu Primer Nodo',
         },

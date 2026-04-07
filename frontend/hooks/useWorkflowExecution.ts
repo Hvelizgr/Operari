@@ -12,7 +12,7 @@ export function useWorkflowExecution(workflowId: string | null) {
         setError(null);
 
         try {
-            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             const endpoint = mode === 'debug' ? `${apiBase}/api/executions/${workflowId}/debug` : `${apiBase}/api/executions/${workflowId}/run`;
 
             const response = await fetch(endpoint, {
@@ -49,7 +49,7 @@ export function useWorkflowExecution(workflowId: string | null) {
         setError(null);
 
         try {
-            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             const response = await fetch(`${apiBase}/api/executions/${workflowId}/run`, {
                 method: 'POST',
                 headers: {
@@ -78,7 +78,7 @@ export function useWorkflowExecution(workflowId: string | null) {
         setError(null);
 
         try {
-            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             const response = await fetch(`${apiBase}/api/executions/${executionId}/replay`, {
                 method: 'POST',
                 headers: {

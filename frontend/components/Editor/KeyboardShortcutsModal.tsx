@@ -128,7 +128,7 @@ export default function KeyboardShortcutsModal({ isOpen, onClose, lang }: Keyboa
                         {/* Footer */}
                         <div className="p-4 border-t border-gray-700 bg-black/20 text-center">
                             <p className="text-xs text-gray-500 italic">
-                                NanoFlow Editor v1.0 • Built for advanced workflow automation.
+                                NanoRun Editor v1.0 • Built for advanced workflow automation.
                             </p>
                         </div>
                     </motion.div>

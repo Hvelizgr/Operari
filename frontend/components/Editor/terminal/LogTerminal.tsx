@@ -41,7 +41,7 @@ export default function LogTerminal({ logs = [], isActive = false }: LogTerminal
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
 
-        term.writeln('\x1b[1;34m[*] NanoFlow Terminal Initialized...\x1b[0m');
+        term.writeln('\x1b[1;36m[*] NanoRun Terminal Ready\x1b[0m');
 
         return () => {
             // Only dispose if actually initialized
@@ -56,8 +56,26 @@ export default function LogTerminal({ logs = [], isActive = false }: LogTerminal
             const newLogs = logs.slice(lastLogCountRef.current);
             newLogs.forEach(log => {
                 const timestamp = new Date(log.timestamp).toLocaleTimeString();
-                const prefix = `\x1b[1;30m[${timestamp}]\x1b[0m `;
-                xtermRef.current?.writeln(`${prefix}${log.message}`);
+                const stream = log.metadata?.stream;
+                const nodeId = log.metadata?.nodeId;
+
+                // Color coding by stream type
+                let messageColor = '\x1b[0m'; // default
+                let streamLabel = '';
+                if (stream === 'stdout') {
+                    messageColor = '\x1b[37m'; // light gray
+                    streamLabel = '\x1b[2;90mout\x1b[0m ';
+                } else if (stream === 'stderr') {
+                    messageColor = '\x1b[33m'; // yellow
+                    streamLabel = '\x1b[2;31merr\x1b[0m ';
+                } else if (stream === 'log') {
+                    messageColor = '\x1b[36m'; // cyan
+                    streamLabel = '\x1b[2;36mlog\x1b[0m ';
+                }
+
+                const tsPrefix = `\x1b[2;90m[${timestamp}]\x1b[0m`;
+                const nodePrefix = nodeId ? `\x1b[2;35m${nodeId}\x1b[0m ` : '';
+                xtermRef.current?.writeln(`${tsPrefix} ${nodePrefix}${streamLabel}${messageColor}${log.message}\x1b[0m`);
             });
             lastLogCountRef.current = logs.length;
         }

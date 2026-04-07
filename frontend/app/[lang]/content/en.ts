@@ -1,10 +1,10 @@
 export const content = {
   seo: {
-    title: "NanoFlow - Enterprise Automation Platform",
+    title: "NanoRun - Enterprise Automation Platform",
     description: "Build complex workflows with visual logic and code. The developer-friendly automation platform for mission-critical processes.",
     openGraph: {
-      title: "NanoFlow - Automate Everything",
-      description: "Stop building internal tools from scratch. Orchestrate infrastructure, data, and AI agents with NanoFlow.",
+      title: "NanoRun - Automate Everything",
+      description: "Stop building internal tools from scratch. Orchestrate infrastructure, data, and AI agents with NanoRun.",
     }
   },
   navigation: {
@@ -24,7 +24,7 @@ export const content = {
   },
   editor: {
     title: "Visual Logic, Code Power",
-    description: "Don't get stuck in rigid boxes. NanoFlow lets you drag, drop, and inject TypeScript functions anywhere in your pipeline.",
+    description: "Don't get stuck in rigid boxes. NanoRun lets you drag, drop, and inject TypeScript functions anywhere in your pipeline.",
     nodes: {
       webhook: "Webhook Trigger",
       transform: "Data Transform",
@@ -86,7 +86,7 @@ export const content = {
   testimonials: {
     title: "Trusted by Builders",
     items: [
-      { quote: "NanoFlow saved us months of internal tool development.", author: "Sarah Jenkins", role: "CTO @ TechFlow" },
+      { quote: "NanoRun saved us months of internal tool development.", author: "Sarah Jenkins", role: "CTO @ TechFlow" },
       { quote: "The ability to drop into code whenever I need is a game changer.", author: "Mike Chen", role: "Lead Engineer" },
       { quote: "Finally, an automation tool that treats infrastructure as code.", author: "Elena Rodriguez", role: "DevOps Lead" }
     ]

@@ -5,8 +5,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'NanoFlow - Enterprise Automation',
-  description: 'The workflow automation platform for technical teams.',
+  title: 'NanoRun - Visual Runbooks for Engineers',
+  description: 'Build, run, and debug your operational runbooks visually. Open source.',
 };
 
 export default function RootLayout({

@@ -15,7 +15,7 @@ export default function Footer({ content }: FooterProps) {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
                     <div className="col-span-2 md:col-span-1">
                         <div className="flex items-center gap-2 mb-4 font-bold text-xl text-primary">
-                            NanoFlow
+                            NanoRun
                         </div>
                         <p className="text-sm text-muted-foreground mb-6">
                             Enterprise automation for technical teams.
@@ -57,7 +57,7 @@ export default function Footer({ content }: FooterProps) {
                 </div>
 
                 <div className="pt-8 border-t border-border/10 text-center text-sm text-muted-foreground flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p>© 2024 NanoFlow. {content.rights}</p>
+                    <p>© 2024 NanoRun. {content.rights}</p>
                     <div className="flex gap-6">
                         <Link href="/en" className="hover:text-primary transition-colors">English</Link>
                         <Link href="/es" className="hover:text-primary transition-colors">Español</Link>

@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
             description: content.seo.openGraph.description,
             type: 'website',
             locale: lang,
-            siteName: 'NanoFlow',
+            siteName: 'NanoRun',
         },
     };
 }

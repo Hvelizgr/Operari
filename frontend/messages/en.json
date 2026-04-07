@@ -57,7 +57,7 @@
         "undo": "Undo",
         "redo": "Redo",
         "title": "Visual Logic, Code Power",
-        "description": "Don't get stuck in rigid boxes. NanoFlow lets you drag, drop, and inject TypeScript functions anywhere in your pipeline.",
+        "description": "Don't get stuck in rigid boxes. NanoRun lets you drag, drop, and inject TypeScript functions anywhere in your pipeline.",
         "nodeTypes": {
             "webhook": "Webhook Trigger",
             "action": "Action",
@@ -70,11 +70,11 @@
     },
     "marketing": {
         "seo": {
-            "title": "NanoFlow - Enterprise Automation Platform",
+            "title": "NanoRun - Enterprise Automation Platform",
             "description": "Build complex workflows with visual logic and code. The developer-friendly automation platform for mission-critical processes.",
             "openGraph": {
-                "title": "NanoFlow - Automate Everything",
-                "description": "Stop building internal tools from scratch. Orchestrate infrastructure, data, and AI agents with NanoFlow."
+                "title": "NanoRun - Automate Everything",
+                "description": "Stop building internal tools from scratch. Orchestrate infrastructure, data, and AI agents with NanoRun."
             }
         },
         "hero": {
@@ -163,7 +163,7 @@
             "title": "Trusted by Builders",
             "items": {
                 "0": {
-                    "quote": "NanoFlow saved us months of internal tool development.",
+                    "quote": "NanoRun saved us months of internal tool development.",
                     "author": "Sarah Jenkins",
                     "role": "CTO @ TechFlow"
                 },
@@ -194,5 +194,23 @@
             "successDesc": "Check your inbox for next steps.",
             "successButton": "Close"
         }
+    },
+    "chat": {
+        "title": "AI Assistant",
+        "newConversation": "New conversation",
+        "placeholder": "Describe what you want to automate...",
+        "send": "Send",
+        "noConversations": "No conversations yet",
+        "noConversationsHint": "Start by describing what you want to automate",
+        "noMessages": "How can I help you?",
+        "noMessagesHint": "Tell me what you'd like to automate and I'll set it up for you.",
+        "agentWorking": "Agent is working...",
+        "connecting": "Connecting...",
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "deleteConfirm": "Archive this conversation?",
+        "archived": "Conversation archived",
+        "sidebar": "Conversations",
+        "agents": "Agents"
     }
 }

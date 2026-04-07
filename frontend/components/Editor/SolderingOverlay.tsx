@@ -1,7 +1,7 @@
 // Adapted from xyOps Workflow Editor
 // Original: Copyright (c) 2019 - 2026 PixlCore LLC
 // License: BSD 3-Clause (see xyOps LICENSE.md)
-// Adapted for NanoFlow
+// Adapted for NanoRun
 
 'use client';
 

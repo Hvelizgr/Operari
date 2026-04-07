@@ -12,9 +12,12 @@ import {
     User,
     ChevronLeft,
     ChevronRight,
-    Settings
+    Settings,
+    MessageSquare,
+    Bot,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 
 interface EditorSidebarProps {
@@ -24,9 +27,12 @@ interface EditorSidebarProps {
 export default function EditorSidebar({ lang }: EditorSidebarProps) {
     const [collapsed, setCollapsed] = useState(false);
     const [active, setActive] = useState('workflows');
+    const router = useRouter();
 
     const menuItems = [
         { id: 'dashboard', label: lang === 'en' ? 'Dashboard' : 'Panel', icon: LayoutDashboard },
+        { id: 'chat', label: lang === 'en' ? 'AI Assistant' : 'Asistente IA', icon: MessageSquare, href: `/${lang}/chat` },
+        { id: 'agents', label: lang === 'en' ? 'Agents' : 'Agentes', icon: Bot, href: `/${lang}/agents` },
         { id: 'schedules', label: lang === 'en' ? 'Schedules' : 'Horarios', icon: CalendarClock },
         { id: 'workflows', label: lang === 'en' ? 'Workflows' : 'Flujos', icon: Share2 },
         { id: 'monitors', label: lang === 'en' ? 'Monitors' : 'Monitores', icon: Activity },
@@ -56,7 +62,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                         animate={{ opacity: 1 }}
                         className="font-bold text-lg tracking-wider text-white"
                     >
-                        NanoFlow
+                        NanoRun
                     </motion.div>
                 )}
                 <button
@@ -75,7 +81,12 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                     return (
                         <div
                             key={item.id}
-                            onClick={() => setActive(item.id)}
+                            onClick={() => {
+                                setActive(item.id);
+                                if ('href' in item && item.href) {
+                                    router.push(item.href);
+                                }
+                            }}
                             className={`
                                 flex items-center cursor-pointer mx-2 my-1 px-3 py-2 rounded-md transition-all duration-200
                                 ${isActive ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-white/5 text-gray-400 hover:text-white'}

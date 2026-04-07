@@ -48,7 +48,7 @@ export const getAutoLayout = (nodes: WorkflowNode[], connections: Connection[], 
         const nodeWithPosition = dagreGraph.node(node.id);
 
         // Dagre returns center x,y. We likely use top-left in our canvas.
-        // NanoFlow `node.position` is top-left.
+        // NanoRun `node.position` is top-left.
         return {
             ...node,
             position: {
