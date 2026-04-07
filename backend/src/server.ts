@@ -24,6 +24,7 @@ import approvalRoutes from './routes/approvals.routes';
 import runRoutes from './routes/runs.routes';
 import connectedAccountRoutes from './routes/connected-accounts.routes';
 import runbookAssistRoutes from './routes/runbook-assist.routes';
+import webhooksAdminRoutes from './routes/webhooks-admin.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { SchedulerService } from './services/scheduler.service';
 import {
@@ -79,6 +80,7 @@ app.use('/api/approvals', standardRateLimiter, approvalRoutes);
 app.use('/api/runs', standardRateLimiter, runRoutes);
 app.use('/api/connected-accounts', standardRateLimiter, connectedAccountRoutes);
 app.use('/api/runbook-assist', standardRateLimiter, runbookAssistRoutes);
+app.use('/api/webhooks', standardRateLimiter, webhooksAdminRoutes);
 
 // NanoRun API v1 (SDK & CLI)
 app.use('/api/v1/runbooks', executionRateLimiter, v1RunbookRoutes);

@@ -66,6 +66,14 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const hasMore = runs.length > limit;
     const page = hasMore ? runs.slice(0, limit) : runs;
 
+    // ETA: average duration of the last 20 SUCCESS runs per workflow.
+    // Computed in one groupBy so the route stays cheap even when the
+    // page contains runs from many different runbooks. Returned only
+    // for runs that are still RUNNING — finished runs already have a
+    // real duration.
+    const workflowIds = Array.from(new Set(page.map((r) => r.workflowId)));
+    const etaMap = await computeEtas(tenantId, workflowIds);
+
     res.json({
         data: page.map((r) => ({
             id: r.id,
@@ -76,10 +84,39 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             completedAt: r.completedAt,
             duration: r.duration,
             error: r.error,
+            etaMs: r.status === 'RUNNING' ? etaMap.get(r.workflowId) ?? null : null,
         })),
         nextCursor: hasMore ? page[page.length - 1].id : null,
     });
 });
+
+async function computeEtas(tenantId: string, workflowIds: string[]): Promise<Map<string, number>> {
+    const map = new Map<string, number>();
+    if (workflowIds.length === 0) return map;
+    // Per-workflow average over the last 20 successful runs. We do
+    // one query per workflow because Prisma's groupBy doesn't support
+    // a "top N per group" aggregate, and the page size is bounded so
+    // the fan-out is at most ~50 small queries — fine for v0.1.
+    await Promise.all(
+        workflowIds.map(async (workflowId) => {
+            const recent = await prisma.execution.findMany({
+                where: {
+                    workflowId,
+                    status: 'SUCCESS',
+                    duration: { not: null },
+                    workflow: { tenantId },
+                },
+                orderBy: { startedAt: 'desc' },
+                take: 20,
+                select: { duration: true },
+            });
+            if (recent.length === 0) return;
+            const total = recent.reduce((sum, r) => sum + (r.duration ?? 0), 0);
+            map.set(workflowId, Math.round(total / recent.length));
+        })
+    );
+    return map;
+}
 
 /**
  * GET /api/runs/:id — run detail with step logs.

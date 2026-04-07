@@ -14,6 +14,8 @@ interface Run {
     completedAt: string | null;
     duration: number | null;
     error: string | null;
+    /** Estimated remaining time in ms for RUNNING rows; null otherwise. */
+    etaMs?: number | null;
 }
 
 const STRINGS: Record<'en' | 'es', Record<string, string>> = {
@@ -203,7 +205,9 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
                                             {new Date(r.startedAt).toLocaleString()}
                                         </td>
                                         <td className="px-4 py-3 text-zinc-400">
-                                            {formatDuration(r.duration)}
+                                            {r.status === 'RUNNING' && r.etaMs != null
+                                                ? `~${formatDuration(r.etaMs)}`
+                                                : formatDuration(r.duration)}
                                         </td>
                                         <td className="px-4 py-3 font-mono text-xs text-zinc-500">
                                             {r.id.slice(0, 8)}

@@ -3,6 +3,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FileText, Clock, ToggleLeft, ToggleRight, Save, Tag } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import CronPicker from './CronPicker';
+import TriggersPanel from './TriggersPanel';
 
 export interface WorkflowProperties {
     id?: string;
@@ -192,20 +194,14 @@ export default function WorkflowPropertiesPanel({
                         </div>
 
                         {/* Schedule */}
-                        <div>
-                            <label className={labelClass}>
-                                <Clock size={12} className="inline mr-1" />
-                                {text.schedule}
-                            </label>
-                            <input
-                                type="text"
-                                value={localProps.schedule || ''}
-                                onChange={(e) => handleChange('schedule', e.target.value || null)}
-                                placeholder={text.schedulePlaceholder}
-                                className={`${inputClass} font-mono`}
-                            />
-                            <p className="text-[10px] text-slate-500 mt-1">{text.scheduleDescription}</p>
-                        </div>
+                        <CronPicker
+                            lang={lang}
+                            value={localProps.schedule}
+                            onChange={(next) => handleChange('schedule', next)}
+                        />
+
+                        {/* Triggers */}
+                        <TriggersPanel lang={lang} workflowId={localProps.id} />
 
                         {/* Tags */}
                         <div>
