@@ -114,19 +114,19 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
         expect(r.duration).toBe(30);
     });
 
-    it('routes the Database alias SQL through the database stub', async () => {
+    it('routes the Database type through the database stub for migrate ops', async () => {
         const result = await executor.execute(
             {
                 id: 'n',
-                type: 'SQL',
-                title: 'Lookup',
+                type: 'Database',
+                title: 'Migrate',
                 position: { x: 0, y: 0 },
-                config: { operation: 'select', table: 'users' },
+                config: { operation: 'migrate', table: 'users' },
             },
             {},
         );
         const r = result as Record<string, unknown>;
-        expect(r.operation).toBe('select');
+        expect(r.operation).toBe('migrate');
         expect(r.table).toBe('users');
         expect(typeof r.message).toBe('string');
     });

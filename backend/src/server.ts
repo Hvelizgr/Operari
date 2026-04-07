@@ -8,9 +8,8 @@ import { PrismaClient } from '@prisma/client';
 import { env } from './config/env.config';
 
 import authRoutes from './routes/auth.routes';
-import workflowRoutes from './routes/workflow.routes';
+import runbookRoutes from './routes/runbook.routes';
 import executionRoutes from './routes/execution.routes';
-import analyticsRoutes from './routes/analytics.routes';
 import nodeTypesRoutes from './routes/node-types.routes'; // Added import
 import webhookRoutes from './routes/webhook.routes';
 import chatRoutes from './routes/chat.routes';
@@ -71,8 +70,10 @@ app.use(addUserContext);
 
 app.use('/api/auth', authRateLimiter, authRoutes);
 app.use('/api/executions', executionRateLimiter, executionRoutes);
-app.use('/api/workflows', standardRateLimiter, workflowRoutes);
-app.use('/api/analytics', standardRateLimiter, analyticsRoutes);
+// Mounted at both /api/workflows (legacy) and /api/runbooks (new) so
+// existing clients keep working while the SDK/CLI/UI migrate.
+app.use('/api/workflows', standardRateLimiter, runbookRoutes);
+app.use('/api/runbooks', standardRateLimiter, runbookRoutes);
 app.use('/api/node-types', standardRateLimiter, nodeTypesRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
 app.use('/api/chat', standardRateLimiter, chatRoutes);

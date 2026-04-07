@@ -59,8 +59,23 @@ export interface ConditionNodeConfig {
     value?: string;
 }
 
+/**
+ * Database step config — runbook scope.
+ *
+ * The legacy NanoFlow database node accepted any of select/insert/
+ * update/delete (i.e. arbitrary DML against user data). NanoRun
+ * narrows this to operations a runbook author legitimately needs:
+ *
+ *   - "migrate"   — apply a versioned schema migration (DDL)
+ *   - "health"    — read-only sanity probe (e.g. SELECT 1, count())
+ *   - "backup"    — issue a snapshot/backup command
+ *
+ * Anything else is rejected at the executor level. The narrower set
+ * means the only way for a runbook to mutate user rows is through a
+ * shell step that explicitly calls the right migration tool.
+ */
 export interface DatabaseNodeConfig {
-    operation?: 'select' | 'insert' | 'update' | 'delete';
+    operation?: 'migrate' | 'health' | 'backup';
     table?: string;
     query?: string;
     data?: Record<string, unknown>;

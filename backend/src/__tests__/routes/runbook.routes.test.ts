@@ -21,18 +21,18 @@ jest.mock('../../server', () => ({
     },
 }));
 
-import workflowRouter from '../../routes/workflow.routes';
+import runbookRouter from '../../routes/runbook.routes';
 import { prisma } from '../../server';
 
-describe('Workflow Routes', () => {
+describe('Runbook routes', () => {
     let app: express.Application;
 
     beforeEach(() => {
         jest.clearAllMocks();
         app = express();
         app.use(express.json());
-        // Mount router
-        app.use('/workflows', workflowRouter);
+        // Mount router on the legacy path so the existing fixtures keep working.
+        app.use('/workflows', runbookRouter);
     });
 
     // Mock data

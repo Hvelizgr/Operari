@@ -1,47 +1,65 @@
 import { DatabaseNodeExecutor } from '../../../editor/nodes/database.executor';
+import { NodeExecutionError } from '../../../errors/custom-error';
 
 const errCtx = { nodeId: 'n', nodeName: 'Database', nodeType: 'Database' };
 
-describe('DatabaseNodeExecutor (passthrough stub)', () => {
+describe('DatabaseNodeExecutor (runbook-scoped stub)', () => {
     const exec = new DatabaseNodeExecutor();
 
-    it('exposes type=Database and SQL alias', () => {
+    it('exposes type=Database', () => {
         expect(exec.type).toBe('Database');
-        expect(exec.aliases).toEqual(['SQL']);
     });
 
-    it('echoes operation/table and resolves the query template', async () => {
+    it('echoes operation/table and resolves the query template for migrate ops', async () => {
         const result = await exec.execute(
             {
-                operation: 'select',
+                operation: 'migrate',
                 table: 'users',
-                query: 'SELECT * FROM users WHERE id = {{id}}',
+                query: 'ALTER TABLE users ADD COLUMN deleted_at TIMESTAMP -- {{tag}}',
             },
-            { id: 42 },
+            { tag: 'v42' },
             errCtx,
         );
-        expect(result.operation).toBe('select');
+        expect(result.operation).toBe('migrate');
         expect(result.table).toBe('users');
-        expect(result.query).toBe('SELECT * FROM users WHERE id = 42');
-        expect(result.message).toMatch(/connection configuration/);
+        expect(result.query).toContain('-- v42');
+        expect(result.message).toMatch(/stub/);
     });
 
-    it('resolves templates inside the data payload via JSON round-trip', async () => {
+    it('allows the health probe operation', async () => {
         const result = await exec.execute(
-            {
-                operation: 'insert',
-                table: 'events',
-                data: { user: '{{user}}', action: 'login' },
-            },
-            { user: 'alice' },
+            { operation: 'health', query: 'SELECT 1' },
+            {},
             errCtx,
         );
-        expect(result.data).toEqual({ user: 'alice', action: 'login' });
+        expect(result.operation).toBe('health');
+    });
+
+    it('allows the backup operation', async () => {
+        const result = await exec.execute(
+            { operation: 'backup' },
+            {},
+            errCtx,
+        );
+        expect(result.operation).toBe('backup');
+    });
+
+    it('rejects legacy DML operations to prevent footguns', async () => {
+        // Cast through `unknown` because the type now refuses legacy values
+        // at compile time — we still want a runtime check for clients that
+        // hand-roll JSON config.
+        await expect(
+            exec.execute(
+                ({ operation: 'delete', table: 'users' } as unknown) as never,
+                {},
+                errCtx,
+            ),
+        ).rejects.toBeInstanceOf(NodeExecutionError);
     });
 
     it('returns data: null when no data payload is provided', async () => {
         const result = await exec.execute(
-            { operation: 'select', table: 't' },
+            { operation: 'health' },
             {},
             errCtx,
         );
