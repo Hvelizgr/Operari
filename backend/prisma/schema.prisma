@@ -608,3 +608,50 @@ model AuditEvent {
   @@index([tenantId, createdAt])
   @@index([resource])
 }
+
+/// Append-only event log for the durable execution engine.
+///
+/// This is the foundation for IMPLEMENTACION_NANORUN.md P1 #7
+/// (event-sourced engine on Postgres, DBOS/Hatchet pattern). The
+/// existing in-memory `ExecutionService.runWorkflow` mutates state
+/// directly; that state is lost on a backend restart and a long
+/// running runbook is dead. This table records every state
+/// transition so a worker can:
+///
+///   1. Re-read the events for a given execution at startup
+///   2. Reduce them to the current state (running, paused, completed)
+///   3. Pick up from where the previous instance left off
+///
+/// Differences from `AuditEvent`:
+///   - Scoped per execution (`executionId`), not per tenant
+///   - NOT hash-chained — durability not tamper-evidence is the goal
+///   - Mutable updates are allowed in principle but discouraged; the
+///     append-only convention keeps replay deterministic
+///   - Indexed for the read pattern "give me every event for this
+///     execution in seq order" which is the hot path of the worker
+model ExecutionEvent {
+  /// Monotonically-increasing sequence per execution. The reducer
+  /// walks events in seq order so the result is deterministic.
+  seq         BigInt   @default(autoincrement())
+  id          String   @id @default(uuid())
+  executionId String
+  /// Tenant copy stored alongside the event so worker queries can
+  /// filter by tenant without joining Execution.
+  tenantId    String
+  /// Discriminator for the event variant. See ExecutionEventType in
+  /// backend/src/runbook/engine/execution-event.types.ts for the
+  /// closed union.
+  type        String
+  /// Optional node id the event is about (step.* events). Run-level
+  /// events leave this null.
+  nodeId      String?
+  /// Structured payload — variant-specific shape, validated at the
+  /// service boundary, stored as JSON for forward compatibility.
+  payload     Json
+  /// When the event was appended.
+  createdAt   DateTime @default(now())
+
+  @@index([executionId, seq])
+  @@index([executionId, type])
+  @@index([tenantId, createdAt])
+}
