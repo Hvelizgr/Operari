@@ -3,15 +3,16 @@ import React, { useState } from 'react';
 import { HelpCircle, ChevronDown, Database } from 'lucide-react';
 import { WorkflowNode, Connection } from '@nanoflow/shared';
 import ExpressionBuilder from './ExpressionBuilder';
+import SecretPicker from './SecretPicker';
 
 interface Property {
     name: string;
     displayName: string;
-    type: 'string' | 'boolean' | 'options' | 'number';
+    type: 'string' | 'boolean' | 'options' | 'number' | 'secret';
     default?: any;
     description?: string;
     options?: { name: string; value: string }[];
-    typeOptions?: { rows?: number; expression?: boolean };
+    typeOptions?: { rows?: number; expression?: boolean; provider?: string };
 }
 
 interface DynamicNodeFormProps {
@@ -103,6 +104,16 @@ export default function DynamicNodeForm({ properties, values, onChange, nodes, c
                                     )}
                                 </div>
                             )
+                        )}
+
+                        {prop.type === 'secret' && (
+                            <SecretPicker
+                                lang={lang}
+                                value={value || ''}
+                                onChange={(next) => onChange(prop.name, next)}
+                                provider={prop.typeOptions?.provider}
+                                label={prop.displayName}
+                            />
                         )}
 
                         {prop.type === 'number' && (
