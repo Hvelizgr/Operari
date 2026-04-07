@@ -88,10 +88,9 @@ function findContainingFrame(node: WorkflowNode, nodes: WorkflowNode[]): string 
 
 interface UseEditorCanvasProps {
     lang: 'en' | 'es';
-    confettiCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
 }
 
-export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProps) {
+export function useEditorCanvas({ lang }: UseEditorCanvasProps) {
     const windowSize = useWindowSize();
     const canvasRef = useRef<HTMLDivElement>(null);
     const { nodeTypes: dbNodeTypes } = useNodeTypes();
@@ -157,7 +156,6 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         nodes,
         viewport,
         canvasRef,
-        confettiCanvasRef,
         executeCommand,
         announceMessage,
     });

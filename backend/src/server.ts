@@ -70,9 +70,6 @@ app.use(addUserContext);
 
 app.use('/api/auth', authRateLimiter, authRoutes);
 app.use('/api/executions', executionRateLimiter, executionRoutes);
-// Mounted at both /api/workflows (legacy) and /api/runbooks (new) so
-// existing clients keep working while the SDK/CLI/UI migrate.
-app.use('/api/workflows', standardRateLimiter, runbookRoutes);
 app.use('/api/runbooks', standardRateLimiter, runbookRoutes);
 app.use('/api/node-types', standardRateLimiter, nodeTypesRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);

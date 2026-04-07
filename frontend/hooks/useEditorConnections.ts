@@ -3,21 +3,18 @@
  * Handles connection state, creation, selection, and cycle detection
  */
 
-import { useState, useCallback, useEffect, RefObject, MutableRefObject } from 'react';
+import { useState, useCallback, useEffect, RefObject } from 'react';
 import { WorkflowNode, getNodeInputPort } from '../components/Editor';
 import { Connection } from '../components/Editor';
 import { INITIAL_CONNECTIONS } from '../constants/editor.constants';
 import { hasCycle, getCyclicConnections } from '../utils/cycleDetection';
 import { EDITOR_CONFIG } from '../config/editor.config';
-import confetti from 'canvas-confetti';
-import { useAdvancedConfetti } from './useAdvancedConfetti';
 import type { CreatingConnectionState, ViewportState } from '../types/editor.types';
 
 interface UseEditorConnectionsOptions {
     nodes: WorkflowNode[];
     viewport: ViewportState;
     canvasRef: RefObject<HTMLDivElement | null>;
-    confettiCanvasRef?: RefObject<HTMLCanvasElement | null>;
     executeCommand: (command: { execute: () => void; undo: () => void }) => void;
     announceMessage: (message: string) => void;
 }
@@ -26,13 +23,9 @@ export function useEditorConnections({
     nodes,
     viewport,
     canvasRef,
-    confettiCanvasRef,
     executeCommand,
     announceMessage,
 }: UseEditorConnectionsOptions) {
-    // Advanced confetti system (xyOps addSolderSparks)
-    const { triggerSolderSparks } = useAdvancedConfetti({ confettiCanvasRef: confettiCanvasRef || { current: null } });
-
     // Connection state
     const [connections, setConnections] = useState<Connection[]>(INITIAL_CONNECTIONS);
     const [creatingConnection, setCreatingConnection] = useState<CreatingConnectionState | null>(null);
@@ -154,13 +147,6 @@ export function useEditorConnections({
             executeCommand({
                 execute: () => {
                     setConnections((prev: Connection[]) => [...prev, newConnection]);
-                    // WOW Factor: Celebration!
-                    confetti({
-                        particleCount: 100,
-                        spread: 70,
-                        origin: { y: 0.6 },
-                        colors: ['#3b82f6', '#10b981', '#f59e0b']
-                    });
                 },
                 undo: () => {
                     setConnections((prev: Connection[]) => prev.filter(c => c.id !== newConnection.id));
@@ -195,24 +181,6 @@ export function useEditorConnections({
                 execute: () => {
                     setConnections((prev: Connection[]) => [...prev, newConnection]);
                     announceMessage(`Connection created from ${sourceNodeId} to ${targetNodeId}`);
-
-                    // Advanced confetti celebration (xyOps addSolderSparks - lines 1241-1284)
-                    if (canvasRef.current) {
-                        const targetNode = nodes.find(n => n.id === targetNodeId);
-                        const targetElement = canvasRef.current.querySelector(`[data-node-id="${targetNodeId}"]`) as HTMLElement;
-
-                        if (targetNode && targetElement) {
-                            const containerRect = canvasRef.current.getBoundingClientRect();
-                            triggerSolderSparks(
-                                targetNode,
-                                targetElement,
-                                containerRect.width,
-                                containerRect.height,
-                                viewport.zoom,
-                                'input' // Connection ends at input port
-                            );
-                        }
-                    }
                 },
                 undo: () => {
                     setConnections((prev: Connection[]) => prev.filter((c) => c.id !== newConnection.id));
@@ -222,7 +190,7 @@ export function useEditorConnections({
 
             return true;
         },
-        [connections, executeCommand, announceMessage, nodes, viewport, canvasRef, triggerSolderSparks]
+        [connections, executeCommand, announceMessage]
     );
 
     // Clear connection selection

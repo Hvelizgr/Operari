@@ -41,7 +41,7 @@ export function useAutosave({
 
     const saveToBackend = useCallback(async (data: WorkflowData): Promise<boolean> => {
         try {
-            const response = await fetch(`/api/workflows/${workflowId}`, {
+            const response = await fetch(`/api/runbooks/${workflowId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -75,7 +75,7 @@ export function useAutosave({
 
     const checkForConflicts = useCallback(async (): Promise<boolean> => {
         try {
-            const response = await fetch(`/api/workflows/${workflowId}/metadata`);
+            const response = await fetch(`/api/runbooks/${workflowId}/metadata`);
 
             // If it's the scratchpad and doesn't exist yet, there's no conflict.
             if (response.status === 404 && workflowId === 'current-workflow') {

@@ -8,7 +8,7 @@ import { useWorkflowExecution } from '../../hooks/useWorkflowExecution';
 import { useExecutionSocket } from '../../hooks/useExecutionSocket';
 import dynamic from 'next/dynamic';
 const LogTerminal = dynamic(() => import('./terminal/LogTerminal'), { ssr: false });
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Terminal as TerminalIcon, X, Zap, Download, Upload, FileText } from 'lucide-react';
 // ... existing imports
 import SnapshotDialog from '../Workflow/SnapshotDialog';
@@ -27,8 +27,6 @@ import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertie
 import './WorkflowNode.css';
 
 export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
-    // Confetti canvas ref for advanced confetti (xyOps addSolderSparks)
-    const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const [searchTrigger, setSearchTrigger] = useState<number>(0);
 
@@ -119,7 +117,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         isRunDialogOpen,
         handleOpenRunDialog,
         handleCloseRunDialog,
-    } = useEditorCanvas({ lang, confettiCanvasRef });
+    } = useEditorCanvas({ lang });
 
     // Auto Layout Handler
     const handleAutoLayout = () => {
@@ -218,24 +216,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         }
         handleCloseContextMenu();
     };
-
-    // Watch for successful execution to fire confetti
-    useEffect(() => {
-        if (logs.length > 0) {
-            const lastLog = logs[logs.length - 1];
-            if (lastLog.message.includes('Workflow execution completed successfully')) {
-                import('canvas-confetti').then((module) => {
-                    const confetti = module.default;
-                    confetti({
-                        particleCount: 150,
-                        spread: 70,
-                        origin: { y: 0.6 },
-                        colors: ['#3b82f6', '#10b981', '#f59e0b']
-                    });
-                });
-            }
-        }
-    }, [logs]);
 
     const handleSolderDropSelect = (nodeId: string) => {
         // NOTE: The SearchBar returns the ID if the node exists, OR it forces an 'add' if we clicked an item from the menu?
@@ -470,21 +450,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                                 onPortClick={completeSolder}
                             />
                         )}
-
-                        {/* Confetti Canvas */}
-                        <canvas
-                            ref={confettiCanvasRef}
-                            className="effects-canvas"
-                            style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                width: '100%',
-                                height: '100%',
-                                pointerEvents: 'none',
-                                zIndex: 200
-                            }}
-                        />
 
                         <EditorOverlays
                             nodes={nodes}
