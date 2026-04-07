@@ -37,6 +37,19 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// WorkOS organization id (`org_...`). Set when the tenant is
+  /// linked to a WorkOS organization for SSO. WorkOSAuthProvider
+  /// uses this to map an incoming WorkOS-issued JWT to a NanoRun
+  /// tenant. Null for self-host tenants and cloud tenants that
+  /// have not configured SSO yet.
+  workosOrganizationId String? @unique
+
+  /// Stripe customer id (`cus_...`). Set when the tenant is linked
+  /// to a Stripe customer for billing. StripeBillingMeter reads
+  /// this on every meter event so calls can be attributed to the
+  /// right billing-side customer. Null for self-host tenants.
+  stripeCustomerId String? @unique
+
   users             User[]
   workflows         Workflow[]
   storageBuckets    StorageBucket[]

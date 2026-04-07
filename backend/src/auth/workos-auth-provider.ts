@@ -139,15 +139,20 @@ export class WorkOSAuthProvider implements AuthProvider {
     }
 
     /**
-     * Look up the NanoRun tenant by WorkOS organization id. Today
-     * this is a stub that returns null because the schema column does
-     * not exist yet. When the cloud beta migration adds the column,
-     * replace the body with `prisma.tenant.findUnique({ where: { workosOrganizationId: orgId } })`.
+     * Look up the NanoRun tenant by WorkOS organization id. Returns
+     * null when no tenant is linked to the org — verifyToken turns
+     * that into a 401, which is the fail-closed default for "WorkOS
+     * knows the user but the user belongs to an org we don't host".
+     *
+     * The lookup uses the unique index added by the
+     * `add_tenant_external_ids` migration so it is a single-row
+     * point query, fast on every request.
      */
-    private async findTenantByWorkOSOrgId(_orgId: string): Promise<{ id: string } | null> {
-        // Placeholder. Logged at warn level so an operator turning on
-        // NANORUN_AUTH_PROVIDER=workos before adding the column sees a
-        // clear "not yet wired" message instead of mysterious 401s.
-        return null;
+    private async findTenantByWorkOSOrgId(orgId: string): Promise<{ id: string } | null> {
+        if (!orgId) return null;
+        return this.prisma.tenant.findUnique({
+            where: { workosOrganizationId: orgId },
+            select: { id: true },
+        });
     }
 }

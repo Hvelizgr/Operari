@@ -7,8 +7,12 @@ import { buildAuthProvider } from '../../auth';
 
 const SECRET = 'test-secret';
 
-function buildPrisma(seed: { users?: Array<{ id: string; email: string; role: string; tenantId: string }>; tenants?: Array<{ id: string; workosOrganizationId?: string }> } = {}) {
+function buildPrisma(seed: {
+    users?: Array<{ id: string; email: string; role: string; tenantId: string }>;
+    tenants?: Array<{ id: string; workosOrganizationId?: string | null }>;
+} = {}) {
     const users = [...(seed.users ?? [])];
+    const tenants = [...(seed.tenants ?? [])];
     return {
         user: {
             findUnique: jest.fn(async (args: { where: { id?: string; email?: string } }) => {
@@ -35,6 +39,17 @@ function buildPrisma(seed: { users?: Array<{ id: string; email: string; role: st
                 };
                 users.push(created);
                 return created;
+            }),
+        },
+        tenant: {
+            findUnique: jest.fn(async (args: {
+                where: { workosOrganizationId?: string };
+            }) => {
+                if (!args.where.workosOrganizationId) return null;
+                const found = tenants.find(
+                    (t) => t.workosOrganizationId === args.where.workosOrganizationId,
+                );
+                return found ? { id: found.id } : null;
             }),
         },
     } as unknown as PrismaClient;
@@ -130,30 +145,71 @@ describe('WorkOSAuthProvider', () => {
         await expect(provider.verifyToken('any')).rejects.toBeInstanceOf(AuthTransportError);
     });
 
-    it('returns null when WorkOS validates but no NanoRun tenant matches the organization_id', async () => {
-        // The placeholder findTenantByWorkOSOrgId returns null until
-        // the cloud beta migration adds the column. The test pins the
-        // fail-closed behavior so an operator turning on the flag
-        // before the column exists sees 401, not silent success.
-        const prisma = buildPrisma();
+    it('returns null when no NanoRun tenant is linked to the WorkOS organization (fail closed)', async () => {
+        // The tenant table has no row with workosOrganizationId='org-1',
+        // so findUnique returns null and verifyToken refuses the
+        // session. Pins the fail-closed contract: WorkOS knows the
+        // user but the user belongs to an org we do not host →
+        // 401, not silent success.
+        const prisma = buildPrisma({ tenants: [] });
         const provider = new WorkOSAuthProvider(prisma, {
             verifyJwksToken: async () => validClaims,
         });
         await expect(provider.verifyToken('valid')).resolves.toBeNull();
     });
 
-    it('mapRole defaults to passing the WorkOS role through (or "USER" if absent)', async () => {
-        // We test the mapRole behavior in isolation since the full
-        // upsert path requires the tenant lookup, which is stubbed.
-        const prisma = buildPrisma();
-        const provider = new WorkOSAuthProvider(prisma, {
-            verifyJwksToken: async () => null,
-            mapRole: (role) => role?.toUpperCase() ?? 'VIEWER',
+    it('resolves the tenant by workosOrganizationId and upserts the user (happy path)', async () => {
+        const prisma = buildPrisma({
+            tenants: [{ id: 'tenant-cloud-1', workosOrganizationId: 'org-1' }],
         });
-        // Just smoke-test that the option is accepted and the
-        // provider constructs without throwing.
-        expect(provider.name).toBe('workos');
+        const provider = new WorkOSAuthProvider(prisma, {
+            verifyJwksToken: async () => validClaims,
+        });
+
+        const user = await provider.verifyToken('valid');
+        expect(user).not.toBeNull();
+        expect(user!.tenantId).toBe('tenant-cloud-1');
+        expect(user!.email).toBe('sso@enterprise.test');
+        expect(user!.provider).toBe('workos');
+        // Default mapRole passes the WorkOS role through
+        expect(user!.role).toBe('admin');
     });
+
+    it('upsert preserves the existing user across repeat sessions', async () => {
+        const prisma = buildPrisma({
+            tenants: [{ id: 'tenant-cloud-1', workosOrganizationId: 'org-1' }],
+            users: [
+                {
+                    id: 'preexisting-user',
+                    email: 'sso@enterprise.test',
+                    role: 'USER',
+                    tenantId: 'tenant-cloud-1',
+                },
+            ],
+        });
+        const provider = new WorkOSAuthProvider(prisma, {
+            verifyJwksToken: async () => validClaims,
+        });
+        const first = await provider.verifyToken('valid');
+        const second = await provider.verifyToken('valid');
+        expect(first).not.toBeNull();
+        expect(second).not.toBeNull();
+        // Same DB id (the upsert hit the existing row, not a new one)
+        expect(second!.id).toBe(first!.id);
+    });
+
+    it('honors the mapRole option for custom WorkOS → NanoRun role mapping', async () => {
+        const prisma = buildPrisma({
+            tenants: [{ id: 'tenant-cloud-1', workosOrganizationId: 'org-1' }],
+        });
+        const provider = new WorkOSAuthProvider(prisma, {
+            verifyJwksToken: async () => validClaims,
+            mapRole: (role) => (role === 'admin' ? 'ADMIN' : 'USER'),
+        });
+        const user = await provider.verifyToken('valid');
+        expect(user!.role).toBe('ADMIN');
+    });
+
 });
 
 describe('buildAuthProvider', () => {
