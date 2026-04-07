@@ -2,6 +2,14 @@ import { Router } from 'express';
 import { prisma } from '../server';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 import { ExecutionService } from '../editor/execution/execution.service';
+import { AuditService } from '../audit/audit.service';
+import { getRunner } from '../runbook/runners';
+
+let auditService: AuditService | null = null;
+function getAudit(): AuditService {
+    if (!auditService) auditService = new AuditService(prisma);
+    return auditService;
+}
 
 const router = Router();
 
@@ -301,6 +309,45 @@ router.post('/:id/cancel', async (req: AuthRequest, res) => {
                 completedAt: new Date(),
             },
         });
+
+        // Signal the runner to actually stop in-flight work. Without this
+        // the DB row says CANCELLED but the docker container or fly
+        // machine keeps burning compute until its own timeout. Best-effort
+        // — a runner that does not implement cancel() (or fails) leaves
+        // an "orphan" run that will time out on its own.
+        let signalledProcesses = 0;
+        try {
+            const runner = getRunner();
+            if (runner.cancel) {
+                signalledProcesses = await runner.cancel(executionId);
+            }
+        } catch (runnerErr) {
+            req.log.error(
+                { err: runnerErr },
+                'runner.cancel failed; DB row is CANCELLED but in-flight work may continue',
+            );
+        }
+
+        // Audit: tamper-evident record of the cancel. Fire-and-forget so a
+        // broken audit chain never blocks the operator's ability to stop a
+        // run. See docs/audit-event-coverage.md.
+        try {
+            await getAudit().record({
+                tenantId: req.user!.tenantId,
+                type: 'run.cancelled',
+                actorId: req.user!.id,
+                actorType: 'user',
+                resource: executionId,
+                payload: {
+                    executionId,
+                    workflowId: execution.workflowId,
+                    cancelledAt: new Date().toISOString(),
+                    signalledProcesses,
+                },
+            });
+        } catch (auditErr) {
+            req.log.error({ err: auditErr }, 'audit write failed for run.cancelled');
+        }
 
         res.json({ message: 'Execution cancelled' });
     } catch (error) {
