@@ -129,7 +129,7 @@ const NODE_TYPES: NodeType[] = [
 
     // === TRIGGERS ===
     {
-        type: 'n8n-nodes-base.webhook',
+        type: 'nanorun.webhook',
         icon: <Webhook size={18} />,
         label: { en: 'Webhook trigger', es: 'Trigger webhook' },
         color: 'bg-green-500',
@@ -142,7 +142,7 @@ const NODE_TYPES: NodeType[] = [
         ]
     },
     {
-        type: 'n8n-nodes-base.cron',
+        type: 'nanorun.cron',
         icon: <Clock size={18} />,
         label: { en: 'Cron trigger', es: 'Trigger cron' },
         color: 'bg-green-500',
@@ -155,7 +155,7 @@ const NODE_TYPES: NodeType[] = [
 
     // === CORE ===
     {
-        type: 'n8n-nodes-base.httpRequest',
+        type: 'nanorun.httpRequest',
         icon: <Globe size={18} />,
         label: { en: 'HTTP request', es: 'HTTP request' },
         color: 'bg-blue-500',
@@ -168,11 +168,11 @@ const NODE_TYPES: NodeType[] = [
             { name: 'sendBody', displayName: 'Send body', type: 'boolean', default: false }
         ]
     },
-    { type: 'n8n-nodes-base.set', icon: <Settings size={18} />, label: { en: 'Set variable', es: 'Set variable' }, color: 'bg-blue-500', category: 'core', description: { en: 'Set a runbook variable for downstream steps', es: 'Setear una variable del runbook para pasos siguientes' } },
+    { type: 'nanorun.set', icon: <Settings size={18} />, label: { en: 'Set variable', es: 'Set variable' }, color: 'bg-blue-500', category: 'core', description: { en: 'Set a runbook variable for downstream steps', es: 'Setear una variable del runbook para pasos siguientes' } },
 
     // === FLOW CONTROL ===
     {
-        type: 'n8n-nodes-base.if',
+        type: 'nanorun.if',
         icon: <GitBranch size={18} />,
         label: { en: 'IF / Condition', es: 'IF / Condición' },
         color: 'bg-yellow-500',
@@ -185,15 +185,15 @@ const NODE_TYPES: NodeType[] = [
             { name: 'value2', displayName: 'Value 2', type: 'string', typeOptions: { expression: true } }
         ]
     },
-    { type: 'n8n-nodes-base.switch', icon: <List size={18} />, label: { en: 'Switch', es: 'Switch' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Branch into multiple routes', es: 'Bifurcar en múltiples rutas' }, outputs: ['0', '1', '2', '3'] },
-    { type: 'n8n-nodes-base.loop', icon: <RefreshCw size={18} />, label: { en: 'Loop / Iterate', es: 'Loop / Iterar' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Iterate over a list or retry N times', es: 'Iterar una lista o reintentar N veces' } },
-    { type: 'n8n-nodes-base.errorTrigger', icon: <AlertCircle size={18} />, label: { en: 'Error handler', es: 'Manejador de error' }, color: 'bg-red-500', category: 'flow', description: { en: 'Catch a step error and route to recovery', es: 'Capturar error de un paso y enrutar a recovery' } },
+    { type: 'nanorun.switch', icon: <List size={18} />, label: { en: 'Switch', es: 'Switch' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Branch into multiple routes', es: 'Bifurcar en múltiples rutas' }, outputs: ['0', '1', '2', '3'] },
+    { type: 'nanorun.loop', icon: <RefreshCw size={18} />, label: { en: 'Loop / Iterate', es: 'Loop / Iterar' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Iterate over a list or retry N times', es: 'Iterar una lista o reintentar N veces' } },
+    { type: 'nanorun.errorTrigger', icon: <AlertCircle size={18} />, label: { en: 'Error handler', es: 'Manejador de error' }, color: 'bg-red-500', category: 'flow', description: { en: 'Catch a step error and route to recovery', es: 'Capturar error de un paso y enrutar a recovery' } },
 
     // === INTEGRATIONS (DevOps) ===
-    { type: 'n8n-nodes-base.github', icon: <GitBranch size={18} />, label: { en: 'GitHub', es: 'GitHub' }, color: 'bg-gray-700', category: 'integrations', description: { en: 'PRs, releases, status checks', es: 'PRs, releases, status checks' } },
-    { type: 'n8n-nodes-base.docker', icon: <Box size={18} />, label: { en: 'Docker', es: 'Docker' }, color: 'bg-blue-500', category: 'integrations', description: { en: 'Build, push, run containers', es: 'Build, push, run de containers' } },
-    { type: 'n8n-nodes-base.postgres', icon: <Database size={18} />, label: { en: 'Postgres', es: 'Postgres' }, color: 'bg-blue-400', category: 'integrations', description: { en: 'Run SQL against a Postgres DB', es: 'Ejecutar SQL en una DB Postgres' } },
-    { type: 'n8n-nodes-base.awsS3', icon: <Cloud size={18} />, label: { en: 'AWS S3', es: 'AWS S3' }, color: 'bg-orange-500', category: 'integrations', description: { en: 'Upload artifacts and dump logs', es: 'Subir artifacts y dump de logs' } },
+    { type: 'nanorun.github', icon: <GitBranch size={18} />, label: { en: 'GitHub', es: 'GitHub' }, color: 'bg-gray-700', category: 'integrations', description: { en: 'PRs, releases, status checks', es: 'PRs, releases, status checks' } },
+    { type: 'nanorun.docker', icon: <Box size={18} />, label: { en: 'Docker', es: 'Docker' }, color: 'bg-blue-500', category: 'integrations', description: { en: 'Build, push, run containers', es: 'Build, push, run de containers' } },
+    { type: 'nanorun.postgres', icon: <Database size={18} />, label: { en: 'Postgres', es: 'Postgres' }, color: 'bg-blue-400', category: 'integrations', description: { en: 'Run SQL against a Postgres DB', es: 'Ejecutar SQL en una DB Postgres' } },
+    { type: 'nanorun.awsS3', icon: <Cloud size={18} />, label: { en: 'AWS S3', es: 'AWS S3' }, color: 'bg-orange-500', category: 'integrations', description: { en: 'Upload artifacts and dump logs', es: 'Subir artifacts y dump de logs' } },
 
     // === AI ===
     {

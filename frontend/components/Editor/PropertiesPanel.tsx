@@ -10,10 +10,10 @@ import TriggerModifiersSection, { TriggerModifiers, DEFAULT_TRIGGER_MODIFIERS } 
 
 // Helper to check if a node type is a trigger
 const TRIGGER_TYPES = [
-    'n8n-nodes-base.webhook',
-    'n8n-nodes-base.scheduleTrigger',
-    'n8n-nodes-base.manualTrigger',
-    'n8n-nodes-base.cron',
+    'nanorun.webhook',
+    'nanorun.scheduleTrigger',
+    'nanorun.manualTrigger',
+    'nanorun.cron',
     'Webhook',
     'Trigger',
     'Schedule',
@@ -216,7 +216,7 @@ function SettingsResolver({ node, localConfig, setLocalConfig, onUpdate, nodeTyp
     }
 
     // 2. Specific Fallbacks
-    if (node?.type === 'n8n-nodes-base.httpRequest') {
+    if (node?.type === 'nanorun.httpRequest') {
         return (
             <div className="space-y-4">
                 <ConfigField label="URL" description="Endpoint URL">

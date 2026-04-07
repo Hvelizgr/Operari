@@ -231,7 +231,7 @@ function SettingsResolver({ node, localConfig, setLocalConfig, onUpdate, nodeTyp
     }
 
     // 2. Specific Fallbacks
-    if (node?.type === 'n8n-nodes-base.httpRequest') {
+    if (node?.type === 'nanorun.httpRequest') {
         return (
             <div className="space-y-4">
                 <ConfigField label="URL" description="Endpoint URL">

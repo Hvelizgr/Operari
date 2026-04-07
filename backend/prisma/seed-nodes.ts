@@ -15,11 +15,13 @@ const prisma = new PrismaClient();
  * The list is grouped by the seven canonical categories:
  *   devops · triggers · core · flow · integrations · ai · organization
  *
- * Type-string convention: legacy nodes still carry the
- * `n8n-nodes-base.*` prefix because the dispatcher and existing
- * WorkflowNode rows reference it. A future migration will rename
- * the prefix to `nanorun.*`; until then we just curate the SET
- * without renaming the strings.
+ * Type-string convention: every step type uses the canonical
+ * `nanorun.*` prefix (post pivot rename, see migration
+ * 20260407170000_rename_n8n_node_types). A handful of executor
+ * types — `shell`, `wait`, `notify`, `approval`, `agent`, plus the
+ * `custom.frame` and `custom.note` organisation nodes — predate the
+ * prefix scheme and stay unprefixed because the dispatcher matches
+ * them by exact string.
  */
 
 interface NodeSeed {
@@ -51,7 +53,7 @@ const NODES: NodeSeed[] = [
         outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.github',
+        type: 'nanorun.github',
         category: 'devops',
         icon: 'GitBranch',
         color: 'bg-gray-700',
@@ -61,7 +63,7 @@ const NODES: NodeSeed[] = [
         outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.docker',
+        type: 'nanorun.docker',
         category: 'devops',
         icon: 'Box',
         color: 'bg-blue-500',
@@ -74,7 +76,7 @@ const NODES: NodeSeed[] = [
         outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.postgres',
+        type: 'nanorun.postgres',
         category: 'devops',
         icon: 'Database',
         color: 'bg-blue-400',
@@ -87,7 +89,7 @@ const NODES: NodeSeed[] = [
         outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.awsS3',
+        type: 'nanorun.awsS3',
         category: 'devops',
         icon: 'Cloud',
         color: 'bg-orange-500',
@@ -102,7 +104,7 @@ const NODES: NodeSeed[] = [
 
     // === triggers ===
     {
-        type: 'n8n-nodes-base.webhook',
+        type: 'nanorun.webhook',
         category: 'triggers',
         icon: 'Webhook',
         color: 'bg-green-500',
@@ -115,7 +117,7 @@ const NODES: NodeSeed[] = [
         outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.cron',
+        type: 'nanorun.cron',
         category: 'triggers',
         icon: 'Clock',
         color: 'bg-green-500',
@@ -128,7 +130,7 @@ const NODES: NodeSeed[] = [
         outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.errorTrigger',
+        type: 'nanorun.errorTrigger',
         category: 'triggers',
         icon: 'AlertCircle',
         color: 'bg-red-500',
@@ -143,7 +145,7 @@ const NODES: NodeSeed[] = [
 
     // === core ===
     {
-        type: 'n8n-nodes-base.httpRequest',
+        type: 'nanorun.httpRequest',
         category: 'core',
         icon: 'Globe',
         color: 'bg-indigo-500',
@@ -156,7 +158,7 @@ const NODES: NodeSeed[] = [
         outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.set',
+        type: 'nanorun.set',
         category: 'core',
         icon: 'Settings',
         color: 'bg-blue-500',
@@ -169,7 +171,7 @@ const NODES: NodeSeed[] = [
         outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.if',
+        type: 'nanorun.if',
         category: 'core',
         icon: 'GitBranch',
         color: 'bg-yellow-500',
@@ -185,7 +187,7 @@ const NODES: NodeSeed[] = [
         ],
     },
     {
-        type: 'n8n-nodes-base.switch',
+        type: 'nanorun.switch',
         category: 'core',
         icon: 'List',
         color: 'bg-yellow-500',
@@ -205,7 +207,7 @@ const NODES: NodeSeed[] = [
 
     // === flow ===
     {
-        type: 'n8n-nodes-base.loop',
+        type: 'nanorun.loop',
         category: 'flow',
         icon: 'RefreshCw',
         color: 'bg-yellow-500',
