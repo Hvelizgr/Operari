@@ -4,8 +4,59 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../server';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
+import { AuditService, AuditEventType } from '../audit/audit.service';
 
 const router = Router();
+
+let auditService: AuditService | null = null;
+function getAudit(): AuditService {
+    if (!auditService) auditService = new AuditService(prisma);
+    return auditService;
+}
+
+/**
+ * Fire-and-forget audit write for auth events. Failures are logged but
+ * never break the response — auditing is observability, not a hard
+ * dependency.
+ */
+async function safeAuditAuth(
+    type: AuditEventType,
+    params: {
+        tenantId: string;
+        actorId: string;
+        ipAddress?: string;
+        userAgent?: string;
+        method: 'password' | 'register' | 'client-initiated';
+    },
+): Promise<void> {
+    try {
+        await getAudit().record({
+            tenantId: params.tenantId,
+            type,
+            actorId: params.actorId,
+            actorType: 'user',
+            resource: params.actorId,
+            payload: {
+                method: params.method,
+                ipAddress: params.ipAddress ?? null,
+                userAgent: params.userAgent ?? null,
+            },
+        });
+    } catch {
+        // never block the auth response
+    }
+}
+
+function clientIp(req: { ip?: string; headers: Record<string, unknown> }): string | undefined {
+    const fwd = req.headers['x-forwarded-for'];
+    if (typeof fwd === 'string') return fwd.split(',')[0]?.trim();
+    return req.ip;
+}
+
+function userAgent(req: { headers: Record<string, unknown> }): string | undefined {
+    const ua = req.headers['user-agent'];
+    return typeof ua === 'string' ? ua : undefined;
+}
 
 const registerSchema = z.object({
     email: z.string().email(),
@@ -124,6 +175,14 @@ router.post('/register', async (req, res) => {
             { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'] }
         );
 
+        await safeAuditAuth('auth.login', {
+            tenantId: tenant.id,
+            actorId: user.id,
+            ipAddress: clientIp(req),
+            userAgent: userAgent(req),
+            method: 'register',
+        });
+
         res.status(201).json({
             user: {
                 id: user.id,
@@ -232,6 +291,14 @@ router.post('/login', async (req, res) => {
             process.env.JWT_SECRET!,
             { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'] }
         );
+
+        await safeAuditAuth('auth.login', {
+            tenantId: user.tenantId,
+            actorId: user.id,
+            ipAddress: clientIp(req),
+            userAgent: userAgent(req),
+            method: 'password',
+        });
 
         res.json({
             user: {
@@ -362,6 +429,36 @@ router.post('/refresh', authenticate, async (req: AuthRequest, res) => {
         req.log.error({ error }, 'Refresh error');
         res.status(500).json({ error: 'Token refresh failed' });
     }
+});
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Record a logout for the authenticated user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       JWT auth in NanoRun is stateless, so the server cannot truly
+ *       invalidate a token mid-flight. Calling this endpoint records an
+ *       `auth.logout` audit event tied to the caller's identity, which is
+ *       what compliance dashboards and incident timelines actually need.
+ *       Real revocation will require a server-side denylist or short-lived
+ *       tokens with refresh — tracked separately.
+ *     responses:
+ *       200:
+ *         description: Logout recorded
+ */
+router.post('/logout', authenticate, async (req: AuthRequest, res) => {
+    await safeAuditAuth('auth.logout', {
+        tenantId: req.user!.tenantId,
+        actorId: req.user!.id,
+        ipAddress: clientIp(req),
+        userAgent: userAgent(req),
+        method: 'client-initiated',
+    });
+    res.json({ message: 'Logged out' });
 });
 
 export default router;
