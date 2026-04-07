@@ -28,6 +28,8 @@ export type AuditEventType =
     | 'secret.accessed'
     | 'role.granted'
     | 'role.revoked'
+    | 'connectedaccount.linked'
+    | 'connectedaccount.unlinked'
     | 'apikey.created'
     | 'apikey.used'
     | 'apikey.revoked'

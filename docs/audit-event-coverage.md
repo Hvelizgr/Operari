@@ -39,6 +39,8 @@ Legend:
 | **secret accedido**     | `secret.accessed`    | `security/secret-reader.ts` — emitted on every `read()`               |   ✅   |
 | —                       | `role.granted`       | `rbac/role-assignment.service.ts` — emitted on every `grant()`        |   ✅   |
 | —                       | `role.revoked`       | `rbac/role-assignment.service.ts` — emitted on every `revoke()`       |   ✅   |
+| —                       | `connectedaccount.linked`   | `security/connected-account.service.ts` — emitted on every `link()`   |   ✅   |
+| —                       | `connectedaccount.unlinked` | `security/connected-account.service.ts` — emitted on every `unlink()` |   ✅   |
 
 ## Gaps and decisions
 
@@ -55,10 +57,10 @@ that `secret.accessed` is recorded on success and that decryption
 failures still emit a `secret.accessed` payload with `success: false`
 so we can spot brute-force attempts.
 
-The first consumer will be the `ConnectedAccountService` (not yet
-built). Until then, `SecretReader` has no production caller — the audit
-contract is in place ahead of the feature so we cannot ship a consumer
-that bypasses it.
+First production consumer: `ConnectedAccountService.getAccessToken()` /
+`getRefreshToken()`. Both go through `SecretReader.read()` and tests
+verify the `secret.accessed` event is emitted with the right actor,
+resource, and reason on every call.
 
 ### `run.cancelled` — wired to the existing cancel endpoint
 
@@ -89,7 +91,7 @@ before we onboard a paying customer with compliance needs:
 
 - `tenant.created`, `tenant.deleted`
 - `user.invited`, `user.removed`
-- `connectedaccount.linked`, `connectedaccount.unlinked` — paired with
+- ~~`connectedaccount.linked`, `connectedaccount.unlinked`~~ — paired with
   `secret.accessed`, this lets us answer "who connected this Slack
   workspace"
 - `key.rotated` — when `NANORUN_SECRET_KEY` rotates, log the
