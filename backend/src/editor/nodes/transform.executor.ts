@@ -5,65 +5,34 @@ import type {
 } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_shared';
 import { resolveTemplate } from './_shared';
-import { SandboxError, NodeExecutionError, ErrorCode } from '../../errors/custom-error';
+import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
 
 /**
- * Transform node — runs user code in the JS sandbox or applies a static
- * key→template mapping. Behavior preserved exactly from the legacy
- * `executeTransform` method:
- *   1. If `config.code` is set, run it through the sandbox and rethrow
- *      sandbox failures as `SandboxError`.
- *   2. Else if `config.mapping` is set, resolve every value as a
+ * Transform node — applies a static key→template mapping against the
+ * input. The previous `config.code` path executed user JavaScript inside
+ * an isolated-vm sandbox; that path was removed in the post-pivot
+ * cleanup because in-process sandboxing conflicts with the runner-first
+ * sandboxing strategy (ADR 0001 / P0 #1). Authors who need arbitrary
+ * code transforms should use a `shell` step that runs in a runner.
+ *
+ *   1. If `config.mapping` is set, resolve every value as a
  *      `{{template}}` against the input and return the new object.
- *   3. Otherwise pass the input through unchanged.
+ *   2. Otherwise pass the input through unchanged.
  */
 export class TransformNodeExecutor
     implements EditorNodeExecutor<TransformNodeConfig, ExecutionOutput> {
     readonly type = 'Transform';
-    readonly aliases = ['Code'] as const;
 
-    constructor(private readonly deps: Pick<NodeExecutorDeps, 'sandbox' | 'logger'>) { }
+    // Reserved for future logging needs (e.g. mapping diagnostics).
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    constructor(private readonly _deps: Pick<NodeExecutorDeps, 'logger'>) { }
 
     async execute(
         config: TransformNodeConfig,
         input: ExecutionInput,
-        errorContext: NodeErrorContext,
+        _errorContext: NodeErrorContext,
     ): Promise<ExecutionOutput> {
-        const { code, mapping } = config;
-
-        if (code) {
-            try {
-                const result = await this.deps.sandbox.execute(code, input);
-
-                if (result && typeof result === 'object' && 'error' in result) {
-                    throw new SandboxError({
-                        ...errorContext,
-                        message: `Sandbox execution error: ${(result as { error: string }).error}`,
-                        code: ErrorCode.SANDBOX_EXECUTION_FAILED,
-                        userMessage: 'Code execution failed',
-                    });
-                }
-
-                return result as ExecutionOutput;
-            } catch (error) {
-                if (error instanceof SandboxError) {
-                    throw error;
-                }
-
-                const sandboxError = new SandboxError({
-                    message: error instanceof Error ? error.message : 'Unknown sandbox error',
-                    code: ErrorCode.SANDBOX_EXECUTION_FAILED,
-                    cause: error instanceof Error ? error : undefined,
-                    userMessage: 'Failed to execute transformation code',
-                });
-
-                this.deps.logger.error('Transform node execution failed', {
-                    error: sandboxError,
-                });
-
-                throw sandboxError;
-            }
-        }
+        const { mapping } = config;
 
         if (mapping) {
             try {

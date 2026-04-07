@@ -58,23 +58,6 @@ export function getNestedValue(obj: ExecutionInput, path: string): unknown {
 }
 
 /**
- * Structural shape of the JS sandbox the editor passes to per-node
- * executors. We type it here as an interface (rather than importing the
- * `SecureSandbox` class from node-executor.service.ts) so that:
- *
- *   - the per-node files do not pull a transitive dependency on
- *     isolated-vm at type-check time
- *   - tests can inject a plain object with `jest.fn()` for both methods
- *     without also instantiating the real sandbox
- *   - step 6 of the ADR can swap in the runbook-side sandbox without
- *     touching every executor
- */
-export interface SandboxLike {
-    execute(code: string, input: ExecutionInput): Promise<unknown>;
-    evaluateCondition(condition: string, input: ExecutionInput): Promise<boolean>;
-}
-
-/**
  * Structural shape of the email transporter the email executor needs.
  * Defined here (rather than importing nodemailer) so the per-node files
  * can be type-checked without pulling nodemailer into every executor's
@@ -97,17 +80,16 @@ export interface EmailTransporterLike {
 /**
  * Collaborators that per-node executors are allowed to depend on.
  *
- * Step 2 added `sandbox` and `logger`. Step 3 (IO nodes) adds an
- * email transporter getter so the email executor can be created
- * before SMTP_HOST is checked. Steps 4-5 will widen this with
- * `prisma`, `runner`, …
- *
  * Keep this interface narrow — anything that lands here should be
  * needed by at least two executors, otherwise pass it through the
  * constructor of the single executor that needs it.
+ *
+ * The previous `sandbox: SandboxLike` field was removed during the
+ * post-pivot cleanup: in-process JS sandboxing via isolated-vm
+ * conflicts with the runner-first sandbox strategy (P0 #1, ADR 0001).
+ * Steps that need to run user code go through a runner, not in-process.
  */
 export interface NodeExecutorDeps {
-    sandbox: SandboxLike;
     logger: Logger;
     /**
      * Lazy accessor for the email transporter. Returns null when

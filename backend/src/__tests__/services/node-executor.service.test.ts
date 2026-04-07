@@ -23,11 +23,6 @@ jest.mock('../../services/logger.service', () => ({
     },
 }));
 
-// Mock isolated-vm just to avoid load errors if it tries to initialize
-jest.mock('isolated-vm', () => ({
-    Isolate: jest.fn(),
-}));
-
 describe('NodeExecutorService', () => {
     let nodeExecutor: NodeExecutor;
     let mockFetch: jest.Mock;
@@ -142,24 +137,11 @@ describe('NodeExecutorService', () => {
             expect((result as any).conditionResult).toBe(false);
         });
 
-        it('should use sandbox for custom code condition', async () => {
-            const customConditionNode: WorkflowNode = {
-                ...conditionNode,
-                config: {
-                    condition: 'input.value > 10',
-                },
-            };
-            const input: ExecutionInput = { value: 15 };
-
-            // Mock sandbox.evaluateCondition
-            const sandboxSpy = jest.spyOn((nodeExecutor as any).sandbox, 'evaluateCondition');
-            sandboxSpy.mockResolvedValue(true);
-
-            const result = await nodeExecutor.execute(customConditionNode, input);
-
-            expect(sandboxSpy).toHaveBeenCalledWith('input.value > 10', input);
-            expect((result as any).conditionResult).toBe(true);
-        });
+        // The "custom code condition" path was removed in the post-pivot
+        // cleanup along with the in-process JS sandbox. Conditional gating
+        // now lives at the runbook level via runIf/skipIf (R3.3); in-step
+        // branching uses the declarative field/operator/value form covered
+        // by the test directly above.
     });
 
     describe('execute - Transform Node', () => {
@@ -169,23 +151,14 @@ describe('NodeExecutorService', () => {
             title: 'Format Data',
             position: { x: 0, y: 0 },
             config: {
-                code: 'return { ...input, timestamp: Date.now() };',
+                mapping: {},
             },
         };
 
-        it('should execute custom transformation code via sandbox', async () => {
-            const input: ExecutionInput = { data: 'test' };
-            const expectedOutput = { data: 'test', timestamp: 1234567890 };
-
-            // Mock sandbox.execute
-            const sandboxSpy = jest.spyOn((nodeExecutor as any).sandbox, 'execute');
-            sandboxSpy.mockResolvedValue(expectedOutput);
-
-            const result = await nodeExecutor.execute(transformNode, input);
-
-            expect(sandboxSpy).toHaveBeenCalled();
-            expect(result).toEqual(expectedOutput);
-        });
+        // The "custom code transform" path was removed alongside the
+        // sandbox. Authors who need arbitrary code transforms should use a
+        // shell node that runs in a runner. The mapping path below is the
+        // surviving in-step transform behavior.
 
         it('should handle simple mapping transformation', async () => {
             const mappingNode: WorkflowNode = {

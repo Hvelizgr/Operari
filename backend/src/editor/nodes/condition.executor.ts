@@ -3,47 +3,38 @@ import type {
     ConditionResult,
     ExecutionInput,
 } from '../../types/workflow.types';
-import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_shared';
+import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { resolveTemplate, getNestedValue } from './_shared';
-import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
 
 /**
- * Condition node — evaluates either a JS condition (sandbox) or a
- * declarative `field operator value` triple. Behavior preserved exactly
- * from the legacy `executeCondition` method.
+ * Condition node — declarative `field operator value` evaluation.
  *
- * Operators (declarative path): equals, notEquals, contains, greaterThan,
- * lessThan, isEmpty, isNotEmpty. The original switch used loose equality
- * (`==`/`!=`) for equals/notEquals — preserved on purpose; tightening it
- * would change behavior for existing runbooks that compare "1" to 1.
+ * The previous `config.condition` path evaluated arbitrary JavaScript
+ * inside the isolated-vm sandbox. That path was removed in the
+ * post-pivot cleanup (the in-process sandbox conflicts with the
+ * runner-first strategy from P0 #1). For runbook-level conditional
+ * gating use `runIf` / `skipIf` on the step (R3.3); for in-step
+ * branching use this declarative form.
+ *
+ * Operators: equals, notEquals, contains, greaterThan, lessThan,
+ * isEmpty, isNotEmpty. equals/notEquals use loose equality (`==`/`!=`)
+ * — preserved on purpose; tightening it would change behavior for
+ * existing runbooks that compare "1" to 1.
  */
 export class ConditionNodeExecutor
     implements EditorNodeExecutor<ConditionNodeConfig, ConditionResult> {
     readonly type = 'Condition';
     readonly aliases = ['If'] as const;
 
-    constructor(private readonly deps: Pick<NodeExecutorDeps, 'sandbox'>) { }
-
     async execute(
         config: ConditionNodeConfig,
         input: ExecutionInput,
-        errorContext: NodeErrorContext,
+        _errorContext: NodeErrorContext,
     ): Promise<ConditionResult> {
-        const { condition, field, operator, value } = config;
+        const { field, operator, value } = config;
         let result = false;
 
-        if (condition) {
-            try {
-                result = await this.deps.sandbox.evaluateCondition(condition, input);
-            } catch (error) {
-                throw new NodeExecutionError({
-                    ...errorContext,
-                    message: `Condition evaluation failed: ${error instanceof Error ? error.message : String(error)}`,
-                    code: ErrorCode.CONDITION_EVALUATION_FAILED,
-                    cause: error instanceof Error ? error : undefined,
-                });
-            }
-        } else if (field && operator) {
+        if (field && operator) {
             const fieldValue = getNestedValue(input, field);
             const compareValue = value ? resolveTemplate(value, input) : '';
 

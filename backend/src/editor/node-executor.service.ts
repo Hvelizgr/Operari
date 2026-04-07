@@ -1,19 +1,13 @@
-import * as ivm from 'isolated-vm';
 import { PrismaClient } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
 import {
     WorkflowNode,
-    ExecutionInput,
-    ExecutionOutput,
     NodeExecutionResult,
 } from '../types/workflow.types';
-import { DecisionNodeExecutor } from './logic/decision-node.executor';
 import { SplitNodeExecutor } from './logic/split-node.executor';
 import { JoinNodeExecutor } from './logic/join-node.executor';
 import { RepeatNodeExecutor } from './logic/repeat-node.executor';
 import { MultiplexNodeExecutor } from './logic/multiplex-node.executor';
-import { LimitNodeExecutor } from './logic/limit-node.executor';
-import { ActionNodeExecutor } from './logic/action-node.executor';
 import { DelayNodeExecutor } from './nodes/delay.executor';
 import { TransformNodeExecutor } from './nodes/transform.executor';
 import { ConditionNodeExecutor } from './nodes/condition.executor';
@@ -21,7 +15,6 @@ import { NoteNodeExecutor } from './nodes/note.executor';
 import { HttpNodeExecutor } from './nodes/http.executor';
 import { EmailNodeExecutor } from './nodes/email.executor';
 import { DatabaseNodeExecutor } from './nodes/database.executor';
-import { CreateTicketNodeExecutor } from './nodes/create-ticket.executor';
 import { TriggerNodeExecutor } from './nodes/trigger.executor';
 import { LoopNodeExecutor } from './nodes/loop.executor';
 import { SuspendNodeExecutor } from './nodes/suspend.executor';
@@ -34,10 +27,8 @@ import { createExecutorRegistry } from '../runbook/executors';
 import type { StepExecutor, ExecutorContext } from '../runbook/types/executor.types';
 import { socketService } from './execution/socket.service';
 import {
-    SandboxError,
     NodeExecutionError,
     ErrorCode,
-    ErrorSeverity,
 } from '../errors/custom-error';
 import { Logger } from '../services/logger.service';
 import {
@@ -45,217 +36,17 @@ import {
     resolveTemplate as sharedResolveTemplate,
     getNestedValue as sharedGetNestedValue,
 } from './nodes/_shared';
+import type { ExecutionInput } from '../types/workflow.types';
 
 // Local alias preserved so the existing call sites compile unchanged.
 // New code should import NodeErrorContext from ./nodes/_shared directly.
 type commonErrorContext = NodeErrorContext
-
-interface SandboxConfig {
-    timeout: number;      // Tiempo máximo de ejecución en ms
-    memoryLimit: number;  // Límite de memoria en MB
-}
-
-// Whitelist de funciones/objetos permitidos en el sandbox
-const ALLOWED_GLOBALS = {
-    // Funciones matemáticas
-    Math: {
-        abs: Math.abs,
-        ceil: Math.ceil,
-        floor: Math.floor,
-        max: Math.max,
-        min: Math.min,
-        pow: Math.pow,
-        random: Math.random,
-        round: Math.round,
-        sqrt: Math.sqrt,
-        trunc: Math.trunc,
-    },
-    // Funciones de números
-    Number: {
-        isFinite: Number.isFinite,
-        isInteger: Number.isInteger,
-        isNaN: Number.isNaN,
-        parseFloat: Number.parseFloat,
-        parseInt: Number.parseInt,
-    },
-    // Utilidades de string
-    String: {
-        fromCharCode: String.fromCharCode,
-    },
-    // JSON seguro
-    JSON: {
-        parse: JSON.parse,
-        stringify: JSON.stringify,
-    },
-    // Funciones de Array permitidas
-    Array: {
-        isArray: Array.isArray,
-        from: Array.from,
-        of: Array.of,
-    },
-    // Object utilities
-    Object: {
-        keys: Object.keys,
-        values: Object.values,
-        entries: Object.entries,
-        assign: Object.assign,
-        fromEntries: Object.fromEntries,
-    },
-    // Tipos permitidos
-    Boolean,
-    parseInt,
-    parseFloat,
-    isNaN,
-    isFinite,
-    // Date (solo lectura de tiempo actual)
-    Date: {
-        now: Date.now,
-    },
-};
-
-class SecureSandbox {
-    private config: SandboxConfig;
-
-    constructor(config: Partial<SandboxConfig> = {}) {
-        this.config = {
-            timeout: config.timeout ?? 5000,      // 5 segundos por defecto
-            memoryLimit: config.memoryLimit ?? 128, // 128 MB por defecto
-        };
-    }
-
-    async execute(code: string, input: ExecutionInput): Promise<ExecutionOutput> {
-        const isolate = new ivm.Isolate({ memoryLimit: this.config.memoryLimit });
-
-        try {
-            const context = await isolate.createContext();
-            const jail = context.global;
-
-            // Configurar el objeto global con funciones permitidas
-            await jail.set('global', jail.derefInto());
-
-            // Inyectar las funciones permitidas de la whitelist
-            for (const [key, value] of Object.entries(ALLOWED_GLOBALS)) {
-                if (typeof value === 'object' && value !== null) {
-                    await jail.set(key, new ivm.ExternalCopy(value).copyInto());
-                } else if (typeof value === 'function') {
-                    await jail.set(key, new ivm.Reference(value));
-                }
-            }
-
-            // Inyectar el input de forma segura
-            await jail.set('input', new ivm.ExternalCopy(input).copyInto());
-
-            // Crear una variable para almacenar el resultado
-            await jail.set('__result__', undefined);
-
-            // Envolver el código para capturar el resultado
-            const wrappedCode = `
-                (function() {
-                    try {
-                        const __userCode__ = function(input) {
-                            ${code}
-                        };
-                        __result__ = __userCode__(input);
-                    } catch (e) {
-                        __result__ = { error: e.message || 'Error de ejecución' };
-                    }
-                })();
-            `;
-
-            // Compilar y ejecutar el código con timeout
-            const script = await isolate.compileScript(wrappedCode);
-            await script.run(context, { timeout: this.config.timeout });
-
-            // Obtener el resultado
-            const resultRef = await jail.get('__result__');
-            const result = resultRef instanceof ivm.Reference
-                ? await resultRef.copy()
-                : resultRef;
-
-            return result as ExecutionOutput;
-        } finally {
-            // Liberar recursos del isolate
-            isolate.dispose();
-        }
-    }
-
-    async evaluateCondition(condition: string, input: ExecutionInput): Promise<boolean> {
-        const isolate = new ivm.Isolate({ memoryLimit: this.config.memoryLimit });
-
-        try {
-            const context = await isolate.createContext();
-            const jail = context.global;
-
-            await jail.set('global', jail.derefInto());
-
-            // Inyectar funciones permitidas
-            for (const [key, value] of Object.entries(ALLOWED_GLOBALS)) {
-                if (typeof value === 'object' && value !== null) {
-                    await jail.set(key, new ivm.ExternalCopy(value).copyInto());
-                } else if (typeof value === 'function') {
-                    await jail.set(key, new ivm.Reference(value));
-                }
-            }
-
-            // Inyectar el input
-            await jail.set('input', new ivm.ExternalCopy(input).copyInto());
-            await jail.set('__result__', false);
-
-            // Sanitizar la condición para prevenir inyecciones
-            const sanitizedCondition = this.sanitizeCondition(condition);
-
-            const wrappedCode = `
-                (function() {
-                    try {
-                        __result__ = Boolean(${sanitizedCondition});
-                    } catch (e) {
-                        __result__ = false;
-                    }
-                })();
-            `;
-
-            const script = await isolate.compileScript(wrappedCode);
-            await script.run(context, { timeout: this.config.timeout });
-
-            const resultRef = await jail.get('__result__');
-            return Boolean(resultRef instanceof ivm.Reference ? await resultRef.copy() : resultRef);
-        } finally {
-            isolate.dispose();
-        }
-    }
-
-    private sanitizeCondition(condition: string): string {
-        // Lista de patrones peligrosos que no deben estar en condiciones
-        const dangerousPatterns = [
-            /\beval\b/gi,
-            /\bFunction\b/gi,
-            /\bimport\b/gi,
-            /\brequire\b/gi,
-            /\bprocess\b/gi,
-            /\bglobal\b/gi,
-            /\bwindow\b/gi,
-            /\bdocument\b/gi,
-            /\b__proto__\b/gi,
-            /\bconstructor\b/gi,
-            /\bprototype\b/gi,
-        ];
-
-        for (const pattern of dangerousPatterns) {
-            if (pattern.test(condition)) {
-                throw new Error(`Condición contiene patrones no permitidos: ${pattern.source}`);
-            }
-        }
-
-        return condition;
-    }
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyEditorExecutor = EditorNodeExecutor<any, any>;
 
 export class NodeExecutor {
     private emailTransporter: nodemailer.Transporter | null = null;
-    private sandbox: SecureSandbox;
     private prisma: PrismaClient;
     private logger: Logger;
     /**
@@ -272,12 +63,6 @@ export class NodeExecutor {
     private runbookRegistry: Map<string, StepExecutor>;
 
     constructor(prisma?: PrismaClient) {
-        // Initialize the JS sandbox with conservative defaults
-        this.sandbox = new SecureSandbox({
-            timeout: 5000,      // 5 seconds max
-            memoryLimit: 128,   // 128 MB max
-        });
-
         this.prisma = prisma || new PrismaClient();
         this.logger = Logger.getInstance();
 
@@ -317,15 +102,15 @@ export class NodeExecutor {
             }
         };
 
-        const editorNodeDeps = { sandbox: this.sandbox, logger: this.logger };
+        const editorNodeDeps = { logger: this.logger };
 
-        // Pure-logic nodes (ADR 0002 step 2)
+        // Pure-logic nodes
         register(new DelayNodeExecutor());
         register(new TransformNodeExecutor(editorNodeDeps));
-        register(new ConditionNodeExecutor(editorNodeDeps));
+        register(new ConditionNodeExecutor());
         register(new NoteNodeExecutor());
 
-        // IO nodes (ADR 0002 step 3)
+        // IO nodes
         register(new HttpNodeExecutor({ logger: this.logger }));
         register(
             new EmailNodeExecutor({
@@ -334,9 +119,8 @@ export class NodeExecutor {
             }),
         );
         register(new DatabaseNodeExecutor());
-        register(new CreateTicketNodeExecutor({ logger: this.logger }));
 
-        // State nodes (ADR 0002 step 4)
+        // State nodes
         register(new TriggerNodeExecutor());
         register(new LoopNodeExecutor());
         register(new SuspendNodeExecutor());
@@ -355,15 +139,11 @@ export class NodeExecutor {
             ),
         );
 
-        // Logic nodes (editor/logic/*, refactored in step 6 to implement
-        // EditorNodeExecutor directly — no more adapter wrapper needed).
-        register(new DecisionNodeExecutor());
+        // Multi-target / fan-out logic nodes
         register(new SplitNodeExecutor());
         register(new JoinNodeExecutor());
         register(new RepeatNodeExecutor());
         register(new MultiplexNodeExecutor());
-        register(new LimitNodeExecutor());
-        register(new ActionNodeExecutor());
 
         return registry;
     }

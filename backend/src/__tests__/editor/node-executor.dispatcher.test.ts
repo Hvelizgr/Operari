@@ -28,8 +28,6 @@ jest.mock('../../services/logger.service', () => ({
         }),
     },
 }));
-jest.mock('isolated-vm', () => ({ Isolate: jest.fn() }));
-
 describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
     let executor: NodeExecutor;
 

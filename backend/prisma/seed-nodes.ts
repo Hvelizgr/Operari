@@ -1,664 +1,310 @@
-
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const NODES = [
-    // === AI & LLM ===
+/**
+ * NanoRun curated node catalog.
+ *
+ * This seed populates the `NodeType` table with the runbook-relevant
+ * subset of step types — the same ~20 nodes the editor's NodePalette
+ * (frontend/components/Node/NodePalette.tsx) renders. The previous
+ * NanoFlow seed had 70+ n8n-era nodes (Google Sheets, Mailchimp,
+ * Twitter, LangChain, etc.) which were dropped during the post-pivot
+ * cleanup — they had no role in operational runbook automation.
+ *
+ * The list is grouped by the seven canonical categories:
+ *   devops · triggers · core · flow · integrations · ai · organization
+ *
+ * Type-string convention: legacy nodes still carry the
+ * `n8n-nodes-base.*` prefix because the dispatcher and existing
+ * WorkflowNode rows reference it. A future migration will rename
+ * the prefix to `nanorun.*`; until then we just curate the SET
+ * without renaming the strings.
+ */
+
+interface NodeSeed {
+    type: string;
+    category: string;
+    icon: string;
+    color: string;
+    label: { en: string; es: string };
+    description: { en: string; es: string };
+    inputs: Array<{ name: string; type: string }>;
+    outputs: Array<{ name: string; type: string }>;
+}
+
+const main = { name: 'main', type: 'main' };
+
+const NODES: NodeSeed[] = [
+    // === devops ===
     {
-        type: 'n8n-nodes-base.openAi',
-        category: 'ai',
-        icon: 'MessageSquare',
-        color: 'bg-rose-500',
-        label: { en: 'OpenAI', es: 'OpenAI' },
-        description: { en: 'Interact with OpenAI models', es: 'Interactuar con modelos OpenAI' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }]
+        type: 'shell',
+        category: 'devops',
+        icon: 'Terminal',
+        color: 'bg-zinc-700',
+        label: { en: 'Shell command', es: 'Comando shell' },
+        description: {
+            en: 'Run kubectl, aws, helm, bash inside a sandboxed runner',
+            es: 'Ejecutar kubectl, aws, helm, bash en un runner aislado',
+        },
+        inputs: [main],
+        outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.langChain',
-        category: 'ai',
+        type: 'n8n-nodes-base.github',
+        category: 'devops',
         icon: 'GitBranch',
-        color: 'bg-rose-500',
-        label: { en: 'LangChain Agent', es: 'Agente LangChain' },
-        description: { en: 'Build LLM chains', es: 'Cadenas LLM' },
-        inputs: [
-            { name: 'main', type: 'main', label: 'Main' },
-            { name: 'ai_tool', type: 'ai_tool', label: 'Tools' },
-            { name: 'ai_memory', type: 'ai_memory', label: 'Memory' }
-        ],
-        outputs: [{ name: 'main', type: 'main' }],
-        properties: [
-            {
-                name: 'promptSource',
-                displayName: 'Source for Prompt (User Message)',
-                type: 'options',
-                options: [
-                    { name: 'Connected Chat Trigger Node', value: 'trigger' },
-                    { name: 'Define below (Manual)', value: 'manual' }
-                ],
-                default: 'trigger',
-                description: 'Where should the prompt come from?'
-            },
-            {
-                name: 'text',
-                displayName: 'Prompt (User Message)',
-                type: 'string',
-                typeOptions: { rows: 4, expression: true },
-                default: '{{ $json.chatInput }}',
-                description: 'The message to send to the AI'
-            },
-            {
-                name: 'jsonOutput',
-                displayName: 'Require Specific Output Format',
-                type: 'boolean',
-                default: false,
-                description: 'Force the AI to respond with valid JSON'
-            },
-            {
-                name: 'enableFallback',
-                displayName: 'Enable Fallback Model',
-                type: 'boolean',
-                default: false,
-                description: 'Use a backup model if the primary fails'
-            }
-        ]
+        color: 'bg-gray-700',
+        label: { en: 'GitHub', es: 'GitHub' },
+        description: { en: 'PRs, releases, status checks', es: 'PRs, releases, status checks' },
+        inputs: [main],
+        outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.anthropic',
-        category: 'ai',
-        icon: 'MessageSquare',
-        color: 'bg-rose-500',
-        label: { en: 'Anthropic', es: 'Anthropic' },
-        description: { en: 'Claude models', es: 'Modelos Claude' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }]
+        type: 'n8n-nodes-base.docker',
+        category: 'devops',
+        icon: 'Box',
+        color: 'bg-blue-500',
+        label: { en: 'Docker', es: 'Docker' },
+        description: {
+            en: 'Build, push, run containers',
+            es: 'Build, push, run de containers',
+        },
+        inputs: [main],
+        outputs: [main],
+    },
+    {
+        type: 'n8n-nodes-base.postgres',
+        category: 'devops',
+        icon: 'Database',
+        color: 'bg-blue-400',
+        label: { en: 'Postgres', es: 'Postgres' },
+        description: {
+            en: 'Run SQL against a Postgres database',
+            es: 'Ejecutar SQL en una base Postgres',
+        },
+        inputs: [main],
+        outputs: [main],
+    },
+    {
+        type: 'n8n-nodes-base.awsS3',
+        category: 'devops',
+        icon: 'Cloud',
+        color: 'bg-orange-500',
+        label: { en: 'AWS S3', es: 'AWS S3' },
+        description: {
+            en: 'Upload artifacts and dump logs',
+            es: 'Subir artifacts y dump de logs',
+        },
+        inputs: [main],
+        outputs: [main],
     },
 
-    // === TRIGGERS ===
+    // === triggers ===
     {
         type: 'n8n-nodes-base.webhook',
         category: 'triggers',
         icon: 'Webhook',
         color: 'bg-green-500',
         label: { en: 'Webhook', es: 'Webhook' },
-        description: { en: 'Starts on HTTP request', es: 'Inicia con HTTP request' },
+        description: {
+            en: 'Trigger from an external HTTP call (Sentry, Datadog, GitHub)',
+            es: 'Disparar desde una llamada HTTP externa (Sentry, Datadog, GitHub)',
+        },
         inputs: [],
-        outputs: [{ name: 'main', type: 'main' }]
+        outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.scheduleTrigger',
+        type: 'n8n-nodes-base.cron',
         category: 'triggers',
         icon: 'Clock',
         color: 'bg-green-500',
-        label: { en: 'Schedule', es: 'Cronograma' },
-        description: { en: 'Run on schedule', es: 'Ejecutar programado' },
+        label: { en: 'Schedule', es: 'Programación' },
+        description: {
+            en: 'Run on a cron schedule',
+            es: 'Ejecutar según un cron',
+        },
         inputs: [],
-        outputs: [{ name: 'main', type: 'main' }]
+        outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.manualTrigger',
+        type: 'n8n-nodes-base.errorTrigger',
         category: 'triggers',
-        icon: 'Play',
-        color: 'bg-green-500',
-        label: { en: 'Manual', es: 'Manual' },
-        description: { en: 'Start manually', es: 'Iniciar manualmente' },
-        inputs: [],
-        outputs: [{ name: 'main', type: 'main' }]
+        icon: 'AlertCircle',
+        color: 'bg-red-500',
+        label: { en: 'Error handler', es: 'Manejador de error' },
+        description: {
+            en: 'Catch a step error and route to recovery',
+            es: 'Capturar error de un paso y enrutar a recovery',
+        },
+        inputs: [main],
+        outputs: [main],
     },
 
-    // === CORE ===
+    // === core ===
     {
         type: 'n8n-nodes-base.httpRequest',
         category: 'core',
         icon: 'Globe',
-        color: 'bg-blue-500',
-        label: { en: 'HTTP Request', es: 'Petición HTTP' },
-        description: { en: 'Make HTTP requests', es: 'Hacer petición HTTP' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }]
+        color: 'bg-indigo-500',
+        label: { en: 'HTTP request', es: 'Petición HTTP' },
+        description: {
+            en: 'Call any HTTP API',
+            es: 'Llamar a cualquier API HTTP',
+        },
+        inputs: [main],
+        outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.code',
+        type: 'n8n-nodes-base.set',
         category: 'core',
-        icon: 'Code',
+        icon: 'Settings',
         color: 'bg-blue-500',
-        label: { en: 'Code', es: 'Código' },
-        description: { en: 'Run JavaScript', es: 'Ejecutar JavaScript' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }]
+        label: { en: 'Set variable', es: 'Set variable' },
+        description: {
+            en: 'Set a runbook variable for downstream steps',
+            es: 'Setear una variable del runbook para pasos siguientes',
+        },
+        inputs: [main],
+        outputs: [main],
     },
-    {
-        type: 'custom.shellCommand',
-        category: 'core',
-        icon: 'TerminalSquare',
-        color: 'bg-gray-500',
-        label: { en: 'Shell Command', es: 'Comando de Shell' },
-        description: { en: 'Execute a shell command', es: 'Ejecutar un comando de shell' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }],
-        properties: [
-            {
-                name: 'command',
-                displayName: 'Command',
-                type: 'string',
-                typeOptions: { rows: 4, expression: true },
-                default: '',
-                description: 'The shell command to execute.'
-            }
-        ]
-    },
-    // === FLOW ===
     {
         type: 'n8n-nodes-base.if',
-        category: 'flow',
+        category: 'core',
         icon: 'GitBranch',
         color: 'bg-yellow-500',
-        label: { en: 'IF', es: 'SI' },
-        description: { en: 'Conditional logic', es: 'Lógica condicional' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'true', type: 'main', label: 'True' }, { name: 'false', type: 'main', label: 'False' }]
-    },
-    {
-        type: 'n8n-nodes-base.merge',
-        category: 'flow',
-        icon: 'GitBranch',
-        color: 'bg-yellow-500',
-        label: { en: 'Merge', es: 'Unir' },
-        description: { en: 'Merge branches', es: 'Unir ramas' },
-        inputs: [{ name: 'input1', type: 'main' }, { name: 'input2', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }]
+        label: { en: 'If', es: 'If' },
+        description: {
+            en: 'Branch on a declarative condition',
+            es: 'Bifurcar según una condición declarativa',
+        },
+        inputs: [main],
+        outputs: [
+            { name: 'true', type: 'main' },
+            { name: 'false', type: 'main' },
+        ],
     },
     {
         type: 'n8n-nodes-base.switch',
-        category: 'flow',
+        category: 'core',
         icon: 'List',
         color: 'bg-yellow-500',
         label: { en: 'Switch', es: 'Switch' },
-        description: { en: 'Multiple routes', es: 'Rutas múltiples' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: '0', type: 'main' }, { name: '1', type: 'main' }, { name: '2', type: 'main' }, { name: '3', type: 'main' }]
+        description: {
+            en: 'Branch into multiple routes',
+            es: 'Bifurcar en múltiples rutas',
+        },
+        inputs: [main],
+        outputs: [
+            { name: '0', type: 'main' },
+            { name: '1', type: 'main' },
+            { name: '2', type: 'main' },
+            { name: '3', type: 'main' },
+        ],
     },
 
+    // === flow ===
     {
-        type: 'Decision',
+        type: 'n8n-nodes-base.loop',
         category: 'flow',
-        icon: 'HelpCircle',
-        color: 'bg-yellow-600',
-        label: { en: 'Decision (Jexl)', es: 'Decisión (Jexl)' },
-        description: { en: 'Evaluate complex logic with Jexl', es: 'Evaluar lógica compleja con Jexl' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'true', type: 'main', label: 'True' }, { name: 'false', type: 'main', label: 'False' }]
+        icon: 'RefreshCw',
+        color: 'bg-yellow-500',
+        label: { en: 'Loop / Iterate', es: 'Loop / Iterar' },
+        description: {
+            en: 'Iterate over a list or retry N times',
+            es: 'Iterar una lista o reintentar N veces',
+        },
+        inputs: [main],
+        outputs: [main],
     },
     {
-        type: 'Split',
+        type: 'wait',
         category: 'flow',
-        icon: 'Layers',
-        color: 'bg-indigo-500',
-        label: { en: 'Split', es: 'Dividir' },
-        description: { en: 'Split array into parallel tasks', es: 'Dividir array en tareas paralelas' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }]
+        icon: 'Clock',
+        color: 'bg-amber-500',
+        label: { en: 'Wait', es: 'Esperar' },
+        description: {
+            en: 'Pause for a fixed duration',
+            es: 'Pausar por una duración fija',
+        },
+        inputs: [main],
+        outputs: [main],
     },
+
+    // === integrations ===
     {
-        type: 'Join',
-        category: 'flow',
-        icon: 'Combine',
-        color: 'bg-indigo-600',
-        label: { en: 'Join', es: 'Unir' },
-        description: { en: 'Wait for all branches to complete', es: 'Esperar a que todas las ramas terminen' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }]
+        type: 'notify',
+        category: 'integrations',
+        icon: 'Bell',
+        color: 'bg-pink-500',
+        label: { en: 'Notify', es: 'Notificar' },
+        description: {
+            en: 'Send a Slack/Discord/email notification',
+            es: 'Enviar una notificación Slack/Discord/email',
+        },
+        inputs: [main],
+        outputs: [main],
     },
+
+    // === ai ===
     {
-        type: 'Repeat',
-        category: 'flow',
-        icon: 'Repeat',
+        type: 'agent',
+        category: 'ai',
+        icon: 'Sparkles',
         color: 'bg-violet-500',
-        label: { en: 'Repeat', es: 'Repetir' },
-        description: { en: 'Execute N times in parallel', es: 'Ejecutar N veces en paralelo' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }],
-        properties: [
-            {
-                name: 'count',
-                displayName: 'Repeat Count',
-                type: 'number',
-                default: 1,
-                description: 'Number of times to repeat execution (1-1000)'
-            },
-            {
-                name: 'parallel',
-                displayName: 'Parallel Execution',
-                type: 'boolean',
-                default: true,
-                description: 'Execute all iterations in parallel'
-            }
-        ]
-    },
-    {
-        type: 'Multiplex',
-        category: 'flow',
-        icon: 'Network',
-        color: 'bg-violet-600',
-        label: { en: 'Multiplex', es: 'Multiplexar' },
-        description: { en: 'Execute on multiple targets with stagger', es: 'Ejecutar en múltiples destinos con retraso' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }],
-        properties: [
-            {
-                name: 'targets',
-                displayName: 'Targets',
-                type: 'string',
-                typeOptions: { rows: 4 },
-                default: '',
-                description: 'Target identifiers (one per line)'
-            },
-            {
-                name: 'stagger',
-                displayName: 'Stagger Delay (ms)',
-                type: 'number',
-                default: 0,
-                description: 'Delay in milliseconds between each target execution'
-            },
-            {
-                name: 'continueThreshold',
-                displayName: 'Continue Threshold (%)',
-                type: 'number',
-                default: 100,
-                description: 'Percentage of successful executions required to continue (0-100)'
-            }
-        ]
-    },
-    {
-        type: 'custom.suspend',
-        category: 'flow',
-        icon: 'Pause',
-        color: 'bg-orange-500',
-        label: { en: 'Suspend', es: 'Suspender' },
-        description: { en: 'Pauses the workflow until it is manually resumed', es: 'Pausa el flujo de trabajo hasta que se reanude manualmente' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }]
-    },
-    {
-        type: 'Action',
-        category: 'flow',
-        icon: 'Zap',
-        color: 'bg-green-500',
-        label: { en: 'Action', es: 'Acción' },
-        description: { en: 'Execute post-job actions (email, webhook, etc.)', es: 'Ejecutar acciones post-trabajo (email, webhook, etc.)' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }],
-        properties: [
-            {
-                name: 'actionType',
-                displayName: 'Action Type',
-                type: 'options',
-                options: [
-                    { name: 'Send Email', value: 'email' },
-                    { name: 'Call Webhook', value: 'webhook' },
-                    { name: 'Disable Workflow', value: 'disable' },
-                    { name: 'Delete Workflow', value: 'delete' },
-                    { name: 'Add Tags', value: 'tag' },
-                    { name: 'Run Another Event', value: 'run_event' },
-                    { name: 'Send to Channel', value: 'channel' }
-                ],
-                default: 'webhook',
-                description: 'Type of post-job action to execute'
-            },
-            {
-                name: 'condition',
-                displayName: 'Trigger Condition',
-                type: 'options',
-                options: [
-                    { name: 'On Success', value: 'success' },
-                    { name: 'On Error', value: 'error' },
-                    { name: 'Always (Complete)', value: 'complete' },
-                    { name: 'On Warning', value: 'warning' }
-                ],
-                default: 'complete',
-                description: 'When to trigger this action'
-            },
-            {
-                name: 'enabled',
-                displayName: 'Enabled',
-                type: 'boolean',
-                default: true,
-                description: 'Whether this action is active'
-            },
-            {
-                name: 'emailTo',
-                displayName: 'Email Recipient',
-                type: 'string',
-                typeOptions: { expression: true },
-                default: '',
-                description: 'Email address to send notification to (for email action)'
-            },
-            {
-                name: 'emailSubject',
-                displayName: 'Email Subject',
-                type: 'string',
-                typeOptions: { expression: true },
-                default: 'Workflow Notification',
-                description: 'Subject of the email (for email action)'
-            },
-            {
-                name: 'emailBody',
-                displayName: 'Email Body',
-                type: 'string',
-                typeOptions: { rows: 4, expression: true },
-                default: '',
-                description: 'Body of the email (for email action)'
-            },
-            {
-                name: 'webhookUrl',
-                displayName: 'Webhook URL',
-                type: 'string',
-                typeOptions: { expression: true },
-                default: '',
-                description: 'URL to call (for webhook action)'
-            },
-            {
-                name: 'webhookMethod',
-                displayName: 'HTTP Method',
-                type: 'options',
-                options: [
-                    { name: 'POST', value: 'POST' },
-                    { name: 'GET', value: 'GET' },
-                    { name: 'PUT', value: 'PUT' }
-                ],
-                default: 'POST',
-                description: 'HTTP method for webhook call'
-            },
-            {
-                name: 'tags',
-                displayName: 'Tags',
-                type: 'string',
-                default: '',
-                description: 'Comma-separated tags to add (for tag action)'
-            },
-            {
-                name: 'eventId',
-                displayName: 'Event ID',
-                type: 'string',
-                default: '',
-                description: 'ID of the event to run (for run_event action)'
-            }
-        ]
-    },
-    {
-        type: 'Limit',
-        category: 'flow',
-        icon: 'Gauge',
-        color: 'bg-cyan-500',
-        label: { en: 'Limit', es: 'Límite' },
-        description: { en: 'Control resource limits (time, memory, CPU, concurrent)', es: 'Controlar límites de recursos (tiempo, memoria, CPU, concurrencia)' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }],
-        properties: [
-            {
-                name: 'limitType',
-                displayName: 'Limit Type',
-                type: 'options',
-                options: [
-                    { name: 'Time (seconds)', value: 'time' },
-                    { name: 'Memory (MB)', value: 'memory' },
-                    { name: 'CPU (%)', value: 'cpu' },
-                    { name: 'Concurrent Executions', value: 'concurrent' },
-                    { name: 'Queue Size', value: 'queue' },
-                    { name: 'Daily Executions', value: 'daily' }
-                ],
-                default: 'concurrent',
-                description: 'Type of resource limit to enforce'
-            },
-            {
-                name: 'amount',
-                displayName: 'Limit Amount',
-                type: 'number',
-                default: 1,
-                description: 'The limit value (meaning depends on limit type)'
-            },
-            {
-                name: 'duration',
-                displayName: 'Sustain Duration (seconds)',
-                type: 'number',
-                default: 0,
-                description: 'For CPU/Memory limits: how long the limit must be exceeded before action'
-            },
-            {
-                name: 'enabled',
-                displayName: 'Enabled',
-                type: 'boolean',
-                default: true,
-                description: 'Whether this limit is active'
-            },
-            {
-                name: 'onExceed',
-                displayName: 'On Exceed',
-                type: 'options',
-                options: [
-                    { name: 'Abort Execution', value: 'abort' },
-                    { name: 'Warn Only', value: 'warn' },
-                    { name: 'Skip Node', value: 'skip' }
-                ],
-                default: 'warn',
-                description: 'Action to take when limit is exceeded'
-            },
-            {
-                name: 'notifyEmail',
-                displayName: 'Notify Email',
-                type: 'string',
-                default: '',
-                description: 'Email address to notify when limit is exceeded'
-            },
-            {
-                name: 'notifyWebhook',
-                displayName: 'Notify Webhook',
-                type: 'string',
-                default: '',
-                description: 'Webhook URL to call when limit is exceeded'
-            }
-        ]
+        label: { en: 'AI agent', es: 'Agente IA' },
+        description: {
+            en: 'Run a Claude/GPT prompt as part of the runbook',
+            es: 'Ejecutar un prompt Claude/GPT como parte del runbook',
+        },
+        inputs: [main],
+        outputs: [main],
     },
 
-    // === SOCIAL ===
+    // === organization ===
     {
-        type: 'n8n-nodes-base.googleSheets',
-        category: 'productivity',
-        icon: 'FileText',
-        color: 'bg-green-500',
-        label: { en: 'Google Sheets', es: 'Google Sheets' },
-        description: { en: 'Read/write spreadsheets', es: 'Leer/escribir hojas' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }]
+        type: 'approval',
+        category: 'organization',
+        icon: 'CheckCircle',
+        color: 'bg-emerald-500',
+        label: { en: 'Approval gate', es: 'Aprobación' },
+        description: {
+            en: 'Pause until a human approves the next step',
+            es: 'Pausar hasta que un humano apruebe el siguiente paso',
+        },
+        inputs: [main],
+        outputs: [main],
     },
     {
-        type: 'n8n-nodes-base.slack',
-        category: 'communication',
-        icon: 'MessageSquare',
-        color: 'bg-orange-500',
-        label: { en: 'Slack', es: 'Slack' },
-        description: { en: 'Send messages', es: 'Enviar mensajes' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }]
-    },
-    {
-        type: 'custom.email',
-        category: 'communication',
-        icon: 'Mail',
-        color: 'bg-indigo-600',
-        label: { en: 'Send Email', es: 'Enviar Correo' },
-        description: { en: 'Send a customizable email', es: 'Enviar un correo electrónico personalizable' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }],
-        properties: [
-            {
-                name: 'to',
-                displayName: 'Recipient Email',
-                type: 'string',
-                typeOptions: { expression: true },
-                default: '',
-                description: 'The email address of the recipient(s). Supports expressions.'
-            },
-            {
-                name: 'subject',
-                displayName: 'Subject',
-                type: 'string',
-                typeOptions: { expression: true },
-                default: '',
-                description: 'The subject of the email. Supports expressions.'
-            },
-            {
-                name: 'body',
-                displayName: 'Body (Plain Text)',
-                type: 'string',
-                typeOptions: { rows: 4, expression: true },
-                default: '',
-                description: 'The plain text body of the email. Supports expressions.'
-            },
-            {
-                name: 'html',
-                displayName: 'Body (HTML)',
-                type: 'string',
-                typeOptions: { rows: 4, expression: true },
-                default: '',
-                description: 'The HTML body of the email. Overrides plain text if provided. Supports expressions.'
-            }
-        ]
-    },
-    // ... adding tons more would overload this single file write, keeping it essential for proof of concept
-    // === STORAGE ===
-    {
-        type: 'custom.storeSet',
-        category: 'storage',
-        icon: 'Archive',
-        color: 'bg-purple-500',
-        label: { en: 'Set Value in Storage', es: 'Guardar Valor en Almacén' },
-        description: { en: 'Save a key-value pair to a persistent bucket', es: 'Guardar un par clave-valor en un bucket persistente' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }],
-        properties: [
-            {
-                name: 'bucketName',
-                displayName: 'Bucket Name',
-                type: 'string',
-                default: 'default',
-                description: 'The name of the storage bucket.'
-            },
-            {
-                name: 'key',
-                displayName: 'Key',
-                type: 'string',
-                default: '',
-                description: 'The key to store the value under.'
-            },
-            {
-                name: 'value',
-                displayName: 'Value',
-                type: 'string',
-                typeOptions: { expression: true },
-                default: '{{ $json.data }}',
-                description: 'The value to store. Can be an expression.'
-            }
-        ]
-    },
-    {
-        type: 'custom.storeGet',
-        category: 'storage',
-        icon: 'ArchiveRestore',
-        color: 'bg-purple-500',
-        label: { en: 'Get Value from Storage', es: 'Obtener Valor de Almacén' },
-        description: { en: 'Retrieve a value from a persistent bucket', es: 'Recuperar un valor desde un bucket persistente' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }],
-        properties: [
-            {
-                name: 'bucketName',
-                displayName: 'Bucket Name',
-                type: 'string',
-                default: 'default',
-                description: 'The name of the storage bucket.'
-            },
-            {
-                name: 'key',
-                displayName: 'Key',
-                type: 'string',
-                default: '',
-                description: 'The key of the value to retrieve.'
-            }
-        ]
-    },
-    // ... adding tons more would overload this single file write, keeping it essential for proof of concept
-    {
-        type: 'custom.setMetadata',
-        category: 'utility',
-        icon: 'Tag',
-        color: 'bg-gray-400',
-        label: { en: 'Set Metadata', es: 'Establecer Metadatos' },
-        description: { en: 'Sets metadata for the current execution', es: 'Establece metadatos para la ejecución actual' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }]
+        type: 'custom.frame',
+        category: 'organization',
+        icon: 'Square',
+        color: 'bg-slate-500',
+        label: { en: 'Section', es: 'Sección' },
+        description: {
+            en: 'Group related steps visually',
+            es: 'Agrupar pasos relacionados visualmente',
+        },
+        inputs: [],
+        outputs: [],
     },
     {
         type: 'custom.note',
-        category: 'utility',
+        category: 'organization',
         icon: 'StickyNote',
-        color: 'bg-yellow-400',
+        color: 'bg-amber-300',
         label: { en: 'Note', es: 'Nota' },
-        description: { en: 'A sticky note for documentation', es: 'Una nota adhesiva para documentación' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }],
-        properties: [
-            {
-                name: 'text',
-                displayName: 'Note Content',
-                type: 'string',
-                typeOptions: { rows: 10, expression: false },
-                default: 'This is a note.',
-                description: 'The content of the note. Displayed directly on the node.'
-            }
-        ]
-    },
-    // === INTEGRATION ===
-    {
-        type: 'custom.createTicket',
-        category: 'integration',
-        icon: 'Ticket',
-        color: 'bg-teal-500',
-        label: { en: 'Create Ticket', es: 'Crear Ticket' },
-        description: { en: 'Creates a ticket in an external system via webhook', es: 'Crea un ticket en un sistema externo vía webhook' },
-        inputs: [{ name: 'main', type: 'main' }],
-        outputs: [{ name: 'main', type: 'main' }],
-        properties: [
-            {
-                name: 'webhookUrl',
-                displayName: 'Webhook URL',
-                type: 'string',
-                default: '',
-                description: 'The URL of the external ticketing system webhook.'
-            },
-            {
-                name: 'subject',
-                displayName: 'Ticket Subject',
-                type: 'string',
-                typeOptions: { expression: true },
-                default: 'New Ticket from NanoFlow Execution {{ $json.executionId }}',
-                description: 'The subject of the ticket. Supports expressions.'
-            },
-            {
-                name: 'body',
-                displayName: 'Ticket Body',
-                type: 'string',
-                typeOptions: { rows: 8, expression: true },
-                default: 'Execution {{ $json.executionId }} of workflow {{ $json.workflowName }} requires attention.',
-                description: 'The body/description of the ticket. Supports expressions.'
-            }
-        ]
+        description: {
+            en: 'Add an inline annotation (non-executable)',
+            es: 'Añadir una anotación inline (no ejecutable)',
+        },
+        inputs: [],
+        outputs: [],
     },
 ];
 
 async function main() {
-    console.log('Seeding Node Types...');
+    console.log(`Seeding ${NODES.length} runbook node types...`);
     for (const node of NODES) {
         await prisma.nodeType.upsert({
             where: { type: node.type },
@@ -683,7 +329,7 @@ async function main() {
             },
         });
     }
-    console.log('Node Types seeded!');
+    console.log('Node types seeded.');
 }
 
 main()
