@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Moon, Sun, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Code2 } from 'lucide-react';
+import { Download, Moon, Sun, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Code2, Sparkles } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import type { SaveStatus } from '../../hooks/useAutosave';
@@ -20,6 +20,8 @@ interface TopBarProps {
     onTemplates?: () => void;
     onMetrics?: () => void;
     onYaml?: () => void;
+    onAssist?: () => void;
+    hasFailedNode?: boolean;
 }
 
 export default function TopBar({
@@ -36,7 +38,9 @@ export default function TopBar({
     saveStatus,
     onTemplates,
     onMetrics,
-    onYaml
+    onYaml,
+    onAssist,
+    hasFailedNode
 }: TopBarProps) {
     const { highContrast, toggleHighContrast } = useAccessibility();
     const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
@@ -170,6 +174,24 @@ export default function TopBar({
 
             {/* Right: Secondary Actions */}
             <div className="flex items-center gap-1">
+                {/* AI assist */}
+                {onAssist && (
+                    <button
+                        onClick={onAssist}
+                        className={`relative p-2 rounded-lg transition-colors ${
+                            hasFailedNode
+                                ? 'text-violet-500 hover:bg-violet-500/10 animate-pulse'
+                                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                        title={lang === 'en' ? 'AI assist' : 'Asistente IA'}
+                    >
+                        <Sparkles size={18} />
+                        {hasFailedNode && (
+                            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-violet-500" />
+                        )}
+                    </button>
+                )}
+
                 {/* YAML view */}
                 {onYaml && (
                     <button

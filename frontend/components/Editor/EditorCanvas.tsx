@@ -20,6 +20,7 @@ import RunDialog from '../Workflow/RunDialog';
 import CommandPalette, { CommandAction } from './CommandPalette';
 import TopBar from './TopBar';
 import YamlViewModal from './YamlViewModal';
+import RunbookAssistPanel from './RunbookAssistPanel';
 import EditorSidebar from './EditorSidebar';
 import { createNewNode } from './EditorCanvas.utils';
 import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertiesPanel';
@@ -133,6 +134,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
     const [isMetricsDashboardOpen, setIsMetricsDashboardOpen] = useState(false);
     const [isYamlViewOpen, setIsYamlViewOpen] = useState(false);
+    const [isAssistOpen, setIsAssistOpen] = useState(false);
     const [workflowProperties, setWorkflowProperties] = useState<WorkflowProperties>({
         name: 'Untitled runbook',
         description: '',
@@ -317,6 +319,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onTemplates={() => setIsTemplateGalleryOpen(true)}
                             onMetrics={() => setIsMetricsDashboardOpen(true)}
                             onYaml={() => setIsYamlViewOpen(true)}
+                            onAssist={() => setIsAssistOpen(true)}
+                            hasFailedNode={nodes.some((n) => n.executionState === 'error')}
                             onExport={() => {
                                 const data = JSON.stringify({ nodes, connections }, null, 2);
                                 const blob = new Blob([data], { type: 'application/json' });
@@ -620,6 +624,12 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onClose={() => setIsCommandPaletteOpen(false)}
                             actions={commandActions}
                             lang={lang}
+                        />
+                        <RunbookAssistPanel
+                            open={isAssistOpen}
+                            onClose={() => setIsAssistOpen(false)}
+                            lang={lang}
+                            failedNode={nodes.find((n) => n.executionState === 'error') ?? null}
                         />
                         <YamlViewModal
                             open={isYamlViewOpen}
