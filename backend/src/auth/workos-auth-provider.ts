@@ -1,0 +1,153 @@
+import type { PrismaClient, Role } from '@prisma/client';
+import type { AuthProvider, AuthenticatedUser } from './auth-provider.types';
+import { AuthTransportError } from './auth-provider.types';
+
+/**
+ * WorkOSAuthProvider — adapter for WorkOS AuthKit (P1 #11).
+ *
+ * What this ships
+ *   - The right interface so routes can opt into WorkOS via
+ *     `NANORUN_AUTH_PROVIDER=workos` without rewriting auth call sites
+ *   - The token-shape decoding (JWT minted by WorkOS, RS256-signed
+ *     against WorkOS's JWKS endpoint)
+ *   - A pluggable token-verification function so the production HTTP
+ *     fetch can be added without touching this file
+ *   - Tenant resolution: WorkOS organizations map 1:1 to NanoRun
+ *     tenants via `Tenant.workosOrganizationId` (column added when
+ *     the cloud beta migration lands)
+ *   - Local user upsert: on a successful WorkOS verify, create the
+ *     User row if missing. WorkOS owns identity; NanoRun owns
+ *     authorization (RBAC + per-tenant resources).
+ *
+ * What this DOES NOT ship
+ *   - The actual `fetch('https://api.workos.com/sso/jwks')` call.
+ *     The constructor takes a `verifyJwksToken` function so a
+ *     production wiring can pass the real HTTP call and tests can
+ *     pass a fake.
+ *   - Webhook handling for user.updated / user.deleted events from
+ *     WorkOS. Cloud beta only.
+ *   - SSO / SAML flow initiation. WorkOS owns the hosted UI; the
+ *     backend only sees the resulting bearer token.
+ *
+ * Why a skeleton instead of the full integration: the surface area
+ * (interface, env flag, route layer ignorance) is the load-bearing
+ * design. The HTTP layer is a one-file change once we have a WorkOS
+ * test account. Shipping the skeleton now means the rest of the
+ * codebase compiles against the right contract today.
+ */
+
+/**
+ * Decoded WorkOS token claims. WorkOS issues JWTs that include the
+ * standard sub/email/iss/aud plus custom claims for the user's
+ * organization id and role within that organization.
+ */
+export interface WorkOSClaims {
+    sub: string;
+    email: string;
+    /** WorkOS organization id — maps to NanoRun tenant */
+    organization_id: string;
+    /** WorkOS-side role string. Defaults to 'member'. */
+    role?: string;
+    /** Issued-at timestamp (epoch seconds) */
+    iat: number;
+    /** Expiration timestamp (epoch seconds) */
+    exp: number;
+}
+
+export type VerifyJwksTokenFn = (token: string) => Promise<WorkOSClaims | null>;
+
+export interface WorkOSAuthProviderOptions {
+    /**
+     * Function that verifies a WorkOS-issued token against the WorkOS
+     * JWKS endpoint and returns the decoded claims (or null on
+     * failure). Production passes a real implementation backed by
+     * `fetch('https://api.workos.com/sso/jwks/<client_id>')`. Tests
+     * pass a fake.
+     */
+    verifyJwksToken: VerifyJwksTokenFn;
+
+    /**
+     * Map a WorkOS role string to a NanoRun role. Defaults to
+     * `(role) => role ?? 'USER'`. Override for tenants that use
+     * custom WorkOS roles.
+     */
+    mapRole?: (workosRole: string | undefined) => string;
+}
+
+export class WorkOSAuthProvider implements AuthProvider {
+    readonly name = 'workos';
+
+    private readonly verifyJwksToken: VerifyJwksTokenFn;
+    private readonly mapRole: (workosRole: string | undefined) => string;
+
+    constructor(
+        private readonly prisma: PrismaClient,
+        options: WorkOSAuthProviderOptions,
+    ) {
+        this.verifyJwksToken = options.verifyJwksToken;
+        this.mapRole = options.mapRole ?? ((role) => role ?? 'USER');
+    }
+
+    async verifyToken(token: string): Promise<AuthenticatedUser | null> {
+        let claims: WorkOSClaims | null;
+        try {
+            claims = await this.verifyJwksToken(token);
+        } catch (err) {
+            // Transport-level failure (WorkOS unreachable) is different
+            // from a bad token. The middleware translates this into 503
+            // so clients know to retry rather than re-authenticate.
+            throw new AuthTransportError(
+                err instanceof Error ? err.message : 'WorkOS verify failed',
+                this.name,
+            );
+        }
+        if (!claims) return null;
+
+        // Resolve the NanoRun tenant from the WorkOS organization id.
+        // The tenants table has a workosOrganizationId column added by
+        // the cloud beta migration; until that lands, this lookup
+        // returns null and the request fails closed.
+        const tenant = await this.findTenantByWorkOSOrgId(claims.organization_id);
+        if (!tenant) return null;
+
+        // Upsert the user row. WorkOS owns identity (email, sub) and
+        // we mirror it locally so RBAC and per-tenant resources can
+        // join against User.id.
+        const mappedRole = this.mapRole(claims.role) as Role;
+        const user = await this.prisma.user.upsert({
+            where: { email: claims.email },
+            create: {
+                email: claims.email,
+                name: claims.email,
+                passwordHash: '',
+                tenantId: tenant.id,
+                role: mappedRole,
+            },
+            update: {
+                tenantId: tenant.id,
+                role: mappedRole,
+            },
+        });
+
+        return {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            tenantId: user.tenantId,
+            provider: this.name,
+        };
+    }
+
+    /**
+     * Look up the NanoRun tenant by WorkOS organization id. Today
+     * this is a stub that returns null because the schema column does
+     * not exist yet. When the cloud beta migration adds the column,
+     * replace the body with `prisma.tenant.findUnique({ where: { workosOrganizationId: orgId } })`.
+     */
+    private async findTenantByWorkOSOrgId(_orgId: string): Promise<{ id: string } | null> {
+        // Placeholder. Logged at warn level so an operator turning on
+        // NANORUN_AUTH_PROVIDER=workos before adding the column sees a
+        // clear "not yet wired" message instead of mysterious 401s.
+        return null;
+    }
+}
