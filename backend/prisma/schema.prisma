@@ -18,9 +18,12 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant     Tenant      @relation(fields: [tenantId], references: [id])
-  workflows  Workflow[]
-  executions Execution[]
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  workflows         Workflow[]
+  executions        Execution[]
+  conversations     Conversation[]
+  connectedAccounts ConnectedAccount[]
+  roleAssignments   RoleAssignment[]
 
   @@index([tenantId])
   @@index([email])
@@ -34,9 +37,15 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     User[]
-  workflows Workflow[]
-  storageBuckets StorageBucket[]
+  users             User[]
+  workflows         Workflow[]
+  storageBuckets    StorageBucket[]
+  conversations     Conversation[]
+  agents            Agent[]
+  connectedAccounts ConnectedAccount[]
+  apiKeys           ApiKey[]
+  webhooks          Webhook[]
+  customRoles       CustomRole[]
 
   @@index([slug])
 }
@@ -57,8 +66,12 @@ model StorageBucket {
 
 model Workflow {
   id          String         @id @default(uuid())
+  // NanoRun: slug is used by the SDK/CLI to reference runbooks (e.g. "deploy-frontend")
+  slug        String?
   name        String
   description String?
+  // NanoRun: category for organizing runbooks (e.g. "deploy", "migration", "incident")
+  category    String?
   // DEPRECATED: These JSON fields are kept for backward compatibility during migration
   // They will be removed in a future version once all data is migrated
   nodes       Json?
@@ -76,6 +89,10 @@ model Workflow {
   // New normalized relationships
   workflowNodes     WorkflowNode[]
   workflowConnections WorkflowConnection[]
+  webhooks          Webhook[]
+  approvals         Approval[]
+
+  @@unique([tenantId, slug])
 
   @@index([userId])
   @@index([tenantId])
@@ -305,4 +322,289 @@ model NodeType {
 
   @@index([category])
   @@index([type])
+}
+
+// ============================================
+// AI Agent System Models
+// ============================================
+
+model Conversation {
+  id        String             @id @default(uuid())
+  userId    String
+  tenantId  String
+  title     String?
+  status    ConversationStatus @default(ACTIVE)
+  metadata  Json?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id])
+  tenant   Tenant        @relation(fields: [tenantId], references: [id])
+  messages ChatMessage[]
+  agents   Agent[]
+
+  @@index([userId])
+  @@index([tenantId])
+}
+
+model ChatMessage {
+  id             String      @id @default(uuid())
+  conversationId String
+  role           MessageRole
+  content        String
+  toolCalls      Json?
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+model Agent {
+  id             String      @id @default(uuid())
+  conversationId String
+  tenantId       String
+  name           String
+  description    String?
+  status         AgentStatus @default(IDLE)
+  agentType      String
+  config         Json?
+  mcpServers     String[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  conversation Conversation     @relation(fields: [conversationId], references: [id])
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  executions   AgentExecution[]
+
+  @@index([conversationId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+model AgentExecution {
+  id          String          @id @default(uuid())
+  agentId     String
+  status      ExecutionStatus @default(PENDING)
+  trigger     TriggerType
+  input       Json?
+  output      Json?
+  error       String?
+  startedAt   DateTime        @default(now())
+  completedAt DateTime?
+  duration    Int?
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model ConnectedAccount {
+  id           String    @id @default(uuid())
+  userId       String
+  tenantId     String
+  provider     String
+  displayName  String?
+  accessToken  String
+  refreshToken String?
+  tokenExpiry  DateTime?
+  scopes       String[]
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([userId, provider, displayName])
+  @@index([userId])
+  @@index([tenantId])
+  @@index([provider])
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  COMPLETED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+enum AgentStatus {
+  IDLE
+  RUNNING
+  PAUSED
+  FAILED
+  COMPLETED
+}
+
+// ============================================
+// NanoRun Models (Runbook Automation)
+// ============================================
+
+/// API keys used by SDK and CLI to authenticate with the NanoRun API.
+/// The plain key is shown only once on creation; we store a bcrypt hash.
+model ApiKey {
+  id          String    @id @default(uuid())
+  tenantId    String
+  name        String    // Human-readable label
+  keyHash     String    @unique // bcrypt hash of the full key
+  prefix      String    // First 12 chars (e.g. "nr_live_abc...") for display
+  scopes      String[]  // ["runbooks:trigger", "runbooks:read", "runs:read", ...]
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdBy   String?   // User who created the key
+  createdAt   DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([prefix])
+}
+
+/// Inbound webhook receivers. Each webhook is bound to a runbook and a token.
+/// External services (Sentry, Datadog, GitHub, custom) POST here to trigger runs.
+model Webhook {
+  id              String    @id @default(uuid())
+  tenantId        String
+  workflowId      String    // Workflow/Runbook this webhook triggers
+  source          String    // "sentry" | "datadog" | "github" | "custom"
+  token           String    @unique // URL token: /api/webhooks/:token/:event
+  secret          String?   // Optional HMAC secret for signature validation
+  isActive        Boolean   @default(true)
+  triggerCount    Int       @default(0)
+  lastTriggeredAt DateTime?
+  createdAt       DateTime  @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([token])
+  @@index([workflowId])
+}
+
+/// Human approval gates. When a runbook reaches an approval node, it pauses
+/// and creates an Approval record. The run resumes once approved/rejected.
+model Approval {
+  id          String         @id @default(uuid())
+  workflowId  String
+  executionId String         // The Execution/Run this approval belongs to
+  stepId      String         // The node id in the workflow that requested approval
+  status      ApprovalStatus @default(PENDING)
+  message     String?        // Message shown to approvers
+  requestedBy String?
+  approvedBy  String?
+  approvedAt  DateTime?
+  comment     String?
+  createdAt   DateTime       @default(now())
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([workflowId])
+  @@index([status])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+/// Per-tenant custom role with a flat list of permission strings.
+///
+/// Permissions follow the same `resource:verb` shape used by API key
+/// scopes (e.g. `runbook:read`, `audit:read`, `*`). Wildcards work at
+/// the resource level: `runbook:*` grants every verb on `runbook`.
+///
+/// Built-in roles created automatically when a tenant is provisioned
+/// have `isSystem = true` and cannot be deleted via the public API.
+/// The model is named `CustomRole` (rather than `Role`) to avoid a
+/// clash with the existing `Role` enum on `User`, which is preserved
+/// for backwards compatibility — see PermissionService for the
+/// fallback path.
+model CustomRole {
+  id          String           @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  permissions String[]
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignments RoleAssignment[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+/// Many-to-many: which custom roles a user holds. A user with no
+/// assignments still gets effective permissions via PermissionService's
+/// fallback to the legacy User.role enum.
+model RoleAssignment {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  grantedBy String?
+  grantedAt DateTime @default(now())
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role CustomRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+/// Append-only, hash-chained audit log.
+///
+/// Each row references the previous row's hash via `prevHash`. `hash` is
+/// computed as sha256(prevHash || canonicalJson(payload)). Tampering with
+/// any historical row breaks the chain at every later row, which the
+/// `AuditService.verifyChain()` method detects.
+///
+/// UPDATE and DELETE on this table are blocked by a Postgres trigger
+/// installed in the migration `add_audit_event` — even a tenant admin with
+/// direct DB access cannot rewrite history without dropping the trigger,
+/// which itself shows up in Postgres logs.
+model AuditEvent {
+  /// Monotonically-increasing sequence per tenant. Used as the chain
+  /// position so we can detect gaps.
+  seq       BigInt   @default(autoincrement())
+  id        String   @id @default(uuid())
+  tenantId  String
+  /// Event type, e.g. "run.started", "run.completed", "approval.granted",
+  /// "secret.accessed", "runbook.updated", "apikey.used".
+  type      String
+  /// Optional actor — user ID, API key ID, or "system".
+  actorId   String?
+  actorType String?
+  /// Optional resource the event is about (runbook ID, run ID, …).
+  resource  String?
+  /// Arbitrary structured payload. Encoded as canonical JSON for hashing.
+  payload   Json
+  /// Hex sha256 of (prevHash || canonicalJson(payload)). 64 chars.
+  hash      String   @db.VarChar(64)
+  /// Hash of the previous event for the same tenant. Empty string for the
+  /// first event in a tenant's chain.
+  prevHash  String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, seq])
+  @@index([tenantId, type])
+  @@index([tenantId, createdAt])
+  @@index([resource])
 }
