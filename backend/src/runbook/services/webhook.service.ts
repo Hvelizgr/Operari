@@ -79,33 +79,62 @@ export class WebhookService {
     }
 
     /**
-     * Validate HMAC SHA-256 signature for incoming webhook request.
-     * Different sources use different header names and formats:
+     * Validate HMAC SHA-256 signature for an incoming webhook request.
+     *
+     * **CRITICAL**: `rawBody` MUST be the exact bytes the sender signed.
+     * `JSON.stringify(req.body)` is the wrong input — Express parses
+     * the JSON before the route runs, and re-serializing produces
+     * bytes that may differ from the original (key ordering, whitespace,
+     * number precision, escaped characters). The canonical webhook
+     * security bug. Capture the raw body via
+     * `express.json({ verify: (req, _res, buf) => req.rawBody = buf })`
+     * and pass `req.rawBody` here.
+     *
+     * Source-specific header formats:
      *   - GitHub:   X-Hub-Signature-256: sha256=<hex>
-     *   - Stripe:   Stripe-Signature: t=...,v1=<hex>
      *   - Generic:  X-Webhook-Signature: <hex>
+     *
+     * Stripe's `Stripe-Signature: t=...,v1=<hex>` is NOT handled here
+     * because Stripe also requires a timestamp tolerance check against
+     * replay attacks; that lives in a dedicated StripeSignatureVerifier
+     * (deferred — when the billing integration ships).
+     *
+     * Returns false on missing header, missing source/secret, hex
+     * decode failure, or signature mismatch. The boolean result is the
+     * only signal — the caller logs and rejects the request.
      */
     verifySignature(
         secret: string,
-        rawBody: string,
+        rawBody: Buffer | string | undefined,
         signatureHeader: string | undefined,
         source: string,
     ): boolean {
         if (!signatureHeader) return false;
+        if (rawBody === undefined || rawBody === null) return false;
+
+        const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody, 'utf8');
 
         const expected = crypto
             .createHmac('sha256', secret)
-            .update(rawBody)
+            .update(bodyBuffer)
             .digest('hex');
 
         let provided = signatureHeader.trim();
 
-        // GitHub format: "sha256=<hex>"
-        if (source === 'github' && provided.startsWith('sha256=')) {
+        // GitHub format: "sha256=<hex>". Strip the prefix before
+        // comparing. The check is intentionally case-insensitive on
+        // the prefix because GitHub's docs show lowercase but some
+        // legacy senders capitalize it.
+        if (provided.toLowerCase().startsWith('sha256=')) {
             provided = provided.substring(7);
         }
 
-        // Constant-time comparison to prevent timing attacks
+        // Both buffers must be the same length for timingSafeEqual to
+        // run; otherwise it throws (which leaks length info via the
+        // exception path). Pre-check the hex length and return false
+        // on mismatch.
+        if (expected.length !== provided.length) return false;
+
         try {
             return crypto.timingSafeEqual(
                 Buffer.from(expected, 'hex'),

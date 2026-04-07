@@ -42,12 +42,19 @@ async function handleWebhook(req: Request, res: Response) {
         return res.status(404).json({ error: 'Webhook not found' });
     }
 
-    // HMAC validation if a secret is configured
+    // HMAC validation if a secret is configured.
+    //
+    // CRITICAL: pass the EXACT bytes the sender signed via req.rawBody.
+    // Re-serializing req.body via JSON.stringify() does not preserve
+    // those bytes (key ordering, whitespace, number precision, escape
+    // sequences can all differ) and HMAC verification will fail
+    // randomly. The raw body is captured by the express.json verify
+    // hook in server.ts.
     if (webhook.secret) {
         const sigHeader =
             (req.headers['x-hub-signature-256'] as string) ??
             (req.headers['x-webhook-signature'] as string);
-        const rawBody = JSON.stringify(req.body);
+        const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody;
 
         const valid = service.verifySignature(
             webhook.secret,

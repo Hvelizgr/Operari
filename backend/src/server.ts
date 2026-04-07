@@ -48,7 +48,18 @@ app.use(cors({
     origin: env.FRONTEND_URL,
     credentials: true,
 }));
-app.use(express.json({ limit: '10mb' }));
+// Capture the raw body so webhook routes can verify HMAC against the
+// exact bytes the sender signed. Re-serializing req.body via
+// JSON.stringify() does NOT preserve byte-for-byte the original
+// payload (key ordering, whitespace, number precision can all
+// differ), which is the canonical webhook security bug.
+// See backend/src/routes/webhook.routes.ts for the consumer.
+app.use(express.json({
+    limit: '10mb',
+    verify: (req, _res, buf) => {
+        (req as unknown as { rawBody?: Buffer }).rawBody = buf;
+    },
+}));
 
 app.use(requestLogger);
 app.use(addUserContext);
