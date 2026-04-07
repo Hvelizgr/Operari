@@ -38,6 +38,7 @@ import { logger } from './config/logger.config';
 // Swagger Documentation
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger.config';
+import runbookJsonSchema from './runbook/yaml/runbook.schema.json';
 
 const app = express();
 const httpServer = createServer(app);
@@ -96,6 +97,21 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get('/api/openapi.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
+});
+
+// Canonical RunbookSpec JSON Schema. Served at the root so VS Code's
+// yaml extension can pick it up via a stable URL — point yaml.schemas
+// at this endpoint and every *.runbook.yaml file gets autocomplete +
+// inline diagnostics. Also consumed by the CLI for `nanorun lint`
+// and (eventually) by the editor for save-time validation.
+//
+// The file is checked into the repo at backend/src/runbook/yaml/runbook.schema.json
+// so it can be served statically without a build step. The require()
+// pattern matches how swaggerSpec is loaded above.
+app.get('/runbook.schema.json', (_req, res) => {
+    res.setHeader('Content-Type', 'application/schema+json');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.send(runbookJsonSchema);
 });
 
 app.use(errorHandler);

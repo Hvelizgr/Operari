@@ -194,6 +194,8 @@ YAML round-trip is canonical. Here's the kubernetes rolling deploy from
 `templates/k8s-rolling-deploy.yaml`:
 
 ```yaml
+# yaml-language-server: $schema=http://localhost:4000/runbook.schema.json
+version: 1
 name: K8s Rolling Deploy
 slug: k8s-rolling-deploy
 description: Update image tag, watch rollout, run smoke tests, rollback on failure.
@@ -259,6 +261,42 @@ curl -X POST https://your-nanorun.example.com/api/webhooks/<token> \
   -H 'X-Signature: sha256=<hmac>' \
   -d '{"image":"registry/api:v2.1.4","namespace":"prod","deployment":"api"}'
 ```
+
+---
+
+## VS Code integration
+
+NanoRun ships a JSON Schema for the runbook spec at
+`http://localhost:4000/runbook.schema.json` (served from your local
+backend, or any deployment). Point the [VS Code YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml)
+at it and every `*.runbook.yaml` file in your repo gets autocomplete,
+inline validation, and field-level documentation as you type.
+
+Add to your workspace `settings.json`:
+
+```json
+{
+  "yaml.schemas": {
+    "http://localhost:4000/runbook.schema.json": [
+      "**/*.runbook.yaml",
+      "templates/*.yaml"
+    ]
+  }
+}
+```
+
+Or pin the schema per file with a header comment:
+
+```yaml
+# yaml-language-server: $schema=http://localhost:4000/runbook.schema.json
+version: 1
+name: my runbook
+...
+```
+
+The schema is hand-maintained against [`backend/src/runbook/yaml/runbook-spec.ts`](./backend/src/runbook/yaml/runbook-spec.ts)
+and pinned by a jest matrix test that validates every shipped template
+against it. If the schema and the spec drift apart, the test goes red.
 
 ---
 
@@ -377,7 +415,8 @@ Honest, time-boxed, conservative.
 
 - Slack notify that actually sends
 - One real webhook integration end-to-end (GitHub or Sentry, not both)
-- JSON Schema validation on YAML save
+- JSON Schema validation in the in-app YAML save modal (the schema is
+  shipping today, the editor still uses semantic-only validation)
 - 90-second loom walkthrough
 - README polish and Show HN draft
 - 30 discovery interviews with platform engineers (not optional)

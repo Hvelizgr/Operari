@@ -7,82 +7,73 @@
 #   - production_url     (string) e.g. https://myapp.com
 #
 # Trigger: manual, schedule, or via webhook from GitHub Actions
+version: 1
 name: Deploy Next.js to Vercel
 slug: deploy-nextjs-vercel
 description: Production deploy with tests, build, approval gate, and Slack notification.
 category: deploy
-
 steps:
-    - id: pull
-      type: shell
-      title: Pull latest main
-      config:
-          command: git pull origin main
-          timeout: 30000
-
-    - id: install
-      type: shell
-      title: Install dependencies
-      config:
-          command: npm ci
-          timeout: 180000
-
-    - id: test
-      type: shell
-      title: Run tests
-      config:
-          command: npm test -- --silent
-          timeout: 300000
-
-    - id: build
-      type: shell
-      title: Build
-      config:
-          command: npm run build
-          timeout: 600000
-
-    - id: approve
-      type: approval
-      title: Approve production deploy
-      config:
-          message: "Tests + build passed. Ready to deploy to production?"
-
-    - id: deploy
-      type: shell
-      title: Deploy to Vercel (production)
-      config:
-          command: npx vercel --prod --token {{vars.vercel_token}} --yes
-          timeout: 600000
-
-    - id: smoke
-      type: shell
-      title: Smoke test
-      config:
-          command: |
-              for i in 1 2 3; do
-                if curl -fsSL {{vars.production_url}} > /dev/null; then
-                  echo "Health check OK"
-                  exit 0
-                fi
-                sleep 5
-              done
-              echo "Health check failed after 3 retries"
-              exit 1
-
-    - id: notify
-      type: notify
-      title: Notify Slack
-      config:
-          channel: slack
-          webhookUrl: "{{vars.slack_webhook_url}}"
-          title: "Deploy successful"
-          message: "Deployed to {{vars.production_url}}"
-
-connections:
-    - { source: pull, target: install }
-    - { source: install, target: test }
-    - { source: test, target: build }
-    - { source: build, target: approve }
-    - { source: approve, target: deploy }
-    - { source: deploy, target: smoke }
-    - { source: smoke, target: notify }
+  - id: pull
+    type: shell
+    config:
+      command: git pull origin main
+      timeout: 30000
+    name: Pull latest main
+    next: install
+  - id: install
+    type: shell
+    config:
+      command: npm ci
+      timeout: 180000
+    name: Install dependencies
+    next: test
+  - id: test
+    type: shell
+    config:
+      command: npm test -- --silent
+      timeout: 300000
+    name: Run tests
+    next: build
+  - id: build
+    type: shell
+    config:
+      command: npm run build
+      timeout: 600000
+    name: Build
+    next: approve
+  - id: approve
+    type: approval
+    config:
+      message: Tests + build passed. Ready to deploy to production?
+    name: Approve production deploy
+    next: deploy
+  - id: deploy
+    type: shell
+    config:
+      command: npx vercel --prod --token {{vars.vercel_token}} --yes
+      timeout: 600000
+    name: Deploy to Vercel (production)
+    next: smoke
+  - id: smoke
+    type: shell
+    config:
+      command: |
+        for i in 1 2 3; do
+          if curl -fsSL {{vars.production_url}} > /dev/null; then
+            echo "Health check OK"
+            exit 0
+          fi
+          sleep 5
+        done
+        echo "Health check failed after 3 retries"
+        exit 1
+    name: Smoke test
+    next: notify
+  - id: notify
+    type: notify
+    config:
+      channel: slack
+      webhookUrl: '{{vars.slack_webhook_url}}'
+      title: Deploy successful
+      message: Deployed to {{vars.production_url}}
+    name: Notify Slack
