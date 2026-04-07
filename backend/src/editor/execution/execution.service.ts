@@ -19,6 +19,7 @@ import {
 } from '../../errors/custom-error';
 import { persistExecutionError } from '../../utils/error-persistence';
 import { socketService } from './socket.service';
+import { AuditService, AuditEventType, ActorType } from '../../audit/audit.service';
 
 interface ExecuteParams {
     workflowId: string;
@@ -42,17 +43,66 @@ interface RunState {
     nodesToExecute: WorkflowNode[];
 }
 
+export interface ExecutionServiceOptions {
+    /**
+     * Audit service used to record run/step lifecycle events. If not
+     * supplied, a default instance is created from the same Prisma client.
+     * Pass `null` explicitly to disable auditing entirely (e.g. tests).
+     */
+    audit?: AuditService | null;
+}
+
 export class ExecutionService {
     private prisma: PrismaClient;
     private nodeExecutor: NodeExecutor;
     private logger: Logger;
     private notificationService: ErrorNotificationService;
+    private audit: AuditService | null;
 
-    constructor(prisma: PrismaClient) {
+    constructor(prisma: PrismaClient, options: ExecutionServiceOptions = {}) {
         this.prisma = prisma;
         this.nodeExecutor = new NodeExecutor(prisma);
         this.logger = Logger.getInstance();
         this.notificationService = new ErrorNotificationService(prisma);
+        this.audit = options.audit === null
+            ? null
+            : (options.audit ?? new AuditService(prisma));
+    }
+
+    /**
+     * Fire-and-forget audit write. Failures are logged but never break
+     * the surrounding execution — auditing is observability, not a hard
+     * dependency. Skips silently when tenantId is missing (legacy callers
+     * without multi-tenant context) so we don't drop events with no chain
+     * to attach them to.
+     */
+    private async safeAudit(
+        type: AuditEventType,
+        params: {
+            tenantId?: string | null;
+            actorId?: string | null;
+            actorType?: ActorType | null;
+            resource?: string | null;
+            payload: Record<string, unknown>;
+        },
+    ): Promise<void> {
+        if (!this.audit) return;
+        if (!params.tenantId) return;
+        try {
+            await this.audit.record({
+                tenantId: params.tenantId,
+                type,
+                actorId: params.actorId ?? null,
+                actorType: params.actorType ?? null,
+                resource: params.resource ?? null,
+                payload: params.payload,
+            });
+        } catch (err) {
+            this.logger.error('audit write failed', {
+                error: err instanceof Error ? err : new Error(String(err)),
+                metadata: { type, resource: params.resource },
+            });
+        }
     }
 
     async execute(params: ExecuteParams) {
@@ -95,6 +145,20 @@ export class ExecutionService {
             const contextLogger = this.logger.child(executionContext);
             contextLogger.info('Workflow execution started');
             socketService.emitLog(execution.id, 'Workflow execution started');
+
+            await this.safeAudit('run.started', {
+                tenantId,
+                actorId: userId,
+                actorType: 'user',
+                resource: execution.id,
+                payload: {
+                    executionId: execution.id,
+                    workflowId,
+                    workflowName: workflow.name,
+                    trigger,
+                    startNodeId: startNodeId ?? null,
+                },
+            });
 
             // Run workflow asynchronously with proper error handling
             this.runWorkflow(
@@ -230,6 +294,17 @@ export class ExecutionService {
             data: { status: 'RUNNING', pausedAt: null },
         });
 
+        await this.safeAudit('run.resumed', {
+            tenantId,
+            actorId: userId,
+            actorType: 'user',
+            resource: executionId,
+            payload: {
+                executionId,
+                workflowId: execution.workflowId,
+            },
+        });
+
         const resumeState = execution.resumeState as any;
         const allNodes = execution.workflow.nodes as unknown as WorkflowNode[];
 
@@ -337,6 +412,21 @@ export class ExecutionService {
 
                     socketService.emitNodeStatus(executionId, currentNode.id, 'SKIPPED');
 
+                    await this.safeAudit('step.skipped', {
+                        tenantId,
+                        actorId: (executionContext.userId as string | undefined) ?? null,
+                        actorType: 'system',
+                        resource: executionId,
+                        payload: {
+                            executionId,
+                            workflowId: workflow.id,
+                            nodeId: currentNode.id,
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            reason: 'disabled',
+                        },
+                    });
+
                     executedNodes.add(currentNode.id); // Mark as "executed" to allow children to run
 
 
@@ -418,6 +508,21 @@ export class ExecutionService {
                         contextLogger.info('Workflow execution paused');
                         socketService.emitLog(executionId, 'Workflow execution paused', { nodeId: currentNode.id });
                         socketService.emitExecutionStatus(executionId, 'PAUSED');
+
+                        await this.safeAudit('run.paused', {
+                            tenantId,
+                            actorId: (executionContext.userId as string | undefined) ?? null,
+                            actorType: 'system',
+                            resource: executionId,
+                            payload: {
+                                executionId,
+                                workflowId: workflow.id,
+                                pausedAtNodeId: currentNode.id,
+                                pausedAtNodeName: currentNode.title,
+                                pausedAtNodeType: currentNode.type,
+                            },
+                        });
+
                         return; // Stop execution
                     }
 
@@ -440,6 +545,21 @@ export class ExecutionService {
                     socketService.emitLog(executionId, `Node execution completed: ${currentNode.title}`, { nodeId: currentNode.id, duration: nodeDuration });
 
                     nodeContextLogger.debug('Node execution completed successfully', { duration: nodeDuration });
+
+                    await this.safeAudit('step.completed', {
+                        tenantId,
+                        actorId: (executionContext.userId as string | undefined) ?? null,
+                        actorType: 'system',
+                        resource: executionId,
+                        payload: {
+                            executionId,
+                            workflowId: workflow.id,
+                            nodeId: currentNode.id,
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            durationMs: nodeDuration,
+                        },
+                    });
 
                     const nextNodes = connections
                         .filter(c => c.source === currentNode.id)
@@ -478,6 +598,23 @@ export class ExecutionService {
                     socketService.emitLog(executionId, `Node execution failed: ${currentNode.title}`, { nodeId: currentNode.id, error: errorMessage });
 
                     nodeContextLogger.error('Node execution failed', { error: wrappedError });
+
+                    await this.safeAudit('step.failed', {
+                        tenantId,
+                        actorId: (executionContext.userId as string | undefined) ?? null,
+                        actorType: 'system',
+                        resource: executionId,
+                        payload: {
+                            executionId,
+                            workflowId: workflow.id,
+                            nodeId: currentNode.id,
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            durationMs: nodeDuration,
+                            errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
+                            errorMessage,
+                        },
+                    });
 
                     // Handle retryable errors
                     if (wrappedError.isRetryable && wrappedError.context.retryCount! < (wrappedError.context.maxRetries ?? 3)) {
@@ -528,6 +665,20 @@ export class ExecutionService {
             });
 
             contextLogger.info('Workflow execution completed successfully', { duration });
+
+            await this.safeAudit('run.completed', {
+                tenantId,
+                actorId: (executionContext.userId as string | undefined) ?? null,
+                actorType: 'system',
+                resource: executionId,
+                payload: {
+                    executionId,
+                    workflowId: workflow.id,
+                    workflowName: workflow.name,
+                    durationMs: duration,
+                    nodesExecuted: executedNodes.size,
+                },
+            });
         } catch (error) {
             const duration = Date.now() - startTime;
             const wrappedError = wrapError(error, executionContext);
@@ -552,6 +703,21 @@ export class ExecutionService {
             contextLogger.error('Workflow execution failed', {
                 error: wrappedError,
                 metadata: { duration },
+            });
+
+            await this.safeAudit('run.failed', {
+                tenantId,
+                actorId: (executionContext.userId as string | undefined) ?? null,
+                actorType: 'system',
+                resource: executionId,
+                payload: {
+                    executionId,
+                    workflowId: workflow.id,
+                    workflowName: workflow.name,
+                    durationMs: duration,
+                    errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
+                    errorMessage,
+                },
             });
 
             // Notify about critical errors

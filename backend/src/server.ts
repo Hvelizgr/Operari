@@ -13,6 +13,13 @@ import executionRoutes from './routes/execution.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import nodeTypesRoutes from './routes/node-types.routes'; // Added import
 import webhookRoutes from './routes/webhook.routes';
+import chatRoutes from './routes/chat.routes';
+import v1RunbookRoutes from './routes/v1/runbooks.routes';
+import v1RunRoutes from './routes/v1/runs.routes';
+import v1KeyRoutes from './routes/v1/keys.routes';
+import v1WebhookRoutes from './routes/v1/webhooks.routes';
+import v1AuditRoutes from './routes/v1/audit.routes';
+import v1ApprovalRoutes from './routes/v1/approvals.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { SchedulerService } from './services/scheduler.service';
 import {
@@ -52,6 +59,15 @@ app.use('/api/workflows', standardRateLimiter, workflowRoutes);
 app.use('/api/analytics', standardRateLimiter, analyticsRoutes);
 app.use('/api/node-types', standardRateLimiter, nodeTypesRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
+app.use('/api/chat', standardRateLimiter, chatRoutes);
+
+// NanoRun API v1 (SDK & CLI)
+app.use('/api/v1/runbooks', executionRateLimiter, v1RunbookRoutes);
+app.use('/api/v1/runs', standardRateLimiter, v1RunRoutes);
+app.use('/api/v1/keys', standardRateLimiter, v1KeyRoutes);
+app.use('/api/v1/webhooks', standardRateLimiter, v1WebhookRoutes);
+app.use('/api/v1/audit', standardRateLimiter, v1AuditRoutes);
+app.use('/api/v1/approvals', standardRateLimiter, v1ApprovalRoutes);
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

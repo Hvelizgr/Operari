@@ -13,8 +13,43 @@ import {
     WorkflowDefinition,
 } from '../types/workflow.types';
 import { WorkflowValidatorService, ValidationSeverity } from '../services/workflow-validator.service';
+import { AuditService, AuditEventType } from '../audit/audit.service';
 
 const router = Router();
+
+// Lazy singleton — same pattern as v1/audit.routes.ts and v1/approvals.routes.ts
+let auditService: AuditService | null = null;
+function getAudit(): AuditService {
+    if (!auditService) auditService = new AuditService(prisma);
+    return auditService;
+}
+
+/**
+ * Fire-and-forget audit hook for workflow CRUD. Failures are swallowed
+ * so a broken audit chain never blocks workflow management.
+ */
+async function safeAuditWorkflow(
+    type: 'runbook.created' | 'runbook.updated' | 'runbook.deleted',
+    params: {
+        tenantId: string;
+        actorId: string;
+        workflowId: string;
+        payload: Record<string, unknown>;
+    },
+): Promise<void> {
+    try {
+        await getAudit().record({
+            tenantId: params.tenantId,
+            type: type as AuditEventType,
+            actorId: params.actorId,
+            actorType: 'user',
+            resource: params.workflowId,
+            payload: params.payload,
+        });
+    } catch {
+        // never block the response
+    }
+}
 
 // Authentication disabled for free usage per n8n policies
 // router.use(authenticate);
@@ -333,6 +368,20 @@ router.post('/', async (req: AuthRequest, res) => {
             });
         }
 
+        await safeAuditWorkflow('runbook.created', {
+            tenantId: req.user!.tenantId,
+            actorId: req.user!.id,
+            workflowId: workflow.id,
+            payload: {
+                workflowId: workflow.id,
+                name: workflow.name,
+                isActive: workflow.isActive,
+                schedule: workflow.schedule ?? null,
+                nodeCount: Array.isArray(data.nodes) ? data.nodes.length : 0,
+                connectionCount: Array.isArray(data.connections) ? data.connections.length : 0,
+            },
+        });
+
         res.status(201).json(workflow);
     } catch (error) {
         if (error instanceof z.ZodError) {
@@ -436,6 +485,19 @@ router.put('/:id', async (req: AuthRequest, res) => {
                     });
                 }
 
+                await safeAuditWorkflow('runbook.created', {
+                    tenantId: req.user!.tenantId,
+                    actorId: req.user!.id,
+                    workflowId: newWorkflow.id,
+                    payload: {
+                        workflowId: newWorkflow.id,
+                        name: newWorkflow.name,
+                        isActive: newWorkflow.isActive,
+                        schedule: newWorkflow.schedule ?? null,
+                        scratchpad: true,
+                    },
+                });
+
                 return res.json({
                     ...newWorkflow,
                     timestamp: newWorkflow.updatedAt.getTime(),
@@ -479,6 +541,21 @@ router.put('/:id', async (req: AuthRequest, res) => {
         const workflow = await prisma.workflow.update({
             where: { id: workflowId },
             data: updateData,
+        });
+
+        await safeAuditWorkflow('runbook.updated', {
+            tenantId: req.user!.tenantId,
+            actorId: req.user!.id,
+            workflowId: workflow.id,
+            payload: {
+                workflowId: workflow.id,
+                name: workflow.name,
+                isActive: workflow.isActive,
+                schedule: workflow.schedule ?? null,
+                changedFields: Object.keys(updateData),
+                nodeCount: Array.isArray(data.nodes) ? data.nodes.length : 0,
+                connectionCount: Array.isArray(data.connections) ? data.connections.length : 0,
+            },
         });
 
         if (data.schedule) {
@@ -551,6 +628,16 @@ router.delete('/:id', async (req: AuthRequest, res) => {
             where: { id: workflowId },
         });
 
+        await safeAuditWorkflow('runbook.deleted', {
+            tenantId: req.user!.tenantId,
+            actorId: req.user!.id,
+            workflowId,
+            payload: {
+                workflowId,
+                name: existing.name,
+            },
+        });
+
         res.status(204).send();
     } catch (error) {
         req.log.error({ error }, 'Delete workflow error');
@@ -607,6 +694,17 @@ router.post('/:id/duplicate', async (req: AuthRequest, res) => {
                 isActive: false,
                 userId: req.user!.id,
                 tenantId: req.user!.tenantId,
+            },
+        });
+
+        await safeAuditWorkflow('runbook.created', {
+            tenantId: req.user!.tenantId,
+            actorId: req.user!.id,
+            workflowId: workflow.id,
+            payload: {
+                workflowId: workflow.id,
+                name: workflow.name,
+                duplicatedFrom: existing.id,
             },
         });
 

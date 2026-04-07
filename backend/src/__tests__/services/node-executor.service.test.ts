@@ -5,7 +5,7 @@ import { Logger } from '../../services/logger.service';
 
 // Mock dependencies
 jest.mock('nodemailer');
-jest.mock('../../services/n8n.service');
+// n8n service removed in NanoRun transformation
 jest.mock('../../services/logger.service', () => ({
     Logger: {
         getInstance: jest.fn().mockReturnValue({
