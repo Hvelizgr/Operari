@@ -1,6 +1,7 @@
 import type { BillingMeter } from './billing-meter.types';
 import { NoopBillingMeter } from './noop-billing-meter';
 import { StripeBillingMeter } from './stripe-billing-meter';
+import { buildStripeMeterEventSender } from './stripe-http-client';
 
 export type {
     BillableEvent,
@@ -10,6 +11,8 @@ export type {
 export { NoopBillingMeter } from './noop-billing-meter';
 export { StripeBillingMeter } from './stripe-billing-meter';
 export type { SendMeterEventFn, StripeBillingMeterOptions } from './stripe-billing-meter';
+export { buildStripeMeterEventSender } from './stripe-http-client';
+export type { StripeHttpClientOptions } from './stripe-http-client';
 
 /**
  * Build the configured billing meter for this process.
@@ -27,16 +30,18 @@ export function buildBillingMeter(): BillingMeter {
     const provider = (process.env.NANORUN_BILLING_PROVIDER ?? 'noop').toLowerCase();
     switch (provider) {
         case 'stripe': {
-            // Production wiring will pass a real sendMeterEvent backed
-            // by fetch + Stripe API. Until that lands, the skeleton
-            // returns a meter that no-ops on every call (the inner
-            // fetch is replaced by a stub).
+            const secretKey = process.env.STRIPE_SECRET_KEY;
+            if (!secretKey) {
+                // Loud refusal — operator forgot to set STRIPE_SECRET_KEY.
+                // Returning a meter whose inner sender no-ops protects
+                // against accidentally double-billing if someone half-
+                // configured the env in a deploy.
+                return new StripeBillingMeter({
+                    sendMeterEvent: async () => undefined,
+                });
+            }
             return new StripeBillingMeter({
-                sendMeterEvent: async () => {
-                    // Placeholder. The first call logs a warning so
-                    // operators see "stripe billing not yet wired"
-                    // before they start losing money.
-                },
+                sendMeterEvent: buildStripeMeterEventSender({ secretKey }),
             });
         }
         case 'noop':
