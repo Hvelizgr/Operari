@@ -20,6 +20,8 @@ import {
 import { persistExecutionError } from '../../utils/error-persistence';
 import { socketService } from './socket.service';
 import { AuditService, AuditEventType, ActorType } from '../../audit/audit.service';
+import { RunTracer, getRunTracer } from '../../observability';
+import { getRunner } from '../../runbook/runners';
 
 interface ExecuteParams {
     workflowId: string;
@@ -50,6 +52,14 @@ export interface ExecutionServiceOptions {
      * Pass `null` explicitly to disable auditing entirely (e.g. tests).
      */
     audit?: AuditService | null;
+    /**
+     * Run tracer used to map runs and steps onto OpenTelemetry traces.
+     * Defaults to the process singleton, which is itself a no-op when
+     * `ENABLE_TRACING` is unset (the OTel API returns no-op spans
+     * without a registered SDK). Pass `null` to disable tracing
+     * explicitly even if a tracer is registered globally.
+     */
+    tracer?: RunTracer | null;
 }
 
 export class ExecutionService {
@@ -58,6 +68,7 @@ export class ExecutionService {
     private logger: Logger;
     private notificationService: ErrorNotificationService;
     private audit: AuditService | null;
+    private tracer: RunTracer | null;
 
     constructor(prisma: PrismaClient, options: ExecutionServiceOptions = {}) {
         this.prisma = prisma;
@@ -67,6 +78,22 @@ export class ExecutionService {
         this.audit = options.audit === null
             ? null
             : (options.audit ?? new AuditService(prisma));
+        this.tracer = options.tracer === null
+            ? null
+            : (options.tracer ?? getRunTracer());
+    }
+
+    /**
+     * Best-effort accessor for the configured runner type. Returns
+     * undefined if the runner singleton has not been initialized or
+     * throws — tracing must never break execution.
+     */
+    private safeRunnerType(): string | undefined {
+        try {
+            return getRunner().type;
+        } catch {
+            return undefined;
+        }
     }
 
     /**
@@ -159,6 +186,25 @@ export class ExecutionService {
                     startNodeId: startNodeId ?? null,
                 },
             });
+
+            // OTel: open the run trace. Span attributes include runner.type
+            // so dashboards can group runs by where they actually executed.
+            // Wrapped in try/catch because tracer.startRun is best-effort
+            // observability and must never block a real execution.
+            try {
+                this.tracer?.startRun({
+                    runId: execution.id,
+                    runbookId: workflow.id,
+                    runbookName: workflow.name,
+                    tenantId: tenantId ?? 'default-tenant',
+                    trigger: String(trigger),
+                    runnerType: this.safeRunnerType(),
+                });
+            } catch (err) {
+                this.logger.warn('tracer.startRun failed', {
+                    error: err instanceof Error ? err : new Error(String(err)),
+                });
+            }
 
             // Run workflow asynchronously with proper error handling
             this.runWorkflow(
@@ -487,6 +533,20 @@ export class ExecutionService {
                 const nodeContextLogger = this.logger.child(nodeContext);
                 const nodeStartTime = Date.now();
 
+                // OTel: open the step span. Best-effort.
+                try {
+                    this.tracer?.startStep({
+                        runId: executionId,
+                        stepId: currentNode.id,
+                        stepName: currentNode.title,
+                        stepType: currentNode.type,
+                    });
+                } catch (err) {
+                    nodeContextLogger.warn('tracer.startStep failed', {
+                        error: err instanceof Error ? err : new Error(String(err)),
+                    });
+                }
+
                 try {
                     nodeContextLogger.debug('Node execution started');
                     const output = await this.nodeExecutor.execute(currentNode, nodeInput, tenantId, executionId);
@@ -561,6 +621,14 @@ export class ExecutionService {
                         },
                     });
 
+                    try {
+                        this.tracer?.endStep(executionId, currentNode.id, true);
+                    } catch (err) {
+                        nodeContextLogger.warn('tracer.endStep (success) failed', {
+                            error: err instanceof Error ? err : new Error(String(err)),
+                        });
+                    }
+
                     const nextNodes = connections
                         .filter(c => c.source === currentNode.id)
                         .map(c => nodes.find(n => n.id === c.target))
@@ -615,6 +683,17 @@ export class ExecutionService {
                             errorMessage,
                         },
                     });
+
+                    try {
+                        this.tracer?.endStep(executionId, currentNode.id, false, {
+                            message: errorMessage,
+                            code: wrappedError instanceof CustomError ? wrappedError.code : undefined,
+                        });
+                    } catch (err) {
+                        nodeContextLogger.warn('tracer.endStep (failure) failed', {
+                            error: err instanceof Error ? err : new Error(String(err)),
+                        });
+                    }
 
                     // Handle retryable errors
                     if (wrappedError.isRetryable && wrappedError.context.retryCount! < (wrappedError.context.maxRetries ?? 3)) {
@@ -679,6 +758,14 @@ export class ExecutionService {
                     nodesExecuted: executedNodes.size,
                 },
             });
+
+            try {
+                this.tracer?.endRun(executionId, true);
+            } catch (err) {
+                contextLogger.warn('tracer.endRun (success) failed', {
+                    error: err instanceof Error ? err : new Error(String(err)),
+                });
+            }
         } catch (error) {
             const duration = Date.now() - startTime;
             const wrappedError = wrapError(error, executionContext);
@@ -719,6 +806,17 @@ export class ExecutionService {
                     errorMessage,
                 },
             });
+
+            try {
+                this.tracer?.endRun(executionId, false, {
+                    message: errorMessage,
+                    code: wrappedError instanceof CustomError ? wrappedError.code : undefined,
+                });
+            } catch (err) {
+                contextLogger.warn('tracer.endRun (failure) failed', {
+                    error: err instanceof Error ? err : new Error(String(err)),
+                });
+            }
 
             // Notify about critical errors
             if (wrappedError instanceof CustomError && [ErrorSeverity.HIGH, ErrorSeverity.CRITICAL].includes(wrappedError.severity)) {
