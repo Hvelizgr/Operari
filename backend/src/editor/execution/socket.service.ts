@@ -46,12 +46,30 @@ export class SocketService {
     }
 
     emitLog(executionId: string, log: string, metadata?: any) {
-        if (!this.io) return;
-        this.io.to(`execution:${executionId}`).emit('log', {
-            message: log,
-            timestamp: new Date().toISOString(),
-            metadata,
-        });
+        // Live UI delivery via socket.io.
+        if (this.io) {
+            this.io.to(`execution:${executionId}`).emit('log', {
+                message: log,
+                timestamp: new Date().toISOString(),
+                metadata,
+            });
+        }
+
+        // Durable copy via Redis Streams (P1 #8 phase 1). Best-effort:
+        // if Redis is not configured the publish is a no-op, and any
+        // Redis error is swallowed inside LogStreamService. The socket
+        // path is the live UI fallback; the stream is the persistence
+        // + replay layer. Both fail independently.
+        // Lazy require to avoid a hard import dep that test environments
+        // would have to mock.
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const { getLogStream } = require('../../observability/log-stream.service');
+            void getLogStream().publish(executionId, log, metadata);
+        } catch {
+            // Module load failure (e.g. test that mocks this path away)
+            // — the socket emit already happened, no further action.
+        }
     }
 
     emitNodeStatus(executionId: string, nodeId: string, status: string, result?: any) {

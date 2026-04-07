@@ -245,6 +245,81 @@ router.get('/:id', async (req: AuthRequest, res) => {
  *             example:
  *               error: "Workflow not found"
  */
+/**
+ * @swagger
+ * /executions/{id}/logs:
+ *   get:
+ *     summary: Replay logs for an execution from the durable Redis Streams log
+ *     tags: [Executions]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       Returns up to `count` log entries for the execution starting at
+ *       the cursor `fromId` (use `-` for the beginning, or the id from
+ *       the previous page to continue). Backed by the per-execution
+ *       Redis Stream `runs:{id}:logs`. Empty array when Redis is not
+ *       configured or the stream has no entries.
+ *
+ *       Use this endpoint to backfill the live log view when a websocket
+ *       client reconnects mid-run, or to replay a finished run for
+ *       debugging.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: fromId
+ *         schema: { type: string, default: '-' }
+ *       - in: query
+ *         name: count
+ *         schema: { type: integer, default: 1000, minimum: 1, maximum: 10000 }
+ *     responses:
+ *       200:
+ *         description: Array of log entries
+ */
+router.get('/:id/logs', async (req: AuthRequest, res) => {
+    try {
+        const executionId = req.params.id as string;
+        // Tenant guard: confirm the execution belongs to the caller's
+        // tenant before exposing its logs. The Redis stream itself is
+        // not tenant-scoped (key is per executionId) so this check is
+        // the only thing protecting cross-tenant log reads.
+        const execution = await prisma.execution.findFirst({
+            where: {
+                id: executionId,
+                workflow: { tenantId: req.user!.tenantId },
+            },
+            select: { id: true },
+        });
+        if (!execution) {
+            return res.status(404).json({ error: 'Execution not found' });
+        }
+
+        const fromId = (req.query.fromId as string | undefined) ?? '-';
+        const countParam = req.query.count as string | undefined;
+        let count = countParam ? parseInt(countParam, 10) : 1000;
+        if (!Number.isFinite(count) || count < 1) count = 1000;
+        if (count > 10000) count = 10000;
+
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { getLogStream } = require('../observability/log-stream.service');
+        const entries = await getLogStream().fetch(executionId, { fromId, count });
+        const total = await getLogStream().length(executionId);
+
+        return res.json({
+            executionId,
+            entries,
+            count: entries.length,
+            totalApprox: total,
+            nextFromId: entries.length > 0 ? entries[entries.length - 1].id : null,
+        });
+    } catch (error) {
+        req.log.error({ error }, 'Fetch logs error');
+        return res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+});
+
 router.post('/:workflowId/run', async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.workflowId as string;
