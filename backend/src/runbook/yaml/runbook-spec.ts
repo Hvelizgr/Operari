@@ -55,6 +55,19 @@ export interface RunbookStep {
      */
     retry?: RetryPolicy;
     /**
+     * Template expression evaluated before the step runs. If it
+     * resolves to a falsy value the step is skipped (status: SKIPPED)
+     * and execution continues with the next step. Mutually exclusive
+     * with `skipIf` — if both are set, `skipIf` wins.
+     */
+    runIf?: string;
+    /**
+     * Inverse of `runIf`: if it resolves to truthy the step is
+     * skipped. Useful for "skip on dry-run" patterns where the
+     * positive expression is the noisy one.
+     */
+    skipIf?: string;
+    /**
      * Successor step id(s). Omit on the final step. Strings are
      * resolved as the next step id. The graph form preserves the
      * original WorkflowConnection ports.

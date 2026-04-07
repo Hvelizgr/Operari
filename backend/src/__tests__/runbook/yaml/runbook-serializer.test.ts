@@ -227,6 +227,70 @@ describe('runbook-serializer', () => {
         });
     });
 
+    describe('conditionals', () => {
+        it('promotes config._runIf and _skipIf to top level', () => {
+            const condNodes: WorkflowNodeRow[] = [
+                {
+                    ...nodes[0],
+                    config: {
+                        command: 'deploy',
+                        _runIf: '{{vars.env}} == "prod"',
+                        _skipIf: '{{vars.dryRun}}',
+                    },
+                },
+            ];
+            const spec = toSpec(workflow, condNodes, []);
+            expect(spec.steps[0].runIf).toBe('{{vars.env}} == "prod"');
+            expect(spec.steps[0].skipIf).toBe('{{vars.dryRun}}');
+            expect(spec.steps[0].config).toEqual({ command: 'deploy' });
+        });
+
+        it('ignores empty/whitespace conditional strings', () => {
+            const condNodes: WorkflowNodeRow[] = [
+                { ...nodes[0], config: { command: 'x', _runIf: '   ', _skipIf: '' } },
+            ];
+            const spec = toSpec(workflow, condNodes, []);
+            expect(spec.steps[0].runIf).toBeUndefined();
+            expect(spec.steps[0].skipIf).toBeUndefined();
+        });
+
+        it('round-trips conditional fields through yaml', () => {
+            const condNodes: WorkflowNodeRow[] = [
+                {
+                    ...nodes[0],
+                    config: { command: 'flaky', _runIf: '{{vars.canary}}', _skipIf: '{{vars.frozen}}' },
+                },
+            ];
+            const spec1 = toSpec(workflow, condNodes, []);
+            const text = specToYaml(spec1);
+            expect(text).toContain('runIf:');
+            expect(text).toContain('skipIf:');
+            const spec2 = yamlToSpec(text);
+            expect(spec2).toEqual(spec1);
+        });
+
+        it('fromSpec re-injects conditionals into config', () => {
+            const out = fromSpec({
+                version: 1,
+                name: 'x',
+                steps: [
+                    {
+                        id: 'a',
+                        type: 'shell',
+                        config: { command: 'x' },
+                        runIf: '{{vars.go}}',
+                        skipIf: '{{vars.stop}}',
+                    },
+                ],
+            });
+            expect(out.nodes[0].config).toEqual({
+                command: 'x',
+                _runIf: '{{vars.go}}',
+                _skipIf: '{{vars.stop}}',
+            });
+        });
+    });
+
     describe('round-trip', () => {
         it('toSpec → specToYaml → yamlToSpec → toSpec is stable', () => {
             const spec1 = toSpec(workflow, nodes, connections);

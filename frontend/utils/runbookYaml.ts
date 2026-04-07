@@ -27,6 +27,8 @@ export interface RunbookStep {
     enabled?: boolean;
     config?: Record<string, unknown>;
     retry?: RetryPolicy;
+    runIf?: string;
+    skipIf?: string;
     next?: string | string[] | StepConnection[];
     position?: { x: number; y: number };
 }
@@ -38,8 +40,10 @@ export interface RetryPolicy {
     maxDelayMs?: number;
 }
 
-/** Storage convention: per-step retry lives on `node.config._retry`. */
+/** Storage convention for cross-cutting per-step metadata. */
 export const RETRY_KEY = '_retry';
+export const RUN_IF_KEY = '_runIf';
+export const SKIP_IF_KEY = '_skipIf';
 
 export interface StepConnection {
     to: string;
@@ -86,9 +90,13 @@ export function nodesToSpec(
         };
         if (node.enabled === false) step.enabled = false;
         if (node.config && typeof node.config === 'object') {
-            const { config, retry } = splitRetry(node.config as Record<string, unknown>);
+            const { config, retry, runIf, skipIf } = splitMeta(
+                node.config as Record<string, unknown>
+            );
             if (Object.keys(config).length > 0) step.config = config;
             if (retry) step.retry = retry;
+            if (runIf) step.runIf = runIf;
+            if (skipIf) step.skipIf = skipIf;
         }
         if (outgoing.length > 0) step.next = simplifyNext(outgoing);
         if (node.position) {
@@ -137,6 +145,8 @@ export function specToNodes(spec: RunbookSpec): ParsedRunbook {
         const baseConfig = (step.config as Record<string, unknown>) ?? {};
         const merged: Record<string, unknown> = { ...baseConfig };
         if (step.retry) merged[RETRY_KEY] = step.retry;
+        if (step.runIf) merged[RUN_IF_KEY] = step.runIf;
+        if (step.skipIf) merged[SKIP_IF_KEY] = step.skipIf;
         return {
             id: idToUuid.get(step.id)!,
             type: step.type,
@@ -206,20 +216,35 @@ export function yamlToSpec(text: string): RunbookSpec {
 
 // ---- helpers ----------------------------------------------------------
 
-function splitRetry(
-    config: Record<string, unknown>
-): { config: Record<string, unknown>; retry?: RetryPolicy } {
-    const raw = config[RETRY_KEY];
-    if (!raw || typeof raw !== 'object') return { config };
-    const { [RETRY_KEY]: _omit, ...rest } = config;
-    const r = raw as Record<string, unknown>;
-    const count = typeof r.count === 'number' ? r.count : 0;
-    if (count <= 0) return { config: rest };
-    const policy: RetryPolicy = { count };
-    if (r.backoff === 'fixed' || r.backoff === 'exponential') policy.backoff = r.backoff;
-    if (typeof r.delayMs === 'number' && r.delayMs >= 0) policy.delayMs = r.delayMs;
-    if (typeof r.maxDelayMs === 'number' && r.maxDelayMs >= 0) policy.maxDelayMs = r.maxDelayMs;
-    return { config: rest, retry: policy };
+function splitMeta(config: Record<string, unknown>): {
+    config: Record<string, unknown>;
+    retry?: RetryPolicy;
+    runIf?: string;
+    skipIf?: string;
+} {
+    const {
+        [RETRY_KEY]: rawRetry,
+        [RUN_IF_KEY]: rawRunIf,
+        [SKIP_IF_KEY]: rawSkipIf,
+        ...rest
+    } = config;
+
+    let retry: RetryPolicy | undefined;
+    if (rawRetry && typeof rawRetry === 'object') {
+        const r = rawRetry as Record<string, unknown>;
+        const count = typeof r.count === 'number' ? r.count : 0;
+        if (count > 0) {
+            retry = { count };
+            if (r.backoff === 'fixed' || r.backoff === 'exponential') retry.backoff = r.backoff;
+            if (typeof r.delayMs === 'number' && r.delayMs >= 0) retry.delayMs = r.delayMs;
+            if (typeof r.maxDelayMs === 'number' && r.maxDelayMs >= 0) retry.maxDelayMs = r.maxDelayMs;
+        }
+    }
+
+    const runIf = typeof rawRunIf === 'string' && rawRunIf.trim() ? rawRunIf : undefined;
+    const skipIf = typeof rawSkipIf === 'string' && rawSkipIf.trim() ? rawSkipIf : undefined;
+
+    return { config: rest, retry, runIf, skipIf };
 }
 
 function buildFriendlyIdMap(nodes: WorkflowNode[]): Map<string, string> {

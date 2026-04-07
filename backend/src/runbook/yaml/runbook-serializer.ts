@@ -9,6 +9,8 @@ import { RunbookSpec, RunbookStep, StepConnection, RetryPolicy } from './runbook
  * back. This keeps schema migrations out of the way for now.
  */
 const RETRY_KEY = '_retry';
+const RUN_IF_KEY = '_runIf';
+const SKIP_IF_KEY = '_skipIf';
 
 /**
  * Serialize / deserialize a runbook between the Prisma storage shape
@@ -88,9 +90,13 @@ export function toSpec(
         };
         if (node.enabled === false) step.enabled = false;
         if (node.config && typeof node.config === 'object') {
-            const { config, retry } = splitRetry(node.config as Record<string, unknown>);
+            const { config, retry, runIf, skipIf } = splitMeta(
+                node.config as Record<string, unknown>
+            );
             if (Object.keys(config).length > 0) step.config = config;
             if (retry) step.retry = retry;
+            if (runIf) step.runIf = runIf;
+            if (skipIf) step.skipIf = skipIf;
         }
         if (outgoing.length > 0) {
             step.next = simplifyNext(outgoing);
@@ -186,6 +192,8 @@ export function fromSpec(spec: RunbookSpec): DeserializedRunbook {
         const baseConfig = (step.config as Record<string, unknown>) ?? {};
         const merged: Record<string, unknown> = { ...baseConfig };
         if (step.retry) merged[RETRY_KEY] = step.retry;
+        if (step.runIf) merged[RUN_IF_KEY] = step.runIf;
+        if (step.skipIf) merged[SKIP_IF_KEY] = step.skipIf;
         return {
             id: friendlyToUuid.get(step.id)!,
             friendlyId: step.id,
@@ -260,15 +268,28 @@ export function yamlToSpec(text: string): RunbookSpec {
 
 // ---- helpers ----------------------------------------------------------
 
-function splitRetry(
-    config: Record<string, unknown>
-): { config: Record<string, unknown>; retry?: RetryPolicy } {
-    const raw = config[RETRY_KEY];
-    if (!raw || typeof raw !== 'object') return { config };
-    const { [RETRY_KEY]: _, ...rest } = config;
-    const retry = normalizeRetry(raw as Record<string, unknown>);
-    if (!retry) return { config: rest };
-    return { config: rest, retry };
+function splitMeta(config: Record<string, unknown>): {
+    config: Record<string, unknown>;
+    retry?: RetryPolicy;
+    runIf?: string;
+    skipIf?: string;
+} {
+    const {
+        [RETRY_KEY]: rawRetry,
+        [RUN_IF_KEY]: rawRunIf,
+        [SKIP_IF_KEY]: rawSkipIf,
+        ...rest
+    } = config;
+
+    let retry: RetryPolicy | undefined;
+    if (rawRetry && typeof rawRetry === 'object') {
+        retry = normalizeRetry(rawRetry as Record<string, unknown>);
+    }
+
+    const runIf = typeof rawRunIf === 'string' && rawRunIf.trim() ? rawRunIf : undefined;
+    const skipIf = typeof rawSkipIf === 'string' && rawSkipIf.trim() ? rawSkipIf : undefined;
+
+    return { config: rest, retry, runIf, skipIf };
 }
 
 function normalizeRetry(raw: Record<string, unknown>): RetryPolicy | undefined {

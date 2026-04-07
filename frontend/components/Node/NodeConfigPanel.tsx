@@ -7,6 +7,7 @@ import type { WorkflowNode } from '@nanoflow/shared';
 import { NODE_TYPES, NodeType } from './NodePalette';
 import DynamicNodeForm from './DynamicNodeForm';
 import RetryPolicyEditor from './RetryPolicyEditor';
+import ConditionalEditor from './ConditionalEditor';
 
 interface NodeConfigPanelProps {
     node: WorkflowNode | null;
@@ -164,6 +165,24 @@ export default function NodeConfigPanel({ node, nodeTypeDefinition, onUpdate, on
                                 } else {
                                     delete newConfig._retry;
                                 }
+                                setLocalConfig(newConfig);
+                                onUpdate(node.id, { config: newConfig });
+                            }}
+                        />
+                    </div>
+
+                    {/* Conditional execution — runIf / skipIf */}
+                    <div className="mt-6 pt-6 border-t border-[var(--border-color)]">
+                        <ConditionalEditor
+                            lang={lang}
+                            runIf={localConfig._runIf}
+                            skipIf={localConfig._skipIf}
+                            onChange={({ runIf, skipIf }) => {
+                                const newConfig = { ...localConfig };
+                                if (runIf) newConfig._runIf = runIf;
+                                else delete newConfig._runIf;
+                                if (skipIf) newConfig._skipIf = skipIf;
+                                else delete newConfig._skipIf;
                                 setLocalConfig(newConfig);
                                 onUpdate(node.id, { config: newConfig });
                             }}
