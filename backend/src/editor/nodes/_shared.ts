@@ -75,17 +75,47 @@ export interface SandboxLike {
 }
 
 /**
+ * Structural shape of the email transporter the email executor needs.
+ * Defined here (rather than importing nodemailer) so the per-node files
+ * can be type-checked without pulling nodemailer into every executor's
+ * dependency graph and so tests can inject a plain `{ sendMail: jest.fn() }`.
+ */
+export interface EmailTransporterLike {
+    sendMail(options: {
+        from?: string;
+        to?: string | string[];
+        subject?: string;
+        text?: string;
+        html?: string;
+    }): Promise<{
+        messageId: string;
+        accepted: string[] | Array<{ address: string }>;
+        rejected: string[] | Array<{ address: string }>;
+    }>;
+}
+
+/**
  * Collaborators that per-node executors are allowed to depend on.
  *
- * Step 2 of the refactor (pure-logic nodes) only needs `sandbox` and
- * `logger`. Steps 3-4 will widen this with `prisma`, `runner`, the
- * email transporter, and so on. Keep this interface narrow — anything
- * that lands here should be needed by at least two executors, otherwise
- * pass it through the constructor of the single executor that needs it.
+ * Step 2 added `sandbox` and `logger`. Step 3 (IO nodes) adds an
+ * email transporter getter so the email executor can be created
+ * before SMTP_HOST is checked. Steps 4-5 will widen this with
+ * `prisma`, `runner`, …
+ *
+ * Keep this interface narrow — anything that lands here should be
+ * needed by at least two executors, otherwise pass it through the
+ * constructor of the single executor that needs it.
  */
 export interface NodeExecutorDeps {
     sandbox: SandboxLike;
     logger: Logger;
+    /**
+     * Lazy accessor for the email transporter. Returns null when
+     * SMTP is not configured. The function form lets the executor
+     * be constructed before the transporter is wired and lets tests
+     * swap the transporter without rebuilding the executor.
+     */
+    getEmailTransporter?: () => EmailTransporterLike | null;
 }
 
 /**
@@ -105,9 +135,24 @@ export interface EditorNodeExecutor<TConfig, TResult extends NodeExecutionResult
     readonly type: string;
     /** Other node types that should route to this executor, e.g. ["Code"] */
     readonly aliases?: readonly string[];
+    /**
+     * Run the node. The two trailing parameters (`tenantId`, `executionId`)
+     * are optional because most executors do not need them — pure-logic and
+     * IO nodes ignore them. State nodes (store-set, store-get, set-metadata)
+     * REQUIRE tenantId or executionId at the call site and throw a
+     * configuration error when missing. The dispatcher in
+     * `node-executor.service.ts` is responsible for refusing to invoke a
+     * state node without the required scoping.
+     *
+     * Step 6 of the ADR collapses this into a single context object; the
+     * positional form is preserved here to keep the diff small while
+     * steps 2-5 land incrementally.
+     */
     execute(
         config: TConfig,
         input: ExecutionInput,
         errorContext: NodeErrorContext,
+        tenantId?: string,
+        executionId?: string,
     ): Promise<TResult>;
 }

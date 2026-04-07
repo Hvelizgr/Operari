@@ -1,8 +1,16 @@
 import { ExecutionInput, LimitResult, LimitNodeConfig } from '../../types/workflow.types';
 import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
+import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
 
-export class LimitNodeExecutor {
-    async execute(config: LimitNodeConfig, input: ExecutionInput): Promise<LimitResult> {
+export class LimitNodeExecutor
+    implements EditorNodeExecutor<LimitNodeConfig, LimitResult> {
+    readonly type = 'Limit';
+
+    async execute(
+        config: LimitNodeConfig,
+        input: ExecutionInput,
+        _errorContext: NodeErrorContext,
+    ): Promise<LimitResult> {
         const {
             limitType = 'concurrent',
             amount = 1,

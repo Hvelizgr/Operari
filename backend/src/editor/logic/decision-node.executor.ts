@@ -1,13 +1,21 @@
 import jexl from 'jexl';
 import { ExecutionInput, NodeExecutionResult } from '../../types/workflow.types';
 import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
+import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
 
 export interface DecisionNodeConfig {
     expression?: string;
 }
 
-export class DecisionNodeExecutor {
-    async execute(config: DecisionNodeConfig, input: ExecutionInput): Promise<NodeExecutionResult> {
+export class DecisionNodeExecutor
+    implements EditorNodeExecutor<DecisionNodeConfig, NodeExecutionResult> {
+    readonly type = 'Decision';
+
+    async execute(
+        config: DecisionNodeConfig,
+        input: ExecutionInput,
+        _errorContext: NodeErrorContext,
+    ): Promise<NodeExecutionResult> {
         const { expression } = config;
 
         if (!expression) {

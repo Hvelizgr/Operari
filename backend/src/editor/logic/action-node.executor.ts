@@ -1,8 +1,16 @@
 import { ExecutionInput, ActionResult, ActionNodeConfig } from '../../types/workflow.types';
 import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
+import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
 
-export class ActionNodeExecutor {
-    async execute(config: ActionNodeConfig, input: ExecutionInput): Promise<ActionResult> {
+export class ActionNodeExecutor
+    implements EditorNodeExecutor<ActionNodeConfig, ActionResult> {
+    readonly type = 'Action';
+
+    async execute(
+        config: ActionNodeConfig,
+        input: ExecutionInput,
+        _errorContext: NodeErrorContext,
+    ): Promise<ActionResult> {
         const {
             actionType = 'webhook',
             condition = 'complete',
