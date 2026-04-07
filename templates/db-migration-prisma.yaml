@@ -1,0 +1,65 @@
+# NanoRun Template: Prisma database migration with backup and rollback safety
+#
+# Variables expected:
+#   - database_url    (secret) PostgreSQL connection string
+#   - backup_dir      (string) Path where backups are stored
+#   - slack_webhook   (secret) For notifications
+#
+# Trigger: manual (recommended) or webhook from CI before deploy
+name: Prisma DB Migration
+slug: db-migration-prisma
+description: Backup database, run pending migrations, verify, with manual approval and rollback.
+category: migration
+
+steps:
+    - id: backup
+      type: shell
+      title: Backup database
+      config:
+          command: |
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              BACKUP_FILE="{{vars.backup_dir}}/backup_${TIMESTAMP}.sql"
+              pg_dump "{{vars.database_url}}" > "$BACKUP_FILE"
+              echo "Backup created: $BACKUP_FILE"
+              ls -lh "$BACKUP_FILE"
+
+    - id: check_migrations
+      type: shell
+      title: Show pending migrations
+      config:
+          command: npx prisma migrate status
+
+    - id: approve
+      type: approval
+      title: Approve migration
+      config:
+          message: "Review pending migrations above. Apply to production?"
+
+    - id: migrate
+      type: shell
+      title: Apply migrations
+      config:
+          command: npx prisma migrate deploy
+          timeout: 300000
+
+    - id: verify
+      type: shell
+      title: Verify schema
+      config:
+          command: npx prisma db pull --print
+
+    - id: notify_success
+      type: notify
+      title: Notify success
+      config:
+          channel: slack
+          webhookUrl: "{{vars.slack_webhook}}"
+          title: "DB Migration successful"
+          message: "Migrations applied. Backup saved."
+
+connections:
+    - { source: backup, target: check_migrations }
+    - { source: check_migrations, target: approve }
+    - { source: approve, target: migrate }
+    - { source: migrate, target: verify }
+    - { source: verify, target: notify_success }

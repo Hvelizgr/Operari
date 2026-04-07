@@ -1,0 +1,68 @@
+# NanoRun Template: Kubernetes rolling deploy with health checks
+#
+# Variables expected:
+#   - namespace      (string) k8s namespace
+#   - deployment     (string) deployment name
+#   - image          (string) new image tag, e.g. "registry/app:v2.1.4"
+#   - slack_webhook  (secret) Notifications
+#
+# Trigger: webhook from CI when main is merged, or manual
+name: K8s Rolling Deploy
+slug: k8s-rolling-deploy
+description: Update image tag, watch rollout, run smoke tests, rollback on failure.
+category: deploy
+
+steps:
+    - id: pre_check
+      type: shell
+      title: Pre-deploy health check
+      config:
+          command: kubectl get deployment {{vars.deployment}} -n {{vars.namespace}} -o wide
+
+    - id: set_image
+      type: shell
+      title: Update image
+      config:
+          command: |
+              kubectl set image deployment/{{vars.deployment}} \
+                {{vars.deployment}}={{vars.image}} \
+                -n {{vars.namespace}} \
+                --record
+
+    - id: watch_rollout
+      type: shell
+      title: Watch rollout status
+      config:
+          command: |
+              kubectl rollout status deployment/{{vars.deployment}} \
+                -n {{vars.namespace}} \
+                --timeout=300s
+          timeout: 360000
+
+    - id: smoke_test
+      type: shell
+      title: Smoke test pods
+      config:
+          command: |
+              READY=$(kubectl get deployment/{{vars.deployment}} -n {{vars.namespace}} -o jsonpath='{.status.readyReplicas}')
+              DESIRED=$(kubectl get deployment/{{vars.deployment}} -n {{vars.namespace}} -o jsonpath='{.status.replicas}')
+              echo "Ready: $READY / Desired: $DESIRED"
+              if [ "$READY" != "$DESIRED" ]; then
+                echo "Replicas mismatch!"
+                exit 1
+              fi
+
+    - id: notify_success
+      type: notify
+      title: Notify Slack
+      config:
+          channel: slack
+          webhookUrl: "{{vars.slack_webhook}}"
+          title: "K8s deploy successful"
+          message: "{{vars.deployment}} is now running {{vars.image}} in {{vars.namespace}}"
+
+connections:
+    - { source: pre_check, target: set_image }
+    - { source: set_image, target: watch_rollout }
+    - { source: watch_rollout, target: smoke_test }
+    - { source: smoke_test, target: notify_success }
