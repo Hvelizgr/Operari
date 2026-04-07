@@ -26,7 +26,7 @@ interface EditorSidebarProps {
 
 export default function EditorSidebar({ lang }: EditorSidebarProps) {
     const [collapsed, setCollapsed] = useState(false);
-    const [active, setActive] = useState('workflows');
+    const [active, setActive] = useState('runbooks');
     const router = useRouter();
 
     const menuItems = [
@@ -34,7 +34,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
         { id: 'chat', label: lang === 'en' ? 'AI Assistant' : 'Asistente IA', icon: MessageSquare, href: `/${lang}/chat` },
         { id: 'agents', label: lang === 'en' ? 'Agents' : 'Agentes', icon: Bot, href: `/${lang}/agents` },
         { id: 'schedules', label: lang === 'en' ? 'Schedules' : 'Horarios', icon: CalendarClock },
-        { id: 'workflows', label: lang === 'en' ? 'Workflows' : 'Flujos', icon: Share2 },
+        { id: 'runbooks', label: lang === 'en' ? 'Runbooks' : 'Runbooks', icon: Share2 },
         { id: 'monitors', label: lang === 'en' ? 'Monitors' : 'Monitores', icon: Activity },
         { id: 'events', label: lang === 'en' ? 'Events' : 'Eventos', icon: Zap },
         { id: 'tools', label: lang === 'en' ? 'Utilities' : 'Utilidades', icon: Wrench },

@@ -200,7 +200,7 @@ nanorun/
 │   └── src/
 │       ├── runbook/         ← Step executors (shell, approval, notify, wait, ...)
 │       ├── routes/v1/       ← Public API (Bearer auth)
-│       └── editor/          ← Workflow execution engine
+│       └── editor/          ← Runbook execution engine
 │
 ├── frontend/                ← Next.js 15 + React 19 + Tailwind
 │   └── components/Editor/   ← Visual canvas with drag-drop

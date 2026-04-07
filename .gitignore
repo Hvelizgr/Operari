@@ -74,6 +74,7 @@ backend/prisma/*.db-journal
 /docs/*
 !/docs/adr/
 !/docs/audit-event-coverage.md
+!/docs/rebranding-and-editor-audit.md
 
 # Internal planning notes (kept local, never committed)
 /IMPLEMENTACION_NANORUN.md

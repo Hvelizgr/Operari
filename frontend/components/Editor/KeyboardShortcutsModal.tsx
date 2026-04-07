@@ -58,7 +58,7 @@ export default function KeyboardShortcutsModal({ isOpen, onClose, lang }: Keyboa
         { cat: 'navigation', keys: ['Wheel'], desc: { en: 'Zoom In/Out', es: 'Zoom Acercar/Alejar' } },
 
         // Execution
-        { cat: 'execution', keys: ['Ctrl', 'Enter'], desc: { en: 'Run Workflow', es: 'Ejecutar Flujo' } },
+        { cat: 'execution', keys: ['Ctrl', 'Enter'], desc: { en: 'Run runbook', es: 'Ejecutar runbook' } },
     ];
 
     const KeyCaps = ({ keys }: { keys: string[] }) => (

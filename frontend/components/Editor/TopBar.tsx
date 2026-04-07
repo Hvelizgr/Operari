@@ -71,7 +71,7 @@ export default function TopBar({
 
     return (
         <div className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 z-40 relative">
-            {/* Left: Branding & Workflow Info */}
+            {/* Left: Branding & Runbook info */}
             <div className="flex items-center gap-4">
                 <div className="font-bold text-xl bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
                     NanoRun
@@ -147,7 +147,7 @@ export default function TopBar({
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors disabled:opacity-50"
                                 >
                                     <Bug size={16} />
-                                    {lang === 'en' ? 'Debug Workflow' : 'Depurar Flujo'}
+                                    {lang === 'en' ? 'Debug runbook' : 'Depurar runbook'}
                                 </button>
                             )}
                         </div>
@@ -159,7 +159,7 @@ export default function TopBar({
                     onClick={onRun}
                     disabled={isExecuting}
                     className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
-                    title={lang === 'en' ? 'Run Workflow (Ctrl+Enter)' : 'Ejecutar Flujo (Ctrl+Enter)'}
+                    title={lang === 'en' ? 'Run runbook (Ctrl+Enter)' : 'Ejecutar runbook (Ctrl+Enter)'}
                 >
                     <Zap size={16} className={isExecuting ? 'animate-pulse' : ''} />
                     <span>{isExecuting ? (lang === 'en' ? 'Running...' : 'Ejecutando...') : (lang === 'en' ? 'Run' : 'Ejecutar')}</span>

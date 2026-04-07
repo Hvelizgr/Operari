@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Workflow Editor', () => {
+test.describe('Runbook canvas', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
     });
@@ -75,8 +75,8 @@ test.describe('Workflow Editor', () => {
         await expect(canvas).toHaveClass(/bg-black/);
     });
 
-    test('can run workflow', async ({ page }) => {
-        const runButton = page.getByRole('button', { name: /run workflow|ejecutar/i });
+    test('can run runbook', async ({ page }) => {
+        const runButton = page.getByRole('button', { name: /run runbook|ejecutar runbook|^run$|^ejecutar$/i });
         await runButton.click();
 
         const logsPanel = page.locator('text=/logs|execution/i');
@@ -91,7 +91,7 @@ test.describe('Accessibility', () => {
 
     test('canvas has proper ARIA attributes', async ({ page }) => {
         const canvas = page.locator('[role="application"]');
-        await expect(canvas).toHaveAttribute('aria-label', 'Workflow editor canvas');
+        await expect(canvas).toHaveAttribute('aria-label', 'Runbook canvas');
         await expect(canvas).toHaveAttribute('aria-describedby', 'canvas-instructions');
     });
 

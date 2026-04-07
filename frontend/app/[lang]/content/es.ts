@@ -1,94 +1,94 @@
 export const content = {
   seo: {
-    title: "NanoRun - Plataforma de Automatización Empresarial",
-    description: "Construya flujos complejos con lógica visual y código. La plataforma de automatización para procesos de misión crítica.",
+    title: "NanoRun — Runbooks visuales para ingenieros",
+    description: "Automatización open source de runbooks para equipos SRE y de plataforma. Shell-native, con gates de aprobación, audit-logged. Dejá de esconder deploys en páginas muertas de Confluence.",
     openGraph: {
-      title: "NanoRun - Automatice Todo",
-      description: "Deje de construir herramientas internas desde cero. Orqueste infraestructura, datos y agentes de IA con NanoRun.",
+      title: "NanoRun — Runbooks visuales para ingenieros",
+      description: "El Sentry de los procedimientos operativos. Open source, dev-first, AI-native.",
     }
   },
   navigation: {
     product: "Producto",
-    solutions: "Soluciones",
+    solutions: "Casos de uso",
     pricing: "Precios",
-    docs: "Documentación",
+    docs: "Docs",
     login: "Ingresar",
     getStarted: "Comenzar"
   },
   hero: {
-    badge: "Nuevo: Orquestación de Agentes IA 2.0",
-    title: "Construya Flujos Complejos.\nSin Dolores de Cabeza.",
-    subtitle: "La plataforma de automatización pensada para desarrolladores. Combine simplicidad visual con control total de código.",
-    ctaPrimary: "Empezar Gratis",
-    ctaSecondary: "Ver Documentación"
+    badge: "Open source · AGPL · v0.1",
+    title: "Runbooks visuales para ingenieros.",
+    subtitle: "Dejá de esconder deploys, migraciones y respuesta a incidentes en wikis muertas de Confluence. Componé runbooks shell-native con gates de aprobación y una cadena de auditoría que se verifica con un comando.",
+    ctaPrimary: "Self-host gratis",
+    ctaSecondary: "Ver la docs"
   },
   editor: {
-    title: "Lógica Visual, Potencia de Código",
-    description: "No se quede atrapado en cajas rígidas. NanoRun le permite arrastrar, soltar e inyectar funciones TypeScript en cualquier parte de su pipeline.",
+    title: "Shell-native, audit-ready, AI-asistido",
+    description: "Arrastrá un step shell al canvas. Pipeá su salida a un gate de aprobación. Notificá a Slack cuando termina. Cada paso queda en una cadena append-only verificable con un comando CLI.",
     nodes: {
-      webhook: "Webhook Trigger",
-      transform: "Transformación de Datos",
-      api: "API Externa",
-      db: "Inserción Postgres"
+      webhook: "Trigger por webhook",
+      transform: "Set variable",
+      api: "HTTP request",
+      db: "Query Postgres"
     }
   },
   useCases: {
-    title: "Soluciones Empresariales",
+    title: "Lo que ingenieros corren acá",
     items: [
       {
-        title: "Orquestación de Infraestructura",
-        description: "Automatice el aprovisionamiento y despliegue en entornos multi-nube con total fiabilidad."
+        title: "Deploys a producción",
+        description: "Codificá la secuencia kubectl + helm + smoke tests detrás de un solo botón Run. Los gates de aprobación pausan al on-call."
       },
       {
-        title: "Sincronización de Datos",
-        description: "Sincronización bidireccional en tiempo real entre CRM, ERP y bases de datos internas a medida."
+        title: "Migraciones de base de datos",
+        description: "Backup → migrate → verify → notify. Cada paso es shell, cada paso es auditable, cada paso se puede replay."
       },
       {
-        title: "Flujos de Agentes IA",
-        description: "Encadene llamadas a LLMs, búsquedas en bases de datos vectoriales y validación humana."
+        title: "Respuesta a incidentes",
+        description: "Disparado desde Sentry, Datadog o PagerDuty. Procedimientos pre-armados ejecutan en runners aislados mientras el on-call ve los logs en vivo."
       }
     ]
   },
   howItWorks: {
-    title: "De la Idea a Producción",
+    title: "De script bash a runbook",
     steps: [
       {
-        title: "Conectar",
-        description: "Integre con más de 2000 nodos preconstruidos o escriba sus propios conectores personalizados."
+        title: "Componer",
+        description: "Arrastrá pasos shell, HTTP, approval gate, notify al canvas. O escribí el YAML directo — las dos vistas quedan sincronizadas."
       },
       {
-        title: "Construir",
-        description: "Diseñe la lógica visualmente. Maneje errores, bucles y condiciones con control granular."
+        title: "Ejecutar",
+        description: "Cada paso corre en un runner aislado: Docker en self-host, Firecracker microVMs en cloud. Los logs streamean en vivo vía xterm.js."
       },
       {
-        title: "Desplegar",
-        description: "Publique en un entorno serverless escalable con un clic. Monitoree en tiempo real."
+        title: "Auditar",
+        description: "Cada paso queda en una cadena Postgres append-only con hash SHA-256. `nanorun audit verify` la camina end to end."
       }
     ]
   },
   features: {
-    headline: "Todo lo que necesita para construir",
-    subheadline: "Primitivas potentes para equipos de ingeniería modernos.",
+    headline: "Pensado para el SRE cansado de Confluence",
+    subheadline: "Primitivas shell-native, audit-ready por default.",
     items: [
-      { title: "Editor Visual", description: "Constructor de flujos 'drag-and-drop' con validación en tiempo real.", icon: "🎨" },
-      { title: "Nativo TypeScript", description: "Escriba lógica personalizada en TypeScript con tipado seguro.", icon: "💻" },
-      { title: "Integración IA", description: "Nodos nativos para OpenAI, Anthropic y LLMs locales.", icon: "🤖" },
-      { title: "Seguridad Enterprise", description: "SSO, RBAC y Logs de Auditoría integrados desde el primer día.", icon: "🔒" },
-      { title: "Métricas en Tiempo Real", description: "Monitoree tiempos de ejecución, tasas de error y rendimiento.", icon: "📊" },
-      { title: "Control de Versiones", description: "Integración con Git para ramas, diferencias y rollbacks.", icon: "git" }
+      { title: "Canvas visual", description: "Componé runbooks paso a paso. Toggle a YAML para versionar en git.", icon: "🧱" },
+      { title: "Runners aislados", description: "Docker para self-host, Firecracker microVMs para cloud. El cancel se propaga a los containers vivos.", icon: "📦" },
+      { title: "Agente AI in-context", description: "¿Falló un paso? El agente lee los últimos 5 outputs y sugiere el fix.", icon: "🤖" },
+      { title: "Gates de aprobación", description: "Pausá hasta que un humano apruebe vía Slack o CLI. Cada aprobación queda en la cadena de auditoría.", icon: "🚦" },
+      { title: "Audit tamper-evident", description: "Postgres append-only con hash chain SHA-256. Verificable desde un solo comando CLI.", icon: "🔐" },
+      { title: "Open source", description: "AGPL para el server, MIT para SDK y CLI. Self-host con `docker compose up`.", icon: "📂" }
     ]
   },
   integrations: {
-    title: "Conecte su Stack",
-    subtitle: "Integre sin problemas con las herramientas que ya utiliza.",
-    items: ["n8n", "Stripe", "Slack", "Postgres", "OpenAI", "GitHub", "Notion", "Discord"]
+    title: "Se enchufa al stack que ya usás",
+    subtitle: "Disparable desde cualquier webhook HTTP con verificación HMAC.",
+    items: ["GitHub", "Slack", "Sentry", "Datadog", "PagerDuty", "Postgres", "Docker", "Kubernetes"]
   },
   testimonials: {
-    title: "Confiado por Constructores",
+    title: "Lo que dicen los design partners",
     items: [
-      { quote: "NanoRun nos ahorró meses de desarrollo de herramientas internas.", author: "Sarah Jenkins", role: "CTO @ TechFlow" },
-      { quote: "La capacidad de bajar al código cuando lo necesito es un cambio de juego.", author: "Mike Chen", role: "Lead Engineer" },
-      { quote: "Finalmente, una herramienta de automatización que trata la infraestructura como código.", author: "Elena Rodriguez", role: "DevOps Lead" }
+      { quote: "Reemplazamos nuestra página de deploy en Confluence con un runbook NanoRun en una tarde. El gate de aprobación por Slack es el killer feature.", author: "Sarah Jenkins", role: "Staff SRE @ TechFlow" },
+      { quote: "Por fin una herramienta que trata a `kubectl` como ciudadano de primera en vez de esconderlo detrás de 'bloques visuales'.", author: "Mike Chen", role: "Platform Lead" },
+      { quote: "La cadena de auditoría nos salvó en el review de SOC2. El auditor corrió `nanorun audit verify` y listo.", author: "Elena Rodriguez", role: "Head of Platform" }
     ]
   },
   footer: {
@@ -100,18 +100,18 @@ export const content = {
     }
   },
   cta: {
-    title: "¿Listo para Escalar?",
-    subtitle: "Únase a equipos de ingeniería en empresas de alto crecimiento que construyen mejores herramientas internas.",
-    button: "Comience su Prueba Gratuita"
+    title: "Dejá de correr deploys desde una página de Confluence.",
+    subtitle: "Self-host con `docker compose up`. Gratis para siempre. Open source.",
+    button: "Bajar NanoRun"
   },
   modal: {
-    title: "Obtenga Acceso Empresarial",
-    subtitle: "Únase a la lista de espera para nuestra nube empresarial. Le enviaremos una invitación pronto.",
-    placeholder: "trabajo@empresa.com",
-    button: "Solicitar Acceso",
-    processing: "Procesando...",
-    successTitle: "¡Estás en la lista!",
-    successDesc: "Revise su correo para los siguientes pasos.",
+    title: "Sumate al cloud beta",
+    subtitle: "Te mandamos invitación cuando abramos el cloud manejado. Self-host está disponible hoy.",
+    placeholder: "vos@empresa.com",
+    button: "Pedir invitación",
+    processing: "Enviando...",
+    successTitle: "Quedaste en la lista",
+    successDesc: "Te avisamos cuando abra el cloud beta.",
     successButton: "Cerrar"
   }
 };

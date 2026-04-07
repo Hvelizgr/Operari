@@ -1,94 +1,94 @@
 export const content = {
   seo: {
-    title: "NanoRun - Enterprise Automation Platform",
-    description: "Build complex workflows with visual logic and code. The developer-friendly automation platform for mission-critical processes.",
+    title: "NanoRun — Visual runbooks for engineers",
+    description: "Open-source runbook automation for SRE and platform teams. Shell-native, approval-gated, audit-logged. Stop hiding deploys in dead Confluence pages.",
     openGraph: {
-      title: "NanoRun - Automate Everything",
-      description: "Stop building internal tools from scratch. Orchestrate infrastructure, data, and AI agents with NanoRun.",
+      title: "NanoRun — Visual runbooks for engineers",
+      description: "The Sentry for operational procedures. Open source, dev-first, AI-native.",
     }
   },
   navigation: {
     product: "Product",
-    solutions: "Solutions",
+    solutions: "Use cases",
     pricing: "Pricing",
     docs: "Docs",
     login: "Log in",
-    getStarted: "Get Started"
+    getStarted: "Get started"
   },
   hero: {
-    badge: "New: AI Agent Orchestration 2.0",
-    title: "Build Complex Workflows.\nZero Headaches.",
-    subtitle: "The developer-friendly automation platform for mission-critical processes. Combine visual simplicity with strict code control.",
-    ctaPrimary: "Start Building Free",
-    ctaSecondary: "View Documentation"
+    badge: "Open source · AGPL · v0.1",
+    title: "Visual runbooks for engineers.",
+    subtitle: "Stop hiding deploys, migrations, and incident response in dead Confluence wikis. Compose shell-native runbooks with approval gates and an audit chain you can verify with one CLI command.",
+    ctaPrimary: "Run self-host",
+    ctaSecondary: "Read the docs"
   },
   editor: {
-    title: "Visual Logic, Code Power",
-    description: "Don't get stuck in rigid boxes. NanoRun lets you drag, drop, and inject TypeScript functions anywhere in your pipeline.",
+    title: "Shell-native, audit-ready, AI-assisted",
+    description: "Drag a shell step onto the canvas. Pipe its output to an approval gate. Notify Slack when it ships. Every step logged in an append-only chain you can verify with one CLI command.",
     nodes: {
-      webhook: "Webhook Trigger",
-      transform: "Data Transform",
-      api: "External API",
-      db: "Postgres Insert"
+      webhook: "Webhook trigger",
+      transform: "Set variable",
+      api: "HTTP request",
+      db: "Postgres query"
     }
   },
   useCases: {
-    title: "Enterprise Solutions",
+    title: "What engineers run on it",
     items: [
       {
-        title: "Infrastructure Orchestration",
-        description: "Automate provisioning and deployment pipelines across multi-cloud environments with total reliability."
+        title: "Production deploys",
+        description: "Codify the kubectl, helm, and smoke-test sequence behind a single Run button. Approval gates pause for the on-call engineer."
       },
       {
-        title: "Data Synchronization",
-        description: "Real-time bi-directional sync between CRM, ERP, and bespoke internal databases."
+        title: "Database migrations",
+        description: "Backup → migrate → verify → notify. Every step is shell, every step is auditable, every step is replayable."
       },
       {
-        title: "AI Agent Workflows",
-        description: "Chain LLM calls, vector database lookups, and human-in-the-loop validation steps."
+        title: "Incident response runbooks",
+        description: "Triggered by Sentry, Datadog, or PagerDuty. Pre-built procedures execute under tenant-isolated runners while the on-call gets logs in real time."
       }
     ]
   },
   howItWorks: {
-    title: "From Idea to Production",
+    title: "From bash script to runbook",
     steps: [
       {
-        title: "Connect",
-        description: "Integrate with 2000+ pre-built nodes or write your own custom connectors."
+        title: "Compose",
+        description: "Drag shell, HTTP, approval gate, and notify steps onto the canvas. Or write the YAML directly — both views stay in sync."
       },
       {
-        title: "Build",
-        description: "Design logic visually. Handle errors, loops, and conditions with granular control."
+        title: "Run",
+        description: "Each step executes in a sandboxed runner: Docker for self-host, Firecracker microVMs for cloud. Logs stream live via xterm.js."
       },
       {
-        title: "Deploy",
-        description: "Push to a scalable serverless environment with one click. Monitor in real-time."
+        title: "Audit",
+        description: "Every step lands in an append-only Postgres log with a SHA-256 hash chain. `nanorun audit verify` walks the chain end to end."
       }
     ]
   },
   features: {
-    headline: "Everything you need to build",
-    subheadline: "Powerful primitives for modern engineering teams.",
+    headline: "Built for the SRE who's tired of Confluence",
+    subheadline: "Shell-native primitives, audit-ready by default.",
     items: [
-      { title: "Visual Editor", description: "Drag-and-drop workflow builder with real-time validation.", icon: "🎨" },
-      { title: "TypeScript Native", description: "Write custom logic in TypeScript with full type safety.", icon: "💻" },
-      { title: "AI Integration", description: "Native nodes for OpenAI, Anthropic, and localized LLMs.", icon: "🤖" },
-      { title: "Enterprise Security", description: "SSO, RBAC, and Audit Logs built-in from day one.", icon: "🔒" },
-      { title: "Real-time Metrics", description: "Monitor execution times, error rates, and throughput.", icon: "📊" },
-      { title: "Version Control", description: "Git integration for branching, diffs, and rollbacks.", icon: "git" }
+      { title: "Visual canvas", description: "Compose runbooks step by step. Toggle to YAML for git versioning.", icon: "🧱" },
+      { title: "Sandboxed runners", description: "Docker for self-host, Firecracker microVMs for cloud. Cancel propagates to live containers.", icon: "📦" },
+      { title: "AI agent in-context", description: "Step fails? The agent reads the last 5 step outputs and suggests the fix.", icon: "🤖" },
+      { title: "Approval gates", description: "Pause until a human approves via Slack or the CLI. Every approval lands in the audit chain.", icon: "🚦" },
+      { title: "Tamper-evident audit", description: "Append-only Postgres log with SHA-256 hash chain. Verifiable from one CLI command.", icon: "🔐" },
+      { title: "Open source", description: "AGPL server, MIT SDK and CLI. Self-host with `docker compose up`.", icon: "📂" }
     ]
   },
   integrations: {
-    title: "Connect Your Stack",
-    subtitle: "Seamlessly integrate with the tools you already use.",
-    items: ["n8n", "Stripe", "Slack", "Postgres", "OpenAI", "GitHub", "Notion", "Discord"]
+    title: "Plugs into the stack you already use",
+    subtitle: "Trigger from any HTTP webhook with HMAC verification.",
+    items: ["GitHub", "Slack", "Sentry", "Datadog", "PagerDuty", "Postgres", "Docker", "Kubernetes"]
   },
   testimonials: {
-    title: "Trusted by Builders",
+    title: "What design partners say",
     items: [
-      { quote: "NanoRun saved us months of internal tool development.", author: "Sarah Jenkins", role: "CTO @ TechFlow" },
-      { quote: "The ability to drop into code whenever I need is a game changer.", author: "Mike Chen", role: "Lead Engineer" },
-      { quote: "Finally, an automation tool that treats infrastructure as code.", author: "Elena Rodriguez", role: "DevOps Lead" }
+      { quote: "Replaced our Confluence deploy page with a NanoRun runbook in an afternoon. The Slack approval gate is the killer feature.", author: "Sarah Jenkins", role: "Staff SRE @ TechFlow" },
+      { quote: "Finally a tool that treats `kubectl` as a first-class citizen instead of hiding it behind 'visual blocks'.", author: "Mike Chen", role: "Platform Lead" },
+      { quote: "Audit chain saved us in our SOC2 review. Auditor ran `nanorun audit verify` and we were done.", author: "Elena Rodriguez", role: "Head of Platform" }
     ]
   },
   footer: {
@@ -100,18 +100,18 @@ export const content = {
     }
   },
   cta: {
-    title: "Ready to Scale?",
-    subtitle: "Join engineering teams at high-growth companies building better internal tools.",
-    button: "Start Your Free Trial"
+    title: "Stop running deploys from a Confluence page.",
+    subtitle: "Self-host with `docker compose up`. Free forever. Open source.",
+    button: "Get NanoRun"
   },
   modal: {
-    title: "Get Enterprise Access",
-    subtitle: "Join the waitlist for our managed enterprise cloud. We'll send you an invite shortly.",
-    placeholder: "work@company.com",
-    button: "Request Early Access",
-    processing: "Processing...",
-    successTitle: "You're on the list!",
-    successDesc: "Check your inbox for next steps.",
+    title: "Join the cloud beta",
+    subtitle: "We'll send an invite when the managed cloud opens. Self-host is available today.",
+    placeholder: "you@company.com",
+    button: "Request invite",
+    processing: "Sending...",
+    successTitle: "You're on the list",
+    successDesc: "We'll be in touch when cloud beta opens.",
     successButton: "Close"
   }
 };

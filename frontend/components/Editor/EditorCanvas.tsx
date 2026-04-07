@@ -132,7 +132,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
     const [isMetricsDashboardOpen, setIsMetricsDashboardOpen] = useState(false);
     const [workflowProperties, setWorkflowProperties] = useState<WorkflowProperties>({
-        name: 'Untitled Workflow',
+        name: 'Untitled runbook',
         description: '',
         isActive: false,
         schedule: null,
@@ -255,7 +255,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         // General
         { id: 'undo', label: lang === 'en' ? 'Undo' : 'Deshacer', shortcut: ['Ctrl', 'Z'], action: undo },
         { id: 'redo', label: lang === 'en' ? 'Redo' : 'Rehacer', shortcut: ['Ctrl', 'Y'], action: redo },
-        { id: 'save', label: lang === 'en' ? 'Save Workflow' : 'Guardar Flujo', shortcut: ['Ctrl', 'S'], action: () => {/* Managed by autosave but force? */ } }, // Optional
+        { id: 'save', label: lang === 'en' ? 'Save runbook' : 'Guardar runbook', shortcut: ['Ctrl', 'S'], action: () => {/* Managed by autosave but force? */ } }, // Optional
 
         // Navigation
         { id: 'zoom_in', label: lang === 'en' ? 'Zoom In' : 'Acercar', shortcut: ['Ctrl', '+'], action: handleZoomIn },
@@ -268,10 +268,10 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         { id: 'duplicate', label: lang === 'en' ? 'Duplicate Selected' : 'Duplicar Selección', shortcut: ['Ctrl', 'D'], action: handleContextMenuDuplicate },
         { id: 'select_all', label: lang === 'en' ? 'Select All' : 'Seleccionar Todo', shortcut: ['Ctrl', 'A'], action: () => {/* TODO */ } },
         { id: 'add_node', label: lang === 'en' ? 'Add Node' : 'Aspirar Nuevo Nodo', shortcut: ['Space'], action: () => setSearchTrigger(Date.now()) },
-        { id: 'auto_layout', label: lang === 'en' ? 'Auto Layout' : 'Organizar Flujo', action: handleAutoLayout },
+        { id: 'auto_layout', label: lang === 'en' ? 'Auto layout' : 'Organizar runbook', action: handleAutoLayout },
 
         // Execution
-        { id: 'run', label: lang === 'en' ? 'Run Workflow' : 'Ejecutar', shortcut: ['Ctrl', 'Enter'], action: () => handleExecuteWithInput({}) },
+        { id: 'run', label: lang === 'en' ? 'Run runbook' : 'Ejecutar runbook', shortcut: ['Ctrl', 'Enter'], action: () => handleExecuteWithInput({}) },
         { id: 'terminal', label: lang === 'en' ? 'Toggle Terminal' : 'Alternar Terminal', action: () => setShowTerminal(p => !p) },
 
         // Tools
@@ -380,7 +380,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                         onClick={handleCanvasClick}
                         onContextMenu={(e) => handleContextMenu(e, 'canvas')}
                         role="application"
-                        aria-label={lang === 'en' ? 'Workflow editor canvas' : 'Lienzo del editor de flujo de trabajo'}
+                        aria-label={lang === 'en' ? 'Runbook canvas' : 'Canvas del runbook'}
                     >
                         <a
                             href="#workflow-canvas"
