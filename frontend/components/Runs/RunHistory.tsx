@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, XCircle, Clock, Pause, Ban, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Pause, Ban, Loader2 } from 'lucide-react';
 
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 
@@ -178,7 +178,13 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
                                 const meta = STATUS_STYLES[r.status];
                                 const Icon = meta.icon;
                                 return (
-                                    <tr key={r.id} className="hover:bg-zinc-950">
+                                    <tr
+                                        key={r.id}
+                                        className="hover:bg-zinc-950 cursor-pointer"
+                                        onClick={() => {
+                                            window.location.href = `/${lang}/runs/${r.id}`;
+                                        }}
+                                    >
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2">
                                                 <Icon
