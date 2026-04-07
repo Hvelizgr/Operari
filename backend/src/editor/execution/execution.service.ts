@@ -22,6 +22,8 @@ import { socketService } from './socket.service';
 import { AuditService, AuditEventType, ActorType } from '../../audit/audit.service';
 import { RunTracer, getRunTracer } from '../../observability';
 import { getRunner } from '../../runbook/runners';
+import { ExecutionEventStore } from '../../runbook/engine/execution-event.store';
+import type { ExecutionEventPayload } from '../../runbook/engine/execution-event.types';
 
 interface ExecuteParams {
     workflowId: string;
@@ -60,6 +62,21 @@ export interface ExecutionServiceOptions {
      * explicitly even if a tracer is registered globally.
      */
     tracer?: RunTracer | null;
+    /**
+     * Durable execution event store (ADR 0003 phase 2). When provided
+     * (or when `NANORUN_DURABLE_ENGINE=true`) every state transition
+     * is appended to the ExecutionEvent log alongside the audit chain
+     * write, so a worker can resume in-flight runs after a restart.
+     *
+     * Pass `null` to disable event-store writes explicitly, even if
+     * the env flag is set. Pass an instance to override the default
+     * (used by tests to capture events with a fake store).
+     *
+     * Defaults: enabled iff `process.env.NANORUN_DURABLE_ENGINE === 'true'`.
+     * The flag exists because phase 2 is the integration step the ADR
+     * warns about — toggling it off must be a single env var flip.
+     */
+    eventStore?: ExecutionEventStore | null;
 }
 
 export class ExecutionService {
@@ -69,6 +86,7 @@ export class ExecutionService {
     private notificationService: ErrorNotificationService;
     private audit: AuditService | null;
     private tracer: RunTracer | null;
+    private eventStore: ExecutionEventStore | null;
 
     constructor(prisma: PrismaClient, options: ExecutionServiceOptions = {}) {
         this.prisma = prisma;
@@ -81,6 +99,12 @@ export class ExecutionService {
         this.tracer = options.tracer === null
             ? null
             : (options.tracer ?? getRunTracer());
+        this.eventStore = options.eventStore === null
+            ? null
+            : (options.eventStore
+                ?? (process.env.NANORUN_DURABLE_ENGINE === 'true'
+                    ? new ExecutionEventStore(prisma)
+                    : null));
     }
 
     /**
@@ -128,6 +152,39 @@ export class ExecutionService {
             this.logger.error('audit write failed', {
                 error: err instanceof Error ? err : new Error(String(err)),
                 metadata: { type, resource: params.resource },
+            });
+        }
+    }
+
+    /**
+     * Best-effort append to the durable execution event store. The
+     * mirror of `safeAudit` for ADR 0003 phase 2: every state
+     * transition that already calls safeAudit also calls this so
+     * the event store is the durable copy used by the worker on
+     * restart.
+     *
+     * Skips silently when the event store is not configured (feature
+     * flag off, or `eventStore: null` injected by a test) or when
+     * tenantId is missing — the worker scopes its replay queries by
+     * tenant so an event with no tenant has no consumer.
+     *
+     * Failures are logged but never block execution. The audit chain
+     * is the compliance backstop; the event store is observability +
+     * resumability, both best-effort.
+     */
+    private async safeAppendEvent(
+        executionId: string,
+        tenantId: string | undefined | null,
+        event: ExecutionEventPayload,
+    ): Promise<void> {
+        if (!this.eventStore) return;
+        if (!tenantId) return;
+        try {
+            await this.eventStore.append(executionId, tenantId, event);
+        } catch (err) {
+            this.logger.error('execution event store write failed', {
+                error: err instanceof Error ? err : new Error(String(err)),
+                metadata: { type: event.type, executionId },
             });
         }
     }
@@ -185,6 +242,24 @@ export class ExecutionService {
                     trigger,
                     startNodeId: startNodeId ?? null,
                 },
+            });
+
+            // ADR 0003 phase 2: durable event store mirror.
+            // run.created comes first so the worker can see the run
+            // even if the runtime crashes between create and start.
+            await this.safeAppendEvent(execution.id, tenantId, {
+                type: 'run.created',
+                payload: {
+                    workflowId,
+                    workflowName: workflow.name,
+                    trigger: String(trigger),
+                    startNodeId: startNodeId ?? null,
+                    userId,
+                },
+            });
+            await this.safeAppendEvent(execution.id, tenantId, {
+                type: 'run.started',
+                payload: { startedAt: new Date().toISOString() },
             });
 
             // OTel: open the run trace. Span attributes include runner.type
@@ -349,6 +424,11 @@ export class ExecutionService {
                 executionId,
                 workflowId: execution.workflowId,
             },
+        });
+
+        await this.safeAppendEvent(executionId, tenantId, {
+            type: 'run.resumed',
+            payload: { actorId: userId },
         });
 
         const resumeState = execution.resumeState as any;
@@ -547,6 +627,16 @@ export class ExecutionService {
                     });
                 }
 
+                await this.safeAppendEvent(executionId, tenantId, {
+                    type: 'step.started',
+                    nodeId: currentNode.id,
+                    payload: {
+                        nodeName: currentNode.title,
+                        nodeType: currentNode.type,
+                        startedAt: new Date().toISOString(),
+                    },
+                });
+
                 try {
                     nodeContextLogger.debug('Node execution started');
                     const output = await this.nodeExecutor.execute(currentNode, nodeInput, tenantId, executionId);
@@ -579,6 +669,14 @@ export class ExecutionService {
                                 workflowId: workflow.id,
                                 pausedAtNodeId: currentNode.id,
                                 pausedAtNodeName: currentNode.title,
+                                pausedAtNodeType: currentNode.type,
+                            },
+                        });
+
+                        await this.safeAppendEvent(executionId, tenantId, {
+                            type: 'run.paused',
+                            payload: {
+                                pausedAtNodeId: currentNode.id,
                                 pausedAtNodeType: currentNode.type,
                             },
                         });
@@ -618,6 +716,17 @@ export class ExecutionService {
                             nodeName: currentNode.title,
                             nodeType: currentNode.type,
                             durationMs: nodeDuration,
+                        },
+                    });
+
+                    await this.safeAppendEvent(executionId, tenantId, {
+                        type: 'step.completed',
+                        nodeId: currentNode.id,
+                        payload: {
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            durationMs: nodeDuration,
+                            output,
                         },
                     });
 
@@ -676,6 +785,18 @@ export class ExecutionService {
                             executionId,
                             workflowId: workflow.id,
                             nodeId: currentNode.id,
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            durationMs: nodeDuration,
+                            errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
+                            errorMessage,
+                        },
+                    });
+
+                    await this.safeAppendEvent(executionId, tenantId, {
+                        type: 'step.failed',
+                        nodeId: currentNode.id,
+                        payload: {
                             nodeName: currentNode.title,
                             nodeType: currentNode.type,
                             durationMs: nodeDuration,
@@ -759,6 +880,14 @@ export class ExecutionService {
                 },
             });
 
+            await this.safeAppendEvent(executionId, tenantId, {
+                type: 'run.completed',
+                payload: {
+                    durationMs: duration,
+                    nodesExecuted: executedNodes.size,
+                },
+            });
+
             try {
                 this.tracer?.endRun(executionId, true);
             } catch (err) {
@@ -801,6 +930,15 @@ export class ExecutionService {
                     executionId,
                     workflowId: workflow.id,
                     workflowName: workflow.name,
+                    durationMs: duration,
+                    errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
+                    errorMessage,
+                },
+            });
+
+            await this.safeAppendEvent(executionId, tenantId, {
+                type: 'run.failed',
+                payload: {
                     durationMs: duration,
                     errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
                     errorMessage,
