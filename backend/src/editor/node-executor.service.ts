@@ -1,4 +1,3 @@
-import { exec } from 'child_process';
 import * as ivm from 'isolated-vm';
 import { PrismaClient, Prisma } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
@@ -13,7 +12,6 @@ import {
     DelayResult,
     LoopResult,
     DatabaseResult,
-    N8nResult,
     ShellCommandResult,
     StoreResult,
     SuspendResult,
@@ -26,7 +24,6 @@ import {
     DatabaseNodeConfig,
     DelayNodeConfig,
     LoopNodeConfig,
-    N8nNodeConfig,
     DecisionNodeConfig,
     SplitNodeConfig,
     JoinNodeConfig,
@@ -49,7 +46,14 @@ import { RepeatNodeExecutor } from './logic/repeat-node.executor';
 import { MultiplexNodeExecutor } from './logic/multiplex-node.executor';
 import { LimitNodeExecutor } from './logic/limit-node.executor';
 import { ActionNodeExecutor } from './logic/action-node.executor';
-import { n8nService } from '../services/n8n.service';
+import { DelayNodeExecutor } from './nodes/delay.executor';
+import { TransformNodeExecutor } from './nodes/transform.executor';
+import { ConditionNodeExecutor } from './nodes/condition.executor';
+import { NoteNodeExecutor } from './nodes/note.executor';
+import { createExecutorRegistry } from '../runbook/executors';
+import type { StepExecutor, ExecutorContext } from '../runbook/types/executor.types';
+import type { ShellConfig } from '../runbook/executors/shell.executor';
+import { socketService } from './execution/socket.service';
 import {
     HttpError,
     SandboxError,
@@ -61,8 +65,15 @@ import {
 import { Logger } from '../services/logger.service';
 import { withHttpRetry, withExternalServiceRetry, RetryOptions } from '../utils/retry';
 import axios from 'axios';
+import {
+    NodeErrorContext,
+    resolveTemplate as sharedResolveTemplate,
+    getNestedValue as sharedGetNestedValue,
+} from './nodes/_shared';
 
-type commonErrorContext = { nodeId: string; nodeName: string; nodeType: string }
+// Local alias preserved so the existing call sites compile unchanged.
+// New code should import NodeErrorContext from ./nodes/_shared directly.
+type commonErrorContext = NodeErrorContext
 
 interface SandboxConfig {
     timeout: number;      // Tiempo máximo de ejecución en ms
@@ -276,6 +287,13 @@ export class NodeExecutor {
     private multiplexExecutor: MultiplexNodeExecutor;
     private limitExecutor: LimitNodeExecutor;
     private actionExecutor: ActionNodeExecutor;
+    // ADR 0002 step 2: pure-logic nodes extracted to ./nodes/
+    private delayExecutor: DelayNodeExecutor;
+    private transformExecutor: TransformNodeExecutor;
+    private conditionExecutor: ConditionNodeExecutor;
+    private noteExecutor: NoteNodeExecutor;
+    // NanoRun: registry of new executors (shell, approval, notify, wait)
+    private runbookRegistry: Map<string, StepExecutor>;
 
     constructor(prisma?: PrismaClient) {
         // Inicializar el sandbox con configuración por defecto
@@ -306,6 +324,62 @@ export class NodeExecutor {
         this.multiplexExecutor = new MultiplexNodeExecutor();
         this.limitExecutor = new LimitNodeExecutor();
         this.actionExecutor = new ActionNodeExecutor();
+        // Pure-logic node executors share `this.sandbox` and `this.logger`
+        // so existing tests that spy on `(nodeExecutor as any).sandbox`
+        // keep observing the same instance.
+        const editorNodeDeps = { sandbox: this.sandbox, logger: this.logger };
+        this.delayExecutor = new DelayNodeExecutor();
+        this.transformExecutor = new TransformNodeExecutor(editorNodeDeps);
+        this.conditionExecutor = new ConditionNodeExecutor(editorNodeDeps);
+        this.noteExecutor = new NoteNodeExecutor();
+        this.runbookRegistry = createExecutorRegistry(this.prisma);
+    }
+
+    /**
+     * NanoRun: try to execute the node using the new runbook executor registry.
+     * Returns null if the node type is not registered (caller should fall through
+     * to the legacy switch statement).
+     */
+    private async tryRunbookExecutor(
+        node: WorkflowNode,
+        input: ExecutionInput,
+        tenantId: string | undefined,
+        executionId: string | undefined,
+    ): Promise<NodeExecutionResult | null> {
+        const executor = this.runbookRegistry.get(node.type);
+        if (!executor) return null;
+
+        const context: ExecutorContext = {
+            runId: executionId ?? 'unknown',
+            stepId: node.id,
+            variables: (input as Record<string, unknown>) ?? {},
+            previousOutputs: (input as Record<string, unknown>) ?? {},
+            tenantId: tenantId ?? 'default-tenant',
+            emit: executionId
+                ? (event) => {
+                    socketService.emitLog(executionId, event.text.trimEnd(), {
+                        nodeId: node.id,
+                        nodeType: node.type,
+                        stream: event.type,
+                    });
+                }
+                : undefined,
+        };
+
+        const result = await executor.execute(node.config ?? {}, context);
+
+        if (!result.success) {
+            throw new NodeExecutionError({
+                nodeId: node.id,
+                nodeName: node.title,
+                nodeType: node.type,
+                message: result.error ?? 'Step failed',
+                code: ErrorCode.NODE_EXECUTION_FAILED,
+            });
+        }
+
+        // NodeExecutionResult is a generic shape; we wrap the executor output in it
+        return (result.output ?? { success: true }) as unknown as NodeExecutionResult;
     }
 
     async execute(node: WorkflowNode, input: ExecutionInput, tenantId?: string, executionId?: string): Promise<NodeExecutionResult> {
@@ -315,6 +389,12 @@ export class NodeExecutor {
             nodeName: node.title,
             nodeType: node.type,
         };
+
+        // NanoRun: check the new executor registry first (shell, approval, notify, wait)
+        const runbookResult = await this.tryRunbookExecutor(node, input, tenantId, executionId);
+        if (runbookResult !== null) {
+            return runbookResult;
+        }
 
         switch (node.type) {
             case 'Webhook':
@@ -333,11 +413,19 @@ export class NodeExecutor {
 
             case 'Transform':
             case 'Code':
-                return this.executeTransform(config as TransformNodeConfig, input, commonErrorContext);
+                return this.transformExecutor.execute(
+                    config as TransformNodeConfig,
+                    input,
+                    commonErrorContext,
+                );
 
             case 'Condition':
             case 'If':
-                return this.executeCondition(config as ConditionNodeConfig, input, commonErrorContext);
+                return this.conditionExecutor.execute(
+                    config as ConditionNodeConfig,
+                    input,
+                    commonErrorContext,
+                );
 
             case 'Database':
             case 'SQL':
@@ -345,14 +433,15 @@ export class NodeExecutor {
 
             case 'Delay':
             case 'Wait':
-                return this.executeDelay(config as DelayNodeConfig);
+                return this.delayExecutor.execute(
+                    config as DelayNodeConfig,
+                    input,
+                    commonErrorContext,
+                );
 
             case 'Loop':
             case 'Iterator':
                 return this.executeLoop(config as LoopNodeConfig, input, commonErrorContext);
-
-            case 'n8n':
-                return this.executeN8n(config as N8nNodeConfig, input, commonErrorContext);
 
             case 'Decision':
                 return this.decisionExecutor.execute(config as DecisionNodeConfig, input);
@@ -397,7 +486,11 @@ export class NodeExecutor {
                 return this.executeCreateTicket(config as CreateTicketNodeConfig, input, commonErrorContext);
 
             case 'custom.note':
-                return input; // Note nodes just pass through data
+                return this.noteExecutor.execute(
+                    config as Record<string, unknown>,
+                    input,
+                    commonErrorContext,
+                );
 
 
             default:
@@ -431,44 +524,49 @@ export class NodeExecutor {
             });
         }
 
-        const resolvedCommand = this.resolveTemplate(command, input);
-
-        this.logger.warn(`Executing shell command: "${resolvedCommand}"`, {
-            metadata: { command: resolvedCommand },
-        });
-
-        return new Promise((resolve, reject) => {
-            exec(resolvedCommand, (error: Error | null, stdout: string, stderr: string) => { // Explicitly type callback parameters
-                if (error) {
-                    const execError = new NodeExecutionError({
-                        ...commonErrorContext,
-                        message: `Shell command failed: ${error.message}`,
-                        userMessage: `Command failed with error: ${error.message}. Stderr: ${stderr}`,
-                        code: ErrorCode.NODE_EXECUTION_FAILED,
-                        cause: error,
-                    });
-                    this.logger.error('Shell command execution failed', {
-                        error: execError,
-                        metadata: { command: resolvedCommand, stderr },
-                    });
-                    return reject(execError);
-                }
-
-                const result: ShellCommandResult = { stdout, stderr };
-
-                const trimmedStdout = stdout.trim();
-                if (trimmedStdout.startsWith('{') && trimmedStdout.endsWith('}')) {
-                    try {
-                        // @ts-ignore - Prisma's Json type is flexible, this should be fine
-                        result.json = JSON.parse(trimmedStdout);
-                    } catch (e) {
-                        // Not valid JSON, leave it as a string
-                    }
-                }
-
-                resolve(result);
+        // Delegate to the runbook ShellExecutor — it goes through the configured
+        // Runner (local / docker / fly), enforcing NANORUN_RUNNER. This removes
+        // the raw child_process.exec path that was a multi-tenant RCE bomb.
+        // See IMPLEMENTACION_NANORUN.md P0 #1 and SECURITY.md.
+        const shellExecutor = this.runbookRegistry.get('shell');
+        if (!shellExecutor) {
+            throw new NodeExecutionError({
+                ...commonErrorContext,
+                message: 'Shell executor is not registered in the runbook registry',
+                userMessage: 'Shell command execution is not available on this server',
+                code: ErrorCode.NODE_EXECUTION_FAILED,
             });
-        });
+        }
+
+        const shellConfig: ShellConfig = { command };
+
+        const context: ExecutorContext = {
+            runId: 'editor-preview',
+            stepId: commonErrorContext.nodeId,
+            variables: (input as Record<string, unknown>) ?? {},
+            previousOutputs: (input as Record<string, unknown>) ?? {},
+            tenantId: 'default-tenant',
+        };
+
+        const result = await shellExecutor.execute(shellConfig, context);
+
+        if (!result.success) {
+            const stderr = (result.output as { stderr?: string } | undefined)?.stderr ?? '';
+            const execError = new NodeExecutionError({
+                ...commonErrorContext,
+                message: `Shell command failed: ${result.error ?? 'unknown error'}`,
+                userMessage: `Command failed: ${result.error ?? 'unknown error'}. Stderr: ${stderr}`,
+                code: ErrorCode.NODE_EXECUTION_FAILED,
+            });
+            this.logger.error('Shell command execution failed', {
+                error: execError,
+                metadata: { command, stderr },
+            });
+            throw execError;
+        }
+
+        const out = (result.output ?? {}) as { stdout?: string; stderr?: string };
+        return { stdout: out.stdout ?? '', stderr: out.stderr ?? '' };
     }
 
 
@@ -598,124 +696,6 @@ export class NodeExecutor {
         }
     }
 
-    private async executeTransform(
-        config: TransformNodeConfig,
-        input: ExecutionInput,
-        commonErrorContext: commonErrorContext
-    ): Promise<ExecutionOutput> {
-        const { code, mapping } = config;
-
-        if (code) {
-            // Ejecutar código de usuario en sandbox aislado con timeout y límite de memoria
-            try {
-                const result = await this.sandbox.execute(code, input);
-
-                // Verificar si hubo error en la ejecución
-                if (result && typeof result === 'object' && 'error' in result) {
-                    throw new SandboxError({
-                        ...commonErrorContext,
-                        message: `Sandbox execution error: ${result.error}`,
-                        code: ErrorCode.SANDBOX_EXECUTION_FAILED,
-                        userMessage: 'Code execution failed',
-                    });
-                }
-
-                return result;
-            } catch (error) {
-                if (error instanceof SandboxError) {
-                    throw error;
-                }
-
-                const sandboxError = new SandboxError({
-                    message: error instanceof Error ? error.message : 'Unknown sandbox error',
-                    code: ErrorCode.SANDBOX_EXECUTION_FAILED,
-                    cause: error instanceof Error ? error : undefined,
-                    userMessage: 'Failed to execute transformation code',
-                });
-
-                this.logger.error('Transform node execution failed', {
-                    error: sandboxError,
-                });
-
-                throw sandboxError;
-            }
-        }
-
-        if (mapping) {
-            try {
-                const result: ExecutionOutput = {};
-                for (const [key, value] of Object.entries(mapping)) {
-                    result[key] = this.resolveTemplate(value, input);
-                }
-                return result;
-            } catch (error) {
-                throw new NodeExecutionError({
-                    message: `Failed to map transformation: ${error instanceof Error ? error.message : String(error)}`,
-                    nodeId: '',
-                    nodeName: 'Transform',
-                    nodeType: 'Transform',
-                    code: ErrorCode.NODE_EXECUTION_FAILED,
-                    cause: error instanceof Error ? error : undefined,
-                });
-            }
-        }
-
-        return input;
-    }
-
-    private async executeCondition(
-        config: ConditionNodeConfig,
-        input: ExecutionInput,
-        commonErrorContext: commonErrorContext
-    ): Promise<ConditionResult> {
-        const { condition, field, operator, value } = config;
-
-        let result = false;
-
-        if (condition) {
-            // Evaluar condición en sandbox aislado
-            try {
-                result = await this.sandbox.evaluateCondition(condition, input);
-            } catch (error) {
-                throw new NodeExecutionError({
-                    ...commonErrorContext,
-                    message: `Condition evaluation failed: ${error instanceof Error ? error.message : String(error)}`,
-                    code: ErrorCode.CONDITION_EVALUATION_FAILED,
-                    cause: error instanceof Error ? error : undefined,
-                });
-            }
-        } else if (field && operator) {
-            const fieldValue = this.getNestedValue(input, field);
-            const compareValue = value ? this.resolveTemplate(value, input) : '';
-
-            switch (operator) {
-                case 'equals':
-                    result = fieldValue == compareValue;
-                    break;
-                case 'notEquals':
-                    result = fieldValue != compareValue;
-                    break;
-                case 'contains':
-                    result = String(fieldValue).includes(compareValue);
-                    break;
-                case 'greaterThan':
-                    result = Number(fieldValue) > Number(compareValue);
-                    break;
-                case 'lessThan':
-                    result = Number(fieldValue) < Number(compareValue);
-                    break;
-                case 'isEmpty':
-                    result = !fieldValue || fieldValue === '';
-                    break;
-                case 'isNotEmpty':
-                    result = !!fieldValue && fieldValue !== '';
-                    break;
-            }
-        }
-
-        return { ...input, conditionResult: result };
-    }
-
     private async executeDatabase(
         config: DatabaseNodeConfig,
         input: ExecutionInput,
@@ -730,14 +710,6 @@ export class NodeExecutor {
             data: data ? JSON.parse(this.resolveTemplate(JSON.stringify(data), input)) : null,
             message: 'Database operations require connection configuration',
         };
-    }
-
-    private async executeDelay(config: DelayNodeConfig): Promise<DelayResult> {
-        const { duration = 1000 } = config;
-
-        await new Promise(resolve => setTimeout(resolve, duration));
-
-        return { delayed: true, duration };
     }
 
     private async executeLoop(
@@ -910,106 +882,14 @@ export class NodeExecutor {
             this.logger.error('Create Ticket node failed', { error: ticketError });
             throw ticketError;
         }
-    } private resolveTemplate(template: string, context: ExecutionInput): string {
-        if (typeof template !== 'string') return String(template);
+    }
 
-
-        return template.replace(/\{\{([^}]+)\}\}/g, (_, path) => {
-            const value = this.getNestedValue(context, path.trim());
-            return value !== undefined ? String(value) : '';
-        });
+    private resolveTemplate(template: string, context: ExecutionInput): string {
+        return sharedResolveTemplate(template, context);
     }
 
     private getNestedValue(obj: ExecutionInput, path: string): unknown {
-        return path.split('.').reduce<unknown>((current, key) => {
-            if (current && typeof current === 'object' && key in current) {
-                return (current as Record<string, unknown>)[key];
-            }
-            return undefined;
-        }, obj);
-    }
-
-    private async executeN8n(
-        config: N8nNodeConfig,
-        input: ExecutionInput,
-        commonErrorContext: commonErrorContext
-    ): Promise<N8nResult> {
-        const { workflowId, waitForCompletion = true, timeout = 30000, inputMapping } = config;
-
-        if (!workflowId) {
-            throw new NodeExecutionError({
-                ...commonErrorContext,
-                message: 'n8n workflow ID is required',
-                code: ErrorCode.NODE_EXECUTION_FAILED,
-            });
-        }
-
-        // Aplicar mapeo de inputs si existe
-        let n8nInput = input;
-        if (inputMapping) {
-            n8nInput = {};
-            for (const [key, path] of Object.entries(inputMapping)) {
-                n8nInput[key] = this.getNestedValue(input, path);
-            }
-        }
-
-
-
-        try {
-            // Ejecutar workflow de n8n
-            const execution = await n8nService.executeWorkflow(workflowId, n8nInput);
-
-            if (waitForCompletion && execution.id) {
-                // Esperar a que termine la ejecución
-                const startTime = Date.now();
-                let status = await n8nService.getExecution(execution.id);
-
-                while (status.status === 'running' || status.status === 'waiting') {
-                    if (Date.now() - startTime > timeout) {
-                        throw new NodeExecutionError({
-                            message: `n8n workflow execution timed out after ${timeout}ms`,
-                            nodeId: '',
-                            nodeName: 'n8n',
-                            nodeType: 'n8n',
-                            code: ErrorCode.NODE_EXECUTION_FAILED,
-                        });
-                    }
-
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    status = await n8nService.getExecution(execution.id);
-                }
-
-                return {
-                    executionId: execution.id,
-                    workflowId,
-                    status: status.status as 'success' | 'error' | 'waiting' | 'running',
-                    data: status.data || {},
-                    startedAt: status.startedAt || new Date().toISOString(),
-                    finishedAt: status.stoppedAt,
-                };
-            }
-
-            return {
-                executionId: execution.id || 'pending',
-                workflowId,
-                status: 'running',
-                data: {},
-                startedAt: new Date().toISOString(),
-            };
-        } catch (error) {
-            if (error instanceof NodeExecutionError) {
-                throw error;
-            }
-
-            throw new NodeExecutionError({
-                message: `n8n workflow execution failed: ${error instanceof Error ? error.message : String(error)}`,
-                nodeId: '',
-                nodeName: 'n8n',
-                nodeType: 'n8n',
-                code: ErrorCode.NODE_EXECUTION_FAILED,
-                cause: error instanceof Error ? error : undefined,
-            });
-        }
+        return sharedGetNestedValue(obj, path);
     }
 
     /**

@@ -75,14 +75,6 @@ export interface LoopNodeConfig {
     itemsPath?: string;
 }
 
-export interface N8nNodeConfig {
-    workflowId?: string;           // ID del workflow de n8n a ejecutar
-    workflowName?: string;         // Nombre para mostrar
-    waitForCompletion?: boolean;   // Esperar a que termine la ejecución
-    timeout?: number;              // Timeout en ms
-    inputMapping?: Record<string, string>; // Mapeo de inputs
-}
-
 export interface DecisionNodeConfig {
     expression?: string; // Jexl expression
 }
@@ -177,7 +169,6 @@ export type NodeConfig =
     | DatabaseNodeConfig
     | DelayNodeConfig
     | LoopNodeConfig
-    | N8nNodeConfig
     | DecisionNodeConfig
     | SplitNodeConfig
     | JoinNodeConfig
@@ -217,7 +208,6 @@ export type WorkflowNodeType =
     | 'Wait'
     | 'Loop'
     | 'Iterator'
-    | 'n8n'
     | 'Decision'
     | 'Split'
     | 'Join'
@@ -360,15 +350,6 @@ export interface DatabaseResult extends ExecutionOutput {
     message: string;
 }
 
-export interface N8nResult extends ExecutionOutput {
-    executionId: string;
-    workflowId: string;
-    status: 'success' | 'error' | 'waiting' | 'running';
-    data: unknown;
-    startedAt: string;
-    finishedAt?: string;
-}
-
 export interface DecisionResult extends ExecutionOutput {
     decisionResult: boolean;
     decisionValue: unknown;
@@ -449,7 +430,6 @@ export type NodeExecutionResult =
     | DelayResult
     | LoopResult
     | DatabaseResult
-    | N8nResult
     | DecisionResult
     | SplitResult
     | JoinResult
