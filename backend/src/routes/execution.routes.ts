@@ -4,11 +4,25 @@ import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 import { ExecutionService } from '../editor/execution/execution.service';
 import { AuditService } from '../audit/audit.service';
 import { getRunner } from '../runbook/runners';
+import { ExecutionEventStore } from '../runbook/engine/execution-event.store';
 
 let auditService: AuditService | null = null;
 function getAudit(): AuditService {
     if (!auditService) auditService = new AuditService(prisma);
     return auditService;
+}
+
+let eventStore: ExecutionEventStore | null = null;
+/**
+ * Returns the durable execution event store instance, or null when
+ * the durable engine is not enabled. The check matches the same env
+ * flag that ExecutionService uses so the cancel route does not
+ * write to the store unless the rest of the engine is too.
+ */
+function getEventStore(): ExecutionEventStore | null {
+    if (process.env.NANORUN_DURABLE_ENGINE !== 'true') return null;
+    if (!eventStore) eventStore = new ExecutionEventStore(prisma);
+    return eventStore;
 }
 
 const router = Router();
@@ -347,6 +361,28 @@ router.post('/:id/cancel', async (req: AuthRequest, res) => {
             });
         } catch (auditErr) {
             req.log.error({ err: auditErr }, 'audit write failed for run.cancelled');
+        }
+
+        // Durable engine (ADR 0003): mirror the cancel into the event
+        // store so the resume worker sees the run as terminal on the
+        // next backend restart. Best-effort, never blocks the response.
+        const store = getEventStore();
+        if (store) {
+            try {
+                await store.append(executionId, req.user!.tenantId, {
+                    type: 'run.cancelled',
+                    payload: {
+                        cancelledByActorId: req.user!.id,
+                        cancelledAt: new Date().toISOString(),
+                        signalledProcesses,
+                    },
+                });
+            } catch (eventErr) {
+                req.log.error(
+                    { err: eventErr },
+                    'execution event store write failed for run.cancelled',
+                );
+            }
         }
 
         res.json({ message: 'Execution cancelled' });

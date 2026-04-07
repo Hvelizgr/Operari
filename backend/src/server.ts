@@ -91,6 +91,41 @@ async function main() {
         scheduler.start();
         logger.info('Scheduler started');
 
+        // ADR 0003 phase 3: scan for runs that were in flight when the
+        // previous backend instance died and abandon them so they stop
+        // showing up in dashboards. Behind two flags:
+        //   NANORUN_DURABLE_ENGINE=true   → engine is wired in general
+        //   NANORUN_RESUME_WORKER_ACT=true → act on decisions, not just dryRun
+        // Default: dryRun=true so a fresh deploy logs the report and the
+        // operator confirms it before letting the worker mutate.
+        if (process.env.NANORUN_DURABLE_ENGINE === 'true') {
+            try {
+                const { ExecutionEventStore } = await import('./runbook/engine/execution-event.store');
+                const { ResumeWorker } = await import('./runbook/engine/resume-worker');
+                const { Logger } = await import('./services/logger.service');
+                const eventStore = new ExecutionEventStore(prisma);
+                const worker = new ResumeWorker(eventStore, Logger.getInstance());
+                const dryRun = process.env.NANORUN_RESUME_WORKER_ACT !== 'true';
+                const report = await worker.runOnce({ dryRun });
+                logger.info(
+                    {
+                        scannedTenants: report.scannedTenants,
+                        scannedRuns: report.scannedRuns,
+                        abandoned: report.counts.ABANDON,
+                        skipped: report.counts.SKIP,
+                        wouldResume: report.counts.RESUME,
+                        dryRun: report.dryRun,
+                        durationMs: report.durationMs,
+                    },
+                    'Resume worker scan complete',
+                );
+            } catch (workerErr) {
+                // Worker failure must NEVER block server startup. Log and
+                // proceed; the next deploy can re-run the scan.
+                logger.error({ err: workerErr }, 'Resume worker scan failed');
+            }
+        }
+
         httpServer.listen(PORT, () => {
             logger.info({ port: PORT }, `Server running on port ${PORT}`);
         });
