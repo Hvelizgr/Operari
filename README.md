@@ -101,7 +101,6 @@ This is the part Show HN will dig into anyway, so it's better up here than burie
 | **Sentry / Datadog payload parsing** | Webhook receiver verifies HMAC and routes to runbooks; provider-specific parsing is stubbed | P1 #9 |
 | **AI agent tools** | The orchestrator streams responses; it does NOT yet have read access to past runs / step logs as tools. Today it only sees what the side-panel sends in the prompt | Backlog item, no eta |
 | **Database step** | Hardened to allow `migrate`/`health`/`backup` only, but still a passthrough stub. Real Prisma wiring is not in | Backlog |
-| **`docker compose up` self-host one-liner** | Backend + frontend can be run separately; the unified compose file is not committed yet | Tier 0 #2 |
 | **Public demo instance** | None. You have to self-host to try it | — |
 | **Loom / video walkthrough** | None | — |
 | **Verified domain + trademark** | The repo is at `Hvelizgr/NanoFlow`; the `NanoRun` mark and the `.dev/.io/.com` domains are not yet secured | Pre-launch checklist |
@@ -130,7 +129,40 @@ need. Star the repo and check back in 4-6 weeks.
 
 ## Try it locally
 
-Requires **Node 18+**, **PostgreSQL 14+**, **Redis 6+**.
+### With docker compose (recommended)
+
+Requires **Docker 24+** with Compose V2.
+
+```bash
+git clone https://github.com/Hvelizgr/NanoFlow.git nanorun
+cd nanorun
+cp .env.example .env
+
+# Generate the two required secrets and paste them into .env:
+node -e "console.log('JWT_SECRET=' + require('crypto').randomBytes(48).toString('hex'))"
+node -e "console.log('ENCRYPTION_KEY=' + require('crypto').randomBytes(32).toString('hex'))"
+
+# Optional: drop your Anthropic key into .env so the AI assist drawer works
+# ANTHROPIC_API_KEY=sk-ant-...
+
+docker compose up -d
+```
+
+The first up takes ~2-3 minutes (image build + prisma migrate + node-type seed).
+Open `http://localhost:3000/en/editor` once the `nanorun-backend` container is healthy.
+
+The compose stack runs five containers: `nanorun-postgres`, `nanorun-redis`,
+`nanorun-migrate` (one-shot, applies migrations + seed and exits), `nanorun-backend`,
+`nanorun-frontend`. The optional `nanorun-jaeger` joins via the `traces` profile:
+
+```bash
+docker compose --profile traces up -d
+# then open http://localhost:16686 and set ENABLE_TRACING=true in your .env
+```
+
+### Without docker
+
+Requires **Node 18+**, **PostgreSQL 14+**, **Redis 6+** running locally.
 
 ```bash
 git clone https://github.com/Hvelizgr/NanoFlow.git nanorun
@@ -153,9 +185,6 @@ npm run dev          # listens on :3000
 
 Then open `http://localhost:3000/en/editor` and create a runbook, or import
 a template from [`templates/`](./templates).
-
-A `docker compose up` self-host file is on the immediate post-launch backlog
-([Tier 0 #2](./docs/post-pivot-cleanup-audit.md#13-plan-de-ejecución-sugerido)).
 
 ---
 
@@ -346,7 +375,6 @@ Honest, time-boxed, conservative.
 
 **Now → 4 weeks (pre-launch)**
 
-- `docker compose up` one-command self-host
 - Slack notify that actually sends
 - One real webhook integration end-to-end (GitHub or Sentry, not both)
 - JSON Schema validation on YAML save

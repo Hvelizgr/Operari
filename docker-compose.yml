@@ -1,61 +1,111 @@
-version: '3.8'
+name: nanorun
+
+# NanoRun self-host docker compose
+#
+# One-command local NanoRun stack: postgres + redis + backend + frontend.
+# Optional jaeger for OpenTelemetry traces (enable via the `traces` profile).
+#
+#   docker compose up -d              # core stack
+#   docker compose --profile traces up -d   # core + jaeger UI on :16686
+#
+# Required environment overrides (set in a `.env` file next to this one):
+#
+#   JWT_SECRET=<32+ chars random>
+#   ENCRYPTION_KEY=<32+ chars hex, generate with:
+#                   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
+#   ANTHROPIC_API_KEY=<your key>     # optional, enables R4 AI assist drawer
+#
+# After the stack is healthy, open http://localhost:3000/en/editor.
+#
+# The first run takes ~2-3 minutes to build the backend + frontend images
+# and run the prisma migrations + seed. Subsequent ups are seconds.
 
 services:
   postgres:
-    image: postgres:16
-    container_name: nanoflow-postgres
+    image: postgres:16-alpine
+    container_name: nanorun-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: nanoflow
+      POSTGRES_USER: nanorun
+      POSTGRES_PASSWORD: nanorun
+      POSTGRES_DB: nanorun
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U nanorun -d nanorun"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+    restart: unless-stopped
 
   redis:
-    image: redis:7
-    container_name: nanoflow-redis
+    image: redis:7-alpine
+    container_name: nanorun-redis
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     restart: unless-stopped
 
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    container_name: nanoflow-jaeger
-    ports:
-      - "16686:16686"
-      - "14268:14268"
-      - "6831:6831/udp"
-    restart: unless-stopped
+  # One-shot service that applies prisma migrations AND seeds the curated
+  # node-type catalog. Backend depends on this completing successfully so
+  # the editor never boots against an empty NodeType table.
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: nanorun-migrate
+    environment:
+      DATABASE_URL: postgresql://nanorun:nanorun@postgres:5432/nanorun?schema=public
+    command: >
+      sh -c "
+        npx prisma migrate deploy &&
+        npx ts-node prisma/seed-nodes.ts
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: nanoflow-backend
+    container_name: nanorun-backend
     environment:
       NODE_ENV: production
       PORT: 4000
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nanoflow?schema=public
-      JWT_SECRET: dev-secret-key-change-in-prod-at-least-32-chars-long
-      FRONTEND_URL: http://localhost:3000
+      DATABASE_URL: postgresql://nanorun:nanorun@postgres:5432/nanorun?schema=public
       REDIS_URL: redis://redis:6379
-      JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+      FRONTEND_URL: http://localhost:3000
+      # Required: 32+ character random secret. The default below is a dev
+      # placeholder; replace via .env or shell env in any non-local setup.
+      JWT_SECRET: ${JWT_SECRET:-replace-me-with-a-real-32-char-secret-please}
+      JWT_EXPIRES_IN: 7d
+      # Required by SecretCipher / ConnectedAccountService. 32+ char hex.
+      # Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      # Optional. Enables the R4 RunbookAssistPanel diagnose endpoint.
+      # Without an AI key the panel still opens but POSTs return 500.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_MODEL_PROVIDER: ${AI_MODEL_PROVIDER:-anthropic}
+      AI_MODEL_NAME: ${AI_MODEL_NAME:-claude-sonnet-4-6}
+      # Runner backend. Inside docker-compose `local` is the only sane
+      # default — `docker` would need docker-in-docker, `fly` needs the
+      # FLY_API_TOKEN. Override only if you know what you are doing.
+      NANORUN_RUNNER: local
+      # Tracing wired to the optional jaeger service. Enable with the
+      # `traces` profile (`docker compose --profile traces up -d`).
       ENABLE_TRACING: "false"
-      OTEL_SERVICE_NAME: nanoflow-backend
+      OTEL_SERVICE_NAME: nanorun-backend
+      JAEGER_ENDPOINT: http://jaeger:14268/api/traces
     ports:
       - "4000:4000"
     depends_on:
@@ -63,37 +113,40 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      prisma-migrate:
+      migrate:
         condition: service_completed_successfully
     restart: unless-stopped
-
-  prisma-migrate:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    container_name: nanoflow-prisma-migrate
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nanoflow?schema=public
-    command: npx prisma db push
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    container_name: nanoflow-frontend
+    container_name: nanorun-frontend
     environment:
       NODE_ENV: production
-      # Server-side API URL (Docker network)
-      API_URL: http://backend:4000
-      # Client-side API URL (Browser access)
-      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      # The R2/R3/R4 hooks build URLs as `${NEXT_PUBLIC_API_URL}/api/...`,
+      # so this value must NOT include the `/api` suffix. Browser-side
+      # only — server-side rendering uses the same URL because the
+      # container can reach `backend:4000` over the docker network.
+      NEXT_PUBLIC_API_URL: http://localhost:4000
     ports:
       - "3000:3000"
     depends_on:
       - backend
+    restart: unless-stopped
+
+  # Optional: jaeger UI for OpenTelemetry traces. Enable with:
+  #   docker compose --profile traces up -d
+  # Then open http://localhost:16686 and pick service `nanorun-backend`.
+  # Backend tracing also has to be turned on with ENABLE_TRACING=true.
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: nanorun-jaeger
+    profiles: ["traces"]
+    ports:
+      - "16686:16686"   # UI
+      - "14268:14268"   # collector HTTP
+      - "6831:6831/udp" # legacy thrift compact
     restart: unless-stopped
 
 volumes:
