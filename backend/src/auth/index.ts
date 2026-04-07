@@ -2,12 +2,14 @@ import type { PrismaClient } from '@prisma/client';
 import type { AuthProvider } from './auth-provider.types';
 import { JwtAuthProvider } from './jwt-auth-provider';
 import { WorkOSAuthProvider } from './workos-auth-provider';
+import { WorkOSJwksVerifier } from './workos-jwks-verifier';
 
 export type { AuthProvider, AuthenticatedUser } from './auth-provider.types';
 export { AuthTransportError } from './auth-provider.types';
 export { JwtAuthProvider } from './jwt-auth-provider';
 export { WorkOSAuthProvider } from './workos-auth-provider';
 export type { WorkOSClaims, VerifyJwksTokenFn } from './workos-auth-provider';
+export { WorkOSJwksVerifier } from './workos-jwks-verifier';
 
 /**
  * Build the configured AuthProvider for this process.
@@ -16,21 +18,34 @@ export type { WorkOSClaims, VerifyJwksTokenFn } from './workos-auth-provider';
  *   NANORUN_AUTH_PROVIDER=workos  (cloud, requires WORKOS_CLIENT_ID etc.)
  *
  * Defaults to JWT so existing self-host deployments need ZERO config
- * changes after this commit lands. The WorkOS path is opt-in and
- * fails closed if the verifyJwksToken function is not supplied — we
- * never silently fall back to JWT when the operator asked for WorkOS.
+ * changes after this commit lands. The WorkOS path is opt-in. When
+ * the env var is set, the production WorkOSJwksVerifier is wired
+ * (fetch + node:crypto, no extra deps); if the required WorkOS env
+ * vars are missing, falls back to a stub verifier that refuses
+ * every token so the operator gets loud 401s instead of silent
+ * insecurity.
  */
 export function buildAuthProvider(prisma: PrismaClient): AuthProvider {
     const provider = (process.env.NANORUN_AUTH_PROVIDER ?? 'jwt').toLowerCase();
     switch (provider) {
         case 'workos': {
-            // Production wiring will pass a real verifyJwksToken
-            // backed by fetch + jose JWKS verification. Until that
-            // lands, the skeleton refuses every token (returns null)
-            // so the operator does not silently fall back to insecure
-            // mode. The error is loud at startup, not at every request.
+            const clientId = process.env.WORKOS_CLIENT_ID;
+            if (!clientId) {
+                // Loud refusal — operator forgot to set WORKOS_CLIENT_ID.
+                // Returning a no-op verifier ensures every request 401s
+                // instead of silently letting tokens through.
+                return new WorkOSAuthProvider(prisma, {
+                    verifyJwksToken: async () => null,
+                });
+            }
+            const verifier = new WorkOSJwksVerifier({
+                jwksUrl: process.env.WORKOS_JWKS_URL
+                    ?? `https://api.workos.com/sso/jwks/${clientId}`,
+                expectedIssuer: process.env.WORKOS_ISSUER ?? 'https://api.workos.com',
+                expectedAudience: clientId,
+            });
             return new WorkOSAuthProvider(prisma, {
-                verifyJwksToken: async () => null,
+                verifyJwksToken: verifier.asVerifyTokenFn(),
             });
         }
         case 'jwt':
