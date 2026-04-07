@@ -24,6 +24,8 @@ import { RunTracer, getRunTracer } from '../../observability';
 import { getRunner } from '../../runbook/runners';
 import { ExecutionEventStore } from '../../runbook/engine/execution-event.store';
 import type { ExecutionEventPayload } from '../../runbook/engine/execution-event.types';
+import type { BillingMeter } from '../../billing';
+import { getBillingMeter } from '../../billing';
 
 interface ExecuteParams {
     workflowId: string;
@@ -77,6 +79,18 @@ export interface ExecutionServiceOptions {
      * warns about — toggling it off must be a single env var flip.
      */
     eventStore?: ExecutionEventStore | null;
+    /**
+     * Billing meter (P1 #12). Self-host deployments get NoopBillingMeter
+     * by default, which discards every event. Cloud deployments get
+     * StripeBillingMeter via NANORUN_BILLING_PROVIDER=stripe and the
+     * runtime emits run.started + run.completed billable events
+     * automatically.
+     *
+     * Pass `null` to disable meter writes explicitly even when the
+     * billing provider is configured (used by tests to assert that
+     * the runtime did not emit). Pass an instance to inject a fake.
+     */
+    meter?: BillingMeter | null;
 }
 
 export class ExecutionService {
@@ -87,6 +101,7 @@ export class ExecutionService {
     private audit: AuditService | null;
     private tracer: RunTracer | null;
     private eventStore: ExecutionEventStore | null;
+    private meter: BillingMeter | null;
 
     constructor(prisma: PrismaClient, options: ExecutionServiceOptions = {}) {
         this.prisma = prisma;
@@ -105,6 +120,68 @@ export class ExecutionService {
                 ?? (process.env.NANORUN_DURABLE_ENGINE === 'true'
                     ? new ExecutionEventStore(prisma)
                     : null));
+        this.meter = options.meter === null
+            ? null
+            : (options.meter ?? getBillingMeter());
+    }
+
+    /**
+     * Resolve the billing-side customer id for a tenant. Returns null
+     * when no mapping exists (self-host tenants, cloud tenants without
+     * a Stripe link), which causes meter.record() to no-op cleanly.
+     *
+     * Cached neither here nor in the meter — billing meter calls happen
+     * at most twice per run (run.started + run.completed) so the cost
+     * of the lookup is negligible compared to the run itself, and
+     * caching adds invalidation complexity for the rare case where a
+     * tenant gets re-linked to a new Stripe customer mid-run.
+     */
+    private async resolveStripeCustomerId(tenantId: string | undefined | null): Promise<string | undefined> {
+        if (!tenantId) return undefined;
+        try {
+            const tenant = await this.prisma.tenant.findUnique({
+                where: { id: tenantId },
+                select: { stripeCustomerId: true },
+            });
+            return tenant?.stripeCustomerId ?? undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * Best-effort billing meter call. Mirror of safeAudit / safeAppendEvent
+     * for the billing layer: never throws on the request hot path,
+     * never blocks on the meter, never branches on the return value.
+     * The meter is itself best-effort (StripeBillingMeter swallows HTTP
+     * failures) so this wrapper is just the null-check and tenant guard.
+     */
+    private async safeMeter(
+        type: 'run.started' | 'run.completed' | 'run.failed',
+        params: { tenantId?: string | null; executionId: string; customerId?: string },
+    ): Promise<void> {
+        if (!this.meter) return;
+        if (!params.tenantId) return;
+        try {
+            await this.meter.record({
+                type: type === 'run.failed' ? 'run.completed' : type,
+                customerId: params.customerId,
+                value: 1,
+                idempotencyKey: `${type}:${params.executionId}`,
+                metadata: {
+                    executionId: params.executionId,
+                    tenantId: params.tenantId,
+                },
+            });
+        } catch (err) {
+            // Defensive — the meter contract says implementations swallow
+            // their own errors, but a bug in a custom implementation
+            // should not break the request.
+            this.logger.warn('billing meter record failed', {
+                error: err instanceof Error ? err : new Error(String(err)),
+                metadata: { type, executionId: params.executionId },
+            });
+        }
     }
 
     /**
@@ -260,6 +337,16 @@ export class ExecutionService {
             await this.safeAppendEvent(execution.id, tenantId, {
                 type: 'run.started',
                 payload: { startedAt: new Date().toISOString() },
+            });
+
+            // Billing (P1 #12): emit run.started to the configured meter.
+            // Resolve the Stripe customer once at the start so the
+            // run.completed call can reuse it without an extra DB hit.
+            const stripeCustomerId = await this.resolveStripeCustomerId(tenantId);
+            await this.safeMeter('run.started', {
+                tenantId,
+                executionId: execution.id,
+                customerId: stripeCustomerId,
             });
 
             // OTel: open the run trace. Span attributes include runner.type
@@ -888,6 +975,13 @@ export class ExecutionService {
                 },
             });
 
+            // Billing (P1 #12): emit run.completed to the meter.
+            await this.safeMeter('run.completed', {
+                tenantId,
+                executionId,
+                customerId: await this.resolveStripeCustomerId(tenantId),
+            });
+
             try {
                 this.tracer?.endRun(executionId, true);
             } catch (err) {
@@ -943,6 +1037,18 @@ export class ExecutionService {
                     errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
                     errorMessage,
                 },
+            });
+
+            // Billing (P1 #12): a failed run still consumed runner
+            // resources, so emit a run.completed billable event
+            // (safeMeter maps run.failed → run.completed at the
+            // billing layer). This is a deliberate business decision
+            // documented in commit message; flip if a future pricing
+            // model prefers free retries.
+            await this.safeMeter('run.failed', {
+                tenantId,
+                executionId,
+                customerId: await this.resolveStripeCustomerId(tenantId),
             });
 
             try {

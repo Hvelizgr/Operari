@@ -212,8 +212,14 @@ describe('Auth Middleware', () => {
             );
 
             expect(mockResponse.status).toHaveBeenCalledWith(401);
+            // Hardening: the middleware now returns a uniform "Invalid
+            // token" message for both "bad signature" and "valid
+            // signature but user does not exist". The previous
+            // distinction leaked an oracle that let an attacker
+            // confirm whether a userId existed in the database via
+            // response comparison.
             expect(mockResponse.json).toHaveBeenCalledWith({
-                error: 'User not found',
+                error: 'Invalid token',
             });
             expect(nextFunction).not.toHaveBeenCalled();
         });
