@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Moon, Sun, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3 } from 'lucide-react';
+import { Download, Moon, Sun, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Code2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import type { SaveStatus } from '../../hooks/useAutosave';
@@ -19,6 +19,7 @@ interface TopBarProps {
     saveStatus?: SaveStatus;
     onTemplates?: () => void;
     onMetrics?: () => void;
+    onYaml?: () => void;
 }
 
 export default function TopBar({
@@ -34,7 +35,8 @@ export default function TopBar({
     onAutoLayout,
     saveStatus,
     onTemplates,
-    onMetrics
+    onMetrics,
+    onYaml
 }: TopBarProps) {
     const { highContrast, toggleHighContrast } = useAccessibility();
     const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
@@ -168,6 +170,17 @@ export default function TopBar({
 
             {/* Right: Secondary Actions */}
             <div className="flex items-center gap-1">
+                {/* YAML view */}
+                {onYaml && (
+                    <button
+                        onClick={onYaml}
+                        className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                        title={lang === 'en' ? 'View as YAML' : 'Ver como YAML'}
+                    >
+                        <Code2 size={18} />
+                    </button>
+                )}
+
                 {/* Metrics */}
                 {onMetrics && (
                     <button

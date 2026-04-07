@@ -19,6 +19,7 @@ import SolderingOverlay from './SolderingOverlay';
 import RunDialog from '../Workflow/RunDialog';
 import CommandPalette, { CommandAction } from './CommandPalette';
 import TopBar from './TopBar';
+import YamlViewModal from './YamlViewModal';
 import EditorSidebar from './EditorSidebar';
 import { createNewNode } from './EditorCanvas.utils';
 import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertiesPanel';
@@ -131,6 +132,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const [isWorkflowPropsOpen, setIsWorkflowPropsOpen] = useState(false);
     const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
     const [isMetricsDashboardOpen, setIsMetricsDashboardOpen] = useState(false);
+    const [isYamlViewOpen, setIsYamlViewOpen] = useState(false);
     const [workflowProperties, setWorkflowProperties] = useState<WorkflowProperties>({
         name: 'Untitled runbook',
         description: '',
@@ -314,6 +316,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             saveStatus={saveStatus}
                             onTemplates={() => setIsTemplateGalleryOpen(true)}
                             onMetrics={() => setIsMetricsDashboardOpen(true)}
+                            onYaml={() => setIsYamlViewOpen(true)}
                             onExport={() => {
                                 const data = JSON.stringify({ nodes, connections }, null, 2);
                                 const blob = new Blob([data], { type: 'application/json' });
@@ -617,6 +620,27 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onClose={() => setIsCommandPaletteOpen(false)}
                             actions={commandActions}
                             lang={lang}
+                        />
+                        <YamlViewModal
+                            open={isYamlViewOpen}
+                            onClose={() => setIsYamlViewOpen(false)}
+                            lang={lang}
+                            header={{
+                                name: workflowProperties.name,
+                                description: workflowProperties.description ?? null,
+                                schedule: workflowProperties.schedule ?? null,
+                            }}
+                            nodes={nodes}
+                            connections={connections}
+                            onApply={({ header, nodes: newNodes, connections: newConnections }) => {
+                                setWorkflowProperties((prev) => ({
+                                    ...prev,
+                                    name: header.name,
+                                    description: header.description ?? prev.description,
+                                    schedule: header.schedule ?? prev.schedule,
+                                }));
+                                handleLoadWorkflow(newNodes, newConnections);
+                            }}
                         />
                     </div>
                 </div>

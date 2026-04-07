@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import type { WorkflowNode } from '@nanoflow/shared';
 import { NODE_TYPES, NodeType } from './NodePalette';
 import DynamicNodeForm from './DynamicNodeForm';
+import RetryPolicyEditor from './RetryPolicyEditor';
 
 interface NodeConfigPanelProps {
     node: WorkflowNode | null;
@@ -149,6 +150,24 @@ export default function NodeConfigPanel({ node, nodeTypeDefinition, onUpdate, on
                                 connections={[]}
                             />
                         </div>
+                    </div>
+
+                    {/* Retry policy — cross-cutting, applies to every step type */}
+                    <div className="mt-6 pt-6 border-t border-[var(--border-color)]">
+                        <RetryPolicyEditor
+                            lang={lang}
+                            value={localConfig._retry}
+                            onChange={(retry) => {
+                                const newConfig = { ...localConfig };
+                                if (retry) {
+                                    newConfig._retry = retry;
+                                } else {
+                                    delete newConfig._retry;
+                                }
+                                setLocalConfig(newConfig);
+                                onUpdate(node.id, { config: newConfig });
+                            }}
+                        />
                     </div>
                 </div>
             </motion.div>

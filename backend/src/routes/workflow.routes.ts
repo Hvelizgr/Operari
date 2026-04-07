@@ -14,6 +14,13 @@ import {
 } from '../types/workflow.types';
 import { WorkflowValidatorService, ValidationSeverity } from '../services/workflow-validator.service';
 import { AuditService, AuditEventType } from '../audit/audit.service';
+import {
+    toSpec,
+    fromSpec,
+    specToYaml,
+    yamlToSpec,
+    RunbookSerializerError,
+} from '../runbook/yaml/runbook-serializer';
 
 const router = Router();
 
@@ -433,6 +440,155 @@ router.post('/', async (req: AuthRequest, res) => {
  *       404:
  *         description: Workflow not found
  */
+/**
+ * GET /workflows/:id/yaml
+ *
+ * Return the runbook in canonical YAML form. Used by the YAML view in
+ * the editor and by the CLI/Git workflows that prefer text-based
+ * runbook authoring.
+ */
+router.get('/:id/yaml', async (req: AuthRequest, res) => {
+    try {
+        const workflowId = req.params.id as string;
+        const workflow = await prisma.workflow.findFirst({
+            where: { id: workflowId, tenantId: req.user!.tenantId },
+            include: {
+                workflowNodes: true,
+                workflowConnections: true,
+            },
+        });
+        if (!workflow) return res.status(404).json({ error: 'Runbook not found' });
+
+        const spec = toSpec(
+            {
+                id: workflow.id,
+                slug: workflow.slug,
+                name: workflow.name,
+                description: workflow.description,
+                category: workflow.category,
+                schedule: workflow.schedule,
+            },
+            workflow.workflowNodes.map((n) => ({
+                id: n.id,
+                type: n.type,
+                title: n.title,
+                positionX: n.positionX,
+                positionY: n.positionY,
+                enabled: n.enabled,
+                config: n.config,
+            })),
+            workflow.workflowConnections.map((c) => ({
+                sourceNodeId: c.sourceNodeId,
+                sourcePort: c.sourcePort,
+                targetNodeId: c.targetNodeId,
+                targetPort: c.targetPort,
+            })),
+        );
+
+        const yamlText = specToYaml(spec);
+        res.setHeader('Content-Type', 'application/x-yaml');
+        res.send(yamlText);
+    } catch (error) {
+        req.log.error({ error }, 'Get runbook YAML error');
+        res.status(500).json({ error: 'Failed to get runbook YAML' });
+    }
+});
+
+/**
+ * PUT /workflows/:id/yaml
+ *
+ * Replace the runbook contents with a new YAML body. Performs a full
+ * replace of nodes + connections within a transaction. Header fields
+ * (name, slug, description, category, schedule) are also updated.
+ *
+ * This is intentionally a destructive replace, not a merge — the YAML
+ * IS the source of truth when this endpoint is used. The visual editor
+ * uses PUT /:id which preserves the row-level diff.
+ */
+router.put('/:id/yaml', async (req: AuthRequest, res) => {
+    try {
+        const workflowId = req.params.id as string;
+        const yamlText = typeof req.body === 'string' ? req.body : (req.body?.yaml as string);
+        if (!yamlText || typeof yamlText !== 'string') {
+            return res.status(400).json({ error: 'Body must contain YAML text', code: 'missing_yaml' });
+        }
+
+        const existing = await prisma.workflow.findFirst({
+            where: { id: workflowId, tenantId: req.user!.tenantId },
+        });
+        if (!existing) return res.status(404).json({ error: 'Runbook not found' });
+
+        let parsed;
+        try {
+            const spec = yamlToSpec(yamlText);
+            parsed = fromSpec(spec);
+        } catch (err) {
+            if (err instanceof RunbookSerializerError) {
+                return res.status(400).json({ error: err.message, code: err.code });
+            }
+            throw err;
+        }
+
+        const updated = await prisma.$transaction(async (tx) => {
+            await tx.workflowConnection.deleteMany({ where: { workflowId } });
+            await tx.workflowNode.deleteMany({ where: { workflowId } });
+
+            await tx.workflow.update({
+                where: { id: workflowId },
+                data: {
+                    name: parsed.header.name,
+                    slug: parsed.header.slug,
+                    description: parsed.header.description,
+                    category: parsed.header.category,
+                    schedule: parsed.header.schedule,
+                },
+            });
+
+            for (const node of parsed.nodes) {
+                await tx.workflowNode.create({
+                    data: {
+                        id: node.id,
+                        workflowId,
+                        type: node.type,
+                        title: node.title,
+                        positionX: node.positionX,
+                        positionY: node.positionY,
+                        enabled: node.enabled,
+                        config: (node.config as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+                    },
+                });
+            }
+            for (const conn of parsed.connections) {
+                await tx.workflowConnection.create({
+                    data: {
+                        workflowId,
+                        sourceNodeId: conn.sourceNodeId,
+                        sourcePort: conn.sourcePort,
+                        targetNodeId: conn.targetNodeId,
+                        targetPort: conn.targetPort,
+                    },
+                });
+            }
+
+            return tx.workflow.findFirst({
+                where: { id: workflowId },
+                include: { workflowNodes: true, workflowConnections: true },
+            });
+        });
+
+        res.json({
+            id: updated!.id,
+            name: updated!.name,
+            slug: updated!.slug,
+            updatedAt: updated!.updatedAt,
+            stepCount: updated!.workflowNodes.length,
+        });
+    } catch (error) {
+        req.log.error({ error }, 'Put runbook YAML error');
+        res.status(500).json({ error: 'Failed to update runbook YAML' });
+    }
+});
+
 router.put('/:id', async (req: AuthRequest, res) => {
     try {
         // Use partial schema for updates - only nodes and connections are required
