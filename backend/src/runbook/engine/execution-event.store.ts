@@ -80,6 +80,20 @@ export class ExecutionEventStore {
     }
 
     /**
+     * Distinct list of tenants that have at least one execution event.
+     * Used by the resume worker to enumerate every tenant that may
+     * have in-flight runs to scan. Returns the empty array on a fresh
+     * database.
+     */
+    async listTenantsWithEvents(): Promise<string[]> {
+        const rows = await this.prisma.executionEvent.findMany({
+            select: { tenantId: true },
+            distinct: ['tenantId'],
+        });
+        return rows.map((r) => r.tenantId);
+    }
+
+    /**
      * Find every execution in this tenant that has at least one event
      * but no terminal event yet. The worker calls this at startup to
      * decide which runs to resume.
