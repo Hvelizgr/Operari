@@ -1,14 +1,20 @@
 import express from 'express';
 import request from 'supertest';
 
-jest.mock('../../../server', () => ({ prisma: {} }));
+jest.mock('../../../server', () => ({
+    prisma: {
+        approval: {
+            findMany: jest.fn(),
+        },
+    },
+}));
 
 jest.mock('../../../middleware/api-key.middleware', () => ({
     requireApiKey: (_scope?: string) => (req: any, _res: any, next: any) => {
         req.apiContext = (global as any).__fakeApiContext ?? {
             keyId: 'k-1',
             tenantId: 'tenant-1',
-            scopes: ['approvals:resolve'],
+            scopes: ['approvals:resolve', 'approvals:read'],
         };
         next();
     },
@@ -33,6 +39,8 @@ jest.mock('../../../editor/execution/execution.service', () => ({
 
 import approvalsRouter from '../../../routes/v1/approvals.routes';
 import { ApprovalServiceError } from '../../../runbook/services/approval.service';
+import { prisma as mockedPrisma } from '../../../server';
+const findManyMock = (mockedPrisma as unknown as { approval: { findMany: jest.Mock } }).approval.findMany;
 
 const buildApp = () => {
     const app = express();
@@ -40,6 +48,86 @@ const buildApp = () => {
     app.use('/api/v1/approvals', approvalsRouter);
     return app;
 };
+
+describe('GET /api/v1/approvals (list)', () => {
+    beforeEach(() => {
+        findManyMock.mockReset();
+    });
+
+    const mkApproval = (over: Record<string, unknown> = {}) => ({
+        id: 'a-1',
+        status: 'PENDING',
+        message: 'Approve to ship',
+        workflowId: 'wf-1',
+        executionId: 'exec-1',
+        stepId: 'step-approval',
+        requestedBy: null,
+        approvedBy: null,
+        approvedAt: null,
+        comment: null,
+        createdAt: new Date('2026-04-07T00:00:00Z'),
+        workflow: { id: 'wf-1', slug: 'deploy', name: 'Deploy' },
+        ...over,
+    });
+
+    it('defaults to PENDING and scopes via workflow.tenantId', async () => {
+        findManyMock.mockResolvedValue([mkApproval()]);
+        const res = await request(buildApp()).get('/api/v1/approvals');
+
+        expect(res.status).toBe(200);
+        expect(res.body.data).toHaveLength(1);
+        expect(res.body.data[0].id).toBe('a-1');
+        expect(res.body.data[0].workflow.slug).toBe('deploy');
+        expect(res.body.nextCursor).toBeNull();
+
+        const args = findManyMock.mock.calls[0][0];
+        expect(args.where.workflow.tenantId).toBe('tenant-1');
+        expect(args.where.status).toEqual({ in: ['PENDING'] });
+    });
+
+    it('?status=all removes the status filter', async () => {
+        findManyMock.mockResolvedValue([]);
+        const res = await request(buildApp()).get('/api/v1/approvals?status=all');
+        expect(res.status).toBe(200);
+        const args = findManyMock.mock.calls[0][0];
+        expect(args.where.status).toBeUndefined();
+    });
+
+    it('?status=APPROVED filters by APPROVED', async () => {
+        findManyMock.mockResolvedValue([]);
+        await request(buildApp()).get('/api/v1/approvals?status=APPROVED');
+        const args = findManyMock.mock.calls[0][0];
+        expect(args.where.status).toEqual({ in: ['APPROVED'] });
+    });
+
+    it('rejects an unknown status with 400', async () => {
+        const res = await request(buildApp()).get('/api/v1/approvals?status=foo');
+        expect(res.status).toBe(400);
+        expect(res.body.code).toBe('invalid_status');
+    });
+
+    it('returns nextCursor when more rows are available', async () => {
+        // Request limit=2, fake returns 3 → hasMore=true
+        findManyMock.mockResolvedValue([
+            mkApproval({ id: 'a-1' }),
+            mkApproval({ id: 'a-2' }),
+            mkApproval({ id: 'a-3' }),
+        ]);
+        const res = await request(buildApp()).get('/api/v1/approvals?limit=2');
+        expect(res.status).toBe(200);
+        expect(res.body.data).toHaveLength(2);
+        expect(res.body.nextCursor).toBe('a-2');
+        const args = findManyMock.mock.calls[0][0];
+        expect(args.take).toBe(3);
+    });
+
+    it('caps limit at 200', async () => {
+        findManyMock.mockResolvedValue([]);
+        await request(buildApp()).get('/api/v1/approvals?limit=999');
+        const args = findManyMock.mock.calls[0][0];
+        expect(args.take).toBe(201);
+    });
+});
 
 describe('POST /api/v1/approvals/:id/grant', () => {
     beforeEach(() => {
