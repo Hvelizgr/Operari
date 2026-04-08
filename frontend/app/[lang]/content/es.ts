@@ -16,10 +16,10 @@ export const content = {
     getStarted: "Comenzar"
   },
   hero: {
-    badge: "Open source · AGPL · v0.1",
+    badge: "Open source · AGPL · alpha pre-launch",
     title: "Runbooks visuales para ingenieros.",
     subtitle: "Dejá de esconder deploys, migraciones y respuesta a incidentes en wikis muertas de Confluence. Componé runbooks shell-native con gates de aprobación y una cadena de auditoría que se verifica con un comando.",
-    ctaPrimary: "Self-host gratis",
+    ctaPrimary: "Star en GitHub",
     ctaSecondary: "Ver la docs"
   },
   editor: {
@@ -79,16 +79,18 @@ export const content = {
     ]
   },
   integrations: {
-    title: "Se enchufa al stack que ya usás",
-    subtitle: "Disparable desde cualquier webhook HTTP con verificación HMAC.",
-    items: ["GitHub", "Slack", "Sentry", "Datadog", "PagerDuty", "Postgres", "Docker", "Kubernetes"]
+    title: "Disparadores del stack que ya usás",
+    subtitle: "Cualquier webhook HTTP con HMAC dispara un runbook. El paso shell llama directo a kubectl / helm / aws / gh / psql — sin plugin por herramienta.",
+    items: ["GitHub", "Slack", "Sentry", "Datadog", "Webhook genérico", "+ cualquier cosa que llames desde bash"]
   },
   testimonials: {
-    title: "Lo que dicen los design partners",
+    title: "Buscando design partners",
     items: [
-      { quote: "Reemplazamos nuestra página de deploy en Confluence con un runbook NanoRun en una tarde. El gate de aprobación por Slack es el killer feature.", author: "Sarah Jenkins", role: "Staff SRE @ TechFlow" },
-      { quote: "Por fin una herramienta que trata a `kubectl` como ciudadano de primera en vez de esconderlo detrás de 'bloques visuales'.", author: "Mike Chen", role: "Platform Lead" },
-      { quote: "La cadena de auditoría nos salvó en el review de SOC2. El auditor corrió `nanorun audit verify` y listo.", author: "Elena Rodriguez", role: "Head of Platform" }
+      {
+        quote: "NanoRun está en alpha pre-launch. Estamos reclutando 5 equipos SRE / platform engineering que mantengan procedimientos de deploy, migraciones, rotación de secrets o respuesta a incidentes hoy y quieran una mejor herramienta. Los design partners reciben el producto gratis 12 meses, office hours semanales con el founder, prioridad en feature requests y descuento perpetuo del 50% cuando abra cloud.",
+        author: "Invitación abierta",
+        role: "Escribinos al maintainer o abrí una GitHub discussion"
+      }
     ]
   },
   footer: {
@@ -105,13 +107,13 @@ export const content = {
     button: "Bajar NanoRun"
   },
   modal: {
-    title: "Sumate al cloud beta",
-    subtitle: "Te mandamos invitación cuando abramos el cloud manejado. Self-host está disponible hoy.",
+    title: "Convertite en design partner",
+    subtitle: "Alpha pre-launch. Estamos buscando 5 equipos SRE / platform que usen NanoRun en serio. Gratis 12 meses, office hours semanales, descuento perpetuo del 50% cuando abra cloud.",
     placeholder: "vos@empresa.com",
-    button: "Pedir invitación",
+    button: "Pedir una charla",
     processing: "Enviando...",
-    successTitle: "Quedaste en la lista",
-    successDesc: "Te avisamos cuando abra el cloud beta.",
+    successTitle: "Listo",
+    successDesc: "Te escribimos en las próximas 48 horas.",
     successButton: "Cerrar"
   }
 };

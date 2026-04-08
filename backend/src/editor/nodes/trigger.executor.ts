@@ -12,7 +12,12 @@ import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 export class TriggerNodeExecutor
     implements EditorNodeExecutor<Record<string, unknown>, TriggerResult> {
     readonly type = 'Trigger';
-    readonly aliases = ['Webhook', 'Schedule'] as const;
+    readonly aliases = [
+        'Webhook',
+        'Schedule',
+        'nanorun.webhook',
+        'nanorun.cron',
+    ] as const;
 
     async execute(
         _config: Record<string, unknown>,

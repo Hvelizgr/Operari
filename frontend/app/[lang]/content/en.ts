@@ -16,10 +16,10 @@ export const content = {
     getStarted: "Get started"
   },
   hero: {
-    badge: "Open source · AGPL · v0.1",
+    badge: "Open source · AGPL · pre-launch alpha",
     title: "Visual runbooks for engineers.",
     subtitle: "Stop hiding deploys, migrations, and incident response in dead Confluence wikis. Compose shell-native runbooks with approval gates and an audit chain you can verify with one CLI command.",
-    ctaPrimary: "Run self-host",
+    ctaPrimary: "Star on GitHub",
     ctaSecondary: "Read the docs"
   },
   editor: {
@@ -79,16 +79,18 @@ export const content = {
     ]
   },
   integrations: {
-    title: "Plugs into the stack you already use",
-    subtitle: "Trigger from any HTTP webhook with HMAC verification.",
-    items: ["GitHub", "Slack", "Sentry", "Datadog", "PagerDuty", "Postgres", "Docker", "Kubernetes"]
+    title: "Triggers from the stack you already use",
+    subtitle: "Any HTTP webhook with HMAC verification can start a runbook. The shell step calls kubectl / helm / aws / gh / psql directly — no per-tool plugin to install.",
+    items: ["GitHub", "Slack", "Sentry", "Datadog", "Generic webhook", "+ anything you can call from bash"]
   },
   testimonials: {
-    title: "What design partners say",
+    title: "Looking for design partners",
     items: [
-      { quote: "Replaced our Confluence deploy page with a NanoRun runbook in an afternoon. The Slack approval gate is the killer feature.", author: "Sarah Jenkins", role: "Staff SRE @ TechFlow" },
-      { quote: "Finally a tool that treats `kubectl` as a first-class citizen instead of hiding it behind 'visual blocks'.", author: "Mike Chen", role: "Platform Lead" },
-      { quote: "Audit chain saved us in our SOC2 review. Auditor ran `nanorun audit verify` and we were done.", author: "Elena Rodriguez", role: "Head of Platform" }
+      {
+        quote: "NanoRun is in pre-launch alpha. We are recruiting 5 SRE / platform-engineering teams who maintain deploy procedures, migrations, secret rotation, or incident response runbooks today and want a better tool. Design partners get the product free for 12 months, weekly office hours with the founder, priority on feature requests, and a perpetual 50% discount when cloud opens.",
+        author: "Open invitation",
+        role: "Email the maintainer or open a GitHub discussion"
+      }
     ]
   },
   footer: {
@@ -105,13 +107,13 @@ export const content = {
     button: "Get NanoRun"
   },
   modal: {
-    title: "Join the cloud beta",
-    subtitle: "We'll send an invite when the managed cloud opens. Self-host is available today.",
+    title: "Become a design partner",
+    subtitle: "Pre-launch alpha. We are looking for 5 SRE / platform teams using NanoRun in earnest. Free for 12 months, weekly office hours, perpetual 50% discount when cloud opens.",
     placeholder: "you@company.com",
-    button: "Request invite",
+    button: "Request a chat",
     processing: "Sending...",
-    successTitle: "You're on the list",
-    successDesc: "We'll be in touch when cloud beta opens.",
+    successTitle: "Got it",
+    successDesc: "We will be in touch within 48 hours.",
     successButton: "Close"
   }
 };

@@ -55,7 +55,7 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
         }
     });
 
-    it('routes Trigger and its Webhook/Schedule aliases to the same executor', async () => {
+    it('routes Trigger and its Webhook/Schedule/nanorun.* aliases to the same executor', async () => {
         const make = (type: string) =>
             executor.execute(
                 {
@@ -68,19 +68,67 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
                 { source: 'test' },
             );
 
-        const [a, b, c] = await Promise.all([
+        // Pin BOTH the legacy aliases (Webhook, Schedule) AND the
+        // post-pivot nanorun.* aliases that the curated palette emits.
+        // The connection-dispatch fix added these so the new node
+        // type strings actually find their executor.
+        const results = await Promise.all([
             make('Trigger'),
             make('Webhook'),
             make('Schedule'),
+            make('nanorun.webhook'),
+            make('nanorun.cron'),
         ]);
 
-        // All three should produce the same shape — triggered=true, ISO timestamp,
-        // input passthrough.
-        for (const result of [a, b, c]) {
+        for (const result of results) {
             const r = result as Record<string, unknown>;
             expect(r.triggered).toBe(true);
             expect(typeof r.timestamp).toBe('string');
             expect(r.source).toBe('test');
+        }
+    });
+
+    it('routes nanorun.httpRequest, nanorun.if, nanorun.loop, nanorun.postgres aliases', async () => {
+        // Each of these post-pivot type strings was an orphan before
+        // the connection-dispatch fix. Now they have to dispatch to
+        // their legacy-named executors via aliases. We do not assert
+        // the result shape here because each executor is exercised by
+        // its own dedicated test file — this case only pins that
+        // dispatch *finds* the executor (no NODE_NOT_FOUND throw).
+        const types = [
+            'nanorun.httpRequest',
+            'nanorun.if',
+            'nanorun.loop',
+            'nanorun.postgres',
+        ];
+        for (const type of types) {
+            // Each may resolve, throw a config error, or do an HTTP
+            // call we cannot mock here — what we forbid is the dispatcher
+            // throwing NODE_NOT_FOUND.
+            try {
+                await executor.execute(
+                    {
+                        id: 'n',
+                        type,
+                        title: type,
+                        position: { x: 0, y: 0 },
+                        config:
+                            type === 'nanorun.postgres'
+                                ? { operation: 'health' }
+                                : type === 'nanorun.httpRequest'
+                                    ? { url: 'https://invalid.local.test' }
+                                    : type === 'nanorun.if'
+                                        ? { field: 'x', operator: 'equals', value: 'y' }
+                                        : { items: [] },
+                    },
+                    {},
+                );
+            } catch (err) {
+                if (err instanceof NodeExecutionError) {
+                    expect(err.code).not.toBe(ErrorCode.NODE_NOT_FOUND);
+                }
+                // anything else is fine for this contract test
+            }
         }
     });
 

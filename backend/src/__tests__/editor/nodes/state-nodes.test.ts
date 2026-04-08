@@ -17,7 +17,7 @@ describe('TriggerNodeExecutor', () => {
 
     it('exposes type=Trigger and Webhook/Schedule aliases', () => {
         expect(exec.type).toBe('Trigger');
-        expect(exec.aliases).toEqual(['Webhook', 'Schedule']);
+        expect(exec.aliases).toEqual(['Webhook', 'Schedule', 'nanorun.webhook', 'nanorun.cron']);
     });
 
     it('stamps triggered=true and an ISO timestamp on the input', async () => {
@@ -37,7 +37,7 @@ describe('LoopNodeExecutor', () => {
 
     it('exposes type=Loop and Iterator alias', () => {
         expect(exec.type).toBe('Loop');
-        expect(exec.aliases).toEqual(['Iterator']);
+        expect(exec.aliases).toEqual(['Iterator', 'nanorun.loop']);
     });
 
     it('uses inline items when itemsPath is not set', async () => {

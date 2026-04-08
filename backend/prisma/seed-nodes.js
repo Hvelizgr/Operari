@@ -29,6 +29,12 @@ const prisma = new PrismaClient();
 
 const MAIN_PORT = { name: 'main', type: 'main' };
 
+// Curated to ONLY the step types that have a real executor today.
+// Vapor entries (github / docker / awsS3 / set / switch / errorTrigger /
+// agent) were removed in the connection-dispatch fix — having them in
+// the palette without an executor produced "Unknown node type" the
+// moment an operator tried to run them. They come back when their
+// executors land.
 const NODES = [
     // === devops ===
     {
@@ -45,45 +51,15 @@ const NODES = [
         outputs: [MAIN_PORT],
     },
     {
-        type: 'nanorun.github',
-        category: 'devops',
-        icon: 'GitBranch',
-        color: 'bg-gray-700',
-        label: { en: 'GitHub', es: 'GitHub' },
-        description: { en: 'PRs, releases, status checks', es: 'PRs, releases, status checks' },
-        inputs: [MAIN_PORT],
-        outputs: [MAIN_PORT],
-    },
-    {
-        type: 'nanorun.docker',
-        category: 'devops',
-        icon: 'Box',
-        color: 'bg-blue-500',
-        label: { en: 'Docker', es: 'Docker' },
-        description: { en: 'Build, push, run containers', es: 'Build, push, run de containers' },
-        inputs: [MAIN_PORT],
-        outputs: [MAIN_PORT],
-    },
-    {
         type: 'nanorun.postgres',
         category: 'devops',
         icon: 'Database',
         color: 'bg-blue-400',
-        label: { en: 'Postgres', es: 'Postgres' },
+        label: { en: 'Postgres (migrate)', es: 'Postgres (migrate)' },
         description: {
-            en: 'Run SQL against a Postgres database',
-            es: 'Ejecutar SQL en una base Postgres',
+            en: 'Run a versioned migration / health probe against Postgres (stub — wire prisma to make it active)',
+            es: 'Migración versionada o health probe contra Postgres (stub — falta wirear prisma)',
         },
-        inputs: [MAIN_PORT],
-        outputs: [MAIN_PORT],
-    },
-    {
-        type: 'nanorun.awsS3',
-        category: 'devops',
-        icon: 'Cloud',
-        color: 'bg-orange-500',
-        label: { en: 'AWS S3', es: 'AWS S3' },
-        description: { en: 'Upload artifacts and dump logs', es: 'Subir artifacts y dump de logs' },
         inputs: [MAIN_PORT],
         outputs: [MAIN_PORT],
     },
@@ -112,19 +88,6 @@ const NODES = [
         inputs: [],
         outputs: [MAIN_PORT],
     },
-    {
-        type: 'nanorun.errorTrigger',
-        category: 'triggers',
-        icon: 'AlertCircle',
-        color: 'bg-red-500',
-        label: { en: 'Error handler', es: 'Manejador de error' },
-        description: {
-            en: 'Catch a step error and route to recovery',
-            es: 'Capturar error de un paso y enrutar a recovery',
-        },
-        inputs: [MAIN_PORT],
-        outputs: [MAIN_PORT],
-    },
 
     // === core ===
     {
@@ -134,19 +97,6 @@ const NODES = [
         color: 'bg-indigo-500',
         label: { en: 'HTTP request', es: 'Petición HTTP' },
         description: { en: 'Call any HTTP API', es: 'Llamar a cualquier API HTTP' },
-        inputs: [MAIN_PORT],
-        outputs: [MAIN_PORT],
-    },
-    {
-        type: 'nanorun.set',
-        category: 'core',
-        icon: 'Settings',
-        color: 'bg-blue-500',
-        label: { en: 'Set variable', es: 'Set variable' },
-        description: {
-            en: 'Set a runbook variable for downstream steps',
-            es: 'Setear una variable del runbook para pasos siguientes',
-        },
         inputs: [MAIN_PORT],
         outputs: [MAIN_PORT],
     },
@@ -164,21 +114,6 @@ const NODES = [
         outputs: [
             { name: 'true', type: 'main' },
             { name: 'false', type: 'main' },
-        ],
-    },
-    {
-        type: 'nanorun.switch',
-        category: 'core',
-        icon: 'List',
-        color: 'bg-yellow-500',
-        label: { en: 'Switch', es: 'Switch' },
-        description: { en: 'Branch into multiple routes', es: 'Bifurcar en múltiples rutas' },
-        inputs: [MAIN_PORT],
-        outputs: [
-            { name: '0', type: 'main' },
-            { name: '1', type: 'main' },
-            { name: '2', type: 'main' },
-            { name: '3', type: 'main' },
         ],
     },
 
@@ -215,23 +150,8 @@ const NODES = [
         color: 'bg-pink-500',
         label: { en: 'Notify', es: 'Notificar' },
         description: {
-            en: 'Send a Slack/Discord/email notification',
-            es: 'Enviar una notificación Slack/Discord/email',
-        },
-        inputs: [MAIN_PORT],
-        outputs: [MAIN_PORT],
-    },
-
-    // === ai ===
-    {
-        type: 'agent',
-        category: 'ai',
-        icon: 'Sparkles',
-        color: 'bg-violet-500',
-        label: { en: 'AI agent', es: 'Agente IA' },
-        description: {
-            en: 'Run a Claude/GPT prompt as part of the runbook',
-            es: 'Ejecutar un prompt Claude/GPT como parte del runbook',
+            en: 'Send a Slack/Discord notification (Slack-aware error handling, retry on 429)',
+            es: 'Enviar una notificación Slack/Discord (con error handling y retry 429)',
         },
         inputs: [MAIN_PORT],
         outputs: [MAIN_PORT],

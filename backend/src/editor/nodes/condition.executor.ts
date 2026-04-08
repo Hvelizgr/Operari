@@ -24,7 +24,7 @@ import { resolveTemplate, getNestedValue } from './_shared';
 export class ConditionNodeExecutor
     implements EditorNodeExecutor<ConditionNodeConfig, ConditionResult> {
     readonly type = 'Condition';
-    readonly aliases = ['If'] as const;
+    readonly aliases = ['If', 'nanorun.if'] as const;
 
     async execute(
         config: ConditionNodeConfig,

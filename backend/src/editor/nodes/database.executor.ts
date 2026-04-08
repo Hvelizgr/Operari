@@ -34,6 +34,7 @@ const ALLOWED_OPERATIONS = new Set(['migrate', 'health', 'backup']);
 export class DatabaseNodeExecutor
     implements EditorNodeExecutor<DatabaseNodeConfig, DatabaseResult> {
     readonly type = 'Database';
+    readonly aliases = ['nanorun.postgres'] as const;
 
     async execute(
         config: DatabaseNodeConfig,

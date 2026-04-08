@@ -24,7 +24,7 @@ import { withHttpRetry } from '../../utils/retry';
 export class HttpNodeExecutor
     implements EditorNodeExecutor<HttpNodeConfig, HttpResult> {
     readonly type = 'HTTP';
-    readonly aliases = ['Api'] as const;
+    readonly aliases = ['Api', 'nanorun.httpRequest'] as const;
 
     constructor(private readonly deps: Pick<NodeExecutorDeps, 'logger'>) { }
 

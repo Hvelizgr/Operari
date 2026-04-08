@@ -168,48 +168,42 @@ const NODE_TYPES: NodeType[] = [
             { name: 'sendBody', displayName: 'Send body', type: 'boolean', default: false }
         ]
     },
-    { type: 'nanorun.set', icon: <Settings size={18} />, label: { en: 'Set variable', es: 'Set variable' }, color: 'bg-blue-500', category: 'core', description: { en: 'Set a runbook variable for downstream steps', es: 'Setear una variable del runbook para pasos siguientes' } },
 
     // === FLOW CONTROL ===
+    // Curated to step types that have a real executor today. The IF, Loop,
+    // GitHub, Docker, Postgres, AWS S3, Set Variable, Switch, Error
+    // handler, and AI Agent entries were removed in the connection-dispatch
+    // fix — they were vapor without a backing executor and produced
+    // "Unknown node type" the moment an operator tried to run them.
     {
         type: 'nanorun.if',
         icon: <GitBranch size={18} />,
         label: { en: 'IF / Condition', es: 'IF / Condición' },
         color: 'bg-yellow-500',
         category: 'flow',
-        description: { en: 'Branch on a boolean condition', es: 'Bifurcar en una condición booleana' },
+        description: { en: 'Branch on a declarative field/operator/value', es: 'Bifurcar en una condición declarativa' },
         outputs: ['true', 'false'],
         properties: [
-            { name: 'conditions', displayName: 'Condition type', type: 'options', options: [{ name: 'Boolean', value: 'boolean' }, { name: 'String', value: 'string' }, { name: 'Number', value: 'number' }], default: 'boolean' },
-            { name: 'value1', displayName: 'Value 1', type: 'string', typeOptions: { expression: true } },
-            { name: 'value2', displayName: 'Value 2', type: 'string', typeOptions: { expression: true } }
+            { name: 'field', displayName: 'Field', type: 'string', typeOptions: { expression: true } },
+            { name: 'operator', displayName: 'Operator', type: 'options', options: [
+                { name: 'equals', value: 'equals' },
+                { name: 'not equals', value: 'notEquals' },
+                { name: 'contains', value: 'contains' },
+                { name: 'greater than', value: 'greaterThan' },
+                { name: 'less than', value: 'lessThan' },
+                { name: 'is empty', value: 'isEmpty' },
+                { name: 'is not empty', value: 'isNotEmpty' },
+            ], default: 'equals' },
+            { name: 'value', displayName: 'Value', type: 'string', typeOptions: { expression: true } }
         ]
     },
-    { type: 'nanorun.switch', icon: <List size={18} />, label: { en: 'Switch', es: 'Switch' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Branch into multiple routes', es: 'Bifurcar en múltiples rutas' }, outputs: ['0', '1', '2', '3'] },
     { type: 'nanorun.loop', icon: <RefreshCw size={18} />, label: { en: 'Loop / Iterate', es: 'Loop / Iterar' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Iterate over a list or retry N times', es: 'Iterar una lista o reintentar N veces' } },
-    { type: 'nanorun.errorTrigger', icon: <AlertCircle size={18} />, label: { en: 'Error handler', es: 'Manejador de error' }, color: 'bg-red-500', category: 'flow', description: { en: 'Catch a step error and route to recovery', es: 'Capturar error de un paso y enrutar a recovery' } },
 
-    // === INTEGRATIONS (DevOps) ===
-    { type: 'nanorun.github', icon: <GitBranch size={18} />, label: { en: 'GitHub', es: 'GitHub' }, color: 'bg-gray-700', category: 'integrations', description: { en: 'PRs, releases, status checks', es: 'PRs, releases, status checks' } },
-    { type: 'nanorun.docker', icon: <Box size={18} />, label: { en: 'Docker', es: 'Docker' }, color: 'bg-blue-500', category: 'integrations', description: { en: 'Build, push, run containers', es: 'Build, push, run de containers' } },
-    { type: 'nanorun.postgres', icon: <Database size={18} />, label: { en: 'Postgres', es: 'Postgres' }, color: 'bg-blue-400', category: 'integrations', description: { en: 'Run SQL against a Postgres DB', es: 'Ejecutar SQL en una DB Postgres' } },
-    { type: 'nanorun.awsS3', icon: <Cloud size={18} />, label: { en: 'AWS S3', es: 'AWS S3' }, color: 'bg-orange-500', category: 'integrations', description: { en: 'Upload artifacts and dump logs', es: 'Subir artifacts y dump de logs' } },
-
-    // === AI ===
-    {
-        type: 'agent',
-        icon: <MessageSquare size={18} />,
-        label: { en: 'AI agent step', es: 'Paso del agente AI' },
-        color: 'bg-rose-500',
-        category: 'ai',
-        description: { en: 'Run a prompt through the runbook agent (Claude / GPT)', es: 'Correr un prompt en el agente del runbook (Claude / GPT)' },
-        inputs: ['main'],
-        outputs: ['main'],
-        properties: [
-            { name: 'prompt', displayName: 'Prompt', type: 'string', typeOptions: { rows: 5, expression: true }, default: 'Summarize the previous step output' },
-            { name: 'model', displayName: 'Model', type: 'options', options: [{ name: 'Claude Sonnet 4.6', value: 'claude-sonnet-4-6' }, { name: 'GPT-4o', value: 'gpt-4o' }], default: 'claude-sonnet-4-6' },
-        ]
-    },
+    // === INTEGRATIONS ===
+    // Postgres is the only integration with a real executor (stub —
+    // restricted to migrate/health/backup operations). For everything
+    // else (GitHub, Docker, AWS, Slack-as-step), use a `shell` step.
+    { type: 'nanorun.postgres', icon: <Database size={18} />, label: { en: 'Postgres (migrate)', es: 'Postgres (migrate)' }, color: 'bg-blue-400', category: 'integrations', description: { en: 'Run a versioned migration / health probe (stub — wire prisma to make it active)', es: 'Migración versionada o health probe (stub — falta wirear prisma)' } },
 
     // === ORGANIZATION ===
     {
