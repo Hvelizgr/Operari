@@ -12,7 +12,7 @@
         "db:push": "prisma db push",
         "db:migrate": "prisma migrate dev",
         "db:studio": "prisma studio",
-        "db:seed": "npx ts-node prisma/seed-nodes.ts",
+        "db:seed": "node prisma/seed-nodes.js",
         "lint": "tsc --noEmit"
     },
     "dependencies": {

@@ -56,17 +56,45 @@ services:
   # One-shot service that applies prisma migrations AND seeds the curated
   # node-type catalog. Backend depends on this completing successfully so
   # the editor never boots against an empty NodeType table.
+  #
+  # The Dockerfile creates `expressjs` as a --system user with no home
+  # directory, which makes npx (used by `prisma` and `ts-node`) fail
+  # with EACCES because it cannot create its cache under /home/expressjs.
+  # Two overrides keep this lean without rebuilding the image:
+  #   - user: "0:0" runs as root inside the container so /tmp + the
+  #     copied node_modules are fully writable
+  #   - HOME=/tmp gives npm/npx a writable cache directory
   migrate:
     build:
       context: .
       dockerfile: backend/Dockerfile
     container_name: nanorun-migrate
+    user: "0:0"
     environment:
       DATABASE_URL: postgresql://nanorun:nanorun@postgres:5432/nanorun?schema=public
+      HOME: /tmp
+    # node_modules is hoisted to /app/node_modules in the monorepo
+    # build, so the prisma .bin shim lives one level up from /app/backend.
+    # The seed file is plain CommonJS (.js) so we do not need ts-node
+    # in the runtime image at all.
+    #
+    # Uses `prisma db push` rather than `migrate deploy` because
+    # several core tables (Approval, Webhook, Execution, NodeLog,
+    # ConnectedAccount, ...) live only in the schema and not in any
+    # committed migration — they were originally added via db push
+    # during development. db push is the right call for self-host
+    # single-tenant: it syncs the schema directly without requiring
+    # a clean migration history.
+    #
+    # IMPORTANT: --accept-data-loss is safe on a fresh install but
+    # can drop columns/tables on a schema downgrade. For multi-tenant
+    # cloud and any production upgrade flow, the right move is to
+    # generate proper migrations from schema.prisma and switch back
+    # to `prisma migrate deploy`. Tracked as a pre-launch backlog item.
     command: >
       sh -c "
-        npx prisma migrate deploy &&
-        npx ts-node prisma/seed-nodes.ts
+        node /app/node_modules/.bin/prisma db push --skip-generate --accept-data-loss &&
+        node prisma/seed-nodes.js
       "
     depends_on:
       postgres:

@@ -1,19 +1,22 @@
-import { PrismaClient } from '@prisma/client';
+const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
 /**
  * NanoRun curated node catalog.
  *
- * This seed populates the `NodeType` table with the runbook-relevant
- * subset of step types — the same ~20 nodes the editor's NodePalette
- * (frontend/components/Node/NodePalette.tsx) renders. The previous
+ * Plain CommonJS so it runs under `node prisma/seed-nodes.js` without
+ * any TypeScript / ts-node / tsx machinery — the previous .ts version
+ * required hooking ts-node from a deeply nested location which broke
+ * under Node 20's ESM-default loading. The seed is data + a single
+ * upsert loop, so the type information was nice-to-have but not
+ * load-bearing.
+ *
+ * The catalog is the runbook-relevant subset of step types — the
+ * same ~20 nodes the editor's NodePalette renders. The previous
  * NanoFlow seed had 70+ n8n-era nodes (Google Sheets, Mailchimp,
  * Twitter, LangChain, etc.) which were dropped during the post-pivot
- * cleanup — they had no role in operational runbook automation.
- *
- * The list is grouped by the seven canonical categories:
- *   devops · triggers · core · flow · integrations · ai · organization
+ * cleanup.
  *
  * Type-string convention: every step type uses the canonical
  * `nanorun.*` prefix (post pivot rename, see migration
@@ -24,20 +27,9 @@ const prisma = new PrismaClient();
  * them by exact string.
  */
 
-interface NodeSeed {
-    type: string;
-    category: string;
-    icon: string;
-    color: string;
-    label: { en: string; es: string };
-    description: { en: string; es: string };
-    inputs: Array<{ name: string; type: string }>;
-    outputs: Array<{ name: string; type: string }>;
-}
+const MAIN_PORT = { name: 'main', type: 'main' };
 
-const main = { name: 'main', type: 'main' };
-
-const NODES: NodeSeed[] = [
+const NODES = [
     // === devops ===
     {
         type: 'shell',
@@ -49,8 +41,8 @@ const NODES: NodeSeed[] = [
             en: 'Run kubectl, aws, helm, bash inside a sandboxed runner',
             es: 'Ejecutar kubectl, aws, helm, bash en un runner aislado',
         },
-        inputs: [main],
-        outputs: [main],
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
     {
         type: 'nanorun.github',
@@ -59,8 +51,8 @@ const NODES: NodeSeed[] = [
         color: 'bg-gray-700',
         label: { en: 'GitHub', es: 'GitHub' },
         description: { en: 'PRs, releases, status checks', es: 'PRs, releases, status checks' },
-        inputs: [main],
-        outputs: [main],
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
     {
         type: 'nanorun.docker',
@@ -68,12 +60,9 @@ const NODES: NodeSeed[] = [
         icon: 'Box',
         color: 'bg-blue-500',
         label: { en: 'Docker', es: 'Docker' },
-        description: {
-            en: 'Build, push, run containers',
-            es: 'Build, push, run de containers',
-        },
-        inputs: [main],
-        outputs: [main],
+        description: { en: 'Build, push, run containers', es: 'Build, push, run de containers' },
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
     {
         type: 'nanorun.postgres',
@@ -85,8 +74,8 @@ const NODES: NodeSeed[] = [
             en: 'Run SQL against a Postgres database',
             es: 'Ejecutar SQL en una base Postgres',
         },
-        inputs: [main],
-        outputs: [main],
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
     {
         type: 'nanorun.awsS3',
@@ -94,12 +83,9 @@ const NODES: NodeSeed[] = [
         icon: 'Cloud',
         color: 'bg-orange-500',
         label: { en: 'AWS S3', es: 'AWS S3' },
-        description: {
-            en: 'Upload artifacts and dump logs',
-            es: 'Subir artifacts y dump de logs',
-        },
-        inputs: [main],
-        outputs: [main],
+        description: { en: 'Upload artifacts and dump logs', es: 'Subir artifacts y dump de logs' },
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
 
     // === triggers ===
@@ -114,7 +100,7 @@ const NODES: NodeSeed[] = [
             es: 'Disparar desde una llamada HTTP externa (Sentry, Datadog, GitHub)',
         },
         inputs: [],
-        outputs: [main],
+        outputs: [MAIN_PORT],
     },
     {
         type: 'nanorun.cron',
@@ -122,12 +108,9 @@ const NODES: NodeSeed[] = [
         icon: 'Clock',
         color: 'bg-green-500',
         label: { en: 'Schedule', es: 'Programación' },
-        description: {
-            en: 'Run on a cron schedule',
-            es: 'Ejecutar según un cron',
-        },
+        description: { en: 'Run on a cron schedule', es: 'Ejecutar según un cron' },
         inputs: [],
-        outputs: [main],
+        outputs: [MAIN_PORT],
     },
     {
         type: 'nanorun.errorTrigger',
@@ -139,8 +122,8 @@ const NODES: NodeSeed[] = [
             en: 'Catch a step error and route to recovery',
             es: 'Capturar error de un paso y enrutar a recovery',
         },
-        inputs: [main],
-        outputs: [main],
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
 
     // === core ===
@@ -150,12 +133,9 @@ const NODES: NodeSeed[] = [
         icon: 'Globe',
         color: 'bg-indigo-500',
         label: { en: 'HTTP request', es: 'Petición HTTP' },
-        description: {
-            en: 'Call any HTTP API',
-            es: 'Llamar a cualquier API HTTP',
-        },
-        inputs: [main],
-        outputs: [main],
+        description: { en: 'Call any HTTP API', es: 'Llamar a cualquier API HTTP' },
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
     {
         type: 'nanorun.set',
@@ -167,8 +147,8 @@ const NODES: NodeSeed[] = [
             en: 'Set a runbook variable for downstream steps',
             es: 'Setear una variable del runbook para pasos siguientes',
         },
-        inputs: [main],
-        outputs: [main],
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
     {
         type: 'nanorun.if',
@@ -180,7 +160,7 @@ const NODES: NodeSeed[] = [
             en: 'Branch on a declarative condition',
             es: 'Bifurcar según una condición declarativa',
         },
-        inputs: [main],
+        inputs: [MAIN_PORT],
         outputs: [
             { name: 'true', type: 'main' },
             { name: 'false', type: 'main' },
@@ -192,11 +172,8 @@ const NODES: NodeSeed[] = [
         icon: 'List',
         color: 'bg-yellow-500',
         label: { en: 'Switch', es: 'Switch' },
-        description: {
-            en: 'Branch into multiple routes',
-            es: 'Bifurcar en múltiples rutas',
-        },
-        inputs: [main],
+        description: { en: 'Branch into multiple routes', es: 'Bifurcar en múltiples rutas' },
+        inputs: [MAIN_PORT],
         outputs: [
             { name: '0', type: 'main' },
             { name: '1', type: 'main' },
@@ -216,8 +193,8 @@ const NODES: NodeSeed[] = [
             en: 'Iterate over a list or retry N times',
             es: 'Iterar una lista o reintentar N veces',
         },
-        inputs: [main],
-        outputs: [main],
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
     {
         type: 'wait',
@@ -225,12 +202,9 @@ const NODES: NodeSeed[] = [
         icon: 'Clock',
         color: 'bg-amber-500',
         label: { en: 'Wait', es: 'Esperar' },
-        description: {
-            en: 'Pause for a fixed duration',
-            es: 'Pausar por una duración fija',
-        },
-        inputs: [main],
-        outputs: [main],
+        description: { en: 'Pause for a fixed duration', es: 'Pausar por una duración fija' },
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
 
     // === integrations ===
@@ -244,8 +218,8 @@ const NODES: NodeSeed[] = [
             en: 'Send a Slack/Discord/email notification',
             es: 'Enviar una notificación Slack/Discord/email',
         },
-        inputs: [main],
-        outputs: [main],
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
 
     // === ai ===
@@ -259,8 +233,8 @@ const NODES: NodeSeed[] = [
             en: 'Run a Claude/GPT prompt as part of the runbook',
             es: 'Ejecutar un prompt Claude/GPT como parte del runbook',
         },
-        inputs: [main],
-        outputs: [main],
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
 
     // === organization ===
@@ -274,8 +248,8 @@ const NODES: NodeSeed[] = [
             en: 'Pause until a human approves the next step',
             es: 'Pausar hasta que un humano apruebe el siguiente paso',
         },
-        inputs: [main],
-        outputs: [main],
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
     },
     {
         type: 'custom.frame',
