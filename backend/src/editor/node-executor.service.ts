@@ -25,6 +25,14 @@ import { ShellCommandNodeExecutor } from './nodes/shell-command.executor';
 import type { EditorNodeExecutor } from './nodes/_shared';
 import { createExecutorRegistry } from '../runbook/executors';
 import type { StepExecutor, ExecutorContext } from '../runbook/types/executor.types';
+import {
+    SecretTemplateResolver,
+    SecretReferenceError,
+} from '../runbook/secrets/secret-template-resolver';
+import { ConnectedAccountService } from '../security/connected-account.service';
+import { SecretCipher } from '../security/secret-cipher';
+import { SecretReader } from '../security/secret-reader';
+import { AuditService } from '../audit/audit.service';
 import { socketService } from './execution/socket.service';
 import {
     NodeExecutionError,
@@ -61,10 +69,28 @@ export class NodeExecutor {
     // Kept separate from editorRegistry because the runbook executors use a
     // different context shape; step 6 of ADR 0002 will merge the two.
     private runbookRegistry: Map<string, StepExecutor>;
+    /**
+     * Pre-resolves `{{secrets.<id>}}` references before each runbook
+     * step runs. Lazily built the first time a step config actually
+     * references a secret — that way `new NodeExecutor()` in tests with
+     * no encryption key still works as long as no test wires up a step
+     * that uses `secrets.*`.
+     *
+     * `null` = not yet built. `undefined` after build = no resolver
+     * could be constructed (no encryption key in env); subsequent
+     * lookups will throw a clear error instead of trying again every
+     * call.
+     */
+    private secretResolver: SecretTemplateResolver | null | undefined = null;
+    private readonly secretResolverOverride: SecretTemplateResolver | null;
 
-    constructor(prisma?: PrismaClient) {
+    constructor(
+        prisma?: PrismaClient,
+        options: { secretResolver?: SecretTemplateResolver | null } = {},
+    ) {
         this.prisma = prisma || new PrismaClient();
         this.logger = Logger.getInstance();
+        this.secretResolverOverride = options.secretResolver ?? null;
 
         if (process.env.SMTP_HOST) {
             this.emailTransporter = nodemailer.createTransport({
@@ -149,6 +175,38 @@ export class NodeExecutor {
     }
 
     /**
+     * Lazily build the SecretTemplateResolver. We do not construct it
+     * eagerly because tests instantiate `new NodeExecutor()` without an
+     * encryption key; the resolver is only required when a step config
+     * actually contains a `{{secrets.<id>}}` reference.
+     *
+     * Returns `undefined` if no encryption key is configured. Callers
+     * decide what to do — usually throw a clear error mentioning the
+     * missing env var.
+     */
+    private getSecretResolver(): SecretTemplateResolver | undefined {
+        if (this.secretResolverOverride) return this.secretResolverOverride;
+        if (this.secretResolver !== null) return this.secretResolver ?? undefined;
+
+        // Read process.env directly instead of importing the strict
+        // zod-validated `env` object: that module calls process.exit(1)
+        // when DATABASE_URL/JWT_SECRET are missing, which breaks unit
+        // tests that legitimately construct NodeExecutor without a real
+        // env (the dispatcher tests, for one).
+        const key = process.env.ENCRYPTION_KEY;
+        if (!key || key.length < 32) {
+            this.secretResolver = undefined;
+            return undefined;
+        }
+        const cipher = new SecretCipher(key);
+        const audit = new AuditService(this.prisma);
+        const reader = new SecretReader(cipher, audit);
+        const accounts = new ConnectedAccountService(this.prisma, cipher, reader, audit);
+        this.secretResolver = new SecretTemplateResolver(accounts);
+        return this.secretResolver;
+    }
+
+    /**
      * NanoRun: try to execute the node using the new runbook executor registry.
      * Returns null if the node type is not registered (caller should fall through
      * to the legacy switch statement).
@@ -162,12 +220,59 @@ export class NodeExecutor {
         const executor = this.runbookRegistry.get(node.type);
         if (!executor) return null;
 
+        const stepId = node.id;
+        const runId = executionId ?? 'unknown';
+        const effectiveTenantId = tenantId ?? 'default-tenant';
+        const config = node.config ?? {};
+
+        // Pre-resolve `{{secrets.<id>}}` references before the executor
+        // runs. Done here (not inside resolveTemplate) so the template
+        // engine stays sync, audit fires once per unique secret, and
+        // missing/cross-tenant references fail fast with a clear error
+        // before the executor opens a socket.
+        let secrets: Record<string, string> | undefined;
+        const refs = SecretTemplateResolver.extractRefs(config);
+        if (refs.length > 0) {
+            const resolver = this.getSecretResolver();
+            if (!resolver) {
+                throw new NodeExecutionError({
+                    nodeId: node.id,
+                    nodeName: node.title,
+                    nodeType: node.type,
+                    message:
+                        `Step references {{secrets.${refs[0]}}} but ENCRYPTION_KEY is not set. ` +
+                        `Configure ENCRYPTION_KEY in the backend env (32+ chars) to enable runtime secret resolution.`,
+                    code: ErrorCode.NODE_EXECUTION_FAILED,
+                });
+            }
+            try {
+                secrets = await resolver.resolve({
+                    config,
+                    tenantId: effectiveTenantId,
+                    runId,
+                    stepId,
+                });
+            } catch (err) {
+                if (err instanceof SecretReferenceError) {
+                    throw new NodeExecutionError({
+                        nodeId: node.id,
+                        nodeName: node.title,
+                        nodeType: node.type,
+                        message: err.message,
+                        code: ErrorCode.NODE_EXECUTION_FAILED,
+                    });
+                }
+                throw err;
+            }
+        }
+
         const context: ExecutorContext = {
-            runId: executionId ?? 'unknown',
-            stepId: node.id,
+            runId,
+            stepId,
             variables: (input as Record<string, unknown>) ?? {},
             previousOutputs: (input as Record<string, unknown>) ?? {},
-            tenantId: tenantId ?? 'default-tenant',
+            tenantId: effectiveTenantId,
+            secrets,
             emit: executionId
                 ? (event) => {
                     socketService.emitLog(executionId, event.text.trimEnd(), {

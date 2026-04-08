@@ -10,6 +10,7 @@
 
 import { NodeExecutor } from '../../editor/node-executor.service';
 import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
+import { SecretTemplateResolver } from '../../runbook/secrets/secret-template-resolver';
 
 jest.mock('nodemailer');
 jest.mock('../../services/logger.service', () => ({
@@ -210,5 +211,138 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
             { x: 1, y: 'two' },
         );
         expect(result).toEqual({ x: 1, y: 'two' });
+    });
+
+    describe('secret pre-resolution for runbook nodes', () => {
+        // The dispatcher pre-resolves `{{secrets.<id>}}` references
+        // before invoking the runbook executor (see
+        // node-executor.service.ts → tryRunbookExecutor). These tests
+        // pin the wiring without needing real cipher / postgres /
+        // network — the SecretTemplateResolver is stubbed via the
+        // constructor option.
+
+        const originalKey = process.env.ENCRYPTION_KEY;
+        afterEach(() => {
+            if (originalKey === undefined) delete process.env.ENCRYPTION_KEY;
+            else process.env.ENCRYPTION_KEY = originalKey;
+        });
+
+        it('throws a clear error when a runbook step references a secret but no resolver can be built', async () => {
+            // No ENCRYPTION_KEY → lazy resolver returns undefined →
+            // dispatcher must convert that into a NodeExecutionError
+            // mentioning the env var instead of letting an opaque
+            // error reach the executor.
+            delete process.env.ENCRYPTION_KEY;
+            const noResolverExecutor = new NodeExecutor();
+
+            await expect(
+                noResolverExecutor.execute(
+                    {
+                        id: 'notify-1',
+                        type: 'notify',
+                        title: 'Notify',
+                        position: { x: 0, y: 0 },
+                        config: {
+                            channel: 'slack',
+                            webhookUrl: 'https://hooks.slack.com/{{secrets.gh-bot}}',
+                            message: 'hi',
+                        },
+                    },
+                    {},
+                    'tenant-1',
+                    'run-1',
+                ),
+            ).rejects.toMatchObject({
+                code: ErrorCode.NODE_EXECUTION_FAILED,
+                message: expect.stringContaining('ENCRYPTION_KEY'),
+            });
+        });
+
+        it('passes runId, stepId, and tenantId through to the resolver', async () => {
+            const calls: Array<{
+                tenantId: string;
+                runId: string;
+                stepId: string;
+            }> = [];
+            const stub = {
+                async resolve(input: {
+                    tenantId: string;
+                    runId: string;
+                    stepId: string;
+                }): Promise<Record<string, string>> {
+                    calls.push({
+                        tenantId: input.tenantId,
+                        runId: input.runId,
+                        stepId: input.stepId,
+                    });
+                    return { 'gh-bot': 'PLAINTEXT_TOKEN' };
+                },
+            } as unknown as SecretTemplateResolver;
+
+            const stubbedExecutor = new NodeExecutor(undefined, {
+                secretResolver: stub,
+            });
+
+            // The notify step will fail when it tries to fetch the
+            // (now resolved) URL — that is fine. We only assert that
+            // the resolver was called with the right context BEFORE
+            // any traffic happened.
+            await stubbedExecutor
+                .execute(
+                    {
+                        id: 'notify-step',
+                        type: 'notify',
+                        title: 'Notify',
+                        position: { x: 0, y: 0 },
+                        config: {
+                            channel: 'slack',
+                            webhookUrl:
+                                'https://hooks.slack.com/services/{{secrets.gh-bot}}',
+                            message: 'deploy ok',
+                        },
+                    },
+                    {},
+                    'tenant-42',
+                    'run-99',
+                )
+                .catch(() => {
+                    /* notify failure expected without a real webhook */
+                });
+
+            expect(calls).toEqual([
+                {
+                    tenantId: 'tenant-42',
+                    runId: 'run-99',
+                    stepId: 'notify-step',
+                },
+            ]);
+        });
+
+        it('does not invoke the resolver when the config has no secret references', async () => {
+            const stub = {
+                resolve: jest.fn(),
+            } as unknown as SecretTemplateResolver;
+            const stubbedExecutor = new NodeExecutor(undefined, {
+                secretResolver: stub,
+            });
+
+            // Use a runbook node type ('wait') that does not need
+            // network or templates — pinpoints that the
+            // extractRefs short-circuit prevents resolver calls.
+            await stubbedExecutor.execute(
+                {
+                    id: 'wait-step',
+                    type: 'wait',
+                    title: 'Wait',
+                    position: { x: 0, y: 0 },
+                    config: { durationMs: 1 },
+                },
+                {},
+                'tenant-1',
+                'run-1',
+            );
+
+            expect((stub.resolve as jest.Mock)).not.toHaveBeenCalled();
+        });
     });
 });

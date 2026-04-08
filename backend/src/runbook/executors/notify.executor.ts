@@ -13,16 +13,11 @@ export interface NotifyConfig {
     channel: 'slack' | 'discord' | 'webhook';
     /**
      * Webhook URL of the destination. Supports template substitution
-     * via `{{vars.foo}}` so the URL token can be injected at trigger
-     * time without living in the YAML.
-     *
-     * NOTE: `{{secrets.<id>}}` references are NOT yet resolved at the
-     * runbook executor layer — see backend/src/runbook/types/executor.types.ts
-     * `resolveTemplate`. The secret picker UI (R3.4) lets you select
-     * a connected account, but the runtime resolution path is still
-     * pending. Until then, pass the webhook URL through `vars` or
-     * inline it (acceptable for self-host since the YAML never leaves
-     * your repo).
+     * via `{{vars.foo}}` (set per trigger) and `{{secrets.<id>}}`
+     * (resolved from a connected account at run time — pre-resolved
+     * by SecretTemplateResolver before this executor is invoked, so
+     * the audit chain records exactly one `secret.accessed` event per
+     * unique account per step).
      */
     webhookUrl: string;
     /** Message body (supports template substitution). */

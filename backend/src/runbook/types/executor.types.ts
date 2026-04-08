@@ -16,6 +16,21 @@ export interface ExecutorContext {
     previousOutputs: Record<string, unknown>;
     /** Tenant ID for multi-tenancy isolation */
     tenantId: string;
+    /**
+     * Plaintext secrets pre-resolved by the orchestrator before the step
+     * runs. Keyed by `ConnectedAccount.id`. Populated by
+     * SecretTemplateResolver — never written by an executor and never
+     * persisted. The map only contains the IDs that the step's config
+     * actually references; reading any other key in `resolveTemplate`
+     * resolves to an empty string just like an unknown var.
+     *
+     * Pre-resolution (instead of an async lookup inside `resolveTemplate`)
+     * keeps the template engine sync, makes one audit event per unique
+     * secret per step instead of one per substitution site, and lets the
+     * step fail fast with a clear error before the executor sends any
+     * traffic.
+     */
+    secrets?: Record<string, string>;
     /** Optional callback to stream output (stdout/stderr/log lines) in real time */
     emit?: (event: ExecutorEvent) => void;
 }
@@ -47,8 +62,14 @@ export interface StepExecutor<TConfig = unknown> {
 }
 
 /**
- * Resolve template strings like "{{vars.foo}}" or "{{steps.deploy.output.url}}"
- * against the executor context.
+ * Resolve template strings like "{{vars.foo}}", "{{steps.deploy.output.url}}",
+ * or "{{secrets.<connected-account-id>}}" against the executor context.
+ *
+ * `secrets.*` is read from `context.secrets`, which the orchestrator
+ * populates by pre-resolving every `{{secrets.X}}` reference in the
+ * step's config (see SecretTemplateResolver). The lookup is sync on
+ * purpose — async fan-out happens once at the orchestrator level so
+ * each unique secret produces exactly one audit event per step.
  */
 export function resolveTemplate(template: string, context: ExecutorContext): string {
     if (typeof template !== 'string') return String(template);
@@ -64,6 +85,9 @@ export function resolveTemplate(template: string, context: ExecutorContext): str
             segments.shift();
         } else if (root === 'steps') {
             source = context.previousOutputs;
+            segments.shift();
+        } else if (root === 'secrets') {
+            source = context.secrets ?? {};
             segments.shift();
         } else {
             // Fallback: search variables first, then previous outputs
