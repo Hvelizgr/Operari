@@ -42,6 +42,8 @@ export class ShellCommandNodeExecutor
         config: ShellCommandNodeConfig,
         input: ExecutionInput,
         errorContext: NodeErrorContext,
+        tenantId?: string,
+        executionId?: string,
     ): Promise<ShellCommandResult> {
         const { command } = config;
         if (!command) {
@@ -66,11 +68,15 @@ export class ShellCommandNodeExecutor
         const shellConfig: ShellConfig = { command };
 
         const context: ExecutorContext = {
-            runId: 'editor-preview',
+            runId: executionId ?? 'editor-preview',
             stepId: errorContext.nodeId,
             variables: (input as Record<string, unknown>) ?? {},
             previousOutputs: (input as Record<string, unknown>) ?? {},
-            tenantId: 'default-tenant',
+            // Prefer the real tenant from the dispatcher; only fall back
+            // to 'default-tenant' on the editor preview path where the
+            // executor is invoked WITHOUT going through ExecutionService
+            // (e.g. test-run-this-step button in the editor).
+            tenantId: tenantId ?? 'default-tenant',
         };
 
         const result = await shellExecutor.execute(shellConfig, context);

@@ -1,6 +1,8 @@
-import { streamText, type ModelMessage, type StreamTextResult } from 'ai';
+import { streamText, stepCountIs, type ModelMessage, type StreamTextResult } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { openai } from '@ai-sdk/openai';
+import type { PrismaClient } from '@prisma/client';
+import { buildOrchestratorTools } from './tools';
 
 /**
  * NanoRun AI orchestrator — single-agent assistant for runbook authors
@@ -43,6 +45,22 @@ soften jargon. Saying "OOMKilled" or "exit 137" is more useful than
   by the runtime through ConnectedAccountService.
 - Templates use \`{{vars.foo}}\` and \`{{steps.<id>.output.bar}}\`.
 - Runs emit per-step logs (stdout/stderr/exit code) durably.
+
+## Tools you can call
+You have read-only access to the tenant's data via these tools:
+- **list_recent_runs(status?, limit?)** — pull recent executions when
+  the user asks "what failed today", "show me the last runs", etc.
+- **get_run_details(runId)** — fetch one run with all its step
+  outputs/errors. Use this whenever you need to diagnose a specific
+  failure or the user references a run id.
+- **list_runbooks(category?)** — list the runbooks defined in this
+  tenant when the user asks "what do I have automated".
+
+Call tools eagerly when the question is about runtime state — do not
+guess or invent run ids, runbook names, or error messages. If a tool
+returns no results, say so plainly. After a tool call, weave the
+results into your normal Diagnose / Author response shape; do not
+just dump raw JSON at the user.
 
 ## Two response modes
 
@@ -104,12 +122,32 @@ function getModel() {
     return anthropic(modelName);
 }
 
+export interface OrchestratorContext {
+    /** Required for tool calls — every tool is bound to this tenant. */
+    tenantId?: string;
+    /** Prisma client for tool execution. Optional for tool-less callers. */
+    prisma?: PrismaClient;
+}
+
 export function streamOrchestratorReply(
     messages: ModelMessage[],
-): StreamTextResult<Record<string, never>, never> {
+    context: OrchestratorContext = {},
+): StreamTextResult<any, any> {
+    const { tenantId, prisma } = context;
+    const tools =
+        tenantId && prisma ? buildOrchestratorTools(prisma, tenantId) : undefined;
+
     return streamText({
         model: getModel(),
         system: SYSTEM_PROMPT,
         messages,
+        ...(tools
+            ? {
+                  tools,
+                  // Allow up to 4 tool-call → response cycles per user turn so
+                  // the model can chain (e.g. list_recent_runs → get_run_details).
+                  stopWhen: stepCountIs(4),
+              }
+            : {}),
     });
 }

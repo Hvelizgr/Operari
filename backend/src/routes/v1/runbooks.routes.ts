@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../server';
 import { requireApiKey, ApiKeyRequest } from '../../middleware/api-key.middleware';
 import { ExecutionService } from '../../editor/execution/execution.service';
+import { logger } from '../../config/logger.config';
 
 const router = Router();
 
@@ -93,7 +94,7 @@ router.post(
             if (err instanceof z.ZodError) {
                 return res.status(400).json({ error: 'Invalid body', details: err.errors });
             }
-            console.error('Trigger error:', err);
+            logger.error({ err }, 'Trigger runbook error');
             res.status(500).json({ error: 'Failed to trigger runbook' });
         }
     },

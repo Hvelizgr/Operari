@@ -306,6 +306,7 @@ export class ExecutionService {
             const contextLogger = this.logger.child(executionContext);
             contextLogger.info('Workflow execution started');
             socketService.emitLog(execution.id, 'Workflow execution started');
+            socketService.emitExecutionStatus(execution.id, 'RUNNING');
 
             await this.safeAudit('run.started', {
                 tenantId,
@@ -353,12 +354,19 @@ export class ExecutionService {
             // so dashboards can group runs by where they actually executed.
             // Wrapped in try/catch because tracer.startRun is best-effort
             // observability and must never block a real execution.
+            // Tenant resolution: prefer the explicitly passed tenantId.
+            // The 'default-tenant' fallback is preserved only because
+            // self-host single-user mode reaches this path with an
+            // anonymous user, and the tracer expects a non-empty tag.
+            // Multi-tenant cloud paths always pass a real tenantId,
+            // so the fallback never fires there.
+            const effectiveTenantId = tenantId ?? workflow.tenantId ?? 'default-tenant';
             try {
                 this.tracer?.startRun({
                     runId: execution.id,
                     runbookId: workflow.id,
                     runbookName: workflow.name,
-                    tenantId: tenantId ?? 'default-tenant',
+                    tenantId: effectiveTenantId,
                     trigger: String(trigger),
                     runnerType: this.safeRunnerType(),
                 });
@@ -951,6 +959,11 @@ export class ExecutionService {
                 },
             });
 
+            // Notify any open client (run detail page, dashboard live
+            // tile) that the run reached its terminal state without
+            // having to poll. Mirror the existing PAUSED emit.
+            socketService.emitExecutionStatus(executionId, 'SUCCESS');
+
             contextLogger.info('Workflow execution completed successfully', { duration });
 
             await this.safeAudit('run.completed', {
@@ -1009,6 +1022,8 @@ export class ExecutionService {
                     duration,
                 },
             });
+
+            socketService.emitExecutionStatus(executionId, 'FAILED');
 
             contextLogger.error('Workflow execution failed', {
                 error: wrappedError,

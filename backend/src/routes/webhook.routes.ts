@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../server';
 import { ExecutionService } from '../editor/execution/execution.service';
 import { WebhookService } from '../runbook/services/webhook.service';
+import { EventAgentService } from '../agent/services/event-agent.service';
+import { logger } from '../config/logger.config';
 
 const router = Router();
 
@@ -15,6 +17,12 @@ let _webhookService: WebhookService | null = null;
 function getWebhookService() {
     if (!_webhookService) _webhookService = new WebhookService(prisma);
     return _webhookService;
+}
+
+let _eventAgentService: EventAgentService | null = null;
+function getEventAgentService() {
+    if (!_eventAgentService) _eventAgentService = new EventAgentService(prisma);
+    return _eventAgentService;
 }
 
 /**
@@ -86,6 +94,32 @@ async function handleWebhook(req: Request, res: Response) {
 
     // Update webhook stats async
     service.recordTrigger(webhook.id).catch(() => { /* ignore */ });
+
+    // Fan out to EventAgents bound to this webhook. Additive: the
+    // webhook's own bound runbook always fires (legacy single-mapping
+    // semantics); agents add a parallel "this payload also matches X,
+    // trigger Y" branch. Non-blocking — the webhook responds to the
+    // sender as soon as the primary trigger lands.
+    const execService = getExecutionService();
+    const tenantId = webhook.tenantId;
+    const userId = webhook.workflow.userId;
+    getEventAgentService()
+        .processWebhookEvent(webhook.id, req.body || {}, async (workflowId, vars) => {
+            const run = await execService.execute({
+                workflowId,
+                userId,
+                trigger: 'WEBHOOK',
+                input: vars,
+                tenantId,
+            });
+            return { id: run.id };
+        })
+        .catch((err) => {
+            // Never let a misbehaving agent take down the webhook receiver.
+            // The error is already logged inside the service; the parent
+            // request has already been answered by the time this resolves.
+            logger.error({ err, webhookId: webhook.id }, 'EventAgent fan-out failed');
+        });
 
     res.status(202).json({
         runId: execution.id,

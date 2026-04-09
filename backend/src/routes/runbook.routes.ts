@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../server';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
-import { SchedulerService } from '../services/scheduler.service';
+import { SchedulerService, computeNextRunAt } from '../services/scheduler.service';
 import {
     workflowDefinitionSchema,
     workflowNodeSchema,
@@ -158,8 +158,70 @@ router.get('/', async (req: AuthRequest, res) => {
             prisma.workflow.count({ where }),
         ]);
 
+        // Enrich each runbook with its last run + 30-day success rate so
+        // the Runbooks page can render rich cards in a single round-trip.
+        // Two queries fan out across the page:
+        //   1. last execution per workflow (one findMany, sorted desc)
+        //   2. groupBy status over the last 30 days
+        // Both are bounded by the page size (default 10).
+        const ids = workflows.map((w) => w.id);
+        let lastRunByWf = new Map<string, { startedAt: Date; status: string }>();
+        let successRateByWf = new Map<string, number>();
+        if (ids.length > 0) {
+            const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            const [recentRuns, statusGroups] = await Promise.all([
+                prisma.execution.findMany({
+                    where: { workflowId: { in: ids } },
+                    orderBy: { startedAt: 'desc' },
+                    select: { workflowId: true, startedAt: true, status: true },
+                }),
+                prisma.execution.groupBy({
+                    by: ['workflowId', 'status'],
+                    where: {
+                        workflowId: { in: ids },
+                        startedAt: { gte: since30d },
+                    },
+                    _count: { _all: true },
+                }),
+            ]);
+            for (const r of recentRuns) {
+                if (!lastRunByWf.has(r.workflowId)) {
+                    lastRunByWf.set(r.workflowId, {
+                        startedAt: r.startedAt,
+                        status: r.status,
+                    });
+                }
+            }
+            const totalsByWf = new Map<string, number>();
+            const successByWf = new Map<string, number>();
+            for (const g of statusGroups) {
+                totalsByWf.set(
+                    g.workflowId,
+                    (totalsByWf.get(g.workflowId) ?? 0) + g._count._all,
+                );
+                if (g.status === 'SUCCESS') {
+                    successByWf.set(
+                        g.workflowId,
+                        (successByWf.get(g.workflowId) ?? 0) + g._count._all,
+                    );
+                }
+            }
+            for (const [wfId, total] of totalsByWf) {
+                if (total > 0) {
+                    successRateByWf.set(wfId, (successByWf.get(wfId) ?? 0) / total);
+                }
+            }
+        }
+
+        const enriched = workflows.map((w) => ({
+            ...w,
+            lastRunAt: lastRunByWf.get(w.id)?.startedAt ?? null,
+            lastRunStatus: lastRunByWf.get(w.id)?.status ?? null,
+            successRate30d: successRateByWf.get(w.id) ?? null,
+        }));
+
         res.json({
-            workflows,
+            workflows: enriched,
             pagination: {
                 page: parseInt(page as string),
                 limit: parseInt(limit as string),
@@ -371,6 +433,7 @@ router.post('/', async (req: AuthRequest, res) => {
                     workflowId: workflow.id,
                     cronExpr: data.schedule,
                     isActive: true,
+                    nextRunAt: computeNextRunAt(data.schedule),
                 },
             });
         }
@@ -637,6 +700,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
                             workflowId: newWorkflow.id,
                             cronExpr: data.schedule,
                             isActive: true,
+                            nextRunAt: computeNextRunAt(data.schedule),
                         },
                     });
                 }
@@ -715,16 +779,19 @@ router.put('/:id', async (req: AuthRequest, res) => {
         });
 
         if (data.schedule) {
+            const nextRunAt = computeNextRunAt(data.schedule);
             await prisma.scheduledJob.upsert({
                 where: { workflowId: workflow.id },
                 create: {
                     workflowId: workflow.id,
                     cronExpr: data.schedule,
                     isActive: data.isActive || false,
+                    nextRunAt,
                 },
                 update: {
                     cronExpr: data.schedule,
                     isActive: data.isActive || false,
+                    nextRunAt,
                 },
             });
         }

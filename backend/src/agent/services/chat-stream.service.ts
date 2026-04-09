@@ -26,6 +26,7 @@ export class ChatStreamService {
         conversationId: string,
         userMessage: string,
         userId: string,
+        tenantId: string,
         res: Response,
     ) {
         // Save user message
@@ -49,7 +50,10 @@ export class ChatStreamService {
         let fullResponse = '';
 
         try {
-            const result = streamOrchestratorReply(messages);
+            const result = streamOrchestratorReply(messages, {
+                tenantId,
+                prisma: this.prisma,
+            });
 
             for await (const chunk of result.textStream) {
                 fullResponse += chunk;

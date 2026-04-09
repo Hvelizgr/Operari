@@ -31,6 +31,21 @@ describe('Runbook routes', () => {
         jest.clearAllMocks();
         app = express();
         app.use(express.json());
+        // Inject a no-op pino-compatible logger so the route handlers
+        // that call `req.log.error(...)` from their catch blocks don't
+        // explode in tests. The production pinoHttp middleware adds
+        // this for real, but tests mount the router on a bare express
+        // app and skip middleware setup.
+        app.use((req, _res, next) => {
+            (req as any).log = {
+                error: () => { /* noop */ },
+                warn: () => { /* noop */ },
+                info: () => { /* noop */ },
+                debug: () => { /* noop */ },
+                child: () => (req as any).log,
+            };
+            next();
+        });
         // Mount router on the legacy path so the existing fixtures keep working.
         app.use('/workflows', runbookRouter);
     });

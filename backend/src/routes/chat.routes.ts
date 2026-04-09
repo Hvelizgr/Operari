@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../server';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { ConversationService } from '../agent/services/conversation.service';
+import { logger } from '../config/logger.config';
 
 const router = Router();
 
@@ -154,8 +155,57 @@ router.post('/conversations', async (req: AuthRequest, res: Response) => {
         if (error instanceof z.ZodError) {
             return res.status(400).json({ error: 'Invalid parameters', details: error.errors });
         }
-        console.error('Failed to create conversation:', error);
+        logger.error({ error }, 'Failed to create conversation');
         res.status(500).json({ error: 'Failed to create conversation' });
+    }
+});
+
+/**
+ * POST /api/chat/conversations/from-run
+ *
+ * Create a new conversation pre-seeded with a "Diagnose run <id>"
+ * user message, so the dashboard's "Ask AI →" button can deep-link
+ * the operator into a conversation that already has the right context
+ * for the orchestrator to call get_run_details on.
+ *
+ * Body: { runId: string }
+ * Response: { id: string }  ← the new conversation id
+ */
+router.post('/conversations/from-run', async (req: AuthRequest, res: Response) => {
+    try {
+        await ensureDefaults();
+        const schema = z.object({ runId: z.string().min(1) });
+        const { runId } = schema.parse(req.body);
+
+        // Verify the run belongs to the tenant — never let the model see runs from elsewhere.
+        const run = await prisma.execution.findFirst({
+            where: { id: runId, workflow: { tenantId: req.user!.tenantId } },
+            include: { workflow: { select: { name: true } } },
+        });
+        if (!run) {
+            return res.status(404).json({ error: 'Run not found' });
+        }
+
+        const title = `Diagnose: ${run.workflow.name}`;
+        const conversation = await getConversationService().createConversation(
+            req.user!.id,
+            req.user!.tenantId,
+            title,
+        );
+
+        // Return the suggested prompt — the frontend deep-links into the
+        // chat with ?id=<id>&prompt=<encoded> and submits it as the first
+        // user message. This keeps the streaming path identical to a
+        // normal chat send (no special "first message" code path) and
+        // avoids charging tokens for conversations the user never opens.
+        const prompt = `Diagnose run ${runId}. Use get_run_details to fetch the steps and tell me what failed and how to fix it.`;
+
+        res.status(201).json({ id: conversation.id, prompt });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: 'Invalid parameters', details: error.errors });
+        }
+        res.status(500).json({ error: 'Failed to create conversation from run' });
     }
 });
 
@@ -296,6 +346,7 @@ router.post('/conversations/:id/messages', async (req: AuthRequest, res: Respons
             conversationId,
             content,
             req.user!.id,
+            req.user!.tenantId,
             res,
         );
     } catch (error) {
