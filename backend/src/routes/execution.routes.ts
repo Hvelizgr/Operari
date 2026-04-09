@@ -338,6 +338,7 @@ router.post('/:workflowId/run', async (req: AuthRequest, res) => {
         const execution = await executionService.execute({
             workflowId: workflow.id,
             userId: req.user!.id,
+            tenantId: req.user!.tenantId,
             trigger: 'MANUAL',
             input: req.body.input || {},
         });

@@ -648,6 +648,16 @@ export class ExecutionService {
                         },
                     });
 
+                    await this.safeAppendEvent(executionId, tenantId, {
+                        type: 'step.skipped',
+                        nodeId: currentNode.id,
+                        payload: {
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            reason: 'disabled',
+                        },
+                    });
+
                     executedNodes.add(currentNode.id); // Mark as "executed" to allow children to run
 
 

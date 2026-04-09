@@ -86,6 +86,7 @@ export class SchedulerService {
                 await this.executionService.execute({
                     workflowId: workflow.id,
                     userId: workflow.userId,
+                    tenantId: workflow.tenantId,
                     trigger: 'SCHEDULED',
                 });
 

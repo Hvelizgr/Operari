@@ -12,6 +12,7 @@ import { DelayNodeExecutor } from './nodes/delay.executor';
 import { TransformNodeExecutor } from './nodes/transform.executor';
 import { ConditionNodeExecutor } from './nodes/condition.executor';
 import { NoteNodeExecutor } from './nodes/note.executor';
+import { FrameNodeExecutor } from './nodes/frame.executor';
 import { HttpNodeExecutor } from './nodes/http.executor';
 import { EmailNodeExecutor } from './nodes/email.executor';
 import { DatabaseNodeExecutor } from './nodes/database.executor';
@@ -135,6 +136,7 @@ export class NodeExecutor {
         register(new TransformNodeExecutor(editorNodeDeps));
         register(new ConditionNodeExecutor());
         register(new NoteNodeExecutor());
+        register(new FrameNodeExecutor());
 
         // IO nodes
         register(new HttpNodeExecutor({ logger: this.logger }));
