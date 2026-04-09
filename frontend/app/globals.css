@@ -25,7 +25,9 @@
   --radius: 0.5rem;
 }
 
-.dark {
+.dark,
+html[data-theme="dark"],
+html[data-theme="midnight"] {
   --background: 222.2 84% 4.9%;
   --foreground: 210 40% 98%;
   --card: 222.2 84% 4.9%;
@@ -45,6 +47,81 @@
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
   --ring: 212.7 26.8% 83.9%;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NanoRun theme palettes — apply to ALL pages (not just editor).
+   The data-theme attribute is set on <html> by ThemeContext +
+   the inline bootstrap script in app/layout.tsx.
+
+   Variables here drive:
+     - the editor canvas (consumed by WorkflowNode.css)
+     - the page chrome (--app-bg, --panel-bg, --panel-border …)
+     - tailwind dark: utilities still work via the .dark class
+   ───────────────────────────────────────────────────────────── */
+
+html[data-theme="light"] {
+  --app-bg: #f8fafc;
+  --panel-bg: #ffffff;
+  --panel-border: rgba(15, 23, 42, 0.08);
+  --panel-elevated: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent-color: #3b82f6;
+
+  /* Editor (overrides values in WorkflowNode.css :root) */
+  --background-color: #f8fafc;
+  --box-background-color: #ffffff;
+  --border-color: #e2e8f0;
+  --body-text-color: #0f172a;
+  --label-color: #475569;
+  --descriptor-color: #64748b;
+  --highlight-color: #2563eb;
+  --theme-color: #3b82f6;
+  --shadow-color: rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="dark"] {
+  --app-bg: #0f1218;
+  --panel-bg: #1a1f2a;
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-elevated: #232936;
+  --text-primary: #e5e7eb;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-color: #3b82f6;
+
+  --background-color: #0f1218;
+  --box-background-color: #1a1f2a;
+  --border-color: #2a2f3a;
+  --body-text-color: #cbd5e1;
+  --label-color: #94a3b8;
+  --descriptor-color: #64748b;
+  --highlight-color: #60a5fa;
+  --theme-color: #3b82f6;
+  --shadow-color: rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="midnight"] {
+  --app-bg: #050608;
+  --panel-bg: #0c0e13;
+  --panel-border: rgba(125, 211, 252, 0.1);
+  --panel-elevated: #11141b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #a5b4fc;
+  --text-muted: #475569;
+  --accent-color: #818cf8;
+
+  --background-color: #050608;
+  --box-background-color: #0c0e13;
+  --border-color: #1e293b;
+  --body-text-color: #f1f5f9;
+  --label-color: #cbd5e1;
+  --descriptor-color: #64748b;
+  --highlight-color: #a78bfa;
+  --theme-color: #818cf8;
+  --shadow-color: rgba(99, 102, 241, 0.15);
 }
 
 @layer base {
@@ -250,4 +327,91 @@
   height: 100%;
   pointer-events: none;
   z-index: 1;
+}
+/* ─────────────────────────────────────────────────────────────
+   NanoRun visualization preferences — driven by data-* attributes
+   on <html> set by VisualizationContext.
+
+   These rules let the user tune density, animations and glow
+   without re-rendering React. The canvas renderer reads
+   data-line-style + data-flow directly from document.documentElement
+   on every animation frame, so toggles are instantaneous.
+   ───────────────────────────────────────────────────────────── */
+
+/* Default values; overridden per density below. */
+html {
+    --node-pad-x: 14px;
+    --node-pad-y: 10px;
+    --node-radius: 8px;
+    --node-min-width: 200px;
+    --editor-glow: 1;
+}
+
+html[data-density="compact"] {
+    --node-pad-x: 8px;
+    --node-pad-y: 6px;
+    --node-radius: 4px;
+    --node-min-width: 160px;
+}
+
+html[data-density="comfortable"] {
+    --node-pad-x: 14px;
+    --node-pad-y: 10px;
+    --node-radius: 8px;
+    --node-min-width: 200px;
+}
+
+html[data-density="spacious"] {
+    --node-pad-x: 22px;
+    --node-pad-y: 16px;
+    --node-radius: 12px;
+    --node-min-width: 240px;
+}
+
+/* Apply to the editor's job/event nodes. The CSS below is
+   intentionally additive — it only OVERRIDES padding/radius/width
+   on .wf_event so the existing visual types (trigger, action,
+   controller, limit) keep their hardcoded shapes. */
+.wf_event {
+    padding: var(--node-pad-y) var(--node-pad-x) !important;
+    border-radius: var(--node-radius) !important;
+    min-width: var(--node-min-width) !important;
+}
+
+/* Animations off → kill every transition + every keyframe in the
+   editor surface. Page-level framer-motion transitions outside the
+   editor still run; this is intentional (we don't want the
+   marketing pages to jank when this flips). */
+html[data-anim="off"] .wf_node,
+html[data-anim="off"] .wf_event,
+html[data-anim="off"] .wf_pole_button,
+html[data-anim="off"] .wf-pole-button {
+    transition: none !important;
+    animation: none !important;
+}
+
+html[data-anim="off"] .wf_active,
+html[data-anim="off"] .wf_completed,
+html[data-anim="off"] .wf_error {
+    animation: none !important;
+}
+
+/* Glow intensity drives box-shadow opacity on running / completed
+   nodes. The keyframe defines the base shadow; we multiply it
+   here. Falls back to 1 (default) if the var is unset. */
+.wf_active {
+    box-shadow:
+        0 0 calc(8px * var(--editor-glow, 1))
+        rgba(96, 165, 250, calc(0.5 * var(--editor-glow, 1)));
+}
+
+/* Respect user OS preference unless they overrode it explicitly */
+@media (prefers-reduced-motion: reduce) {
+    html:not([data-anim="on"]) .wf_node,
+    html:not([data-anim="on"]) .wf_event,
+    html:not([data-anim="on"]) .wf_pole_button,
+    html:not([data-anim="on"]) .wf-pole-button {
+        transition: none !important;
+        animation: none !important;
+    }
 }

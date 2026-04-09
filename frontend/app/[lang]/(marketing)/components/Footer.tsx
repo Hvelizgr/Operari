@@ -1,66 +1,82 @@
 'use client';
 
-import { content } from '@/app/[lang]/content/en';
-import { Github, Twitter, Linkedin } from 'lucide-react';
 import Link from 'next/link';
+import { Github } from 'lucide-react';
+import { content } from '@/app/[lang]/content/en';
 
 interface FooterProps {
     content: typeof content.footer;
 }
 
+/**
+ * Footer — minimal, honest, only links that actually exist.
+ *
+ * The previous footer had Twitter/LinkedIn icons that pointed nowhere
+ * and "About / Blog / Careers" links to nothing. Killed all of that.
+ * Every link in this footer goes to a real page on GitHub. The
+ * tagline restates the wedge so the last thing the visitor reads is
+ * the positioning, not boilerplate "© 2024".
+ */
 export default function Footer({ content }: FooterProps) {
+    const year = new Date().getFullYear();
+
     return (
-        <footer className="pt-16 pb-8 bg-black/40 border-t border-border/40 backdrop-blur-xl">
-            <div className="container px-4 md:px-6">
+        <footer className="pt-16 pb-8 bg-background border-t border-border/40">
+            <div className="container px-4 md:px-6 mx-auto max-w-6xl">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-                    <div className="col-span-2 md:col-span-1">
-                        <div className="flex items-center gap-2 mb-4 font-bold text-xl text-primary">
-                            NanoRun
+                    {/* Brand block */}
+                    <div className="col-span-2 md:col-span-2">
+                        <div className="flex items-center gap-2.5 mb-4">
+                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </div>
+                            <span className="font-bold text-xl tracking-tight text-foreground">NanoRun</span>
                         </div>
-                        <p className="text-sm text-muted-foreground mb-6">
-                            Enterprise automation for technical teams.
+                        <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-6">
+                            {content.tagline}
                         </p>
-                        <div className="flex gap-4 text-muted-foreground">
-                            <Github className="w-5 h-5 hover:text-foreground cursor-pointer transition-colors" />
-                            <Twitter className="w-5 h-5 hover:text-foreground cursor-pointer transition-colors" />
-                            <Linkedin className="w-5 h-5 hover:text-foreground cursor-pointer transition-colors" />
+                        <a
+                            href="https://github.com/Hvelizgr/NanoFlow"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            <Github className="w-4 h-4" />
+                            github.com/Hvelizgr/NanoFlow
+                        </a>
+                    </div>
+
+                    {/* Link columns from content */}
+                    {content.columns.map((column) => (
+                        <div key={column.title}>
+                            <h4 className="font-semibold mb-4 text-foreground text-sm uppercase tracking-wider">
+                                {column.title}
+                            </h4>
+                            <ul className="space-y-2.5 text-sm text-muted-foreground">
+                                {column.links.map((link) => (
+                                    <li key={link.label}>
+                                        <a
+                                            href={link.href}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="hover:text-foreground transition-colors"
+                                        >
+                                            {link.label}
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
-                    </div>
-
-                    <div>
-                        <h4 className="font-semibold mb-4 text-foreground">{content.links.product}</h4>
-                        <ul className="space-y-2 text-sm text-muted-foreground">
-                            <li className="hover:text-foreground cursor-pointer">Features</li>
-                            <li className="hover:text-foreground cursor-pointer">Integrations</li>
-                            <li className="hover:text-foreground cursor-pointer">Security</li>
-                            <li className="hover:text-foreground cursor-pointer">Changelog</li>
-                        </ul>
-                    </div>
-
-                    <div>
-                        <h4 className="font-semibold mb-4 text-foreground">{content.links.company}</h4>
-                        <ul className="space-y-2 text-sm text-muted-foreground">
-                            <li className="hover:text-foreground cursor-pointer">About</li>
-                            <li className="hover:text-foreground cursor-pointer">Blog</li>
-                            <li className="hover:text-foreground cursor-pointer">Careers</li>
-                        </ul>
-                    </div>
-
-                    <div>
-                        <h4 className="font-semibold mb-4 text-foreground">{content.links.legal}</h4>
-                        <ul className="space-y-2 text-sm text-muted-foreground">
-                            <li className="hover:text-foreground cursor-pointer">Privacy</li>
-                            <li className="hover:text-foreground cursor-pointer">Terms</li>
-                            <li className="hover:text-foreground cursor-pointer">Cookie Policy</li>
-                        </ul>
-                    </div>
+                    ))}
                 </div>
 
-                <div className="pt-8 border-t border-border/10 text-center text-sm text-muted-foreground flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p>© 2024 NanoRun. {content.rights}</p>
+                <div className="pt-8 border-t border-border/30 text-sm text-muted-foreground flex flex-col md:flex-row justify-between items-center gap-4">
+                    <p>© {year} NanoRun · {content.rights}</p>
                     <div className="flex gap-6">
-                        <Link href="/en" className="hover:text-primary transition-colors">English</Link>
-                        <Link href="/es" className="hover:text-primary transition-colors">Español</Link>
+                        <Link href="/en" className="hover:text-foreground transition-colors">English</Link>
+                        <Link href="/es" className="hover:text-foreground transition-colors">Español</Link>
                     </div>
                 </div>
             </div>
