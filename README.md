@@ -55,7 +55,7 @@ This list is conservative and hand-verified against the test suite, not the road
 - Trigger config: webhook URLs and one-time secrets per runbook for GitHub / Sentry / Datadog / custom
 
 **Execution**
-- 20 curated step types: shell, http, approval, notify, wait, switch, loop, github, docker, postgres, awsS3, agent, plus organizational nodes
+- 9 step types with real executors today: `shell`, `nanorun.httpRequest`, `approval`, `notify`, `wait`, `nanorun.cron` (trigger), `nanorun.webhook` (trigger), plus `custom.frame` and `custom.note` for organization. Earlier drafts of this README listed 20 types — that was vapor inherited from the n8n-era. The other ones (`switch`, `loop`, `github`, `docker`, `awsS3`, `agent`, `postgres`, `set`) have no backend executor and have been removed from the editor palette to avoid promising what we cannot run.
 - Sandboxed runners with three backends: local process, Docker container, Fly.io machine
 - Real-time stdout / stderr streaming over Socket.IO + durable Redis stream backing
 - Human approval gates that suspend the run and resume on `grant`/`reject`

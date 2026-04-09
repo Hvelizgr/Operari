@@ -20,10 +20,11 @@ COPY . .
 WORKDIR /app/packages/shared
 RUN npm run build
 
-# Build backend
+# Build backend (bump heap — tsc on the full graph needs > 2 GB)
 WORKDIR /app/backend
 RUN npx prisma generate
-RUN npm run build
+ENV NODE_OPTIONS="--max-old-space-size=6144"
+RUN node --max-old-space-size=6144 /app/node_modules/typescript/bin/tsc
 
 FROM base AS runner
 WORKDIR /app
@@ -40,6 +41,7 @@ COPY --from=builder /app/packages/shared ./packages/shared
 COPY --from=builder /app/backend/package.json ./backend/
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/backend/prisma ./backend/prisma
+COPY --from=builder /app/templates ./templates
 
 WORKDIR /app/backend
 USER expressjs
