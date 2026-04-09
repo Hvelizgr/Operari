@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ChatSidebar, { ConversationSummary } from './ChatSidebar';
 import ChatMessageList from './ChatMessageList';
 import ChatInput from './ChatInput';
@@ -27,9 +28,12 @@ const t = (lang: 'en' | 'es') => ({
 
 export default function ChatInterface({ lang }: ChatInterfaceProps) {
     const labels = t(lang);
+    const searchParams = useSearchParams();
+    const deepLinkId = searchParams?.get('id') ?? null;
     const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-    const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-    const [initialMessages, setInitialMessages] = useState<ChatMessageData[]>([]);
+    const [activeConversationId, setActiveConversationId] = useState<string | null>(deepLinkId);
+    // unused but kept to preserve original message-bootstrap surface for future deep-link prefill
+    const [, setInitialMessages] = useState<ChatMessageData[]>([]);
 
     // Streaming chat hook
     const {
@@ -39,12 +43,30 @@ export default function ChatInterface({ lang }: ChatInterfaceProps) {
         handleSubmit,
         isLoading,
         setMessages,
+        sendMessage,
     } = useAgentChat({
         conversationId: activeConversationId,
         onFinish: () => {
             fetchConversations();
         },
     });
+
+    // Auto-submit a prompt when arriving via ?id=&prompt= (the
+    // dashboard's "Ask AI" deep-link). Guarded by a ref so we only fire
+    // once per prompt value, even across re-renders.
+    const deepLinkPrompt = searchParams?.get('prompt') ?? null;
+    const autoSubmittedPromptRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (
+            deepLinkPrompt &&
+            activeConversationId &&
+            autoSubmittedPromptRef.current !== deepLinkPrompt &&
+            streamMessages.length === 0
+        ) {
+            autoSubmittedPromptRef.current = deepLinkPrompt;
+            sendMessage({ text: deepLinkPrompt });
+        }
+    }, [deepLinkPrompt, activeConversationId, streamMessages.length, sendMessage]);
 
     // Convert streaming messages to our display format
     // Vercel AI SDK v6 uses `parts` instead of `content`
@@ -103,6 +125,14 @@ export default function ChatInterface({ lang }: ChatInterfaceProps) {
     useEffect(() => {
         fetchConversations();
     }, [fetchConversations]);
+
+    // Pick up deep-link ?id= changes (e.g. when "Ask AI" navigates here)
+    useEffect(() => {
+        if (deepLinkId && deepLinkId !== activeConversationId) {
+            setActiveConversationId(deepLinkId);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [deepLinkId]);
 
     useEffect(() => {
         if (activeConversationId) {
@@ -176,7 +206,7 @@ export default function ChatInterface({ lang }: ChatInterfaceProps) {
     };
 
     return (
-        <div className="h-screen w-full flex bg-[#12151a]">
+        <div className="h-full flex-1 flex bg-[#12151a]">
             {/* Sidebar */}
             <ChatSidebar
                 conversations={conversations}

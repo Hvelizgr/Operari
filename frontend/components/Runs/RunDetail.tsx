@@ -161,6 +161,34 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
         }
     };
 
+    /**
+     * Replay the entire run (no nodeId → backend starts from the
+     * first step). Surfaces the new run id in the same banner the
+     * per-step replay uses.
+     */
+    const replayWholeRun = async () => {
+        if (!run) return;
+        setReplayingId('__whole__');
+        setReplayInfo(null);
+        try {
+            const res = await fetch(`${apiBase}/api/executions/${run.id}/replay`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || `HTTP ${res.status}`);
+            }
+            const data = await res.json();
+            setReplayInfo(`${t.replaySuccess}: ${data.id ?? ''}`);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setReplayingId(null);
+        }
+    };
+
     if (loading) {
         return (
             <div className="mx-auto max-w-5xl px-6 py-10">
@@ -208,7 +236,27 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
                     <span className={`text-sm font-semibold ${meta.cls}`}>{run.status}</span>
                     <span className="text-xs text-zinc-500 font-mono">{run.id}</span>
                 </div>
-                <h1 className="text-2xl font-semibold">{run.runbook.name}</h1>
+                <div className="flex items-center justify-between gap-3">
+                    <h1 className="text-2xl font-semibold">{run.runbook.name}</h1>
+                    <button
+                        onClick={replayWholeRun}
+                        disabled={replayingId !== null || run.status === 'RUNNING'}
+                        className="flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+                        title={lang === 'en' ? 'Re-run this runbook from the start with the same trigger' : 'Re-ejecutar este runbook desde el principio'}
+                    >
+                        {replayingId === '__whole__' ? (
+                            <>
+                                <Loader2 size={14} className="animate-spin" />
+                                {t.replaying}
+                            </>
+                        ) : (
+                            <>
+                                <RotateCcw size={14} />
+                                {lang === 'en' ? 'Replay run' : 'Re-ejecutar'}
+                            </>
+                        )}
+                    </button>
+                </div>
                 <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-zinc-400 sm:grid-cols-4">
                     <div>
                         <div className="uppercase text-[10px] text-zinc-500">{t.runbook}</div>

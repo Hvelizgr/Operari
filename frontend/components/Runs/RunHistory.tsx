@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, XCircle, Pause, Ban, Loader2 } from 'lucide-react';
+import { List as VirtualList } from 'react-window';
 
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 
@@ -163,61 +164,7 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
             )}
 
             {runs.length > 0 && (
-                <div className="overflow-hidden rounded-lg border border-zinc-800">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-zinc-950 text-xs uppercase text-zinc-500">
-                            <tr>
-                                <th className="px-4 py-3">Status</th>
-                                <th className="px-4 py-3">{t.runbook}</th>
-                                <th className="px-4 py-3">{t.trigger}</th>
-                                <th className="px-4 py-3">{t.started}</th>
-                                <th className="px-4 py-3">{t.duration}</th>
-                                <th className="px-4 py-3">ID</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-900 bg-black">
-                            {runs.map((r) => {
-                                const meta = STATUS_STYLES[r.status];
-                                const Icon = meta.icon;
-                                return (
-                                    <tr
-                                        key={r.id}
-                                        className="hover:bg-zinc-950 cursor-pointer"
-                                        onClick={() => {
-                                            window.location.href = `/${lang}/runs/${r.id}`;
-                                        }}
-                                    >
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <Icon
-                                                    className={`h-4 w-4 ${meta.cls} ${
-                                                        r.status === 'RUNNING' ? 'animate-spin' : ''
-                                                    }`}
-                                                />
-                                                <span className={`text-xs font-semibold ${meta.cls}`}>
-                                                    {r.status}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-zinc-200">{r.runbook.name}</td>
-                                        <td className="px-4 py-3 text-zinc-400">{r.trigger || '—'}</td>
-                                        <td className="px-4 py-3 text-zinc-400">
-                                            {new Date(r.startedAt).toLocaleString()}
-                                        </td>
-                                        <td className="px-4 py-3 text-zinc-400">
-                                            {r.status === 'RUNNING' && r.etaMs != null
-                                                ? `~${formatDuration(r.etaMs)}`
-                                                : formatDuration(r.duration)}
-                                        </td>
-                                        <td className="px-4 py-3 font-mono text-xs text-zinc-500">
-                                            {r.id.slice(0, 8)}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                <RunsVirtualTable runs={runs} lang={lang} t={t} />
             )}
 
             {nextCursor && (
@@ -231,6 +178,108 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
                     </button>
                 </div>
             )}
+        </div>
+    );
+}
+
+/**
+ * Virtualized run table — only renders the rows currently in view via
+ * react-window v2. Replaces the previous DOM-heavy <table> that crashed
+ * the browser at ~10k rows. Each row is a flex line with the same
+ * column proportions as the old header so the visual contract is
+ * unchanged.
+ *
+ * Sticky header lives outside the virtual list so it stays pinned
+ * while the rows scroll independently.
+ */
+const ROW_HEIGHT = 44;
+
+// react-window v2 injects { index, style, ariaAttributes } automatically
+// and the rest of the props comes from `rowProps`. The type below
+// matches that contract — `index` and `style` cannot live in our
+// rowProps payload, only `runs` and `lang` do.
+interface RunRowExtra {
+    runs: Run[];
+    lang: 'en' | 'es';
+}
+
+function RunRow({
+    index,
+    style,
+    runs,
+    lang,
+}: { index: number; style: React.CSSProperties } & RunRowExtra) {
+    const r = runs[index];
+    const meta = STATUS_STYLES[r.status];
+    const Icon = meta.icon;
+    return (
+        <div
+            style={style}
+            className="flex items-center px-0 border-b border-zinc-900 bg-black hover:bg-zinc-950 cursor-pointer"
+            onClick={() => {
+                window.location.href = `/${lang}/runs/${r.id}`;
+            }}
+        >
+            <div className="w-32 px-4 flex items-center gap-2">
+                <Icon
+                    className={`h-4 w-4 ${meta.cls} ${
+                        r.status === 'RUNNING' ? 'animate-spin' : ''
+                    }`}
+                />
+                <span className={`text-xs font-semibold ${meta.cls}`}>{r.status}</span>
+            </div>
+            <div className="flex-1 px-4 text-zinc-200 truncate">{r.runbook.name}</div>
+            <div className="w-28 px-4 text-zinc-400 text-xs truncate">
+                {r.trigger || '—'}
+            </div>
+            <div className="w-44 px-4 text-zinc-400 text-xs truncate">
+                {new Date(r.startedAt).toLocaleString()}
+            </div>
+            <div className="w-24 px-4 text-zinc-400 text-xs">
+                {r.status === 'RUNNING' && r.etaMs != null
+                    ? `~${formatDuration(r.etaMs)}`
+                    : formatDuration(r.duration)}
+            </div>
+            <div className="w-24 px-4 font-mono text-xs text-zinc-500 truncate">
+                {r.id.slice(0, 8)}
+            </div>
+        </div>
+    );
+}
+
+function RunsVirtualTable({
+    runs,
+    lang,
+    t,
+}: {
+    runs: Run[];
+    lang: 'en' | 'es';
+    t: Record<string, string>;
+}) {
+    // Cap the visible viewport so the list does not push the rest of
+    // the page off-screen on tall viewports. 12 rows is a comfortable
+    // window — react-window handles tens of thousands behind it.
+    const VIEW_ROWS = Math.min(runs.length, 12);
+    const listHeight = VIEW_ROWS * ROW_HEIGHT;
+
+    return (
+        <div className="overflow-hidden rounded-lg border border-zinc-800">
+            {/* Sticky header — same column widths as the rows below */}
+            <div className="flex bg-zinc-950 text-xs uppercase text-zinc-500 border-b border-zinc-800">
+                <div className="w-32 px-4 py-3">Status</div>
+                <div className="flex-1 px-4 py-3">{t.runbook}</div>
+                <div className="w-28 px-4 py-3">{t.trigger}</div>
+                <div className="w-44 px-4 py-3">{t.started}</div>
+                <div className="w-24 px-4 py-3">{t.duration}</div>
+                <div className="w-24 px-4 py-3">ID</div>
+            </div>
+            <VirtualList
+                style={{ height: listHeight }}
+                rowCount={runs.length}
+                rowHeight={ROW_HEIGHT}
+                rowComponent={RunRow as any}
+                rowProps={{ runs, lang } as any}
+            />
         </div>
     );
 }

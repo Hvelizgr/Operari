@@ -1,4 +1,10 @@
 import { ChatInterface } from '@/components/Chat';
+import EditorSidebar from '@/components/Editor/EditorSidebar';
+
+// useSearchParams() in ChatInterface forces this page to render at
+// request time. Without this, next build fails with a prerender error
+// because there is no Suspense boundary around the search-params read.
+export const dynamic = 'force-dynamic';
 
 export default async function ChatPage({
     params,
@@ -6,5 +12,11 @@ export default async function ChatPage({
     params: Promise<{ lang: string }>;
 }) {
     const { lang } = await params;
-    return <ChatInterface lang={lang as 'en' | 'es'} />;
+    const typedLang = lang as 'en' | 'es';
+    return (
+        <div className="h-screen w-full flex bg-black text-white">
+            <EditorSidebar lang={typedLang} />
+            <ChatInterface lang={typedLang} />
+        </div>
+    );
 }
