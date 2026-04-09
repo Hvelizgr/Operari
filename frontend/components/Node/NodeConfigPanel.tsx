@@ -1,13 +1,15 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings } from 'lucide-react';
+import { X, Settings, KeyRound, Copy, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { WorkflowNode } from '@nanoflow/shared';
 import { NODE_TYPES, NodeType } from './NodePalette';
 import DynamicNodeForm from './DynamicNodeForm';
 import RetryPolicyEditor from './RetryPolicyEditor';
 import ConditionalEditor from './ConditionalEditor';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 interface NodeConfigPanelProps {
     node: WorkflowNode | null;
@@ -188,9 +190,106 @@ export default function NodeConfigPanel({ node, nodeTypeDefinition, onUpdate, on
                             }}
                         />
                     </div>
+
+                    {/* Available secrets — quick reference + copy.
+                        Cross-cutting because any text config field can
+                        accept a {{secrets.<id>}} template; instead of
+                        binding a SecretPicker per-field, this panel
+                        lists what is available and copies the reference
+                        for the operator to paste wherever they need it. */}
+                    <div className="mt-6 pt-6 border-t border-[var(--border-color)]">
+                        <SecretsReferencePanel lang={lang} />
+                    </div>
                 </div>
             </motion.div>
         </AnimatePresence>
+    );
+}
+
+interface ConnectedAccountSummary {
+    id: string;
+    provider: string;
+    displayName: string | null;
+}
+
+function SecretsReferencePanel({ lang }: { lang: 'en' | 'es' }) {
+    const [accounts, setAccounts] = useState<ConnectedAccountSummary[] | null>(null);
+    const [copiedId, setCopiedId] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetch(`${API_BASE}/api/connected-accounts`)
+            .then((r) => (r.ok ? r.json() : { data: [] }))
+            .then((j) => {
+                const list = Array.isArray(j) ? j : j.data ?? [];
+                setAccounts(list);
+            })
+            .catch(() => setAccounts([]));
+    }, []);
+
+    const copy = (id: string) => {
+        const ref = `{{secrets.${id}}}`;
+        navigator.clipboard.writeText(ref).catch(() => { /* noop */ });
+        setCopiedId(id);
+        setTimeout(() => setCopiedId((curr) => (curr === id ? null : curr)), 1500);
+    };
+
+    const t =
+        lang === 'es'
+            ? {
+                  title: 'Secrets disponibles',
+                  hint: 'Copiá una referencia y pegala en cualquier campo de config (URL, body, command). Se resuelve a la credencial en runtime.',
+                  empty: 'No hay cuentas conectadas. Vinculá una desde Utilities → Connected accounts.',
+              }
+            : {
+                  title: 'Available secrets',
+                  hint: 'Copy a reference and paste it into any config field (URL, body, command). It resolves to the credential at run time.',
+                  empty: 'No connected accounts yet. Link one from Utilities → Connected accounts.',
+              };
+
+    return (
+        <div>
+            <h3 className="text-[12px] font-bold uppercase text-[var(--highlight-color)] mb-2 flex items-center gap-2">
+                <KeyRound size={12} />
+                {t.title}
+            </h3>
+            <p className="text-[10px] text-[var(--descriptor-color)] opacity-70 leading-tight mb-3">
+                {t.hint}
+            </p>
+            {accounts === null ? (
+                <div className="text-[11px] text-[var(--descriptor-color)] opacity-70">…</div>
+            ) : accounts.length === 0 ? (
+                <div className="text-[11px] text-[var(--descriptor-color)] opacity-70">
+                    {t.empty}
+                </div>
+            ) : (
+                <ul className="space-y-1">
+                    {accounts.map((a) => {
+                        const ref = `{{secrets.${a.id}}}`;
+                        const isCopied = copiedId === a.id;
+                        return (
+                            <li
+                                key={a.id}
+                                className="flex items-center gap-2 px-2 py-1 rounded bg-black/20 border border-[var(--border-color)]"
+                            >
+                                <code className="flex-1 text-[10px] font-mono text-amber-300 truncate">
+                                    {ref}
+                                </code>
+                                <span className="text-[9px] text-[var(--descriptor-color)] opacity-70">
+                                    {a.displayName ?? a.provider}
+                                </span>
+                                <button
+                                    onClick={() => copy(a.id)}
+                                    className="p-1 text-[var(--descriptor-color)] hover:text-white"
+                                    title="Copy reference"
+                                >
+                                    {isCopied ? <Check size={11} /> : <Copy size={11} />}
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
+        </div>
     );
 }
 

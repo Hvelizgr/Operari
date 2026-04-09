@@ -136,11 +136,68 @@ export function useEditorConnections({
     // Complete connection creation
     const completeConnection = useCallback(() => {
         if (creatingConnection && hoveredInputNode) {
+            const sourceId = creatingConnection.sourceNodeId;
+            const targetId = hoveredInputNode;
+            // Parse the port id (e.g. "out-1") into a numeric index
+            // so the runtime engine can route the right branch (e.g.
+            // approval's `approved` vs `rejected`).
+            const sourcePortIdx = (() => {
+                const m = /^out-(\d+)$/.exec(creatingConnection.sourcePortId ?? '');
+                return m ? parseInt(m[1], 10) : 0;
+            })();
+
+            // Reject self-loops. The runtime engine has no concept of a
+            // step calling itself; allowing it just produces a runbook
+            // that explodes at run time.
+            if (sourceId === targetId) {
+                announceMessage('Self-loops are not allowed');
+                setCreatingConnection(null);
+                setHoveredInputNode(null);
+                return;
+            }
+
+            // Reject duplicates (same source/target/sourcePort triple).
+            // Two connections from different output ports of the same
+            // node to the same target ARE allowed — that is the whole
+            // point of multi-port branching.
+            const duplicate = connections.some(
+                (c) =>
+                    c.source === sourceId &&
+                    c.target === targetId &&
+                    (c.sourcePort ?? 0) === sourcePortIdx,
+            );
+            if (duplicate) {
+                announceMessage('Connection already exists');
+                setCreatingConnection(null);
+                setHoveredInputNode(null);
+                return;
+            }
+
+            // Reject connections that would introduce a cycle. Cycles
+            // are still detected after-the-fact via the existing
+            // cycleDetection effect (and painted red), but blocking
+            // them at creation time prevents the operator from getting
+            // there in the first place.
+            const candidate: Connection = {
+                id: `__candidate__`,
+                source: sourceId,
+                target: targetId,
+                sourcePort: 0,
+                targetPort: 0,
+            };
+            const probe = hasCycle(nodes, [...connections, candidate]);
+            if (probe.hasCycle) {
+                announceMessage('Connection rejected — would create a cycle');
+                setCreatingConnection(null);
+                setHoveredInputNode(null);
+                return;
+            }
+
             const newConnection: Connection = {
                 id: `conn-${Date.now()}`,
-                source: creatingConnection.sourceNodeId,
-                target: hoveredInputNode,
-                sourcePort: 0,
+                source: sourceId,
+                target: targetId,
+                sourcePort: sourcePortIdx,
                 targetPort: 0,
             };
 
@@ -155,17 +212,35 @@ export function useEditorConnections({
         }
         setCreatingConnection(null);
         setHoveredInputNode(null);
-    }, [creatingConnection, hoveredInputNode, executeCommand]);
+    }, [creatingConnection, hoveredInputNode, executeCommand, connections, nodes]);
 
     // Create connection programmatically (for soldering system - xyOps integration)
     const createConnection = useCallback(
         (sourceNodeId: string, targetNodeId: string) => {
-            // Check if connection already exists (xyOps lines 1207-1212)
+            // Mirror the same guards as completeConnection (the
+            // interactive path) so the programmatic surface can't sneak
+            // a bad connection in past the validation.
+            if (sourceNodeId === targetNodeId) {
+                announceMessage('Self-loops are not allowed');
+                return false;
+            }
             const exists = connections.some(
                 (c) => c.source === sourceNodeId && c.target === targetNodeId
             );
             if (exists) {
                 announceMessage('Connection already exists');
+                return false;
+            }
+            const candidate: Connection = {
+                id: '__candidate__',
+                source: sourceNodeId,
+                target: targetNodeId,
+                sourcePort: 0,
+                targetPort: 0,
+            };
+            const probe = hasCycle(nodes, [...connections, candidate]);
+            if (probe.hasCycle) {
+                announceMessage('Connection rejected — would create a cycle');
                 return false;
             }
 
@@ -190,7 +265,7 @@ export function useEditorConnections({
 
             return true;
         },
-        [connections, executeCommand, announceMessage]
+        [connections, executeCommand, announceMessage, nodes]
     );
 
     // Clear connection selection

@@ -1,8 +1,9 @@
 'use client';
 
-import { Download, Moon, Sun, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Code2, Sparkles } from 'lucide-react';
+import { Download, Moon, Sun, MoonStar, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Code2, Sparkles, Grid3x3 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAccessibility } from '../../context/AccessibilityContext';
+import { useTheme } from '../../context/ThemeContext';
 import type { SaveStatus } from '../../hooks/useAutosave';
 
 interface TopBarProps {
@@ -22,6 +23,8 @@ interface TopBarProps {
     onYaml?: () => void;
     onAssist?: () => void;
     hasFailedNode?: boolean;
+    snapToGrid?: boolean;
+    onToggleSnapToGrid?: () => void;
 }
 
 export default function TopBar({
@@ -40,9 +43,12 @@ export default function TopBar({
     onMetrics,
     onYaml,
     onAssist,
-    hasFailedNode
+    hasFailedNode,
+    snapToGrid,
+    onToggleSnapToGrid,
 }: TopBarProps) {
     const { highContrast, toggleHighContrast } = useAccessibility();
+    const { theme, cycleTheme } = useTheme();
     const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
     const toolsMenuRef = useRef<HTMLDivElement>(null);
 
@@ -249,13 +255,44 @@ export default function TopBar({
 
                 <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
 
-                {/* Theme Toggle */}
+                {/* Snap-to-grid toggle */}
                 <button
-                    onClick={toggleHighContrast}
-                    className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                    title={lang === 'en' ? 'Toggle Theme' : 'Cambiar Tema'}
+                    onClick={onToggleSnapToGrid}
+                    className={`p-2 rounded-lg transition-colors ${
+                        snapToGrid
+                            ? 'text-blue-500 bg-blue-500/10 hover:bg-blue-500/20'
+                            : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                    title={
+                        lang === 'en'
+                            ? snapToGrid
+                                ? 'Snap to grid: ON'
+                                : 'Snap to grid: OFF'
+                            : snapToGrid
+                              ? 'Snap a la grilla: ON'
+                              : 'Snap a la grilla: OFF'
+                    }
                 >
-                    {highContrast ? <Sun size={18} /> : <Moon size={18} />}
+                    <Grid3x3 size={18} />
+                </button>
+
+                {/* Theme cycle: light → dark → midnight */}
+                <button
+                    onClick={cycleTheme}
+                    className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                    title={
+                        lang === 'en'
+                            ? `Theme: ${theme} (click to cycle)`
+                            : `Tema: ${theme} (click para cambiar)`
+                    }
+                >
+                    {theme === 'light' ? (
+                        <Sun size={18} />
+                    ) : theme === 'dark' ? (
+                        <Moon size={18} />
+                    ) : (
+                        <MoonStar size={18} />
+                    )}
                 </button>
 
                 {/* User Avatar */}

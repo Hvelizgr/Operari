@@ -8,14 +8,16 @@ import { useWorkflowExecution } from '../../hooks/useWorkflowExecution';
 import { useExecutionSocket } from '../../hooks/useExecutionSocket';
 import dynamic from 'next/dynamic';
 const LogTerminal = dynamic(() => import('./terminal/LogTerminal'), { ssr: false });
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Terminal as TerminalIcon, X, Zap, Download, Upload, FileText } from 'lucide-react';
+import { yamlToSpec, specToNodes } from '@/utils/runbookYaml';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 // ... existing imports
 import SnapshotDialog from '../Workflow/SnapshotDialog';
 import { useSnapshots } from '../../hooks/useSnapshots';
 import { useEditorTools } from '../../hooks/useEditorTools';
-import { useEditorSoldering } from '../../hooks/useEditorSoldering';
-import SolderingOverlay from './SolderingOverlay';
 import RunDialog from '../Workflow/RunDialog';
 import CommandPalette, { CommandAction } from './CommandPalette';
 import TopBar from './TopBar';
@@ -29,6 +31,22 @@ import './WorkflowNode.css';
 export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const [searchTrigger, setSearchTrigger] = useState<number>(0);
+    const searchParams = useSearchParams();
+    const urlRunbookId = searchParams?.get('id') ?? null;
+    const loadedRunbookIdRef = useRef<string | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    // Workflow properties live up here (above useEditorCanvas) so the
+    // header can be passed straight into the autosave hook for the
+    // YAML-native save path.
+    const [workflowProperties, setWorkflowProperties] = useState<WorkflowProperties>({
+        name: 'Untitled runbook',
+        description: '',
+        isActive: false,
+        schedule: null,
+        tags: [],
+        errorHandling: 'stop',
+        timeout: 30000,
+    });
 
     const {
         // Refs
@@ -117,7 +135,17 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         isRunDialogOpen,
         handleOpenRunDialog,
         handleCloseRunDialog,
-    } = useEditorCanvas({ lang });
+        snapToGrid,
+        toggleSnapToGrid,
+    } = useEditorCanvas({
+        lang,
+        workflowId: urlRunbookId ?? undefined,
+        runbookHeader: {
+            name: workflowProperties.name,
+            description: workflowProperties.description,
+            schedule: workflowProperties.schedule,
+        },
+    });
 
     // Auto Layout Handler
     const handleAutoLayout = () => {
@@ -127,23 +155,75 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
     const [showTerminal, setShowTerminal] = useState(false);
     const [runMode, setRunMode] = useState<'run' | 'debug'>('run'); // New State
-    const [solderDropPos, setSolderDropPos] = useState<{ x: number; y: number } | null>(null);
     const [isWorkflowPropsOpen, setIsWorkflowPropsOpen] = useState(false);
     const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
     const [isMetricsDashboardOpen, setIsMetricsDashboardOpen] = useState(false);
     const [isYamlViewOpen, setIsYamlViewOpen] = useState(false);
     const [isAssistOpen, setIsAssistOpen] = useState(false);
-    const [workflowProperties, setWorkflowProperties] = useState<WorkflowProperties>({
-        name: 'Untitled runbook',
-        description: '',
-        isActive: false,
-        schedule: null,
-        tags: [],
-        errorHandling: 'stop',
-        timeout: 30000,
-    });
+    // Load a runbook from /editor?id=<workflowId>. Until this effect
+    // ran, the editor showed INITIAL_NODES — a single empty shell step
+    // — regardless of what the user clicked from /runbooks. This is
+    // the wiring that makes the ✏ Edit button on the Runbooks page
+    // actually open the right runbook. Idempotent via loadedRunbookIdRef
+    // so React StrictMode double-invocation doesn't double-fetch.
+    useEffect(() => {
+        if (!urlRunbookId) return;
+        if (loadedRunbookIdRef.current === urlRunbookId) return;
+        loadedRunbookIdRef.current = urlRunbookId;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/runbooks/${urlRunbookId}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const wf = await res.json();
+                if (cancelled) return;
+
+                // Two paths: the workflow row stores nodes + connections
+                // as JSON columns (legacy fast path the autosave writes
+                // to). Prefer that. If empty / missing, fall back to the
+                // YAML round-trip endpoint so a runbook authored via
+                // CLI is still loadable in the canvas.
+                let loadedNodes: any[] = [];
+                let loadedConnections: any[] = [];
+                if (Array.isArray(wf.nodes) && wf.nodes.length > 0) {
+                    loadedNodes = wf.nodes;
+                    loadedConnections = Array.isArray(wf.connections) ? wf.connections : [];
+                } else {
+                    try {
+                        const yamlRes = await fetch(`${API_BASE}/api/runbooks/${urlRunbookId}/yaml`);
+                        if (yamlRes.ok) {
+                            const yamlBody = await yamlRes.text();
+                            const spec = yamlToSpec(yamlBody);
+                            const parsed = specToNodes(spec);
+                            loadedNodes = parsed.nodes;
+                            loadedConnections = parsed.connections;
+                        }
+                    } catch {
+                        // YAML path is best-effort; legacy nodes stay primary.
+                    }
+                }
+                if (cancelled) return;
+                handleLoadWorkflow(loadedNodes, loadedConnections);
+                setWorkflowProperties((prev) => ({
+                    ...prev,
+                    name: wf.name ?? prev.name,
+                    description: wf.description ?? prev.description,
+                    isActive: wf.isActive ?? prev.isActive,
+                    schedule: wf.schedule ?? prev.schedule,
+                }));
+                setLoadError(null);
+            } catch (err) {
+                if (cancelled) return;
+                setLoadError(err instanceof Error ? err.message : 'unknown');
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [urlRunbookId, handleLoadWorkflow]);
+
     const { executeWorkflow, executeFromNode, executing, currentExecutionId } = useWorkflowExecution('current-workflow');
-    const { logs, nodeStatuses } = useExecutionSocket(currentExecutionId);
+    const { logs, nodeStatuses, nodeMeta } = useExecutionSocket(currentExecutionId);
 
     // --- SNAPSHOT SYSTEM ---
     const [isSnapshotDialogOpen, setIsSnapshotDialogOpen] = useState(false);
@@ -167,30 +247,11 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     };
     // -----------------------
 
-    // xyOps Tool System
+    // xyOps Tool System (kept for the move/draw mode toggle on the
+    // toolbar, even though the soldering "draw" path was removed —
+    // the move-mode bool is still consumed by NodesLayer for cursor
+    // affordances).
     const { tool, selectTool, isDrawMode, isMoveMode } = useEditorTools();
-
-    // xyOps Soldering System
-    const {
-        soldering,
-        startSolder,
-        updateSolderPosition,
-        completeSolder,
-        cancelSolder,
-        isSoldering,
-        pauseSolder,
-        resumeSolder,
-        pausedSolder
-    } = useEditorSoldering({
-        canvasRef,
-        viewport,
-        nodes,
-        onConnectionComplete: (sourceId, targetId) => {
-            // Create connection using the real system (xyOps integration complete!)
-            createConnection(sourceId, targetId);
-        },
-        isDrawMode
-    });
 
     const handleExecuteWithInput = async (input: object) => {
         setShowTerminal(true);
@@ -217,29 +278,11 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         handleCloseContextMenu();
     };
 
-    const handleSolderDropSelect = (nodeId: string) => {
-        // NOTE: The SearchBar returns the ID if the node exists, OR it forces an 'add' if we clicked an item from the menu?
-        // Wait, current SearchBar implementation calls onNodeSelect(id) for existing nodes and onNodeAdd(type) for new nodes.
-        // We only care about onNodeAdd here usually, but if user selects existing node... maybe we connect to it?
-        // For now let's focus on CREATING new node.
-
-        // Actually SearchBar calls onSearchNodeSelect which centers viewport.
-        // We want to intercept onNodeAdd.
-    };
-
-    // We will pass an inline function to EditorOverlays instead to close over the state variables
-
-    const handleSolderDropCancel = () => {
-        setSolderDropPos(null);
-        cancelSolder();
-    };
-
     // --- Command Palette Logic ---
     const commandActions: CommandAction[] = useMemo(() => [
         // General
         { id: 'undo', label: lang === 'en' ? 'Undo' : 'Deshacer', shortcut: ['Ctrl', 'Z'], action: undo },
         { id: 'redo', label: lang === 'en' ? 'Redo' : 'Rehacer', shortcut: ['Ctrl', 'Y'], action: redo },
-        { id: 'save', label: lang === 'en' ? 'Save runbook' : 'Guardar runbook', shortcut: ['Ctrl', 'S'], action: () => {/* Managed by autosave but force? */ } }, // Optional
 
         // Navigation
         { id: 'zoom_in', label: lang === 'en' ? 'Zoom In' : 'Acercar', shortcut: ['Ctrl', '+'], action: handleZoomIn },
@@ -301,6 +344,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onYaml={() => setIsYamlViewOpen(true)}
                             onAssist={() => setIsAssistOpen(true)}
                             hasFailedNode={nodes.some((n) => n.executionState === 'error')}
+                            snapToGrid={snapToGrid}
+                            onToggleSnapToGrid={toggleSnapToGrid}
                             onExport={() => {
                                 const data = JSON.stringify({ nodes, connections }, null, 2);
                                 const blob = new Blob([data], { type: 'application/json' });
@@ -346,21 +391,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                         }}
                         onWheel={handleWheel}
                         onMouseDown={handleMouseDown}
-                        onMouseMove={(e) => {
-                            handleCanvasMouseMove(e);
-                            if (isSoldering) {
-                                updateSolderPosition(e.clientX, e.clientY);
-                            }
-                        }}
-                        onMouseUp={(e) => {
-                            if (isSoldering) {
-                                e.stopPropagation();
-                                pauseSolder();
-                                setSolderDropPos({ x: e.clientX, y: e.clientY });
-                            } else {
-                                handleCanvasMouseUp();
-                            }
-                        }}
+                        onMouseMove={handleCanvasMouseMove}
+                        onMouseUp={handleCanvasMouseUp}
                         onMouseLeave={handleCanvasMouseUp}
                         onDrop={handleCanvasDrop}
                         onDragOver={handleCanvasDragOver}
@@ -392,7 +424,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             connections={connections}
                             nodes={nodes}
                             viewport={viewport}
-                            soldering={soldering}
                             selectedConnection={selectedConnection}
                             creatingConnection={creatingConnection}
                             cyclicConnections={cyclicConnections}
@@ -426,10 +457,10 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onNodeClick={handleNodeClick}
                             onNodeMove={handleNodeMove}
                             onNodeUpdate={handleNodeUpdate}
-                            onSolderStart={startSolder}
                             onNodeDoubleClick={setConfigNodeId}
                             editorMode={tool === 'draw' ? 'connect' : 'move'}
                             nodeStatuses={nodeStatuses}
+                            nodeMeta={nodeMeta}
                         />
 
                         {/* Selection Box */}
@@ -437,17 +468,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             <div
                                 id="d_wf_selection_draw"
                                 style={getSelectionBoxStyle()!}
-                            />
-                        )}
-
-                        {/* Soldering Overlay */}
-                        {isSoldering && soldering && (
-                            <SolderingOverlay
-                                nodes={nodes}
-                                solderingNodeId={soldering.startNodeId}
-                                solderingEndPort={soldering.endPort}
-                                viewport={viewport}
-                                onPortClick={completeSolder}
                             />
                         )}
 
@@ -509,8 +529,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onFitView={handleFitView}
                             onResetZoom={handleResetZoom}
 
-                            solderDropPos={solderDropPos}
-                            onSolderDropCancel={handleSolderDropCancel}
                             searchTrigger={searchTrigger}
                             isTemplateGalleryOpen={isTemplateGalleryOpen}
                             onTemplateGalleryOpenChange={setIsTemplateGalleryOpen}

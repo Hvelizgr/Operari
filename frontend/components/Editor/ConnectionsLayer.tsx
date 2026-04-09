@@ -4,7 +4,6 @@ import { useRef, useMemo } from 'react';
 import type { WorkflowNode, Connection, ConnectionCondition } from '@nanoflow/shared';
 import { useCanvasRenderer } from '../../hooks/useCanvasRenderer';
 import type { CreatingConnectionState, ViewportState } from '../../types/editor.types';
-import type { SolderState } from '../../hooks/useEditorSoldering';
 import ConnectionConditionBadge from './ConnectionConditionBadge';
 import { getNodeOutputPort, getNodeInputPort } from './EditorNode';
 
@@ -12,7 +11,6 @@ interface ConnectionsLayerProps {
     connections: Connection[];
     nodes: WorkflowNode[];
     viewport: ViewportState;
-    soldering: SolderState | null;
     nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED'>;
     selectedConnection: string | null;
     creatingConnection: CreatingConnectionState | null;
@@ -25,7 +23,6 @@ export default function ConnectionsLayer({
     connections,
     nodes,
     viewport,
-    soldering,
     nodeStatuses = {},
     cyclicConnections,
     onConditionChange,
@@ -38,7 +35,6 @@ export default function ConnectionsLayer({
         nodes,
         connections,
         viewport,
-        soldering,
         cyclicConnections,
         nodeStatuses,
     });

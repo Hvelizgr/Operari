@@ -3,11 +3,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChevronDown, ChevronRight, Search, X,
-    Globe, Database, Clock, GitBranch, MessageSquare,
-    Webhook, Folder, Send, Zap, Settings,
-    Cloud, Play, RefreshCw,
-    AlertCircle, List,
-    Box, Bell, Square, StickyNote,
+    Globe, Clock,
+    Webhook, Folder, Zap,
+    Play,
+    Bell, Square, StickyNote,
     Terminal, UserCheck
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
@@ -24,19 +23,16 @@ export interface NodeType {
     properties?: any[]; // Dynamic form schema
 }
 
-// NanoRun runbook step categories (Fase R1 — palette cleanup).
-// 7 categories aligned with the runbook automation wedge:
-// triggers, core, flow control, devops (shell-native primitives),
-// integrations, ai, organization. Drops social/marketing/payment/
-// productivity/storage/data — see docs/rebranding-and-editor-audit.md
-// for the rationale.
+// NanoRun runbook step categories — only categories that have at least
+// one step type with a real backend executor. Categories without
+// backing executors (flow control, integrations, ai) were dropped on
+// the editor cleanup pass — they were vapor and produced "Unknown
+// node type" the moment an operator tried to run them. To re-add a
+// category, first land its executor in backend/src/runbook/executors/.
 const CATEGORIES = [
     { id: 'devops', label: { en: 'Runbook core', es: 'Runbook core' }, icon: Terminal, color: 'text-emerald-400' },
     { id: 'triggers', label: { en: 'Triggers', es: 'Triggers' }, icon: Play, color: 'text-green-400' },
     { id: 'core', label: { en: 'Core', es: 'Core' }, icon: Zap, color: 'text-blue-400' },
-    { id: 'flow', label: { en: 'Flow control', es: 'Control de flujo' }, icon: GitBranch, color: 'text-yellow-400' },
-    { id: 'integrations', label: { en: 'Integrations', es: 'Integraciones' }, icon: Send, color: 'text-orange-400' },
-    { id: 'ai', label: { en: 'AI', es: 'IA' }, icon: MessageSquare, color: 'text-rose-400' },
     { id: 'organization', label: { en: 'Organization', es: 'Organización' }, icon: Folder, color: 'text-slate-400' },
 ];
 
@@ -168,42 +164,6 @@ const NODE_TYPES: NodeType[] = [
             { name: 'sendBody', displayName: 'Send body', type: 'boolean', default: false }
         ]
     },
-
-    // === FLOW CONTROL ===
-    // Curated to step types that have a real executor today. The IF, Loop,
-    // GitHub, Docker, Postgres, AWS S3, Set Variable, Switch, Error
-    // handler, and AI Agent entries were removed in the connection-dispatch
-    // fix — they were vapor without a backing executor and produced
-    // "Unknown node type" the moment an operator tried to run them.
-    {
-        type: 'nanorun.if',
-        icon: <GitBranch size={18} />,
-        label: { en: 'IF / Condition', es: 'IF / Condición' },
-        color: 'bg-yellow-500',
-        category: 'flow',
-        description: { en: 'Branch on a declarative field/operator/value', es: 'Bifurcar en una condición declarativa' },
-        outputs: ['true', 'false'],
-        properties: [
-            { name: 'field', displayName: 'Field', type: 'string', typeOptions: { expression: true } },
-            { name: 'operator', displayName: 'Operator', type: 'options', options: [
-                { name: 'equals', value: 'equals' },
-                { name: 'not equals', value: 'notEquals' },
-                { name: 'contains', value: 'contains' },
-                { name: 'greater than', value: 'greaterThan' },
-                { name: 'less than', value: 'lessThan' },
-                { name: 'is empty', value: 'isEmpty' },
-                { name: 'is not empty', value: 'isNotEmpty' },
-            ], default: 'equals' },
-            { name: 'value', displayName: 'Value', type: 'string', typeOptions: { expression: true } }
-        ]
-    },
-    { type: 'nanorun.loop', icon: <RefreshCw size={18} />, label: { en: 'Loop / Iterate', es: 'Loop / Iterar' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Iterate over a list or retry N times', es: 'Iterar una lista o reintentar N veces' } },
-
-    // === INTEGRATIONS ===
-    // Postgres is the only integration with a real executor (stub —
-    // restricted to migrate/health/backup operations). For everything
-    // else (GitHub, Docker, AWS, Slack-as-step), use a `shell` step.
-    { type: 'nanorun.postgres', icon: <Database size={18} />, label: { en: 'Postgres (migrate)', es: 'Postgres (migrate)' }, color: 'bg-blue-400', category: 'integrations', description: { en: 'Run a versioned migration / health probe (stub — wire prisma to make it active)', es: 'Migración versionada o health probe (stub — falta wirear prisma)' } },
 
     // === ORGANIZATION ===
     {

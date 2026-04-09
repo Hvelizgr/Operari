@@ -75,10 +75,6 @@ interface EditorOverlaysProps {
     onFitView: () => void;
     onResetZoom: () => void;
 
-    // Solder Drop
-    solderDropPos?: { x: number; y: number } | null;
-    onSolderDropCancel?: () => void;
-
     // External Triggers
     searchTrigger?: number;
 
@@ -141,8 +137,6 @@ export default function EditorOverlays({
     onZoomOut,
     onFitView,
     onResetZoom,
-    solderDropPos,
-    onSolderDropCancel,
     searchTrigger,
     isTemplateGalleryOpen,
     onTemplateGalleryOpenChange,
@@ -195,33 +189,6 @@ export default function EditorOverlays({
                 availableNodeTypes={dbNodeTypes}
                 externalTrigger={searchTrigger}
             />
-
-            {/* Contextual Search Bar for Solder Drop */}
-            {solderDropPos && (
-                <div onClick={(e) => e.stopPropagation()}>
-                    <SearchBar
-                        nodes={nodes}
-                        onNodeSelect={(id) => {
-                            onSearchNodeSelect(id);
-                            onSolderDropCancel && onSolderDropCancel();
-                        }}
-                        onNodeAdd={(type) => {
-                            onNodeAdd(type);
-                            // Ensure the parent canvas handles the connection logic
-                        }}
-                        onHighlightNodes={onHighlightNodes}
-                        lang={lang}
-                        availableNodeTypes={dbNodeTypes}
-                        position={solderDropPos}
-                        forceOpen={true}
-                    />
-                    {/* Invisible overlay to catch clicks outside and cancel solder */}
-                    <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => onSolderDropCancel && onSolderDropCancel()}
-                    />
-                </div>
-            )}
 
             <MetricsDashboard
                 metrics={executionMetrics}

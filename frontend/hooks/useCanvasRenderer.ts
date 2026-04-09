@@ -2,7 +2,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import type { WorkflowNode, Connection } from '@nanoflow/shared';
 import type { ViewportState } from '../types/editor.types';
-import type { SolderState } from './useEditorSoldering';
 import { getNodePortInfo, PortDirection } from '../utils/nodePortUtils';
 
 const getControlPoint = (pos: { x: number, y: number }, direction: PortDirection, distance: number) => {
@@ -44,9 +43,10 @@ const drawSmartBezier = (
     ctx: CanvasRenderingContext2D,
     start: { x: number; y: number; direction: PortDirection },
     end: { x: number; y: number; direction: PortDirection },
-    options: { color?: string; dashOffset?: number, isCyclic?: boolean, flow?: number } = {}
+    options: { color?: string; dashOffset?: number, isCyclic?: boolean, flow?: number, lineStyle?: 'bezier' | 'straight' } = {}
 ) => {
     const { cp1, cp2 } = getControlPoints(start, end);
+    const lineStyle = options.lineStyle ?? 'bezier';
 
     // Draw Line
     ctx.save();
@@ -60,21 +60,29 @@ const drawSmartBezier = (
         ctx.setLineDash([5, 5]);
         ctx.lineDashOffset = -options.dashOffset;
     }
-    ctx.bezierCurveTo(cp1!.x, cp1!.y, cp2!.x, cp2!.y, end.x, end.y); // ts-ignore if cp undefined? No, getControlPoints returns valid
+    if (lineStyle === 'straight') {
+        ctx.lineTo(end.x, end.y);
+    } else {
+        ctx.bezierCurveTo(cp1!.x, cp1!.y, cp2!.x, cp2!.y, end.x, end.y);
+    }
     ctx.stroke();
     ctx.restore();
 
-    // Draw Micro-mouse (Flow Animation)
+    // Draw Micro-mouse (Flow Animation). Skipped entirely when the
+    // user disabled flow animations — the renderer just stops painting
+    // the orbs and the connection becomes a static line.
     if (options.flow !== undefined) {
-        // We calculate 3 beads for continuous flow feel
         for (let i = 0; i < 1; i++) {
             const t = (options.flow + (i * 0.3)) % 1;
-            // Ease the t for non-linear speed? No, linear is fine for data flow.
-
-            // To hide beads near ends/ports for cleaner look:
             if (t < 0.05 || t > 0.95) continue;
 
-            const pos = getBezierPoint(t, start, cp1!, cp2!, end);
+            const pos =
+                lineStyle === 'straight'
+                    ? {
+                          x: start.x + (end.x - start.x) * t,
+                          y: start.y + (end.y - start.y) * t,
+                      }
+                    : getBezierPoint(t, start, cp1!, cp2!, end);
 
             ctx.save();
             ctx.fillStyle = '#3b82f6'; // Blue data orb
@@ -93,7 +101,6 @@ interface UseCanvasRendererProps {
     nodes: WorkflowNode[];
     connections: Connection[];
     viewport: ViewportState;
-    soldering: SolderState | null;
     cyclicConnections?: string[];
     nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED'>;
 }
@@ -103,7 +110,6 @@ export function useCanvasRenderer({
     nodes,
     connections,
     viewport,
-    soldering,
     cyclicConnections = [],
     nodeStatuses = {},
 }: UseCanvasRendererProps) {
@@ -115,14 +121,12 @@ export function useCanvasRenderer({
     const nodesRef = useRef(nodes);
     const connectionsRef = useRef(connections);
     const viewportRef = useRef(viewport);
-    const solderingRef = useRef(soldering);
     const cyclicConnectionsRef = useRef(cyclicConnections);
     const nodeStatusesRef = useRef(nodeStatuses);
 
     useEffect(() => { nodesRef.current = nodes; }, [nodes]);
     useEffect(() => { connectionsRef.current = connections; }, [connections]);
     useEffect(() => { viewportRef.current = viewport; }, [viewport]);
-    useEffect(() => { solderingRef.current = soldering; }, [soldering]);
     useEffect(() => { cyclicConnectionsRef.current = cyclicConnections; }, [cyclicConnections]);
     useEffect(() => { nodeStatusesRef.current = nodeStatuses; }, [nodeStatuses]);
 
@@ -137,7 +141,6 @@ export function useCanvasRenderer({
         const _nodes = nodesRef.current;
         const _connections = connectionsRef.current;
         const _viewport = viewportRef.current;
-        const _soldering = solderingRef.current;
         const _cyclicConnections = cyclicConnectionsRef.current;
         const _nodeStatuses = nodeStatusesRef.current;
 
@@ -153,6 +156,17 @@ export function useCanvasRenderer({
         ctx.translate(_viewport.x, _viewport.y);
         ctx.scale(_viewport.zoom, _viewport.zoom);
 
+        // Read user visualization prefs from <html> data-* attributes
+        // each frame. Cheap (synchronous DOM read), and the user can
+        // toggle a setting and see the canvas react instantly without
+        // a React rerender.
+        const html = document.documentElement;
+        const lineStyle = (html.getAttribute('data-line-style') === 'straight'
+            ? 'straight'
+            : 'bezier') as 'bezier' | 'straight';
+        const flowEnabled = html.getAttribute('data-flow') !== 'off';
+        const animEnabled = html.getAttribute('data-anim') !== 'off';
+
         _connections.forEach(conn => {
             const sourceNode = _nodes.find(n => n.id === conn.source);
             const targetNode = _nodes.find(n => n.id === conn.target);
@@ -163,36 +177,20 @@ export function useCanvasRenderer({
 
             const sourceStatus = _nodeStatuses[conn.source];
             let flow: number | undefined = undefined;
-            if (sourceStatus === 'SUCCESS' || sourceStatus === 'RUNNING') {
+            if (
+                animEnabled &&
+                flowEnabled &&
+                (sourceStatus === 'SUCCESS' || sourceStatus === 'RUNNING')
+            ) {
                 flow = flowOffset.current;
             }
 
             drawSmartBezier(ctx, startInfo, endInfo, {
                 isCyclic: _cyclicConnections.includes(conn.id),
-                flow
+                flow,
+                lineStyle,
             });
         });
-
-        if (_soldering) {
-            const startNode = _nodes.find(n => n.id === _soldering.startNodeId);
-            if (startNode) {
-                const portType = _soldering.startPort === 'input' ? 'input' : 'output';
-                const startInfo = getNodePortInfo(startNode, portType, 0);
-
-                // Adjust for canvas space since soldering.mousePos is relative to canvas clientRect
-                const worldMousePos = {
-                    x: (_soldering.mousePos.x - _viewport.x) / _viewport.zoom,
-                    y: (_soldering.mousePos.y - _viewport.y) / _viewport.zoom,
-                    direction: (['left', 'right'].includes(startInfo.direction) ? (startInfo.direction === 'left' ? 'left' : 'right') : 'top') as PortDirection
-                };
-
-                // Smart direction flip for mouse
-                const mouseDirectionMap: Record<string, PortDirection> = { 'left': 'right', 'right': 'left', 'top': 'bottom', 'bottom': 'top' };
-                worldMousePos.direction = mouseDirectionMap[startInfo.direction] || 'left';
-
-                drawSmartBezier(ctx, startInfo, worldMousePos, { color: '#3b82f6', dashOffset: dashOffset.current });
-            }
-        }
 
         ctx.restore();
 

@@ -84,9 +84,19 @@ export default function YamlViewModal({
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         try {
             const spec = yamlToSpec(text);
+            // JSON Schema validation against the canonical schema served
+            // by the backend. Best-effort: if the schema is unreachable
+            // we let the save through with a warning. If it IS reachable
+            // and the spec violates it, we block save and show errors.
+            const { validateRunbookSpec } = await import('@/utils/runbookSchemaValidator');
+            const result = await validateRunbookSpec(spec);
+            if (!result.valid) {
+                setError(`${t.invalid}:\n${result.errors.join('\n')}`);
+                return;
+            }
             const parsed = specToNodes(spec);
             onApply(parsed);
             onClose();
@@ -130,7 +140,9 @@ export default function YamlViewModal({
                 {error && (
                     <div className="mx-3 mb-2 flex items-start gap-2 rounded border border-red-900 bg-red-950/50 px-3 py-2 text-xs text-red-300">
                         <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                        <span>{error}</span>
+                        <pre className="whitespace-pre-wrap font-mono text-[11px] leading-snug">
+                            {error}
+                        </pre>
                     </div>
                 )}
 
