@@ -129,6 +129,11 @@ services:
       # default — `docker` would need docker-in-docker, `fly` needs the
       # FLY_API_TOKEN. Override only if you know what you are doing.
       NANORUN_RUNNER: local
+      # ADR 0003: durable execution engine. Enables ExecutionEventStore
+      # appends in ExecutionService and the resume worker scan at boot.
+      # Resume worker stays in dryRun until NANORUN_RESUME_WORKER_ACT=true.
+      NANORUN_DURABLE_ENGINE: ${NANORUN_DURABLE_ENGINE:-true}
+      NANORUN_RESUME_WORKER_ACT: ${NANORUN_RESUME_WORKER_ACT:-}
       # Tracing wired to the optional jaeger service. Enable with the
       # `traces` profile (`docker compose --profile traces up -d`).
       ENABLE_TRACING: "false"

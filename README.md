@@ -66,7 +66,7 @@ This list is conservative and hand-verified against the test suite, not the road
 - Approval inbox at `/inbox` with status filters and inline grant/reject
 - Run history at `/runs` with status filters, ETA from past runs, cursor pagination
 - Run detail timeline at `/runs/:id` with per-step output, error blocks, replay-from-step button
-- AI assist side-panel that diagnoses failed steps using stdout/stderr/exit-code context
+- AI assist side-panel that takes the failed step's stdout/stderr/exit-code as prompt context and streams a diagnosis. It does NOT yet have tool access to run history or other step logs — see "What does NOT work yet" below
 - Hash-chained immutable audit log (SHA-256) with a CLI to verify the chain (`nanorun audit verify`)
 - RBAC with custom roles, role assignments, and audit events on grant/revoke
 - OpenTelemetry: every run is a trace, every step is a span

@@ -55,9 +55,12 @@ const CATEGORIES = [
 //     split/join, scheduleTrigger (cron covers it)
 //   - Database: MySQL, Redis (kept Postgres only)
 //
-// What stayed: shell, approval, notify, wait, http, set, condition,
-// switch, loop, error trigger, agent, frame, note, plus 4 native dev
-// integrations (Postgres, GitHub, Docker, AWS S3) + webhook + cron triggers.
+// What stayed (post-pivot, hand-verified against the backend executors):
+//   shell, approval, notify, wait, nanorun.httpRequest,
+//   nanorun.webhook (trigger), nanorun.cron (trigger),
+//   custom.frame, custom.note.
+// 9 step types total. Anything not on this list has no executor and
+// must not be re-added to the palette without one.
 const NODE_TYPES: NodeType[] = [
     // === RUNBOOK CORE (NanoRun-native step types) ===
     {
