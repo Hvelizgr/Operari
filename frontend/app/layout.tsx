@@ -7,11 +7,12 @@ import { VisualizationProvider } from '@/context/VisualizationContext';
 const inter = Inter({ subsets: ['latin'] });
 
 // metadataBase is read at build time. The repo does not own a public
-// domain yet, so we point at the GitHub Pages preview URL by default
-// and let SITE_URL override it via env when (if) a real domain lands.
+// domain yet, so the dev fallback is localhost — any production deploy
+// MUST set NEXT_PUBLIC_SITE_URL to its real origin (otherwise OG image
+// URLs and social previews will resolve against localhost and break).
 // Hardcoding nanorun.dev would be a lie that bites us at deploy time.
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://hvelizgr.github.io/NanoFlow';
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
     template: '%s · NanoRun',
   },
   description:
-    "Sentry catches it at 3am. NanoRun runs the fix. Open-source visual runbooks that respond to alerts from Sentry, Datadog, GitHub, or any webhook. Self-host with one command.",
+    "Your alert fires at 3am. NanoRun runs the fix. Open-source visual runbooks triggered by Datadog, Sentry, GitHub, PagerDuty, Grafana, or any webhook. Self-host with one command.",
   applicationName: 'NanoRun',
   authors: [{ name: 'Héctor Eduardo Véliz Girón' }],
   keywords: [
@@ -37,7 +38,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'NanoRun',
-    title: 'NanoRun — Sentry catches it. NanoRun runs the fix.',
+    title: 'NanoRun — Your alert fires. NanoRun runs the fix.',
     description:
       'Open-source visual runbooks that respond to your alerts. Visual to author, YAML to commit, sandboxed to execute, audited to prove.',
     locale: 'en_US',
@@ -45,7 +46,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'NanoRun — Sentry catches it. NanoRun runs the fix.',
+    title: 'NanoRun — Your alert fires. NanoRun runs the fix.',
     description:
       'Open-source visual runbooks that respond to your alerts. Self-host with one command.',
   },

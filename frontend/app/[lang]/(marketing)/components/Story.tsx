@@ -242,9 +242,9 @@ function AnimatedNode({
  * ------------------------------------------------------------------ */
 function YamlDiffMockup() {
   const lines = [
-    { sign: ' ', text: 'name: rollback-on-sentry-error', cls: 'text-foreground/80' },
+    { sign: ' ', text: 'name: rollback-on-error-spike', cls: 'text-foreground/80' },
     { sign: ' ', text: 'on:', cls: 'text-foreground/80' },
-    { sign: ' ', text: '  webhook: sentry', cls: 'text-foreground/80' },
+    { sign: ' ', text: '  webhook: incoming', cls: 'text-foreground/80' },
     { sign: ' ', text: 'steps:', cls: 'text-foreground/80' },
     { sign: '-', text: '  - shell: helm rollback prod', cls: 'text-red-400' },
     { sign: '+', text: '  - shell: helm rollback prod --wait', cls: 'text-emerald-400' },

@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { content } from '@/app/[lang]/content/en';
+import { repo } from '@/config/repo.config';
 import AuroraBackground from './AuroraBackground';
 
 type HeroProps = {
@@ -15,12 +16,16 @@ type HeroProps = {
 /**
  * Hero — the alert→runbook→resolved scenario.
  *
- * The whole positioning is "Sentry catches it. NanoRun runs the fix."
- * so the visual on the right MUST be a concrete narrative, not a
- * generic gradient. We render four stacked cards that represent the
- * lifecycle of an alert in real time:
+ * The whole positioning is "Your alert fires. NanoRun runs the fix."
+ * — vendor-neutral on purpose, because Sentry/Datadog/PagerDuty/Grafana/
+ * GitHub Actions are all valid sources, and naming any one of them as
+ * THE antagonist would make NanoRun look like an add-on for that tool.
  *
- *   1. Sentry alert appears (red)
+ * The visual on the right MUST be a concrete narrative, not a generic
+ * gradient. We render four stacked cards that represent the lifecycle
+ * of an alert in real time:
+ *
+ *   1. Alert fires (red) — vendor-agnostic
  *   2. Webhook hits NanoRun (yellow → connecting line lights up)
  *   3. Runbook executes step by step (steps flip to green)
  *   4. Resolved with audit hash (green badge)
@@ -62,7 +67,7 @@ export default function Hero({ content }: HeroProps) {
           {/* LEFT — copy + CTAs */}
           <div className="flex flex-col items-start text-left min-w-0">
             <motion.a
-              href="https://github.com/Hvelizgr/NanoFlow#status"
+              href={repo.status}
               target="_blank"
               rel="noopener noreferrer"
               initial={{ opacity: 0, y: 10 }}
@@ -122,7 +127,7 @@ export default function Hero({ content }: HeroProps) {
               </button>
 
               <Link
-                href="https://github.com/Hvelizgr/NanoFlow"
+                href={repo.base}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="h-14 px-5 sm:px-6 rounded-xl border border-border bg-secondary/30 hover:bg-secondary/50 hover:border-secondary text-foreground font-semibold transition-all flex items-center justify-center gap-2 group"
@@ -206,7 +211,7 @@ function HeroScenario({ content: s }: { content: typeof content.hero.scenario })
       <div className="absolute -inset-4 rounded-3xl bg-gradient-to-b from-orange-500/[0.08] via-transparent to-emerald-500/[0.08] blur-2xl" />
 
       <div key={cycle} className="relative flex flex-col gap-3">
-        {/* FRAME 1 — Sentry alert (red) */}
+        {/* FRAME 1 — Alert fires (red) — vendor-agnostic on purpose */}
         <ScenarioCard delay={0.5} accent="red">
           <div className="flex items-start gap-3">
             <div className="h-9 w-9 rounded-lg bg-red-500/15 border border-red-500/30 flex items-center justify-center shrink-0">

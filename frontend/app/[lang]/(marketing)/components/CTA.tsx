@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Copy, Check, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { content } from '@/app/[lang]/content/en';
+import { repo } from '@/config/repo.config';
 import AuroraBackground from './AuroraBackground';
 
 type CTAProps = {
@@ -110,7 +111,7 @@ export default function CTA({ content }: CTAProps) {
           {/* Two CTAs — primary readme, secondary "what does NOT work" */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
             <Link
-              href="https://github.com/Hvelizgr/NanoFlow#readme"
+              href={repo.readme}
               target="_blank"
               rel="noopener noreferrer"
               className="h-12 px-5 sm:px-6 rounded-xl bg-foreground text-background font-semibold hover:bg-foreground/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
@@ -119,7 +120,7 @@ export default function CTA({ content }: CTAProps) {
               <ExternalLink className="w-4 h-4 opacity-70" />
             </Link>
             <Link
-              href="https://github.com/Hvelizgr/NanoFlow#what-does-not-work-yet"
+              href={repo.notWorkingYet}
               target="_blank"
               rel="noopener noreferrer"
               className="h-12 px-5 sm:px-6 rounded-xl border border-border bg-secondary/30 hover:bg-secondary/50 hover:border-secondary text-foreground font-semibold transition-all flex items-center justify-center gap-2"

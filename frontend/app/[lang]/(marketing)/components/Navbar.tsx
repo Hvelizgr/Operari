@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Menu, X, Github } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
 import { content } from '@/app/[lang]/content/en';
+import { repo } from '@/config/repo.config';
 
 type NavbarProps = {
     content: typeof content.navigation;
@@ -70,7 +71,7 @@ export default function Navbar({ content, lang }: NavbarProps) {
                         {lang === 'es' ? 'Comparar' : 'Compare'}
                     </a>
                     <a
-                        href="https://github.com/Hvelizgr/NanoFlow#readme"
+                        href={repo.readme}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:text-foreground transition-colors"
@@ -83,7 +84,7 @@ export default function Navbar({ content, lang }: NavbarProps) {
                 <div className="hidden md:flex items-center gap-3">
                     <LanguageSwitcher lang={lang} />
                     <a
-                        href="https://github.com/Hvelizgr/NanoFlow"
+                        href={repo.base}
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label="GitHub"
@@ -127,7 +128,7 @@ export default function Navbar({ content, lang }: NavbarProps) {
                             {lang === 'es' ? 'Comparar' : 'Compare'}
                         </a>
                         <a
-                            href="https://github.com/Hvelizgr/NanoFlow#readme"
+                            href={repo.readme}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="hover:text-primary"
@@ -139,7 +140,7 @@ export default function Navbar({ content, lang }: NavbarProps) {
                     <div className="flex items-center justify-between">
                         <LanguageSwitcher lang={lang} />
                         <a
-                            href="https://github.com/Hvelizgr/NanoFlow"
+                            href={repo.base}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-muted-foreground hover:text-foreground"

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Github } from 'lucide-react';
 import { content } from '@/app/[lang]/content/en';
+import { repo } from '@/config/repo.config';
 
 interface FooterProps {
     content: typeof content.footer;
@@ -38,13 +39,13 @@ export default function Footer({ content }: FooterProps) {
                             {content.tagline}
                         </p>
                         <a
-                            href="https://github.com/Hvelizgr/NanoFlow"
+                            href={repo.base}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                         >
                             <Github className="w-4 h-4" />
-                            github.com/Hvelizgr/NanoFlow
+                            {repo.displayHost}
                         </a>
                     </div>
 

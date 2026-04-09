@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { ArrowUpRight, Github } from 'lucide-react';
 import { content } from '@/app/[lang]/content/en';
+import { repo } from '@/config/repo.config';
 import AuroraBackground from './AuroraBackground';
 
 type TemplatesProps = {
@@ -93,7 +94,7 @@ export default function Templates({ content }: TemplatesProps) {
           className="flex justify-center mt-10"
         >
           <a
-            href="https://github.com/Hvelizgr/NanoFlow/tree/main/templates"
+            href={repo.templatesTree}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group"
@@ -135,7 +136,7 @@ function TemplateCard({ item }: { item: typeof content.templates.items[number] }
   const accent = accentClasses[item.accent] ?? accentClasses.primary;
   return (
     <motion.a
-      href={`https://github.com/Hvelizgr/NanoFlow/blob/main/templates/${item.slug}.yaml`}
+      href={repo.templateFile(item.slug)}
       target="_blank"
       rel="noopener noreferrer"
       variants={{

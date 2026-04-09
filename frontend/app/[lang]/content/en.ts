@@ -1,10 +1,12 @@
+import { repo } from '@/config/repo.config';
+
 export const content = {
   seo: {
     title: "NanoRun — The action layer for your alerts",
     description:
-      "Sentry catches it at 3am. NanoRun runs the fix. Open-source visual runbooks that respond to alerts from Sentry, Datadog, GitHub, or any webhook. Self-host with one command.",
+      "Your alert fires at 3am. NanoRun runs the fix. Open-source visual runbooks triggered by Datadog, Sentry, GitHub, PagerDuty, Grafana, or any webhook. Self-host with one command.",
     openGraph: {
-      title: "NanoRun — Sentry catches it. NanoRun runs the fix.",
+      title: "NanoRun — Your alert fires. NanoRun runs the fix.",
       description:
         "Open-source runbook automation for alert response. Visual to author, YAML to commit, sandboxed to execute, audited to prove.",
     },
@@ -18,17 +20,17 @@ export const content = {
   },
   hero: {
     badge: "Open source · AGPL · pre-launch alpha",
-    title: "Sentry catches it.\nNanoRun runs the fix.",
+    title: "Your alert fires.\nNanoRun runs the fix.",
     subtitle:
-      "Open-source runbooks that respond to your alerts. Visual to author, YAML to commit, sandboxed to execute, audited to prove.",
+      "Open-source runbooks that respond to alerts from Datadog, Sentry, GitHub, PagerDuty, Grafana — or any webhook. Visual to author, YAML to commit, sandboxed to execute, audited to prove.",
     ctaPrimary: "docker compose up",
     ctaSecondary: "Star on GitHub",
     // labels for the 4-frame "alert → runbook → resolved" diagram
     scenario: {
-      step1Label: "1. Sentry alert",
+      step1Label: "1. Alert fires",
       step1Body: "TypeError: Cannot read 'user' of undefined",
       step2Label: "2. Webhook → NanoRun",
-      step2Body: "POST /api/webhooks/sentry  ✓ HMAC verified",
+      step2Body: "POST /api/webhooks/incoming  ✓ HMAC verified",
       step3Label: "3. Runbook executing",
       step3Steps: [
         "fetch service logs (kubectl)",
@@ -62,7 +64,7 @@ export const content = {
       },
       {
         number: "03",
-        title: "Sentry fires → it runs → audit chain proves it.",
+        title: "The alert fires → it runs → audit chain proves it.",
         description:
           "Webhook in, runbook out. Each step executes in a sandboxed runner with retries, conditional gates, and human approval where you want it. Every action lands in a SHA-256 hash chain you can verify with `nanorun audit verify`.",
         caption: "From alert to evidence in one tool.",
@@ -117,15 +119,15 @@ export const content = {
       "Built-in HMAC verification for the providers you already pay for. Generic webhook for everything else.",
     items: [
       {
-        name: "Sentry",
-        description:
-          "Issue alerts, regression detection, performance degradation. HMAC-verified, auto-parsed.",
-        status: "ready",
-      },
-      {
         name: "Datadog",
         description:
           "Monitor alerts, anomaly detection, SLO burns. Payload mapped to runbook variables.",
+        status: "ready",
+      },
+      {
+        name: "Sentry",
+        description:
+          "Issue alerts, regression detection, performance degradation. HMAC-verified, auto-parsed.",
         status: "ready",
       },
       {
@@ -173,7 +175,7 @@ export const content = {
         cells: ["yes", "no", "no", "partial", "no"],
       },
       {
-        feature: "Triggered by alerts (Sentry/Datadog)",
+        feature: "Triggered by alerts (Datadog/Sentry/PagerDuty)",
         cells: ["yes", "partial", "yes", "yes", "no"],
       },
       {
@@ -182,15 +184,15 @@ export const content = {
       },
       {
         feature: "Replay from any failed step",
-        cells: ["yes", "partial", "no", "no", "no"],
+        cells: ["yes", "yes", "no", "no", "no"],
       },
       {
         feature: "AI agent on failure (in-context)",
-        cells: ["yes", "no", "no", "yes", "no"],
+        cells: ["yes", "no", "no", "partial", "no"],
       },
       {
         feature: "Hash-chained audit (verifiable)",
-        cells: ["yes", "yes", "partial", "yes", "partial"],
+        cells: ["yes", "partial", "partial", "partial", "no"],
       },
       {
         feature: "Open source license",
@@ -215,7 +217,7 @@ export const content = {
     title: "Two minutes to your first runbook.",
     subtitle:
       "Clone, run, open the editor at localhost:3000. AGPL forever. No telemetry. No sign-up.",
-    code: "git clone https://github.com/Hvelizgr/NanoFlow\ncd NanoFlow && docker compose up",
+    code: repo.cloneSnippet,
     primary: "Read the README",
     secondary: "What does NOT work yet",
   },
@@ -226,19 +228,19 @@ export const content = {
       {
         title: "Product",
         links: [
-          { label: "GitHub", href: "https://github.com/Hvelizgr/NanoFlow" },
-          { label: "README", href: "https://github.com/Hvelizgr/NanoFlow#readme" },
-          { label: "Templates", href: "https://github.com/Hvelizgr/NanoFlow/tree/main/templates" },
-          { label: "Roadmap", href: "https://github.com/Hvelizgr/NanoFlow#roadmap" },
+          { label: "GitHub", href: repo.base },
+          { label: "README", href: repo.readme },
+          { label: "Templates", href: repo.templatesTree },
+          { label: "Roadmap", href: repo.roadmap },
         ],
       },
       {
         title: "Project",
         links: [
-          { label: "Contributing", href: "https://github.com/Hvelizgr/NanoFlow/blob/main/CONTRIBUTING.md" },
-          { label: "Issues", href: "https://github.com/Hvelizgr/NanoFlow/issues" },
-          { label: "Discussions", href: "https://github.com/Hvelizgr/NanoFlow/discussions" },
-          { label: "License", href: "https://github.com/Hvelizgr/NanoFlow/blob/main/LICENSE" },
+          { label: "Contributing", href: repo.contributing },
+          { label: "Issues", href: repo.issues },
+          { label: "Discussions", href: repo.discussions },
+          { label: "License", href: repo.license },
         ],
       },
     ],
@@ -246,7 +248,7 @@ export const content = {
   modal: {
     title: "Become a design partner",
     subtitle:
-      "Pre-launch alpha. We are looking for 5 SRE / platform teams using NanoRun in earnest. Free for 12 months, weekly office hours, perpetual 50% discount when cloud opens.",
+      "Pre-launch alpha. We are looking for 5 SRE / platform teams using NanoRun in earnest. Free forever on self-host, weekly office hours, direct line to the people building it.",
     placeholder: "you@company.com",
     button: "Request a chat",
     processing: "Sending...",
