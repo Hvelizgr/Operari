@@ -24,6 +24,14 @@ import runRoutes from './routes/runs.routes';
 import connectedAccountRoutes from './routes/connected-accounts.routes';
 import runbookAssistRoutes from './routes/runbook-assist.routes';
 import webhooksAdminRoutes from './routes/webhooks-admin.routes';
+import dashboardRoutes from './routes/dashboard.routes';
+import eventAgentsRoutes from './routes/event-agents.routes';
+import schedulesRoutes from './routes/schedules.routes';
+import templatesRoutes from './routes/templates.routes';
+import monitorsRoutes from './routes/monitors.routes';
+import eventsRoutes from './routes/events.routes';
+import adminRoutes from './routes/admin.routes';
+import { MonitorService } from './services/monitor.service';
 import { errorHandler } from './middleware/error.middleware';
 import { SchedulerService } from './services/scheduler.service';
 import {
@@ -80,6 +88,13 @@ app.use('/api/runs', standardRateLimiter, runRoutes);
 app.use('/api/connected-accounts', standardRateLimiter, connectedAccountRoutes);
 app.use('/api/runbook-assist', standardRateLimiter, runbookAssistRoutes);
 app.use('/api/webhooks', standardRateLimiter, webhooksAdminRoutes);
+app.use('/api/dashboard', standardRateLimiter, dashboardRoutes);
+app.use('/api/event-agents', standardRateLimiter, eventAgentsRoutes);
+app.use('/api/schedules', standardRateLimiter, schedulesRoutes);
+app.use('/api/templates', standardRateLimiter, templatesRoutes);
+app.use('/api/monitors', standardRateLimiter, monitorsRoutes);
+app.use('/api/events', standardRateLimiter, eventsRoutes);
+app.use('/api/admin', standardRateLimiter, adminRoutes);
 
 // NanoRun API v1 (SDK & CLI)
 app.use('/api/v1/runbooks', executionRateLimiter, v1RunbookRoutes);
@@ -89,8 +104,61 @@ app.use('/api/v1/webhooks', standardRateLimiter, v1WebhookRoutes);
 app.use('/api/v1/audit', standardRateLimiter, v1AuditRoutes);
 app.use('/api/v1/approvals', standardRateLimiter, v1ApprovalRoutes);
 
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+/**
+ * Liveness + readiness probe.
+ *
+ * Verifies the two stateful dependencies (postgres + redis) so a
+ * docker-compose `healthcheck:` block or a k8s liveness probe can
+ * actually distinguish "the process is up" from "the process is up
+ * AND can talk to its dependencies". Both checks are wrapped in a
+ * 1.5s timeout so a stuck connection does not stall the probe.
+ */
+app.get('/health', async (_req, res) => {
+    const withTimeout = async <T>(p: Promise<T>, ms: number): Promise<T> => {
+        return Promise.race([
+            p,
+            new Promise<T>((_, reject) =>
+                setTimeout(() => reject(new Error('timeout')), ms)
+            ),
+        ]);
+    };
+
+    let postgres: 'ok' | 'error' = 'ok';
+    let postgresError: string | undefined;
+    try {
+        await withTimeout(prisma.$queryRaw`SELECT 1`, 1500);
+    } catch (err) {
+        postgres = 'error';
+        postgresError = err instanceof Error ? err.message : 'unknown';
+    }
+
+    // Redis is optional in self-host (LogStreamService is no-op when
+    // not configured) so we report status separately and never fail
+    // the overall probe on redis alone.
+    let redis: 'ok' | 'error' | 'disabled' = 'disabled';
+    let redisError: string | undefined;
+    try {
+        const { redisConfig } = await import('./config/redis.config');
+        const client = redisConfig.getClient();
+        if (client) {
+            await withTimeout(client.ping(), 1500);
+            redis = 'ok';
+        }
+    } catch (err) {
+        redis = 'error';
+        redisError = err instanceof Error ? err.message : 'unknown';
+    }
+
+    const overall: 'ok' | 'degraded' = postgres === 'ok' ? 'ok' : 'degraded';
+    res.status(overall === 'ok' ? 200 : 503).json({
+        status: overall,
+        timestamp: new Date().toISOString(),
+        version: process.env.NANORUN_VERSION ?? '0.1.0-dev',
+        deps: {
+            postgres: { status: postgres, ...(postgresError && { error: postgresError }) },
+            redis: { status: redis, ...(redisError && { error: redisError }) },
+        },
+    });
 });
 
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -117,6 +185,7 @@ app.get('/runbook.schema.json', (_req, res) => {
 app.use(errorHandler);
 
 const scheduler = new SchedulerService(prisma);
+export { scheduler };
 
 async function main() {
     try {
@@ -125,6 +194,22 @@ async function main() {
 
         scheduler.start();
         logger.info('Scheduler started');
+
+        // Monitor watchdog: 1-minute polling worker. Kept dead simple
+        // (setInterval) — monitors are not on a hot path. The worker
+        // also runs once at startup so the UI shows fresh status without
+        // a 1-minute lag after a restart.
+        const monitorService = new MonitorService(prisma);
+        monitorService.evaluateAll().catch((err) => {
+            logger.error({ err }, 'Initial monitor sweep failed');
+        });
+        const monitorInterval = setInterval(() => {
+            monitorService.evaluateAll().catch((err) => {
+                logger.error({ err }, 'Monitor sweep failed');
+            });
+        }, 60_000);
+        process.on('SIGTERM', () => clearInterval(monitorInterval));
+        logger.info('Monitor watchdog started (1-minute interval)');
 
         // ADR 0003 phase 3: scan for runs that were in flight when the
         // previous backend instance died and abandon them so they stop

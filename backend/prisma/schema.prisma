@@ -59,6 +59,8 @@ model Tenant {
   apiKeys           ApiKey[]
   webhooks          Webhook[]
   customRoles       CustomRole[]
+  eventAgents       EventAgent[]
+  monitors          Monitor[]
 
   @@index([slug])
 }
@@ -104,6 +106,9 @@ model Workflow {
   workflowConnections WorkflowConnection[]
   webhooks          Webhook[]
   approvals         Approval[]
+  eventAgents       EventAgent[]
+  scheduledJob      ScheduledJob?
+  monitors          Monitor[]
 
   @@unique([tenantId, slug])
 
@@ -254,6 +259,8 @@ model ScheduledJob {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
   @@index([isActive])
 }
 
@@ -375,6 +382,10 @@ model ChatMessage {
   @@index([createdAt])
 }
 
+/// DEPRECATED (pre-pivot legacy). Schema-only placeholder from the
+/// NanoFlow era — never wired to a service or executor. Kept to avoid
+/// a destructive migration. The Agents surface in NanoRun lives on
+/// EventAgent / EventAgentExecution below.
 model Agent {
   id             String      @id @default(uuid())
   conversationId String
@@ -397,6 +408,7 @@ model Agent {
   @@index([status])
 }
 
+/// DEPRECATED — see note on Agent.
 model AgentExecution {
   id          String          @id @default(uuid())
   agentId     String
@@ -414,6 +426,112 @@ model AgentExecution {
   @@index([agentId])
   @@index([status])
   @@index([startedAt])
+}
+
+/// NanoRun Event Agent — a declarative listener that turns inbound
+/// webhook events into runbook triggers. The matcher is either a
+/// jsonpath rule (cheap, deterministic) or an LLM rule (slower, used
+/// only when the source payload is unstructured). Variables for the
+/// triggered runbook are extracted via varMapping (key → jsonpath).
+///
+/// Lifecycle:
+///   1. Webhook arrives at /webhook/:token/:event
+///   2. Receiver looks up EventAgent[] WHERE webhookId = X (or null source-match)
+///   3. For each agent, run match(payload) → { matched, reason, vars }
+///   4. If matched + rate limit OK, trigger targetRunbook with vars
+///   5. Persist EventAgentExecution with the outcome
+model EventAgent {
+  id              String   @id @default(uuid())
+  tenantId        String
+  name            String
+  description     String?
+  source          String   // "sentry" | "datadog" | "github" | "custom"
+  webhookId       String?  // optional FK to Webhook the events come from
+  matcherType     String   // "jsonpath" | "llm" | "always"
+  matcherConfig   Json     // shape depends on matcherType
+  targetRunbookId String
+  varMapping      Json     // { "key": "$.json.path", ... }
+  isEnabled       Boolean  @default(true)
+  rateLimitPerHour Int     @default(10)
+  triggerCount    Int      @default(0)
+  matchCount      Int      @default(0)
+  lastTriggeredAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  targetRunbook Workflow @relation(fields: [targetRunbookId], references: [id], onDelete: Cascade)
+  webhook       Webhook? @relation(fields: [webhookId], references: [id], onDelete: SetNull)
+  executions    EventAgentExecution[]
+
+  @@index([tenantId])
+  @@index([webhookId])
+  @@index([source])
+  @@index([targetRunbookId])
+}
+
+/// NanoRun Monitor — a watchdog over a runbook's health. Polled every
+/// minute by the SchedulerService. Three check types in v0.1:
+///   - last_success_within: must have a SUCCESS run in the last N minutes
+///   - no_run_within:       must have ANY run in the last N minutes
+///   - failure_rate_above:  fail if >X% of runs in last N minutes failed
+/// When a check fails, status flips to FIRING and a MonitorEvent row
+/// is appended. Recovery flips it back to OK with another event.
+model Monitor {
+  id           String   @id @default(uuid())
+  tenantId     String
+  workflowId   String
+  name         String
+  description  String?
+  checkType    String   // "last_success_within" | "no_run_within" | "failure_rate_above"
+  checkConfig  Json     // type-specific: { windowMinutes: 60, threshold?: 0.2 }
+  isEnabled    Boolean  @default(true)
+  status       String   @default("UNKNOWN") // "OK" | "FIRING" | "UNKNOWN"
+  lastCheckAt  DateTime?
+  lastFiredAt  DateTime?
+  lastReason   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  events   MonitorEvent[]
+
+  @@index([tenantId])
+  @@index([workflowId])
+  @@index([status])
+}
+
+/// Status transitions of a monitor — append-only.
+model MonitorEvent {
+  id        String   @id @default(uuid())
+  monitorId String
+  status    String   // "OK" | "FIRING"
+  reason    String?
+  createdAt DateTime @default(now())
+
+  monitor Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([monitorId])
+  @@index([createdAt])
+}
+
+/// One row per inbound event evaluated against an EventAgent — the
+/// audit trail for "why did this run start" or "why didn't it".
+model EventAgentExecution {
+  id              String   @id @default(uuid())
+  agentId         String
+  payload         Json
+  matched         Boolean
+  reason          String?
+  triggeredRunId  String?
+  createdAt       DateTime @default(now())
+
+  agent EventAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([createdAt])
+  @@index([matched])
 }
 
 model ConnectedAccount {
@@ -500,6 +618,7 @@ model Webhook {
 
   tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  eventAgents EventAgent[]
 
   @@index([tenantId])
   @@index([token])
