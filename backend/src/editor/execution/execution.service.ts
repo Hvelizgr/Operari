@@ -26,6 +26,7 @@ import { ExecutionEventStore } from '../../runbook/engine/execution-event.store'
 import type { ExecutionEventPayload } from '../../runbook/engine/execution-event.types';
 import type { BillingMeter } from '../../billing';
 import { getBillingMeter } from '../../billing';
+import { GitHubStatusService } from '../../runbook/services/github-status.service';
 
 interface ExecuteParams {
     workflowId: string;
@@ -146,6 +147,55 @@ export class ExecutionService {
             return tenant?.stripeCustomerId ?? undefined;
         } catch {
             return undefined;
+        }
+    }
+
+    /**
+     * Best-effort GitHub commit status report. Reads the `metadata.github`
+     * blob from the Execution row (written by webhook.routes when the run
+     * was triggered by a GitHub webhook) and posts the terminal status to
+     * the GitHub Statuses API.
+     *
+     * If the execution has no GitHub metadata (non-GitHub trigger), this
+     * is a no-op. Never throws.
+     */
+    private async safeGitHubStatus(
+        executionId: string,
+        tenantId: string | undefined | null,
+        params: {
+            success: boolean;
+            durationMs: number;
+            workflowName: string;
+            error?: string;
+        },
+    ): Promise<void> {
+        if (!tenantId) return;
+        try {
+            const execution = await this.prisma.execution.findUnique({
+                where: { id: executionId },
+                select: { metadata: true },
+            });
+
+            const meta = execution?.metadata as Record<string, unknown> | null;
+            const github = meta?.github as Record<string, string> | undefined;
+            if (!github?.owner || !github?.repo || !github?.sha) return;
+
+            const svc = new GitHubStatusService(this.prisma);
+            await svc.reportRunEnd(tenantId, {
+                owner: github.owner,
+                repo: github.repo,
+                sha: github.sha,
+                runId: executionId,
+                runbookName: github.runbookName ?? params.workflowName,
+                success: params.success,
+                durationMs: params.durationMs,
+                error: params.error,
+            });
+        } catch (err) {
+            this.logger.warn('GitHub status report failed (non-fatal)', {
+                error: err instanceof Error ? err : new Error(String(err)),
+                metadata: { executionId },
+            });
         }
     }
 
@@ -1005,6 +1055,13 @@ export class ExecutionService {
                 customerId: await this.resolveStripeCustomerId(tenantId),
             });
 
+            // GitHub status check: report success to the commit.
+            await this.safeGitHubStatus(executionId, tenantId, {
+                success: true,
+                durationMs: duration,
+                workflowName: workflow.name,
+            });
+
             try {
                 this.tracer?.endRun(executionId, true);
             } catch (err) {
@@ -1074,6 +1131,14 @@ export class ExecutionService {
                 tenantId,
                 executionId,
                 customerId: await this.resolveStripeCustomerId(tenantId),
+            });
+
+            // GitHub status check: report failure to the commit.
+            await this.safeGitHubStatus(executionId, tenantId, {
+                success: false,
+                durationMs: duration,
+                workflowName: workflow.name,
+                error: errorMessage,
             });
 
             try {

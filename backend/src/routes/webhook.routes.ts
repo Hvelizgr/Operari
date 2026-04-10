@@ -3,6 +3,7 @@ import { prisma } from '../server';
 import { ExecutionService } from '../editor/execution/execution.service';
 import { WebhookService } from '../runbook/services/webhook.service';
 import { EventAgentService } from '../agent/services/event-agent.service';
+import { GitHubStatusService } from '../runbook/services/github-status.service';
 import { logger } from '../config/logger.config';
 
 const router = Router();
@@ -23,6 +24,12 @@ let _eventAgentService: EventAgentService | null = null;
 function getEventAgentService() {
     if (!_eventAgentService) _eventAgentService = new EventAgentService(prisma);
     return _eventAgentService;
+}
+
+let _githubStatusService: GitHubStatusService | null = null;
+function getGitHubStatusService() {
+    if (!_githubStatusService) _githubStatusService = new GitHubStatusService(prisma);
+    return _githubStatusService;
 }
 
 /**
@@ -94,6 +101,33 @@ async function handleWebhook(req: Request, res: Response) {
 
     // Update webhook stats async
     service.recordTrigger(webhook.id).catch(() => { /* ignore */ });
+
+    // GitHub: post "pending" commit status and store metadata for the
+    // completion hook in execution.service.
+    if (webhook.source === 'github' && variables.head_sha && variables.owner && variables.repo) {
+        const githubMeta = {
+            owner: variables.owner as string,
+            repo: variables.repo as string,
+            sha: variables.head_sha as string,
+            runbookName: webhook.workflow.name,
+        };
+
+        // Store on execution so the completion hook can find it.
+        prisma.execution.update({
+            where: { id: execution.id },
+            data: { metadata: { github: githubMeta } },
+        }).catch(() => { /* best-effort */ });
+
+        // Post "pending" status to GitHub.
+        getGitHubStatusService()
+            .reportRunStart(webhook.tenantId, {
+                ...githubMeta,
+                runId: execution.id,
+            })
+            .catch((err) => {
+                logger.warn({ err, executionId: execution.id }, 'GitHub pending status failed');
+            });
+    }
 
     // Fan out to EventAgents bound to this webhook. Additive: the
     // webhook's own bound runbook always fires (legacy single-mapping
