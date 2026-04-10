@@ -229,9 +229,50 @@ export function useAutosave({
         localStorage.setItem('nanoflow-autosave-enabled', enableAutosave.toString());
     }, [enableAutosave]);
 
+    /**
+     * Force-save current state, ignoring any conflict. Called by the UI
+     * when the user explicitly chooses "overwrite server version" after
+     * a conflict is detected. Resets the conflict status so autosave
+     * resumes normally.
+     */
+    const forceOverwrite = useCallback(async () => {
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+        setSaveStatus('saving');
+
+        // Reset the timestamp so the conflict check won't fire again
+        lastSavedTimestampRef.current = 0;
+
+        const workflowData: WorkflowData = {
+            nodes,
+            connections,
+            version: '1.0',
+            timestamp: Date.now(),
+            workflowId,
+        };
+
+        saveToLocalStorage(workflowData);
+
+        const success = await saveToBackend(workflowData);
+        setSaveStatus(success ? 'saved' : 'error');
+        isSavingRef.current = false;
+    }, [nodes, connections, workflowId, saveToLocalStorage, saveToBackend]);
+
+    /**
+     * Discard local changes and reload from server. Called when the
+     * user chooses "use server version" after a conflict.
+     */
+    const discardLocal = useCallback(() => {
+        setSaveStatus('saved');
+        lastSavedTimestampRef.current = 0;
+        // The caller (EditorCanvas) should re-fetch the workflow
+    }, []);
+
     return {
         saveStatus,
         enableAutosave,
         setEnableAutosave,
+        forceOverwrite,
+        discardLocal,
     };
 }

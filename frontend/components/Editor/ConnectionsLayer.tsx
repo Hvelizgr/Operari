@@ -11,7 +11,7 @@ interface ConnectionsLayerProps {
     connections: Connection[];
     nodes: WorkflowNode[];
     viewport: ViewportState;
-    nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED'>;
+    nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'SKIPPED' | 'CANCELLED'>;
     selectedConnection: string | null;
     creatingConnection: CreatingConnectionState | null;
     cyclicConnections: string[];

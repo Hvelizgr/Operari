@@ -120,7 +120,10 @@ export function useEditorConnections({
                 const dx = inputPort.x - ((clientX - rect.left - viewport.x) / viewport.zoom);
                 const dy = inputPort.y - ((clientY - rect.top - viewport.y) / viewport.zoom);
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                if (distance < EDITOR_CONFIG.GRID.SNAP_RADIUS) {
+                // Scale snap radius by zoom so the hit area feels the
+                // same at any zoom level. Without this, zooming out makes
+                // the radius too large and zooming in makes it too small.
+                if (distance < EDITOR_CONFIG.GRID.SNAP_RADIUS / viewport.zoom) {
                     setHoveredInputNode(node.id);
                     foundHover = true;
                     break;
@@ -182,7 +185,7 @@ export function useEditorConnections({
                 id: `__candidate__`,
                 source: sourceId,
                 target: targetId,
-                sourcePort: 0,
+                sourcePort: sourcePortIdx,
                 targetPort: 0,
             };
             const probe = hasCycle(nodes, [...connections, candidate]);

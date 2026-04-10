@@ -5,12 +5,16 @@ import { NodeType, NODE_TYPES } from '../Node';
 import { WorkflowNode } from '@nanoflow/shared';
 import './WorkflowNode.css';
 import * as Icons from 'lucide-react';
+import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
 // Import shared port utilities
 export { getNodeInputPort, getNodeOutputPort, getNodePortInfo } from '../../utils/nodePortUtils';
 
 interface EditorNodeProps {
     node: WorkflowNode;
     typeDefinition?: NodeType;
+    /** Pluggable registry for domain-specific rendering (preview, validation, badges, colors).
+     *  When omitted, falls back to the hardcoded runbook functions for backward compatibility. */
+    registry?: NodeTypeRegistry;
     onDragStart: (nodeId: string, e: MouseEvent) => void;
     onDrag: (e: MouseEvent) => void;
     onDragEnd: (nodeId: string) => void;
@@ -110,7 +114,10 @@ function configPreview(type: string, config: Record<string, unknown> | undefined
     const trunc = (s: unknown, n = 60): string => {
         const str = typeof s === 'string' ? s : JSON.stringify(s);
         if (!str) return '';
-        return str.length > n ? str.slice(0, n - 1) + '…' : str;
+        if (str.length <= n) return str;
+        // Try to break at a word boundary instead of mid-word
+        const cut = str.lastIndexOf(' ', n - 1);
+        return (cut > n * 0.4 ? str.slice(0, cut) : str.slice(0, n - 1)) + '…';
     };
     switch (type) {
         case 'shell':
@@ -134,6 +141,17 @@ function configPreview(type: string, config: Record<string, unknown> | undefined
             const method = ((config.method as string) || 'GET').toUpperCase();
             const url = trunc(config.url ?? '', 50);
             return url ? `${method} ${url}` : method;
+        }
+        case 'ssh': {
+            const host = trunc(config.host ?? '', 30);
+            const cmd = trunc(config.command ?? '', 30);
+            return host ? `${config.username ?? 'root'}@${host}${cmd ? ` · ${cmd}` : ''}` : cmd ? `$ ${cmd}` : null;
+        }
+        case 'nanorun.database': {
+            const op = (config.operation as string) ?? 'health';
+            const q = trunc(config.query ?? '', 40);
+            const tunnel = config.useSshTunnel ? ' 🔒' : '';
+            return op === 'query' && q ? `${op}${tunnel} · ${q}` : `${op}${tunnel}`;
         }
         case 'nanorun.cron':
             return (config.expression as string) ?? null;
@@ -167,6 +185,14 @@ function validateConfig(type: string, config: Record<string, unknown> | undefine
             return Number(config.durationMs) > 0 ? null : 'Missing duration';
         case 'approval':
             return null; // approver list is optional
+        case 'ssh':
+            if (!config.host) return 'Missing host';
+            if (!config.credentialId) return 'Missing SSH key';
+            return config.command ? null : 'Missing command';
+        case 'nanorun.database':
+            if (!config.credentialId) return 'Missing credential';
+            if (config.operation === 'query' && !config.query) return 'Missing SQL query';
+            return null;
         case 'nanorun.httpRequest':
             return config.url ? null : 'Missing URL';
         case 'nanorun.cron':
@@ -206,6 +232,7 @@ function detectBadges(config: Record<string, unknown> | undefined | null): {
 export default function EditorNode({
     node,
     typeDefinition,
+    registry,
     onDragStart,
     isDragging,
     isSelected,
@@ -282,7 +309,7 @@ export default function EditorNode({
     // The badge surfaces whichever is more useful — config errors take
     // precedence because a missing command is a runtime explosion,
     // a disconnected node is just a no-op until wired.
-    const configError = validateConfig(node.type, node.config as Record<string, unknown> | undefined);
+    const configError = (registry?.validateConfig ?? validateConfig)(node.type, node.config as Record<string, unknown> | undefined);
     const showDisconnected = !isConnected && !configError;
     const ValidationBadge = () => {
         if (configError) {
@@ -332,27 +359,32 @@ export default function EditorNode({
         }
     };
 
-    const preview = configPreview(node.type, node.config as Record<string, unknown> | undefined);
-    const badges = detectBadges(node.config as Record<string, unknown> | undefined);
-    const palette = categoryPalette(nodeType?.category);
+    const preview = (registry?.configPreview ?? configPreview)(node.type, node.config as Record<string, unknown> | undefined);
+    const badges = (registry?.detectBadges ?? detectBadges)(node.config as Record<string, unknown> | undefined);
+    const palette = (registry?.categoryPalette ?? categoryPalette)(nodeType?.category);
 
-    // Smart preview decoration. For HTTP nodes we render the verb as
-    // a colored chip; for everything else the preview is plain mono.
+    // Smart preview decoration. If the registry supplies a render hint
+    // (e.g. colored HTTP verb chip), use it; otherwise plain mono text.
     const renderPreview = (): React.ReactNode => {
         if (!preview) return null;
-        if (node.type === 'nanorun.httpRequest') {
+        const hint = registry?.previewRenderHint?.(node.type, node.config as Record<string, unknown> | undefined);
+        if (!hint && node.type === 'nanorun.httpRequest') {
+            // Backward compat: inline HTTP chip when no registry
             const cfg = (node.config ?? {}) as Record<string, unknown>;
             const method = String(cfg.method ?? 'GET').toUpperCase();
             const url = typeof cfg.url === 'string' ? cfg.url : '';
             return (
                 <div className="wf_preview" title={preview}>
-                    <span
-                        className="wf_http_method"
-                        style={{ color: httpMethodColor(method) }}
-                    >
-                        {method}
-                    </span>
+                    <span className="wf_http_method" style={{ color: httpMethodColor(method) }}>{method}</span>
                     <span className="wf_http_url">{url || preview}</span>
+                </div>
+            );
+        }
+        if (hint?.type === 'method-chip') {
+            return (
+                <div className="wf_preview" title={preview}>
+                    <span className="wf_http_method" style={{ color: hint.methodColor }}>{hint.method}</span>
+                    <span className="wf_http_url">{hint.url || preview}</span>
                 </div>
             );
         }

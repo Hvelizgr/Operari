@@ -102,7 +102,7 @@ interface UseCanvasRendererProps {
     connections: Connection[];
     viewport: ViewportState;
     cyclicConnections?: string[];
-    nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED'>;
+    nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'SKIPPED' | 'CANCELLED'>;
 }
 
 export function useCanvasRenderer({

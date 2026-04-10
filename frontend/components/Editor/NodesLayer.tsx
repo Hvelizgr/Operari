@@ -10,8 +10,11 @@ import { NodeType } from '../Node';
 import type { ViewportState } from '../../types/editor.types';
 import type { MouseEvent } from 'react';
 import type { NodeMeta } from '../../hooks/useExecutionSocket';
+import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
 
 interface NodesLayerProps {
+    /** Pluggable domain registry. Forwarded to each EditorNode. */
+    registry?: NodeTypeRegistry;
     nodes: WorkflowNode[];
     connections: { source: string; target: string }[];
     nodeTypes: NodeType[];
@@ -33,7 +36,7 @@ interface NodesLayerProps {
     onNodeUpdate: (nodeId: string, updates: Partial<WorkflowNode>) => void;
     onNodeDoubleClick?: (nodeId: string) => void;
     editorMode?: 'move' | 'connect';
-    nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED'>;
+    nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'SKIPPED' | 'CANCELLED'>;
     nodeMeta?: Record<string, NodeMeta>;
 }
 
@@ -59,6 +62,7 @@ export default function NodesLayer({
     editorMode = 'move',
     nodeStatuses = {},
     nodeMeta = {},
+    registry,
 }: NodesLayerProps) {
     // Sort nodes: frames first (lowest z-index), then notes, then regular nodes
     const sortedNodes = useMemo(() => {
@@ -141,6 +145,7 @@ export default function NodesLayer({
                         key={node.id}
                         node={node}
                         typeDefinition={nodeTypes.find(t => t.type === node.type)}
+                        registry={registry}
                         isConnected={isConnected}
                         onDragStart={onNodeDragStart}
                         onDrag={onNodeDrag}

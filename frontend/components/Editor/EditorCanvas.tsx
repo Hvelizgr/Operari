@@ -352,7 +352,9 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                                 const url = URL.createObjectURL(blob);
                                 const link = document.createElement('a');
                                 link.href = url;
-                                link.download = `workflow-${new Date().toISOString().slice(0, 10)}.json`;
+                                const slug = (workflowProperties.name || 'workflow')
+                                    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                                link.download = `${slug}-${new Date().toISOString().slice(0, 10)}.json`;
                                 document.body.appendChild(link);
                                 link.click();
                                 document.body.removeChild(link);
@@ -362,14 +364,22 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                                 reader.onload = (event) => {
                                     try {
                                         const json = JSON.parse(event.target?.result as string);
-                                        if (json.nodes && json.connections) {
-                                            handleLoadWorkflow(json.nodes, json.connections);
-                                        } else {
-                                            alert(lang === 'en' ? 'Invalid workflow file' : 'Archivo inválido');
+                                        if (!json.nodes || !Array.isArray(json.nodes) || !json.connections || !Array.isArray(json.connections)) {
+                                            alert(lang === 'en' ? 'Invalid workflow file: must contain "nodes" and "connections" arrays' : 'Archivo inválido: debe contener arrays "nodes" y "connections"');
+                                            return;
                                         }
+                                        // Validate that each node has the minimum required shape
+                                        const valid = json.nodes.every((n: any) =>
+                                            n && typeof n.id === 'string' && typeof n.type === 'string' && n.position && typeof n.position.x === 'number' && typeof n.position.y === 'number'
+                                        );
+                                        if (!valid) {
+                                            alert(lang === 'en' ? 'Invalid workflow file: nodes must have id, type, and position' : 'Archivo inválido: los nodos deben tener id, type y position');
+                                            return;
+                                        }
+                                        handleLoadWorkflow(json.nodes, json.connections);
                                     } catch (err) {
                                         console.error(err);
-                                        alert('Error parsing JSON');
+                                        alert(lang === 'en' ? 'Error parsing JSON file' : 'Error al parsear archivo JSON');
                                     }
                                 };
                                 reader.readAsText(file);

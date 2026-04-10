@@ -7,7 +7,8 @@ import {
     Webhook, Folder, Zap,
     Play,
     Bell, Square, StickyNote,
-    Terminal, UserCheck
+    Terminal, UserCheck,
+    KeyRound, Database
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
@@ -76,6 +77,51 @@ const NODE_TYPES: NodeType[] = [
             { name: 'command', displayName: 'Command', type: 'string', default: 'echo "hello from nanorun"' },
             { name: 'cwd', displayName: 'Working directory', type: 'string', default: '' },
             { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 60000 },
+        ]
+    },
+    {
+        type: 'ssh',
+        icon: <KeyRound size={18} />,
+        label: { en: 'SSH command', es: 'Comando SSH' },
+        color: 'bg-cyan-600',
+        category: 'devops',
+        description: { en: 'Run a command on a remote host via SSH', es: 'Ejecutar comando en host remoto vía SSH' },
+        inputs: ['main'],
+        outputs: ['main'],
+        properties: [
+            { name: 'host', displayName: 'Host', type: 'string', default: '', typeOptions: { expression: true }, description: 'IP or hostname. Supports {{vars.x}} templates.' },
+            { name: 'port', displayName: 'Port', type: 'number', default: 22 },
+            { name: 'username', displayName: 'Username', type: 'string', default: 'deploy', typeOptions: { expression: true } },
+            { name: 'credentialId', displayName: 'SSH private key', type: 'secret', typeOptions: { provider: 'ssh' }, description: 'ConnectedAccount holding the PEM-encoded private key.' },
+            { name: 'command', displayName: 'Command', type: 'string', default: 'hostname', typeOptions: { rows: 3, expression: true }, description: 'Shell command to execute on the remote host.' },
+            { name: 'cwd', displayName: 'Working directory', type: 'string', default: '', description: 'Prepended as cd <dir> && before the command.' },
+            { name: 'failOnNonZeroExit', displayName: 'Fail on non-zero exit', type: 'boolean', default: true },
+            { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 60000 },
+        ]
+    },
+    {
+        type: 'nanorun.database',
+        icon: <Database size={18} />,
+        label: { en: 'Database', es: 'Base de datos' },
+        color: 'bg-violet-600',
+        category: 'devops',
+        description: { en: 'Introspect schema, health check, or read-only query (PostgreSQL)', es: 'Introspección de esquema, health check o consulta de lectura (PostgreSQL)' },
+        inputs: ['main'],
+        outputs: ['main'],
+        properties: [
+            { name: 'operation', displayName: 'Operation', type: 'options', options: [
+                { name: 'Health check', value: 'health' },
+                { name: 'Introspect schema', value: 'introspect' },
+                { name: 'Query (read-only)', value: 'query' },
+            ], default: 'health' },
+            { name: 'credentialId', displayName: 'Database credential', type: 'secret', typeOptions: { provider: 'postgres' }, description: 'ConnectedAccount with PostgreSQL connection string.' },
+            { name: 'query', displayName: 'SQL query', type: 'sql', default: '', typeOptions: { rows: 5 }, description: 'Only for operation=query. Read-only (wrapped in BEGIN READ ONLY).' },
+            { name: 'useSshTunnel', displayName: 'Use SSH tunnel (bastion)', type: 'boolean', default: false, description: 'Route through an SSH bastion host for protected databases.' },
+            { name: 'sshTunnel.host', displayName: 'Bastion host', type: 'string', default: '', typeOptions: { expression: true }, description: 'SSH bastion hostname or IP.' },
+            { name: 'sshTunnel.port', displayName: 'Bastion SSH port', type: 'number', default: 22 },
+            { name: 'sshTunnel.username', displayName: 'Bastion username', type: 'string', default: 'ec2-user', typeOptions: { expression: true } },
+            { name: 'sshTunnel.sshCredentialId', displayName: 'Bastion SSH key', type: 'secret', typeOptions: { provider: 'ssh' }, description: 'SSH private key for the bastion host.' },
+            { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 30000 },
         ]
     },
     {
@@ -160,11 +206,20 @@ const NODE_TYPES: NodeType[] = [
         color: 'bg-blue-500',
         category: 'core',
         description: { en: 'Call an external API (Datadog, Sentry, GitHub, etc.)', es: 'Llamar una API externa (Datadog, Sentry, GitHub, etc.)' },
+        inputs: ['main'],
+        outputs: ['main'],
         properties: [
-            { name: 'method', displayName: 'Method', type: 'options', options: [{ name: 'GET', value: 'GET' }, { name: 'POST', value: 'POST' }, { name: 'PUT', value: 'PUT' }, { name: 'DELETE', value: 'DELETE' }], default: 'GET' },
-            { name: 'url', displayName: 'URL', type: 'string', default: 'https://', typeOptions: { expression: true } },
-            { name: 'authentication', displayName: 'Authentication', type: 'options', options: [{ name: 'None', value: 'none' }, { name: 'Bearer token', value: 'bearer' }], default: 'none' },
-            { name: 'sendBody', displayName: 'Send body', type: 'boolean', default: false }
+            { name: 'method', displayName: 'Method', type: 'options', options: [
+                { name: 'GET', value: 'GET' }, { name: 'POST', value: 'POST' },
+                { name: 'PUT', value: 'PUT' }, { name: 'PATCH', value: 'PATCH' },
+                { name: 'DELETE', value: 'DELETE' }, { name: 'HEAD', value: 'HEAD' },
+            ], default: 'GET' },
+            { name: 'url', displayName: 'URL', type: 'string', default: 'https://', typeOptions: { expression: true }, description: 'Supports {{vars.x}} and {{secrets.y}} templates.' },
+            { name: 'headers', displayName: 'Headers (JSON)', type: 'string', default: '', typeOptions: { rows: 3, expression: true }, description: 'JSON object, e.g. {"Authorization": "Bearer {{secrets.token}}"}' },
+            { name: 'body', displayName: 'Body', type: 'string', default: '', typeOptions: { rows: 4, expression: true }, description: 'Request body (ignored for GET/HEAD). Supports templates.' },
+            { name: 'failOnNon2xx', displayName: 'Fail on non-2xx', type: 'boolean', default: true },
+            { name: 'followRedirects', displayName: 'Follow redirects', type: 'boolean', default: true },
+            { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 30000 },
         ]
     },
 
@@ -197,12 +252,20 @@ const NODE_TYPES: NodeType[] = [
 interface NodePaletteProps {
     lang: 'en' | 'es';
     onNodeDragStart: (nodeType: NodeType) => void;
+    /** Override the default runbook node types. Used by the SQL editor. */
+    nodeTypes?: NodeType[];
+    /** Override the default categories. */
+    categories?: { id: string; label: { en: string; es: string }; icon?: any; color: string }[];
 }
 
-export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePaletteProps) {
+export default function NodePalette({ lang: langProp, onNodeDragStart, nodeTypes: customNodeTypes, categories: customCategories }: NodePaletteProps) {
     const lang = (langProp === 'en' || langProp === 'es') ? langProp : 'en';
+    const effectiveNodeTypes = customNodeTypes ?? NODE_TYPES;
+    const effectiveCategories = customCategories
+        ? customCategories.map(c => ({ ...c, icon: c.icon ?? Zap }))
+        : CATEGORIES;
     const [isOpen, setIsOpen] = useState(false);
-    const [expandedCategories, setExpandedCategories] = useState<string[]>(['devops', 'triggers']);
+    const [expandedCategories, setExpandedCategories] = useState<string[]>(effectiveCategories.slice(0, 2).map(c => c.id));
     const [searchTerm, setSearchTerm] = useState('');
 
     const content = {
@@ -231,22 +294,22 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
     };
 
     const filteredNodes = useMemo(() => {
-        if (!searchTerm) return NODE_TYPES;
+        if (!searchTerm) return effectiveNodeTypes;
         const term = searchTerm.toLowerCase();
-        return NODE_TYPES.filter(node =>
+        return effectiveNodeTypes.filter(node =>
             node.label[lang].toLowerCase().includes(term) ||
             node.type.toLowerCase().includes(term) ||
             node.description?.[lang].toLowerCase().includes(term)
         );
-    }, [searchTerm, lang]);
+    }, [searchTerm, lang, effectiveNodeTypes]);
 
     const nodesByCategory = useMemo(() => {
         const grouped: Record<string, NodeType[]> = {};
-        CATEGORIES.forEach(cat => {
+        effectiveCategories.forEach(cat => {
             grouped[cat.id] = filteredNodes.filter(node => node.category === cat.id);
         });
         return grouped;
-    }, [filteredNodes]);
+    }, [filteredNodes, effectiveCategories]);
 
     const hasResults = filteredNodes.length > 0;
 
@@ -331,7 +394,7 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
                                     ))}
                                 </div>
                             ) : (
-                                CATEGORIES.map((category) => {
+                                effectiveCategories.map((category) => {
                                     const nodes = nodesByCategory[category.id];
                                     if (nodes.length === 0) return null;
                                     const isExpanded = expandedCategories.includes(category.id);
