@@ -4,6 +4,9 @@ import { ShellExecutor } from './shell.executor';
 import { ApprovalExecutor } from './approval.executor';
 import { NotifyExecutor } from './notify.executor';
 import { WaitExecutor } from './wait.executor';
+import { SSHExecutor } from './ssh.executor';
+import { HttpExecutor } from './http.executor';
+import { DatabaseExecutor } from './database.executor';
 import { Runner } from '../runners/runner.types';
 import { getRunner } from '../runners';
 
@@ -11,6 +14,9 @@ export { ShellExecutor } from './shell.executor';
 export { ApprovalExecutor } from './approval.executor';
 export { NotifyExecutor } from './notify.executor';
 export { WaitExecutor } from './wait.executor';
+export { SSHExecutor } from './ssh.executor';
+export { HttpExecutor } from './http.executor';
+export { DatabaseExecutor } from './database.executor';
 
 export interface ExecutorRegistryOptions {
     /**
@@ -40,6 +46,9 @@ export function createExecutorRegistry(
     registry.set('approval', new ApprovalExecutor(prisma));
     registry.set('notify', new NotifyExecutor());
     registry.set('wait', new WaitExecutor());
+    registry.set('ssh', new SSHExecutor());
+    registry.set('nanorun.httpRequest', new HttpExecutor());
+    registry.set('nanorun.database', new DatabaseExecutor());
 
     return registry;
 }
