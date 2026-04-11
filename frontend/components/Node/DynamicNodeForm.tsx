@@ -1,14 +1,16 @@
 
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { HelpCircle, ChevronDown, Database } from 'lucide-react';
 import { WorkflowNode, Connection } from '@nanoflow/shared';
 import ExpressionBuilder from './ExpressionBuilder';
 import SecretPicker from './SecretPicker';
 
+const SQLCodeEditor = lazy(() => import('../SQLEditor/SQLCodeEditor'));
+
 interface Property {
     name: string;
     displayName: string;
-    type: 'string' | 'boolean' | 'options' | 'number' | 'secret';
+    type: 'string' | 'boolean' | 'options' | 'number' | 'secret' | 'sql';
     default?: any;
     description?: string;
     options?: { name: string; value: string }[];
@@ -114,6 +116,25 @@ export default function DynamicNodeForm({ properties, values, onChange, nodes, c
                                 provider={prop.typeOptions?.provider}
                                 label={prop.displayName}
                             />
+                        )}
+
+                        {prop.type === 'sql' && (
+                            <Suspense fallback={
+                                <textarea
+                                    value={value || ''}
+                                    onChange={(e) => onChange(prop.name, e.target.value)}
+                                    className={`${inputClass} font-mono`}
+                                    rows={prop.typeOptions?.rows ?? 4}
+                                    placeholder="SELECT ..."
+                                />
+                            }>
+                                <SQLCodeEditor
+                                    value={value || ''}
+                                    onChange={(v) => onChange(prop.name, v)}
+                                    minHeight={`${(prop.typeOptions?.rows ?? 4) * 24}px`}
+                                    placeholder="SELECT * FROM ..."
+                                />
+                            </Suspense>
                         )}
 
                         {prop.type === 'number' && (

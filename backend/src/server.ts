@@ -31,6 +31,7 @@ import templatesRoutes from './routes/templates.routes';
 import monitorsRoutes from './routes/monitors.routes';
 import eventsRoutes from './routes/events.routes';
 import adminRoutes from './routes/admin.routes';
+import sqlRoutes from './routes/sql.routes';
 import { MonitorService } from './services/monitor.service';
 import { errorHandler } from './middleware/error.middleware';
 import { SchedulerService } from './services/scheduler.service';
@@ -95,6 +96,7 @@ app.use('/api/templates', standardRateLimiter, templatesRoutes);
 app.use('/api/monitors', standardRateLimiter, monitorsRoutes);
 app.use('/api/events', standardRateLimiter, eventsRoutes);
 app.use('/api/admin', standardRateLimiter, adminRoutes);
+app.use('/api/sql', standardRateLimiter, sqlRoutes);
 
 // NanoRun API v1 (SDK & CLI)
 app.use('/api/v1/runbooks', executionRateLimiter, v1RunbookRoutes);
