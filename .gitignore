@@ -79,3 +79,6 @@ backend/prisma/*.db-journal
 # Internal planning notes (kept local, never committed)
 /IMPLEMENTACION_NANORUN.md
 /INVESTIGACION_NANORUN_2026.md
+
+# Internal documentation (local only)
+/doc/
