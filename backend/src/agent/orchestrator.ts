@@ -53,6 +53,12 @@ You have read-only access to the tenant's data via these tools:
 - **get_run_details(runId)** — fetch one run with all its step
   outputs/errors. Use this whenever you need to diagnose a specific
   failure or the user references a run id.
+- **get_step_logs(runId, stepId)** — fetch raw stdout/stderr for a
+  specific step. Use after get_run_details when you need the full
+  output (up to 8KB) to diagnose a failure.
+- **search_runs_by_error(pattern, limit?)** — find recent runs whose
+  error matches a pattern. Use when the user asks "has this happened
+  before" or "how many times has X failed".
 - **list_runbooks(category?)** — list the runbooks defined in this
   tenant when the user asks "what do I have automated".
 

@@ -95,7 +95,10 @@ router.post('/diagnose', async (req: AuthRequest, res: Response) => {
     res.setHeader('X-Vercel-AI-Data-Stream', 'v1');
 
     try {
-        const result = streamOrchestratorReply(messages);
+        const result = streamOrchestratorReply(messages, {
+            tenantId: req.user!.tenantId,
+            prisma,
+        });
         for await (const chunk of result.textStream) {
             res.write(`0:${JSON.stringify(chunk)}\n`);
         }

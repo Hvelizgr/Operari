@@ -129,6 +129,78 @@ export function buildOrchestratorTools(
             },
         }),
 
+        get_step_logs: tool({
+            description:
+                'Fetch raw stdout, stderr, and output for a specific step within a run. ' +
+                'Use this when the user asks for the logs of a particular step, or when ' +
+                'get_run_details showed a failure and you need the full output.',
+            inputSchema: z.object({
+                runId: z.string().describe('The run/execution id (uuid).'),
+                stepId: z.string().describe('The step/node id within the run.'),
+            }),
+            execute: async ({ runId, stepId }: { runId: string; stepId: string }) => {
+                const log = await prisma.nodeLog.findFirst({
+                    where: {
+                        executionId: runId,
+                        nodeId: stepId,
+                        execution: { workflow: { tenantId } },
+                    },
+                });
+                if (!log) return { error: 'step_not_found' };
+
+                const output = typeof log.output === 'string' ? log.output : JSON.stringify(log.output);
+                return {
+                    stepId: log.nodeId,
+                    name: log.nodeName,
+                    type: log.nodeType,
+                    status: log.status,
+                    durationMs: log.duration,
+                    stdout: output && output.length > 8000
+                        ? output.slice(0, 8000) + '\n… [truncated at 8KB]'
+                        : output,
+                    error: log.error,
+                    startedAt: log.startedAt?.toISOString() ?? null,
+                    completedAt: log.completedAt?.toISOString() ?? null,
+                };
+            },
+        }),
+
+        search_runs_by_error: tool({
+            description:
+                'Search recent runs whose error message contains a given pattern. ' +
+                'Use this when the user asks "has this error happened before" or ' +
+                '"how many times has X failed".',
+            inputSchema: z.object({
+                pattern: z.string().min(3).describe('Substring to search for in error messages.'),
+                limit: z.number().int().min(1).max(20).default(10),
+            }),
+            execute: async ({ pattern, limit }: { pattern: string; limit: number }) => {
+                const runs = await prisma.execution.findMany({
+                    where: {
+                        workflow: { tenantId },
+                        error: { contains: pattern, mode: 'insensitive' },
+                    },
+                    include: {
+                        workflow: { select: { slug: true, name: true } },
+                    },
+                    orderBy: { startedAt: 'desc' },
+                    take: limit,
+                });
+                return {
+                    matchCount: runs.length,
+                    runs: runs.map((r) => ({
+                        id: r.id,
+                        runbook: r.workflow.name,
+                        status: r.status,
+                        startedAt: r.startedAt.toISOString(),
+                        error: r.error && r.error.length > 500
+                            ? r.error.slice(0, 500) + '…'
+                            : r.error,
+                    })),
+                };
+            },
+        }),
+
         list_runbooks: tool({
             description:
                 'List runbooks (workflows) defined in the current tenant. Use this ' +
