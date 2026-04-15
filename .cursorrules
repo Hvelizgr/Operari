@@ -1,36 +1,105 @@
-# Cairn Business Suite - Agent Configuration
+# Cairn - Agent Configuration
 
-You are the lead developer and architect for **Cairn**, a Business Suite for Automation.
+You are a contributor to **Cairn**, open-source visual runbook automation for
+SREs and platform engineers. Positioning: "Sentry for operational procedures"
+— the place where deploys, migrations, and incident response live instead of
+rotting in Confluence pages.
 
-## 🆔 Project Identity & Philosophy
-- **Core Philosophy**: "Producción Educativa". The code must be robust enough for commercial SaaS (selling automations) but structurally transparent enough for teaching (Academy/Consulting).
-- **The 4 Pillars**:
-  1. **Product**: Selling automation templates.
-  2. **SaaS**: Running automations online (requires high stability).
-  3. **Services**: Mentoring and auditing client flows.
-  4. **Academy**: Teaching automation using Cairn as a learning tool.
+## 🆔 Project Identity
+- **Audience**: SREs, platform engineers, on-call rotations. NOT marketers,
+  NOT business-process users, NOT n8n replacement.
+- **Voice**: shell-native, code-adjacent, anti-Zapier. `kubectl`, `bash`,
+  `psql`, exit codes are first-class. Visual canvas is the serialization
+  format, not the selling point.
+- **License**: AGPL server, MIT for SDK and CLI.
+- **Anti-goals**: generic "flow" tool, visual-blocks-hide-the-code metaphor,
+  n8n compatibility. The pivot away from that is complete (see ADR 0002,
+  post-pivot audit in `docs/`).
 
-## 🛠️ Tech Stack
-- **Frontend**: Next.js 15 (App Router), Tailwind CSS, Framer Motion, Lucide React.
-- **Backend**: Node.js, Express, TypeScript, Prisma ORM.
-- **Database**: PostgreSQL 16.
-- **Infra**: Docker Compose.
+## 🛠️ Tech Stack (authoritative)
+- **Frontend**: Next.js 15 (App Router + i18n en/es), React 19, Tailwind
+  (HSL tokens, earth palette per ADR 0005), xterm.js for live logs,
+  next-intl. Tests: Jest + Testing Library + Playwright + Storybook.
+- **Backend**: Node.js, Express, TypeScript 5.7, Prisma 5 on PostgreSQL 16,
+  Redis 7 (ioredis), Socket.IO 4 for log streaming, pino for logs.
+- **Agent/AI**: Vercel AI SDK (`ai` package) with dual Anthropic/OpenAI
+  provider support, directly over `streamText()` — not Mastra (ADR 0001).
+- **Observability**: OpenTelemetry + Jaeger. Every run is a trace, every
+  step a span. See `backend/src/observability/`.
+- **Security**: pluggable AuthProvider (JWT + WorkOS), libsodium for secret
+  storage, custom-role RBAC with wildcard permissions, append-only
+  hash-chained audit log (SHA-256, verifiable via `cairn audit verify`).
+- **Runners**: sandboxed execution. Local + Docker for self-host, Firecracker
+  microVMs for cloud. Cancel propagates to live containers.
 
-## 📋 Master Plan Priorities (Phase 1: Production Foundations)
-Focus on stability and scalability for the SaaS pillar.
-1. **Robust Execution**: Implement BullMQ for job queues (Critical for SaaS).
-2. **Multitenancy**: Ensure strict data isolation between tenants.
-3. **Marketplace**: Database structure for sellable templates.
+## 📂 Project Layout (authoritative)
+```
+backend/        — Express API + Prisma + runbook engine
+  src/
+    agent/         — AI orchestrator + read-only diagnose tools
+    runbook/       — YAML spec, serializer, step executors, runners, engine
+    editor/        — legacy dispatcher (ADR 0004: consolidation deferred)
+    routes/        — REST + /api/v1 API-key-auth surfaces
+    services/      — scheduler, monitor, error-notification, etc.
+  prisma/          — schema.prisma + migrations
+frontend/       — Next.js app
+  app/[lang]/      — editor, inbox, runs, landing, agents, approvals
+  components/      — Editor, Node, Workflow, Landing, etc.
+  messages/        — en.json + es.json i18n
+packages/
+  shared/          — @cairn/shared (types split between front/back)
+  sdk/             — @cairn/sdk (TS SDK, class `Cairn`)
+  cli/             — @cairn/cli (bin: cairn)
+  python-sdk/      — cairn (PyPI), class `Cairn`
+docs/adr/       — architecture decisions, authoritative for "why"
+templates/      — example runbook YAML files
+```
 
-## 🧠 Coding Guidelines
-- **Dual Interface**: Always consider the "Client View" (Simple, Metrics) vs "Maker View" (Visual Debugger, Nodes).
-- **n8n Compatibility**: Maintain structural isomorphism with n8n where possible to facilitate knowledge transfer.
-- **Language**: Communicate in Spanish (unless code comments require English standards).
+## 🧭 Coding Guidelines
+- **Nomenclature**: `Runbook` (not Workflow), `Step` (not Node), `Run`
+  (not Execution in new code — legacy `Execution` model stays due to
+  @@map). See PR #9 and ADR 0005. Prisma model names use `Runbook`,
+  `RunbookStep`, `RunbookConnection` mapped to legacy tables.
+- **SDK public API**: `Cairn`, `CairnError`, `CairnConfig`. The
+  `NanoRun*` aliases exist for back-compat only — do not add new usage.
+- **Adding a step executor**: implement `StepExecutor` interface in
+  `backend/src/runbook/executors/` — each run in a sandboxed runner,
+  cancel-aware, tenant-scoped. Seed `NodeType` catalog accordingly.
+- **Agent tools**: read-only, tenant-bound. If you add one, it must not
+  mutate. See `backend/src/agent/tools.ts` for the closed set.
+- **Secrets**: never log secrets, always go through `SecretCipher` /
+  `SecretReader`. Template resolver in `backend/src/runbook/secrets/`
+  pre-resolves `{{secrets.<id>}}` at step run time.
+- **Audit**: any state change emits an `AuditEvent`. The hash chain is
+  the source of truth — never UPDATE/DELETE those rows (Postgres trigger
+  enforces it).
+- **Migrations**: edit `schema.prisma`, run `npm run db:migrate -w backend`.
+  Never hand-edit migration filenames (breaks the hash chain).
+- **Language**: communicate with the user in Spanish when asked; code,
+  comments, and commit messages in English. Commitlint enforces
+  lowercase subjects and conventional-commits.
 
-## 📂 Context
-- Agent definitions: `.agent/`
-- Documentation: `docs/`
-- Backend: `api/`
-- Frontend: Root (`app/`, `components/`)
+## 🎯 Current Priorities (2026-Q2)
+1. **Agent side-panel wiring** — orchestrator tools exist but the UI
+   diagnose panel does not call them yet. Killer feature is invisible.
+2. **Webhook deep parse** — Sentry/Datadog/GitHub HMAC verify works;
+   payload parsing still stubbed.
+3. **ADR 0004 consolidation** — once ADR 0003 phase 4 lands, merge
+   `editor/` into `runbook/`.
+4. **Fase 2b** — physical DB rename (remove `@@map` from Prisma).
 
-ALWAYS check `.agent/workflows/master_plan.md` before starting a major task.
+## 🚫 Do Not
+- Add n8n-style generic nodes (switch, loop, github, docker, awsS3,
+  postgres-select). The pivot removed them on purpose.
+- Create planning docs at repo root that would be gitignored (e.g.
+  `IMPLEMENTACION_*.md`) — keep those in `.claude/` or outside the repo.
+- Mock the database in integration tests — real Postgres via
+  docker-compose test fixture.
+- Skip commitlint / hooks with `--no-verify`.
+- Invent URLs, domains, or API endpoints that don't exist.
+
+## 📚 Always Check
+- `docs/adr/` before any architectural decision
+- `README.md` for the post-pivot narrative (it's honest, not marketing)
+- `docs/audit-event-coverage.md` before adding a side-effect to code
+- `.claude/projects/.../memory/MEMORY.md` for user preferences
