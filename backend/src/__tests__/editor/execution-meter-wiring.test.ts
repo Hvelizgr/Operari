@@ -20,22 +20,18 @@ jest.mock('../../editor/node-executor.service', () => ({
     })),
 }));
 jest.mock('../../services/error-notification.service');
-jest.mock('../../services/logger.service', () => ({
-    Logger: {
-        getInstance: jest.fn().mockReturnValue({
-            child: jest.fn().mockReturnValue({
-                info: jest.fn(),
-                error: jest.fn(),
-                warn: jest.fn(),
-                debug: jest.fn(),
+jest.mock('../../services/logger.service', () => {
+    const noop = { info: jest.fn(), error: jest.fn(), warn: jest.fn(), debug: jest.fn() };
+    return {
+        Logger: {
+            getInstance: jest.fn().mockReturnValue({
+                ...noop,
+                child: jest.fn().mockReturnValue(noop),
             }),
-            info: jest.fn(),
-            error: jest.fn(),
-            warn: jest.fn(),
-            debug: jest.fn(),
-        }),
-    },
-}));
+        },
+        logger: noop,
+    };
+});
 jest.mock('../../utils/error-persistence');
 
 interface RecordedMeterCall {

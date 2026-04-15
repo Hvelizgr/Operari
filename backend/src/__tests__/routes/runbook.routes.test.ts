@@ -18,6 +18,13 @@ jest.mock('../../server', () => ({
             upsert: jest.fn(),
             deleteMany: jest.fn(),
         },
+        // GET /workflows enriches each runbook with last-run + success rate
+        // via `execution.findMany` and `execution.groupBy`. Default to empty
+        // results so the enrichment path is a no-op.
+        execution: {
+            findMany: jest.fn().mockResolvedValue([]),
+            groupBy: jest.fn().mockResolvedValue([]),
+        },
     },
 }));
 
