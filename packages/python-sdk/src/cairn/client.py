@@ -2,7 +2,7 @@
 
 Quick start::
 
-    from nanorun import NanoRun
+    from cairn import NanoRun
 
     client = NanoRun(api_key="nrk_...")
 
@@ -69,7 +69,7 @@ class NanoRun:
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
-                "User-Agent": "nanorun-python/0.1.0",
+                "User-Agent": "cairn-python/0.1.0",
             },
             timeout=timeout,
         )

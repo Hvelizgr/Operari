@@ -1,17 +1,17 @@
-# nanorun
+# cairn
 
 Official Python SDK for the [NanoRun](https://github.com/hvelizg/NanoFlow) runbook automation API.
 
 ## Install
 
 ```bash
-pip install nanorun
+pip install cairn
 ```
 
 ## Quick start
 
 ```python
-from nanorun import NanoRun
+from cairn import NanoRun
 
 client = NanoRun(api_key="nrk_...")
 
