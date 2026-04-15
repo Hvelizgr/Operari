@@ -175,7 +175,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     }> = [];
     if (topWorkflowIds.length > 0) {
         const [workflows, perWorkflowExecs] = await Promise.all([
-            prisma.workflow.findMany({
+            prisma.runbook.findMany({
                 where: { id: { in: topWorkflowIds } },
                 select: { id: true, slug: true, name: true },
             }),

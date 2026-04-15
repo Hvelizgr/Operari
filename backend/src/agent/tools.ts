@@ -220,7 +220,7 @@ export function buildOrchestratorTools(
                 category?: string;
                 limit: number;
             }) => {
-                const runbooks = await prisma.workflow.findMany({
+                const runbooks = await prisma.runbook.findMany({
                     where: {
                         tenantId,
                         ...(category ? { category } : {}),

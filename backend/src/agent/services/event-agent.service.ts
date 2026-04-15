@@ -95,7 +95,7 @@ export class EventAgentService {
     async create(tenantId: string, input: EventAgentInput) {
         // Verify the runbook belongs to the tenant — never let cross-tenant
         // wiring slip in via a hand-crafted POST.
-        const runbook = await this.prisma.workflow.findFirst({
+        const runbook = await this.prisma.runbook.findFirst({
             where: { id: input.targetRunbookId, tenantId },
             select: { id: true },
         });
@@ -134,7 +134,7 @@ export class EventAgentService {
         });
         if (!existing) return null;
         if (input.targetRunbookId) {
-            const runbook = await this.prisma.workflow.findFirst({
+            const runbook = await this.prisma.runbook.findFirst({
                 where: { id: input.targetRunbookId, tenantId },
                 select: { id: true },
             });

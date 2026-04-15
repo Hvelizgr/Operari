@@ -323,7 +323,7 @@ router.get('/:id/logs', async (req: AuthRequest, res) => {
 router.post('/:workflowId/run', async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.workflowId as string;
-        const workflow = await prisma.workflow.findFirst({
+        const workflow = await prisma.runbook.findFirst({
             where: {
                 id: workflowId,
                 tenantId: req.user!.tenantId,

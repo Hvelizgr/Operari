@@ -5,7 +5,7 @@ import { PrismaClient } from '@prisma/client';
 // Mock dependencies BEFORE importing routes
 jest.mock('../../server', () => ({
     prisma: {
-        workflow: {
+        runbook: {
             findMany: jest.fn(),
             count: jest.fn(),
             findFirst: jest.fn(),
@@ -66,15 +66,15 @@ describe('Runbook routes', () => {
 
     describe('GET /workflows', () => {
         it('should return list of workflows', async () => {
-            (prisma.workflow.findMany as jest.Mock).mockResolvedValue([mockWorkflow]);
-            (prisma.workflow.count as jest.Mock).mockResolvedValue(1);
+            (prisma.runbook.findMany as jest.Mock).mockResolvedValue([mockWorkflow]);
+            (prisma.runbook.count as jest.Mock).mockResolvedValue(1);
 
             const res = await request(app).get('/workflows');
 
             expect(res.status).toBe(200);
             expect(res.body.workflows).toHaveLength(1);
             expect(res.body.workflows[0].id).toBe('wf-1');
-            expect(prisma.workflow.findMany).toHaveBeenCalledWith(expect.objectContaining({
+            expect(prisma.runbook.findMany).toHaveBeenCalledWith(expect.objectContaining({
                 where: expect.objectContaining({ tenantId: 'default-tenant' }),
                 take: 10,
                 skip: 0
@@ -82,12 +82,12 @@ describe('Runbook routes', () => {
         });
 
         it('should support pagination', async () => {
-            (prisma.workflow.findMany as jest.Mock).mockResolvedValue([]);
-            (prisma.workflow.count as jest.Mock).mockResolvedValue(0);
+            (prisma.runbook.findMany as jest.Mock).mockResolvedValue([]);
+            (prisma.runbook.count as jest.Mock).mockResolvedValue(0);
 
             await request(app).get('/workflows?page=2&limit=5');
 
-            expect(prisma.workflow.findMany).toHaveBeenCalledWith(expect.objectContaining({
+            expect(prisma.runbook.findMany).toHaveBeenCalledWith(expect.objectContaining({
                 skip: 5,
                 take: 5
             }));
@@ -96,19 +96,19 @@ describe('Runbook routes', () => {
 
     describe('GET /workflows/:id', () => {
         it('should return workflow details', async () => {
-            (prisma.workflow.findFirst as jest.Mock).mockResolvedValue(mockWorkflow);
+            (prisma.runbook.findFirst as jest.Mock).mockResolvedValue(mockWorkflow);
 
             const res = await request(app).get('/workflows/wf-1');
 
             expect(res.status).toBe(200);
             expect(res.body.id).toBe('wf-1');
-            expect(prisma.workflow.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+            expect(prisma.runbook.findFirst).toHaveBeenCalledWith(expect.objectContaining({
                 where: { id: 'wf-1', tenantId: 'default-tenant' }
             }));
         });
 
         it('should return 404 if not found', async () => {
-            (prisma.workflow.findFirst as jest.Mock).mockResolvedValue(null);
+            (prisma.runbook.findFirst as jest.Mock).mockResolvedValue(null);
 
             const res = await request(app).get('/workflows/wf-nonexistent');
 
@@ -126,7 +126,7 @@ describe('Runbook routes', () => {
         };
 
         it('should create a new workflow', async () => {
-            (prisma.workflow.create as jest.Mock).mockResolvedValue({
+            (prisma.runbook.create as jest.Mock).mockResolvedValue({
                 ...mockWorkflow,
                 ...newWorkflowData,
                 id: 'new-wf',
@@ -138,7 +138,7 @@ describe('Runbook routes', () => {
 
             expect(res.status).toBe(201);
             expect(res.body.id).toBe('new-wf');
-            expect(prisma.workflow.create).toHaveBeenCalledWith(expect.objectContaining({
+            expect(prisma.runbook.create).toHaveBeenCalledWith(expect.objectContaining({
                 data: expect.objectContaining({
                     name: 'New Workflow',
                     tenantId: 'default-tenant'
@@ -165,8 +165,8 @@ describe('Runbook routes', () => {
         };
 
         it('should update existing workflow', async () => {
-            (prisma.workflow.findFirst as jest.Mock).mockResolvedValue(mockWorkflow);
-            (prisma.workflow.update as jest.Mock).mockResolvedValue({
+            (prisma.runbook.findFirst as jest.Mock).mockResolvedValue(mockWorkflow);
+            (prisma.runbook.update as jest.Mock).mockResolvedValue({
                 ...mockWorkflow,
                 name: 'Updated Name',
             });
@@ -177,12 +177,12 @@ describe('Runbook routes', () => {
 
             expect(res.status).toBe(200);
             expect(res.body.name).toBe('Updated Name');
-            expect(prisma.workflow.update).toHaveBeenCalled();
+            expect(prisma.runbook.update).toHaveBeenCalled();
         });
 
         it('should create scratchpad workflow if not exists', async () => {
-            (prisma.workflow.findFirst as jest.Mock).mockResolvedValue(null); // Not found
-            (prisma.workflow.create as jest.Mock).mockResolvedValue({
+            (prisma.runbook.findFirst as jest.Mock).mockResolvedValue(null); // Not found
+            (prisma.runbook.create as jest.Mock).mockResolvedValue({
                 ...mockWorkflow,
                 id: 'current-workflow',
                 name: 'Updated Name',
@@ -193,18 +193,18 @@ describe('Runbook routes', () => {
                 .send(updateData);
 
             expect(res.status).toBe(200);
-            expect(prisma.workflow.create).toHaveBeenCalled();
+            expect(prisma.runbook.create).toHaveBeenCalled();
         });
     });
 
     describe('DELETE /workflows/:id', () => {
         it('should delete workflow', async () => {
-            (prisma.workflow.findFirst as jest.Mock).mockResolvedValue(mockWorkflow);
+            (prisma.runbook.findFirst as jest.Mock).mockResolvedValue(mockWorkflow);
 
             const res = await request(app).delete('/workflows/wf-1');
 
             expect(res.status).toBe(204);
-            expect(prisma.workflow.delete).toHaveBeenCalledWith({
+            expect(prisma.runbook.delete).toHaveBeenCalledWith({
                 where: { id: 'wf-1' }
             });
         });

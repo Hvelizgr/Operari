@@ -65,7 +65,7 @@ function buildRecordingMeter(): { meter: BillingMeter; calls: RecordedMeterCall[
 }
 
 const buildPrisma = (overrides: { stripeCustomerId?: string | null } = {}) => ({
-    workflow: {
+    runbook: {
         findUnique: jest.fn(),
     },
     execution: {
@@ -101,7 +101,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
 
     it('records run.started with the resolved Stripe customer id', async () => {
         const prisma = buildPrisma({ stripeCustomerId: 'cus_acme' });
-        (prisma.workflow.findUnique as jest.Mock).mockResolvedValue({
+        (prisma.runbook.findUnique as jest.Mock).mockResolvedValue({
             id: 'wf-1', name: 'Deploy', nodes: [], connections: [],
         });
         (prisma.execution.create as jest.Mock).mockResolvedValue({
@@ -135,7 +135,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
         // execute() is auto-mocked to return undefined which the
         // engine treats as a passthrough output.
         const prisma = buildPrisma({ stripeCustomerId: 'cus_acme' });
-        (prisma.workflow.findUnique as jest.Mock).mockResolvedValue({
+        (prisma.runbook.findUnique as jest.Mock).mockResolvedValue({
             id: 'wf-1',
             name: 'Deploy',
             nodes: [{ id: 'n-1', type: 'Trigger', title: 'Start', position: { x: 0, y: 0 }, config: {} }],
@@ -173,7 +173,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
         // the failed run consumed (a deliberate business decision
         // documented in the commit message and the safeMeter comment).
         const prisma = buildPrisma({ stripeCustomerId: 'cus_acme' });
-        (prisma.workflow.findUnique as jest.Mock).mockResolvedValue({
+        (prisma.runbook.findUnique as jest.Mock).mockResolvedValue({
             id: 'wf-1', name: 'Deploy', nodes: [], connections: [],
         });
         (prisma.execution.create as jest.Mock).mockResolvedValue({
@@ -202,7 +202,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
 
     it('passes undefined customerId when the tenant has no Stripe link (no-op path)', async () => {
         const prisma = buildPrisma({ stripeCustomerId: null });
-        (prisma.workflow.findUnique as jest.Mock).mockResolvedValue({
+        (prisma.runbook.findUnique as jest.Mock).mockResolvedValue({
             id: 'wf-1', name: 'Deploy', nodes: [], connections: [],
         });
         (prisma.execution.create as jest.Mock).mockResolvedValue({
@@ -227,7 +227,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
 
     it('does not call the meter when meter=null is passed (explicit disable)', async () => {
         const prisma = buildPrisma({ stripeCustomerId: 'cus_acme' });
-        (prisma.workflow.findUnique as jest.Mock).mockResolvedValue({
+        (prisma.runbook.findUnique as jest.Mock).mockResolvedValue({
             id: 'wf-1', name: 'Deploy', nodes: [], connections: [],
         });
         (prisma.execution.create as jest.Mock).mockResolvedValue({
@@ -249,7 +249,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
 
     it('skips meter calls silently when tenantId is missing', async () => {
         const prisma = buildPrisma();
-        (prisma.workflow.findUnique as jest.Mock).mockResolvedValue({
+        (prisma.runbook.findUnique as jest.Mock).mockResolvedValue({
             id: 'wf-1', name: 'Deploy', nodes: [], connections: [],
         });
         (prisma.execution.create as jest.Mock).mockResolvedValue({
@@ -275,7 +275,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
 
     it('does not crash execute() when the meter throws on record', async () => {
         const prisma = buildPrisma({ stripeCustomerId: 'cus_acme' });
-        (prisma.workflow.findUnique as jest.Mock).mockResolvedValue({
+        (prisma.runbook.findUnique as jest.Mock).mockResolvedValue({
             id: 'wf-1', name: 'Deploy', nodes: [], connections: [],
         });
         (prisma.execution.create as jest.Mock).mockResolvedValue({

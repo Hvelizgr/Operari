@@ -32,7 +32,7 @@ export class ScheduleService {
         createdAt: Date;
     }, tenantId: string) {
         const [workflow, lastRun] = await Promise.all([
-            this.prisma.workflow.findFirst({
+            this.prisma.runbook.findFirst({
                 where: { id: job.workflowId, tenantId },
                 select: { id: true, slug: true, name: true },
             }),
@@ -96,7 +96,7 @@ export class ScheduleService {
             throw new Error(`Invalid cron expression: ${cronExpr}`);
         }
         // Confirm the workflow belongs to the tenant.
-        const workflow = await this.prisma.workflow.findFirst({
+        const workflow = await this.prisma.runbook.findFirst({
             where: { id: workflowId, tenantId },
         });
         if (!workflow) {
@@ -181,7 +181,7 @@ export class ScheduleService {
             include: { workflow: true },
         });
         if (!job) return null;
-        const workflow = await this.prisma.workflow.findFirst({
+        const workflow = await this.prisma.runbook.findFirst({
             where: { id: job.workflowId, tenantId },
         });
         if (!workflow) return null;

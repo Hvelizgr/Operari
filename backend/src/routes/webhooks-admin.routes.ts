@@ -78,7 +78,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         // Tenant scoping: refuse to attach a webhook to a workflow the
         // current tenant does not own. Without this check the editor
         // could mint webhooks for arbitrary workflows.
-        const workflow = await prisma.workflow.findFirst({
+        const workflow = await prisma.runbook.findFirst({
             where: { id: workflowId, tenantId },
             select: { id: true },
         });

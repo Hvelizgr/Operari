@@ -1,4 +1,4 @@
-import { PrismaClient, ExecutionStatus, NodeLogStatus, TriggerType, Workflow, Prisma } from '@prisma/client';
+import { PrismaClient, ExecutionStatus, NodeLogStatus, TriggerType, Runbook, Prisma } from '@prisma/client';
 import { NodeExecutor } from '../node-executor.service';
 import { ErrorNotificationService } from '../../services/error-notification.service';
 import { Logger, ContextLogger } from '../../services/logger.service';
@@ -321,13 +321,13 @@ export class ExecutionService {
 
         try {
             // Fetch workflow
-            const workflow = await this.prisma.workflow.findUnique({
+            const workflow = await this.prisma.runbook.findUnique({
                 where: { id: workflowId },
             });
 
             if (!workflow) {
                 throw new WorkflowError({
-                    message: `Workflow not found: ${workflowId}`,
+                    message: `Runbook not found: ${workflowId}`,
                     code: ErrorCode.WORKFLOW_NOT_FOUND,
                     workflowId,
                     context: { userId, tenantId },
@@ -354,8 +354,8 @@ export class ExecutionService {
             };
 
             const contextLogger = this.logger.child(executionContext);
-            contextLogger.info('Workflow execution started');
-            socketService.emitLog(execution.id, 'Workflow execution started');
+            contextLogger.info('Runbook execution started');
+            socketService.emitLog(execution.id, 'Runbook execution started');
             socketService.emitExecutionStatus(execution.id, 'RUNNING');
 
             await this.safeAudit('run.started', {
@@ -498,8 +498,8 @@ export class ExecutionService {
         };
 
         const contextLogger = this.logger.child(executionContext);
-        contextLogger.info('Workflow replay started');
-        socketService.emitLog(newExecution.id, 'Workflow replay started');
+        contextLogger.info('Runbook replay started');
+        socketService.emitLog(newExecution.id, 'Runbook replay started');
 
         // Prepare initial state from historical data if replaying from a specific node
         if (nodeId) {
@@ -552,7 +552,7 @@ export class ExecutionService {
         }
 
         const contextLogger = this.logger.child({ executionId, workflowId: execution.workflowId, userId, tenantId, isResumed: true });
-        contextLogger.info('Workflow execution resumed');
+        contextLogger.info('Runbook execution resumed');
 
         // Update status to running
         await this.prisma.execution.update({
@@ -611,7 +611,7 @@ export class ExecutionService {
 
     private async runWorkflow(
         executionId: string,
-        workflow: Workflow,
+        workflow: Runbook,
         input: ExecutionInput,
         executionContext: Record<string, unknown>,
         tenantId?: string,
@@ -810,8 +810,8 @@ export class ExecutionService {
                                 } as any,
                             },
                         });
-                        contextLogger.info('Workflow execution paused');
-                        socketService.emitLog(executionId, 'Workflow execution paused', { nodeId: currentNode.id });
+                        contextLogger.info('Runbook execution paused');
+                        socketService.emitLog(executionId, 'Runbook execution paused', { nodeId: currentNode.id });
                         socketService.emitExecutionStatus(executionId, 'PAUSED');
 
                         await this.safeAudit('run.paused', {
@@ -1024,7 +1024,7 @@ export class ExecutionService {
             // having to poll. Mirror the existing PAUSED emit.
             socketService.emitExecutionStatus(executionId, 'SUCCESS');
 
-            contextLogger.info('Workflow execution completed successfully', { duration });
+            contextLogger.info('Runbook execution completed successfully', { duration });
 
             await this.safeAudit('run.completed', {
                 tenantId,
@@ -1092,7 +1092,7 @@ export class ExecutionService {
 
             socketService.emitExecutionStatus(executionId, 'FAILED');
 
-            contextLogger.error('Workflow execution failed', {
+            contextLogger.error('Runbook execution failed', {
                 error: wrappedError,
                 metadata: { duration },
             });
@@ -1181,7 +1181,7 @@ export class ExecutionService {
     private validateWorkflow(nodes: WorkflowNode[], connections: WorkflowConnection[]): void {
         if (!nodes || nodes.length === 0) {
             throw new WorkflowError({
-                message: 'Workflow has no nodes',
+                message: 'Runbook has no nodes',
                 code: ErrorCode.WORKFLOW_INVALID,
                 workflowId: '',
             });
@@ -1240,7 +1240,7 @@ export class ExecutionService {
                 const cyclePath = hasCycle(nodeId);
                 if (cyclePath) {
                     throw new WorkflowError({
-                        message: `Workflow contains circular dependencies. Cycle detected: ${cyclePath.join(' → ')}`,
+                        message: `Runbook contains circular dependencies. Cycle detected: ${cyclePath.join(' → ')}`,
                         code: ErrorCode.WORKFLOW_INVALID,
                         workflowId: '',
                         context: { cyclePath, cycleNodes: cyclePath },

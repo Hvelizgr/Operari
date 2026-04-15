@@ -53,7 +53,7 @@ class FakeAuditService {
 
 const buildPrismaMock = () => {
     return {
-        workflow: { findUnique: jest.fn() },
+        runbook: { findUnique: jest.fn() },
         execution: { create: jest.fn(), update: jest.fn() },
         nodeLog: { create: jest.fn(), update: jest.fn() },
         executionError: { findFirst: jest.fn() },
@@ -87,7 +87,7 @@ describe('ExecutionService → AuditService wiring', () => {
     };
 
     it('emits run.started when execution begins', async () => {
-        (prisma.workflow.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
+        (prisma.runbook.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
         (prisma.execution.create as jest.Mock).mockResolvedValue({
             id: 'exec-1',
             workflowId: 'workflow-1',
@@ -119,7 +119,7 @@ describe('ExecutionService → AuditService wiring', () => {
     });
 
     it('skips audit when tenantId is missing', async () => {
-        (prisma.workflow.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
+        (prisma.runbook.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
         (prisma.execution.create as jest.Mock).mockResolvedValue({
             id: 'exec-no-tenant',
             workflowId: 'workflow-1',
@@ -144,7 +144,7 @@ describe('ExecutionService → AuditService wiring', () => {
         const noAuditService = new ExecutionService(prisma, { audit: null });
         // Reach into the private safeAudit indirectly by spying on the FakeAuditService
         // which we'd never see called.
-        (prisma.workflow.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
+        (prisma.runbook.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
         (prisma.execution.create as jest.Mock).mockResolvedValue({
             id: 'exec-no-audit',
             workflowId: 'workflow-1',
@@ -171,7 +171,7 @@ describe('ExecutionService → AuditService wiring', () => {
         } as unknown as AuditService;
         const safeService = new ExecutionService(prisma, { audit: brokenAudit });
 
-        (prisma.workflow.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
+        (prisma.runbook.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
         (prisma.execution.create as jest.Mock).mockResolvedValue({
             id: 'exec-broken-audit',
             workflowId: 'workflow-1',

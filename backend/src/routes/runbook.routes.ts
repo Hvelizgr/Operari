@@ -145,7 +145,7 @@ router.get('/', async (req: AuthRequest, res) => {
         };
 
         const [workflows, total] = await Promise.all([
-            prisma.workflow.findMany({
+            prisma.runbook.findMany({
                 where,
                 skip,
                 take: parseInt(limit as string),
@@ -155,7 +155,7 @@ router.get('/', async (req: AuthRequest, res) => {
                     _count: { select: { executions: true } },
                 },
             }),
-            prisma.workflow.count({ where }),
+            prisma.runbook.count({ where }),
         ]);
 
         // Enrich each runbook with its last run + 30-day success rate so
@@ -276,7 +276,7 @@ router.get('/', async (req: AuthRequest, res) => {
 router.get('/:id', async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.id as string;
-        const workflow = await prisma.workflow.findFirst({
+        const workflow = await prisma.runbook.findFirst({
             where: {
                 id: workflowId,
                 tenantId: req.user!.tenantId,
@@ -330,7 +330,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
 router.get('/:id/metadata', async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.id as string;
-        const workflow = await prisma.workflow.findFirst({
+        const workflow = await prisma.runbook.findFirst({
             where: {
                 id: workflowId,
                 tenantId: req.user!.tenantId,
@@ -414,7 +414,7 @@ router.post('/', async (req: AuthRequest, res) => {
             });
         }
 
-        const workflow = await prisma.workflow.create({
+        const workflow = await prisma.runbook.create({
             data: {
                 name: data.name,
                 description: data.description,
@@ -513,7 +513,7 @@ router.post('/', async (req: AuthRequest, res) => {
 router.get('/:id/yaml', async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.id as string;
-        const workflow = await prisma.workflow.findFirst({
+        const workflow = await prisma.runbook.findFirst({
             where: { id: workflowId, tenantId: req.user!.tenantId },
             include: {
                 workflowNodes: true,
@@ -576,7 +576,7 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
             return res.status(400).json({ error: 'Body must contain YAML text', code: 'missing_yaml' });
         }
 
-        const existing = await prisma.workflow.findFirst({
+        const existing = await prisma.runbook.findFirst({
             where: { id: workflowId, tenantId: req.user!.tenantId },
         });
         if (!existing) return res.status(404).json({ error: 'Runbook not found' });
@@ -593,10 +593,10 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
         }
 
         const updated = await prisma.$transaction(async (tx) => {
-            await tx.workflowConnection.deleteMany({ where: { workflowId } });
-            await tx.workflowNode.deleteMany({ where: { workflowId } });
+            await tx.runbookConnection.deleteMany({ where: { workflowId } });
+            await tx.runbookStep.deleteMany({ where: { workflowId } });
 
-            await tx.workflow.update({
+            await tx.runbook.update({
                 where: { id: workflowId },
                 data: {
                     name: parsed.header.name,
@@ -608,7 +608,7 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
             });
 
             for (const node of parsed.nodes) {
-                await tx.workflowNode.create({
+                await tx.runbookStep.create({
                     data: {
                         id: node.id,
                         workflowId,
@@ -622,7 +622,7 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
                 });
             }
             for (const conn of parsed.connections) {
-                await tx.workflowConnection.create({
+                await tx.runbookConnection.create({
                     data: {
                         workflowId,
                         sourceNodeId: conn.sourceNodeId,
@@ -633,7 +633,7 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
                 });
             }
 
-            return tx.workflow.findFirst({
+            return tx.runbook.findFirst({
                 where: { id: workflowId },
                 include: { workflowNodes: true, workflowConnections: true },
             });
@@ -669,7 +669,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
         const data = updateSchema.parse(req.body);
         const workflowId = req.params.id as string;
 
-        const existing = await prisma.workflow.findFirst({
+        const existing = await prisma.runbook.findFirst({
             where: {
                 id: workflowId,
                 tenantId: req.user!.tenantId,
@@ -680,7 +680,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
             // Special handling for the default 'current-workflow' (scratchpad)
             // If it doesn't exist, we create it instead of returning 404
             if (workflowId === 'current-workflow') {
-                const newWorkflow = await prisma.workflow.create({
+                const newWorkflow = await prisma.runbook.create({
                     data: {
                         id: 'current-workflow',
                         name: data.name || 'Untitled Workflow',
@@ -758,7 +758,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
             });
         }
 
-        const workflow = await prisma.workflow.update({
+        const workflow = await prisma.runbook.update({
             where: { id: workflowId },
             data: updateData,
         });
@@ -832,7 +832,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
 router.delete('/:id', async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.id as string;
-        const existing = await prisma.workflow.findFirst({
+        const existing = await prisma.runbook.findFirst({
             where: {
                 id: workflowId,
                 tenantId: req.user!.tenantId,
@@ -847,7 +847,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
             where: { workflowId },
         });
 
-        await prisma.workflow.delete({
+        await prisma.runbook.delete({
             where: { id: workflowId },
         });
 
@@ -896,7 +896,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
 router.post('/:id/duplicate', async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.id as string;
-        const existing = await prisma.workflow.findFirst({
+        const existing = await prisma.runbook.findFirst({
             where: {
                 id: workflowId,
                 tenantId: req.user!.tenantId,
@@ -908,7 +908,7 @@ router.post('/:id/duplicate', async (req: AuthRequest, res) => {
         }
 
         // Cast Prisma JSON fields for the duplicate
-        const workflow = await prisma.workflow.create({
+        const workflow = await prisma.runbook.create({
             data: {
                 name: `${existing.name} (Copy)`,
                 description: existing.description,

@@ -24,7 +24,7 @@ jest.mock('../services/logger.service', () => ({
 jest.mock('../utils/error-persistence');
 
 const mockPrisma = {
-    workflow: {
+    runbook: {
         findUnique: jest.fn(),
     },
     execution: {
@@ -78,7 +78,7 @@ describe('ExecutionService', () => {
         };
 
         it('should successfully execute a workflow', async () => {
-            (mockPrisma.workflow.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
+            (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
             (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
                 id: 'exec-1',
                 workflowId: 'workflow-1',
@@ -96,7 +96,7 @@ describe('ExecutionService', () => {
             expect(result).toBeDefined();
             expect(result.id).toBe('exec-1');
             expect(result.status).toBe('RUNNING');
-            expect(mockPrisma.workflow.findUnique).toHaveBeenCalledWith({
+            expect(mockPrisma.runbook.findUnique).toHaveBeenCalledWith({
                 where: { id: 'workflow-1' },
             });
             expect(mockPrisma.execution.create).toHaveBeenCalledWith({
@@ -110,7 +110,7 @@ describe('ExecutionService', () => {
         });
 
         it('should throw error when workflow not found', async () => {
-            (mockPrisma.workflow.findUnique as jest.Mock).mockResolvedValue(null);
+            (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue(null);
 
             await expect(
                 executionService.execute({
@@ -120,7 +120,7 @@ describe('ExecutionService', () => {
                 })
             ).rejects.toThrow();
 
-            expect(mockPrisma.workflow.findUnique).toHaveBeenCalledWith({
+            expect(mockPrisma.runbook.findUnique).toHaveBeenCalledWith({
                 where: { id: 'non-existent' },
             });
             expect(mockPrisma.execution.create).not.toHaveBeenCalled();
@@ -133,7 +133,7 @@ describe('ExecutionService', () => {
                 connections: [],
             };
 
-            (mockPrisma.workflow.findUnique as jest.Mock).mockResolvedValue(emptyWorkflow);
+            (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue(emptyWorkflow);
             (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
                 id: 'exec-1',
                 workflowId: 'workflow-1',

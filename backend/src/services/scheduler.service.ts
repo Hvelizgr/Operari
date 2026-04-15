@@ -74,7 +74,7 @@ export class SchedulerService {
             logger.info({ jobId, workflowId }, `Executing scheduled job ${jobId} for workflow ${workflowId}`);
 
             try {
-                const workflow = await this.prisma.workflow.findUnique({
+                const workflow = await this.prisma.runbook.findUnique({
                     where: { id: workflowId },
                 });
 

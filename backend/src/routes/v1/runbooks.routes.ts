@@ -23,7 +23,7 @@ const triggerSchema = z.object({
  */
 router.get('/', requireApiKey('runbooks:read'), async (req: ApiKeyRequest, res: Response) => {
     const tenantId = req.apiContext!.tenantId;
-    const runbooks = await prisma.workflow.findMany({
+    const runbooks = await prisma.runbook.findMany({
         where: { tenantId },
         select: {
             id: true,
@@ -57,12 +57,12 @@ router.post(
             const { tenantId } = req.apiContext!;
 
             // Look up runbook by slug OR id (slug preferred, fallback to UUID)
-            let runbook = await prisma.workflow.findFirst({
+            let runbook = await prisma.runbook.findFirst({
                 where: { tenantId, slug: String(slug) },
             });
 
             if (!runbook) {
-                runbook = await prisma.workflow.findFirst({
+                runbook = await prisma.runbook.findFirst({
                     where: { id: String(slug), tenantId },
                 });
             }

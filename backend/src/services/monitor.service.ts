@@ -65,7 +65,7 @@ export class MonitorService {
     }
 
     async create(tenantId: string, input: MonitorInput) {
-        const wf = await this.prisma.workflow.findFirst({
+        const wf = await this.prisma.runbook.findFirst({
             where: { id: input.workflowId, tenantId },
             select: { id: true },
         });

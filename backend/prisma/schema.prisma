@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["tracing"]
 }
 
@@ -19,7 +19,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   tenant            Tenant             @relation(fields: [tenantId], references: [id])
-  workflows         Workflow[]
+  workflows         Runbook[]
   executions        Execution[]
   conversations     Conversation[]
   connectedAccounts ConnectedAccount[]
@@ -51,7 +51,7 @@ model Tenant {
   stripeCustomerId String? @unique
 
   users             User[]
-  workflows         Workflow[]
+  workflows         Runbook[]
   storageBuckets    StorageBucket[]
   conversations     Conversation[]
   agents            Agent[]
@@ -73,14 +73,14 @@ model StorageBucket {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, name])
   @@index([tenantId])
 }
 
-model Workflow {
-  id          String         @id @default(uuid())
+model Runbook {
+  id          String   @id @default(uuid())
   // NanoRun: slug is used by the SDK/CLI to reference runbooks (e.g. "deploy-frontend")
   slug        String?
   name        String
@@ -91,34 +91,34 @@ model Workflow {
   // They will be removed in a future version once all data is migrated
   nodes       Json?
   connections Json?
-  isActive    Boolean        @default(false)
+  isActive    Boolean  @default(false)
   schedule    String?
   userId      String
   tenantId    String
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  user              User                 @relation(fields: [userId], references: [id])
-  tenant            Tenant               @relation(fields: [tenantId], references: [id])
-  executions        Execution[]
+  user                User                @relation(fields: [userId], references: [id])
+  tenant              Tenant              @relation(fields: [tenantId], references: [id])
+  executions          Execution[]
   // New normalized relationships
-  workflowNodes     WorkflowNode[]
-  workflowConnections WorkflowConnection[]
-  webhooks          Webhook[]
-  approvals         Approval[]
-  eventAgents       EventAgent[]
-  scheduledJob      ScheduledJob?
-  monitors          Monitor[]
+  workflowNodes       RunbookStep[]
+  workflowConnections RunbookConnection[]
+  webhooks            Webhook[]
+  approvals           Approval[]
+  eventAgents         EventAgent[]
+  scheduledJob        ScheduledJob?
+  monitors            Monitor[]
 
   @@unique([tenantId, slug])
-
   @@index([userId])
   @@index([tenantId])
   @@index([isActive])
+  @@map("Workflow")
 }
 
-// Normalized WorkflowNode model
-model WorkflowNode {
+// Normalized RunbookStep model (DB table remains "WorkflowNode" until Fase 2b)
+model RunbookStep {
   id         String   @id @default(uuid())
   workflowId String
   type       String
@@ -126,38 +126,40 @@ model WorkflowNode {
   positionX  Float
   positionY  Float
   enabled    Boolean  @default(true)
-  config     Json?    // Node-specific configuration (HTTP settings, email templates, etc.)
-  inputs     Json?    // Array of input ports
-  outputs    Json?    // Array of output ports
+  config     Json? // Node-specific configuration (HTTP settings, email templates, etc.)
+  inputs     Json? // Array of input ports
+  outputs    Json? // Array of output ports
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  workflow            Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  sourceConnections   WorkflowConnection[] @relation("SourceNode")
-  targetConnections   WorkflowConnection[] @relation("TargetNode")
+  workflow          Runbook             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  sourceConnections RunbookConnection[] @relation("SourceNode")
+  targetConnections RunbookConnection[] @relation("TargetNode")
 
   @@index([workflowId])
   @@index([type])
+  @@map("WorkflowNode")
 }
 
-// Normalized WorkflowConnection model
-model WorkflowConnection {
+// Normalized RunbookConnection model (DB table remains "WorkflowConnection" until Fase 2b)
+model RunbookConnection {
   id           String   @id @default(uuid())
   workflowId   String
   sourceNodeId String
-  sourcePort   Int?     // Index of the source port
+  sourcePort   Int? // Index of the source port
   targetNodeId String
-  targetPort   Int?     // Index of the target port
+  targetPort   Int? // Index of the target port
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  workflow   Workflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  sourceNode WorkflowNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
-  targetNode WorkflowNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+  workflow   Runbook     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  sourceNode RunbookStep @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode RunbookStep @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
 
   @@index([workflowId])
   @@index([sourceNodeId])
   @@index([targetNodeId])
+  @@map("WorkflowConnection")
 }
 
 model Execution {
@@ -174,7 +176,7 @@ model Execution {
   resumeState Json?
   metadata    Json?
 
-  workflow        Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflow        Runbook          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   user            User             @relation(fields: [userId], references: [id])
   nodeLogs        NodeLog[]
   executionErrors ExecutionError[]
@@ -186,7 +188,7 @@ model Execution {
 }
 
 model NodeLog {
-  id          String         @id @default(uuid())
+  id          String        @id @default(uuid())
   executionId String
   nodeId      String
   nodeName    String
@@ -195,7 +197,7 @@ model NodeLog {
   input       Json?
   output      Json?
   error       String?
-  startedAt   DateTime       @default(now())
+  startedAt   DateTime      @default(now())
   completedAt DateTime?
   duration    Int?
 
@@ -207,22 +209,22 @@ model NodeLog {
 }
 
 model ExecutionError {
-  id            String        @id @default(uuid())
-  executionId   String
-  nodeLogId     String?
-  code          String
-  message       String
-  userMessage   String
-  severity      ErrorSeverity
-  isRetryable   Boolean       @default(false)
-  retryCount    Int           @default(0)
-  maxRetries    Int           @default(0)
-  context       Json?
-  stackTrace    String?
-  cause         Json?
-  createdAt     DateTime      @default(now())
-  resolvedAt    DateTime?
-  notifiedAt    DateTime?
+  id          String        @id @default(uuid())
+  executionId String
+  nodeLogId   String?
+  code        String
+  message     String
+  userMessage String
+  severity    ErrorSeverity
+  isRetryable Boolean       @default(false)
+  retryCount  Int           @default(0)
+  maxRetries  Int           @default(0)
+  context     Json?
+  stackTrace  String?
+  cause       Json?
+  createdAt   DateTime      @default(now())
+  resolvedAt  DateTime?
+  notifiedAt  DateTime?
 
   execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
 
@@ -233,33 +235,33 @@ model ExecutionError {
 }
 
 model ErrorNotificationConfig {
-  id          String                   @id @default(uuid())
+  id          String           @id @default(uuid())
   tenantId    String
   name        String
   type        NotificationType
   webhookUrl  String?
   email       String?
-  isActive    Boolean                  @default(true)
-  minSeverity ErrorSeverity            @default(HIGH)
-  errorCodes  String[]                 @default([])
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
+  isActive    Boolean          @default(true)
+  minSeverity ErrorSeverity    @default(HIGH)
+  errorCodes  String[]         @default([])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   @@index([tenantId])
   @@index([isActive])
 }
 
 model ScheduledJob {
-  id         String   @id @default(uuid())
-  workflowId String   @unique
+  id         String    @id @default(uuid())
+  workflowId String    @unique
   cronExpr   String
-  isActive   Boolean  @default(true)
+  isActive   Boolean   @default(true)
   lastRunAt  DateTime?
   nextRunAt  DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflow Runbook @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
 }
@@ -315,30 +317,30 @@ enum NotificationType {
 }
 
 model NodeType {
-  id          String   @id @default(uuid())
-  type        String   @unique  // e.g. "n8n-nodes-base.webhook"
-  category    String   // e.g. "triggers"
-  
+  id       String @id @default(uuid())
+  type     String @unique // e.g. "n8n-nodes-base.webhook"
+  category String // e.g. "triggers"
+
   // Visuals
-  icon        String   // Lucide icon name
-  color       String   // Tailwind class or hex
-  
+  icon  String // Lucide icon name
+  color String // Tailwind class or hex
+
   // I18n
-  label       Json     // { "en": "Webhook", "es": "Webhook" }
-  description Json?    // { "en": "...", "es": "..." }
-  subtitle    Json?    // Extra info shown in search
-  
+  label       Json // { "en": "Webhook", "es": "Webhook" }
+  description Json? // { "en": "...", "es": "..." }
+  subtitle    Json? // Extra info shown in search
+
   // Logic & Ports
   // e.g. [{ name: "main", type: "main", label: "Input" }, { name: "ai_tool", type: "ai_tool" }]
-  inputs      Json?    @default("[]") 
-  outputs     Json?    @default("[]")
-  
+  inputs  Json? @default("[]")
+  outputs Json? @default("[]")
+
   // Configuration UI Definition (Future proofing)
   // Defines fields: name, type (string/select), options, etc.
-  properties  Json?    @default("[]")
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  properties Json? @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([category])
   @@index([type])
@@ -441,27 +443,27 @@ model AgentExecution {
 ///   4. If matched + rate limit OK, trigger targetRunbook with vars
 ///   5. Persist EventAgentExecution with the outcome
 model EventAgent {
-  id              String   @id @default(uuid())
-  tenantId        String
-  name            String
-  description     String?
-  source          String   // "sentry" | "datadog" | "github" | "custom"
-  webhookId       String?  // optional FK to Webhook the events come from
-  matcherType     String   // "jsonpath" | "llm" | "always"
-  matcherConfig   Json     // shape depends on matcherType
-  targetRunbookId String
-  varMapping      Json     // { "key": "$.json.path", ... }
-  isEnabled       Boolean  @default(true)
-  rateLimitPerHour Int     @default(10)
-  triggerCount    Int      @default(0)
-  matchCount      Int      @default(0)
-  lastTriggeredAt DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String    @id @default(uuid())
+  tenantId         String
+  name             String
+  description      String?
+  source           String // "sentry" | "datadog" | "github" | "custom"
+  webhookId        String? // optional FK to Webhook the events come from
+  matcherType      String // "jsonpath" | "llm" | "always"
+  matcherConfig    Json // shape depends on matcherType
+  targetRunbookId  String
+  varMapping       Json // { "key": "$.json.path", ... }
+  isEnabled        Boolean   @default(true)
+  rateLimitPerHour Int       @default(10)
+  triggerCount     Int       @default(0)
+  matchCount       Int       @default(0)
+  lastTriggeredAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  targetRunbook Workflow @relation(fields: [targetRunbookId], references: [id], onDelete: Cascade)
-  webhook       Webhook? @relation(fields: [webhookId], references: [id], onDelete: SetNull)
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  targetRunbook Runbook               @relation(fields: [targetRunbookId], references: [id], onDelete: Cascade)
+  webhook       Webhook?              @relation(fields: [webhookId], references: [id], onDelete: SetNull)
   executions    EventAgentExecution[]
 
   @@index([tenantId])
@@ -478,23 +480,23 @@ model EventAgent {
 /// When a check fails, status flips to FIRING and a MonitorEvent row
 /// is appended. Recovery flips it back to OK with another event.
 model Monitor {
-  id           String   @id @default(uuid())
-  tenantId     String
-  workflowId   String
-  name         String
-  description  String?
-  checkType    String   // "last_success_within" | "no_run_within" | "failure_rate_above"
-  checkConfig  Json     // type-specific: { windowMinutes: 60, threshold?: 0.2 }
-  isEnabled    Boolean  @default(true)
-  status       String   @default("UNKNOWN") // "OK" | "FIRING" | "UNKNOWN"
-  lastCheckAt  DateTime?
-  lastFiredAt  DateTime?
-  lastReason   String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String    @id @default(uuid())
+  tenantId    String
+  workflowId  String
+  name        String
+  description String?
+  checkType   String // "last_success_within" | "no_run_within" | "failure_rate_above"
+  checkConfig Json // type-specific: { windowMinutes: 60, threshold?: 0.2 }
+  isEnabled   Boolean   @default(true)
+  status      String    @default("UNKNOWN") // "OK" | "FIRING" | "UNKNOWN"
+  lastCheckAt DateTime?
+  lastFiredAt DateTime?
+  lastReason  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflow Runbook        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   events   MonitorEvent[]
 
   @@index([tenantId])
@@ -506,7 +508,7 @@ model Monitor {
 model MonitorEvent {
   id        String   @id @default(uuid())
   monitorId String
-  status    String   // "OK" | "FIRING"
+  status    String // "OK" | "FIRING"
   reason    String?
   createdAt DateTime @default(now())
 
@@ -519,13 +521,13 @@ model MonitorEvent {
 /// One row per inbound event evaluated against an EventAgent — the
 /// audit trail for "why did this run start" or "why didn't it".
 model EventAgentExecution {
-  id              String   @id @default(uuid())
-  agentId         String
-  payload         Json
-  matched         Boolean
-  reason          String?
-  triggeredRunId  String?
-  createdAt       DateTime @default(now())
+  id             String   @id @default(uuid())
+  agentId        String
+  payload        Json
+  matched        Boolean
+  reason         String?
+  triggeredRunId String?
+  createdAt      DateTime @default(now())
 
   agent EventAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
@@ -585,16 +587,16 @@ enum AgentStatus {
 /// API keys used by SDK and CLI to authenticate with the NanoRun API.
 /// The plain key is shown only once on creation; we store a bcrypt hash.
 model ApiKey {
-  id          String    @id @default(uuid())
-  tenantId    String
-  name        String    // Human-readable label
-  keyHash     String    @unique // bcrypt hash of the full key
-  prefix      String    // First 12 chars (e.g. "nr_live_abc...") for display
-  scopes      String[]  // ["runbooks:trigger", "runbooks:read", "runs:read", ...]
-  lastUsedAt  DateTime?
-  expiresAt   DateTime?
-  createdBy   String?   // User who created the key
-  createdAt   DateTime  @default(now())
+  id         String    @id @default(uuid())
+  tenantId   String
+  name       String // Human-readable label
+  keyHash    String    @unique // bcrypt hash of the full key
+  prefix     String // First 12 chars (e.g. "nr_live_abc...") for display
+  scopes     String[] // ["runbooks:trigger", "runbooks:read", "runs:read", ...]
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  createdBy  String? // User who created the key
+  createdAt  DateTime  @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -607,17 +609,17 @@ model ApiKey {
 model Webhook {
   id              String    @id @default(uuid())
   tenantId        String
-  workflowId      String    // Workflow/Runbook this webhook triggers
-  source          String    // "sentry" | "datadog" | "github" | "custom"
+  workflowId      String // Workflow/Runbook this webhook triggers
+  source          String // "sentry" | "datadog" | "github" | "custom"
   token           String    @unique // URL token: /api/webhooks/:token/:event
-  secret          String?   // Optional HMAC secret for signature validation
+  secret          String? // Optional HMAC secret for signature validation
   isActive        Boolean   @default(true)
   triggerCount    Int       @default(0)
   lastTriggeredAt DateTime?
   createdAt       DateTime  @default(now())
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflow    Runbook      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   eventAgents EventAgent[]
 
   @@index([tenantId])
@@ -630,17 +632,17 @@ model Webhook {
 model Approval {
   id          String         @id @default(uuid())
   workflowId  String
-  executionId String         // The Execution/Run this approval belongs to
-  stepId      String         // The node id in the workflow that requested approval
+  executionId String // The Execution/Run this approval belongs to
+  stepId      String // The node id in the workflow that requested approval
   status      ApprovalStatus @default(PENDING)
-  message     String?        // Message shown to approvers
+  message     String? // Message shown to approvers
   requestedBy String?
   approvedBy  String?
   approvedAt  DateTime?
   comment     String?
   createdAt   DateTime       @default(now())
 
-  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflow Runbook @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   @@index([executionId])
   @@index([workflowId])
@@ -667,14 +669,14 @@ enum ApprovalStatus {
 /// for backwards compatibility — see PermissionService for the
 /// fallback path.
 model CustomRole {
-  id          String           @id @default(uuid())
+  id          String   @id @default(uuid())
   tenantId    String
   name        String
   description String?
   permissions String[]
-  isSystem    Boolean          @default(false)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   assignments RoleAssignment[]

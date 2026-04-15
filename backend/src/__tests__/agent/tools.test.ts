@@ -14,7 +14,7 @@ function fakePrisma(overrides: Record<string, any> = {}): PrismaClient {
         nodeLog: {
             findFirst: jest.fn(async (args: any) => overrides.nodeLog ?? null),
         },
-        workflow: {
+        runbook: {
             findMany: jest.fn(async (args: any) => overrides.workflows ?? []),
         },
     } as unknown as PrismaClient;
@@ -387,7 +387,7 @@ describe('buildOrchestratorTools', () => {
 
             expect(result.runbooks).toHaveLength(1);
             expect(result.runbooks[0].slug).toBe('deploy');
-            expect(prisma.workflow.findMany).toHaveBeenCalledWith(
+            expect(prisma.runbook.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: expect.objectContaining({ tenantId: TENANT }),
                 }),
@@ -399,7 +399,7 @@ describe('buildOrchestratorTools', () => {
             const tools = buildOrchestratorTools(prisma, TENANT);
             await tools.list_runbooks.execute({ category: 'incident', limit: 10 });
 
-            expect(prisma.workflow.findMany).toHaveBeenCalledWith(
+            expect(prisma.runbook.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: expect.objectContaining({
                         tenantId: TENANT,

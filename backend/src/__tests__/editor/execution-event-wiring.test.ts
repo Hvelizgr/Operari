@@ -62,7 +62,7 @@ function buildRecordingEventStore(): {
 }
 
 const mockPrisma = {
-    workflow: {
+    runbook: {
         findUnique: jest.fn(),
     },
     execution: {
@@ -85,7 +85,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     });
 
     it('emits run.created and run.started in order on execute()', async () => {
-        (mockPrisma.workflow.findUnique as jest.Mock).mockResolvedValue({
+        (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue({
             id: 'wf-1',
             name: 'Deploy',
             nodes: [],
@@ -127,7 +127,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     });
 
     it('does not emit anything when eventStore is null (default with flag off)', async () => {
-        (mockPrisma.workflow.findUnique as jest.Mock).mockResolvedValue({
+        (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue({
             id: 'wf-1',
             name: 'Deploy',
             nodes: [],
@@ -164,7 +164,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     });
 
     it('skips emission silently when tenantId is missing', async () => {
-        (mockPrisma.workflow.findUnique as jest.Mock).mockResolvedValue({
+        (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue({
             id: 'wf-1',
             name: 'Deploy',
             nodes: [],
@@ -198,7 +198,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     });
 
     it('does not crash execute() when the event store throws on append', async () => {
-        (mockPrisma.workflow.findUnique as jest.Mock).mockResolvedValue({
+        (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue({
             id: 'wf-1',
             name: 'Deploy',
             nodes: [],

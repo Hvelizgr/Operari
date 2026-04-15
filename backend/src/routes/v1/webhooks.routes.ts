@@ -41,7 +41,7 @@ router.post('/', requireApiKey('webhooks:write'), async (req: ApiKeyRequest, res
         const { tenantId } = req.apiContext!;
 
         // Verify the runbook exists and belongs to this tenant
-        const workflow = await prisma.workflow.findFirst({
+        const workflow = await prisma.runbook.findFirst({
             where: { id: workflowId, tenantId },
         });
         if (!workflow) {
