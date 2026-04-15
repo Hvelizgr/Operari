@@ -114,10 +114,9 @@ model Runbook {
   @@index([userId])
   @@index([tenantId])
   @@index([isActive])
-  @@map("Workflow")
 }
 
-// Normalized RunbookStep model (DB table remains "WorkflowNode" until Fase 2b)
+// Normalized RunbookStep model.
 model RunbookStep {
   id         String   @id @default(uuid())
   workflowId String
@@ -138,10 +137,9 @@ model RunbookStep {
 
   @@index([workflowId])
   @@index([type])
-  @@map("WorkflowNode")
 }
 
-// Normalized RunbookConnection model (DB table remains "WorkflowConnection" until Fase 2b)
+// Normalized RunbookConnection model.
 model RunbookConnection {
   id           String   @id @default(uuid())
   workflowId   String
@@ -159,7 +157,6 @@ model RunbookConnection {
   @@index([workflowId])
   @@index([sourceNodeId])
   @@index([targetNodeId])
-  @@map("WorkflowConnection")
 }
 
 model Execution {
