@@ -1,10 +1,10 @@
-import { NanoRun } from '@cairn/sdk';
+import { Cairn } from '@cairn/sdk';
 import { requireConfig } from '../config';
 import { colors, symbols } from '../colors';
 
 export async function listCommand() {
     const config = requireConfig();
-    const client = new NanoRun(config);
+    const client = new Cairn(config);
 
     try {
         const runbooks = await client.listRunbooks();

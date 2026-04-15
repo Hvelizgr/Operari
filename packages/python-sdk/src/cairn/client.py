@@ -1,10 +1,10 @@
-"""Official Python client for the NanoRun API.
+"""Official Python client for the Cairn API.
 
 Quick start::
 
-    from cairn import NanoRun
+    from cairn import Cairn
 
-    client = NanoRun(api_key="nrk_...")
+    client = Cairn(api_key="nrk_...")
 
     # Trigger a runbook and wait for completion
     run = client.run("deploy-frontend", variables={"env": "production"})
@@ -26,10 +26,10 @@ from urllib.parse import quote, urlencode
 import httpx
 
 from .errors import (
-    NanoRunError,
-    NanoRunAuthError,
-    NanoRunNotFoundError,
-    NanoRunTimeoutError,
+    CairnError,
+    CairnAuthError,
+    CairnNotFoundError,
+    CairnTimeoutError,
 )
 from .types import (
     AuditVerifyResult,
@@ -45,8 +45,8 @@ DEFAULT_BASE_URL = "https://api.nanorun.dev"
 TERMINAL_STATUSES = {RunStatus.SUCCESS, RunStatus.FAILED, RunStatus.CANCELLED}
 
 
-class NanoRun:
-    """NanoRun API client.
+class Cairn:
+    """Cairn API client.
 
     Args:
         api_key: API key with the required scopes.
@@ -62,7 +62,7 @@ class NanoRun:
         timeout: float = 30.0,
     ) -> None:
         if not api_key:
-            raise NanoRunError("api_key is required")
+            raise CairnError("api_key is required")
         self._base_url = base_url.rstrip("/")
         self._client = httpx.Client(
             base_url=self._base_url,
@@ -78,7 +78,7 @@ class NanoRun:
         """Close the underlying HTTP client."""
         self._client.close()
 
-    def __enter__(self) -> NanoRun:
+    def __enter__(self) -> Cairn:
         return self
 
     def __exit__(self, *_: Any) -> None:
@@ -152,7 +152,7 @@ class NanoRun:
         """Poll a run until it reaches a terminal state.
 
         Raises:
-            NanoRunTimeoutError: If the run doesn't finish within timeout_ms.
+            CairnTimeoutError: If the run doesn't finish within timeout_ms.
         """
         start = time.monotonic()
         deadline = start + timeout_ms / 1000.0
@@ -161,7 +161,7 @@ class NanoRun:
             if run.status in TERMINAL_STATUSES:
                 return run
             time.sleep(poll_interval_ms / 1000.0)
-        raise NanoRunTimeoutError(
+        raise CairnTimeoutError(
             f"Run {run_id} did not complete within {timeout_ms}ms"
         )
 
@@ -176,7 +176,7 @@ class NanoRun:
         triggered = self.trigger(runbook, variables=variables)
         result = self.wait_for_completion(triggered.id, timeout_ms=timeout_ms)
         if result.status == RunStatus.FAILED:
-            raise NanoRunError(
+            raise CairnError(
                 f"Run failed: {result.error or 'unknown error'}",
                 status_code=500,
                 code="run_failed",
@@ -260,7 +260,7 @@ class NanoRun:
                 json=body if body else None,
             )
         except httpx.TimeoutException as exc:
-            raise NanoRunTimeoutError(str(exc)) from exc
+            raise CairnTimeoutError(str(exc)) from exc
 
         if response.status_code == 204:
             return {}
@@ -274,10 +274,10 @@ class NanoRun:
             msg = data.get("error", f"Request failed: {response.status_code}")
             code = data.get("code")
             if response.status_code == 401:
-                raise NanoRunAuthError(msg)
+                raise CairnAuthError(msg)
             if response.status_code == 404:
-                raise NanoRunNotFoundError(msg)
-            raise NanoRunError(msg, response.status_code, code, data.get("details"))
+                raise CairnNotFoundError(msg)
+            raise CairnError(msg, response.status_code, code, data.get("details"))
 
         return data
 

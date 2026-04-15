@@ -1,5 +1,5 @@
 import {
-    NanoRunConfig,
+    CairnConfig,
     RunbookSummary,
     TriggerOptions,
     TriggerResponse,
@@ -11,23 +11,23 @@ import {
     ResolvedApproval,
 } from './types';
 import {
-    NanoRunError,
-    NanoRunAuthError,
-    NanoRunNotFoundError,
-    NanoRunTimeoutError,
+    CairnError,
+    CairnAuthError,
+    CairnNotFoundError,
+    CairnTimeoutError,
 } from './errors';
 
 const DEFAULT_BASE_URL = 'https://api.nanorun.dev';
 
 /**
- * Official Node.js client for the NanoRun API.
+ * Official Node.js client for the Cairn API.
  *
  * Quick start:
  *
  * ```ts
- * import { NanoRun } from '@cairn/sdk';
+ * import { Cairn } from '@cairn/sdk';
  *
- * const client = new NanoRun({ apiKey: process.env.NANORUN_API_KEY! });
+ * const client = new Cairn({ apiKey: process.env.CAIRN_API_KEY! });
  *
  * // Trigger a runbook
  * const run = await client.trigger('deploy-frontend', {
@@ -39,14 +39,14 @@ const DEFAULT_BASE_URL = 'https://api.nanorun.dev';
  * console.log(finalRun.status); // SUCCESS
  * ```
  */
-export class NanoRun {
+export class Cairn {
     private readonly apiKey: string;
     private readonly baseURL: string;
     private readonly fetchImpl: typeof fetch;
 
-    constructor(config: NanoRunConfig) {
+    constructor(config: CairnConfig) {
         if (!config.apiKey) {
-            throw new NanoRunError('apiKey is required');
+            throw new CairnError('apiKey is required');
         }
         this.apiKey = config.apiKey;
         this.baseURL = (config.baseURL || DEFAULT_BASE_URL).replace(/\/$/, '');
@@ -103,7 +103,7 @@ export class NanoRun {
             }
             await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
         }
-        throw new NanoRunTimeoutError(`Run ${runId} did not complete within ${timeoutMs}ms`);
+        throw new CairnTimeoutError(`Run ${runId} did not complete within ${timeoutMs}ms`);
     }
 
     /**
@@ -117,7 +117,7 @@ export class NanoRun {
         const triggered = await this.trigger(runbookSlugOrId, options);
         const final = await this.waitForCompletion(triggered.id, { timeoutMs: options.timeoutMs });
         if (final.status === 'FAILED') {
-            throw new NanoRunError(`Run failed: ${final.error || 'unknown error'}`, 500, 'run_failed', final);
+            throw new CairnError(`Run failed: ${final.error || 'unknown error'}`, 500, 'run_failed', final);
         }
         return final;
     }
@@ -126,7 +126,7 @@ export class NanoRun {
      * Grant a pending approval and resume its paused execution.
      *
      * Requires API key scope `approvals:resolve`. Throws
-     * `NanoRunNotFoundError` if the approval id does not exist (also used
+     * `CairnNotFoundError` if the approval id does not exist (also used
      * when it belongs to another tenant — by design).
      */
     async grantApproval(
@@ -158,7 +158,7 @@ export class NanoRun {
     /**
      * Verify the audit chain for the tenant owning this API key.
      *
-     * NanoRun stores tamper-evident audit events in a hash chain. This
+     * Cairn stores tamper-evident audit events in a hash chain. This
      * method walks the chain and reports whether every hash recomputes
      * correctly and whether the seq column is contiguous. Use it from
      * compliance automation, or directly from the CLI:
@@ -210,9 +210,9 @@ export class NanoRun {
             const errPayload = (data as { error?: string; code?: string; details?: unknown }) || {};
             const message = errPayload.error || `Request failed: ${response.status}`;
 
-            if (response.status === 401) throw new NanoRunAuthError(message);
-            if (response.status === 404) throw new NanoRunNotFoundError(message);
-            throw new NanoRunError(message, response.status, errPayload.code, errPayload.details);
+            if (response.status === 401) throw new CairnAuthError(message);
+            if (response.status === 404) throw new CairnNotFoundError(message);
+            throw new CairnError(message, response.status, errPayload.code, errPayload.details);
         }
 
         return data as T;

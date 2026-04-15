@@ -15,7 +15,7 @@ interface RundeckImportOptions {
  * Currently:
  *   - Reads and parses the file (best-effort, no real Rundeck schema yet)
  *   - Detects job count and surfaces the field shapes
- *   - Prints what NanoRun runbooks WOULD be generated
+ *   - Prints what Cairn runbooks WOULD be generated
  *   - Does NOT write any files
  *   - Does NOT call the server
  *
@@ -48,7 +48,7 @@ export async function rundeckImportCommand(file: string, options: RundeckImportO
                     plannedRunbooks: jobCount,
                     notImplemented: [
                         'YAML schema parsing',
-                        'Rundeck step → NanoRun executor mapping',
+                        'Rundeck step → Cairn executor mapping',
                         'Variable substitution ($RD_OPTION_*)',
                         'Node filter → runner selection',
                         'Schedule → trigger conversion',

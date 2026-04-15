@@ -1,5 +1,5 @@
 import * as readline from 'readline';
-import { NanoRun } from '@cairn/sdk';
+import { Cairn } from '@cairn/sdk';
 import { saveConfig } from '../config';
 import { colors, symbols } from '../colors';
 
@@ -44,7 +44,7 @@ export async function loginCommand(options: LoginOptions = {}) {
     // Verify the key works
     process.stdout.write(colors.dim('  Verifying...'));
     try {
-        const client = new NanoRun({ apiKey, baseURL });
+        const client = new Cairn({ apiKey, baseURL });
         await client.listRunbooks();
         process.stdout.write('\r' + ' '.repeat(20) + '\r');
     } catch (err) {
