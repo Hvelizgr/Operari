@@ -4,11 +4,11 @@ const options: swaggerJsdoc.Options = {
     definition: {
         openapi: '3.0.0',
         info: {
-            title: 'NanoFlow API',
+            title: 'Cairn API',
             version: '1.0.0',
-            description: 'API documentation for NanoFlow workflow automation platform',
+            description: 'API documentation for Cairn workflow automation platform',
             contact: {
-                name: 'NanoFlow Support',
+                name: 'Cairn Support',
             },
         },
         servers: [

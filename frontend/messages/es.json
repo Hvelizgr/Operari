@@ -70,10 +70,10 @@
     },
     "marketing": {
         "seo": {
-            "title": "NanoRun — Runbooks visuales para ingenieros",
+            "title": "Cairn — Runbooks visuales para ingenieros",
             "description": "Automatización open source de runbooks para equipos SRE y de plataforma. Shell-native, con gates de aprobación, audit-logged. Dejá de esconder deploys en páginas muertas de Confluence.",
             "openGraph": {
-                "title": "NanoRun — Runbooks visuales para ingenieros",
+                "title": "Cairn — Runbooks visuales para ingenieros",
                 "description": "El Sentry de los procedimientos operativos. Open source, dev-first, AI-native."
             }
         },
@@ -114,7 +114,7 @@
                 },
                 "2": {
                     "title": "Auditar",
-                    "description": "Cada paso queda en una cadena append-only con hash. `nanorun audit verify` la camina end to end."
+                    "description": "Cada paso queda en una cadena append-only con hash. `cairn audit verify` la camina end to end."
                 }
             }
         },
@@ -163,7 +163,7 @@
             "title": "Lo que dicen los design partners",
             "items": {
                 "0": {
-                    "quote": "Reemplazamos nuestra página de deploy en Confluence con un runbook NanoRun en una tarde. El gate de aprobación por Slack es el killer feature.",
+                    "quote": "Reemplazamos nuestra página de deploy en Confluence con un runbook Cairn en una tarde. El gate de aprobación por Slack es el killer feature.",
                     "author": "Sarah Jenkins",
                     "role": "Staff SRE @ TechFlow"
                 },
@@ -173,7 +173,7 @@
                     "role": "Platform Lead"
                 },
                 "2": {
-                    "quote": "La cadena de auditoría nos salvó en el review de SOC2. El auditor corrió `nanorun audit verify` y listo.",
+                    "quote": "La cadena de auditoría nos salvó en el review de SOC2. El auditor corrió `cairn audit verify` y listo.",
                     "author": "Elena Rodriguez",
                     "role": "Head of Platform"
                 }
@@ -182,7 +182,7 @@
         "cta": {
             "title": "Dejá de correr deploys desde una página de Confluence.",
             "subtitle": "Self-host con `docker compose up`. Gratis para siempre. Open source.",
-            "button": "Bajar NanoRun"
+            "button": "Bajar Cairn"
         },
         "modal": {
             "title": "Sumate al cloud beta",

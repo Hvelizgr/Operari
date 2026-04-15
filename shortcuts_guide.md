@@ -1,6 +1,6 @@
-# Guía de Atajos y Funcionalidades del Editor de NanoFlow
+# Guía de Atajos y Funcionalidades del Editor de Cairn
 
-Esta guía detalla las interacciones clave, atajos de teclado y funcionalidades del editor de flujos de trabajo de NanoFlow, muchas de ellas inspiradas en la fluidez de **xyOps**.
+Esta guía detalla las interacciones clave, atajos de teclado y funcionalidades del editor de flujos de trabajo de Cairn, muchas de ellas inspiradas en la fluidez de **xyOps**.
 
 ---
 

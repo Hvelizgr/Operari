@@ -70,10 +70,10 @@
     },
     "marketing": {
         "seo": {
-            "title": "NanoRun — Visual runbooks for engineers",
+            "title": "Cairn — Visual runbooks for engineers",
             "description": "Open-source runbook automation for SRE and platform teams. Shell-native, approval-gated, audit-logged. Stop hiding deploys in dead Confluence pages.",
             "openGraph": {
-                "title": "NanoRun — Visual runbooks for engineers",
+                "title": "Cairn — Visual runbooks for engineers",
                 "description": "The Sentry for operational procedures. Open source, dev-first, AI-native."
             }
         },
@@ -114,7 +114,7 @@
                 },
                 "2": {
                     "title": "Audit",
-                    "description": "Every step lands in an append-only hash chain. `nanorun audit verify` walks the chain end to end."
+                    "description": "Every step lands in an append-only hash chain. `cairn audit verify` walks the chain end to end."
                 }
             }
         },
@@ -163,7 +163,7 @@
             "title": "What design partners say",
             "items": {
                 "0": {
-                    "quote": "Replaced our Confluence deploy page with a NanoRun runbook in an afternoon. The Slack approval gate is the killer feature.",
+                    "quote": "Replaced our Confluence deploy page with a Cairn runbook in an afternoon. The Slack approval gate is the killer feature.",
                     "author": "Sarah Jenkins",
                     "role": "Staff SRE @ TechFlow"
                 },
@@ -173,7 +173,7 @@
                     "role": "Platform Lead"
                 },
                 "2": {
-                    "quote": "Audit chain saved us in our SOC2 review. Auditor ran `nanorun audit verify` and we were done.",
+                    "quote": "Audit chain saved us in our SOC2 review. Auditor ran `cairn audit verify` and we were done.",
                     "author": "Elena Rodriguez",
                     "role": "Head of Platform"
                 }
@@ -182,7 +182,7 @@
         "cta": {
             "title": "Stop running deploys from a Confluence page.",
             "subtitle": "Self-host with `docker compose up`. Free forever. Open source.",
-            "button": "Get NanoRun"
+            "button": "Get Cairn"
         },
         "modal": {
             "title": "Join the cloud beta",
