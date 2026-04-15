@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { X, Sparkles, Loader2, AlertCircle, BookOpen, CheckCircle2 } from 'lucide-react';
+import { X, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import type { WorkflowNode } from '@cairn/shared';
 
 interface RunbookAssistPanelProps {
@@ -21,35 +21,37 @@ interface RunbookAssistPanelProps {
 const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     en: {
         title: 'AI assist',
-        subtitle: 'Ask NanoRun to diagnose a failing step.',
+        subtitle: 'Ask Cairn to diagnose a failing step.',
         noFailure: 'Select a failed step to get a diagnosis, or paste an error below.',
         stepLabel: 'Step',
         errorLabel: 'Error',
-        questionLabel: 'Optional question',
+        questionLabel: 'Question (the agent can pull related runs and logs)',
         questionPh: 'e.g. why did the deploy time out?',
         ask: 'Diagnose',
         thinking: 'Thinking...',
-        applyFix: 'Apply suggested fix',
-        openDocs: 'Open documentation',
-        markKnown: 'Mark as known issue',
-        actionsTodo: 'Actions are coming soon',
+        suggested: 'Try asking',
+        suggestHistory: 'Has this error happened before?',
+        suggestRecent: 'Show recent failed runs',
+        suggestCompare: 'What changed since the last success?',
         failed: 'Diagnosis failed',
+        brand: 'Cairn AI',
     },
     es: {
         title: 'Asistente IA',
-        subtitle: 'Pide a NanoRun que diagnostique un paso fallido.',
+        subtitle: 'Pide a Cairn que diagnostique un paso fallido.',
         noFailure: 'Selecciona un paso fallido o pega un error abajo.',
         stepLabel: 'Paso',
         errorLabel: 'Error',
-        questionLabel: 'Pregunta opcional',
+        questionLabel: 'Pregunta (el agente puede traer runs y logs relacionados)',
         questionPh: 'ej. ¿por qué se cayó el deploy?',
         ask: 'Diagnosticar',
         thinking: 'Pensando...',
-        applyFix: 'Aplicar arreglo sugerido',
-        openDocs: 'Abrir documentación',
-        markKnown: 'Marcar como conocido',
-        actionsTodo: 'Las acciones llegan pronto',
+        suggested: 'Probá preguntando',
+        suggestHistory: '¿Este error ya pasó antes?',
+        suggestRecent: 'Mostrame runs fallidos recientes',
+        suggestCompare: '¿Qué cambió desde el último éxito?',
         failed: 'Diagnóstico fallido',
+        brand: 'Cairn AI',
     },
 };
 
@@ -222,6 +224,22 @@ export default function RunbookAssistPanel({
                         placeholder={t.questionPh}
                         className="w-full rounded border border-zinc-800 bg-black p-2 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none"
                     />
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        <span className="text-[10px] uppercase text-zinc-600 self-center">
+                            {t.suggested}:
+                        </span>
+                        {[t.suggestHistory, t.suggestRecent, t.suggestCompare].map((q) => (
+                            <button
+                                key={q}
+                                type="button"
+                                onClick={() => setQuestion(q)}
+                                disabled={streaming}
+                                className="rounded border border-zinc-800 bg-zinc-900/50 px-2 py-0.5 text-[11px] text-zinc-400 hover:border-violet-700 hover:text-violet-300 disabled:opacity-50"
+                            >
+                                {q}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 <button
@@ -255,7 +273,7 @@ export default function RunbookAssistPanel({
                 {(reply || streaming) && (
                     <div className="rounded border border-zinc-800 bg-black/40 p-3">
                         <div className="text-[11px] font-bold uppercase text-violet-400 mb-2">
-                            NanoRun AI
+                            {t.brand}
                         </div>
                         <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-100">
                             {reply}
@@ -265,31 +283,6 @@ export default function RunbookAssistPanel({
                 )}
             </div>
 
-            {reply && !streaming && (
-                <footer className="border-t border-zinc-800 px-5 py-3 space-y-2">
-                    <p className="text-[10px] text-zinc-500 italic">{t.actionsTodo}</p>
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            disabled
-                            className="flex items-center gap-1 rounded border border-zinc-800 px-2 py-1 text-[11px] text-zinc-500"
-                        >
-                            <Sparkles size={11} /> {t.applyFix}
-                        </button>
-                        <button
-                            disabled
-                            className="flex items-center gap-1 rounded border border-zinc-800 px-2 py-1 text-[11px] text-zinc-500"
-                        >
-                            <BookOpen size={11} /> {t.openDocs}
-                        </button>
-                        <button
-                            disabled
-                            className="flex items-center gap-1 rounded border border-zinc-800 px-2 py-1 text-[11px] text-zinc-500"
-                        >
-                            <CheckCircle2 size={11} /> {t.markKnown}
-                        </button>
-                    </div>
-                </footer>
-            )}
         </div>
     );
 }
