@@ -6,7 +6,7 @@ import {
     RunbookYamlError,
     RunbookHeader,
 } from '@/utils/runbookYaml';
-import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import type { WorkflowNode, Connection } from '@cairn/shared';
 
 /**
  * The frontend serializer mirrors backend/src/runbook/yaml/runbook-serializer.

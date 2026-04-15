@@ -1,7 +1,7 @@
 
 import React, { useState, lazy, Suspense } from 'react';
 import { HelpCircle, ChevronDown, Database } from 'lucide-react';
-import { WorkflowNode, Connection } from '@nanoflow/shared';
+import { WorkflowNode, Connection } from '@cairn/shared';
 import ExpressionBuilder from './ExpressionBuilder';
 import SecretPicker from './SecretPicker';
 

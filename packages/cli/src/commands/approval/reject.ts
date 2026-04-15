@@ -1,4 +1,4 @@
-import { NanoRun } from '@nanorun/sdk';
+import { NanoRun } from '@cairn/sdk';
 import { requireConfig } from '../../config';
 import { colors, symbols, statusColor } from '../../colors';
 

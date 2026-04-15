@@ -1,4 +1,4 @@
-import { NanoRun, AuditVerifyOptions } from '@nanorun/sdk';
+import { NanoRun, AuditVerifyOptions } from '@cairn/sdk';
 import { requireConfig } from '../../config';
 import { colors, symbols } from '../../colors';
 

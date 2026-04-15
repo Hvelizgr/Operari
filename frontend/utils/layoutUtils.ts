@@ -1,5 +1,5 @@
 import dagre from 'dagre';
-import { WorkflowNode, Connection } from '@nanoflow/shared';
+import { WorkflowNode, Connection } from '@cairn/shared';
 import { getNodeInputPort, getNodeOutputPort } from '../components/Editor/EditorNode';
 
 // Configuration for layout

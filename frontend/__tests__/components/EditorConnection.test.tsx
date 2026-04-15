@@ -1,5 +1,5 @@
 import { render, fireEvent } from '@testing-library/react';
-import type { Connection } from '@nanoflow/shared';
+import type { Connection } from '@cairn/shared';
 import EditorConnection from '@/components/Editor/EditorConnection';
 
 /**

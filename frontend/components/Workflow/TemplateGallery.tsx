@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FileCode, FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import type { WorkflowNode, Connection } from '@cairn/shared';
 import { yamlToSpec, specToNodes } from '@/utils/runbookYaml';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';

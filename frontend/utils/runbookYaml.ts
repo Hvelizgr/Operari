@@ -1,5 +1,5 @@
 import yaml from 'js-yaml';
-import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import type { WorkflowNode, Connection } from '@cairn/shared';
 
 /**
  * Browser-side runbook YAML serializer.

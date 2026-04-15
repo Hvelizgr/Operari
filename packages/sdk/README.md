@@ -1,17 +1,17 @@
-# @nanorun/sdk
+# @cairn/sdk
 
 Official Node.js SDK for [NanoRun](https://nanorun.dev) — visual runbooks for engineers.
 
 ## Install
 
 ```bash
-npm install @nanorun/sdk
+npm install @cairn/sdk
 ```
 
 ## Quick start
 
 ```ts
-import { NanoRun } from '@nanorun/sdk';
+import { NanoRun } from '@cairn/sdk';
 
 const client = new NanoRun({
   apiKey: process.env.NANORUN_API_KEY!,

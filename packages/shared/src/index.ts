@@ -1,5 +1,5 @@
 /**
- * @nanoflow/shared
+ * @cairn/shared
  * Shared types and utilities between frontend and backend
  */
 

@@ -22,7 +22,7 @@ Production-ready runbook templates you can import into NanoRun and adapt to your
 Or via the CLI:
 
 ```bash
-nanorun run deploy-nextjs-vercel \
+cairn run deploy-nextjs-vercel \
   -v vercel_token=$VERCEL_TOKEN \
   -v slack_webhook_url=$SLACK_WEBHOOK \
   -v production_url=https://myapp.com
@@ -62,7 +62,7 @@ Reference variables in any string config field with `{{vars.name}}`:
 ```
 
 Variables are passed when triggering the runbook:
-- CLI: `nanorun run my-runbook -v environment=production`
+- CLI: `cairn run my-runbook -v environment=production`
 - SDK: `client.trigger('my-runbook', { variables: { environment: 'production' } })`
 - Webhook: extracted from the incoming payload
 

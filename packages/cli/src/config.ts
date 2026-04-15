@@ -46,7 +46,7 @@ export function clearConfig(): boolean {
 export function requireConfig(): CliConfig {
     const config = loadConfig();
     if (!config) {
-        console.error('Not logged in. Run `nanorun login` first.');
+        console.error('Not logged in. Run `cairn login` first.');
         process.exit(1);
     }
     return config;

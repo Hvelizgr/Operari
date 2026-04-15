@@ -3,7 +3,7 @@
  * These provide default workflow examples for new users
  */
 
-import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import type { WorkflowNode, Connection } from '@cairn/shared';
 
 /**
  * Default nodes shown when the editor first loads. A single `shell`

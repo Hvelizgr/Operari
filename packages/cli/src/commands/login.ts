@@ -1,5 +1,5 @@
 import * as readline from 'readline';
-import { NanoRun } from '@nanorun/sdk';
+import { NanoRun } from '@cairn/sdk';
 import { saveConfig } from '../config';
 import { colors, symbols } from '../colors';
 

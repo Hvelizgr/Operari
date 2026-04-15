@@ -1,11 +1,11 @@
 {
-  "name": "@nanorun/cli",
+  "name": "@cairn/cli",
   "version": "0.1.0",
-  "description": "Run NanoRun runbooks from your terminal",
+  "description": "Run Cairn runbooks from your terminal",
   "license": "MIT",
   "main": "dist/index.js",
   "bin": {
-    "nanorun": "./bin/nanorun"
+    "cairn": "./bin/cairn"
   },
   "files": [
     "dist",
@@ -18,7 +18,7 @@
     "test": "echo 'no tests yet'"
   },
   "dependencies": {
-    "@nanorun/sdk": "^0.1.0",
+    "@cairn/sdk": "^0.1.0",
     "commander": "^12.0.0"
   },
   "devDependencies": {

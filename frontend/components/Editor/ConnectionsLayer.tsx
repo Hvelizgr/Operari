@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useMemo } from 'react';
-import type { WorkflowNode, Connection, ConnectionCondition } from '@nanoflow/shared';
+import type { WorkflowNode, Connection, ConnectionCondition } from '@cairn/shared';
 import { useCanvasRenderer } from '../../hooks/useCanvasRenderer';
 import type { CreatingConnectionState, ViewportState } from '../../types/editor.types';
 import ConnectionConditionBadge from './ConnectionConditionBadge';

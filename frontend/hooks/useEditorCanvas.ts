@@ -1,6 +1,6 @@
 
 import { useRef, useState, useCallback, useEffect, MouseEvent, DragEvent } from 'react';
-import { WorkflowNode, Connection } from '@nanoflow/shared';
+import { WorkflowNode, Connection } from '@cairn/shared';
 import { ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from '../components/Common';
 import { useAdvancedUndoRedo } from '../hooks/useAdvancedUndoRedo';
 import { NodeType } from '../components/Node';

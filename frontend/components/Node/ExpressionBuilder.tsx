@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Database, ChevronRight, ChevronDown, Copy, Check, Variable, FunctionSquare, FileJson, Play } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
-import { WorkflowNode, Connection } from '@nanoflow/shared';
+import { WorkflowNode, Connection } from '@cairn/shared';
 
 // Extend WorkflowNode locally to avoid TS errors if shared type is incomplete
 interface ExtendedNode extends WorkflowNode {

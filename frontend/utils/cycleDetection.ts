@@ -1,4 +1,4 @@
-import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import type { WorkflowNode, Connection } from '@cairn/shared';
 
 export function hasCycle(nodes: WorkflowNode[], connections: Connection[]): { hasCycle: boolean; cyclePath?: string[] } {
     const nodeIds = new Set(nodes.map(n => n.id));

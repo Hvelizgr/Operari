@@ -1,4 +1,4 @@
-import { WorkflowNode, Connection } from '@nanoflow/shared';
+import { WorkflowNode, Connection } from '@cairn/shared';
 import { NodeType } from '../Node';
 import { ExecutionMetric, ViewportState } from '../../types/editor.types';
 

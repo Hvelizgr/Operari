@@ -2,7 +2,7 @@
 
 import { MouseEvent, useRef, useLayoutEffect } from 'react';
 import { NodeType, NODE_TYPES } from '../Node';
-import { WorkflowNode } from '@nanoflow/shared';
+import { WorkflowNode } from '@cairn/shared';
 import './WorkflowNode.css';
 import * as Icons from 'lucide-react';
 import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';

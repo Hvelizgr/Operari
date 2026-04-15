@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import type { WorkflowNode } from '@nanoflow/shared';
+import type { WorkflowNode } from '@cairn/shared';
 
 interface NoteNodeProps {
     node: WorkflowNode;

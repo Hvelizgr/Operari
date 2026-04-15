@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Settings, RotateCw, GitBranch, ChevronDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import type { WorkflowNode, Connection } from '@cairn/shared';
 import { NODE_TYPES, NodeType } from '../Node/NodePalette';
 import DynamicNodeForm from '../Node/DynamicNodeForm';
 import TriggerModifiersSection, { TriggerModifiers, DEFAULT_TRIGGER_MODIFIERS } from '../Node/TriggerModifiersSection';

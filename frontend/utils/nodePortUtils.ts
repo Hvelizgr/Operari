@@ -2,7 +2,7 @@
 // Utility functions for calculating node port positions
 // Used by both EditorNode.tsx and useCanvasRenderer.ts
 
-import type { WorkflowNode } from '@nanoflow/shared';
+import type { WorkflowNode } from '@cairn/shared';
 
 export type PortDirection = 'left' | 'right' | 'top' | 'bottom';
 

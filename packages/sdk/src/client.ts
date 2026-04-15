@@ -25,7 +25,7 @@ const DEFAULT_BASE_URL = 'https://api.nanorun.dev';
  * Quick start:
  *
  * ```ts
- * import { NanoRun } from '@nanorun/sdk';
+ * import { NanoRun } from '@cairn/sdk';
  *
  * const client = new NanoRun({ apiKey: process.env.NANORUN_API_KEY! });
  *
@@ -163,7 +163,7 @@ export class NanoRun {
      * correctly and whether the seq column is contiguous. Use it from
      * compliance automation, or directly from the CLI:
      *
-     *   nanorun audit verify
+     *   cairn audit verify
      *
      * Requires an API key with scope `audit:read`.
      */
@@ -189,7 +189,7 @@ export class NanoRun {
         const headers: Record<string, string> = {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
-            'User-Agent': '@nanorun/sdk/0.1.0',
+            'User-Agent': '@cairn/sdk/0.1.0',
         };
 
         const response = await this.fetchImpl(url, {

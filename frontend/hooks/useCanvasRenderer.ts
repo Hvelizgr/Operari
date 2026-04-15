@@ -1,6 +1,6 @@
 // frontend/hooks/useCanvasRenderer.ts
 import { useEffect, useCallback, useRef } from 'react';
-import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import type { WorkflowNode, Connection } from '@cairn/shared';
 import type { ViewportState } from '../types/editor.types';
 import { getNodePortInfo, PortDirection } from '../utils/nodePortUtils';
 

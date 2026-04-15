@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Check, X, AlertTriangle, Ban, Circle } from 'lucide-react';
-import type { ConnectionCondition } from '@nanoflow/shared';
+import type { ConnectionCondition } from '@cairn/shared';
 
 interface ConnectionConditionBadgeProps {
     condition: ConnectionCondition;

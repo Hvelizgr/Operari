@@ -1,11 +1,11 @@
-# @nanorun/cli
+# @cairn/cli
 
 Run [NanoRun](https://nanorun.dev) runbooks from your terminal.
 
 ## Install
 
 ```bash
-npm install -g @nanorun/cli
+npm install -g @cairn/cli
 ```
 
 ## Quick start
@@ -70,7 +70,7 @@ Get the status of a previous run.
 # .github/workflows/deploy.yml
 - name: Run deploy runbook
   run: |
-    npx @nanorun/cli run deploy-prod \
+    npx @cairn/cli run deploy-prod \
       -v commit=$GITHUB_SHA \
       -v branch=$GITHUB_REF_NAME
   env:

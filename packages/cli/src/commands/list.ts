@@ -1,4 +1,4 @@
-import { NanoRun } from '@nanorun/sdk';
+import { NanoRun } from '@cairn/sdk';
 import { requireConfig } from '../config';
 import { colors, symbols } from '../colors';
 
@@ -34,7 +34,7 @@ export async function listCommand() {
             );
         }
 
-        console.log(colors.dim(`\nRun a runbook with: nanorun run <slug>`));
+        console.log(colors.dim(`\nRun a runbook with: cairn run <slug>`));
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(colors.red(`${symbols.cross} ${msg}`));

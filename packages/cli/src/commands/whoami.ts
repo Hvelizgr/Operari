@@ -4,7 +4,7 @@ import { colors, symbols } from '../colors';
 export function whoamiCommand() {
     const config = loadConfig();
     if (!config) {
-        console.log(colors.dim('Not logged in. Run `nanorun login`.'));
+        console.log(colors.dim('Not logged in. Run `cairn login`.'));
         process.exit(1);
     }
     console.log(`${colors.bold('NanoRun CLI')}`);

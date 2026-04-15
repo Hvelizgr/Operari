@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X, Sparkles, Loader2, AlertCircle, BookOpen, CheckCircle2 } from 'lucide-react';
-import type { WorkflowNode } from '@nanoflow/shared';
+import type { WorkflowNode } from '@cairn/shared';
 
 interface RunbookAssistPanelProps {
     open: boolean;

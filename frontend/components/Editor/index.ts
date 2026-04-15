@@ -1,8 +1,8 @@
 export { default as EditorCanvas } from './EditorCanvas';
 export { default as EditorConnection } from './EditorConnection';
-export type { Connection } from '@nanoflow/shared';
+export type { Connection } from '@cairn/shared';
 export { default as EditorNode, getNodeInputPort, getNodeOutputPort } from './EditorNode';
-export type { WorkflowNode } from '@nanoflow/shared';
+export type { WorkflowNode } from '@cairn/shared';
 export { default as EditorToolbar } from './EditorToolbar';
 export { default as EditorOverlays } from './EditorOverlays';
 export { default as ConnectionsLayer } from './ConnectionsLayer';

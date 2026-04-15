@@ -81,7 +81,7 @@ into *executable, versioned, audit-logged artifacts*.
 - **Concrete.** No "powerful" or "robust" — use numbers and commands:
   "shell scripts that survive a backend restart", "approval gates with
   HMAC-signed Slack callbacks", "audit chain you can verify with
-  `nanorun audit verify`".
+  `cairn audit verify`".
 - **Code-adjacent.** Mono fonts in marketing, real YAML, terminal
   screenshots, not BI dashboards.
 - **Anti-Zapier.** Use words like `kubectl`, `helm`, `bash`, `psql`,

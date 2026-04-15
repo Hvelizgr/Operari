@@ -63,7 +63,7 @@ reports for them unless you have a concrete escalation:
   `backend/.env.example`.
 - **The audit chain detects tampering, it does not prevent it.** A DBA with
   raw Postgres access can drop rows; verification will then fail loudly via
-  `nanorun audit verify`.
+  `cairn audit verify`.
 
 ## Cryptography
 

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import type { WorkflowNode } from '@nanoflow/shared';
+import type { WorkflowNode } from '@cairn/shared';
 import EditorNode from './EditorNode';
 import NoteNode from './NoteNode';
 import FrameNode from './FrameNode';

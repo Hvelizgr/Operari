@@ -103,7 +103,7 @@ a `safeAudit` call at the relevant write site.
 
 ## Verification
 
-- `nanorun audit verify` (`packages/cli/src/commands/audit/verify.ts`)
+- `cairn audit verify` (`packages/cli/src/commands/audit/verify.ts`)
   walks the chain per tenant and reports any tampering.
 - `__tests__/audit/audit.service.test.ts` and
   `__tests__/audit/execution-audit.test.ts` cover the emit paths above.

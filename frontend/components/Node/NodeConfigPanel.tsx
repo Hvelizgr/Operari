@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Settings, KeyRound, Copy, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import type { WorkflowNode } from '@nanoflow/shared';
+import type { WorkflowNode } from '@cairn/shared';
 import { NODE_TYPES, NodeType } from './NodePalette';
 import DynamicNodeForm from './DynamicNodeForm';
 import RetryPolicyEditor from './RetryPolicyEditor';
