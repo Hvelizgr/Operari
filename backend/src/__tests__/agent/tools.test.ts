@@ -427,4 +427,127 @@ describe('buildOrchestratorTools', () => {
             expect(calls[1][0].where.workflow.tenantId).toBe('tenant-b');
         });
     });
+
+    // ---------------------------------------------------------------
+    // Write tools — opt-in, routed through ApprovalService
+    // ---------------------------------------------------------------
+    describe('write tools (opt-in)', () => {
+        const fakeApprovalService = () => ({ resolve: jest.fn() });
+
+        it('hides grant_approval / reject_approval unless writeEnabled', () => {
+            const prisma = fakePrisma();
+            const tools = buildOrchestratorTools(prisma, TENANT);
+            expect(tools.grant_approval).toBeUndefined();
+            expect(tools.reject_approval).toBeUndefined();
+        });
+
+        it('exposes both write tools when writeEnabled=true', () => {
+            const prisma = fakePrisma();
+            const approvalService = fakeApprovalService();
+            const tools = buildOrchestratorTools(prisma, TENANT, {
+                writeEnabled: true,
+                approvalService: approvalService as any,
+            });
+            expect(typeof tools.grant_approval.execute).toBe('function');
+            expect(typeof tools.reject_approval.execute).toBe('function');
+        });
+
+        it('grant_approval calls ApprovalService.resolve with action=grant and agent actorId', async () => {
+            const prisma = fakePrisma();
+            const approvalService = fakeApprovalService();
+            approvalService.resolve.mockResolvedValue({
+                id: 'appr-1',
+                status: 'APPROVED',
+                executionId: 'exec-1',
+                executionResumed: true,
+                executionCancelled: false,
+            });
+            const tools = buildOrchestratorTools(prisma, TENANT, {
+                writeEnabled: true,
+                approvalService: approvalService as any,
+            });
+
+            const out = await tools.grant_approval.execute({
+                approvalId: 'appr-1',
+                comment: 'LGTM',
+            });
+
+            expect(approvalService.resolve).toHaveBeenCalledWith({
+                approvalId: 'appr-1',
+                action: 'grant',
+                tenantId: TENANT,
+                actorId: `agent:${TENANT}`,
+                comment: 'LGTM',
+            });
+            expect(out).toEqual({
+                ok: true,
+                approvalId: 'appr-1',
+                status: 'APPROVED',
+                executionId: 'exec-1',
+                executionResumed: true,
+                executionCancelled: false,
+            });
+        });
+
+        it('reject_approval routes to action=reject', async () => {
+            const prisma = fakePrisma();
+            const approvalService = fakeApprovalService();
+            approvalService.resolve.mockResolvedValue({
+                id: 'appr-2',
+                status: 'REJECTED',
+                executionId: 'exec-2',
+                executionResumed: false,
+                executionCancelled: true,
+            });
+            const tools = buildOrchestratorTools(prisma, TENANT, {
+                writeEnabled: true,
+                approvalService: approvalService as any,
+            });
+
+            const out = await tools.reject_approval.execute({ approvalId: 'appr-2' });
+
+            expect(approvalService.resolve).toHaveBeenCalledWith(
+                expect.objectContaining({ action: 'reject', approvalId: 'appr-2' }),
+            );
+            expect(out.status).toBe('REJECTED');
+            expect(out.executionCancelled).toBe(true);
+        });
+
+        it('returns ok:false with the ApprovalServiceError code for domain errors', async () => {
+            const prisma = fakePrisma();
+            const approvalService = fakeApprovalService();
+            const { ApprovalServiceError } = await import(
+                '../../runbook/services/approval.service'
+            );
+            approvalService.resolve.mockRejectedValue(
+                new ApprovalServiceError('approval_not_pending', 'already resolved'),
+            );
+            const tools = buildOrchestratorTools(prisma, TENANT, {
+                writeEnabled: true,
+                approvalService: approvalService as any,
+            });
+
+            const out = await tools.grant_approval.execute({ approvalId: 'appr-3' });
+
+            expect(out).toEqual({
+                ok: false,
+                code: 'approval_not_pending',
+                message: 'already resolved',
+            });
+        });
+
+        it('rethrows non-domain errors so the orchestrator sees them', async () => {
+            const prisma = fakePrisma();
+            const approvalService = fakeApprovalService();
+            approvalService.resolve.mockRejectedValue(new Error('db exploded'));
+            const tools = buildOrchestratorTools(prisma, TENANT, {
+                writeEnabled: true,
+                approvalService: approvalService as any,
+            });
+
+            await expect(
+                tools.grant_approval.execute({ approvalId: 'appr-4' }),
+            ).rejects.toThrow('db exploded');
+        });
+    });
 });

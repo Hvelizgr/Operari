@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import type { PrismaClient } from '@prisma/client';
+import { ApprovalService, ApprovalServiceError } from '../runbook/services/approval.service';
+import { ExecutionService } from '../editor/execution/execution.service';
 
 // Avoid the `tool()` helper from 'ai': its generic inference combined
 // with `streamText({ tools })` makes tsc OOM at >6 GB. The runtime
@@ -7,18 +9,36 @@ import type { PrismaClient } from '@prisma/client';
 // / execute is all the SDK consumes.
 const tool = <T>(def: T): T => def;
 
+export interface OrchestratorToolsOptions {
+    /**
+     * Inject a pre-built ApprovalService so tests can mock it without
+     * touching the singleton used by the real routes. Only read when
+     * write tools are enabled.
+     */
+    approvalService?: ApprovalService;
+    /**
+     * Force-enable write tools regardless of the env flag. Useful for
+     * tests; production paths go through CAIRN_AGENT_WRITE_TOOLS.
+     */
+    writeEnabled?: boolean;
+}
+
 /**
- * Read-only tools for the NanoRun orchestrator.
+ * Tools for the Cairn orchestrator.
  *
- * These give the assistant *eyes* into the tenant's runs and runbooks
- * without granting any write capability. The boundary is intentional:
- * the AI Assistant is for diagnosing and authoring, NOT for executing.
- * Anything that mutates state — trigger a run, create a runbook, grant
- * an approval — is the job of the Agents surface, which lives behind
- * an explicit user opt-in.
+ * READ tools (always on) give the assistant *eyes* into the tenant's
+ * runs and runbooks. Every tool is bound to a single tenantId at
+ * construction time so the model can never escape the tenant boundary.
  *
- * Every tool is bound to a single tenantId at construction time so the
- * model can never escape the tenant boundary by passing a different id.
+ * WRITE tools (opt-in via CAIRN_AGENT_WRITE_TOOLS=true) currently cover
+ * approval grant/reject. They route through ApprovalService so the same
+ * audit events, tenant isolation, and concurrency guards that gate the
+ * HTTP API also gate the agent. The actor is recorded as
+ * `agent:<tenantId>` in the audit chain.
+ *
+ * Deliberately NOT exposed as write tools:
+ *   - trigger_runbook / cancel_run — too easy to blast prod
+ *   - create/update/delete runbook — schema mutations stay human-only
  */
 // Returned as a loose Record so the AI SDK's deep generic inference on
 // streamText({ tools }) does not balloon tsc memory. The tool helper
@@ -27,8 +47,9 @@ const tool = <T>(def: T): T => def;
 export function buildOrchestratorTools(
     prisma: PrismaClient,
     tenantId: string,
+    options: OrchestratorToolsOptions = {},
 ): Record<string, any> {
-    return {
+    const readTools = {
         list_recent_runs: tool({
             description:
                 'List recent runbook executions for the current tenant. ' +
@@ -248,6 +269,99 @@ export function buildOrchestratorTools(
                     })),
                 };
             },
+        }),
+    };
+
+    const writeEnabled =
+        options.writeEnabled ?? process.env.CAIRN_AGENT_WRITE_TOOLS === 'true';
+    if (!writeEnabled) return readTools;
+
+    // Lazy-init the approval service. We wire resumeExecution through
+    // ExecutionService so grants actually resume paused runs, mirroring
+    // what the HTTP routes do.
+    let approvalServiceInstance: ApprovalService | null = options.approvalService ?? null;
+    const getApprovalService = (): ApprovalService => {
+        if (approvalServiceInstance) return approvalServiceInstance;
+        const executionService = new ExecutionService(prisma);
+        approvalServiceInstance = new ApprovalService(prisma, {
+            resumeExecution: executionService.resumeExecution.bind(executionService),
+        });
+        return approvalServiceInstance;
+    };
+
+    const resolveApproval = async (
+        approvalId: string,
+        action: 'grant' | 'reject',
+        comment?: string,
+    ) => {
+        try {
+            const result = await getApprovalService().resolve({
+                approvalId,
+                action,
+                tenantId,
+                actorId: `agent:${tenantId}`,
+                comment,
+            });
+            return {
+                ok: true,
+                approvalId: result.id,
+                status: result.status,
+                executionId: result.executionId,
+                executionResumed: result.executionResumed,
+                executionCancelled: result.executionCancelled,
+            };
+        } catch (err) {
+            if (err instanceof ApprovalServiceError) {
+                return { ok: false, code: err.code, message: err.message };
+            }
+            throw err;
+        }
+    };
+
+    return {
+        ...readTools,
+        grant_approval: tool({
+            description:
+                'Grant a pending approval and resume its paused execution. ' +
+                'WRITE ACTION — only call this after the user has explicitly ' +
+                'confirmed they want the approval granted (e.g. "yes, grant approval abc123"). ' +
+                'Do NOT grant proactively based on diagnosis alone.',
+            inputSchema: z.object({
+                approvalId: z.string().min(1).describe('The approval id the user asked to grant.'),
+                comment: z
+                    .string()
+                    .max(500)
+                    .optional()
+                    .describe('Optional human-readable comment stored with the resolution.'),
+            }),
+            execute: async ({
+                approvalId,
+                comment,
+            }: {
+                approvalId: string;
+                comment?: string;
+            }) => resolveApproval(approvalId, 'grant', comment),
+        }),
+        reject_approval: tool({
+            description:
+                'Reject a pending approval. The matching paused execution is ' +
+                'CANCELLED — downstream steps will not run. WRITE ACTION, ' +
+                'irreversible: only call after explicit user confirmation.',
+            inputSchema: z.object({
+                approvalId: z.string().min(1).describe('The approval id the user asked to reject.'),
+                comment: z
+                    .string()
+                    .max(500)
+                    .optional()
+                    .describe('Optional human-readable reason stored with the resolution.'),
+            }),
+            execute: async ({
+                approvalId,
+                comment,
+            }: {
+                approvalId: string;
+                comment?: string;
+            }) => resolveApproval(approvalId, 'reject', comment),
         }),
     };
 }
