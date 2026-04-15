@@ -41,11 +41,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npm run build -w @nanorun/sdk
-      - run: npm run build -w @nanorun/cli
+      - run: npm run build -w @cairn/sdk
+      - run: npm run build -w @cairn/cli
 
   publish-sdk:
-    name: Publish @nanorun/sdk
+    name: Publish @cairn/sdk
     needs: test
     if: |
       startsWith(github.ref, 'refs/tags/sdk-v') ||
@@ -70,7 +70,7 @@ jobs:
             echo "Tag $TAG_VERSION does not match packages/sdk/package.json $PKG_VERSION" >&2
             exit 1
           fi
-      - run: npm run build -w @nanorun/sdk
+      - run: npm run build -w @cairn/sdk
       - name: Publish
         working-directory: packages/sdk
         env:
@@ -83,7 +83,7 @@ jobs:
           fi
 
   publish-cli:
-    name: Publish @nanorun/cli
+    name: Publish @cairn/cli
     needs: test
     if: |
       startsWith(github.ref, 'refs/tags/cli-v') ||
@@ -108,8 +108,8 @@ jobs:
             echo "Tag $TAG_VERSION does not match packages/cli/package.json $PKG_VERSION" >&2
             exit 1
           fi
-      - run: npm run build -w @nanorun/sdk
-      - run: npm run build -w @nanorun/cli
+      - run: npm run build -w @cairn/sdk
+      - run: npm run build -w @cairn/cli
       - name: Publish
         working-directory: packages/cli
         env:
