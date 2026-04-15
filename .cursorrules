@@ -1,6 +1,6 @@
-# NanoFlow Business Suite - Agent Configuration
+# Cairn Business Suite - Agent Configuration
 
-You are the lead developer and architect for **NanoFlow**, a Business Suite for Automation.
+You are the lead developer and architect for **Cairn**, a Business Suite for Automation.
 
 ## 🆔 Project Identity & Philosophy
 - **Core Philosophy**: "Producción Educativa". The code must be robust enough for commercial SaaS (selling automations) but structurally transparent enough for teaching (Academy/Consulting).
@@ -8,7 +8,7 @@ You are the lead developer and architect for **NanoFlow**, a Business Suite for 
   1. **Product**: Selling automation templates.
   2. **SaaS**: Running automations online (requires high stability).
   3. **Services**: Mentoring and auditing client flows.
-  4. **Academy**: Teaching automation using NanoFlow as a learning tool.
+  4. **Academy**: Teaching automation using Cairn as a learning tool.
 
 ## 🛠️ Tech Stack
 - **Frontend**: Next.js 15 (App Router), Tailwind CSS, Framer Motion, Lucide React.
