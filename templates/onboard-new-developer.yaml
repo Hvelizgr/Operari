@@ -1,0 +1,58 @@
+# NanoRun Template: Technical onboarding for a new developer
+#
+# Variables expected:
+#   - dev_email       (string) Email of the new developer
+#   - dev_name        (string) Their full name
+#   - github_org      (string) GitHub org name
+#   - team            (string) Team name (engineering, data, etc.)
+#   - slack_webhook   (secret) Notification destination
+#
+# Trigger: manual or webhook from HR system
+version: 1
+name: Developer Onboarding
+slug: onboard-new-developer
+description: Provision GitHub access, AWS dev account, Slack invite, and welcome email.
+category: ops
+steps:
+  - id: github_invite
+    type: shell
+    config:
+      command: |
+        gh api orgs/{{vars.github_org}}/invitations \
+          -X POST \
+          -f email={{vars.dev_email}} \
+          -F role=direct_member
+    name: Invite to GitHub org
+    next: github_team
+  - id: github_team
+    type: shell
+    config:
+      command: |
+        echo "Add to team: {{vars.team}}"
+        gh api orgs/{{vars.github_org}}/teams/{{vars.team}}/memberships/{{vars.dev_email}} \
+          -X PUT -f role=member || true
+    name: Add to GitHub team
+    next: aws_user
+  - id: aws_user
+    type: shell
+    config:
+      command: |
+        USERNAME="${1:-dev}"
+        echo "Would run: aws iam create-user --user-name $USERNAME"
+        echo "Then attach DeveloperAccess policy"
+    name: Create IAM user (dev access)
+    next: approve_send
+  - id: approve_send
+    type: approval
+    config:
+      message: Provisioning complete. Send welcome email to {{vars.dev_email}}?
+    name: Review and approve invitations
+    next: notify_team
+  - id: notify_team
+    type: notify
+    config:
+      channel: slack
+      webhookUrl: '{{vars.slack_webhook}}'
+      title: Welcome {{vars.dev_name}}!
+      message: '{{vars.dev_name}} ({{vars.dev_email}}) is joining the {{vars.team}} team. Say hi 👋'
+    name: Welcome announcement

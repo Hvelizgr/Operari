@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 
-import { Connection } from '@nanoflow/shared';
+import { Connection } from '@cairn/shared';
 
 // Removed local Connection interface
 

@@ -1,0 +1,30 @@
+{
+  "name": "@cairn/sdk",
+  "version": "0.1.0",
+  "description": "Official Node.js SDK for Cairn — visual runbooks for engineers",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "echo 'no tests yet'"
+  },
+  "keywords": [
+    "cairn",
+    "runbook",
+    "devops",
+    "automation",
+    "incident-response"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

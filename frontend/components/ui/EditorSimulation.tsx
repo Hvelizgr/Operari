@@ -95,7 +95,7 @@ export default function EditorSimulation() {
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20">
         <div className="flex items-center gap-2 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border border-gray-200">
           <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-sm font-semibold text-gray-700">Workflow Editor</span>
+          <span className="text-sm font-semibold text-gray-700">Runbook canvas</span>
         </div>
 
         <div className="flex items-center gap-3">

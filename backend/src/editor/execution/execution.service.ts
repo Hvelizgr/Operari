@@ -1,4 +1,4 @@
-import { PrismaClient, ExecutionStatus, NodeLogStatus, TriggerType, Workflow, Prisma } from '@prisma/client';
+import { PrismaClient, ExecutionStatus, NodeLogStatus, TriggerType, Runbook, Prisma } from '@prisma/client';
 import { NodeExecutor } from '../node-executor.service';
 import { ErrorNotificationService } from '../../services/error-notification.service';
 import { Logger, ContextLogger } from '../../services/logger.service';
@@ -19,6 +19,14 @@ import {
 } from '../../errors/custom-error';
 import { persistExecutionError } from '../../utils/error-persistence';
 import { socketService } from './socket.service';
+import { AuditService, AuditEventType, ActorType } from '../../audit/audit.service';
+import { RunTracer, getRunTracer } from '../../observability';
+import { getRunner } from '../../runbook/runners';
+import { ExecutionEventStore } from '../../runbook/engine/execution-event.store';
+import type { ExecutionEventPayload } from '../../runbook/engine/execution-event.types';
+import type { BillingMeter } from '../../billing';
+import { getBillingMeter } from '../../billing';
+import { GitHubStatusService } from '../../runbook/services/github-status.service';
 
 interface ExecuteParams {
     workflowId: string;
@@ -42,17 +50,270 @@ interface RunState {
     nodesToExecute: WorkflowNode[];
 }
 
+export interface ExecutionServiceOptions {
+    /**
+     * Audit service used to record run/step lifecycle events. If not
+     * supplied, a default instance is created from the same Prisma client.
+     * Pass `null` explicitly to disable auditing entirely (e.g. tests).
+     */
+    audit?: AuditService | null;
+    /**
+     * Run tracer used to map runs and steps onto OpenTelemetry traces.
+     * Defaults to the process singleton, which is itself a no-op when
+     * `ENABLE_TRACING` is unset (the OTel API returns no-op spans
+     * without a registered SDK). Pass `null` to disable tracing
+     * explicitly even if a tracer is registered globally.
+     */
+    tracer?: RunTracer | null;
+    /**
+     * Durable execution event store (ADR 0003 phase 2). When provided
+     * (or when `NANORUN_DURABLE_ENGINE=true`) every state transition
+     * is appended to the ExecutionEvent log alongside the audit chain
+     * write, so a worker can resume in-flight runs after a restart.
+     *
+     * Pass `null` to disable event-store writes explicitly, even if
+     * the env flag is set. Pass an instance to override the default
+     * (used by tests to capture events with a fake store).
+     *
+     * Defaults: enabled iff `process.env.NANORUN_DURABLE_ENGINE === 'true'`.
+     * The flag exists because phase 2 is the integration step the ADR
+     * warns about — toggling it off must be a single env var flip.
+     */
+    eventStore?: ExecutionEventStore | null;
+    /**
+     * Billing meter (P1 #12). Self-host deployments get NoopBillingMeter
+     * by default, which discards every event. Cloud deployments get
+     * StripeBillingMeter via NANORUN_BILLING_PROVIDER=stripe and the
+     * runtime emits run.started + run.completed billable events
+     * automatically.
+     *
+     * Pass `null` to disable meter writes explicitly even when the
+     * billing provider is configured (used by tests to assert that
+     * the runtime did not emit). Pass an instance to inject a fake.
+     */
+    meter?: BillingMeter | null;
+}
+
 export class ExecutionService {
     private prisma: PrismaClient;
     private nodeExecutor: NodeExecutor;
     private logger: Logger;
     private notificationService: ErrorNotificationService;
+    private audit: AuditService | null;
+    private tracer: RunTracer | null;
+    private eventStore: ExecutionEventStore | null;
+    private meter: BillingMeter | null;
 
-    constructor(prisma: PrismaClient) {
+    constructor(prisma: PrismaClient, options: ExecutionServiceOptions = {}) {
         this.prisma = prisma;
         this.nodeExecutor = new NodeExecutor(prisma);
         this.logger = Logger.getInstance();
         this.notificationService = new ErrorNotificationService(prisma);
+        this.audit = options.audit === null
+            ? null
+            : (options.audit ?? new AuditService(prisma));
+        this.tracer = options.tracer === null
+            ? null
+            : (options.tracer ?? getRunTracer());
+        this.eventStore = options.eventStore === null
+            ? null
+            : (options.eventStore
+                ?? (process.env.NANORUN_DURABLE_ENGINE === 'true'
+                    ? new ExecutionEventStore(prisma)
+                    : null));
+        this.meter = options.meter === null
+            ? null
+            : (options.meter ?? getBillingMeter());
+    }
+
+    /**
+     * Resolve the billing-side customer id for a tenant. Returns null
+     * when no mapping exists (self-host tenants, cloud tenants without
+     * a Stripe link), which causes meter.record() to no-op cleanly.
+     *
+     * Cached neither here nor in the meter — billing meter calls happen
+     * at most twice per run (run.started + run.completed) so the cost
+     * of the lookup is negligible compared to the run itself, and
+     * caching adds invalidation complexity for the rare case where a
+     * tenant gets re-linked to a new Stripe customer mid-run.
+     */
+    private async resolveStripeCustomerId(tenantId: string | undefined | null): Promise<string | undefined> {
+        if (!tenantId) return undefined;
+        try {
+            const tenant = await this.prisma.tenant.findUnique({
+                where: { id: tenantId },
+                select: { stripeCustomerId: true },
+            });
+            return tenant?.stripeCustomerId ?? undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * Best-effort GitHub commit status report. Reads the `metadata.github`
+     * blob from the Execution row (written by webhook.routes when the run
+     * was triggered by a GitHub webhook) and posts the terminal status to
+     * the GitHub Statuses API.
+     *
+     * If the execution has no GitHub metadata (non-GitHub trigger), this
+     * is a no-op. Never throws.
+     */
+    private async safeGitHubStatus(
+        executionId: string,
+        tenantId: string | undefined | null,
+        params: {
+            success: boolean;
+            durationMs: number;
+            workflowName: string;
+            error?: string;
+        },
+    ): Promise<void> {
+        if (!tenantId) return;
+        try {
+            const execution = await this.prisma.execution.findUnique({
+                where: { id: executionId },
+                select: { metadata: true },
+            });
+
+            const meta = execution?.metadata as Record<string, unknown> | null;
+            const github = meta?.github as Record<string, string> | undefined;
+            if (!github?.owner || !github?.repo || !github?.sha) return;
+
+            const svc = new GitHubStatusService(this.prisma);
+            await svc.reportRunEnd(tenantId, {
+                owner: github.owner,
+                repo: github.repo,
+                sha: github.sha,
+                runId: executionId,
+                runbookName: github.runbookName ?? params.workflowName,
+                success: params.success,
+                durationMs: params.durationMs,
+                error: params.error,
+            });
+        } catch (err) {
+            this.logger.warn('GitHub status report failed (non-fatal)', {
+                error: err instanceof Error ? err : new Error(String(err)),
+                metadata: { executionId },
+            });
+        }
+    }
+
+    /**
+     * Best-effort billing meter call. Mirror of safeAudit / safeAppendEvent
+     * for the billing layer: never throws on the request hot path,
+     * never blocks on the meter, never branches on the return value.
+     * The meter is itself best-effort (StripeBillingMeter swallows HTTP
+     * failures) so this wrapper is just the null-check and tenant guard.
+     */
+    private async safeMeter(
+        type: 'run.started' | 'run.completed' | 'run.failed',
+        params: { tenantId?: string | null; executionId: string; customerId?: string },
+    ): Promise<void> {
+        if (!this.meter) return;
+        if (!params.tenantId) return;
+        try {
+            await this.meter.record({
+                type: type === 'run.failed' ? 'run.completed' : type,
+                customerId: params.customerId,
+                value: 1,
+                idempotencyKey: `${type}:${params.executionId}`,
+                metadata: {
+                    executionId: params.executionId,
+                    tenantId: params.tenantId,
+                },
+            });
+        } catch (err) {
+            // Defensive — the meter contract says implementations swallow
+            // their own errors, but a bug in a custom implementation
+            // should not break the request.
+            this.logger.warn('billing meter record failed', {
+                error: err instanceof Error ? err : new Error(String(err)),
+                metadata: { type, executionId: params.executionId },
+            });
+        }
+    }
+
+    /**
+     * Best-effort accessor for the configured runner type. Returns
+     * undefined if the runner singleton has not been initialized or
+     * throws — tracing must never break execution.
+     */
+    private safeRunnerType(): string | undefined {
+        try {
+            return getRunner().type;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * Fire-and-forget audit write. Failures are logged but never break
+     * the surrounding execution — auditing is observability, not a hard
+     * dependency. Skips silently when tenantId is missing (legacy callers
+     * without multi-tenant context) so we don't drop events with no chain
+     * to attach them to.
+     */
+    private async safeAudit(
+        type: AuditEventType,
+        params: {
+            tenantId?: string | null;
+            actorId?: string | null;
+            actorType?: ActorType | null;
+            resource?: string | null;
+            payload: Record<string, unknown>;
+        },
+    ): Promise<void> {
+        if (!this.audit) return;
+        if (!params.tenantId) return;
+        try {
+            await this.audit.record({
+                tenantId: params.tenantId,
+                type,
+                actorId: params.actorId ?? null,
+                actorType: params.actorType ?? null,
+                resource: params.resource ?? null,
+                payload: params.payload,
+            });
+        } catch (err) {
+            this.logger.error('audit write failed', {
+                error: err instanceof Error ? err : new Error(String(err)),
+                metadata: { type, resource: params.resource },
+            });
+        }
+    }
+
+    /**
+     * Best-effort append to the durable execution event store. The
+     * mirror of `safeAudit` for ADR 0003 phase 2: every state
+     * transition that already calls safeAudit also calls this so
+     * the event store is the durable copy used by the worker on
+     * restart.
+     *
+     * Skips silently when the event store is not configured (feature
+     * flag off, or `eventStore: null` injected by a test) or when
+     * tenantId is missing — the worker scopes its replay queries by
+     * tenant so an event with no tenant has no consumer.
+     *
+     * Failures are logged but never block execution. The audit chain
+     * is the compliance backstop; the event store is observability +
+     * resumability, both best-effort.
+     */
+    private async safeAppendEvent(
+        executionId: string,
+        tenantId: string | undefined | null,
+        event: ExecutionEventPayload,
+    ): Promise<void> {
+        if (!this.eventStore) return;
+        if (!tenantId) return;
+        try {
+            await this.eventStore.append(executionId, tenantId, event);
+        } catch (err) {
+            this.logger.error('execution event store write failed', {
+                error: err instanceof Error ? err : new Error(String(err)),
+                metadata: { type: event.type, executionId },
+            });
+        }
     }
 
     async execute(params: ExecuteParams) {
@@ -60,13 +321,13 @@ export class ExecutionService {
 
         try {
             // Fetch workflow
-            const workflow = await this.prisma.workflow.findUnique({
+            const workflow = await this.prisma.runbook.findUnique({
                 where: { id: workflowId },
             });
 
             if (!workflow) {
                 throw new WorkflowError({
-                    message: `Workflow not found: ${workflowId}`,
+                    message: `Runbook not found: ${workflowId}`,
                     code: ErrorCode.WORKFLOW_NOT_FOUND,
                     workflowId,
                     context: { userId, tenantId },
@@ -93,8 +354,77 @@ export class ExecutionService {
             };
 
             const contextLogger = this.logger.child(executionContext);
-            contextLogger.info('Workflow execution started');
-            socketService.emitLog(execution.id, 'Workflow execution started');
+            contextLogger.info('Runbook execution started');
+            socketService.emitLog(execution.id, 'Runbook execution started');
+            socketService.emitExecutionStatus(execution.id, 'RUNNING');
+
+            await this.safeAudit('run.started', {
+                tenantId,
+                actorId: userId,
+                actorType: 'user',
+                resource: execution.id,
+                payload: {
+                    executionId: execution.id,
+                    workflowId,
+                    workflowName: workflow.name,
+                    trigger,
+                    startNodeId: startNodeId ?? null,
+                },
+            });
+
+            // ADR 0003 phase 2: durable event store mirror.
+            // run.created comes first so the worker can see the run
+            // even if the runtime crashes between create and start.
+            await this.safeAppendEvent(execution.id, tenantId, {
+                type: 'run.created',
+                payload: {
+                    workflowId,
+                    workflowName: workflow.name,
+                    trigger: String(trigger),
+                    startNodeId: startNodeId ?? null,
+                    userId,
+                },
+            });
+            await this.safeAppendEvent(execution.id, tenantId, {
+                type: 'run.started',
+                payload: { startedAt: new Date().toISOString() },
+            });
+
+            // Billing (P1 #12): emit run.started to the configured meter.
+            // Resolve the Stripe customer once at the start so the
+            // run.completed call can reuse it without an extra DB hit.
+            const stripeCustomerId = await this.resolveStripeCustomerId(tenantId);
+            await this.safeMeter('run.started', {
+                tenantId,
+                executionId: execution.id,
+                customerId: stripeCustomerId,
+            });
+
+            // OTel: open the run trace. Span attributes include runner.type
+            // so dashboards can group runs by where they actually executed.
+            // Wrapped in try/catch because tracer.startRun is best-effort
+            // observability and must never block a real execution.
+            // Tenant resolution: prefer the explicitly passed tenantId.
+            // The 'default-tenant' fallback is preserved only because
+            // self-host single-user mode reaches this path with an
+            // anonymous user, and the tracer expects a non-empty tag.
+            // Multi-tenant cloud paths always pass a real tenantId,
+            // so the fallback never fires there.
+            const effectiveTenantId = tenantId ?? workflow.tenantId ?? 'default-tenant';
+            try {
+                this.tracer?.startRun({
+                    runId: execution.id,
+                    runbookId: workflow.id,
+                    runbookName: workflow.name,
+                    tenantId: effectiveTenantId,
+                    trigger: String(trigger),
+                    runnerType: this.safeRunnerType(),
+                });
+            } catch (err) {
+                this.logger.warn('tracer.startRun failed', {
+                    error: err instanceof Error ? err : new Error(String(err)),
+                });
+            }
 
             // Run workflow asynchronously with proper error handling
             this.runWorkflow(
@@ -168,8 +498,8 @@ export class ExecutionService {
         };
 
         const contextLogger = this.logger.child(executionContext);
-        contextLogger.info('Workflow replay started');
-        socketService.emitLog(newExecution.id, 'Workflow replay started');
+        contextLogger.info('Runbook replay started');
+        socketService.emitLog(newExecution.id, 'Runbook replay started');
 
         // Prepare initial state from historical data if replaying from a specific node
         if (nodeId) {
@@ -222,12 +552,28 @@ export class ExecutionService {
         }
 
         const contextLogger = this.logger.child({ executionId, workflowId: execution.workflowId, userId, tenantId, isResumed: true });
-        contextLogger.info('Workflow execution resumed');
+        contextLogger.info('Runbook execution resumed');
 
         // Update status to running
         await this.prisma.execution.update({
             where: { id: executionId },
             data: { status: 'RUNNING', pausedAt: null },
+        });
+
+        await this.safeAudit('run.resumed', {
+            tenantId,
+            actorId: userId,
+            actorType: 'user',
+            resource: executionId,
+            payload: {
+                executionId,
+                workflowId: execution.workflowId,
+            },
+        });
+
+        await this.safeAppendEvent(executionId, tenantId, {
+            type: 'run.resumed',
+            payload: { actorId: userId },
         });
 
         const resumeState = execution.resumeState as any;
@@ -265,7 +611,7 @@ export class ExecutionService {
 
     private async runWorkflow(
         executionId: string,
-        workflow: Workflow,
+        workflow: Runbook,
         input: ExecutionInput,
         executionContext: Record<string, unknown>,
         tenantId?: string,
@@ -337,6 +683,31 @@ export class ExecutionService {
 
                     socketService.emitNodeStatus(executionId, currentNode.id, 'SKIPPED');
 
+                    await this.safeAudit('step.skipped', {
+                        tenantId,
+                        actorId: (executionContext.userId as string | undefined) ?? null,
+                        actorType: 'system',
+                        resource: executionId,
+                        payload: {
+                            executionId,
+                            workflowId: workflow.id,
+                            nodeId: currentNode.id,
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            reason: 'disabled',
+                        },
+                    });
+
+                    await this.safeAppendEvent(executionId, tenantId, {
+                        type: 'step.skipped',
+                        nodeId: currentNode.id,
+                        payload: {
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            reason: 'disabled',
+                        },
+                    });
+
                     executedNodes.add(currentNode.id); // Mark as "executed" to allow children to run
 
 
@@ -397,6 +768,30 @@ export class ExecutionService {
                 const nodeContextLogger = this.logger.child(nodeContext);
                 const nodeStartTime = Date.now();
 
+                // OTel: open the step span. Best-effort.
+                try {
+                    this.tracer?.startStep({
+                        runId: executionId,
+                        stepId: currentNode.id,
+                        stepName: currentNode.title,
+                        stepType: currentNode.type,
+                    });
+                } catch (err) {
+                    nodeContextLogger.warn('tracer.startStep failed', {
+                        error: err instanceof Error ? err : new Error(String(err)),
+                    });
+                }
+
+                await this.safeAppendEvent(executionId, tenantId, {
+                    type: 'step.started',
+                    nodeId: currentNode.id,
+                    payload: {
+                        nodeName: currentNode.title,
+                        nodeType: currentNode.type,
+                        startedAt: new Date().toISOString(),
+                    },
+                });
+
                 try {
                     nodeContextLogger.debug('Node execution started');
                     const output = await this.nodeExecutor.execute(currentNode, nodeInput, tenantId, executionId);
@@ -415,9 +810,32 @@ export class ExecutionService {
                                 } as any,
                             },
                         });
-                        contextLogger.info('Workflow execution paused');
-                        socketService.emitLog(executionId, 'Workflow execution paused', { nodeId: currentNode.id });
+                        contextLogger.info('Runbook execution paused');
+                        socketService.emitLog(executionId, 'Runbook execution paused', { nodeId: currentNode.id });
                         socketService.emitExecutionStatus(executionId, 'PAUSED');
+
+                        await this.safeAudit('run.paused', {
+                            tenantId,
+                            actorId: (executionContext.userId as string | undefined) ?? null,
+                            actorType: 'system',
+                            resource: executionId,
+                            payload: {
+                                executionId,
+                                workflowId: workflow.id,
+                                pausedAtNodeId: currentNode.id,
+                                pausedAtNodeName: currentNode.title,
+                                pausedAtNodeType: currentNode.type,
+                            },
+                        });
+
+                        await this.safeAppendEvent(executionId, tenantId, {
+                            type: 'run.paused',
+                            payload: {
+                                pausedAtNodeId: currentNode.id,
+                                pausedAtNodeType: currentNode.type,
+                            },
+                        });
+
                         return; // Stop execution
                     }
 
@@ -440,6 +858,40 @@ export class ExecutionService {
                     socketService.emitLog(executionId, `Node execution completed: ${currentNode.title}`, { nodeId: currentNode.id, duration: nodeDuration });
 
                     nodeContextLogger.debug('Node execution completed successfully', { duration: nodeDuration });
+
+                    await this.safeAudit('step.completed', {
+                        tenantId,
+                        actorId: (executionContext.userId as string | undefined) ?? null,
+                        actorType: 'system',
+                        resource: executionId,
+                        payload: {
+                            executionId,
+                            workflowId: workflow.id,
+                            nodeId: currentNode.id,
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            durationMs: nodeDuration,
+                        },
+                    });
+
+                    await this.safeAppendEvent(executionId, tenantId, {
+                        type: 'step.completed',
+                        nodeId: currentNode.id,
+                        payload: {
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            durationMs: nodeDuration,
+                            output,
+                        },
+                    });
+
+                    try {
+                        this.tracer?.endStep(executionId, currentNode.id, true);
+                    } catch (err) {
+                        nodeContextLogger.warn('tracer.endStep (success) failed', {
+                            error: err instanceof Error ? err : new Error(String(err)),
+                        });
+                    }
 
                     const nextNodes = connections
                         .filter(c => c.source === currentNode.id)
@@ -478,6 +930,46 @@ export class ExecutionService {
                     socketService.emitLog(executionId, `Node execution failed: ${currentNode.title}`, { nodeId: currentNode.id, error: errorMessage });
 
                     nodeContextLogger.error('Node execution failed', { error: wrappedError });
+
+                    await this.safeAudit('step.failed', {
+                        tenantId,
+                        actorId: (executionContext.userId as string | undefined) ?? null,
+                        actorType: 'system',
+                        resource: executionId,
+                        payload: {
+                            executionId,
+                            workflowId: workflow.id,
+                            nodeId: currentNode.id,
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            durationMs: nodeDuration,
+                            errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
+                            errorMessage,
+                        },
+                    });
+
+                    await this.safeAppendEvent(executionId, tenantId, {
+                        type: 'step.failed',
+                        nodeId: currentNode.id,
+                        payload: {
+                            nodeName: currentNode.title,
+                            nodeType: currentNode.type,
+                            durationMs: nodeDuration,
+                            errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
+                            errorMessage,
+                        },
+                    });
+
+                    try {
+                        this.tracer?.endStep(executionId, currentNode.id, false, {
+                            message: errorMessage,
+                            code: wrappedError instanceof CustomError ? wrappedError.code : undefined,
+                        });
+                    } catch (err) {
+                        nodeContextLogger.warn('tracer.endStep (failure) failed', {
+                            error: err instanceof Error ? err : new Error(String(err)),
+                        });
+                    }
 
                     // Handle retryable errors
                     if (wrappedError.isRetryable && wrappedError.context.retryCount! < (wrappedError.context.maxRetries ?? 3)) {
@@ -527,7 +1019,56 @@ export class ExecutionService {
                 },
             });
 
-            contextLogger.info('Workflow execution completed successfully', { duration });
+            // Notify any open client (run detail page, dashboard live
+            // tile) that the run reached its terminal state without
+            // having to poll. Mirror the existing PAUSED emit.
+            socketService.emitExecutionStatus(executionId, 'SUCCESS');
+
+            contextLogger.info('Runbook execution completed successfully', { duration });
+
+            await this.safeAudit('run.completed', {
+                tenantId,
+                actorId: (executionContext.userId as string | undefined) ?? null,
+                actorType: 'system',
+                resource: executionId,
+                payload: {
+                    executionId,
+                    workflowId: workflow.id,
+                    workflowName: workflow.name,
+                    durationMs: duration,
+                    nodesExecuted: executedNodes.size,
+                },
+            });
+
+            await this.safeAppendEvent(executionId, tenantId, {
+                type: 'run.completed',
+                payload: {
+                    durationMs: duration,
+                    nodesExecuted: executedNodes.size,
+                },
+            });
+
+            // Billing (P1 #12): emit run.completed to the meter.
+            await this.safeMeter('run.completed', {
+                tenantId,
+                executionId,
+                customerId: await this.resolveStripeCustomerId(tenantId),
+            });
+
+            // GitHub status check: report success to the commit.
+            await this.safeGitHubStatus(executionId, tenantId, {
+                success: true,
+                durationMs: duration,
+                workflowName: workflow.name,
+            });
+
+            try {
+                this.tracer?.endRun(executionId, true);
+            } catch (err) {
+                contextLogger.warn('tracer.endRun (success) failed', {
+                    error: err instanceof Error ? err : new Error(String(err)),
+                });
+            }
         } catch (error) {
             const duration = Date.now() - startTime;
             const wrappedError = wrapError(error, executionContext);
@@ -549,10 +1090,67 @@ export class ExecutionService {
                 },
             });
 
-            contextLogger.error('Workflow execution failed', {
+            socketService.emitExecutionStatus(executionId, 'FAILED');
+
+            contextLogger.error('Runbook execution failed', {
                 error: wrappedError,
                 metadata: { duration },
             });
+
+            await this.safeAudit('run.failed', {
+                tenantId,
+                actorId: (executionContext.userId as string | undefined) ?? null,
+                actorType: 'system',
+                resource: executionId,
+                payload: {
+                    executionId,
+                    workflowId: workflow.id,
+                    workflowName: workflow.name,
+                    durationMs: duration,
+                    errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
+                    errorMessage,
+                },
+            });
+
+            await this.safeAppendEvent(executionId, tenantId, {
+                type: 'run.failed',
+                payload: {
+                    durationMs: duration,
+                    errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
+                    errorMessage,
+                },
+            });
+
+            // Billing (P1 #12): a failed run still consumed runner
+            // resources, so emit a run.completed billable event
+            // (safeMeter maps run.failed → run.completed at the
+            // billing layer). This is a deliberate business decision
+            // documented in commit message; flip if a future pricing
+            // model prefers free retries.
+            await this.safeMeter('run.failed', {
+                tenantId,
+                executionId,
+                customerId: await this.resolveStripeCustomerId(tenantId),
+            });
+
+            // GitHub status check: report failure to the commit.
+            await this.safeGitHubStatus(executionId, tenantId, {
+                success: false,
+                durationMs: duration,
+                workflowName: workflow.name,
+                error: errorMessage,
+            });
+
+            try {
+                this.tracer?.endRun(executionId, false, {
+                    message: errorMessage,
+                    code: wrappedError instanceof CustomError ? wrappedError.code : undefined,
+                });
+            } catch (err) {
+                contextLogger.warn('tracer.endRun (failure) failed', {
+                    error: err instanceof Error ? err : new Error(String(err)),
+                });
+            }
 
             // Notify about critical errors
             if (wrappedError instanceof CustomError && [ErrorSeverity.HIGH, ErrorSeverity.CRITICAL].includes(wrappedError.severity)) {
@@ -583,7 +1181,7 @@ export class ExecutionService {
     private validateWorkflow(nodes: WorkflowNode[], connections: WorkflowConnection[]): void {
         if (!nodes || nodes.length === 0) {
             throw new WorkflowError({
-                message: 'Workflow has no nodes',
+                message: 'Runbook has no nodes',
                 code: ErrorCode.WORKFLOW_INVALID,
                 workflowId: '',
             });
@@ -642,7 +1240,7 @@ export class ExecutionService {
                 const cyclePath = hasCycle(nodeId);
                 if (cyclePath) {
                     throw new WorkflowError({
-                        message: `Workflow contains circular dependencies. Cycle detected: ${cyclePath.join(' → ')}`,
+                        message: `Runbook contains circular dependencies. Cycle detected: ${cyclePath.join(' → ')}`,
                         code: ErrorCode.WORKFLOW_INVALID,
                         workflowId: '',
                         context: { cyclePath, cycleNodes: cyclePath },

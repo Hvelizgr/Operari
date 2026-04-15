@@ -178,7 +178,7 @@ export default function SignUpModal({ isOpen, onClose }: SignUpModalProps) {
                 ✓
               </motion.div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                Welcome to NanoFlow!
+                Welcome to NanoRun!
               </h3>
               <p className="text-gray-600">Check your email to get started</p>
             </motion.div>

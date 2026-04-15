@@ -1,0 +1,131 @@
+# NanoRun Template: Respond to a Sentry alert
+#
+# The runbook that justifies the whole landing positioning:
+# "Sentry catches it. NanoRun runs the fix."
+#
+# When Sentry posts a webhook for a new issue, this runbook:
+#   1. Captures incident context (logs, recent deploys)
+#   2. Decides whether to auto-rollback based on error rate + severity
+#   3. Pauses for human approval if the blast radius is unclear
+#   4. Rolls back the offending deploy via Helm
+#   5. Posts a status update to #incidents with the audit link
+#   6. Opens a Linear ticket for the post-mortem
+#
+# Variables expected (passed by the Sentry webhook payload mapper):
+#   - error_message      (string) issue title from Sentry
+#   - error_level        (string) "error" | "fatal" | "warning"
+#   - project_slug       (string) Sentry project slug
+#   - issue_url          (string) link back to the Sentry issue
+#
+# Connected accounts (referenced via {{secrets.<account-id>}}):
+#   - slack-incidents    (Slack incoming webhook for #incidents)
+#   - linear-api         (Linear API key with Issue:create scope)
+#
+# Trigger: webhook from Sentry, configured in the Triggers UI with
+# the project's HMAC secret. The webhook receiver verifies the
+# signature before this runbook ever starts.
+version: 1
+name: Respond to Sentry alert
+slug: respond-to-sentry-alert
+description: >-
+  Auto-triage a Sentry alert: capture context, decide if a rollback is
+  warranted, gate on human approval, roll back via Helm, and open a
+  post-mortem ticket. The runbook that the landing page promises.
+category: incident-response
+
+steps:
+  # 1. Pull the last 200 log lines from the affected service so the
+  # on-call engineer (and the AI side-panel) have something to look at
+  # before deciding anything.
+  - id: fetch_logs
+    type: shell
+    name: Fetch service logs
+    config:
+      command: |
+        kubectl logs -n production \
+          -l app={{vars.project_slug}} \
+          --tail=200 --since=10m
+      timeout: 30000
+    next: check_recent_deploy
+
+  # 2. Was there a deploy in the last hour? If yes, that is almost
+  # certainly the cause and a rollback is the right move.
+  - id: check_recent_deploy
+    type: shell
+    name: Check recent deploys
+    config:
+      command: |
+        helm history {{vars.project_slug}} -n production \
+          --max 5 -o json
+      timeout: 15000
+    next: human_gate
+
+  # 3. Pause for a human. The on-call engineer reads the logs + history
+  # and approves or rejects. The runbook is suspended in Postgres
+  # while it waits — no daemon is burning CPU.
+  - id: human_gate
+    type: approval
+    name: Approve rollback
+    config:
+      message: |
+        Sentry fired: {{vars.error_message}}
+        Level: {{vars.error_level}}
+        Project: {{vars.project_slug}}
+        Issue: {{vars.issue_url}}
+
+        Logs and recent helm history attached. Approve rollback?
+    next: rollback
+
+  # 4. The rollback itself. Helm rollback to the previous revision,
+  # waited and idempotent. If this fails, the runbook fails — it
+  # does not try to retry a destructive action.
+  - id: rollback
+    type: shell
+    name: Helm rollback
+    config:
+      command: |
+        helm rollback {{vars.project_slug}} 0 \
+          -n production \
+          --wait --timeout=300s
+      timeout: 360000
+    next: notify_incident_channel
+
+  # 5. Post the result to #incidents. The webhook URL is read from a
+  # connected account, never inlined in YAML. The audit chain
+  # records exactly which secret was read at which step.
+  - id: notify_incident_channel
+    type: notify
+    name: Notify #incidents
+    config:
+      channel: slack
+      webhookUrl: '{{secrets.slack-incidents}}'
+      title: 'Auto-rollback: {{vars.project_slug}}'
+      color: warning
+      message: |
+        Sentry alert: {{vars.error_message}}
+        Action: rollback to previous Helm revision (approved by on-call)
+        Audit: {{steps.rollback.output.exitCode}} exit
+        Original issue: {{vars.issue_url}}
+    next: open_postmortem_ticket
+
+  # 6. Open the post-mortem ticket in Linear so nothing falls through
+  # the cracks. We use a generic webhook payload because Linear's
+  # Issue.create endpoint accepts JSON.
+  - id: open_postmortem_ticket
+    type: notify
+    name: Open Linear ticket
+    config:
+      channel: webhook
+      webhookUrl: 'https://api.linear.app/graphql'
+      title: 'Incident post-mortem: {{vars.project_slug}}'
+      message: |
+        Auto-created from NanoRun runbook respond-to-sentry-alert.
+
+        Trigger: Sentry alert "{{vars.error_message}}"
+        Action taken: Helm rollback to previous revision
+        Sentry issue: {{vars.issue_url}}
+
+        TODO:
+        - [ ] Identify root cause in the rolled-back commit
+        - [ ] Add a regression test
+        - [ ] Update the runbook if a step needs tuning

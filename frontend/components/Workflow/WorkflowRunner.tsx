@@ -36,17 +36,17 @@ export default function WorkflowRunner({
 
     const content = {
         en: {
-            run: 'Run Workflow',
+            run: 'Run runbook',
             stop: 'Stop',
-            logs: 'Execution Logs',
-            noLogs: 'No execution logs yet',
+            logs: 'Run logs',
+            noLogs: 'No run logs yet',
             clear: 'Clear',
             running: 'Running',
             success: 'Success',
             error: 'Error',
         },
         es: {
-            run: 'Ejecutar Flujo',
+            run: 'Ejecutar runbook',
             stop: 'Detener',
             logs: 'Logs de Ejecución',
             noLogs: 'No hay logs de ejecución',

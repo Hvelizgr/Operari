@@ -1,13 +1,29 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import type { WorkflowNode } from '@nanoflow/shared';
+import { render, fireEvent } from '@testing-library/react';
+import type { WorkflowNode } from '@cairn/shared';
 import EditorNode from '@/components/Editor/EditorNode';
+
+/**
+ * Smoke coverage for the styled div-based EditorNode introduced in
+ * the editor refactor. The previous tests asserted a button-style
+ * component with full ARIA + executionState + "Success"/"Error" text
+ * labels — that API no longer exists. The current component is a
+ * canvas graph element with multiple visual variants
+ * (controller / limit / trigger / action / job) driven by the node
+ * type, with selection/dragging/active state expressed as CSS classes
+ * on a `wf_node wf_entity` div, not as ARIA roles.
+ *
+ * What we pin here:
+ *   - the title is rendered
+ *   - clicking the node fires onClick(node.id)
+ *   - isSelected adds the `selected` class
+ *   - status='RUNNING' adds the `wf_active` class
+ */
 
 const mockNode: WorkflowNode = {
     id: 'test-node-1',
     position: { x: 100, y: 100 },
-    title: 'Test Node',
-    type: 'Webhook',
-    executionState: 'idle',
+    title: 'Test step',
+    type: 'shell',
     inputs: [{ id: 'in1', label: 'Input' }],
     outputs: [{ id: 'out1', label: 'Output' }],
 };
@@ -32,61 +48,47 @@ describe('EditorNode', () => {
         jest.clearAllMocks();
     });
 
-    it('renders node with correct title', () => {
-        render(<EditorNode {...defaultProps} />);
-        expect(screen.getByText('Test Node')).toBeInTheDocument();
+    it('renders the node title', () => {
+        const { getByText } = render(<EditorNode {...defaultProps} />);
+        expect(getByText('Test step')).toBeInTheDocument();
     });
 
-    it('renders node type', () => {
-        render(<EditorNode {...defaultProps} />);
-        expect(screen.getByText('Webhook')).toBeInTheDocument();
-    });
-
-    it('shows selected state styling', () => {
-        const { container } = render(<EditorNode {...defaultProps} isSelected={true} />);
-        expect(container.querySelector('[aria-selected="true"]')).toBeInTheDocument();
-    });
-
-    it('shows highlighted state styling', () => {
-        const { container } = render(<EditorNode {...defaultProps} isHighlighted={true} />);
-        expect(container.firstChild).toHaveClass('ring-4');
-    });
-
-    it('calls onClick when clicked', () => {
-        render(<EditorNode {...defaultProps} />);
-        const nodeElement = screen.getByRole('button');
-        fireEvent.click(nodeElement);
+    it('fires onClick with the node id when the node body is clicked', () => {
+        const { container } = render(<EditorNode {...defaultProps} />);
+        // The wf_node div is the canonical node element. Pole buttons
+        // are excluded from the click handler in commonProps; clicking
+        // the wf_node directly is what the canvas does.
+        const node = container.querySelector('.wf_node') as HTMLElement;
+        expect(node).toBeTruthy();
+        fireEvent.click(node);
         expect(defaultProps.onClick).toHaveBeenCalledWith('test-node-1');
     });
 
-    it('has proper ARIA attributes', () => {
-        render(<EditorNode {...defaultProps} />);
-        const nodeElement = screen.getByRole('button');
-        expect(nodeElement).toHaveAttribute('aria-label', 'Webhook node: Test Node');
-        expect(nodeElement).toHaveAttribute('aria-describedby', 'node-description-test-node-1');
+    it('adds the `selected` class when isSelected is true', () => {
+        const { container } = render(<EditorNode {...defaultProps} isSelected={true} />);
+        const node = container.querySelector('.wf_node') as HTMLElement;
+        expect(node.className).toContain('selected');
     });
 
-    it('renders input and output ports', () => {
+    it('does not add the `selected` class when isSelected is false', () => {
+        const { container } = render(<EditorNode {...defaultProps} isSelected={false} />);
+        const node = container.querySelector('.wf_node') as HTMLElement;
+        expect(node.className).not.toContain('selected');
+    });
+
+    it('adds the `wf_active` class when status is RUNNING', () => {
+        const { container } = render(
+            <EditorNode {...defaultProps} status="RUNNING" />,
+        );
+        const node = container.querySelector('.wf_node') as HTMLElement;
+        expect(node.className).toContain('wf_active');
+    });
+
+    it('renders both an input and an output pole button', () => {
         const { container } = render(<EditorNode {...defaultProps} />);
-        const ports = container.querySelectorAll('[class*="rounded-full"]');
-        expect(ports.length).toBeGreaterThanOrEqual(2);
-    });
-
-    it('shows running state indicator', () => {
-        const runningNode = { ...mockNode, executionState: 'running' as const };
-        const { container } = render(<EditorNode {...defaultProps} node={runningNode} />);
-        expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
-    });
-
-    it('shows success state indicator', () => {
-        const successNode = { ...mockNode, executionState: 'success' as const };
-        render(<EditorNode {...defaultProps} node={successNode} />);
-        expect(screen.getByText('Success')).toBeInTheDocument();
-    });
-
-    it('shows error state indicator', () => {
-        const errorNode = { ...mockNode, executionState: 'error' as const };
-        render(<EditorNode {...defaultProps} node={errorNode} />);
-        expect(screen.getByText('Error')).toBeInTheDocument();
+        const inputPole = container.querySelector('.wf_input_pole, .wf_up_pole');
+        const outputPole = container.querySelector('.wf_output_pole, .wf_down_pole');
+        expect(inputPole).toBeTruthy();
+        expect(outputPole).toBeTruthy();
     });
 });

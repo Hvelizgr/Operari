@@ -2,15 +2,19 @@
 
 import { MouseEvent, useRef, useLayoutEffect } from 'react';
 import { NodeType, NODE_TYPES } from '../Node';
-import { WorkflowNode } from '@nanoflow/shared';
+import { WorkflowNode } from '@cairn/shared';
 import './WorkflowNode.css';
 import * as Icons from 'lucide-react';
+import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
 // Import shared port utilities
 export { getNodeInputPort, getNodeOutputPort, getNodePortInfo } from '../../utils/nodePortUtils';
 
 interface EditorNodeProps {
     node: WorkflowNode;
     typeDefinition?: NodeType;
+    /** Pluggable registry for domain-specific rendering (preview, validation, badges, colors).
+     *  When omitted, falls back to the hardcoded runbook functions for backward compatibility. */
+    registry?: NodeTypeRegistry;
     onDragStart: (nodeId: string, e: MouseEvent) => void;
     onDrag: (e: MouseEvent) => void;
     onDragEnd: (nodeId: string) => void;
@@ -24,16 +28,211 @@ interface EditorNodeProps {
     onContextMenu?: (e: MouseEvent, nodeId: string) => void;
     onMove: (nodeId: string, direction: 'up' | 'down' | 'left' | 'right') => void;
     editorMode?: 'move' | 'connect';
-    status?: 'RUNNING' | 'SUCCESS' | 'FAILED';
-    onSolderStart?: (nodeId: string, port: 'input' | 'output', initialX?: number, initialY?: number) => void;
+    status?: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'SKIPPED' | 'CANCELLED' | 'PENDING';
+    /** Live or final duration in milliseconds, populated from the
+     * execution socket. Null when the node has never run. */
+    durationMs?: number | null;
+    /** True when an upstream node is currently RUNNING and this node
+     * is its direct downstream target. Triggers the "next in path"
+     * tenuous glow on the card. */
+    isNextInPath?: boolean;
     onNodeDoubleClick?: (nodeId: string) => void;
     onUpdate?: (nodeId: string, updates: Partial<WorkflowNode>) => void;
     isConnected?: boolean;
 }
 
+/**
+ * Category color palette. Each category gets a left-border accent
+ * + an icon background tint so an operator scanning the canvas can
+ * tell trigger steps from devops steps from organizational nodes at
+ * a glance — without reading any text.
+ *
+ * The colors are intentionally muted to keep the canvas readable on
+ * both light and midnight themes; the brighter accents come from
+ * status / running animations layered on top.
+ */
+function categoryPalette(category: string | undefined): { accent: string; tint: string } {
+    switch (category) {
+        case 'devops':
+            return { accent: '#10b981', tint: 'rgba(16, 185, 129, 0.12)' };
+        case 'triggers':
+            return { accent: '#22c55e', tint: 'rgba(34, 197, 94, 0.12)' };
+        case 'core':
+            return { accent: '#3b82f6', tint: 'rgba(59, 130, 246, 0.12)' };
+        case 'organization':
+            return { accent: '#64748b', tint: 'rgba(100, 116, 139, 0.12)' };
+        default:
+            return { accent: '#3b82f6', tint: 'rgba(59, 130, 246, 0.10)' };
+    }
+}
+
+/**
+ * HTTP method coloring for the smart preview. Mirrors REST client
+ * conventions (Postman / Insomnia / Bruno) so a long-time SRE reads
+ * the verb instantly.
+ */
+function httpMethodColor(method: string): string {
+    switch (method.toUpperCase()) {
+        case 'GET':
+            return '#10b981'; // emerald
+        case 'POST':
+            return '#3b82f6'; // blue
+        case 'PUT':
+            return '#f59e0b'; // amber
+        case 'PATCH':
+            return '#a855f7'; // purple
+        case 'DELETE':
+            return '#ef4444'; // red
+        default:
+            return '#94a3b8';
+    }
+}
+
+/**
+ * Format an execution duration in ms into a tight human string.
+ * Used by the duration footer at the bottom of the card.
+ */
+function formatDuration(ms: number): string {
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+    if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+    if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
+    return `${(ms / 3_600_000).toFixed(1)}h`;
+}
+
+/**
+ * Per-node-type config preview. Keep this dumb (string-only) so the
+ * canvas card can render it without React component composition.
+ *
+ * The previous render showed every node as "Type: shell, Description:
+ * Run a bash command" — same row for every step. Operators couldn't
+ * tell two `shell` nodes apart without opening the config panel.
+ * This helper plucks the most distinctive field per type and returns
+ * a short, truncated summary.
+ */
+function configPreview(type: string, config: Record<string, unknown> | undefined | null): string | null {
+    if (!config || typeof config !== 'object') return null;
+    const trunc = (s: unknown, n = 60): string => {
+        const str = typeof s === 'string' ? s : JSON.stringify(s);
+        if (!str) return '';
+        if (str.length <= n) return str;
+        // Try to break at a word boundary instead of mid-word
+        const cut = str.lastIndexOf(' ', n - 1);
+        return (cut > n * 0.4 ? str.slice(0, cut) : str.slice(0, n - 1)) + '…';
+    };
+    switch (type) {
+        case 'shell':
+            return (config.command as string) ? `$ ${trunc(config.command)}` : null;
+        case 'notify': {
+            const channel = (config.channel as string) ?? 'webhook';
+            const msg = trunc(config.message ?? '', 50);
+            return `${channel}${msg ? ` · ${msg}` : ''}`;
+        }
+        case 'wait': {
+            const ms = Number(config.durationMs ?? 0);
+            if (!ms) return null;
+            if (ms < 1000) return `${ms}ms`;
+            if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+            if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
+            return `${(ms / 3_600_000).toFixed(1)}h`;
+        }
+        case 'approval':
+            return (config.message as string) ? trunc(config.message) : null;
+        case 'nanorun.httpRequest': {
+            const method = ((config.method as string) || 'GET').toUpperCase();
+            const url = trunc(config.url ?? '', 50);
+            return url ? `${method} ${url}` : method;
+        }
+        case 'ssh': {
+            const host = trunc(config.host ?? '', 30);
+            const cmd = trunc(config.command ?? '', 30);
+            return host ? `${config.username ?? 'root'}@${host}${cmd ? ` · ${cmd}` : ''}` : cmd ? `$ ${cmd}` : null;
+        }
+        case 'nanorun.database': {
+            const op = (config.operation as string) ?? 'health';
+            const q = trunc(config.query ?? '', 40);
+            const tunnel = config.useSshTunnel ? ' 🔒' : '';
+            return op === 'query' && q ? `${op}${tunnel} · ${q}` : `${op}${tunnel}`;
+        }
+        case 'nanorun.cron':
+            return (config.expression as string) ?? null;
+        case 'nanorun.webhook':
+            return (config.path as string) ? `/${config.path}` : null;
+        default:
+            return null;
+    }
+}
+
+/**
+ * Per-node-type required-field validation. Returns null if the
+ * config is sufficient to attempt running the step, or a short reason
+ * string otherwise. Used to paint a visible "incomplete" badge so the
+ * operator finds out at edit time, not at run time.
+ */
+function validateConfig(type: string, config: Record<string, unknown> | undefined | null): string | null {
+    if (!config || typeof config !== 'object') {
+        // The drag-from-palette path now applies defaults, so a node
+        // without ANY config is suspicious — but we don't fail here
+        // because frame/note legitimately have no config.
+        if (type === 'custom.frame' || type === 'custom.note') return null;
+        return 'No config';
+    }
+    switch (type) {
+        case 'shell':
+            return config.command ? null : 'Missing command';
+        case 'notify':
+            return config.webhookUrl ? null : 'Missing webhook URL';
+        case 'wait':
+            return Number(config.durationMs) > 0 ? null : 'Missing duration';
+        case 'approval':
+            return null; // approver list is optional
+        case 'ssh':
+            if (!config.host) return 'Missing host';
+            if (!config.credentialId) return 'Missing SSH key';
+            return config.command ? null : 'Missing command';
+        case 'nanorun.database':
+            if (!config.credentialId) return 'Missing credential';
+            if (config.operation === 'query' && !config.query) return 'Missing SQL query';
+            return null;
+        case 'nanorun.httpRequest':
+            return config.url ? null : 'Missing URL';
+        case 'nanorun.cron':
+            return config.expression ? null : 'Missing cron expression';
+        case 'nanorun.webhook':
+            return null; // path defaults at runtime
+        default:
+            return null;
+    }
+}
+
+/**
+ * Detect cross-cutting metadata stored in the meta-keys (set by the
+ * config panel: _retry, _runIf, _skipIf) plus secret references in
+ * any config string. Returns the set of badges to render.
+ */
+function detectBadges(config: Record<string, unknown> | undefined | null): {
+    retry: number | null;
+    conditional: 'runIf' | 'skipIf' | 'both' | null;
+    secrets: boolean;
+} {
+    if (!config || typeof config !== 'object') {
+        return { retry: null, conditional: null, secrets: false };
+    }
+    const retryRaw = config._retry as { count?: number } | undefined;
+    const retry = retryRaw && typeof retryRaw.count === 'number' && retryRaw.count > 0 ? retryRaw.count : null;
+    const hasRunIf = !!config._runIf;
+    const hasSkipIf = !!config._skipIf;
+    const conditional: 'runIf' | 'skipIf' | 'both' | null =
+        hasRunIf && hasSkipIf ? 'both' : hasRunIf ? 'runIf' : hasSkipIf ? 'skipIf' : null;
+    // Look for {{secrets.X}} in any string field. Cheap regex over
+    // the JSON dump — false positives unlikely on a 1KB config blob.
+    const secrets = /\{\{\s*secrets\./i.test(JSON.stringify(config));
+    return { retry, conditional, secrets };
+}
+
 export default function EditorNode({
     node,
     typeDefinition,
+    registry,
     onDragStart,
     isDragging,
     isSelected,
@@ -42,11 +241,12 @@ export default function EditorNode({
     onContextMenu,
     editorMode = 'move',
     status,
-    onSolderStart,
     onNodeDoubleClick,
     onUpdate,
     isConnected = true,
-    onPortDragStart
+    onPortDragStart,
+    durationMs = null,
+    isNextInPath = false,
 }: EditorNodeProps) {
     const nodeRef = useRef<HTMLDivElement>(null);
     const nodeType = typeDefinition || NODE_TYPES.find(t => t.type === node.type);
@@ -103,30 +303,112 @@ export default function EditorNode({
     else if (type.includes('limit')) visualType = 'limit';
     else if (type.includes('action') || type.includes('email') || type.includes('slack') || type.includes('discord')) visualType = 'action';
 
-    // Validation Badge
-    // Notes are handled in parent, triggers/starts don't always need inputs but should have outputs.
-    // If we only check "is connected to ANYTHING", then independent triggers show error?
-    // User requested: "Si un nodo requiere conexión". Triggers require output connection generally? Or is just fine alone?
-    // Usually a workflow needs flow. A trigger alone does nothing.
-    // The prop `isConnected` comes from `connections.some(...)`.
-    // So if a trigger has NO connections, it is isolated.
-    const showValidation = !isConnected;
+    // Validation. Two independent failure modes:
+    //   - disconnected: the node has no edges in or out (orphan)
+    //   - configIncomplete: per-type required field check
+    // The badge surfaces whichever is more useful — config errors take
+    // precedence because a missing command is a runtime explosion,
+    // a disconnected node is just a no-op until wired.
+    const configError = (registry?.validateConfig ?? validateConfig)(node.type, node.config as Record<string, unknown> | undefined);
+    const showDisconnected = !isConnected && !configError;
+    const ValidationBadge = () => {
+        if (configError) {
+            return (
+                <div
+                    className="absolute -top-2 -right-2 z-50 bg-amber-500 rounded-full w-5 h-5 flex items-center justify-center border border-white shadow-sm pointer-events-none"
+                    title={`Config incomplete: ${configError}`}
+                >
+                    <Icons.AlertTriangle size={12} className="text-white" />
+                </div>
+            );
+        }
+        if (showDisconnected) {
+            return (
+                <div
+                    className="absolute -top-2 -right-2 z-50 bg-red-500 rounded-full w-5 h-5 flex items-center justify-center border border-white shadow-sm animate-pulse pointer-events-none"
+                    title="Disconnected node — wire it to the rest of the runbook"
+                >
+                    <Icons.AlertCircle size={12} className="text-white" />
+                </div>
+            );
+        }
+        return null;
+    };
 
-    // Don't show validation limits/controllers if logic implies optional? 
-    // Actually, let's stick to "Is it connected to anything?".
-    // We already moved Notes to separate component in NodesLayer, so no need to check here if logic was moved effectively.
-    // But `visualType` check might be safe.
+    // Status icon for the title strip. Returned as a small JSX block
+    // so we can color it inline without burning CSS classes for each
+    // status. The 7 NanoRun statuses map to 5 distinct visual cues —
+    // PENDING uses a faint dot, CANCELLED an X.
+    const renderStatusIcon = (): React.ReactNode => {
+        if (!status) return null;
+        switch (status) {
+            case 'RUNNING':
+                return <Icons.Play size={12} className="text-blue-400 animate-pulse" />;
+            case 'SUCCESS':
+                return <Icons.CheckCircle2 size={12} className="text-emerald-400" />;
+            case 'FAILED':
+                return <Icons.XCircle size={12} className="text-red-400" />;
+            case 'PAUSED':
+                return <Icons.PauseCircle size={12} className="text-amber-400" />;
+            case 'SKIPPED':
+                return <Icons.SkipForward size={12} className="text-gray-400" />;
+            case 'CANCELLED':
+                return <Icons.Ban size={12} className="text-gray-500" />;
+            case 'PENDING':
+                return <Icons.Circle size={12} className="text-gray-500" />;
+        }
+    };
 
-    const ValidationBadge = () => (
-        showValidation && (
-            <div
-                className="absolute -top-2 -right-2 z-50 bg-red-500 rounded-full w-5 h-5 flex items-center justify-center border border-white shadow-sm animate-pulse pointer-events-none"
-                title="Disconnected Node"
-            >
-                <Icons.AlertCircle size={12} className="text-white" />
+    const preview = (registry?.configPreview ?? configPreview)(node.type, node.config as Record<string, unknown> | undefined);
+    const badges = (registry?.detectBadges ?? detectBadges)(node.config as Record<string, unknown> | undefined);
+    const palette = (registry?.categoryPalette ?? categoryPalette)(nodeType?.category);
+
+    // Smart preview decoration. If the registry supplies a render hint
+    // (e.g. colored HTTP verb chip), use it; otherwise plain mono text.
+    const renderPreview = (): React.ReactNode => {
+        if (!preview) return null;
+        const hint = registry?.previewRenderHint?.(node.type, node.config as Record<string, unknown> | undefined);
+        if (!hint && node.type === 'nanorun.httpRequest') {
+            // Backward compat: inline HTTP chip when no registry
+            const cfg = (node.config ?? {}) as Record<string, unknown>;
+            const method = String(cfg.method ?? 'GET').toUpperCase();
+            const url = typeof cfg.url === 'string' ? cfg.url : '';
+            return (
+                <div className="wf_preview" title={preview}>
+                    <span className="wf_http_method" style={{ color: httpMethodColor(method) }}>{method}</span>
+                    <span className="wf_http_url">{url || preview}</span>
+                </div>
+            );
+        }
+        if (hint?.type === 'method-chip') {
+            return (
+                <div className="wf_preview" title={preview}>
+                    <span className="wf_http_method" style={{ color: hint.methodColor }}>{hint.method}</span>
+                    <span className="wf_http_url">{hint.url || preview}</span>
+                </div>
+            );
+        }
+        return (
+            <div className="wf_preview" title={preview}>
+                {preview}
             </div>
-        )
-    );
+        );
+    };
+
+    // Hover tooltip — combines title, type, description and (when set)
+    // the validation hint. Uses native title attribute so we don't
+    // pull in a tooltip library; multi-line via \n which most browsers
+    // honor in tooltips.
+    const titleTooltip = [
+        node.title,
+        `type: ${node.type}`,
+        nodeType?.description?.en && `— ${nodeType.description.en}`,
+        configError && `⚠ ${configError}`,
+        !isConnected && !configError && '⚠ disconnected',
+        `id: ${node.id}`,
+    ]
+        .filter(Boolean)
+        .join('\n');
 
     const commonProps = {
         id: `d_wfn_${node.id}`,
@@ -165,7 +447,7 @@ export default function EditorNode({
                     {/* Input Pole (Purple) */}
                     <div
                         className="wf_pole_button wf_input_pole"
-                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY }); }}
                     >
                         <Icons.ChevronRight size={12} />
                     </div>
@@ -177,7 +459,7 @@ export default function EditorNode({
                     {/* Output Pole (Purple) */}
                     <div
                         className="wf_pole_button wf_output_pole"
-                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY }); }}
                     >
                         <Icons.ChevronRight size={12} />
                     </div>
@@ -201,7 +483,7 @@ export default function EditorNode({
                     <div
                         className="wf_pole_button wf_up_pole"
                         title="Input (Limit)"
-                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY }); }}
                     >
                         <Icons.ChevronDown size={12} style={{ transform: 'rotate(225deg)' }} /> {/* Counter rotate? CSS handles some */}
                     </div>
@@ -226,7 +508,7 @@ export default function EditorNode({
                 <div
                     className="wf_pole_button wf_down_pole"
                     style={{ left: '50%', top: 'calc(100% + 5px)' }}
-                    onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                    onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY }); }}
                 >
                     <Icons.ChevronDown size={12} />
                 </div>
@@ -251,7 +533,7 @@ export default function EditorNode({
                     </span>
                     <div
                         className="wf_pole_button wf_output_pole"
-                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}
+                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY }); }}
                     >
                         <Icons.ChevronRight size={12} />
                     </div>
@@ -273,7 +555,7 @@ export default function EditorNode({
                 <div className="wf_ent_action">
                     <div
                         className="wf_pole_button wf_input_pole"
-                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}
+                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY }); }}
                     >
                         <Icons.ChevronRight size={12} />
                     </div>
@@ -287,50 +569,209 @@ export default function EditorNode({
         );
     }
 
+    // Type-specific small badge to render in the corner of the icon
+    // square. Adds a one-character "what type is this" hint that
+    // works even at low zoom when the rest of the card is collapsed
+    // by mini mode.
+    const typeBadgeChar: string | null = (() => {
+        switch (node.type) {
+            case 'shell': return '$';
+            case 'nanorun.cron': return '⏱';
+            case 'nanorun.webhook': return '↘';
+            case 'nanorun.httpRequest': return '↗';
+            case 'approval': return '✋';
+            case 'notify': return '!';
+            case 'wait': return '…';
+            default: return null;
+        }
+    })();
+
     // --- JOB (Standard) ---
     return (
         <div
             className={`
-                wf_node wf_event 
+                wf_node wf_event
                 ${isSelected ? 'selected' : ''}
                 ${isDragging ? 'dragging' : ''}
                 ${status === 'RUNNING' ? 'wf_active' : ''}
                 ${status === 'SUCCESS' ? 'wf_completed' : ''}
                 ${status === 'FAILED' ? 'wf_error' : ''}
+                ${status === 'PAUSED' ? 'wf_paused' : ''}
+                ${status === 'SKIPPED' ? 'wf_skipped' : ''}
+                ${status === 'CANCELLED' ? 'wf_cancelled' : ''}
+                ${isNextInPath ? 'wf_next' : ''}
+                ${(node as any).enabled === false ? 'disabled' : ''}
             `}
             ref={nodeRef}
             {...commonProps}
+            // Inline accent vars so each card paints itself with the
+            // category palette without needing a class explosion.
+            style={{
+                ...((commonProps as any).style ?? {}),
+                ['--node-accent' as any]: palette.accent,
+                ['--node-tint' as any]: palette.tint,
+            }}
+            title={titleTooltip}
         >
             <ValidationBadge />
             <div className="wf_event_title">
-                <span className="mr-1 opacity-50"><Icons.GripVertical size={16} /></span>
-                <span className="mr-2 inline-flex items-center">{renderIcon(nodeType?.icon, 16)}</span>
-                {node.title}
+                <span
+                    className="wf_event_icon"
+                    style={{ background: palette.tint, color: palette.accent }}
+                >
+                    {renderIcon(nodeType?.icon, 14)}
+                    {typeBadgeChar && (
+                        <span
+                            className="wf_event_icon_badge"
+                            style={{ background: palette.accent }}
+                        >
+                            {typeBadgeChar}
+                        </span>
+                    )}
+                </span>
+                <span className="flex-1 truncate">{node.title}</span>
+                {status && (
+                    <span className="ml-2 inline-flex items-center" title={status}>
+                        {renderStatusIcon()}
+                    </span>
+                )}
             </div>
 
             <div className="wf_body">
-                <div className="summary_grid double">
-                    <div>
-                        <div className="info_label">Category</div>
-                        <div className="info_value">{nodeType?.category || 'General'}</div>
-                    </div>
-                    <div>
-                        <div className="info_label">Type</div>
-                        <div className="info_value capitalize">{node.type.replace('_', ' ')}</div>
-                    </div>
-                    <div style={{ gridColumn: 'span 2' }}>
-                        <div className="info_label">Description</div>
-                        <div className="info_value truncate">{nodeType?.description?.en || ''}</div>
-                    </div>
+                {/* Type strip — small monospace pill that identifies the
+                    node type without the ceremony of the old "Category /
+                    Type / Description" 3-row grid. */}
+                <div className="wf_type_strip">
+                    <span className="wf_type_chip">{node.type}</span>
+                    {nodeType?.category && (
+                        <span className="wf_category_chip">{nodeType.category}</span>
+                    )}
                 </div>
+
+                {/* Config preview — the field that distinguishes this
+                    node from other nodes of the same type. HTTP nodes
+                    get a colored verb chip; everything else is plain
+                    mono. */}
+                {renderPreview()}
+
+                {/* Cross-cutting badges (retry / conditional / secrets).
+                    Surfacing these in the card means an operator no
+                    longer has to open every step's config panel to
+                    discover that the runbook has retry policies. */}
+                {(badges.retry || badges.conditional || badges.secrets) && (
+                    <div className="wf_badges">
+                        {badges.retry && (
+                            <span
+                                className="wf_badge wf_badge_retry"
+                                title={`Retries: ${badges.retry}`}
+                            >
+                                <Icons.RotateCw size={10} />
+                                {badges.retry}x
+                            </span>
+                        )}
+                        {badges.conditional && (
+                            <span
+                                className="wf_badge wf_badge_cond"
+                                title={
+                                    badges.conditional === 'both'
+                                        ? 'runIf and skipIf gates'
+                                        : badges.conditional === 'runIf'
+                                          ? 'runIf gate'
+                                          : 'skipIf gate'
+                                }
+                            >
+                                <Icons.GitBranch size={10} />
+                            </span>
+                        )}
+                        {badges.secrets && (
+                            <span
+                                className="wf_badge wf_badge_secret"
+                                title="Uses {{secrets.*}} reference"
+                            >
+                                <Icons.KeyRound size={10} />
+                            </span>
+                        )}
+                    </div>
+                )}
             </div>
 
-            <div className="wf_pole_button wf_input_pole" onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'input', e.clientX, e.clientY); }}>
+            <div
+                className="wf_pole_button wf_input_pole"
+                onMouseDown={(e) => {
+                    if (e.button !== 0) return;
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY });
+                }}
+            >
                 <Icons.ChevronRight size={12} />
             </div>
-            <div className="wf_pole_button wf_output_pole" onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onSolderStart && onSolderStart(node.id, 'output', e.clientX, e.clientY); }}>
-                <Icons.ChevronRight size={12} />
-            </div>
+            {/* Output poles. If the node declares multiple outputs (e.g.
+                `approval` with approved/rejected), render one pole per
+                output stacked vertically with the label visible. The
+                portId encodes the index so completeConnection can persist
+                the right sourcePort and the runtime engine can branch. */}
+            {Array.isArray(node.outputs) && node.outputs.length > 1 ? (
+                <div className="wf_multi_output_poles">
+                    {node.outputs.map((out, i) => (
+                        <div
+                            key={out.id ?? `out-${i}`}
+                            className="wf_pole_button wf_output_pole"
+                            style={{ top: `${30 + i * 26}px` }}
+                            title={out.label ?? `out-${i}`}
+                            onMouseDown={(e) => {
+                                if (e.button !== 0) return;
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onPortDragStart(
+                                    node.id,
+                                    `out-${i}`,
+                                    'source',
+                                    { x: e.clientX, y: e.clientY },
+                                );
+                            }}
+                        >
+                            <Icons.ChevronRight size={12} />
+                            <span className="wf_pole_label">{out.label ?? `out-${i}`}</span>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div
+                    className="wf_pole_button wf_output_pole"
+                    onMouseDown={(e) => {
+                        if (e.button !== 0) return;
+                        e.stopPropagation();
+                        e.preventDefault();
+                        onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY });
+                    }}
+                >
+                    <Icons.ChevronRight size={12} />
+                </div>
+            )}
+
+            {/* Duration footer — only when we have a real number from
+                the execution socket. Renders "running 4.2s" while the
+                step is in flight (the live tick in useExecutionSocket
+                ticks the durationMs every second), or "ran 1.8s" once
+                the step completes. Hidden in mini mode via CSS. */}
+            {durationMs != null && (
+                <div className="wf_duration_footer" title={`${Math.round(durationMs)}ms`}>
+                    <Icons.Clock size={9} />
+                    <span>
+                        {status === 'RUNNING' ? 'running ' : 'ran '}
+                        {formatDuration(durationMs)}
+                    </span>
+                </div>
+            )}
+
+            {/* Live progress bar — only rendered while the step is
+                actually running. Indeterminate animation; the runtime
+                does not report a percent because shell + http + notify
+                are atomic. The bar is the "I'm alive" signal that
+                doesn't depend on the border keyframe (which can be
+                disabled via the visualization toggle). */}
+            {status === 'RUNNING' && <div className="wf_progress_bar" aria-hidden />}
         </div>
     );
 }

@@ -68,5 +68,17 @@ backend/prisma/*.db-journal
 .claude/
 .cursorrules
 
-# Documentation (internal)
-/docs
+# Documentation: ignore /docs internal scratch by default but keep ADRs and
+# audit coverage tracked. Note: ignoring /docs/* (with the wildcard) instead
+# of /docs lets git recurse into the directory so the negation patterns work.
+/docs/*
+!/docs/adr/
+!/docs/audit-event-coverage.md
+!/docs/rebranding-and-editor-audit.md
+
+# Internal planning notes (kept local, never committed)
+/IMPLEMENTACION_NANORUN.md
+/INVESTIGACION_NANORUN_2026.md
+
+# Internal documentation (local only)
+/doc/

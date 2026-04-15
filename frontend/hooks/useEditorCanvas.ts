@@ -1,6 +1,6 @@
 
 import { useRef, useState, useCallback, useEffect, MouseEvent, DragEvent } from 'react';
-import { WorkflowNode, Connection } from '@nanoflow/shared';
+import { WorkflowNode, Connection } from '@cairn/shared';
 import { ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from '../components/Common';
 import { useAdvancedUndoRedo } from '../hooks/useAdvancedUndoRedo';
 import { NodeType } from '../components/Node';
@@ -88,10 +88,21 @@ function findContainingFrame(node: WorkflowNode, nodes: WorkflowNode[]): string 
 
 interface UseEditorCanvasProps {
     lang: 'en' | 'es';
-    confettiCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
+    /** Persist target. Defaults to 'current-workflow' (the scratchpad)
+     * when no real runbook is loaded. */
+    workflowId?: string;
+    /** Header used by the YAML-native save path so the round-trip
+     * preserves runbook metadata (slug, description, schedule, …). */
+    runbookHeader?: {
+        name: string;
+        slug?: string | null;
+        description?: string | null;
+        category?: string | null;
+        schedule?: string | null;
+    };
 }
 
-export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProps) {
+export function useEditorCanvas({ lang, workflowId, runbookHeader }: UseEditorCanvasProps) {
     const windowSize = useWindowSize();
     const canvasRef = useRef<HTMLDivElement>(null);
     const { nodeTypes: dbNodeTypes } = useNodeTypes();
@@ -157,7 +168,6 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         nodes,
         viewport,
         canvasRef,
-        confettiCanvasRef,
         executeCommand,
         announceMessage,
     });
@@ -179,11 +189,15 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         creatingConnection,
     });
 
-    // Autosave
+    // Autosave — when a real runbook is loaded via ?id= the autosave
+    // targets that workflow id, so the editor edits the actual row in
+    // the DB instead of the always-overwritten 'current-workflow'
+    // scratchpad. The runbookHeader unlocks the YAML-native save path.
     const { saveStatus, enableAutosave, setEnableAutosave } = useAutosave({
         nodes,
         connections,
-        workflowId: 'current-workflow',
+        workflowId: workflowId ?? 'current-workflow',
+        runbookHeader,
         debounceMs: EDITOR_CONFIG.CANVAS.DEBOUNCE_MS,
     });
 
@@ -199,6 +213,24 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
     const [editorMode, setEditorMode] = useState<'move' | 'connect'>('move');
     const [isRunDialogOpen, setIsRunDialogOpen] = useState(false);
     const [isShortcutsGuideOpen, setIsShortcutsGuideOpen] = useState(false);
+    // Snap-to-grid for node drag. Persisted in localStorage so the
+    // operator's preference survives reloads. Default off because the
+    // existing runbooks were authored without snap and force-snapping
+    // them on first edit would scramble layouts.
+    const [snapToGrid, setSnapToGridState] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return false;
+        return localStorage.getItem('nanorun-editor-snap-to-grid') === '1';
+    });
+    const toggleSnapToGrid = useCallback(() => {
+        setSnapToGridState((prev) => {
+            const next = !prev;
+            try {
+                localStorage.setItem('nanorun-editor-snap-to-grid', next ? '1' : '0');
+            } catch { /* noop */ }
+            return next;
+        });
+    }, []);
+    const SNAP_GRID_PX = 20;
 
     const handleOpenRunDialog = () => setIsRunDialogOpen(true);
     const handleCloseRunDialog = () => setIsRunDialogOpen(false);
@@ -274,10 +306,17 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         (e: MouseEvent) => {
             if (!draggingNode) return;
 
-            const newPosition = {
-                x: e.clientX / viewport.zoom - nodeDragStart.x,
-                y: e.clientY / viewport.zoom - nodeDragStart.y,
-            };
+            let nextX = e.clientX / viewport.zoom - nodeDragStart.x;
+            let nextY = e.clientY / viewport.zoom - nodeDragStart.y;
+            // Snap when enabled — round to the nearest 20px multiple
+            // so the dragged node clicks into a grid cell. The grid is
+            // not rendered visually because the existing GridLayer is
+            // already a pattern at zoom-1 — adding it would double-paint.
+            if (snapToGrid) {
+                nextX = Math.round(nextX / SNAP_GRID_PX) * SNAP_GRID_PX;
+                nextY = Math.round(nextY / SNAP_GRID_PX) * SNAP_GRID_PX;
+            }
+            const newPosition = { x: nextX, y: nextY };
 
             setNodes((prevNodes: WorkflowNode[]) => {
                 const draggedNode = prevNodes.find(n => n.id === draggingNode);
@@ -307,7 +346,31 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
                     });
                 }
 
-                // Regular node drag
+                // Multi-selection drag: if the node being dragged is part
+                // of the current selection AND there are other selected
+                // nodes, move every selected node by the same delta.
+                // Falls through to single-node drag when only one node is
+                // selected (or none — clicking-and-dragging an unselected
+                // node).
+                if (selectedNodes.has(draggingNode) && selectedNodes.size > 1) {
+                    return prevNodes.map((node: WorkflowNode) => {
+                        if (node.id === draggingNode) {
+                            return { ...node, position: newPosition };
+                        }
+                        if (selectedNodes.has(node.id)) {
+                            return {
+                                ...node,
+                                position: {
+                                    x: node.position.x + deltaX,
+                                    y: node.position.y + deltaY,
+                                },
+                            };
+                        }
+                        return node;
+                    });
+                }
+
+                // Regular single-node drag
                 return prevNodes.map((node: WorkflowNode) =>
                     node.id === draggingNode
                         ? { ...node, position: newPosition }
@@ -315,7 +378,7 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
                 );
             });
         },
-        [draggingNode, nodeDragStart, viewport.zoom, setNodes]
+        [draggingNode, nodeDragStart, viewport.zoom, setNodes, selectedNodes, snapToGrid]
     );
 
     const handleNodeDragEndLocal = useCallback(() => {
@@ -753,7 +816,13 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
 
     const handleNodeClick = useCallback((nodeId: string) => {
         handleNodeSelect(nodeId, false);
-    }, [handleNodeSelect]);
+        // Open the config panel on a single click. Previously this only
+        // happened on double-click, which was not discoverable — most
+        // operators thought there was no way to configure a node and
+        // left every step on its defaults. Single-click + select is the
+        // standard pattern in n8n / Retool / Temporal UI.
+        setConfigNodeId(nodeId);
+    }, [handleNodeSelect, setConfigNodeId]);
 
     return {
         // Refs
@@ -848,5 +917,7 @@ export function useEditorCanvas({ lang, confettiCanvasRef }: UseEditorCanvasProp
         isRunDialogOpen,
         handleOpenRunDialog,
         handleCloseRunDialog,
+        snapToGrid,
+        toggleSnapToGrid,
     };
 }

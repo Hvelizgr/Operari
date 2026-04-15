@@ -1024,3 +1024,363 @@ body.dark .button {
 .right {
     float: right;
 }
+/* Multi-output poles for nodes that declare more than one output
+   (e.g. approval with approved/rejected). Each pole is positioned
+   absolutely on the right edge with a vertical offset and a small
+   text label so the operator can tell which branch they are
+   wiring without inspecting the YAML. */
+.wf_multi_output_poles {
+    position: absolute;
+    right: -10px;
+    top: 0;
+    height: 100%;
+}
+.wf_multi_output_poles .wf_pole_button {
+    position: absolute;
+    right: 0;
+}
+.wf_pole_label {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--descriptor-color);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Node card upgrades (post-cleanup pass)
+   Adds the visual feedback the original "demo" version was missing:
+     - selected outline for job nodes (.wf_event)
+     - hover state on the card body, not just the poles
+     - paused / skipped / cancelled states distinct from running/error
+     - type chip + category chip strip
+     - config preview line
+     - cross-cutting badges (retry, conditional, secrets)
+   ───────────────────────────────────────────────────────────── */
+
+.wf_event {
+    transition: outline 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.wf_event:hover {
+    outline: 1px solid rgba(59, 130, 246, 0.35);
+    outline-offset: 2px;
+}
+
+.wf_event.selected {
+    outline: 2px dashed var(--theme-color, #3b82f6) !important;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25), 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+
+.wf_event.dragging {
+    transform: scale(1.02);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.wf_event.disabled {
+    opacity: 0.5;
+    filter: grayscale(0.4);
+}
+
+/* Status states beyond running/success/error */
+.wf_paused {
+    border-color: #f59e0b !important;
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4);
+}
+.wf_skipped {
+    opacity: 0.55;
+    border-style: dashed !important;
+}
+.wf_cancelled {
+    opacity: 0.45;
+    text-decoration-color: #6b7280;
+}
+
+/* Title strip — make sure it's a flex row so the status icon sits
+   on the right and the title truncates instead of wrapping. */
+.wf_event_title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Type / category chips */
+.wf_type_strip {
+    display: flex;
+    gap: 4px;
+    margin: 4px 0 6px;
+    align-items: center;
+}
+.wf_type_chip {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: rgba(59, 130, 246, 0.12);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    text-transform: lowercase;
+}
+.wf_category_chip {
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--descriptor-color, #94a3b8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Config preview — the line that tells you what this node actually
+   does without opening the config panel. Mono so a `kubectl get pods`
+   reads cleanly. */
+.wf_preview {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--body-text-color, #cbd5e1);
+    background: rgba(0, 0, 0, 0.18);
+    padding: 4px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 6px;
+}
+
+/* Cross-cutting badges row */
+.wf_badges {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+.wf_badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid;
+}
+.wf_badge_retry {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(251, 191, 36, 0.3);
+}
+.wf_badge_cond {
+    color: #c084fc;
+    background: rgba(192, 132, 252, 0.1);
+    border-color: rgba(192, 132, 252, 0.3);
+}
+.wf_badge_secret {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Node card "level 2" upgrades:
+     - per-category accent on the left border + tinted icon square
+     - HTTP method colored chip
+     - indeterminate progress bar for RUNNING
+     - tighter title strip
+   ───────────────────────────────────────────────────────────── */
+
+.wf_event {
+    position: relative;
+    border-left: 3px solid var(--node-accent, #3b82f6) !important;
+    overflow: hidden;
+}
+
+/* Tinted icon square in the title strip — replaces the previous
+   GripVertical + raw icon. Visual: a 22x22 rounded square filled
+   with the category tint and the icon in the accent color. */
+.wf_event_icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    margin-right: 8px;
+    flex-shrink: 0;
+    border: 1px solid color-mix(in srgb, var(--node-accent) 28%, transparent);
+}
+
+.wf_event_title {
+    padding: 6px 8px;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--body-text-color, #e5e7eb);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--node-accent) 4%, transparent),
+        transparent
+    );
+}
+
+/* HTTP smart preview chips */
+.wf_http_method {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 6px;
+    letter-spacing: 0.04em;
+}
+.wf_http_url {
+    color: var(--body-text-color, #cbd5e1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Indeterminate progress bar — slim 2px bar at the bottom of the
+   card while the step is RUNNING. Animated translateX so it sweeps
+   left-to-right indefinitely. Cheap (no JS), respects animations-off
+   via the data-anim selector. */
+.wf_progress_bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: rgba(59, 130, 246, 0.15);
+    overflow: hidden;
+}
+.wf_progress_bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 33%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        var(--node-accent, #3b82f6),
+        transparent
+    );
+    animation: wf_progress_sweep 1.4s linear infinite;
+}
+@keyframes wf_progress_sweep {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(400%);
+    }
+}
+html[data-anim="off"] .wf_progress_bar::after {
+    animation: none;
+    transform: translateX(0);
+    width: 100%;
+    opacity: 0.5;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Node card "level 3" upgrades:
+     - mini mode at low zoom (collapse body, keep title)
+     - next-in-path glow for downstream nodes of running steps
+     - type letter badge in icon square corner
+     - duration footer with clock icon
+   ───────────────────────────────────────────────────────────── */
+
+/* Type letter badge sits in the bottom-right corner of the icon
+   square. Tiny — 11x11 px — and uses the category accent for the
+   background so it reads as "extra info on the icon" rather than
+   competing with it. */
+.wf_event_icon {
+    position: relative;
+}
+.wf_event_icon_badge {
+    position: absolute;
+    bottom: -3px;
+    right: -3px;
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    color: white;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 11px;
+    text-align: center;
+    box-shadow: 0 0 0 1.5px var(--box-background-color, #1a1f2a);
+}
+
+/* Duration footer */
+.wf_duration_footer {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px;
+    color: var(--descriptor-color, #94a3b8);
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(0, 0, 0, 0.18);
+}
+
+/* Next-in-path glow — applied to the direct downstream targets of
+   any RUNNING node. Tenuous so it does not compete with the
+   running node's own pulse, but visible enough to give the operator
+   a sense of "what's about to happen". */
+.wf_event.wf_next {
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--node-accent) 35%, transparent),
+        0 0 18px color-mix(in srgb, var(--node-accent) 20%, transparent);
+    animation: wf_next_pulse 1.6s ease-in-out infinite;
+}
+@keyframes wf_next_pulse {
+    0%, 100% {
+        box-shadow:
+            0 0 0 1px color-mix(in srgb, var(--node-accent) 30%, transparent),
+            0 0 12px color-mix(in srgb, var(--node-accent) 18%, transparent);
+    }
+    50% {
+        box-shadow:
+            0 0 0 1.5px color-mix(in srgb, var(--node-accent) 50%, transparent),
+            0 0 22px color-mix(in srgb, var(--node-accent) 32%, transparent);
+    }
+}
+html[data-anim="off"] .wf_event.wf_next {
+    animation: none;
+}
+
+/* ─── Mini mode ───────────────────────────────────────────────
+   When the canvas is below 60% zoom, NodesLayer applies the
+   .wf_mini_mode class to the layer wrapper. We collapse every job
+   card to a 2-line variant: icon square + title only. The body,
+   chips, preview, badges and duration footer all hide. The card
+   becomes a clear pill at low zoom — readable across the canvas. */
+
+.wf_mini_mode .wf_event {
+    min-width: 120px !important;
+    max-width: 140px;
+}
+.wf_mini_mode .wf_event .wf_body {
+    display: none;
+}
+.wf_mini_mode .wf_event .wf_duration_footer {
+    display: none;
+}
+.wf_mini_mode .wf_event .wf_progress_bar {
+    /* Keep the progress bar visible — it is the "alive" signal. */
+}
+.wf_mini_mode .wf_event_title {
+    border-bottom: none;
+    padding: 5px 6px;
+}
+.wf_mini_mode .wf_event_icon {
+    width: 18px;
+    height: 18px;
+    margin-right: 6px;
+}

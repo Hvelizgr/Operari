@@ -1,0 +1,136 @@
+'use client';
+
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    Plus,
+    MessageSquare,
+    ChevronLeft,
+    ChevronRight,
+    Trash2,
+} from 'lucide-react';
+
+export interface ConversationSummary {
+    id: string;
+    title: string | null;
+    updatedAt: string;
+    lastMessage?: string;
+}
+
+interface ChatSidebarProps {
+    conversations: ConversationSummary[];
+    activeId: string | null;
+    onSelect: (id: string) => void;
+    onCreate: () => void;
+    onDelete: (id: string) => void;
+    lang: 'en' | 'es';
+    labels: {
+        sidebar: string;
+        newConversation: string;
+        noConversations: string;
+        noConversationsHint: string;
+    };
+}
+
+export default function ChatSidebar({
+    conversations,
+    activeId,
+    onSelect,
+    onCreate,
+    onDelete,
+    lang,
+    labels,
+}: ChatSidebarProps) {
+    const [collapsed, setCollapsed] = useState(false);
+
+    return (
+        <motion.div
+            className="h-full bg-[#1a1e26] flex flex-col border-r border-[#2a2f3a]"
+            initial={{ width: 280 }}
+            animate={{ width: collapsed ? 50 : 280 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        >
+            {/* Header */}
+            <div className="h-[50px] flex items-center justify-between px-3 border-b border-[#2a2f3a]">
+                {!collapsed && (
+                    <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-sm font-semibold text-gray-300"
+                    >
+                        {labels.sidebar}
+                    </motion.span>
+                )}
+                <button
+                    onClick={() => setCollapsed(!collapsed)}
+                    className="p-1 hover:bg-white/10 rounded transition-colors text-gray-400"
+                >
+                    {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                </button>
+            </div>
+
+            {/* New Conversation Button */}
+            <div className="p-2">
+                <button
+                    onClick={onCreate}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg
+                               bg-blue-600 hover:bg-blue-500 text-white text-sm transition-colors
+                               ${collapsed ? 'justify-center' : ''}`}
+                >
+                    <Plus size={16} />
+                    {!collapsed && <span>{labels.newConversation}</span>}
+                </button>
+            </div>
+
+            {/* Conversation List */}
+            <div className="flex-1 overflow-y-auto px-2">
+                {conversations.length === 0 && !collapsed && (
+                    <div className="text-center py-8 px-3">
+                        <MessageSquare size={24} className="mx-auto mb-2 text-gray-600" />
+                        <p className="text-xs text-gray-500">{labels.noConversationsHint}</p>
+                    </div>
+                )}
+
+                <AnimatePresence>
+                    {conversations.map((conv) => {
+                        const isActive = conv.id === activeId;
+                        return (
+                            <motion.div
+                                key={conv.id}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -10 }}
+                                onClick={() => onSelect(conv.id)}
+                                className={`group flex items-center gap-2 px-3 py-2.5 my-0.5 rounded-lg cursor-pointer
+                                           transition-colors text-sm
+                                           ${isActive
+                                               ? 'bg-blue-600/20 text-white'
+                                               : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                                           }
+                                           ${collapsed ? 'justify-center' : ''}`}
+                            >
+                                <MessageSquare size={14} className="flex-shrink-0" />
+                                {!collapsed && (
+                                    <>
+                                        <span className="flex-1 truncate">
+                                            {conv.title || (lang === 'en' ? 'New conversation' : 'Nueva conversación')}
+                                        </span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDelete(conv.id);
+                                            }}
+                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-opacity"
+                                        >
+                                            <Trash2 size={12} className="text-gray-500" />
+                                        </button>
+                                    </>
+                                )}
+                            </motion.div>
+                        );
+                    })}
+                </AnimatePresence>
+            </div>
+        </motion.div>
+    );
+}

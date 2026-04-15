@@ -2,7 +2,7 @@
 // Utility functions for calculating node port positions
 // Used by both EditorNode.tsx and useCanvasRenderer.ts
 
-import type { WorkflowNode } from '@nanoflow/shared';
+import type { WorkflowNode } from '@cairn/shared';
 
 export type PortDirection = 'left' | 'right' | 'top' | 'bottom';
 
@@ -92,6 +92,27 @@ export const getNodePortInfo = (
     if (portType === 'input') {
         return { x: node.position.x, y: node.position.y + (height / 2), direction: 'left' };
     }
+
+    // Multi-output nodes (e.g. approval with approved/rejected) stack
+    // output poles vertically. EditorNode.tsx positions them at
+    // `top: ${30 + i * 26}px`. When portIndex > 0 AND the node
+    // declares multiple outputs, offset Y accordingly so the Bezier
+    // curve starts from the correct pole, not always the center.
+    const outputs = (node as any).outputs as Array<unknown> | undefined;
+    const hasMultipleOutputs = Array.isArray(outputs) && outputs.length > 1;
+
+    if (hasMultipleOutputs && portIndex > 0) {
+        // First pole is at 30px from top, each subsequent pole at +26px
+        const poleY = node.position.y + 30 + portIndex * 26;
+        return { x: node.position.x + width, y: poleY, direction: 'right' };
+    }
+
+    // Single output or first output of multi-output: center of right edge
+    // (for multi-output index 0, use 30px offset to match the first pole)
+    if (hasMultipleOutputs) {
+        return { x: node.position.x + width, y: node.position.y + 30, direction: 'right' };
+    }
+
     return { x: node.position.x + width, y: node.position.y + (height / 2), direction: 'right' };
 };
 

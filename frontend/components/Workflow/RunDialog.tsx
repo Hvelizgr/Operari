@@ -52,20 +52,20 @@ export default function RunDialog({ isOpen, onClose, onRun, lang, isExecuting = 
 
     const text = {
         en: {
-            title: isExecuting ? (mode === 'debug' ? 'Debugging Workflow...' : 'Executing Workflow...') : (mode === 'debug' ? 'Debug Workflow' : 'Run Workflow'),
-            description: 'Provide JSON Input:',
-            run: mode === 'debug' ? 'Start Debugging' : 'Run Workflow',
+            title: isExecuting ? (mode === 'debug' ? 'Debugging runbook...' : 'Running runbook...') : (mode === 'debug' ? 'Debug runbook' : 'Run runbook'),
+            description: 'Provide JSON input:',
+            run: mode === 'debug' ? 'Start debugging' : 'Run runbook',
             cancel: isExecuting ? 'Close' : 'Cancel',
-            jobId: 'Job ID',
+            jobId: 'Run ID',
             status: 'Status',
             elapsed: 'Elapsed',
             cpu: 'Avg CPU',
             mem: 'Avg Mem',
         },
         es: {
-            title: isExecuting ? (mode === 'debug' ? 'Depurando Flujo...' : 'Ejecutando Flujo...') : (mode === 'debug' ? 'Depurar Flujo' : 'Ejecutar Flujo'),
+            title: isExecuting ? (mode === 'debug' ? 'Depurando runbook...' : 'Ejecutando runbook...') : (mode === 'debug' ? 'Depurar runbook' : 'Ejecutar runbook'),
             description: 'Entrada JSON:',
-            run: mode === 'debug' ? 'Iniciar Depuración' : 'Ejecutar',
+            run: mode === 'debug' ? 'Iniciar depuración' : 'Ejecutar runbook',
             cancel: isExecuting ? 'Cerrar' : 'Cancelar',
             jobId: 'ID Trabajo',
             status: 'Estado',

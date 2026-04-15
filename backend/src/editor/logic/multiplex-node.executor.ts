@@ -1,8 +1,16 @@
 import { ExecutionInput, MultiplexResult, MultiplexNodeConfig } from '../../types/workflow.types';
 import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
+import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
 
-export class MultiplexNodeExecutor {
-    async execute(config: MultiplexNodeConfig, input: ExecutionInput): Promise<MultiplexResult> {
+export class MultiplexNodeExecutor
+    implements EditorNodeExecutor<MultiplexNodeConfig, MultiplexResult> {
+    readonly type = 'Multiplex';
+
+    async execute(
+        config: MultiplexNodeConfig,
+        input: ExecutionInput,
+        _errorContext: NodeErrorContext,
+    ): Promise<MultiplexResult> {
         const { targets = [], stagger = 0, continueThreshold = 100 } = config;
 
         if (!Array.isArray(targets) || targets.length === 0) {

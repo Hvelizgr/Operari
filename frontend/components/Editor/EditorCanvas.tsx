@@ -8,27 +8,45 @@ import { useWorkflowExecution } from '../../hooks/useWorkflowExecution';
 import { useExecutionSocket } from '../../hooks/useExecutionSocket';
 import dynamic from 'next/dynamic';
 const LogTerminal = dynamic(() => import('./terminal/LogTerminal'), { ssr: false });
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Terminal as TerminalIcon, X, Zap, Download, Upload, FileText } from 'lucide-react';
+import { yamlToSpec, specToNodes } from '@/utils/runbookYaml';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 // ... existing imports
 import SnapshotDialog from '../Workflow/SnapshotDialog';
 import { useSnapshots } from '../../hooks/useSnapshots';
 import { useEditorTools } from '../../hooks/useEditorTools';
-import { useEditorSoldering } from '../../hooks/useEditorSoldering';
-import SolderingOverlay from './SolderingOverlay';
 import RunDialog from '../Workflow/RunDialog';
 import CommandPalette, { CommandAction } from './CommandPalette';
 import TopBar from './TopBar';
+import YamlViewModal from './YamlViewModal';
+import RunbookAssistPanel from './RunbookAssistPanel';
 import EditorSidebar from './EditorSidebar';
 import { createNewNode } from './EditorCanvas.utils';
 import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertiesPanel';
 import './WorkflowNode.css';
 
 export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
-    // Confetti canvas ref for advanced confetti (xyOps addSolderSparks)
-    const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const [searchTrigger, setSearchTrigger] = useState<number>(0);
+    const searchParams = useSearchParams();
+    const urlRunbookId = searchParams?.get('id') ?? null;
+    const loadedRunbookIdRef = useRef<string | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    // Workflow properties live up here (above useEditorCanvas) so the
+    // header can be passed straight into the autosave hook for the
+    // YAML-native save path.
+    const [workflowProperties, setWorkflowProperties] = useState<WorkflowProperties>({
+        name: 'Untitled runbook',
+        description: '',
+        isActive: false,
+        schedule: null,
+        tags: [],
+        errorHandling: 'stop',
+        timeout: 30000,
+    });
 
     const {
         // Refs
@@ -117,7 +135,17 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         isRunDialogOpen,
         handleOpenRunDialog,
         handleCloseRunDialog,
-    } = useEditorCanvas({ lang, confettiCanvasRef });
+        snapToGrid,
+        toggleSnapToGrid,
+    } = useEditorCanvas({
+        lang,
+        workflowId: urlRunbookId ?? undefined,
+        runbookHeader: {
+            name: workflowProperties.name,
+            description: workflowProperties.description,
+            schedule: workflowProperties.schedule,
+        },
+    });
 
     // Auto Layout Handler
     const handleAutoLayout = () => {
@@ -127,21 +155,75 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
     const [showTerminal, setShowTerminal] = useState(false);
     const [runMode, setRunMode] = useState<'run' | 'debug'>('run'); // New State
-    const [solderDropPos, setSolderDropPos] = useState<{ x: number; y: number } | null>(null);
     const [isWorkflowPropsOpen, setIsWorkflowPropsOpen] = useState(false);
     const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
     const [isMetricsDashboardOpen, setIsMetricsDashboardOpen] = useState(false);
-    const [workflowProperties, setWorkflowProperties] = useState<WorkflowProperties>({
-        name: 'Untitled Workflow',
-        description: '',
-        isActive: false,
-        schedule: null,
-        tags: [],
-        errorHandling: 'stop',
-        timeout: 30000,
-    });
+    const [isYamlViewOpen, setIsYamlViewOpen] = useState(false);
+    const [isAssistOpen, setIsAssistOpen] = useState(false);
+    // Load a runbook from /editor?id=<workflowId>. Until this effect
+    // ran, the editor showed INITIAL_NODES — a single empty shell step
+    // — regardless of what the user clicked from /runbooks. This is
+    // the wiring that makes the ✏ Edit button on the Runbooks page
+    // actually open the right runbook. Idempotent via loadedRunbookIdRef
+    // so React StrictMode double-invocation doesn't double-fetch.
+    useEffect(() => {
+        if (!urlRunbookId) return;
+        if (loadedRunbookIdRef.current === urlRunbookId) return;
+        loadedRunbookIdRef.current = urlRunbookId;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/runbooks/${urlRunbookId}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const wf = await res.json();
+                if (cancelled) return;
+
+                // Two paths: the workflow row stores nodes + connections
+                // as JSON columns (legacy fast path the autosave writes
+                // to). Prefer that. If empty / missing, fall back to the
+                // YAML round-trip endpoint so a runbook authored via
+                // CLI is still loadable in the canvas.
+                let loadedNodes: any[] = [];
+                let loadedConnections: any[] = [];
+                if (Array.isArray(wf.nodes) && wf.nodes.length > 0) {
+                    loadedNodes = wf.nodes;
+                    loadedConnections = Array.isArray(wf.connections) ? wf.connections : [];
+                } else {
+                    try {
+                        const yamlRes = await fetch(`${API_BASE}/api/runbooks/${urlRunbookId}/yaml`);
+                        if (yamlRes.ok) {
+                            const yamlBody = await yamlRes.text();
+                            const spec = yamlToSpec(yamlBody);
+                            const parsed = specToNodes(spec);
+                            loadedNodes = parsed.nodes;
+                            loadedConnections = parsed.connections;
+                        }
+                    } catch {
+                        // YAML path is best-effort; legacy nodes stay primary.
+                    }
+                }
+                if (cancelled) return;
+                handleLoadWorkflow(loadedNodes, loadedConnections);
+                setWorkflowProperties((prev) => ({
+                    ...prev,
+                    name: wf.name ?? prev.name,
+                    description: wf.description ?? prev.description,
+                    isActive: wf.isActive ?? prev.isActive,
+                    schedule: wf.schedule ?? prev.schedule,
+                }));
+                setLoadError(null);
+            } catch (err) {
+                if (cancelled) return;
+                setLoadError(err instanceof Error ? err.message : 'unknown');
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [urlRunbookId, handleLoadWorkflow]);
+
     const { executeWorkflow, executeFromNode, executing, currentExecutionId } = useWorkflowExecution('current-workflow');
-    const { logs, nodeStatuses } = useExecutionSocket(currentExecutionId);
+    const { logs, nodeStatuses, nodeMeta } = useExecutionSocket(currentExecutionId);
 
     // --- SNAPSHOT SYSTEM ---
     const [isSnapshotDialogOpen, setIsSnapshotDialogOpen] = useState(false);
@@ -165,30 +247,11 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     };
     // -----------------------
 
-    // xyOps Tool System
+    // xyOps Tool System (kept for the move/draw mode toggle on the
+    // toolbar, even though the soldering "draw" path was removed —
+    // the move-mode bool is still consumed by NodesLayer for cursor
+    // affordances).
     const { tool, selectTool, isDrawMode, isMoveMode } = useEditorTools();
-
-    // xyOps Soldering System
-    const {
-        soldering,
-        startSolder,
-        updateSolderPosition,
-        completeSolder,
-        cancelSolder,
-        isSoldering,
-        pauseSolder,
-        resumeSolder,
-        pausedSolder
-    } = useEditorSoldering({
-        canvasRef,
-        viewport,
-        nodes,
-        onConnectionComplete: (sourceId, targetId) => {
-            // Create connection using the real system (xyOps integration complete!)
-            createConnection(sourceId, targetId);
-        },
-        isDrawMode
-    });
 
     const handleExecuteWithInput = async (input: object) => {
         setShowTerminal(true);
@@ -215,47 +278,11 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         handleCloseContextMenu();
     };
 
-    // Watch for successful execution to fire confetti
-    useEffect(() => {
-        if (logs.length > 0) {
-            const lastLog = logs[logs.length - 1];
-            if (lastLog.message.includes('Workflow execution completed successfully')) {
-                import('canvas-confetti').then((module) => {
-                    const confetti = module.default;
-                    confetti({
-                        particleCount: 150,
-                        spread: 70,
-                        origin: { y: 0.6 },
-                        colors: ['#3b82f6', '#10b981', '#f59e0b']
-                    });
-                });
-            }
-        }
-    }, [logs]);
-
-    const handleSolderDropSelect = (nodeId: string) => {
-        // NOTE: The SearchBar returns the ID if the node exists, OR it forces an 'add' if we clicked an item from the menu?
-        // Wait, current SearchBar implementation calls onNodeSelect(id) for existing nodes and onNodeAdd(type) for new nodes.
-        // We only care about onNodeAdd here usually, but if user selects existing node... maybe we connect to it?
-        // For now let's focus on CREATING new node.
-
-        // Actually SearchBar calls onSearchNodeSelect which centers viewport.
-        // We want to intercept onNodeAdd.
-    };
-
-    // We will pass an inline function to EditorOverlays instead to close over the state variables
-
-    const handleSolderDropCancel = () => {
-        setSolderDropPos(null);
-        cancelSolder();
-    };
-
     // --- Command Palette Logic ---
     const commandActions: CommandAction[] = useMemo(() => [
         // General
         { id: 'undo', label: lang === 'en' ? 'Undo' : 'Deshacer', shortcut: ['Ctrl', 'Z'], action: undo },
         { id: 'redo', label: lang === 'en' ? 'Redo' : 'Rehacer', shortcut: ['Ctrl', 'Y'], action: redo },
-        { id: 'save', label: lang === 'en' ? 'Save Workflow' : 'Guardar Flujo', shortcut: ['Ctrl', 'S'], action: () => {/* Managed by autosave but force? */ } }, // Optional
 
         // Navigation
         { id: 'zoom_in', label: lang === 'en' ? 'Zoom In' : 'Acercar', shortcut: ['Ctrl', '+'], action: handleZoomIn },
@@ -268,10 +295,10 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         { id: 'duplicate', label: lang === 'en' ? 'Duplicate Selected' : 'Duplicar Selección', shortcut: ['Ctrl', 'D'], action: handleContextMenuDuplicate },
         { id: 'select_all', label: lang === 'en' ? 'Select All' : 'Seleccionar Todo', shortcut: ['Ctrl', 'A'], action: () => {/* TODO */ } },
         { id: 'add_node', label: lang === 'en' ? 'Add Node' : 'Aspirar Nuevo Nodo', shortcut: ['Space'], action: () => setSearchTrigger(Date.now()) },
-        { id: 'auto_layout', label: lang === 'en' ? 'Auto Layout' : 'Organizar Flujo', action: handleAutoLayout },
+        { id: 'auto_layout', label: lang === 'en' ? 'Auto layout' : 'Organizar runbook', action: handleAutoLayout },
 
         // Execution
-        { id: 'run', label: lang === 'en' ? 'Run Workflow' : 'Ejecutar', shortcut: ['Ctrl', 'Enter'], action: () => handleExecuteWithInput({}) },
+        { id: 'run', label: lang === 'en' ? 'Run runbook' : 'Ejecutar runbook', shortcut: ['Ctrl', 'Enter'], action: () => handleExecuteWithInput({}) },
         { id: 'terminal', label: lang === 'en' ? 'Toggle Terminal' : 'Alternar Terminal', action: () => setShowTerminal(p => !p) },
 
         // Tools
@@ -314,13 +341,20 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             saveStatus={saveStatus}
                             onTemplates={() => setIsTemplateGalleryOpen(true)}
                             onMetrics={() => setIsMetricsDashboardOpen(true)}
+                            onYaml={() => setIsYamlViewOpen(true)}
+                            onAssist={() => setIsAssistOpen(true)}
+                            hasFailedNode={nodes.some((n) => n.executionState === 'error')}
+                            snapToGrid={snapToGrid}
+                            onToggleSnapToGrid={toggleSnapToGrid}
                             onExport={() => {
                                 const data = JSON.stringify({ nodes, connections }, null, 2);
                                 const blob = new Blob([data], { type: 'application/json' });
                                 const url = URL.createObjectURL(blob);
                                 const link = document.createElement('a');
                                 link.href = url;
-                                link.download = `workflow-${new Date().toISOString().slice(0, 10)}.json`;
+                                const slug = (workflowProperties.name || 'workflow')
+                                    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                                link.download = `${slug}-${new Date().toISOString().slice(0, 10)}.json`;
                                 document.body.appendChild(link);
                                 link.click();
                                 document.body.removeChild(link);
@@ -330,14 +364,22 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                                 reader.onload = (event) => {
                                     try {
                                         const json = JSON.parse(event.target?.result as string);
-                                        if (json.nodes && json.connections) {
-                                            handleLoadWorkflow(json.nodes, json.connections);
-                                        } else {
-                                            alert(lang === 'en' ? 'Invalid workflow file' : 'Archivo inválido');
+                                        if (!json.nodes || !Array.isArray(json.nodes) || !json.connections || !Array.isArray(json.connections)) {
+                                            alert(lang === 'en' ? 'Invalid workflow file: must contain "nodes" and "connections" arrays' : 'Archivo inválido: debe contener arrays "nodes" y "connections"');
+                                            return;
                                         }
+                                        // Validate that each node has the minimum required shape
+                                        const valid = json.nodes.every((n: any) =>
+                                            n && typeof n.id === 'string' && typeof n.type === 'string' && n.position && typeof n.position.x === 'number' && typeof n.position.y === 'number'
+                                        );
+                                        if (!valid) {
+                                            alert(lang === 'en' ? 'Invalid workflow file: nodes must have id, type, and position' : 'Archivo inválido: los nodos deben tener id, type y position');
+                                            return;
+                                        }
+                                        handleLoadWorkflow(json.nodes, json.connections);
                                     } catch (err) {
                                         console.error(err);
-                                        alert('Error parsing JSON');
+                                        alert(lang === 'en' ? 'Error parsing JSON file' : 'Error al parsear archivo JSON');
                                     }
                                 };
                                 reader.readAsText(file);
@@ -359,28 +401,15 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                         }}
                         onWheel={handleWheel}
                         onMouseDown={handleMouseDown}
-                        onMouseMove={(e) => {
-                            handleCanvasMouseMove(e);
-                            if (isSoldering) {
-                                updateSolderPosition(e.clientX, e.clientY);
-                            }
-                        }}
-                        onMouseUp={(e) => {
-                            if (isSoldering) {
-                                e.stopPropagation();
-                                pauseSolder();
-                                setSolderDropPos({ x: e.clientX, y: e.clientY });
-                            } else {
-                                handleCanvasMouseUp();
-                            }
-                        }}
+                        onMouseMove={handleCanvasMouseMove}
+                        onMouseUp={handleCanvasMouseUp}
                         onMouseLeave={handleCanvasMouseUp}
                         onDrop={handleCanvasDrop}
                         onDragOver={handleCanvasDragOver}
                         onClick={handleCanvasClick}
                         onContextMenu={(e) => handleContextMenu(e, 'canvas')}
                         role="application"
-                        aria-label={lang === 'en' ? 'Workflow editor canvas' : 'Lienzo del editor de flujo de trabajo'}
+                        aria-label={lang === 'en' ? 'Runbook canvas' : 'Canvas del runbook'}
                     >
                         <a
                             href="#workflow-canvas"
@@ -405,7 +434,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             connections={connections}
                             nodes={nodes}
                             viewport={viewport}
-                            soldering={soldering}
                             selectedConnection={selectedConnection}
                             creatingConnection={creatingConnection}
                             cyclicConnections={cyclicConnections}
@@ -439,10 +467,10 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onNodeClick={handleNodeClick}
                             onNodeMove={handleNodeMove}
                             onNodeUpdate={handleNodeUpdate}
-                            onSolderStart={startSolder}
                             onNodeDoubleClick={setConfigNodeId}
                             editorMode={tool === 'draw' ? 'connect' : 'move'}
                             nodeStatuses={nodeStatuses}
+                            nodeMeta={nodeMeta}
                         />
 
                         {/* Selection Box */}
@@ -452,32 +480,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                                 style={getSelectionBoxStyle()!}
                             />
                         )}
-
-                        {/* Soldering Overlay */}
-                        {isSoldering && soldering && (
-                            <SolderingOverlay
-                                nodes={nodes}
-                                solderingNodeId={soldering.startNodeId}
-                                solderingEndPort={soldering.endPort}
-                                viewport={viewport}
-                                onPortClick={completeSolder}
-                            />
-                        )}
-
-                        {/* Confetti Canvas */}
-                        <canvas
-                            ref={confettiCanvasRef}
-                            className="effects-canvas"
-                            style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                width: '100%',
-                                height: '100%',
-                                pointerEvents: 'none',
-                                zIndex: 200
-                            }}
-                        />
 
                         <EditorOverlays
                             nodes={nodes}
@@ -537,8 +539,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onFitView={handleFitView}
                             onResetZoom={handleResetZoom}
 
-                            solderDropPos={solderDropPos}
-                            onSolderDropCancel={handleSolderDropCancel}
                             searchTrigger={searchTrigger}
                             isTemplateGalleryOpen={isTemplateGalleryOpen}
                             onTemplateGalleryOpenChange={setIsTemplateGalleryOpen}
@@ -617,6 +617,33 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onClose={() => setIsCommandPaletteOpen(false)}
                             actions={commandActions}
                             lang={lang}
+                        />
+                        <RunbookAssistPanel
+                            open={isAssistOpen}
+                            onClose={() => setIsAssistOpen(false)}
+                            lang={lang}
+                            failedNode={nodes.find((n) => n.executionState === 'error') ?? null}
+                        />
+                        <YamlViewModal
+                            open={isYamlViewOpen}
+                            onClose={() => setIsYamlViewOpen(false)}
+                            lang={lang}
+                            header={{
+                                name: workflowProperties.name,
+                                description: workflowProperties.description ?? null,
+                                schedule: workflowProperties.schedule ?? null,
+                            }}
+                            nodes={nodes}
+                            connections={connections}
+                            onApply={({ header, nodes: newNodes, connections: newConnections }) => {
+                                setWorkflowProperties((prev) => ({
+                                    ...prev,
+                                    name: header.name,
+                                    description: header.description ?? prev.description,
+                                    schedule: header.schedule ?? prev.schedule,
+                                }));
+                                handleLoadWorkflow(newNodes, newConnections);
+                            }}
                         />
                     </div>
                 </div>

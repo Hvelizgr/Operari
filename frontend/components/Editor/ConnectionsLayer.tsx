@@ -1,10 +1,9 @@
 'use client';
 
 import { useRef, useMemo } from 'react';
-import type { WorkflowNode, Connection, ConnectionCondition } from '@nanoflow/shared';
+import type { WorkflowNode, Connection, ConnectionCondition } from '@cairn/shared';
 import { useCanvasRenderer } from '../../hooks/useCanvasRenderer';
 import type { CreatingConnectionState, ViewportState } from '../../types/editor.types';
-import type { SolderState } from '../../hooks/useEditorSoldering';
 import ConnectionConditionBadge from './ConnectionConditionBadge';
 import { getNodeOutputPort, getNodeInputPort } from './EditorNode';
 
@@ -12,8 +11,7 @@ interface ConnectionsLayerProps {
     connections: Connection[];
     nodes: WorkflowNode[];
     viewport: ViewportState;
-    soldering: SolderState | null;
-    nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED'>;
+    nodeStatuses?: Record<string, 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'SKIPPED' | 'CANCELLED'>;
     selectedConnection: string | null;
     creatingConnection: CreatingConnectionState | null;
     cyclicConnections: string[];
@@ -25,7 +23,6 @@ export default function ConnectionsLayer({
     connections,
     nodes,
     viewport,
-    soldering,
     nodeStatuses = {},
     cyclicConnections,
     onConditionChange,
@@ -38,7 +35,6 @@ export default function ConnectionsLayer({
         nodes,
         connections,
         viewport,
-        soldering,
         cyclicConnections,
         nodeStatuses,
     });

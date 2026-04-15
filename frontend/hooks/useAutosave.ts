@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import type { WorkflowNode, Connection } from '@cairn/shared';
+import { nodesToSpec, specToYaml, RunbookYamlError, type RunbookHeader } from '../utils/runbookYaml';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export type SaveStatus = 'saving' | 'saved' | 'error' | 'conflict';
 
@@ -7,6 +10,12 @@ interface AutosaveOptions {
     nodes: WorkflowNode[];
     connections: Connection[];
     workflowId: string;
+    /** When provided, autosave will first attempt the canonical YAML
+     * round-trip via PUT /api/runbooks/:id/yaml and only fall back to
+     * the legacy nodes/connections PUT if the YAML serialization or
+     * the YAML endpoint fails. Without it, autosave behaves exactly
+     * like the legacy implementation. */
+    runbookHeader?: RunbookHeader;
     debounceMs?: number;
 }
 
@@ -22,6 +31,7 @@ export function useAutosave({
     nodes,
     connections,
     workflowId,
+    runbookHeader,
     debounceMs = 2000,
 }: AutosaveOptions) {
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
@@ -39,9 +49,53 @@ export function useAutosave({
         }
     }, [workflowId]);
 
-    const saveToBackend = useCallback(async (data: WorkflowData): Promise<boolean> => {
+    /**
+     * Try the canonical YAML save path first. Returns true on success,
+     * false if it should fall back to the legacy nodes/connections
+     * save (because nodesToSpec failed, or the YAML endpoint rejected
+     * the body, or the network call errored).
+     */
+    const saveYamlToBackend = useCallback(async (data: WorkflowData): Promise<boolean> => {
+        if (!runbookHeader) return false;
         try {
-            const response = await fetch(`/api/workflows/${workflowId}`, {
+            const spec = nodesToSpec(runbookHeader, data.nodes, data.connections);
+            const yamlBody = specToYaml(spec);
+            const response = await fetch(`${API_BASE}/api/runbooks/${workflowId}/yaml`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ yaml: yamlBody }),
+            });
+            if (!response.ok) {
+                // 4xx is a real spec error — let it surface to the user
+                // (as a generic save error). 5xx might be transient.
+                console.warn('YAML save failed, will fall back to legacy', response.status);
+                return false;
+            }
+            return true;
+        } catch (err) {
+            if (err instanceof RunbookYamlError) {
+                console.warn('YAML serialization failed, falling back to legacy save:', err.message);
+            } else {
+                console.warn('YAML save error, falling back to legacy:', err);
+            }
+            return false;
+        }
+    }, [runbookHeader, workflowId]);
+
+    const saveToBackend = useCallback(async (data: WorkflowData): Promise<boolean> => {
+        // Try YAML first when a header is available — that path keeps
+        // the canonical RunbookSpec in sync on every save, so the YAML
+        // round-trip endpoint and any CLI/git consumer always sees a
+        // current snapshot. If it fails for any reason we fall through
+        // to the legacy nodes/connections save so we never lose data.
+        const yamlOk = await saveYamlToBackend(data);
+        if (yamlOk) {
+            lastSavedTimestampRef.current = data.timestamp;
+            return true;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/api/runbooks/${workflowId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -71,11 +125,11 @@ export function useAutosave({
             console.error('Backend save error:', error);
             return false;
         }
-    }, [workflowId]);
+    }, [workflowId, saveYamlToBackend]);
 
     const checkForConflicts = useCallback(async (): Promise<boolean> => {
         try {
-            const response = await fetch(`/api/workflows/${workflowId}/metadata`);
+            const response = await fetch(`${API_BASE}/api/runbooks/${workflowId}/metadata`);
 
             // If it's the scratchpad and doesn't exist yet, there's no conflict.
             if (response.status === 404 && workflowId === 'current-workflow') {
@@ -175,9 +229,50 @@ export function useAutosave({
         localStorage.setItem('nanoflow-autosave-enabled', enableAutosave.toString());
     }, [enableAutosave]);
 
+    /**
+     * Force-save current state, ignoring any conflict. Called by the UI
+     * when the user explicitly chooses "overwrite server version" after
+     * a conflict is detected. Resets the conflict status so autosave
+     * resumes normally.
+     */
+    const forceOverwrite = useCallback(async () => {
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+        setSaveStatus('saving');
+
+        // Reset the timestamp so the conflict check won't fire again
+        lastSavedTimestampRef.current = 0;
+
+        const workflowData: WorkflowData = {
+            nodes,
+            connections,
+            version: '1.0',
+            timestamp: Date.now(),
+            workflowId,
+        };
+
+        saveToLocalStorage(workflowData);
+
+        const success = await saveToBackend(workflowData);
+        setSaveStatus(success ? 'saved' : 'error');
+        isSavingRef.current = false;
+    }, [nodes, connections, workflowId, saveToLocalStorage, saveToBackend]);
+
+    /**
+     * Discard local changes and reload from server. Called when the
+     * user chooses "use server version" after a conflict.
+     */
+    const discardLocal = useCallback(() => {
+        setSaveStatus('saved');
+        lastSavedTimestampRef.current = 0;
+        // The caller (EditorCanvas) should re-fetch the workflow
+    }, []);
+
     return {
         saveStatus,
         enableAutosave,
         setEnableAutosave,
+        forceOverwrite,
+        discardLocal,
     };
 }

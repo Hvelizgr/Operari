@@ -1,5 +1,5 @@
 {
-  "name": "nanoflow",
+  "name": "cairn",
   "private": true,
   "workspaces": [
     "frontend",

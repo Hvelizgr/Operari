@@ -2,23 +2,28 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { Menu, X } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Menu, X, Github } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
 import { content } from '@/app/[lang]/content/en';
+import { repo } from '@/config/repo.config';
 
 type NavbarProps = {
     content: typeof content.navigation;
     lang: string;
 };
 
+/**
+ * Navbar — minimal, post-pivot.
+ *
+ * Removed every "#" placeholder link from the previous version. The
+ * landing has 6 sections, all on one page, so we either anchor-link
+ * to them or send users to GitHub. Pricing/Solutions are gone — they
+ * were aspirational and we are pre-launch.
+ */
 export default function Navbar({ content, lang }: NavbarProps) {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const { scrollY } = useScroll();
-
-    const backgroundOpacity = useTransform(scrollY, [0, 50], [0, 1]);
-    const borderOpacity = useTransform(scrollY, [0, 50], [0, 1]);
 
     useEffect(() => {
         const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -27,80 +32,130 @@ export default function Navbar({ content, lang }: NavbarProps) {
     }, []);
 
     return (
-        <motion.header
-            className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center pt-4 px-4"
-        >
-            <motion.div
-                style={{
-                    backgroundColor: `rgba(var(--background), ${isScrolled ? 0.8 : 0})`,
-                    backdropFilter: isScrolled ? "blur(12px)" : "none",
-                }}
-                className={`w-full max-w-6xl rounded-2xl flex items-center justify-between px-6 py-4 transition-all duration-300 ${isScrolled ? 'border border-border shadow-sm' : ''}`}
+        <motion.header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center pt-3 sm:pt-4 px-3 sm:px-4">
+            <div
+                className={`w-full max-w-6xl rounded-xl sm:rounded-2xl flex items-center justify-between px-4 sm:px-5 py-3 transition-all duration-300 ${isScrolled ? 'bg-background/80 backdrop-blur-xl border border-border/60 shadow-lg shadow-black/20' : 'bg-transparent border border-transparent'}`}
             >
                 {/* Logo */}
-                <Link href={`/${lang}`} className="flex items-center gap-2 font-bold text-xl tracking-tighter">
-                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                <Link
+                    href={`/${lang}`}
+                    className="flex items-center gap-2.5 font-bold text-lg tracking-tight text-foreground"
+                >
+                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+                        <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                        >
+                            <polyline points="6 9 12 15 18 9" />
                         </svg>
                     </div>
-                    NanoFlow
+                    NanoRun
                 </Link>
 
-                {/* Desktop Nav */}
-                <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
-                    <Link href="#" className="hover:text-foreground transition-colors">{content.product}</Link>
-                    <Link href="#" className="hover:text-foreground transition-colors">{content.solutions}</Link>
-                    <Link href="#" className="hover:text-foreground transition-colors">{content.pricing}</Link>
-                    <Link href="#" className="hover:text-foreground transition-colors">{content.docs}</Link>
+                {/* Desktop nav — anchor links to in-page sections */}
+                <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-muted-foreground">
+                    <a href="#story" className="hover:text-foreground transition-colors">
+                        {content.product}
+                    </a>
+                    <a href="#triggers" className="hover:text-foreground transition-colors">
+                        {lang === 'es' ? 'Triggers' : 'Triggers'}
+                    </a>
+                    <a href="#compare" className="hover:text-foreground transition-colors">
+                        {lang === 'es' ? 'Comparar' : 'Compare'}
+                    </a>
+                    <a
+                        href={repo.readme}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-foreground transition-colors"
+                    >
+                        {content.docs}
+                    </a>
                 </nav>
 
-                {/* Listeners & Actions */}
-                <div className="hidden md:flex items-center gap-4">
+                {/* Right actions */}
+                <div className="hidden md:flex items-center gap-3">
                     <LanguageSwitcher lang={lang} />
-                    <Link href="#" className="text-sm font-medium hover:text-primary transition-colors">
-                        {content.login}
-                    </Link>
-                    <Link
-                        href="#"
-                        className="text-sm font-bold bg-foreground text-background px-4 py-2 rounded-lg hover:bg-foreground/80 transition-colors"
+                    <a
+                        href={repo.base}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="GitHub"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        <Github className="w-5 h-5" />
+                    </a>
+                    <a
+                        href="#self-host"
+                        className="text-sm font-semibold bg-foreground text-background px-4 py-2 rounded-lg hover:bg-foreground/90 transition-colors"
                     >
                         {content.getStarted}
-                    </Link>
+                    </a>
                 </div>
 
-                {/* Mobile Toggle */}
+                {/* Mobile toggle */}
                 <button
                     className="md:hidden p-2 text-foreground"
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    aria-label="Toggle menu"
                 >
                     {mobileMenuOpen ? <X /> : <Menu />}
                 </button>
-            </motion.div>
+            </div>
 
-            {/* Mobile Menu Overlay */}
+            {/* Mobile menu */}
             {mobileMenuOpen && (
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="absolute top-20 left-4 right-4 bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-6 md:hidden"
                 >
-                    <nav className="flex flex-col gap-4 text-lg font-medium">
-                        <Link href="#" className="hover:text-primary">{content.product}</Link>
-                        <Link href="#" className="hover:text-primary">{content.solutions}</Link>
-                        <Link href="#" className="hover:text-primary">{content.pricing}</Link>
-                        <Link href="#" className="hover:text-primary">{content.docs}</Link>
+                    <nav className="flex flex-col gap-4 text-base font-medium">
+                        <a href="#story" onClick={() => setMobileMenuOpen(false)} className="hover:text-primary">
+                            {content.product}
+                        </a>
+                        <a href="#triggers" onClick={() => setMobileMenuOpen(false)} className="hover:text-primary">
+                            Triggers
+                        </a>
+                        <a href="#compare" onClick={() => setMobileMenuOpen(false)} className="hover:text-primary">
+                            {lang === 'es' ? 'Comparar' : 'Compare'}
+                        </a>
+                        <a
+                            href={repo.readme}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-primary"
+                        >
+                            {content.docs}
+                        </a>
                     </nav>
                     <div className="h-px bg-border" />
                     <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground text-sm">{content.login}</span>
                         <LanguageSwitcher lang={lang} />
+                        <a
+                            href={repo.base}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-muted-foreground hover:text-foreground"
+                            aria-label="GitHub"
+                        >
+                            <Github className="w-5 h-5" />
+                        </a>
                     </div>
-                    <button className="w-full bg-primary text-primary-foreground font-bold py-3 rounded-xl">
+                    <a
+                        href="#self-host"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="w-full bg-foreground text-background font-semibold py-3 rounded-xl text-center"
+                    >
                         {content.getStarted}
-                    </button>
+                    </a>
                 </motion.div>
             )}
         </motion.header>

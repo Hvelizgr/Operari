@@ -3,6 +3,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FileText, Clock, ToggleLeft, ToggleRight, Save, Tag } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import CronPicker from './CronPicker';
+import TriggersPanel from './TriggersPanel';
 
 export interface WorkflowProperties {
     id?: string;
@@ -62,13 +64,13 @@ export default function WorkflowPropertiesPanel({
 
     const content = {
         en: {
-            title: 'Workflow Properties',
+            title: 'Runbook settings',
             name: 'Name',
-            namePlaceholder: 'My Workflow',
+            namePlaceholder: 'My runbook',
             description: 'Description',
-            descriptionPlaceholder: 'Describe what this workflow does...',
+            descriptionPlaceholder: 'Describe what this runbook does...',
             active: 'Active',
-            activeDescription: 'Enable or disable this workflow',
+            activeDescription: 'Enable or disable this runbook',
             schedule: 'Schedule (Cron)',
             schedulePlaceholder: '0 * * * * (every hour)',
             scheduleDescription: 'Cron expression for scheduled execution',
@@ -86,13 +88,13 @@ export default function WorkflowPropertiesPanel({
             close: 'Close',
         },
         es: {
-            title: 'Propiedades del Flujo',
+            title: 'Configuración del runbook',
             name: 'Nombre',
-            namePlaceholder: 'Mi Flujo de Trabajo',
+            namePlaceholder: 'Mi runbook',
             description: 'Descripción',
-            descriptionPlaceholder: 'Describe qué hace este flujo...',
+            descriptionPlaceholder: 'Describe qué hace este runbook...',
             active: 'Activo',
-            activeDescription: 'Activar o desactivar este flujo',
+            activeDescription: 'Activar o desactivar este runbook',
             schedule: 'Programación (Cron)',
             schedulePlaceholder: '0 * * * * (cada hora)',
             scheduleDescription: 'Expresión cron para ejecución programada',
@@ -149,7 +151,7 @@ export default function WorkflowPropertiesPanel({
 
                     {/* Content */}
                     <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-6">
-                        {/* Workflow Name */}
+                        {/* Runbook name */}
                         <div>
                             <label className={labelClass}>{text.name}</label>
                             <input
@@ -192,20 +194,14 @@ export default function WorkflowPropertiesPanel({
                         </div>
 
                         {/* Schedule */}
-                        <div>
-                            <label className={labelClass}>
-                                <Clock size={12} className="inline mr-1" />
-                                {text.schedule}
-                            </label>
-                            <input
-                                type="text"
-                                value={localProps.schedule || ''}
-                                onChange={(e) => handleChange('schedule', e.target.value || null)}
-                                placeholder={text.schedulePlaceholder}
-                                className={`${inputClass} font-mono`}
-                            />
-                            <p className="text-[10px] text-slate-500 mt-1">{text.scheduleDescription}</p>
-                        </div>
+                        <CronPicker
+                            lang={lang}
+                            value={localProps.schedule}
+                            onChange={(next) => handleChange('schedule', next)}
+                        />
+
+                        {/* Triggers */}
+                        <TriggersPanel lang={lang} workflowId={localProps.id} />
 
                         {/* Tags */}
                         <div>

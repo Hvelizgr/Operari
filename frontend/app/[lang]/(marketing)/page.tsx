@@ -1,12 +1,10 @@
 import { content as contentEn } from '../content/en';
 import { content as contentEs } from '../content/es';
 import Hero from './components/Hero';
-import Features from './components/Features';
-import EditorSimulation from './components/EditorSimulation';
-import Integrations from './components/Integrations';
-import UseCases from './components/UseCases';
-import HowItWorks from './components/HowItWorks';
-import Testimonials from './components/Testimonials';
+import Story from './components/Story';
+import Templates from './components/Templates';
+import TriggerSources from './components/TriggerSources';
+import Comparison from './components/Comparison';
 import CTA from './components/CTA';
 import Footer from './components/Footer';
 
@@ -14,6 +12,24 @@ export async function generateStaticParams() {
     return [{ lang: 'en' }, { lang: 'es' }];
 }
 
+/**
+ * Marketing landing — six sections, one narrative.
+ *
+ *   Hero          → "Your alert fires. NanoRun runs the fix." +
+ *                   live alert→runbook scenario card
+ *   Story         → 01 author / 02 commit / 03 respond, with stylized
+ *                   editor / yaml-diff / run-timeline mockups
+ *   Templates     → 4 real .yaml templates from /templates, each card
+ *                   linking to the file on GitHub. Replaces the old
+ *                   EditorSimulation (which was visually out of step
+ *                   with the new design and used CRUD-app snippets).
+ *   TriggerSrcs   → Sentry / Datadog / GitHub / webhook cards +
+ *                   "every step calls real tools" strip
+ *   Comparison    → honest table vs Rundeck / StackStorm / incident.io
+ *                   / Backstage, with explicit losses
+ *   CTA           → docker compose snippet + README + "what does NOT
+ *                   work yet" links
+ */
 export default async function Page({
     params,
 }: {
@@ -24,21 +40,27 @@ export default async function Page({
 
     return (
         <main className="flex-1 bg-background selection:bg-primary/20">
-            <Hero content={content.hero} modalContent={content.modal} />
+            <Hero content={content.hero} />
 
-            <Features content={content.features} />
+            <div id="story">
+                <Story content={content.story} />
+            </div>
 
-            <EditorSimulation content={content.editor} />
+            <div id="templates">
+                <Templates content={content.templates} />
+            </div>
 
-            <Integrations content={content.integrations} />
+            <div id="triggers">
+                <TriggerSources content={content.triggers} />
+            </div>
 
-            <UseCases content={content.useCases} />
+            <div id="compare">
+                <Comparison content={content.comparison} />
+            </div>
 
-            <HowItWorks content={content.howItWorks} />
-
-            <Testimonials content={content.testimonials} />
-
-            <CTA content={content.cta} modalContent={content.modal} />
+            <div id="self-host">
+                <CTA content={content.cta} />
+            </div>
 
             <Footer content={content.footer} />
         </main>

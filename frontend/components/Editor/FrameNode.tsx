@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { WorkflowNode } from '@nanoflow/shared';
+import type { WorkflowNode } from '@cairn/shared';
 
 interface FrameNodeProps {
     node: WorkflowNode;

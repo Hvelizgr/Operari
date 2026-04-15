@@ -114,14 +114,14 @@ export default function Onboarding({
 export function EmptyStateMessage({ lang }: { lang: 'en' | 'es' }) {
     const content = {
         en: {
-            title: 'Welcome to NanoFlow Editor',
-            description: 'Start building your workflow by adding nodes and connecting them.',
-            cta: 'Add Your First Node',
+            title: 'Welcome to the NanoRun canvas',
+            description: 'Start building a runbook by adding steps and sequencing them.',
+            cta: 'Add your first step',
         },
         es: {
-            title: 'Bienvenido al Editor NanoFlow',
-            description: 'Comienza a construir tu flujo agregando nodos y conectándolos.',
-            cta: 'Agregar Tu Primer Nodo',
+            title: 'Bienvenido al canvas NanoRun',
+            description: 'Empezá a construir un runbook agregando pasos y secuenciándolos.',
+            cta: 'Agregar tu primer paso',
         },
     };
 
@@ -152,64 +152,64 @@ export function EmptyStateMessage({ lang }: { lang: 'en' | 'es' }) {
 
 export const ONBOARDING_STEPS_EN: OnboardingStep[] = [
     {
-        title: 'Welcome to the Editor',
-        description: 'This is your visual workflow canvas. You can pan by dragging and zoom with your mouse wheel.',
+        title: 'Welcome to the canvas',
+        description: 'This is your runbook canvas. Pan by dragging, zoom with the mouse wheel.',
         position: { x: 100, y: 100 },
         highlight: 'canvas' as const,
     },
     {
-        title: 'Workflow Nodes',
-        description: 'These are workflow nodes. Each node represents an action or trigger in your automation.',
+        title: 'Runbook steps',
+        description: 'Each step is one action: a shell command, an HTTP call, an approval gate, a notification.',
         position: { x: 150, y: 200 },
         highlight: 'node' as const,
     },
     {
-        title: 'Output Ports',
-        description: 'Drag from the blue output port on the right to connect nodes together.',
+        title: 'Output ports',
+        description: 'Drag from the output port on the right to sequence the next step.',
         position: { x: 500, y: 180 },
         highlight: 'port-output' as const,
     },
     {
-        title: 'Input Ports',
-        description: 'Drop connections on the input port (left side) to link workflows.',
+        title: 'Input ports',
+        description: 'Drop connections on the input port (left side) to chain steps.',
         position: { x: 450, y: 280 },
         highlight: 'port-input' as const,
     },
     {
-        title: 'Ready to Build!',
-        description: 'You can now drag nodes, create connections, and build powerful automations!',
+        title: 'Ready to run',
+        description: 'Drag steps in, sequence them, hit Run. Logs stream live in the terminal panel.',
         position: { x: 300, y: 150 },
     },
 ];
 
 export const ONBOARDING_STEPS_ES: OnboardingStep[] = [
     {
-        title: 'Bienvenido al Editor',
-        description: 'Este es tu canvas de flujo visual. Puedes desplazarte arrastrando y hacer zoom con la rueda del mouse.',
+        title: 'Bienvenido al canvas',
+        description: 'Este es el canvas del runbook. Desplazate arrastrando, hacé zoom con la rueda del mouse.',
         position: { x: 100, y: 100 },
         highlight: 'canvas' as const,
     },
     {
-        title: 'Nodos de Flujo',
-        description: 'Estos son nodos de flujo. Cada nodo representa una acción o disparador en tu automatización.',
+        title: 'Pasos del runbook',
+        description: 'Cada paso es una acción: un comando shell, una llamada HTTP, un gate de aprobación, una notificación.',
         position: { x: 150, y: 200 },
         highlight: 'node' as const,
     },
     {
-        title: 'Puertos de Salida',
-        description: 'Arrastra desde el puerto azul de salida a la derecha para conectar nodos.',
+        title: 'Puertos de salida',
+        description: 'Arrastrá desde el puerto de salida a la derecha para secuenciar el siguiente paso.',
         position: { x: 500, y: 180 },
         highlight: 'port-output' as const,
     },
     {
-        title: 'Puertos de Entrada',
-        description: 'Suelta las conexiones en el puerto de entrada (lado izquierdo) para vincular flujos.',
+        title: 'Puertos de entrada',
+        description: 'Soltá las conexiones en el puerto de entrada (lado izquierdo) para encadenar pasos.',
         position: { x: 450, y: 280 },
         highlight: 'port-input' as const,
     },
     {
-        title: '¡Listo para Construir!',
-        description: '¡Ahora puedes arrastrar nodos, crear conexiones y construir automatizaciones poderosas!',
+        title: 'Listo para correr',
+        description: 'Arrastrá pasos, secuencialos, dale Run. Los logs aparecen en vivo en el panel de terminal.',
         position: { x: 300, y: 150 },
     },
 ];

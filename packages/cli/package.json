@@ -1,0 +1,31 @@
+{
+  "name": "@cairn/cli",
+  "version": "0.1.0",
+  "description": "Run Cairn runbooks from your terminal",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "bin": {
+    "cairn": "./bin/cairn"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "echo 'no tests yet'"
+  },
+  "dependencies": {
+    "@cairn/sdk": "^0.1.0",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

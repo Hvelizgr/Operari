@@ -1,8 +1,16 @@
 import { ExecutionInput, RepeatResult, RepeatNodeConfig } from '../../types/workflow.types';
 import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
+import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
 
-export class RepeatNodeExecutor {
-    async execute(config: RepeatNodeConfig, input: ExecutionInput): Promise<RepeatResult> {
+export class RepeatNodeExecutor
+    implements EditorNodeExecutor<RepeatNodeConfig, RepeatResult> {
+    readonly type = 'Repeat';
+
+    async execute(
+        config: RepeatNodeConfig,
+        input: ExecutionInput,
+        _errorContext: NodeErrorContext,
+    ): Promise<RepeatResult> {
         const { count = 1, parallel = true } = config;
 
         if (count < 1) {

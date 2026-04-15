@@ -2,6 +2,28 @@ import { Router } from 'express';
 import { prisma } from '../server';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 import { ExecutionService } from '../editor/execution/execution.service';
+import { AuditService } from '../audit/audit.service';
+import { getRunner } from '../runbook/runners';
+import { ExecutionEventStore } from '../runbook/engine/execution-event.store';
+
+let auditService: AuditService | null = null;
+function getAudit(): AuditService {
+    if (!auditService) auditService = new AuditService(prisma);
+    return auditService;
+}
+
+let eventStore: ExecutionEventStore | null = null;
+/**
+ * Returns the durable execution event store instance, or null when
+ * the durable engine is not enabled. The check matches the same env
+ * flag that ExecutionService uses so the cancel route does not
+ * write to the store unless the rest of the engine is too.
+ */
+function getEventStore(): ExecutionEventStore | null {
+    if (process.env.NANORUN_DURABLE_ENGINE !== 'true') return null;
+    if (!eventStore) eventStore = new ExecutionEventStore(prisma);
+    return eventStore;
+}
 
 const router = Router();
 
@@ -223,10 +245,85 @@ router.get('/:id', async (req: AuthRequest, res) => {
  *             example:
  *               error: "Workflow not found"
  */
+/**
+ * @swagger
+ * /executions/{id}/logs:
+ *   get:
+ *     summary: Replay logs for an execution from the durable Redis Streams log
+ *     tags: [Executions]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       Returns up to `count` log entries for the execution starting at
+ *       the cursor `fromId` (use `-` for the beginning, or the id from
+ *       the previous page to continue). Backed by the per-execution
+ *       Redis Stream `runs:{id}:logs`. Empty array when Redis is not
+ *       configured or the stream has no entries.
+ *
+ *       Use this endpoint to backfill the live log view when a websocket
+ *       client reconnects mid-run, or to replay a finished run for
+ *       debugging.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: fromId
+ *         schema: { type: string, default: '-' }
+ *       - in: query
+ *         name: count
+ *         schema: { type: integer, default: 1000, minimum: 1, maximum: 10000 }
+ *     responses:
+ *       200:
+ *         description: Array of log entries
+ */
+router.get('/:id/logs', async (req: AuthRequest, res) => {
+    try {
+        const executionId = req.params.id as string;
+        // Tenant guard: confirm the execution belongs to the caller's
+        // tenant before exposing its logs. The Redis stream itself is
+        // not tenant-scoped (key is per executionId) so this check is
+        // the only thing protecting cross-tenant log reads.
+        const execution = await prisma.execution.findFirst({
+            where: {
+                id: executionId,
+                workflow: { tenantId: req.user!.tenantId },
+            },
+            select: { id: true },
+        });
+        if (!execution) {
+            return res.status(404).json({ error: 'Execution not found' });
+        }
+
+        const fromId = (req.query.fromId as string | undefined) ?? '-';
+        const countParam = req.query.count as string | undefined;
+        let count = countParam ? parseInt(countParam, 10) : 1000;
+        if (!Number.isFinite(count) || count < 1) count = 1000;
+        if (count > 10000) count = 10000;
+
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { getLogStream } = require('../observability/log-stream.service');
+        const entries = await getLogStream().fetch(executionId, { fromId, count });
+        const total = await getLogStream().length(executionId);
+
+        return res.json({
+            executionId,
+            entries,
+            count: entries.length,
+            totalApprox: total,
+            nextFromId: entries.length > 0 ? entries[entries.length - 1].id : null,
+        });
+    } catch (error) {
+        req.log.error({ error }, 'Fetch logs error');
+        return res.status(500).json({ error: 'Failed to fetch logs' });
+    }
+});
+
 router.post('/:workflowId/run', async (req: AuthRequest, res) => {
     try {
         const workflowId = req.params.workflowId as string;
-        const workflow = await prisma.workflow.findFirst({
+        const workflow = await prisma.runbook.findFirst({
             where: {
                 id: workflowId,
                 tenantId: req.user!.tenantId,
@@ -241,6 +338,7 @@ router.post('/:workflowId/run', async (req: AuthRequest, res) => {
         const execution = await executionService.execute({
             workflowId: workflow.id,
             userId: req.user!.id,
+            tenantId: req.user!.tenantId,
             trigger: 'MANUAL',
             input: req.body.input || {},
         });
@@ -301,6 +399,67 @@ router.post('/:id/cancel', async (req: AuthRequest, res) => {
                 completedAt: new Date(),
             },
         });
+
+        // Signal the runner to actually stop in-flight work. Without this
+        // the DB row says CANCELLED but the docker container or fly
+        // machine keeps burning compute until its own timeout. Best-effort
+        // — a runner that does not implement cancel() (or fails) leaves
+        // an "orphan" run that will time out on its own.
+        let signalledProcesses = 0;
+        try {
+            const runner = getRunner();
+            if (runner.cancel) {
+                signalledProcesses = await runner.cancel(executionId);
+            }
+        } catch (runnerErr) {
+            req.log.error(
+                { err: runnerErr },
+                'runner.cancel failed; DB row is CANCELLED but in-flight work may continue',
+            );
+        }
+
+        // Audit: tamper-evident record of the cancel. Fire-and-forget so a
+        // broken audit chain never blocks the operator's ability to stop a
+        // run. See docs/audit-event-coverage.md.
+        try {
+            await getAudit().record({
+                tenantId: req.user!.tenantId,
+                type: 'run.cancelled',
+                actorId: req.user!.id,
+                actorType: 'user',
+                resource: executionId,
+                payload: {
+                    executionId,
+                    workflowId: execution.workflowId,
+                    cancelledAt: new Date().toISOString(),
+                    signalledProcesses,
+                },
+            });
+        } catch (auditErr) {
+            req.log.error({ err: auditErr }, 'audit write failed for run.cancelled');
+        }
+
+        // Durable engine (ADR 0003): mirror the cancel into the event
+        // store so the resume worker sees the run as terminal on the
+        // next backend restart. Best-effort, never blocks the response.
+        const store = getEventStore();
+        if (store) {
+            try {
+                await store.append(executionId, req.user!.tenantId, {
+                    type: 'run.cancelled',
+                    payload: {
+                        cancelledByActorId: req.user!.id,
+                        cancelledAt: new Date().toISOString(),
+                        signalledProcesses,
+                    },
+                });
+            } catch (eventErr) {
+                req.log.error(
+                    { err: eventErr },
+                    'execution event store write failed for run.cancelled',
+                );
+            }
+        }
 
         res.json({ message: 'Execution cancelled' });
     } catch (error) {

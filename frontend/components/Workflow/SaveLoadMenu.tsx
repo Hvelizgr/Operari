@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Save, FolderOpen, Download, Upload, X } from 'lucide-react';
 import { useState, useRef } from 'react';
-import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import type { WorkflowNode, Connection } from '@cairn/shared';
 
 interface SaveLoadMenuProps {
     nodes: WorkflowNode[];

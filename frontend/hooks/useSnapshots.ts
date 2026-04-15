@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
-import { WorkflowNode, Connection } from '@nanoflow/shared';
+import { WorkflowNode, Connection } from '@cairn/shared';
 
 export interface Snapshot {
     id: string;

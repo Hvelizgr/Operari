@@ -1,30 +1,20 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings } from 'lucide-react';
+import { X, Settings, RotateCw, GitBranch, ChevronDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import type { WorkflowNode, Connection } from '@nanoflow/shared';
+import type { WorkflowNode, Connection } from '@cairn/shared';
 import { NODE_TYPES, NodeType } from '../Node/NodePalette';
 import DynamicNodeForm from '../Node/DynamicNodeForm';
 import TriggerModifiersSection, { TriggerModifiers, DEFAULT_TRIGGER_MODIFIERS } from '../Node/TriggerModifiersSection';
+import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
 
-// Helper to check if a node type is a trigger
-const TRIGGER_TYPES = [
-    'n8n-nodes-base.webhook',
-    'n8n-nodes-base.scheduleTrigger',
-    'n8n-nodes-base.manualTrigger',
-    'n8n-nodes-base.cron',
-    'Webhook',
-    'Trigger',
-    'Schedule',
-];
-
-function isTriggerNode(nodeType: string): boolean {
-    return TRIGGER_TYPES.some(t =>
-        nodeType.toLowerCase().includes(t.toLowerCase()) ||
-        t.toLowerCase().includes(nodeType.toLowerCase())
-    );
-}
+// Default trigger/org type sets — used when no registry is provided.
+const DEFAULT_TRIGGER_TYPES = new Set([
+    'nanorun.webhook', 'nanorun.cron', 'nanorun.scheduleTrigger',
+    'nanorun.manualTrigger', 'Webhook', 'Trigger', 'Schedule',
+]);
+const DEFAULT_ORG_TYPES = new Set(['custom.frame', 'custom.note']);
 
 interface PropertiesPanelProps {
     node: WorkflowNode | null;
@@ -34,9 +24,12 @@ interface PropertiesPanelProps {
     lang: 'en' | 'es';
     nodes: WorkflowNode[];
     connections: Connection[];
+    registry?: NodeTypeRegistry;
 }
 
-export default function PropertiesPanel({ node, nodeTypeDefinition, onUpdate, onClose, lang, nodes, connections }: PropertiesPanelProps) {
+export default function PropertiesPanel({ node, nodeTypeDefinition, onUpdate, onClose, lang, nodes, connections, registry }: PropertiesPanelProps) {
+    const triggerTypes = registry?.triggerTypes ?? DEFAULT_TRIGGER_TYPES;
+    const orgTypes = registry?.organizationTypes ?? DEFAULT_ORG_TYPES;
     const [localTitle, setLocalTitle] = useState('');
     const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
 
@@ -158,8 +151,41 @@ export default function PropertiesPanel({ node, nodeTypeDefinition, onUpdate, on
                         />
                     </div>
 
+                    {/* Retry Policy — available on all step nodes (not triggers/org) */}
+                    {!triggerTypes.has(node.type) && !orgTypes.has(node.type) && (
+                        <>
+                            <div className="h-px bg-slate-700 my-4" />
+                            <RetryPolicySection
+                                retry={localConfig._retry}
+                                onChange={(retry) => {
+                                    const newConfig = { ...localConfig, _retry: retry };
+                                    setLocalConfig(newConfig);
+                                    onUpdate(node.id, { config: newConfig });
+                                }}
+                                lang={lang}
+                            />
+                        </>
+                    )}
+
+                    {/* Conditional Gates — available on all step nodes */}
+                    {!triggerTypes.has(node.type) && !orgTypes.has(node.type) && (
+                        <>
+                            <div className="h-px bg-slate-700 my-4" />
+                            <ConditionalGatesSection
+                                runIf={localConfig._runIf}
+                                skipIf={localConfig._skipIf}
+                                onChange={(runIf, skipIf) => {
+                                    const newConfig = { ...localConfig, _runIf: runIf, _skipIf: skipIf };
+                                    setLocalConfig(newConfig);
+                                    onUpdate(node.id, { config: newConfig });
+                                }}
+                                lang={lang}
+                            />
+                        </>
+                    )}
+
                     {/* Trigger Modifiers - Only show for trigger nodes */}
-                    {isTriggerNode(node.type) && (
+                    {triggerTypes.has(node.type) && (
                         <>
                             <div className="h-px bg-slate-700 my-4" />
                             <TriggerModifiersSection
@@ -216,7 +242,7 @@ function SettingsResolver({ node, localConfig, setLocalConfig, onUpdate, nodeTyp
     }
 
     // 2. Specific Fallbacks
-    if (node?.type === 'n8n-nodes-base.httpRequest') {
+    if (node?.type === 'nanorun.httpRequest') {
         return (
             <div className="space-y-4">
                 <ConfigField label="URL" description="Endpoint URL">
@@ -249,4 +275,220 @@ function SettingsResolver({ node, localConfig, setLocalConfig, onUpdate, nodeTyp
         </ConfigField>
     );
 
+}
+
+// ---------------------------------------------------------------------------
+// Retry Policy Section
+// ---------------------------------------------------------------------------
+
+interface RetryPolicy {
+    count: number;
+    backoff: 'fixed' | 'exponential';
+    delayMs: number;
+    maxDelayMs: number;
+}
+
+const DEFAULT_RETRY: RetryPolicy = { count: 0, backoff: 'fixed', delayMs: 1000, maxDelayMs: 30000 };
+
+function RetryPolicySection({
+    retry,
+    onChange,
+    lang,
+}: {
+    retry?: RetryPolicy;
+    onChange: (retry: RetryPolicy | undefined) => void;
+    lang: 'en' | 'es';
+}) {
+    const [isOpen, setIsOpen] = useState(!!retry?.count);
+    const policy = retry ?? DEFAULT_RETRY;
+
+    const text = lang === 'es' ? {
+        title: 'Política de reintento',
+        enabled: 'Reintentar en fallo',
+        count: 'Intentos',
+        backoff: 'Backoff',
+        delay: 'Delay (ms)',
+        maxDelay: 'Max delay (ms)',
+        fixed: 'Fijo',
+        exponential: 'Exponencial',
+    } : {
+        title: 'Retry policy',
+        enabled: 'Retry on failure',
+        count: 'Attempts',
+        backoff: 'Backoff',
+        delay: 'Delay (ms)',
+        maxDelay: 'Max delay (ms)',
+        fixed: 'Fixed',
+        exponential: 'Exponential',
+    };
+
+    const inputClass = "w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition-colors";
+    const labelClass = "text-[11px] font-bold uppercase text-slate-500";
+
+    return (
+        <div>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-2 text-xs font-bold uppercase text-amber-400 mb-3 hover:text-amber-300 transition-colors w-full"
+            >
+                <RotateCw size={14} />
+                {text.title}
+                <ChevronDown size={12} className={`ml-auto transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className="space-y-3 pl-1">
+                    <label className="flex items-center cursor-pointer gap-3">
+                        <div className="relative">
+                            <input
+                                type="checkbox"
+                                className="sr-only"
+                                checked={policy.count > 0}
+                                onChange={(e) => {
+                                    if (e.target.checked) {
+                                        onChange({ ...policy, count: policy.count || 3 });
+                                    } else {
+                                        onChange(undefined);
+                                    }
+                                }}
+                            />
+                            <div className={`w-9 h-5 rounded-full shadow-inner transition-colors ${policy.count > 0 ? 'bg-amber-500' : 'bg-slate-800'}`} />
+                            <div className={`absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${policy.count > 0 ? 'translate-x-4' : 'translate-x-0'}`} />
+                        </div>
+                        <span className="text-xs text-slate-300">{text.enabled}</span>
+                    </label>
+
+                    {policy.count > 0 && (
+                        <>
+                            <div>
+                                <label className={labelClass}>{text.count}</label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    value={policy.count}
+                                    onChange={(e) => onChange({ ...policy, count: Math.max(1, Number(e.target.value)) })}
+                                    className={inputClass}
+                                />
+                            </div>
+                            <div>
+                                <label className={labelClass}>{text.backoff}</label>
+                                <select
+                                    value={policy.backoff}
+                                    onChange={(e) => onChange({ ...policy, backoff: e.target.value as 'fixed' | 'exponential' })}
+                                    className={`${inputClass} appearance-none`}
+                                >
+                                    <option value="fixed">{text.fixed}</option>
+                                    <option value="exponential">{text.exponential}</option>
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className={labelClass}>{text.delay}</label>
+                                    <input
+                                        type="number"
+                                        min={100}
+                                        step={100}
+                                        value={policy.delayMs}
+                                        onChange={(e) => onChange({ ...policy, delayMs: Number(e.target.value) })}
+                                        className={inputClass}
+                                    />
+                                </div>
+                                {policy.backoff === 'exponential' && (
+                                    <div>
+                                        <label className={labelClass}>{text.maxDelay}</label>
+                                        <input
+                                            type="number"
+                                            min={1000}
+                                            step={1000}
+                                            value={policy.maxDelayMs}
+                                            onChange={(e) => onChange({ ...policy, maxDelayMs: Number(e.target.value) })}
+                                            className={inputClass}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Conditional Gates Section
+// ---------------------------------------------------------------------------
+
+function ConditionalGatesSection({
+    runIf,
+    skipIf,
+    onChange,
+    lang,
+}: {
+    runIf?: string;
+    skipIf?: string;
+    onChange: (runIf: string | undefined, skipIf: string | undefined) => void;
+    lang: 'en' | 'es';
+}) {
+    const [isOpen, setIsOpen] = useState(!!(runIf || skipIf));
+
+    const text = lang === 'es' ? {
+        title: 'Condiciones',
+        runIf: 'Ejecutar si (runIf)',
+        skipIf: 'Saltar si (skipIf)',
+        runIfHelp: 'Expresión que debe ser truthy para ejecutar este paso. Vacío = siempre ejecutar.',
+        skipIfHelp: 'Expresión que debe ser truthy para saltar este paso.',
+        placeholder: '{{steps.check.output.status}} === "ready"',
+    } : {
+        title: 'Conditions',
+        runIf: 'Run if (runIf)',
+        skipIf: 'Skip if (skipIf)',
+        runIfHelp: 'Expression that must be truthy to execute this step. Empty = always run.',
+        skipIfHelp: 'Expression that must be truthy to skip this step.',
+        placeholder: '{{steps.check.output.status}} === "ready"',
+    };
+
+    const inputClass = "w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition-colors font-mono";
+    const labelClass = "text-[11px] font-bold uppercase text-slate-500";
+
+    return (
+        <div>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-2 text-xs font-bold uppercase text-purple-400 mb-3 hover:text-purple-300 transition-colors w-full"
+            >
+                <GitBranch size={14} />
+                {text.title}
+                <ChevronDown size={12} className={`ml-auto transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <div className="space-y-4 pl-1">
+                    <div>
+                        <label className={labelClass}>{text.runIf}</label>
+                        <textarea
+                            value={runIf || ''}
+                            onChange={(e) => onChange(e.target.value || undefined, skipIf)}
+                            className={inputClass}
+                            rows={2}
+                            placeholder={text.placeholder}
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1 leading-tight">{text.runIfHelp}</p>
+                    </div>
+                    <div>
+                        <label className={labelClass}>{text.skipIf}</label>
+                        <textarea
+                            value={skipIf || ''}
+                            onChange={(e) => onChange(runIf, e.target.value || undefined)}
+                            className={inputClass}
+                            rows={2}
+                            placeholder={text.placeholder}
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1 leading-tight">{text.skipIfHelp}</p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }

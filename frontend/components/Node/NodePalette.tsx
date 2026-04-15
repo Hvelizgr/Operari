@@ -3,13 +3,12 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChevronDown, ChevronRight, Search, X,
-    Globe, Mail, Database, Clock, GitBranch, Code, MessageSquare,
-    FileText, Calendar, Webhook, Folder, Send, Key, Zap, Settings,
-    Cloud, Server, Hash, Link, Play, Pause, RefreshCw, Filter,
-    AlertCircle, CheckCircle, XCircle, List, Grid, Shuffle,
-    Users, DollarSign, ShoppingBag, HardDrive, Smartphone, Radio,
-    Twitter, Facebook, Instagram, Linkedin, CreditCard, Box,
-    Megaphone, Bell, Shield, Lock, Briefcase, Square, StickyNote
+    Globe, Clock,
+    Webhook, Folder, Zap,
+    Play,
+    Bell, Square, StickyNote,
+    Terminal, UserCheck,
+    KeyRound, Database
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
@@ -25,35 +24,215 @@ export interface NodeType {
     properties?: any[]; // Dynamic form schema
 }
 
-// n8n-style categories
+// NanoRun runbook step categories — only categories that have at least
+// one step type with a real backend executor. Categories without
+// backing executors (flow control, integrations, ai) were dropped on
+// the editor cleanup pass — they were vapor and produced "Unknown
+// node type" the moment an operator tried to run them. To re-add a
+// category, first land its executor in backend/src/runbook/executors/.
 const CATEGORIES = [
-    { id: 'triggers', label: { en: 'Triggers', es: 'Disparadores' }, icon: Play, color: 'text-green-400' },
+    { id: 'devops', label: { en: 'Runbook core', es: 'Runbook core' }, icon: Terminal, color: 'text-emerald-400' },
+    { id: 'triggers', label: { en: 'Triggers', es: 'Triggers' }, icon: Play, color: 'text-green-400' },
     { id: 'core', label: { en: 'Core', es: 'Core' }, icon: Zap, color: 'text-blue-400' },
     { id: 'organization', label: { en: 'Organization', es: 'Organización' }, icon: Folder, color: 'text-slate-400' },
-    { id: 'ai', label: { en: 'AI & LLM', es: 'IA y LLM' }, icon: MessageSquare, color: 'text-rose-400' },
-    { id: 'flow', label: { en: 'Flow', es: 'Flujo' }, icon: GitBranch, color: 'text-yellow-400' },
-    { id: 'data', label: { en: 'Data', es: 'Datos' }, icon: Shuffle, color: 'text-purple-400' },
-    { id: 'social', label: { en: 'Social Media', es: 'Redes Sociales' }, icon: Users, color: 'text-sky-400' },
-    { id: 'communication', label: { en: 'Communication', es: 'Comunicación' }, icon: Send, color: 'text-orange-400' },
-    { id: 'marketing', label: { en: 'Marketing & CRM', es: 'Marketing y CRM' }, icon: Megaphone, color: 'text-pink-400' },
-    { id: 'productivity', label: { en: 'Productivity', es: 'Productividad' }, icon: Calendar, color: 'text-cyan-400' },
-    { id: 'storage', label: { en: 'Storage & Files', es: 'Archivos' }, icon: HardDrive, color: 'text-teal-400' },
-    { id: 'payment', label: { en: 'Finance & Payment', es: 'Pagos' }, icon: DollarSign, color: 'text-emerald-400' },
-    { id: 'developer', label: { en: 'Developer Tools', es: 'Desarrollo' }, icon: Code, color: 'text-slate-400' },
 ];
 
-// n8n actual nodes
+// Curated runbook step palette — see docs/rebranding-and-editor-audit.md
+// section 3.5 for the full rationale. Down from 72 nodes to ~20.
+//
+// What got dropped:
+//   - Social: Twitter, LinkedIn, Facebook, Instagram, Discord, Reddit
+//   - Marketing/CRM: HubSpot, Salesforce, Mailchimp, Pipedrive, ActiveCampaign
+//   - E-commerce/payments: Stripe (as integration), PayPal, Shopify
+//   - Productivity: Google Sheets, Google Calendar, Notion, Airtable, Trello
+//   - Storage: Google Drive, Dropbox, OneDrive (kept S3 only)
+//   - Data ETL: Filter, JSON Parse, Item Lists, Split In Batches, Rename Keys
+//   - Communication: Telegram, MS Teams, WhatsApp, Email Send (Notify covers)
+//   - AI providers as individual nodes: OpenAI, LangChain, HuggingFace,
+//     Anthropic, StabilityAI (the agent is global, not per-step)
+//   - Redundant: function (dup of code), code (conflicts with shell),
+//     manualTrigger (Run button), executeWorkflow, merge (data-flow concept),
+//     n8n wait trigger (conflict with wait.executor), controller multiplex/
+//     split/join, scheduleTrigger (cron covers it)
+//   - Database: MySQL, Redis (kept Postgres only)
+//
+// What stayed (post-pivot, hand-verified against the backend executors):
+//   shell, approval, notify, wait, nanorun.httpRequest,
+//   nanorun.webhook (trigger), nanorun.cron (trigger),
+//   custom.frame, custom.note.
+// 9 step types total. Anything not on this list has no executor and
+// must not be re-added to the palette without one.
 const NODE_TYPES: NodeType[] = [
+    // === RUNBOOK CORE (NanoRun-native step types) ===
+    {
+        type: 'shell',
+        icon: <Terminal size={18} />,
+        label: { en: 'Shell command', es: 'Comando shell' },
+        color: 'bg-emerald-600',
+        category: 'devops',
+        description: { en: 'Run a bash/sh command in a sandboxed runner', es: 'Ejecutar un comando bash/sh en un runner aislado' },
+        inputs: ['main'],
+        outputs: ['main'],
+        properties: [
+            { name: 'command', displayName: 'Command', type: 'string', default: 'echo "hello from nanorun"' },
+            { name: 'cwd', displayName: 'Working directory', type: 'string', default: '' },
+            { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 60000 },
+        ]
+    },
+    {
+        type: 'ssh',
+        icon: <KeyRound size={18} />,
+        label: { en: 'SSH command', es: 'Comando SSH' },
+        color: 'bg-cyan-600',
+        category: 'devops',
+        description: { en: 'Run a command on a remote host via SSH', es: 'Ejecutar comando en host remoto vía SSH' },
+        inputs: ['main'],
+        outputs: ['main'],
+        properties: [
+            { name: 'host', displayName: 'Host', type: 'string', default: '', typeOptions: { expression: true }, description: 'IP or hostname. Supports {{vars.x}} templates.' },
+            { name: 'port', displayName: 'Port', type: 'number', default: 22 },
+            { name: 'username', displayName: 'Username', type: 'string', default: 'deploy', typeOptions: { expression: true } },
+            { name: 'credentialId', displayName: 'SSH private key', type: 'secret', typeOptions: { provider: 'ssh' }, description: 'ConnectedAccount holding the PEM-encoded private key.' },
+            { name: 'command', displayName: 'Command', type: 'string', default: 'hostname', typeOptions: { rows: 3, expression: true }, description: 'Shell command to execute on the remote host.' },
+            { name: 'cwd', displayName: 'Working directory', type: 'string', default: '', description: 'Prepended as cd <dir> && before the command.' },
+            { name: 'failOnNonZeroExit', displayName: 'Fail on non-zero exit', type: 'boolean', default: true },
+            { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 60000 },
+        ]
+    },
+    {
+        type: 'nanorun.database',
+        icon: <Database size={18} />,
+        label: { en: 'Database', es: 'Base de datos' },
+        color: 'bg-violet-600',
+        category: 'devops',
+        description: { en: 'Introspect schema, health check, or read-only query (PostgreSQL)', es: 'Introspección de esquema, health check o consulta de lectura (PostgreSQL)' },
+        inputs: ['main'],
+        outputs: ['main'],
+        properties: [
+            { name: 'operation', displayName: 'Operation', type: 'options', options: [
+                { name: 'Health check', value: 'health' },
+                { name: 'Introspect schema', value: 'introspect' },
+                { name: 'Query (read-only)', value: 'query' },
+            ], default: 'health' },
+            { name: 'credentialId', displayName: 'Database credential', type: 'secret', typeOptions: { provider: 'postgres' }, description: 'ConnectedAccount with PostgreSQL connection string.' },
+            { name: 'query', displayName: 'SQL query', type: 'sql', default: '', typeOptions: { rows: 5 }, description: 'Only for operation=query. Read-only (wrapped in BEGIN READ ONLY).' },
+            { name: 'useSshTunnel', displayName: 'Use SSH tunnel (bastion)', type: 'boolean', default: false, description: 'Route through an SSH bastion host for protected databases.' },
+            { name: 'sshTunnel.host', displayName: 'Bastion host', type: 'string', default: '', typeOptions: { expression: true }, description: 'SSH bastion hostname or IP.' },
+            { name: 'sshTunnel.port', displayName: 'Bastion SSH port', type: 'number', default: 22 },
+            { name: 'sshTunnel.username', displayName: 'Bastion username', type: 'string', default: 'ec2-user', typeOptions: { expression: true } },
+            { name: 'sshTunnel.sshCredentialId', displayName: 'Bastion SSH key', type: 'secret', typeOptions: { provider: 'ssh' }, description: 'SSH private key for the bastion host.' },
+            { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 30000 },
+        ]
+    },
+    {
+        type: 'approval',
+        icon: <UserCheck size={18} />,
+        label: { en: 'Approval gate', es: 'Gate de aprobación' },
+        color: 'bg-amber-600',
+        category: 'devops',
+        description: { en: 'Pause until a human approves via Slack or CLI', es: 'Pausar hasta que un humano apruebe vía Slack o CLI' },
+        inputs: ['main'],
+        outputs: ['approved', 'rejected'],
+        properties: [
+            { name: 'message', displayName: 'Message to approvers', type: 'string', default: 'Approve to continue' },
+            { name: 'approvers', displayName: 'Approver emails (comma-separated)', type: 'string', default: '' },
+        ]
+    },
+    {
+        type: 'notify',
+        icon: <Bell size={18} />,
+        label: { en: 'Notify', es: 'Notificar' },
+        color: 'bg-pink-600',
+        category: 'devops',
+        description: { en: 'Send to Slack, Discord, or a generic webhook', es: 'Enviar a Slack, Discord o un webhook genérico' },
+        inputs: ['main'],
+        outputs: ['main'],
+        properties: [
+            { name: 'channel', displayName: 'Channel', type: 'options', options: [
+                { name: 'Slack', value: 'slack' },
+                { name: 'Discord', value: 'discord' },
+                { name: 'Generic webhook', value: 'webhook' },
+            ], default: 'slack' },
+            { name: 'webhookUrl', displayName: 'Webhook URL', type: 'string', default: '' },
+            { name: 'message', displayName: 'Message', type: 'string', default: 'Runbook step completed' },
+            { name: 'title', displayName: 'Title (optional)', type: 'string', default: '' },
+        ]
+    },
+    {
+        type: 'wait',
+        icon: <Clock size={18} />,
+        label: { en: 'Wait', es: 'Esperar' },
+        color: 'bg-gray-600',
+        category: 'devops',
+        description: { en: 'Pause for a fixed duration', es: 'Pausar una duración fija' },
+        inputs: ['main'],
+        outputs: ['main'],
+        properties: [
+            { name: 'durationMs', displayName: 'Duration (ms)', type: 'number', default: 5000 },
+        ]
+    },
+
+    // === TRIGGERS ===
+    {
+        type: 'nanorun.webhook',
+        icon: <Webhook size={18} />,
+        label: { en: 'Webhook trigger', es: 'Trigger webhook' },
+        color: 'bg-green-500',
+        category: 'triggers',
+        description: { en: 'Run on incoming HTTP request (HMAC-verified)', es: 'Disparar al recibir HTTP request (verificado con HMAC)' },
+        properties: [
+            { name: 'httpMethod', displayName: 'HTTP method', type: 'options', options: [{ name: 'GET', value: 'GET' }, { name: 'POST', value: 'POST' }], default: 'POST' },
+            { name: 'path', displayName: 'Path', type: 'string', default: 'webhook-demo' },
+            { name: 'responseMode', displayName: 'Response mode', type: 'options', options: [{ name: 'On received', value: 'onReceived' }, { name: 'Last node', value: 'lastNode' }], default: 'onReceived' }
+        ]
+    },
+    {
+        type: 'nanorun.cron',
+        icon: <Clock size={18} />,
+        label: { en: 'Cron trigger', es: 'Trigger cron' },
+        color: 'bg-green-500',
+        category: 'triggers',
+        description: { en: 'Run on a cron schedule', es: 'Disparar en horario cron' },
+        properties: [
+            { name: 'expression', displayName: 'Cron expression', type: 'string', default: '0 * * * *' },
+        ]
+    },
+
+    // === CORE ===
+    {
+        type: 'nanorun.httpRequest',
+        icon: <Globe size={18} />,
+        label: { en: 'HTTP request', es: 'HTTP request' },
+        color: 'bg-blue-500',
+        category: 'core',
+        description: { en: 'Call an external API (Datadog, Sentry, GitHub, etc.)', es: 'Llamar una API externa (Datadog, Sentry, GitHub, etc.)' },
+        inputs: ['main'],
+        outputs: ['main'],
+        properties: [
+            { name: 'method', displayName: 'Method', type: 'options', options: [
+                { name: 'GET', value: 'GET' }, { name: 'POST', value: 'POST' },
+                { name: 'PUT', value: 'PUT' }, { name: 'PATCH', value: 'PATCH' },
+                { name: 'DELETE', value: 'DELETE' }, { name: 'HEAD', value: 'HEAD' },
+            ], default: 'GET' },
+            { name: 'url', displayName: 'URL', type: 'string', default: 'https://', typeOptions: { expression: true }, description: 'Supports {{vars.x}} and {{secrets.y}} templates.' },
+            { name: 'headers', displayName: 'Headers (JSON)', type: 'string', default: '', typeOptions: { rows: 3, expression: true }, description: 'JSON object, e.g. {"Authorization": "Bearer {{secrets.token}}"}' },
+            { name: 'body', displayName: 'Body', type: 'string', default: '', typeOptions: { rows: 4, expression: true }, description: 'Request body (ignored for GET/HEAD). Supports templates.' },
+            { name: 'failOnNon2xx', displayName: 'Fail on non-2xx', type: 'boolean', default: true },
+            { name: 'followRedirects', displayName: 'Follow redirects', type: 'boolean', default: true },
+            { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 30000 },
+        ]
+    },
+
     // === ORGANIZATION ===
     {
         type: 'custom.frame',
         icon: <Square size={18} />,
-        label: { en: 'Frame', es: 'Marco' },
+        label: { en: 'Section', es: 'Sección' },
         color: 'bg-slate-600',
         category: 'organization',
-        description: { en: 'Group nodes together', es: 'Agrupar nodos' },
+        description: { en: 'Group steps together visually', es: 'Agrupar pasos visualmente' },
         properties: [
-            { name: 'title', displayName: 'Title', type: 'string', default: 'Frame' },
+            { name: 'title', displayName: 'Title', type: 'string', default: 'Section' },
             { name: 'color', displayName: 'Color', type: 'color', default: '#3791f5' },
         ]
     },
@@ -63,224 +242,44 @@ const NODE_TYPES: NodeType[] = [
         label: { en: 'Note', es: 'Nota' },
         color: 'bg-slate-600',
         category: 'organization',
-        description: { en: 'Add a text note', es: 'Agregar nota de texto' },
+        description: { en: 'Add inline documentation', es: 'Agregar documentación inline' },
         properties: [
             { name: 'text', displayName: 'Text', type: 'string', typeOptions: { rows: 5 }, default: '' },
         ]
     },
-
-    // === AI & LLM ===
-    {
-        type: 'n8n-nodes-base.openAi',
-        icon: <MessageSquare size={18} />,
-        label: { en: 'OpenAI', es: 'OpenAI' },
-        color: 'bg-rose-500',
-        category: 'ai',
-        description: { en: 'Interact with OpenAI models', es: 'Modelos OpenAI' },
-        properties: [
-            { name: 'resource', displayName: 'Resource', type: 'options', options: [{ name: 'Chat', value: 'chat' }, { name: 'Image', value: 'image' }, { name: 'Audio', value: 'audio' }], default: 'chat' },
-            { name: 'model', displayName: 'Model', type: 'options', options: [{ name: 'GPT-4', value: 'gpt-4' }, { name: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' }], default: 'gpt-3.5-turbo' },
-            { name: 'prompt', displayName: 'Prompt', type: 'string', typeOptions: { rows: 5, expression: true } },
-            { name: 'systemMessage', displayName: 'System Message', type: 'string', typeOptions: { rows: 3, expression: true } }
-        ]
-    },
-    { type: 'n8n-nodes-base.langChain', icon: <GitBranch size={18} />, label: { en: 'LangChain Agent', es: 'Agente LangChain' }, color: 'bg-rose-500', category: 'ai', description: { en: 'Build LLM chains', es: 'Cadenas LLM' }, inputs: ['main', 'ai_tool', 'ai_memory'] },
-    { type: 'n8n-nodes-base.huggingFace', icon: <MessageSquare size={18} />, label: { en: 'HuggingFace', es: 'HuggingFace' }, color: 'bg-rose-500', category: 'ai', description: { en: 'HuggingFace models', es: 'Modelos HuggingFace' } },
-    { type: 'n8n-nodes-base.anthropic', icon: <MessageSquare size={18} />, label: { en: 'Anthropic', es: 'Anthropic' }, color: 'bg-rose-500', category: 'ai', description: { en: 'Claude models', es: 'Modelos Claude' } },
-    { type: 'n8n-nodes-base.stabilityAi', icon: <Box size={18} />, label: { en: 'Stability AI', es: 'Stability AI' }, color: 'bg-rose-500', category: 'ai', description: { en: 'Image generation', es: 'Generación imagenes' } },
-
-    // === TRIGGERS ===
-    {
-        type: 'n8n-nodes-base.webhook',
-        icon: <Webhook size={18} />,
-        label: { en: 'Webhook', es: 'Webhook' },
-        color: 'bg-green-500',
-        category: 'triggers',
-        description: { en: 'Starts on HTTP request', es: 'Inicia con HTTP request' },
-        properties: [
-            { name: 'httpMethod', displayName: 'HTTP Method', type: 'options', options: [{ name: 'GET', value: 'GET' }, { name: 'POST', value: 'POST' }], default: 'GET' },
-            { name: 'path', displayName: 'Path', type: 'string', default: 'webhook-demo' },
-            { name: 'responseMode', displayName: 'Response Mode', type: 'options', options: [{ name: 'On Received', value: 'onReceived' }, { name: 'Last Node', value: 'lastNode' }], default: 'onReceived' }
-        ]
-    },
-    {
-        type: 'n8n-nodes-base.scheduleTrigger',
-        icon: <Clock size={18} />,
-        label: { en: 'Schedule', es: 'Cronograma' },
-        color: 'bg-green-500',
-        category: 'triggers',
-        description: { en: 'Run on schedule', es: 'Ejecutar programado' },
-        properties: [
-            { name: 'rule', displayName: 'Trigger Interval', type: 'options', options: [{ name: 'Seconds', value: 'seconds' }, { name: 'Minutes', value: 'minutes' }, { name: 'Hours', value: 'hours' }, { name: 'Days', value: 'days' }], default: 'minutes' },
-            { name: 'value', displayName: 'Value', type: 'number', default: 1 }
-        ]
-    },
-    { type: 'n8n-nodes-base.manualTrigger', icon: <Play size={18} />, label: { en: 'Manual', es: 'Manual' }, color: 'bg-green-500', category: 'triggers', description: { en: 'Start manually', es: 'Iniciar manualmente' } },
-    { type: 'n8n-nodes-base.cron', icon: <Clock size={18} />, label: { en: 'Cron', es: 'Cron' }, color: 'bg-green-500', category: 'triggers', description: { en: 'Unix cron schedule', es: 'Cronograma Unix' } },
-
-    // === CORE ===
-    {
-        type: 'n8n-nodes-base.httpRequest',
-        icon: <Globe size={18} />,
-        label: { en: 'HTTP Request', es: 'Petición HTTP' },
-        color: 'bg-blue-500',
-        category: 'core',
-        description: { en: 'Make HTTP requests', es: 'Hacer petición HTTP' },
-        properties: [
-            { name: 'method', displayName: 'Method', type: 'options', options: [{ name: 'GET', value: 'GET' }, { name: 'POST', value: 'POST' }, { name: 'PUT', value: 'PUT' }, { name: 'DELETE', value: 'DELETE' }], default: 'GET' },
-            { name: 'url', displayName: 'URL', type: 'string', default: 'https://', typeOptions: { expression: true } },
-            { name: 'authentication', displayName: 'Authentication', type: 'options', options: [{ name: 'None', value: 'none' }, { name: 'Header Auth', value: 'headerAuth' }], default: 'none' },
-            { name: 'sendBody', displayName: 'Send Body', type: 'boolean', default: false }
-        ]
-    },
-    {
-        type: 'n8n-nodes-base.code',
-        icon: <Code size={18} />,
-        label: { en: 'Code', es: 'Código' },
-        color: 'bg-blue-500',
-        category: 'core',
-        description: { en: 'Run JavaScript', es: 'Ejecutar JavaScript' },
-        properties: [
-            { name: 'language', displayName: 'Language', type: 'options', options: [{ name: 'JavaScript', value: 'js' }], default: 'js' },
-            { name: 'code', displayName: 'Code', type: 'string', typeOptions: { rows: 10, expression: false }, default: '// Custom code here\nreturn items;' }
-        ]
-    },
-    { type: 'n8n-nodes-base.function', icon: <Hash size={18} />, label: { en: 'Function', es: 'Función' }, color: 'bg-blue-500', category: 'core', description: { en: 'Transform data', es: 'Transformar datos' } },
-    { type: 'n8n-nodes-base.set', icon: <Settings size={18} />, label: { en: 'Set', es: 'Set' }, color: 'bg-blue-500', category: 'core', description: { en: 'Set values', es: 'Fijar valores' } },
-    { type: 'n8n-nodes-base.executeWorkflow', icon: <Play size={18} />, label: { en: 'Execute Workflow', es: 'Ejecutar Workflow' }, color: 'bg-blue-500', category: 'core', description: { en: 'Run another workflow', es: 'Ejecutar otro flujo' } },
-
-    // === FLOW ===
-    {
-        type: 'n8n-nodes-base.if',
-        icon: <GitBranch size={18} />,
-        label: { en: 'IF', es: 'SI' },
-        color: 'bg-yellow-500',
-        category: 'flow',
-        description: { en: 'Conditional logic', es: 'Lógica condicional' },
-        outputs: ['true', 'false'],
-        properties: [
-            { name: 'conditions', displayName: 'Condition Type', type: 'options', options: [{ name: 'Boolean', value: 'boolean' }, { name: 'String', value: 'string' }, { name: 'Number', value: 'number' }], default: 'boolean' },
-            { name: 'value1', displayName: 'Value 1', type: 'string', typeOptions: { expression: true } },
-            { name: 'value2', displayName: 'Value 2', type: 'string', typeOptions: { expression: true } }
-        ]
-    },
-    { type: 'n8n-nodes-base.switch', icon: <List size={18} />, label: { en: 'Switch', es: 'Switch' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Multiple routes', es: 'Rutas múltiples' }, outputs: ['0', '1', '2', '3'] },
-    { type: 'n8n-nodes-base.merge', icon: <GitBranch size={18} className="rotate-180" />, label: { en: 'Merge', es: 'Unir' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Merge branches', es: 'Unir ramas' }, inputs: ['input 1', 'input 2'] },
-    { type: 'n8n-nodes-base.wait', icon: <Pause size={18} />, label: { en: 'Wait', es: 'Esperar' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Pause workflow', es: 'Pausar flujo' } },
-    { type: 'n8n-nodes-base.loop', icon: <RefreshCw size={18} />, label: { en: 'Loop', es: 'Bucle' }, color: 'bg-yellow-500', category: 'flow', description: { en: 'Loop over items', es: 'Iterar elementos' } },
-    { type: 'n8n-nodes-base.errorTrigger', icon: <AlertCircle size={18} />, label: { en: 'Error Trigger', es: 'Disparador Error' }, color: 'bg-red-500', category: 'flow', description: { en: 'On error', es: 'En error' } },
-
-    // === ADVANCED CONTROLLER (xyOps Style) ===
-    {
-        type: 'n8n-nodes-base.controller',
-        icon: <Shuffle size={18} />,
-        label: { en: 'Controller', es: 'Controlador' },
-        color: 'bg-purple-600',
-        category: 'flow',
-        description: { en: 'Multiplex, Split, Join, Loop', es: 'Multiplexar, Dividir, Unir, Bucle' },
-        properties: [
-            {
-                name: 'controller',
-                displayName: 'Controller Type',
-                type: 'options',
-                options: [
-                    { name: 'Multiplex', value: 'multiplex' },
-                    { name: 'Wait', value: 'wait' },
-                    { name: 'Repeat (Loop)', value: 'repeat' },
-                    { name: 'Split', value: 'split' },
-                    { name: 'Join', value: 'join' },
-                    { name: 'Decision (If)', value: 'decision' }
-                ],
-                default: 'multiplex'
-            },
-            { name: 'stagger', displayName: 'Stagger (ms)', type: 'number', default: 0, description: 'Delay between parallel executions' },
-            { name: 'wait', displayName: 'Wait Time (sec)', type: 'number', default: 0, description: 'Time to pause execution' },
-            { name: 'repeat', displayName: 'Iterations', type: 'number', default: 1, description: 'Number of times to repeat' },
-            { name: 'split', displayName: 'Split Expression', type: 'string', typeOptions: { rows: 3, expression: true }, description: 'Expression to calculate split branches' },
-            { name: 'decision', displayName: 'Condition (If)', type: 'string', typeOptions: { rows: 3, expression: true }, description: 'Expression returning true/false' },
-            { name: 'continue', displayName: 'Continue %', type: 'number', default: 100, description: 'Percentage of traffic to continue' }
-        ]
-    },
-
-    // === DATA ===
-    { type: 'n8n-nodes-base.activeCampaign', icon: <Users size={18} />, label: { en: 'ActiveCampaign', es: 'ActiveCampaign' }, color: 'bg-purple-500', category: 'data', description: { en: 'Email marketing', es: 'Marketing email' } },
-    { type: 'n8n-nodes-base.splitInBatches', icon: <Grid size={18} />, label: { en: 'SplitInBatches', es: 'Lotes' }, color: 'bg-purple-500', category: 'data', description: { en: 'Process loops', es: 'Procesar en bucles' } },
-    { type: 'n8n-nodes-base.itemLists', icon: <List size={18} />, label: { en: 'Item Lists', es: 'Listas' }, color: 'bg-purple-500', category: 'data', description: { en: 'List operations', es: 'Operaciones listas' } },
-    { type: 'n8n-nodes-base.jsonParse', icon: <Code size={18} />, label: { en: 'JSON Parse', es: 'JSON Parse' }, color: 'bg-purple-500', category: 'data', description: { en: 'Parse JSON string', es: 'Leer string JSON' } },
-    { type: 'n8n-nodes-base.filter', icon: <Filter size={18} />, label: { en: 'Filter', es: 'Filtrar' }, color: 'bg-purple-500', category: 'data', description: { en: 'Filter items', es: 'Filtrar elementos' } },
-    { type: 'n8n-nodes-base.renameKeys', icon: <Key size={18} />, label: { en: 'Rename Keys', es: 'Renombrar' }, color: 'bg-purple-500', category: 'data', description: { en: 'Rename keys', es: 'Renombrar claves' } },
-
-    // === SOCIAL MEDIA ===
-    { type: 'n8n-nodes-base.twitter', icon: <Twitter size={18} />, label: { en: 'Twitter / X', es: 'Twitter / X' }, color: 'bg-sky-500', category: 'social', description: { en: 'Post tweets', es: 'Publicar tweets' } },
-    { type: 'n8n-nodes-base.linkedin', icon: <Linkedin size={18} />, label: { en: 'LinkedIn', es: 'LinkedIn' }, color: 'bg-sky-500', category: 'social', description: { en: 'Post to LinkedIn', es: 'Publicar en LinkedIn' } },
-    { type: 'n8n-nodes-base.facebook', icon: <Facebook size={18} />, label: { en: 'Facebook', es: 'Facebook' }, color: 'bg-sky-500', category: 'social', description: { en: 'Manage pages', es: 'Gestionar páginas' } },
-    { type: 'n8n-nodes-base.instagram', icon: <Instagram size={18} />, label: { en: 'Instagram', es: 'Instagram' }, color: 'bg-sky-500', category: 'social', description: { en: 'Post photos', es: 'Publicar fotos' } },
-    { type: 'n8n-nodes-base.discord', icon: <MessageSquare size={18} />, label: { en: 'Discord', es: 'Discord' }, color: 'bg-indigo-500', category: 'social', description: { en: 'Send messages', es: 'Enviar mensajes' } },
-    { type: 'n8n-nodes-base.reddit', icon: <MessageSquare size={18} />, label: { en: 'Reddit', es: 'Reddit' }, color: 'bg-orange-600', category: 'social', description: { en: 'Post to Reddit', es: 'Publicar en Reddit' } },
-
-    // === MARKETING & CRM ===
-    { type: 'n8n-nodes-base.hubspot', icon: <Users size={18} />, label: { en: 'HubSpot', es: 'HubSpot' }, color: 'bg-orange-500', category: 'marketing', description: { en: 'CRM automation', es: 'Automatización CRM' } },
-    { type: 'n8n-nodes-base.salesforce', icon: <Cloud size={18} />, label: { en: 'Salesforce', es: 'Salesforce' }, color: 'bg-blue-600', category: 'marketing', description: { en: 'Enterprise CRM', es: 'CRM Empresarial' } },
-    { type: 'n8n-nodes-base.mailchimp', icon: <Mail size={18} />, label: { en: 'Mailchimp', es: 'Mailchimp' }, color: 'bg-yellow-500', category: 'marketing', description: { en: 'Email campaigns', es: 'Campañas email' } },
-    { type: 'n8n-nodes-base.pipedrive', icon: <Users size={18} />, label: { en: 'Pipedrive', es: 'Pipedrive' }, color: 'bg-green-600', category: 'marketing', description: { en: 'Sales CRM', es: 'CRM Ventas' } },
-
-    // === STORAGE ===
-    { type: 'n8n-nodes-base.googleDrive', icon: <HardDrive size={18} />, label: { en: 'Google Drive', es: 'Google Drive' }, color: 'bg-blue-500', category: 'storage', description: { en: 'File storage', es: 'Almacenamiento' } },
-    { type: 'n8n-nodes-base.dropbox', icon: <Box size={18} />, label: { en: 'Dropbox', es: 'Dropbox' }, color: 'bg-blue-400', category: 'storage', description: { en: 'File sync', es: 'Sincronización' } },
-    { type: 'n8n-nodes-base.awsS3', icon: <Cloud size={18} />, label: { en: 'AWS S3', es: 'AWS S3' }, color: 'bg-orange-500', category: 'storage', description: { en: 'Object storage', es: 'Almacenamiento objetos' } },
-    { type: 'n8n-nodes-base.oneDrive', icon: <Cloud size={18} />, label: { en: 'OneDrive', es: 'OneDrive' }, color: 'bg-blue-600', category: 'storage', description: { en: 'Microsoft storage', es: 'Almacenamiento MS' } },
-
-    // === PAYMENT ===
-    { type: 'n8n-nodes-base.stripe', icon: <CreditCard size={18} />, label: { en: 'Stripe', es: 'Stripe' }, color: 'bg-indigo-500', category: 'payment', description: { en: 'Payments', es: 'Pagos' } },
-    { type: 'n8n-nodes-base.payPal', icon: <DollarSign size={18} />, label: { en: 'PayPal', es: 'PayPal' }, color: 'bg-blue-700', category: 'payment', description: { en: 'Payments', es: 'Pagos' } },
-    { type: 'n8n-nodes-base.shopify', icon: <ShoppingBag size={18} />, label: { en: 'Shopify', es: 'Shopify' }, color: 'bg-green-500', category: 'payment', description: { en: 'E-commerce', es: 'E-commerce' } },
-
-    // === COMMUNICATION ===
-    { type: 'n8n-nodes-base.emailSend', icon: <Mail size={18} />, label: { en: 'Send Email', es: 'Enviar Email' }, color: 'bg-orange-500', category: 'communication', description: { en: 'Send email', es: 'Enviar correo' } },
-    { type: 'n8n-nodes-base.slack', icon: <MessageSquare size={18} />, label: { en: 'Slack', es: 'Slack' }, color: 'bg-orange-500', category: 'communication', description: { en: 'Chat ops', es: 'Chat ops' } },
-    { type: 'n8n-nodes-base.telegram', icon: <Send size={18} />, label: { en: 'Telegram', es: 'Telegram' }, color: 'bg-orange-500', category: 'communication', description: { en: 'Messaging', es: 'Mensajería' } },
-    { type: 'n8n-nodes-base.microsoftTeams', icon: <MessageSquare size={18} />, label: { en: 'MS Teams', es: 'MS Teams' }, color: 'bg-indigo-600', category: 'communication', description: { en: 'Team chat', es: 'Chat empresarial' } },
-    { type: 'n8n-nodes-base.whatsApp', icon: <MessageSquare size={18} />, label: { en: 'WhatsApp', es: 'WhatsApp' }, color: 'bg-green-500', category: 'communication', description: { en: 'Messaging', es: 'Mensajería' } },
-
-    // === PRODUCTIVITY ===
-    { type: 'n8n-nodes-base.googleSheets', icon: <FileText size={18} />, label: { en: 'Google Sheets', es: 'Google Sheets' }, color: 'bg-green-500', category: 'productivity', description: { en: 'Spreadsheets', es: 'Hojas cálculo' } },
-    { type: 'n8n-nodes-base.googleCalendar', icon: <Calendar size={18} />, label: { en: 'Google Calendar', es: 'Google Calendar' }, color: 'bg-blue-500', category: 'productivity', description: { en: 'Calendar', es: 'Calendario' } },
-    { type: 'n8n-nodes-base.notion', icon: <FileText size={18} />, label: { en: 'Notion', es: 'Notion' }, color: 'bg-gray-500', category: 'productivity', description: { en: 'Workspace', es: 'Espacio trabajo' } },
-    { type: 'n8n-nodes-base.airtable', icon: <Database size={18} />, label: { en: 'Airtable', es: 'Airtable' }, color: 'bg-yellow-500', category: 'productivity', description: { en: 'Database', es: 'Base datos' } },
-    { type: 'n8n-nodes-base.jira', icon: <CheckCircle size={18} />, label: { en: 'Jira', es: 'Jira' }, color: 'bg-blue-600', category: 'productivity', description: { en: 'Agile tools', es: 'Gestión ágil' } },
-    { type: 'n8n-nodes-base.trello', icon: <List size={18} />, label: { en: 'Trello', es: 'Trello' }, color: 'bg-blue-400', category: 'productivity', description: { en: 'Kanban', es: 'Tableros' } },
-
-    // === DEVELOPER ===
-    { type: 'n8n-nodes-base.postgres', icon: <Database size={18} />, label: { en: 'Postgres', es: 'Postgres' }, color: 'bg-blue-400', category: 'developer', description: { en: 'SQL DB', es: 'SQL DB' } },
-    { type: 'n8n-nodes-base.mysql', icon: <Database size={18} />, label: { en: 'MySQL', es: 'MySQL' }, color: 'bg-orange-400', category: 'developer', description: { en: 'SQL DB', es: 'SQL DB' } },
-    { type: 'n8n-nodes-base.redis', icon: <Server size={18} />, label: { en: 'Redis', es: 'Redis' }, color: 'bg-red-500', category: 'developer', description: { en: 'Cache', es: 'Caché' } },
-    { type: 'n8n-nodes-base.github', icon: <GitBranch size={18} />, label: { en: 'GitHub', es: 'GitHub' }, color: 'bg-gray-700', category: 'developer', description: { en: 'Git', es: 'Git' } },
-    { type: 'n8n-nodes-base.docker', icon: <Box size={18} />, label: { en: 'Docker', es: 'Docker' }, color: 'bg-blue-500', category: 'developer', description: { en: 'Containers', es: 'Contenedores' } },
 ];
 
 interface NodePaletteProps {
     lang: 'en' | 'es';
     onNodeDragStart: (nodeType: NodeType) => void;
+    /** Override the default runbook node types. Used by the SQL editor. */
+    nodeTypes?: NodeType[];
+    /** Override the default categories. */
+    categories?: { id: string; label: { en: string; es: string }; icon?: any; color: string }[];
 }
 
-export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePaletteProps) {
+export default function NodePalette({ lang: langProp, onNodeDragStart, nodeTypes: customNodeTypes, categories: customCategories }: NodePaletteProps) {
     const lang = (langProp === 'en' || langProp === 'es') ? langProp : 'en';
+    const effectiveNodeTypes = customNodeTypes ?? NODE_TYPES;
+    const effectiveCategories = customCategories
+        ? customCategories.map(c => ({ ...c, icon: c.icon ?? Zap }))
+        : CATEGORIES;
     const [isOpen, setIsOpen] = useState(false);
-    const [expandedCategories, setExpandedCategories] = useState<string[]>(['triggers', 'core']);
+    const [expandedCategories, setExpandedCategories] = useState<string[]>(effectiveCategories.slice(0, 2).map(c => c.id));
     const [searchTerm, setSearchTerm] = useState('');
 
     const content = {
         en: {
-            title: 'Nodes',
+            title: 'Steps',
             subtitle: 'Drag to canvas or click +',
-            toggle: isOpen ? 'Close' : 'Add node',
-            search: 'Search nodes...',
+            toggle: isOpen ? 'Close' : 'Add step',
+            search: 'Search steps...',
         },
         es: {
-            title: 'Nodos',
-            subtitle: 'Arrastra al canvas o clic en +',
-            toggle: isOpen ? 'Cerrar' : 'Agregar nodo',
-            search: 'Buscar nodos...',
+            title: 'Pasos',
+            subtitle: 'Arrastrá al canvas o clic en +',
+            toggle: isOpen ? 'Cerrar' : 'Agregar paso',
+            search: 'Buscar pasos...',
         },
     };
 
@@ -295,22 +294,22 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
     };
 
     const filteredNodes = useMemo(() => {
-        if (!searchTerm) return NODE_TYPES;
+        if (!searchTerm) return effectiveNodeTypes;
         const term = searchTerm.toLowerCase();
-        return NODE_TYPES.filter(node =>
+        return effectiveNodeTypes.filter(node =>
             node.label[lang].toLowerCase().includes(term) ||
             node.type.toLowerCase().includes(term) ||
             node.description?.[lang].toLowerCase().includes(term)
         );
-    }, [searchTerm, lang]);
+    }, [searchTerm, lang, effectiveNodeTypes]);
 
     const nodesByCategory = useMemo(() => {
         const grouped: Record<string, NodeType[]> = {};
-        CATEGORIES.forEach(cat => {
+        effectiveCategories.forEach(cat => {
             grouped[cat.id] = filteredNodes.filter(node => node.category === cat.id);
         });
         return grouped;
-    }, [filteredNodes]);
+    }, [filteredNodes, effectiveCategories]);
 
     const hasResults = filteredNodes.length > 0;
 
@@ -395,7 +394,7 @@ export default function NodePalette({ lang: langProp, onNodeDragStart }: NodePal
                                     ))}
                                 </div>
                             ) : (
-                                CATEGORIES.map((category) => {
+                                effectiveCategories.map((category) => {
                                     const nodes = nodesByCategory[category.id];
                                     if (nodes.length === 0) return null;
                                     const isExpanded = expandedCategories.includes(category.id);

@@ -1,7 +1,24 @@
 import { PrismaClient } from '@prisma/client';
 import cron from 'node-cron';
+import { CronExpressionParser } from 'cron-parser';
 import { ExecutionService } from '../editor/execution/execution.service';
 import { logger } from '../config/logger.config';
+
+/**
+ * Compute the next fire time of a cron expression. Returns null if the
+ * expression is invalid (caller should already have validated).
+ *
+ * Centralized so the schedule service, the runbook upsert path, and the
+ * scheduler hot path all agree on the same nextRunAt value.
+ */
+export function computeNextRunAt(cronExpr: string, from: Date = new Date()): Date | null {
+    try {
+        const interval = CronExpressionParser.parse(cronExpr, { currentDate: from });
+        return interval.next().toDate();
+    } catch {
+        return null;
+    }
+}
 
 export class SchedulerService {
     private prisma: PrismaClient;
@@ -44,11 +61,20 @@ export class SchedulerService {
             return;
         }
 
+        // Persist nextRunAt up front so the Schedules UI sees a real
+        // value immediately, not after the first natural fire.
+        const nextRunAt = computeNextRunAt(cronExpr);
+        if (nextRunAt) {
+            await this.prisma.scheduledJob
+                .update({ where: { id: jobId }, data: { nextRunAt } })
+                .catch(() => { /* ignore — job may not exist yet during create flows */ });
+        }
+
         const task = cron.schedule(cronExpr, async () => {
             logger.info({ jobId, workflowId }, `Executing scheduled job ${jobId} for workflow ${workflowId}`);
 
             try {
-                const workflow = await this.prisma.workflow.findUnique({
+                const workflow = await this.prisma.runbook.findUnique({
                     where: { id: workflowId },
                 });
 
@@ -60,6 +86,7 @@ export class SchedulerService {
                 await this.executionService.execute({
                     workflowId: workflow.id,
                     userId: workflow.userId,
+                    tenantId: workflow.tenantId,
                     trigger: 'SCHEDULED',
                 });
 
@@ -67,7 +94,7 @@ export class SchedulerService {
                     where: { id: jobId },
                     data: {
                         lastRunAt: new Date(),
-                        nextRunAt: new Date(Date.now() + 60000),
+                        nextRunAt: computeNextRunAt(cronExpr),
                     },
                 });
             } catch (error) {
@@ -76,6 +103,11 @@ export class SchedulerService {
         });
 
         this.tasks.set(jobId, task);
+    }
+
+    async rescheduleJob(jobId: string, workflowId: string, cronExpr: string) {
+        await this.unscheduleJob(jobId);
+        await this.scheduleJob(jobId, workflowId, cronExpr);
     }
 
     async unscheduleJob(jobId: string) {

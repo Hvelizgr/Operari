@@ -146,7 +146,7 @@ export class ErrorNotificationService {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'User-Agent': 'NanoFlow/1.0',
+                    'User-Agent': 'cairn/1.0',
                 },
                 body: JSON.stringify({
                     type: 'error',

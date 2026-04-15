@@ -59,8 +59,23 @@ export interface ConditionNodeConfig {
     value?: string;
 }
 
+/**
+ * Database step config — runbook scope.
+ *
+ * The legacy NanoFlow database node accepted any of select/insert/
+ * update/delete (i.e. arbitrary DML against user data). NanoRun
+ * narrows this to operations a runbook author legitimately needs:
+ *
+ *   - "migrate"   — apply a versioned schema migration (DDL)
+ *   - "health"    — read-only sanity probe (e.g. SELECT 1, count())
+ *   - "backup"    — issue a snapshot/backup command
+ *
+ * Anything else is rejected at the executor level. The narrower set
+ * means the only way for a runbook to mutate user rows is through a
+ * shell step that explicitly calls the right migration tool.
+ */
 export interface DatabaseNodeConfig {
-    operation?: 'select' | 'insert' | 'update' | 'delete';
+    operation?: 'migrate' | 'health' | 'backup';
     table?: string;
     query?: string;
     data?: Record<string, unknown>;
@@ -73,14 +88,6 @@ export interface DelayNodeConfig {
 export interface LoopNodeConfig {
     items?: unknown[];
     itemsPath?: string;
-}
-
-export interface N8nNodeConfig {
-    workflowId?: string;           // ID del workflow de n8n a ejecutar
-    workflowName?: string;         // Nombre para mostrar
-    waitForCompletion?: boolean;   // Esperar a que termine la ejecución
-    timeout?: number;              // Timeout en ms
-    inputMapping?: Record<string, string>; // Mapeo de inputs
 }
 
 export interface DecisionNodeConfig {
@@ -177,7 +184,6 @@ export type NodeConfig =
     | DatabaseNodeConfig
     | DelayNodeConfig
     | LoopNodeConfig
-    | N8nNodeConfig
     | DecisionNodeConfig
     | SplitNodeConfig
     | JoinNodeConfig
@@ -217,7 +223,6 @@ export type WorkflowNodeType =
     | 'Wait'
     | 'Loop'
     | 'Iterator'
-    | 'n8n'
     | 'Decision'
     | 'Split'
     | 'Join'
@@ -360,15 +365,6 @@ export interface DatabaseResult extends ExecutionOutput {
     message: string;
 }
 
-export interface N8nResult extends ExecutionOutput {
-    executionId: string;
-    workflowId: string;
-    status: 'success' | 'error' | 'waiting' | 'running';
-    data: unknown;
-    startedAt: string;
-    finishedAt?: string;
-}
-
 export interface DecisionResult extends ExecutionOutput {
     decisionResult: boolean;
     decisionValue: unknown;
@@ -449,7 +445,6 @@ export type NodeExecutionResult =
     | DelayResult
     | LoopResult
     | DatabaseResult
-    | N8nResult
     | DecisionResult
     | SplitResult
     | JoinResult

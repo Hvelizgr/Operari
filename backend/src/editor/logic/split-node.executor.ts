@@ -1,12 +1,20 @@
 import { ExecutionInput, NodeExecutionResult } from '../../types/workflow.types';
 import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
+import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
 
 export interface SplitNodeConfig {
     itemsPath?: string; // Path in the input to find the array to split
 }
 
-export class SplitNodeExecutor {
-    async execute(config: SplitNodeConfig, input: ExecutionInput): Promise<NodeExecutionResult> {
+export class SplitNodeExecutor
+    implements EditorNodeExecutor<SplitNodeConfig, NodeExecutionResult> {
+    readonly type = 'Split';
+
+    async execute(
+        config: SplitNodeConfig,
+        input: ExecutionInput,
+        _errorContext: NodeErrorContext,
+    ): Promise<NodeExecutionResult> {
         const { itemsPath } = config;
 
         if (!itemsPath) {

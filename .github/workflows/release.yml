@@ -1,0 +1,122 @@
+name: Release SDK & CLI
+
+on:
+  push:
+    tags:
+      - 'sdk-v*'
+      - 'cli-v*'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Which package to publish
+        required: true
+        type: choice
+        options:
+          - sdk
+          - cli
+          - both
+      dry_run:
+        description: Dry run (do not publish)
+        required: false
+        default: 'false'
+
+# Tag conventions:
+#   sdk-v0.1.2  → publishes packages/sdk
+#   cli-v0.1.2  → publishes packages/cli
+# The tag's version must match the package.json version of the target package,
+# or the workflow fails before publishing anything.
+
+permissions:
+  contents: read
+  id-token: write # for npm provenance
+
+jobs:
+  test:
+    name: Test workspaces
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build -w @nanorun/sdk
+      - run: npm run build -w @nanorun/cli
+
+  publish-sdk:
+    name: Publish @nanorun/sdk
+    needs: test
+    if: |
+      startsWith(github.ref, 'refs/tags/sdk-v') ||
+      (github.event_name == 'workflow_dispatch' &&
+        (github.event.inputs.package == 'sdk' || github.event.inputs.package == 'both'))
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - name: Verify tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/sdk-v')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#sdk-v}"
+          PKG_VERSION=$(node -p "require('./packages/sdk/package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag $TAG_VERSION does not match packages/sdk/package.json $PKG_VERSION" >&2
+            exit 1
+          fi
+      - run: npm run build -w @nanorun/sdk
+      - name: Publish
+        working-directory: packages/sdk
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            npm publish --provenance --access public --dry-run
+          else
+            npm publish --provenance --access public
+          fi
+
+  publish-cli:
+    name: Publish @nanorun/cli
+    needs: test
+    if: |
+      startsWith(github.ref, 'refs/tags/cli-v') ||
+      (github.event_name == 'workflow_dispatch' &&
+        (github.event.inputs.package == 'cli' || github.event.inputs.package == 'both'))
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - name: Verify tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/cli-v')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#cli-v}"
+          PKG_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag $TAG_VERSION does not match packages/cli/package.json $PKG_VERSION" >&2
+            exit 1
+          fi
+      - run: npm run build -w @nanorun/sdk
+      - run: npm run build -w @nanorun/cli
+      - name: Publish
+        working-directory: packages/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            npm publish --provenance --access public --dry-run
+          else
+            npm publish --provenance --access public
+          fi
