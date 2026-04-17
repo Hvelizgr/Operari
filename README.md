@@ -6,7 +6,7 @@ Visual, executable, dev-first. Stop maintaining deploy procedures in Confluence.
 [![License: AGPL v3](https://img.shields.io/badge/server-AGPL_v3-blue.svg)](./LICENSE)
 [![SDK: MIT](https://img.shields.io/badge/sdk_+_cli-MIT-green.svg)](./packages/sdk/LICENSE)
 [![TypeScript](https://img.shields.io/badge/typescript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![Tests: 518 passing](https://img.shields.io/badge/tests-518_passing-brightgreen.svg)](#status)
+[![Tests: 887 passing](https://img.shields.io/badge/tests-887_passing-brightgreen.svg)](#status)
 [![Status: pre-launch alpha](https://img.shields.io/badge/status-pre--launch_alpha-orange.svg)](#status)
 
 > NanoRun is in **pre-launch alpha**. The status section below tells you exactly
@@ -15,6 +15,9 @@ Visual, executable, dev-first. Stop maintaining deploy procedures in Confluence.
 > in April 2026; some folder names still carry the legacy. The pivot is
 > documented in [`docs/rebranding-and-editor-audit.md`](./docs/rebranding-and-editor-audit.md)
 > and [`docs/post-pivot-cleanup-audit.md`](./docs/post-pivot-cleanup-audit.md).
+>
+> Recent ship log: [`CHANGELOG.md`](./CHANGELOG.md). Operations + uptime + log
+> aggregation recipes: [`docs/OPS.md`](./docs/OPS.md).
 
 ---
 
@@ -73,20 +76,51 @@ This list is conservative and hand-verified against the test suite, not the road
 
 **Auth + multi-tenancy**
 - Pluggable AuthProvider — JWT for self-host, WorkOS for cloud, single env flip to swap
+- Email/password register + login with bcrypt 12 rounds, generic error messages (no user enumeration), and a 5-req/min rate limit layered both per-IP and per-email so distributed credential stuffing also gets blocked
+- Social login via Google + GitHub OAuth 2. Account linking by verified email — one user can have password + Google + GitHub against the same inbox. Providers are fully optional; without creds the `/api/auth/{provider}` route returns 501 and the frontend hides the button
+- Dual-transport session: `Authorization: Bearer` for SDK/CLI clients, HttpOnly `SameSite=Lax` cookie for the web UI. Cookie's `Secure` flag auto-detects request protocol so local HTTP and prod HTTPS both work without a config flip
+- Password reset flow — 30-minute single-use tokens, SHA-256-hashed at rest, invalidates prior reset tokens on both request and consumption
+- Email verification — 7-day tokens, auto-sent at register, dismissible banner in the dashboard until clicked. OAuth users land pre-verified
+- MFA/TOTP (RFC 6238) — `node:crypto`-based implementation with window±30s clock drift. Enroll flow returns a scannable `otpauth://` URL; disable requires both current password and a valid code
+- Session revocation via Redis JTI denylist — logout actually invalidates the token mid-TTL. Graceful degrade to stateless JWT when Redis is absent
+- HIBP breached-password check on register + reset + change-password — k-anonymity call that never sends the password itself. Fail-open so a HIBP outage never blocks signups
+- Team invites — admins send 7-day single-use links; invitees join the inviter's tenant directly (not a fresh one). Acceptance auto-verifies email since the link itself proves ownership
 - Multi-tenant from the schema up; cross-tenant access is rejected at the service boundary
 - Encrypted-at-rest credentials via libsodium (`SecretCipher` + `SecretReader` + audit on every read)
 
 **API surface**
 - REST v1 at `/api/v1/{runbooks,runs,approvals,keys,webhooks,audit}` with API-key auth and per-key scopes
-- TypeScript SDK at `packages/sdk`
+- Auth endpoints at `/api/auth/{register,login,logout,refresh,me,forgot-password,reset-password,change-password,verify-email,send-verification}` plus `/api/auth/{google,github}` for social login and `/api/auth/mfa/{enroll,verify-enroll,disable}` for TOTP
+- Billing endpoints at `/api/billing/{summary,usage,checkout,portal,webhook}`
+- Invites endpoints at `/api/invites/{,:id,lookup/:token,accept}`
+- Templates endpoints at `/api/templates/{,:slug}`
+- TypeScript SDK at `packages/sdk` with `/steps` subpath for custom plugin authors
 - CLI at `packages/cli` (login, whoami, list, run, status, audit verify, approval grant/reject)
 - OpenAPI spec at `/api/openapi.json` and Swagger UI at `/api/docs`
 
+**Execution composition (new)**
+- `runbook` step type — invoke another runbook as a sub-run. Runtime enforces tenant isolation, cycle detection (walks the `parentExecutionId` chain), and a 5-level depth cap. Sync mode polls child status + surfaces errors; async mode fires and forgets
+- Error workflow trigger — each runbook declares `onErrorRunbookId`; a FAILED run auto-dispatches the handler with the error payload (`runId`, `runbookName`, `message`). Refuses to chain when the failed run was itself ERROR-triggered, so a buggy handler cannot loop
+
+**Plugins (custom step types)**
+- `@cairn/sdk/steps` exports `defineStep({ type, configSchema, execute })`. Plugin authors ship npm packages whose `package.json` declares `cairn.steps`; the runtime scans `NANORUN_PLUGINS_DIR` at boot and registers every declared entry
+- Type collisions with core step types (`shell`, `approval`, `nanorun.*`, `cairn.core.*`) are rejected; a broken plugin never crashes boot — the offending entry is skipped with a log line
+
+**Billing + quotas (new)**
+- Stripe Checkout + Billing Portal + webhook (`customer.subscription.*`) wired via a thin `fetch` client — no Stripe Node SDK dependency
+- Plan quotas: FREE tier caps at 3 active runbooks + 100 runs/month (env-overridable); TEAM/BUSINESS/ENTERPRISE get unlimited. `getTenantUsage()` drives a settings "Plan & billing" usage bar
+- `requirePlan('TEAM' | 'BUSINESS' | 'ENTERPRISE')` middleware returns 402 Payment Required with an `upgrade` hint
+- Pricing page CTAs route logged-in users straight into checkout; logged-out users go through register with the plan handoff preserved
+
+**Templates (new)**
+- Public, unauthenticated `/templates` gallery + `/templates/:slug` detail pages. Indexable for SEO. 6 curated YAMLs shipped today
+- "Use this runbook" button: logged-in users get a one-click import (YAML → canvas-native nodes via the existing serializer); logged-out users go through register with the template slug preserved
+
 **Tests**
-- 471 backend Jest tests (`cd backend && npm test`)
-- 47 frontend Jest tests (`cd frontend && npm test`)
+- 815 backend Jest tests (`cd backend && npm test`)
+- 53 frontend Jest tests (`cd frontend && npm test`)
 - Playwright e2e specs for Inbox / Runs / YAML view (require running app)
-- 4 ADRs documenting non-trivial design decisions in `docs/adr/`
+- 5 ADRs documenting non-trivial design decisions in `docs/adr/`
 
 ---
 
@@ -115,13 +149,12 @@ need. Star the repo and check back in 4-6 weeks.
 | | |
 |---|---|
 | Stage | pre-launch alpha |
-| Branch | `feat/p0-hardening` (open PR to `main`) |
-| Backend tests | 471 / 471 passing |
-| Frontend tests | 47 / 47 passing |
+| Branch | `main` |
+| Backend tests | 815 / 815 passing |
+| Frontend tests | 53 / 53 passing |
 | Type-check (backend) | clean |
 | Type-check (frontend) | clean |
-| Commits ahead of main | ~50 |
-| Self-hostable today | yes, with manual setup |
+| Self-hostable today | yes — `docker compose up -d` |
 | Cloud beta | not yet |
 
 ---
@@ -184,6 +217,16 @@ npm run dev          # listens on :3000
 
 Then open `http://localhost:3000/en/editor` and create a runbook, or import
 a template from [`templates/`](./templates).
+
+### Deploy to production
+
+Three documented paths in [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md):
+
+- **VPS + docker compose + Caddy** — one server, auto TLS via Let's Encrypt. `docker-compose.prod.yml` + `caddy/Caddyfile` ship with the repo.
+- **Fly.io** — managed Postgres + Redis, per-region machines. Templates in `deploy/fly/`.
+- **Railway** — zero-config experimentation. Template + variable mapping in `deploy/railway/README.md`.
+
+Same Docker images build from this repo for every path. Full environment variable reference is in [`.env.example`](./.env.example).
 
 ---
 
@@ -431,11 +474,14 @@ Honest, time-boxed, conservative.
 
 **3 → 6 months (cloud beta)**
 
-- Hosted free tier with GitHub OAuth login
-- Stripe metered billing wired to run lifecycle
-- WorkOS SSO
-- RBAC invite UI
-- Audit chain inspector
+- ~~Hosted free tier with GitHub OAuth login~~ — shipped
+- ~~Email verification on signup + MFA/TOTP~~ — shipped
+- ~~Stripe checkout UX wired to the existing `StripeBillingMeter`~~ — Checkout, Billing Portal, webhook handler, and plan-quota enforcement shipped; actual deploy of the hosted tier is the next blocker
+- ~~RBAC invite UI~~ — shipped as team invites (`/api/invites/*` + settings Team panel)
+- Runner isolation for multi-tenant cloud (Fly Machines per run, Firecracker, or gVisor) — still outstanding
+- WorkOS SSO (adapter is already scaffolded in `backend/src/auth/workos-auth-provider.ts`, just needs the WorkOS org + creds)
+- Audit chain inspector UI
+- Declarative plugin manifest (JSON schema → auto-generated config form) — the `defineStep` SDK shipped; the zero-code UX is the next lever
 
 **Anything not on this list is not on the roadmap.** No marketplace, no
 real-time collab, no MCP server, no service catalog. If a customer asks

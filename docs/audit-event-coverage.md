@@ -1,6 +1,6 @@
 # Audit event coverage
 
-**Last verified:** 2026-04-07
+**Last verified:** 2026-04-17 (MFA + invites + quota)
 **Source of truth for the union:** `backend/src/audit/audit.service.ts`
 **Required minimum:** `IMPLEMENTACION_NANORUN.md` P0 #2
 
@@ -34,13 +34,19 @@ Legend:
 | API key usada           | `apikey.created`     | `runbook/services/api-key.service.ts:78`                              |   ✅   |
 | API key usada           | `apikey.used`        | `runbook/services/api-key.service.ts:123`                             |   ✅   |
 | API key usada           | `apikey.revoked`     | `runbook/services/api-key.service.ts:176`                             |   ✅   |
-| —                       | `auth.login`         | `routes/auth.routes.ts:178,295`                                       |   ✅   |
-| —                       | `auth.logout`        | `routes/auth.routes.ts:457`                                           |   ✅   |
+| —                       | `auth.login`         | `routes/auth.routes.ts` register/login/reset-password + `routes/oauth.routes.ts` callback |   ✅   |
+| —                       | `auth.logout`        | `routes/auth.routes.ts` logout handler                                |   ✅   |
 | **secret accedido**     | `secret.accessed`    | `security/secret-reader.ts` — emitted on every `read()`               |   ✅   |
 | —                       | `role.granted`       | `rbac/role-assignment.service.ts` — emitted on every `grant()`        |   ✅   |
 | —                       | `role.revoked`       | `rbac/role-assignment.service.ts` — emitted on every `revoke()`       |   ✅   |
 | —                       | `connectedaccount.linked`   | `security/connected-account.service.ts` — emitted on every `link()`   |   ✅   |
 | —                       | `connectedaccount.unlinked` | `security/connected-account.service.ts` — emitted on every `unlink()` |   ✅   |
+| —                       | `mfa.enabled`        | `routes/mfa.routes.ts` verify-enroll                                  |   ✅   |
+| —                       | `mfa.disabled`       | `routes/mfa.routes.ts` disable                                        |   ✅   |
+| —                       | `invite.created`     | `routes/invites.routes.ts` POST /                                     |   ✅   |
+| —                       | `invite.accepted`    | `routes/invites.routes.ts` POST /accept                               |   ✅   |
+| —                       | `invite.revoked`     | `routes/invites.routes.ts` DELETE /:id                                |   ✅   |
+| —                       | `quota.exceeded`     | `routes/runbook.routes.ts` POST / (fires from executions in a future pass) |   ✅   |
 
 ## Gaps and decisions
 
@@ -72,17 +78,31 @@ transaction — if the audit write fails the run is still cancelled and
 the operator's intent is preserved (logged at error level for the
 verifier to flag later).
 
-### `auth.logout` — stateless, but recorded
+### `auth.logout` — recorded **and** now revokes the session
 
-JWT in NanoRun is stateless: the server cannot truly invalidate a token
-mid-flight. We added `POST /auth/logout` anyway because the audit chain
-is what compliance dashboards and incident timelines actually consume —
-"who logged out from where, and when" is the question, not "is this
-specific JWT still valid". The endpoint requires authentication and
-records `auth.logout` with `method: 'client-initiated'`, IP, and user
-agent. Real revocation (denylist or short-lived tokens with refresh)
-is a separate work item; when it ships, the revocation handler emits
-the same event type, and any existing dashboard queries keep working.
+The endpoint requires authentication, records `auth.logout` with
+`method: 'client-initiated'`, IP, and user agent **and** writes the
+token's JTI to a Redis denylist with a TTL matching the JWT's own
+`exp` (see `backend/src/auth/session-denylist.ts`). The `JwtAuthProvider`
+checks the denylist after signature verification, so a logged-out
+token really cannot be reused mid-flight. When Redis is not configured
+the check is a no-op and the behavior falls back to stateless JWT —
+that's the honest self-host default. The audit event shape did not
+change, so any dashboard query written for the stateless era keeps
+working.
+
+### `auth.login` — four producers, one event type
+
+The event ships from every place a session is minted so compliance
+reports don't lose any login path:
+
+- `POST /auth/register` (new account, `method: 'register'`)
+- `POST /auth/login` (email + password, `method: 'password'`)
+- `POST /auth/reset-password` (new password after a reset-link consume, `method: 'password'`)
+- `GET /api/auth/:provider/callback` (Google / GitHub OAuth, `method: 'oauth:google'` / `'oauth:github'`)
+
+All four include IP and user-agent on the payload so anomaly detection
+has enough context without needing a separate log join.
 
 ## Events outside the P0 #2 minimum that we should consider
 
