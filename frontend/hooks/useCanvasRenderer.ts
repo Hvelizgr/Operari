@@ -127,9 +127,12 @@ const drawSmartBezier = (
 };
 
 /**
- * Debug crosshair marker — draws a small + sign at the computed port
- * anchor so operators can eyeball any math drift against the live
- * pole DOM. Red for source outputs, blue for target inputs.
+ * Debug crosshair — draws a large hollow ring around the computed
+ * port anchor. The ring is 28px radius so it extends well beyond the
+ * node body (which otherwise covers the canvas at this z-index).
+ * If the ring circles a visible pole, math is right. If the ring is
+ * offset from the pole, the delta is the port-position bug.
+ * Red for source outputs, blue for target inputs.
  */
 function drawPortCrosshair(
     ctx: CanvasRenderingContext2D,
@@ -138,16 +141,24 @@ function drawPortCrosshair(
     color: string,
 ) {
     ctx.save();
+    // Outer halo — bright, thick, visible even against the node card
     ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y, 28, 0, Math.PI * 2);
+    ctx.stroke();
+    // Inner crosshair extending outward so at least half is outside
+    // the node's covering element at z-index 2.
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(x - 6, y);
-    ctx.lineTo(x + 6, y);
-    ctx.moveTo(x, y - 6);
-    ctx.lineTo(x, y + 6);
+    ctx.moveTo(x - 40, y);
+    ctx.lineTo(x + 40, y);
+    ctx.moveTo(x, y - 40);
+    ctx.lineTo(x, y + 40);
     ctx.stroke();
+    // Dead-center dot
     ctx.beginPath();
-    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
     ctx.restore();
