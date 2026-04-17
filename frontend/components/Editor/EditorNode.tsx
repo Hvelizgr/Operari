@@ -261,32 +261,36 @@ export default function EditorNode({
     const nodeRef = useRef<HTMLDivElement>(null);
     const nodeType = typeDefinition || NODE_TYPES.find(t => t.type === node.type);
 
-    // Measure Height
+    // Measure Height — two paths:
+    //   1) Synchronous measurement on mount (useLayoutEffect runs AFTER
+    //      DOM commit but BEFORE the browser paints). This fixes the
+    //      "first-frame miswire" where the canvas used to pick up the
+    //      120px fallback height and draw the connection at y+60 before
+    //      ResizeObserver's microtask got a chance to fire, causing the
+    //      cable to land below the actual pole on tall nodes.
+    //   2) Ongoing updates via ResizeObserver so title edits / badge
+    //      toggles that change the card height keep the connections
+    //      glued to the poles.
     useLayoutEffect(() => {
         if (!nodeRef.current || !onUpdate) return;
+        const element = nodeRef.current;
+        const currentH = (node as Partial<{ dimensions: { height: number } }>).dimensions?.height;
+        const measuredH = element.offsetHeight;
+        const measuredW = element.offsetWidth;
+        if (!currentH || Math.abs(currentH - measuredH) > 1) {
+            onUpdate(node.id, { dimensions: { height: measuredH, width: measuredW } } as Partial<WorkflowNode>);
+        }
+
         const resizeObserver = new ResizeObserver(entries => {
             for (const entry of entries) {
-                const { height } = entry.contentRect;
-                // Avoid infinite loops by checking threshold
-                const currentHeight = (node as any).dimensions?.height;
-                if (!currentHeight || Math.abs(currentHeight - height) > 2) {
-                    // Adding 4px for border/padding discrepancies if contentRect is smaller than offsetHeight
-                    // Actually contentRect is what we want if we center in content. 
-                    // But offsetHeight includes borders. 
-                    // Let's use bounding client rect for full visual height.
-                    const rect = entry.target.getBoundingClientRect();
-                    // Zoom affects this? No, we want logical pixels.
-                    // The observer gives pixels.
-                    // IMPORTANT: If zoom is applied on parent, observer results might be scaled.
-                    // But EditorNode is inside a transform. 
-                    // We need unscaled height?
-                    // Actually, if we use offsetHeight from the element, it is the layout height.
-                    const element = entry.target as HTMLElement;
-                    const finalHeight = element.offsetHeight;
-
-                    if (!currentHeight || Math.abs(currentHeight - finalHeight) > 2) {
-                        onUpdate(node.id, { dimensions: { height: finalHeight, width: element.offsetWidth } } as any);
-                    }
+                const el = entry.target as HTMLElement;
+                const h = el.offsetHeight;
+                const currH = (node as Partial<{ dimensions: { height: number } }>).dimensions?.height;
+                // Tight threshold so subpixel jitter from border changes
+                // doesn't ping-pong the state, but any real height delta
+                // (>1px) syncs the line anchor.
+                if (!currH || Math.abs(currH - h) > 1) {
+                    onUpdate(node.id, { dimensions: { height: h, width: el.offsetWidth } } as Partial<WorkflowNode>);
                 }
             }
         });
