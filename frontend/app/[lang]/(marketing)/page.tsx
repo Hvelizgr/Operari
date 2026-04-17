@@ -6,7 +6,6 @@ import Templates from './components/Templates';
 import TriggerSources from './components/TriggerSources';
 import Comparison from './components/Comparison';
 import CTA from './components/CTA';
-import Footer from './components/Footer';
 
 export async function generateStaticParams() {
     return [{ lang: 'en' }, { lang: 'es' }];
@@ -61,8 +60,6 @@ export default async function Page({
             <div id="self-host">
                 <CTA content={content.cta} />
             </div>
-
-            <Footer content={content.footer} />
         </main>
     );
 }

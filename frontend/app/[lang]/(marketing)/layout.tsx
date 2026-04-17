@@ -1,6 +1,7 @@
 import { content as contentEn } from '../content/en';
 import { content as contentEs } from '../content/es';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 
 export default async function MarketingLayout({
     children,
@@ -13,9 +14,10 @@ export default async function MarketingLayout({
     const content = lang === 'es' ? contentEs : contentEn;
 
     return (
-        <div className="flex flex-col min-h-screen">
+        <div className="flex flex-col min-h-screen bg-background text-foreground dark">
             <Navbar content={content.navigation} lang={lang} />
-            {children}
+            <div className="flex-1">{children}</div>
+            <Footer content={content.footer} />
         </div>
     );
 }
