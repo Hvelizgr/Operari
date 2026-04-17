@@ -19,11 +19,11 @@ export const content = {
     getStarted: "Obtener API key",
   },
   hero: {
-    badge: "API · alpha pre-lanzamiento",
+    badge: "Self-serve · alpha pre-lanzamiento",
     title: "Runbooks como\nuna API.",
     subtitle:
-      "Disparás un runbook de producción con un único HTTP call. Cada step corre en un runner aislado, cada acción queda firmada en una cadena de auditoría, y la respuesta vuelve en menos de 300 ms.",
-    ctaPrimary: "Obtener API key",
+      "Disparás un runbook de producción con un único HTTP call. Probalo en dry-run contra prod primero, cada step corre en un runner aislado, cada acción queda firmada en una cadena de auditoría, y la respuesta vuelve en menos de 300 ms.",
+    ctaPrimary: "Crear workspace",
     ctaSecondary: "o self-host",
     scenario: {
       requestMethod: "POST",
@@ -56,6 +56,55 @@ export const content = {
       ],
       streamFooter: "run completado · 4/4 steps · cadena de auditoría verificada",
     },
+  },
+  trust: {
+    eyebrow: "Diseñado para encajar en el stack que ya usás",
+    line: "Se conecta con las herramientas que tu on-call abre a las 3 am.",
+  },
+  metrics: {
+    eyebrow: "Ingeniería en números",
+    title: "Producción desde el primer run.",
+    items: [
+      { value: 300, suffix: "ms", label: "p95 trigger → primer log", hint: "medido en la API hospedada" },
+      { value: 12, suffix: "", label: "tipos de step first-party", hint: "shell · http · approve · notify · sql · …" },
+      { value: 100, suffix: "%", label: "open source, Apache-2.0", hint: "self-host o hosted — el mismo binario" },
+      { value: 0, suffix: "", label: "credenciales salen de tu VPC en dry-run", hint: "los runs quedan en tu infra por defecto" },
+    ],
+  },
+  safety: {
+    eyebrow: "Safety rails",
+    title: "Cuatro primitivas que a otros workflow tools les faltan.",
+    subtitle:
+      "Estas features son la línea real entre 'Zapier para devs backend' y una herramienta que confiás con tráfico de producción.",
+    rails: [
+      {
+        title: "Dry-run contra producción.",
+        description:
+          "Flag y listo: cada step loguea lo que HARÍA — sin subprocess, sin HTTP, sin pause de approval, sin notificación. Corrés contra credenciales de prod antes del rollback real, ves el payload exacto, dormís tranquilo.",
+        example:
+          "curl -X POST https://api.cairn.run/v1/runs/trigger \\\n  -d '{\"runbook\":\"rollback\",\"dryRun\":true}'",
+      },
+      {
+        title: "Los errores disparan el siguiente runbook automáticamente.",
+        description:
+          "Declarás onErrorRunbook en tu deploy. Cuando falla, el runbook de rollback se dispara con el error como input. Cycle-detection, mismo tenant, una línea de YAML.",
+        example: "name: deploy-api\nonErrorRunbook: rollback-api\nsteps: [...]",
+      },
+      {
+        title: "Componé runbooks. No los copies y pegues.",
+        description:
+          "Un step `runbook` invoca otro runbook como sub-run. Sync o async, hereda dry-run, cap de profundidad 5, scoped al tenant — así 'notificar stakeholders' queda en un solo archivo.",
+        example:
+          "- id: pre_checks\n  type: runbook\n  config:\n    ref: standard-prechecks\n    inputs:\n      service: \"{{vars.service}}\"",
+      },
+      {
+        title: "Tus propios step types, shippeados como npm packages.",
+        description:
+          "@cairn/sdk exporta defineStep({type, configSchema, execute}). Lo escribís en TypeScript, shippeás el build, lo dropeás en NANORUN_PLUGINS_DIR. El runtime valida config con tu zod schema antes del execute. Los types reservados no se pueden override.",
+        example:
+          "import { defineStep } from '@cairn/sdk/steps';\nexport default defineStep({\n  type: 'myorg.slack-notify',\n  configSchema: z.object({ webhook: z.string().url() }),\n  async execute(config, ctx) { /* ... */ },\n});",
+      },
+    ],
   },
   story: {
     eyebrow: "Cómo funciona",
@@ -214,8 +263,20 @@ export const content = {
         cells: ["AGPL", "Apache", "Apache", "no", "Apache"],
       },
       {
+        feature: "Dry-run contra prod (sin side effects)",
+        cells: ["sí", "no", "no", "no", "no"],
+      },
+      {
+        feature: "Custom step plugins (SDK)",
+        cells: ["sí", "no", "partial", "no", "partial"],
+      },
+      {
+        feature: "MFA + verificación email built-in",
+        cells: ["sí", "sí", "no", "sí", "partial"],
+      },
+      {
         feature: "Precio por usuario",
-        cells: ["alpha (no)", "$125/mes", "gratis", "$20–40/mes", "self-host"],
+        cells: ["$19/$49", "$125/mes", "gratis", "$20–40/mes", "self-host"],
       },
       {
         feature: "Production-ready hoy",
@@ -546,54 +607,130 @@ export const content = {
   privacy: {
     title: "Privacidad",
     subtitle: "Qué guardamos, qué hacemos con eso y qué nos negamos a hacer.",
-    updated: "Última actualización: 2026-04-01",
+    updated: "Última actualización: 2026-04-17",
     sections: [
       {
         heading: "Self-host: cero telemetría",
-        body: "Self-host no nos manda nada. Sin pings, sin contadores de uso, sin reportes de crash a menos que habilites explícitamente el flag NANORUN_TELEMETRY.",
+        body: "Self-host no nos manda nada. Sin pings, sin contadores de uso, sin reportes de crash a menos que habilites explícitamente el flag NANORUN_TELEMETRY. Tus runbooks, ejecuciones, logs y credenciales nunca salen de tu infraestructura.",
       },
       {
-        heading: "Cloud: solo datos operacionales",
-        body: "Guardamos lo necesario para correr el servicio: tu email, tus runbooks, tu historial de runs y el billing. Nunca leemos el contenido de tu runbook por ningún motivo fuera de ejecutarlo.",
+        heading: "Cloud: qué datos guardamos",
+        body: "Cuando te registrás en el servicio hosted guardamos: (a) identidad de la cuenta — email, password hasheado, nombre a mostrar opcional y el subject id del proveedor OAuth si te logueás con Google o GitHub; (b) datos del workspace — runbooks, ejecuciones, logs de steps, secretos que cargaste, eventos de auditoría; (c) metadatos de billing desde Stripe — estado de suscripción, plan, ids de factura. Nunca leemos el contenido de tus runbooks ni tus secretos por ningún motivo que no sea ejecutarlos a tu pedido.",
       },
       {
-        heading: "Analytics",
-        body: "El sitio de marketing usa analytics privacy-first (Plausible). Sin cookies, sin cross-site tracking. Podés bloquearlo sin romper nada.",
+        heading: "Base legal (GDPR)",
+        body: "Procesamos los datos de cuenta y workspace bajo la base de contrato — te registraste para recibir un servicio y no podemos entregarlo sin procesar esos datos. Los emails de marketing salen bajo interés legítimo con un link de baja a un clic en cada envío. No hacemos profiling para publicidad.",
       },
       {
-        heading: "Eliminación de datos",
-        body: "Eliminás tu cuenta y todo se va en 30 días, incluidos backups. Export de datos disponible como tarball JSON + YAML desde settings.",
+        heading: "Tus derechos",
+        body: "Podés acceder, corregir, exportar o eliminar cada campo asociado a tu cuenta desde la página de Settings. Para derechos que requieren gestión manual (restricción, oposición, portabilidad en bulk), escribinos a privacy@cairn.run y respondemos en 30 días. Residentes en la UE/EEE y UK pueden también hacer reclamos ante su autoridad de protección de datos local.",
       },
       {
-        heading: "Terceros",
-        body: "Stripe para billing. AWS para hosting. Postmark para email transaccional. Lista completa en nanorun.dev/subprocessors.",
+        heading: "Retención",
+        body: "Los datos de cuenta se retienen mientras la cuenta esté activa. Cuando eliminás tu cuenta, tu fila de usuario, workspace, runbooks, ejecuciones, secretos y logs de steps se purgan en 30 días en storage primario y backups. El audit log está hash-chained y es inmutable por diseño — los eventos de eliminación quedan como tombstone con userId y timestamp pero el stream en sí se retiene por compliance (requerido por SOC 2 / ISO 27001).",
+      },
+      {
+        heading: "Transferencias internacionales",
+        body: "El servicio hosted corre en la región que elegiste al registrarte (hoy: UE o US). Cuando el procesamiento involucra un subprocesador en otra región, nos apoyamos en las Standard Contractual Clauses (SCCs) y en el UK International Data Transfer Agreement según corresponda.",
+      },
+      {
+        heading: "Cookies",
+        body: "Usamos dos cookies funcionales: nanorun_session (HttpOnly, requerida para login) y nanorun_csrf (legible por el navegador para que los forms incluyan un token CSRF). El sitio de marketing usa analytics privacy-first sin cookies ni tracking cross-site.",
+      },
+      {
+        heading: "Subprocesadores",
+        body: "Ver /subprocessors para la lista canónica de hosting, email, error-tracking y procesadores de pago que usamos. Notificamos a los clientes con al menos 30 días antes de activar un subprocesador nuevo.",
+      },
+      {
+        heading: "Aviso de brechas",
+        body: "En el caso improbable de una brecha de datos personales que afecte tu cuenta, te notificamos dentro de las 72 horas de la confirmación, consistente con los artículos 33/34 del GDPR, y publicamos un post-incident report dentro de los 30 días.",
+      },
+      {
+        heading: "Datos de menores",
+        body: "El servicio no está dirigido a menores de 16 años. No recolectamos conscientemente datos de menores; si creés que los datos de un menor llegaron a nosotros, escribinos a privacy@cairn.run y los eliminamos.",
+      },
+      {
+        heading: "Contacto",
+        body: "Consultas de privacidad o pedidos de derechos: privacy@cairn.run. Divulgaciones de seguridad: security@cairn.run (PGP bajo pedido). Para asuntos GDPR de la UE mantendremos un Representante EEA una vez que la facturación en la región supere el umbral de EU Rep.",
       },
     ],
   },
   terms: {
     title: "Términos del servicio",
     subtitle: "Las reglas del camino.",
-    updated: "Última actualización: 2026-04-01",
+    updated: "Última actualización: 2026-04-17",
     sections: [
       {
+        heading: "Partes",
+        body: "Estos términos forman un acuerdo entre vos (\"Cliente\") y Cairn (\"nosotros\"). Al registrarte en el servicio hosted o al correr la distribución self-host en producción, aceptás estos términos.",
+      },
+      {
         heading: "Licencia self-host",
-        body: "Self-host es AGPL-3.0. Si lo corrés como servicio, tenés que liberar el source de tus modificaciones. Texto completo en github.com.",
+        body: "El servidor self-host es AGPL-3.0 — podés correrlo, forkearlo e incrustarlo en productos; correr una copia modificada como servicio público dispara la obligación AGPL de liberar el código. Los paquetes oficiales de SDK y CLI son MIT. Un puñado de módulos enterprise (conectores SAML/SCIM, herramientas de backup gestionado de Postgres) son source-available bajo una Business Source License separada que convierte a Apache 2.0 en su change date declarada.",
       },
       {
         heading: "Suscripción Cloud",
-        body: "Mes a mes o anual. Cancelás cuando quieras; refunds prorrateados en anual. Precios pueden cambiar con aviso de 60 días. Pricing grandfather bajo pedido para los primeros 100 clientes.",
+        body: "Mensual o anual, facturada por adelantado vía Stripe. Podés cancelar en cualquier momento desde Settings → Billing; el período actual sigue activo hasta fin de ciclo de billing. Los planes anuales reciben un reembolso prorrateado sobre la porción no usada a pedido del admin.",
+      },
+      {
+        heading: "Tarifas e impuestos",
+        body: "Los precios están en USD salvo que la página de plan diga lo contrario. Sos responsable de los impuestos aplicables (IVA/GST/sales tax); Stripe Tax maneja la mayoría de las regiones automáticamente. Podemos cambiar precios con aviso de 60 días por email al admin de la cuenta; los primeros 100 clientes pagos mantienen su precio mientras permanezcan en un plan pago.",
       },
       {
         heading: "Uso aceptable",
-        body: "No uses NanoRun para atacar sistemas que no son tuyos, exfiltrar datos que no controlás o correr mineros de cripto. Todo lo demás juego limpio.",
+        body: "No uses el servicio para atacar sistemas que no son tuyos, exfiltrar datos que no controlás, o correr cargas abusivas (minería de criptomonedas, DDoS reflectors, scrapers contra APIs de terceros rate-limited). El contenido de los runbooks es tu propiedad y responsabilidad; podemos suspender cargas que disparen safeguards de infra y te avisamos antes de acciones permanentes salvo que un incidente activo requiera otra cosa.",
       },
       {
-        heading: "Garantía",
-        body: "Self-host se entrega as-is. Cloud se entrega con el SLA de tu plan. Responsabilidad hasta 12 meses de fees pagados en los 12 meses previos al reclamo.",
+        heading: "Tus datos, tu propiedad",
+        body: "Retenés todos los derechos sobre los runbooks, ejecuciones, secretos y logs que subas. Recibimos una licencia limitada para procesar esos datos solamente para entregarte el servicio. No entrenamos modelos de AI con el contenido de tus runbooks, no inspeccionamos tus ejecuciones para analytics de producto, ni compartimos datos con terceros más allá de los subprocesadores listados en /subprocessors.",
+      },
+      {
+        heading: "Disponibilidad + SLA",
+        body: "Free y self-host se entregan sin compromiso de uptime. Los planes Team y Business apuntan a 99.9% de disponibilidad mensual en la API primaria, medida contra nuestra status page pública. Los créditos por SLA incumplido para Team/Business equivalen al 10% de los fees del mes por hora de downtime sobre el objetivo, con tope del 50% de ese mes. Los contratos Enterprise pueden agregar términos más estrictos en una orden ejecutada.",
+      },
+      {
+        heading: "Soporte",
+        body: "Free: soporte de comunidad vía GitHub Discussions. Team: respuesta por email en dos días hábiles. Business: respuesta por email en un día hábil, con un bridge de incidente compartido durante incidentes de producción confirmados. Enterprise: definido por contrato. No garantizamos soporte para self-host sin modificar más allá de bug reports que reproduzcan contra la release actual.",
+      },
+      {
+        heading: "Confidencialidad",
+        body: "Cada parte protegerá la información confidencial de la otra con cuidado razonable y la usará solo para cumplir el acuerdo. Nuestras prácticas de seguridad — encriptación en reposo, aislamiento de secretos por tenant, audit logs hash-chained — están documentadas en la página de security y aplican a todos los clientes sin importar el plan.",
+      },
+      {
+        heading: "Garantías",
+        body: "El servicio se provee \"tal cual\" y \"según disponibilidad\". Rechazamos garantías implícitas en la medida máxima que permita la ley. Sí garantizamos que tenemos la autoridad para otorgar los derechos que otorgamos acá y que nuestro binario de producción no se envía conscientemente con código malicioso.",
+      },
+      {
+        heading: "Limitación de responsabilidad",
+        body: "Ninguna de las partes será responsable por daños indirectos, incidentales, especiales, consecuentes o punitivos. La responsabilidad agregada de cada parte bajo este acuerdo se limita a los fees que el Cliente pagó en los doce meses previos al reclamo. Nada en esta sección limita la responsabilidad por conducta dolosa o incumplimiento de confidencialidad.",
+      },
+      {
+        heading: "Indemnización",
+        body: "Te defendemos e indemnizamos contra reclamos de terceros que aleguen que el servicio tal como se entrega infringe su propiedad intelectual, excepto cuando la infracción surja de tus modificaciones, combinación con software de terceros, o uso ilícito. Vos nos indemnizás contra reclamos de terceros originados en el contenido de tus runbooks o en tu uso del servicio.",
+      },
+      {
+        heading: "Procesamiento de datos (GDPR)",
+        body: "Para clientes que procesan datos personales de la UE/UK a través del servicio, nuestro Data Processing Addendum (disponible en /dpa) se incorpora por referencia al ejecutarse. Cubre las obligaciones del artículo 28, una lista vigente de subprocesadores y las Standard Contractual Clauses para transferencias internacionales.",
+      },
+      {
+        heading: "Suspensión + terminación",
+        body: "Cualquiera de las partes puede terminar por conveniencia con aviso de 30 días (o inmediatamente al final del período de billing actual para hosted). Podemos suspender el servicio con aviso corto si creemos razonablemente que tu cuenta está comprometida, involucrada en violaciones de uso aceptable, o causando daño a otros clientes. Al terminar podés exportar tus datos durante 30 días; después se purgan según la sección de retención de la política de Privacidad.",
+      },
+      {
+        heading: "Controles de exportación + sanciones",
+        body: "Declarás que no estás en, y que no usarás el servicio en representación de, ninguna parte sujeta a listas de sanciones US, UK o UE, y que no exportarás el servicio a ninguna jurisdicción restringida por la ley comercial aplicable.",
+      },
+      {
+        heading: "Cambios",
+        body: "Los cambios materiales a estos términos o a la política de Privacidad entran en vigor 30 días después de publicar un aviso al principio de la página y enviar email al admin registrado. Las ediciones no materiales (correcciones tipográficas, aclaraciones) pueden entrar en vigor inmediatamente y aparecerán en /changelog.",
       },
       {
         heading: "Jurisdicción",
-        body: "Delaware, USA. Disputas van a arbitraje JAMS antes que corte. Sin class actions.",
+        body: "Estos términos se rigen por las leyes de Delaware, USA, sin referencia a sus reglas de conflicto de leyes. Las disputas van a arbitraje JAMS con sede en San Francisco bajo sus Streamlined Rules; cada parte retiene el derecho a buscar medidas cautelares en cualquier corte competente por uso indebido de propiedad intelectual. Se renuncia a las acciones colectivas (class actions).",
+      },
+      {
+        heading: "Acuerdo completo",
+        body: "Estos términos más el DPA, la orden (si la hubiere) y los adendos específicos de producto forman el acuerdo completo. Si alguna disposición se encuentra inejecutable, el resto continúa aplicándose.",
       },
     ],
   },

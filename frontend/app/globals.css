@@ -516,3 +516,110 @@ html[data-anim="off"] .wf_error {
         animation: none !important;
     }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Marketing-only enterprise polish
+   ─────────────────────────────────────────────────────────────
+   Scope: the landing layout wraps its children in .marketing-shell.
+   Every utility below is namespaced so app/editor chrome is
+   untouched. If it is added outside marketing, it should be via
+   explicit opt-in (e.g., <div class="grain-overlay">).
+   ───────────────────────────────────────────────────────────── */
+
+/* Subtle film grain — applied once to the shell root as a fixed
+   overlay so it never scrolls or re-tiles. Opacity is low enough
+   to read as "texture", not "dithered photo". Using SVG turbulence
+   in a data URL keeps it a single paintable layer; `pointer-events:
+   none` means clicks fall straight through to the content. */
+.marketing-shell {
+    position: relative;
+    isolation: isolate;
+}
+
+.marketing-shell::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: var(--landing-noise);
+    background-size: 180px 180px;
+    opacity: 0.45;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Nav link underline-slide. The pseudo-element sits below the
+   link text; scaleX(0) → scaleX(1) with a slow expo-out reads as
+   deliberate, not snappy. Pair with `group` modifier for stagger. */
+.nav-link-slide {
+    position: relative;
+    padding-bottom: 2px;
+}
+
+.nav-link-slide::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+    background: hsl(var(--primary));
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nav-link-slide:hover::after,
+.nav-link-slide[aria-current='page']::after {
+    transform: scaleX(1);
+}
+
+/* Shared eyebrow treatment for marketing section headers.
+   Standardizing this keeps the rhythm across Story, SafetyRails,
+   Templates, TriggerSources, and Comparison — they used to each
+   hand-roll it. */
+.m-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: hsl(var(--primary));
+    opacity: 0.9;
+}
+
+.m-eyebrow::before {
+    content: '';
+    width: 1.5rem;
+    height: 1px;
+    background: hsl(var(--primary) / 0.55);
+}
+
+/* Card shimmer on hover — the thin gradient stripe travels once
+   across a border on hover. Enterprise-subtle; never loops. */
+.shimmer-hover {
+    position: relative;
+    overflow: hidden;
+}
+
+.shimmer-hover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+        120deg,
+        transparent 20%,
+        hsl(var(--primary) / 0.08) 50%,
+        transparent 80%
+    );
+    transform: translateX(-100%);
+    transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shimmer-hover:hover::after {
+    transform: translateX(100%);
+}

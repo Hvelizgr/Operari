@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { ArrowRight, Copy, Check, Terminal, Github } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
@@ -43,6 +43,19 @@ export default function Hero({ content }: HeroProps) {
   const params = useParams();
   const lang = (params.lang as string) || 'en';
   const [copied, setCopied] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const reduceMotion = useReducedMotion();
+  // Gentle scroll-linked parallax on the right-column terminal. The
+  // range is [section entering viewport → fully scrolled past], and
+  // we translate Y by a small amount so the terminal appears to
+  // lag the text column by ~8-12% — enterprise, not carnival. The
+  // `reduceMotion` hook zeros this out for users who opted out.
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start start', 'end start'],
+  });
+  const terminalY = useTransform(scrollYProgress, [0, 1], reduceMotion ? [0, 0] : [0, -60]);
+  const terminalOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.6]);
 
   const copyEndpoint = () => {
     void navigator.clipboard
@@ -54,7 +67,10 @@ export default function Hero({ content }: HeroProps) {
   };
 
   return (
-    <section className="relative flex items-center overflow-hidden pt-28 sm:pt-32 pb-16 sm:pb-20 min-h-[88vh] lg:min-h-[100vh]">
+    <section
+      ref={sectionRef}
+      className="relative flex items-center overflow-hidden pt-28 sm:pt-32 pb-16 sm:pb-20 min-h-[88vh] lg:min-h-[100vh]"
+    >
       <AuroraBackground
         grid
         orbs={[
@@ -117,15 +133,18 @@ export default function Hero({ content }: HeroProps) {
               transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
               className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto"
             >
-              {/* Primary CTA: "Get API key". Goes to /signup which the hosted
-                  onboarding will claim — today it falls back to the docs anchor
-                  so the button is never a dead link. */}
+              {/* Primary CTA: register for the self-serve workspace.
+                  Auth + billing are live (docs/DEPLOYMENT.md) so this
+                  button goes straight into the signup flow — no
+                  waitlist, no mailto. `/signup` (the original
+                  "get-api-key" waitlist) still exists but is linked
+                  from the footer for hosted-API early-access. */}
               <Link
-                href={`/${lang}/signup`}
-                className="group h-14 px-6 rounded-xl bg-primary text-primary-foreground font-semibold text-sm md:text-base flex items-center gap-3 shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 hover:bg-primary/90 active:scale-[0.98] transition-all w-full sm:w-auto justify-center"
+                href={`/${lang}/register`}
+                className="shimmer-hover group relative h-14 px-6 rounded-xl bg-primary text-primary-foreground font-semibold text-sm md:text-base flex items-center gap-3 shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 hover:bg-primary/90 active:scale-[0.98] transition-all w-full sm:w-auto justify-center overflow-hidden"
               >
-                {content.ctaPrimary}
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                <span className="relative z-[1]">{content.ctaPrimary}</span>
+                <ArrowRight className="relative z-[1] w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
 
               {/* Secondary: self-host via the GitHub repo. Still accessible
@@ -159,8 +178,14 @@ export default function Hero({ content }: HeroProps) {
             </motion.button>
           </div>
 
-          {/* RIGHT — animated API request/response/stream terminal */}
-          <ApiTerminal content={content.scenario} />
+          {/* RIGHT — animated API request/response/stream terminal.
+              Wrapped in a motion shell so the terminal drifts a touch
+              slower than the left column as the page scrolls. The
+              drift is tiny (<60px over the hero height) so visitors
+              read it as parallax depth, not movement. */}
+          <motion.div style={{ y: terminalY, opacity: terminalOpacity }}>
+            <ApiTerminal content={content.scenario} />
+          </motion.div>
         </div>
       </div>
     </section>

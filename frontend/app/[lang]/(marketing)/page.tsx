@@ -1,7 +1,10 @@
 import { content as contentEn } from '../content/en';
 import { content as contentEs } from '../content/es';
 import Hero from './components/Hero';
+import TrustBar from './components/TrustBar';
+import MetricsBar from './components/MetricsBar';
 import Story from './components/Story';
+import SafetyRails from './components/SafetyRails';
 import Templates from './components/Templates';
 import TriggerSources from './components/TriggerSources';
 import Comparison from './components/Comparison';
@@ -41,8 +44,16 @@ export default async function Page({
         <main className="flex-1 bg-background selection:bg-primary/20">
             <Hero content={content.hero} />
 
+            <TrustBar content={content.trust} />
+
+            <MetricsBar content={content.metrics} />
+
             <div id="story">
                 <Story content={content.story} />
+            </div>
+
+            <div id="safety">
+                <SafetyRails content={content.safety} />
             </div>
 
             <div id="templates">

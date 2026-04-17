@@ -16,6 +16,10 @@ import {
     Zap as ZapIcon,
 } from 'lucide-react';
 import { THEMES, useTheme, type Theme } from '@/context/ThemeContext';
+import { BillingPanel } from './BillingPanel';
+import { UpgradeWelcomeModal } from './UpgradeWelcomeModal';
+import { TeamPanel } from './TeamPanel';
+import { DangerZone } from './DangerZone';
 import {
     useVisualization,
     ACCENT_HEX,
@@ -220,6 +224,11 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
                     </h1>
                     <p className="text-sm text-[var(--text-muted)] mt-1 max-w-2xl">{t.subtitle}</p>
                 </div>
+
+                {/* Post-checkout celebration. Fires once on
+                    /settings?checkout=success, self-dismisses and
+                    strips the query param so reload doesn't re-show. */}
+                <UpgradeWelcomeModal lang={lang} />
 
                 {/* Theme picker */}
                 <Section icon={<Palette size={16} />} title={t.themeTitle} hint={t.themeHint}>
@@ -532,10 +541,43 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
                     </div>
                 </Section>
 
+                {/* Team */}
+                <Section
+                    icon={<User size={16} />}
+                    title={lang === 'es' ? 'Equipo' : 'Team'}
+                    hint={
+                        lang === 'es'
+                            ? 'Invitá usuarios a este workspace. Los links de invitación duran 7 días.'
+                            : 'Invite teammates to this workspace. Invite links expire in 7 days.'
+                    }
+                >
+                    <TeamPanel lang={lang} />
+                </Section>
+
+                {/* Plan & billing */}
+                <Section
+                    icon={<Sparkles size={16} />}
+                    title={lang === 'es' ? 'Plan y facturación' : 'Plan & billing'}
+                    hint={
+                        lang === 'es'
+                            ? 'Suscribite, gestioná la suscripción o bajá facturas. Self-host queda gratis para siempre.'
+                            : 'Upgrade, manage your subscription, or download invoices. Self-host stays free forever.'
+                    }
+                >
+                    <BillingPanel lang={lang} />
+                </Section>
+
                 {/* Profile placeholder */}
                 <Section icon={<User size={16} />} title={t.profileTitle} hint={t.profileHint}>
                     <div className="text-sm text-[var(--text-muted)]">{t.profilePlaceholder}</div>
                 </Section>
+
+                {/* Danger zone — self-serve GDPR account purge. Stays
+                    at the very bottom of the page so a casual scroll
+                    never lands on it; the modal still requires a
+                    typed confirmation + password + MFA + workspace
+                    opt-in before it fires. */}
+                <DangerZone lang={lang} />
             </div>
         </div>
     );

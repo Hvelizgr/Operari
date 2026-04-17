@@ -17,6 +17,8 @@ interface Run {
     error: string | null;
     /** Estimated remaining time in ms for RUNNING rows; null otherwise. */
     etaMs?: number | null;
+    /** Dry-run runs are badged so they are never confused with real executions. */
+    dryRun?: boolean;
 }
 
 const STRINGS: Record<'en' | 'es', Record<string, string>> = {
@@ -220,13 +222,21 @@ function RunRow({
                 window.location.href = `/${lang}/runs/${r.id}`;
             }}
         >
-            <div className="w-32 px-4 flex items-center gap-2">
+            <div className="w-44 px-4 flex items-center gap-2">
                 <Icon
                     className={`h-4 w-4 ${meta.cls} ${
                         r.status === 'RUNNING' ? 'animate-spin' : ''
                     }`}
                 />
                 <span className={`text-xs font-semibold ${meta.cls}`}>{r.status}</span>
+                {r.dryRun && (
+                    <span
+                        className="inline-flex items-center rounded-sm border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400"
+                        title={lang === 'en' ? 'Dry-run — no side effects' : 'Dry-run — sin side effects'}
+                    >
+                        Dry
+                    </span>
+                )}
             </div>
             <div className="flex-1 px-4 text-zinc-200 truncate">{r.runbook.name}</div>
             <div className="w-28 px-4 text-zinc-400 text-xs truncate">

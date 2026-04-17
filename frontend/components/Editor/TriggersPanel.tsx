@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Webhook, Plus, Copy, Check, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import WebhookReceiptsPanel from './WebhookReceiptsPanel';
 
 interface TriggerRecord {
     id: string;
@@ -248,6 +249,7 @@ export default function TriggersPanel({ lang, workflowId }: TriggersPanelProps) 
                                             ? new Date(tr.lastTriggeredAt).toLocaleString()
                                             : t.never})
                                     </div>
+                                    <WebhookReceiptsPanel lang={lang} webhookId={tr.id} />
                                 </li>
                             );
                         })}

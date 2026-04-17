@@ -36,6 +36,9 @@ const STRINGS = {
     selfHostNote: 'AGPL-3.0 · no telemetry · no sign-up',
     githubCta: 'Self-host on GitHub',
     back: 'Back to home',
+    accountLine: 'Already using a self-hosted workspace?',
+    loginCta: 'Sign in',
+    registerCta: 'Create account',
   },
   es: {
     eyebrow: 'API hospedada · Alpha privada',
@@ -49,6 +52,9 @@ const STRINGS = {
     selfHostNote: 'AGPL-3.0 · sin telemetría · sin signup',
     githubCta: 'Self-host en GitHub',
     back: 'Volver al inicio',
+    accountLine: '¿Ya usás un workspace self-hosted?',
+    loginCta: 'Iniciar sesión',
+    registerCta: 'Crear cuenta',
   },
 } as const;
 
@@ -118,6 +124,23 @@ export default async function SignupPage({ params }: { params: Promise<{ lang: s
               </Link>
             </div>
             <p className="mt-3 text-[11px] text-muted-foreground/70">{t.selfHostNote}</p>
+          </div>
+
+          <div className="mt-10 border-t border-border/60 pt-8 text-sm text-muted-foreground">
+            {t.accountLine}{' '}
+            <Link
+              href={`/${typedLang}/login`}
+              className="text-primary hover:text-primary/90 font-medium transition-colors"
+            >
+              {t.loginCta}
+            </Link>
+            {' · '}
+            <Link
+              href={`/${typedLang}/register`}
+              className="text-primary hover:text-primary/90 font-medium transition-colors"
+            >
+              {t.registerCta}
+            </Link>
           </div>
 
           <div className="mt-12">

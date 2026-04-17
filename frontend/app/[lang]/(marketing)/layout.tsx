@@ -14,9 +14,9 @@ export default async function MarketingLayout({
     const content = lang === 'es' ? contentEs : contentEn;
 
     return (
-        <div className="flex flex-col min-h-screen bg-background text-foreground dark">
+        <div className="marketing-shell flex flex-col min-h-screen bg-background text-foreground dark">
             <Navbar content={content.navigation} lang={lang} />
-            <div className="flex-1">{children}</div>
+            <div className="relative z-[2] flex-1">{children}</div>
             <Footer content={content.footer} />
         </div>
     );

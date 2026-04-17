@@ -34,14 +34,18 @@ export default function Navbar({ content, lang }: NavbarProps) {
     return (
         <motion.header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center pt-3 sm:pt-4 px-3 sm:px-4">
             <div
-                className={`w-full max-w-6xl rounded-xl sm:rounded-2xl flex items-center justify-between px-4 sm:px-5 py-3 transition-all duration-300 ${isScrolled ? 'bg-background/80 backdrop-blur-xl border border-border/60 shadow-lg shadow-black/20' : 'bg-transparent border border-transparent'}`}
+                className={`w-full max-w-6xl rounded-xl sm:rounded-2xl flex items-center justify-between px-4 sm:px-5 py-3 transition-[background,border,box-shadow,backdrop-filter] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    isScrolled
+                        ? 'bg-background/70 backdrop-blur-2xl border border-border/60 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.5)]'
+                        : 'bg-transparent border border-transparent'
+                }`}
             >
                 {/* Logo */}
                 <Link
                     href={`/${lang}`}
-                    className="flex items-center gap-2.5 font-bold text-lg tracking-tight text-foreground"
+                    className="group flex items-center gap-2.5 font-bold text-lg tracking-tight text-foreground"
                 >
-                    <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/30">
+                    <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/30 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-[-4deg] group-hover:scale-[1.04]">
                         <svg
                             width="18"
                             height="18"
@@ -62,23 +66,32 @@ export default function Navbar({ content, lang }: NavbarProps) {
 
                 {/* Desktop nav — anchor links + real page routes */}
                 <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-muted-foreground">
-                    <a href="#story" className="hover:text-foreground transition-colors">
+                    <a href="#story" className="nav-link-slide hover:text-foreground transition-colors">
                         {content.product}
                     </a>
-                    <a href="#triggers" className="hover:text-foreground transition-colors">
+                    <a href="#triggers" className="nav-link-slide hover:text-foreground transition-colors">
                         Triggers
                     </a>
-                    <Link href={`/${lang}/pricing`} className="hover:text-foreground transition-colors">
+                    <Link
+                        href={`/${lang}/templates`}
+                        className="nav-link-slide hover:text-foreground transition-colors"
+                    >
+                        Templates
+                    </Link>
+                    <Link
+                        href={`/${lang}/pricing`}
+                        className="nav-link-slide hover:text-foreground transition-colors"
+                    >
                         {lang === 'es' ? 'Precios' : 'Pricing'}
                     </Link>
-                    <a href="#compare" className="hover:text-foreground transition-colors">
+                    <a href="#compare" className="nav-link-slide hover:text-foreground transition-colors">
                         {lang === 'es' ? 'Comparar' : 'Compare'}
                     </a>
                     <a
                         href={repo.readme}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="hover:text-foreground transition-colors"
+                        className="nav-link-slide hover:text-foreground transition-colors"
                     >
                         {content.docs}
                     </a>
@@ -135,6 +148,9 @@ export default function Navbar({ content, lang }: NavbarProps) {
                         <a href="#triggers" onClick={() => setMobileMenuOpen(false)} className="hover:text-primary">
                             Triggers
                         </a>
+                        <Link href={`/${lang}/templates`} onClick={() => setMobileMenuOpen(false)} className="hover:text-primary">
+                            Templates
+                        </Link>
                         <Link href={`/${lang}/pricing`} onClick={() => setMobileMenuOpen(false)} className="hover:text-primary">
                             {lang === 'es' ? 'Precios' : 'Pricing'}
                         </Link>

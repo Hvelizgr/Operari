@@ -11,6 +11,7 @@ interface TopBarProps {
     workflowName: string;
     onRun: () => void;
     onDebug?: () => void;
+    onDryRun?: () => void;
     isExecuting?: boolean;
     onProperties?: () => void;
     onExport?: () => void;
@@ -33,6 +34,7 @@ export default function TopBar({
     workflowName,
     onRun,
     onDebug,
+    onDryRun,
     isExecuting,
     onProperties,
     onExport,
@@ -162,6 +164,19 @@ export default function TopBar({
                                 >
                                     <Bug size={16} />
                                     {lang === 'en' ? 'Debug runbook' : 'Depurar runbook'}
+                                </button>
+                            )}
+
+                            {/* Dry run — prints every step's intent without touching anything */}
+                            {onDryRun && (
+                                <button
+                                    onClick={() => { onDryRun(); setIsToolsMenuOpen(false); }}
+                                    disabled={isExecuting}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-amber-500 hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+                                    title={lang === 'en' ? 'Run without executing any side effect' : 'Correr sin ejecutar ningún side effect'}
+                                >
+                                    <Wand2 size={16} />
+                                    {lang === 'en' ? 'Dry run' : 'Dry run'}
                                 </button>
                             )}
                         </div>

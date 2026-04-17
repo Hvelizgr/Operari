@@ -23,6 +23,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/lib/auth';
 
 interface EditorSidebarProps {
     lang: 'en' | 'es';
@@ -30,6 +31,18 @@ interface EditorSidebarProps {
 
 export default function EditorSidebar({ lang }: EditorSidebarProps) {
     const [collapsed, setCollapsed] = useState(false);
+    const { session, logout } = useAuth();
+    const [signingOut, setSigningOut] = useState(false);
+
+    async function handleLogout() {
+        if (signingOut) return;
+        setSigningOut(true);
+        await logout();
+        router.replace(`/${lang}/login`);
+    }
+
+    const displayName = session?.user.name?.trim() || session?.user.email?.split('@')[0] || (lang === 'en' ? 'Anonymous' : 'Anónimo');
+    const displayEmail = session?.user.email ?? '';
     // Mobile drawer state — at < 640px the sidebar disappears entirely
     // and is reachable through a floating hamburger button. Tracks
     // viewport size with a matchMedia listener so the sidebar reacts
@@ -153,7 +166,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
 
                 {/* Footer / User */}
                 <div className="p-2 border-t border-[var(--border-color)] bg-[rgba(0,0,0,0.2)]">
-                    <div className={`flex items-center ${!showLabels ? 'justify-center' : 'px-2'} py-2 rounded hover:bg-white/5 cursor-pointer text-gray-400 hover:text-white transition-colors`}>
+                    <div className={`flex items-center ${!showLabels ? 'justify-center' : 'px-2'} py-2 rounded text-gray-400 transition-colors`}>
                         <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center border border-slate-600">
                             <User size={16} />
                         </div>
@@ -163,8 +176,8 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                             >
-                                <div className="text-xs font-bold text-white truncate">Administrator</div>
-                                <div className="text-[10px] text-gray-500 truncate">admin@xyops.io</div>
+                                <div className="text-xs font-bold text-white truncate">{displayName}</div>
+                                <div className="text-[10px] text-gray-500 truncate">{displayEmail}</div>
                             </motion.div>
                         )}
                     </div>
@@ -176,8 +189,13 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                         >
                             <Settings size={14} />
                         </button>
-                        {showLabels && (
-                            <button className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white" title="Logout">
+                        {showLabels && session && session.user.id !== 'anonymous' && (
+                            <button
+                                onClick={handleLogout}
+                                disabled={signingOut}
+                                className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white disabled:opacity-50"
+                                title={lang === 'en' ? 'Sign out' : 'Cerrar sesión'}
+                            >
                                 <LogOut size={14} />
                             </button>
                         )}

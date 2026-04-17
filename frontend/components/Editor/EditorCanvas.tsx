@@ -154,7 +154,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     };
 
     const [showTerminal, setShowTerminal] = useState(false);
-    const [runMode, setRunMode] = useState<'run' | 'debug'>('run'); // New State
+    const [runMode, setRunMode] = useState<'run' | 'debug' | 'dry-run'>('run'); // New State
     const [isWorkflowPropsOpen, setIsWorkflowPropsOpen] = useState(false);
     const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
     const [isMetricsDashboardOpen, setIsMetricsDashboardOpen] = useState(false);
@@ -211,6 +211,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     description: wf.description ?? prev.description,
                     isActive: wf.isActive ?? prev.isActive,
                     schedule: wf.schedule ?? prev.schedule,
+                    inputs: Array.isArray(wf.inputs) ? wf.inputs : [],
                 }));
                 setLoadError(null);
             } catch (err) {
@@ -222,6 +223,30 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
             cancelled = true;
         };
     }, [urlRunbookId, handleLoadWorkflow]);
+
+    // Persist typed input declarations via the dedicated route so
+    // this write does not collide with the YAML-first autosave path.
+    // Debounced so rapid edits in the panel coalesce into one PUT.
+    const savedInputsRef = useRef<string>(JSON.stringify(workflowProperties.inputs ?? []));
+    useEffect(() => {
+        if (!urlRunbookId) return;
+        const serialized = JSON.stringify(workflowProperties.inputs ?? []);
+        if (serialized === savedInputsRef.current) return;
+        const timer = setTimeout(() => {
+            fetch(`${API_BASE}/api/runbooks/${urlRunbookId}/inputs`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inputs: workflowProperties.inputs ?? [] }),
+            })
+                .then((res) => {
+                    if (res.ok) savedInputsRef.current = serialized;
+                })
+                .catch(() => {
+                    /* best-effort — retry on next change */
+                });
+        }, 800);
+        return () => clearTimeout(timer);
+    }, [urlRunbookId, workflowProperties.inputs]);
 
     const { executeWorkflow, executeFromNode, executing, currentExecutionId } = useWorkflowExecution('current-workflow');
     const { logs, nodeStatuses, nodeMeta } = useExecutionSocket(currentExecutionId);
@@ -267,6 +292,11 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
     const handleOpenDebug = () => {
         setRunMode('debug');
+        handleOpenRunDialog();
+    };
+
+    const handleOpenDryRun = () => {
+        setRunMode('dry-run');
         handleOpenRunDialog();
     };
 
@@ -335,6 +365,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             workflowName={workflowProperties.name}
                             onRun={handleOpenRun}
                             onDebug={handleOpenDebug}
+                            onDryRun={handleOpenDryRun}
                             isExecuting={executing}
                             onProperties={() => setIsWorkflowPropsOpen(true)}
                             onAddNode={() => setSearchTrigger(Date.now())}
@@ -555,6 +586,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             isExecuting={executing}
                             logs={logs}
                             executionId={currentExecutionId}
+                            inputs={workflowProperties.inputs ?? []}
                         />
 
                         <SnapshotDialog

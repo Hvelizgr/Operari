@@ -12,6 +12,7 @@ import {
     Zap,
     Sparkles,
 } from 'lucide-react';
+import { EmptyState } from '../Common/EmptyState';
 
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 
@@ -237,6 +238,34 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
                         {t.loadError} · {error}
                     </div>
                 )}
+
+                {/* Fresh-tenant empty state. Shows only when the
+                    backend returned an overview and everything reads
+                    zero — new accounts land here with nothing to
+                    look at, and a blank dashboard was the biggest
+                    complaint in the UX audit. */}
+                {data &&
+                    data.pulse.runs24h === 0 &&
+                    data.liveRuns.length === 0 &&
+                    data.recentRuns.length === 0 &&
+                    data.topRunbooks.length === 0 &&
+                    !hasAttention && (
+                        <div className="mb-8">
+                            <EmptyState
+                                icon={Sparkles}
+                                title={lang === 'en' ? "Nothing here yet — that's expected." : 'Nada acá todavía — esperable.'}
+                                body={
+                                    lang === 'en'
+                                        ? 'Start from a template to see a real runbook executing in 30 seconds. Dry-run against prod before firing anything real.'
+                                        : 'Arrancá desde un template para ver un runbook real ejecutándose en 30 segundos. Probá dry-run contra prod antes de disparar nada real.'
+                                }
+                                primaryLabel={lang === 'en' ? 'Browse templates' : 'Ver templates'}
+                                primaryHref={`/${lang}/templates`}
+                                secondaryLabel={lang === 'en' ? 'Open the editor' : 'Abrir editor'}
+                                secondaryHref={`/${lang}/editor`}
+                            />
+                        </div>
+                    )}
 
                 {/* (1) Pulse strip */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

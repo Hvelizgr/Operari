@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { VisualizationProvider } from '@/context/VisualizationContext';
+import { AuthProvider } from '@/lib/auth';
+import { QuotaExceededModal, QuotaInterceptor } from '@/components/Common/QuotaExceededModal';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -98,7 +100,17 @@ export default function RootLayout({
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider>
-          <VisualizationProvider>{children}</VisualizationProvider>
+          <VisualizationProvider>
+            <AuthProvider>
+              <QuotaInterceptor />
+              {/* Default to English for the modal; the locale-aware
+                  routes wrap their own tree but the interceptor has
+                  to live at the root layout so every fetch is wrapped
+                  regardless of which subtree made the call. */}
+              <QuotaExceededModal lang="en" />
+              {children}
+            </AuthProvider>
+          </VisualizationProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -2,9 +2,10 @@
 
 import { useState, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, Minus, Plus, ArrowRight } from 'lucide-react';
+import { Check, X, Minus, Plus, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import type { content as contentEn } from '../../content/en';
+import { useAuth } from '@/lib/auth';
 
 type Pricing = typeof contentEn.pricing;
 
@@ -168,27 +169,55 @@ function TierCard({
           </li>
         ))}
       </ul>
-      <TierCta href={tier.ctaHref} label={tier.cta} highlighted={tier.highlighted} lang={lang} />
+      <TierCta
+        tierId={tier.id}
+        href={tier.ctaHref}
+        label={tier.cta}
+        highlighted={tier.highlighted}
+        lang={lang}
+        yearly={yearly}
+      />
     </motion.div>
   );
 }
 
+/**
+ * Paid-tier IDs map 1:1 onto the billing plan enum so we can hit the
+ * checkout endpoint with a matching `plan` field. Kept as a narrow
+ * constant rather than `as const` on the content because the content
+ * module is string-typed and we do not want to leak that shape.
+ */
+const PAID_PLAN_ID: Record<string, 'TEAM' | 'BUSINESS'> = {
+    team: 'TEAM',
+    business: 'BUSINESS',
+};
+
 function TierCta({
+  tierId,
   href,
   label,
   highlighted,
   lang,
+  yearly,
 }: {
+  tierId: string;
   href: string;
   label: string;
   highlighted: boolean;
   lang: string;
+  yearly: boolean;
 }) {
-  const cls = `h-11 w-full rounded-lg font-semibold text-sm flex items-center justify-center transition-all ${
+  const cls = `h-11 w-full rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all ${
     highlighted
       ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/25'
       : 'bg-secondary/70 text-foreground border border-border hover:bg-secondary hover:border-primary/30'
   }`;
+  const plan = PAID_PLAN_ID[tierId];
+  if (plan) {
+    return (
+      <UpgradeCta plan={plan} label={label} cls={cls} lang={lang} yearly={yearly} tierId={tierId} />
+    );
+  }
   if (href.startsWith('/') || href.startsWith('#')) {
     return (
       <Link href={`/${lang}${href}`} className={cls}>
@@ -200,6 +229,86 @@ function TierCta({
     <a href={href} className={cls}>
       {label}
     </a>
+  );
+}
+
+/**
+ * Paid-tier CTA. Session-aware:
+ *   - logged-out → route to /register?plan=<tierId> so the existing
+ *     register handoff (template or plan) can pick it up.
+ *   - logged-in → POST to the billing checkout endpoint with the
+ *     current yearly/monthly choice, then redirect the browser to the
+ *     Stripe-hosted checkout page.
+ *
+ * When the backend returns 501 (Stripe not configured on this
+ * deployment) we gracefully fall back to the original /contact
+ * waitlist so self-host previews of the pricing page still look sane.
+ */
+function UpgradeCta({
+  plan,
+  label,
+  cls,
+  lang,
+  yearly,
+  tierId,
+}: {
+  plan: 'TEAM' | 'BUSINESS';
+  label: string;
+  cls: string;
+  lang: string;
+  yearly: boolean;
+  tierId: string;
+}) {
+  const { session, loading } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+
+  if (loading) {
+    return (
+      <button disabled className={`${cls} opacity-60 cursor-not-allowed`}>
+        <Loader2 className="w-4 h-4 animate-spin" />
+      </button>
+    );
+  }
+
+  if (!session || session.user.id === 'anonymous') {
+    return (
+      <Link href={`/${lang}/register?plan=${encodeURIComponent(tierId)}`} className={cls}>
+        {label}
+      </Link>
+    );
+  }
+
+  async function onClick() {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, period: yearly ? 'yearly' : 'monthly' }),
+      });
+      if (res.status === 501) {
+        // Stripe not configured → honest fallback to the waitlist so
+        // the page is not a dead end on a self-host preview.
+        window.location.href = `/${lang}/contact`;
+        return;
+      }
+      if (!res.ok) {
+        setSubmitting(false);
+        return;
+      }
+      const body = (await res.json()) as { url: string };
+      window.location.href = body.url;
+    } catch {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <button onClick={onClick} disabled={submitting} className={cls}>
+      {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : label}
+    </button>
   );
 }
 

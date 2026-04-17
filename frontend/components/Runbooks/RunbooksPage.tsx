@@ -15,6 +15,7 @@ import {
     X,
     ChevronDown,
 } from 'lucide-react';
+import { EmptyState } from '../Common/EmptyState';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -344,11 +345,15 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
                 {filtered === null ? (
                     <div className="text-sm text-gray-500">{t.loading}</div>
                 ) : filtered.length === 0 ? (
-                    <div className="rounded-md border border-white/10 bg-[#1a1f2a] px-6 py-12 text-center">
-                        <Share2 size={32} className="mx-auto text-gray-600 mb-3" />
-                        <div className="text-sm text-gray-400 mb-1">{t.empty}</div>
-                        <div className="text-xs text-gray-600">{t.emptyHint}</div>
-                    </div>
+                    <EmptyState
+                        icon={Share2}
+                        title={t.empty}
+                        body={t.emptyHint}
+                        primaryLabel={lang === 'en' ? 'Browse templates' : 'Ver templates'}
+                        primaryHref={`/${lang}/templates`}
+                        secondaryLabel={lang === 'en' ? 'Start from scratch' : 'Empezar desde cero'}
+                        secondaryHref={`/${lang}/editor`}
+                    />
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {filtered.map((rb) => (

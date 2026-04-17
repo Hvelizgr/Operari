@@ -5,6 +5,7 @@ import { X, FileText, Clock, ToggleLeft, ToggleRight, Save, Tag } from 'lucide-r
 import { useState, useEffect } from 'react';
 import CronPicker from './CronPicker';
 import TriggersPanel from './TriggersPanel';
+import RunbookInputsPanel, { RunbookInputDefinition } from './RunbookInputsPanel';
 
 export interface WorkflowProperties {
     id?: string;
@@ -17,6 +18,7 @@ export interface WorkflowProperties {
     timeout?: number;
     retryCount?: number;
     retryDelay?: number;
+    inputs?: RunbookInputDefinition[];
 }
 
 interface WorkflowPropertiesPanelProps {
@@ -202,6 +204,14 @@ export default function WorkflowPropertiesPanel({
 
                         {/* Triggers */}
                         <TriggersPanel lang={lang} workflowId={localProps.id} />
+
+                        {/* Inputs (Rundeck-style job options) */}
+                        <div className="h-px bg-slate-700" />
+                        <RunbookInputsPanel
+                            lang={lang}
+                            inputs={localProps.inputs ?? []}
+                            onChange={(next) => handleChange('inputs', next)}
+                        />
 
                         {/* Tags */}
                         <div>

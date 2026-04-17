@@ -19,11 +19,11 @@ export const content = {
     getStarted: "Get API key",
   },
   hero: {
-    badge: "API · pre-launch alpha",
+    badge: "Self-serve · pre-launch alpha",
     title: "Runbooks as\nan API.",
     subtitle:
-      "Trigger production runbooks with a single HTTP call. Each step runs in a sandboxed executor, every action lands in a signed audit chain, and the whole response is yours in under 300 ms.",
-    ctaPrimary: "Get API key",
+      "Trigger production runbooks with a single HTTP call. Dry-run against prod first, every step runs in a sandboxed executor, each action lands in a signed audit chain, and the whole response is yours in under 300 ms.",
+    ctaPrimary: "Create your workspace",
     ctaSecondary: "or self-host",
     // Terminal-style code + live response panel that replaces the legacy
     // alert→webhook→resolved scenario card. Written as a single POST to
@@ -61,6 +61,55 @@ export const content = {
       ],
       streamFooter: "run completed · 4/4 steps · audit chain verified",
     },
+  },
+  trust: {
+    eyebrow: "Built to sit in the stack you already trust",
+    line: "Wire into the tools your on-call already opens at 3am.",
+  },
+  metrics: {
+    eyebrow: "Engineering by the numbers",
+    title: "Production-grade, from the first run.",
+    items: [
+      { value: 300, suffix: "ms", label: "p95 trigger → first step log", hint: "measured on the hosted API" },
+      { value: 12, suffix: "", label: "first-party step types", hint: "shell · http · approve · notify · sql · …" },
+      { value: 100, suffix: "%", label: "open source, Apache-2.0", hint: "self-host or run hosted — same binary" },
+      { value: 0, suffix: "", label: "credentials leave your VPC on dry-run", hint: "runs stay in your infra by default" },
+    ],
+  },
+  safety: {
+    eyebrow: "Safety rails",
+    title: "Four primitives most workflow tools miss.",
+    subtitle:
+      "The features below are the actual line between 'Zapier for backend devs' and a tool you are willing to trust with prod traffic.",
+    rails: [
+      {
+        title: "Dry-run against production.",
+        description:
+          "Flip a flag and every step logs what it WOULD do — no subprocess, no HTTP call, no approval pause, no notification. Run it against prod credentials before the real rollback, see the exact payload, sleep at night.",
+        example:
+          "curl -X POST https://api.cairn.run/v1/runs/trigger \\\n  -d '{\"runbook\":\"rollback\",\"dryRun\":true}'",
+      },
+      {
+        title: "Errors trigger the next runbook automatically.",
+        description:
+          "Declare onErrorRunbook on your deploy. When it fails, the rollback runbook fires with the error payload as input. Cycle-detected, same tenant, one line of YAML.",
+        example: "name: deploy-api\nonErrorRunbook: rollback-api\nsteps: [...]",
+      },
+      {
+        title: "Compose runbooks. Don't copy-paste them.",
+        description:
+          "Drop a `runbook` step to invoke another runbook as a sub-run. Sync or async, inherits dry-run, 5-level depth cap, tenant-scoped — so shared procedures like 'notify stakeholders' stay one file.",
+        example:
+          "- id: pre_checks\n  type: runbook\n  config:\n    ref: standard-prechecks\n    inputs:\n      service: \"{{vars.service}}\"",
+      },
+      {
+        title: "Your own step types, shipped as npm packages.",
+        description:
+          "The @cairn/sdk exports defineStep({type, configSchema, execute}). Author in TypeScript, ship the built package, drop it in NANORUN_PLUGINS_DIR. The runtime validates config via your zod schema before execute. Reserved types can't be overridden.",
+        example:
+          "import { defineStep } from '@cairn/sdk/steps';\nexport default defineStep({\n  type: 'myorg.slack-notify',\n  configSchema: z.object({ webhook: z.string().url() }),\n  async execute(config, ctx) { /* ... */ },\n});",
+      },
+    ],
   },
   story: {
     eyebrow: "How it works",
@@ -219,8 +268,20 @@ export const content = {
         cells: ["AGPL", "Apache", "Apache", "no", "Apache"],
       },
       {
+        feature: "Dry-run against prod (no side effects)",
+        cells: ["yes", "no", "no", "no", "no"],
+      },
+      {
+        feature: "Custom step plugins (SDK)",
+        cells: ["yes", "no", "partial", "no", "partial"],
+      },
+      {
+        feature: "Built-in MFA + email verification",
+        cells: ["yes", "yes", "no", "yes", "partial"],
+      },
+      {
         feature: "Price per seat",
-        cells: ["alpha (no)", "$125/mo", "free", "$20–40/mo", "self-host"],
+        cells: ["$19/$49", "$125/mo", "free", "$20–40/mo", "self-host"],
       },
       {
         feature: "Production-ready today",
@@ -551,54 +612,130 @@ export const content = {
   privacy: {
     title: "Privacy",
     subtitle: "What we collect, what we do with it, what we refuse to do.",
-    updated: "Last updated: 2026-04-01",
+    updated: "Last updated: 2026-04-17",
     sections: [
       {
         heading: "Self-host: zero telemetry",
-        body: "Self-host sends nothing to us. No pings, no usage counters, no crash reports unless you explicitly opt in via the NANORUN_TELEMETRY flag.",
+        body: "Self-host sends nothing to us. No pings, no usage counters, no crash reports unless you explicitly opt in via the NANORUN_TELEMETRY flag. Your runbooks, executions, logs, and credentials never leave your infrastructure.",
       },
       {
-        heading: "Cloud: operational data only",
-        body: "We store what is necessary to run the service: your email, your runbooks, your run history, and billing. We never read your runbook content for any reason other than running it.",
+        heading: "Cloud: data we store",
+        body: "When you sign up for the hosted service we store: (a) account identity — email, hashed password, optional display name, and the OAuth provider subject id if you sign in via Google or GitHub; (b) workspace data — runbooks, executions, step logs, secrets you entered, audit events; (c) billing metadata from Stripe — subscription status, plan, invoice ids. We never read your runbook content or secrets for any reason other than executing them on your request.",
       },
       {
-        heading: "Analytics",
-        body: "The marketing site uses privacy-first analytics (Plausible). No cookies, no cross-site tracking. You can block it without breaking anything.",
+        heading: "Lawful basis (GDPR)",
+        body: "We process account and workspace data under the contract basis — you signed up to receive a service and we can't deliver it without processing the data. Marketing emails go out under legitimate interest with a one-click unsubscribe on every send. We do not profile for advertising.",
       },
       {
-        heading: "Data deletion",
-        body: "Delete your account and everything goes within 30 days, including backups. Data export available as JSON + YAML tarball from settings.",
+        heading: "Your rights",
+        body: "You can access, correct, export, or delete every field tied to your account through the Settings page. For rights that need manual handling (restriction, objection, portability in bulk), email privacy@cairn.run and we'll respond within 30 days. EU/EEA and UK residents may also lodge a complaint with their local supervisory authority.",
       },
       {
-        heading: "Third parties",
-        body: "Stripe for billing. AWS for hosting. Postmark for transactional email. Full list maintained at nanorun.dev/subprocessors.",
+        heading: "Retention",
+        body: "Account data is retained while your account is active. When you delete your account, your user row, workspace, runbooks, executions, secrets, and step logs are purged within 30 days across primary storage and backups. The audit log is hash-chained and immutable by design — deletion events are tombstoned with the userId and timestamp but the event stream itself is retained for compliance (required by SOC 2 / ISO 27001 processes).",
+      },
+      {
+        heading: "International transfers",
+        body: "The hosted service runs in the region you picked at signup (today: EU or US). Where processing involves a subprocessor in another region, we rely on Standard Contractual Clauses (SCCs) and the UK International Data Transfer Agreement as applicable.",
+      },
+      {
+        heading: "Cookies",
+        body: "We set two functional cookies: nanorun_session (HttpOnly, required for login) and nanorun_csrf (readable by your browser so forms can include a CSRF token). The marketing site uses privacy-first analytics without cookies or cross-site tracking.",
+      },
+      {
+        heading: "Subprocessors",
+        body: "See /subprocessors for the canonical list of hosting, email, error-tracking, and payment processors we use. We notify customers of record at least 30 days before activating any new subprocessor.",
+      },
+      {
+        heading: "Security breach notice",
+        body: "In the unlikely event of a personal-data breach affecting your account, we'll notify you within 72 hours of confirmation, consistent with GDPR Article 33/34 obligations, and publish a post-incident report within 30 days.",
+      },
+      {
+        heading: "Children's data",
+        body: "The service is not directed at anyone under 16. We don't knowingly collect data from children; if you believe a minor's data reached us, email privacy@cairn.run and we'll remove it.",
+      },
+      {
+        heading: "Contact",
+        body: "Privacy questions or rights requests: privacy@cairn.run. Security disclosures: security@cairn.run (PGP on request). For EU GDPR matters we'll maintain an EEA representative once revenue in the region crosses the EU Rep threshold.",
       },
     ],
   },
   terms: {
     title: "Terms of service",
     subtitle: "The rules of the road.",
-    updated: "Last updated: 2026-04-01",
+    updated: "Last updated: 2026-04-17",
     sections: [
       {
+        heading: "Parties",
+        body: "These terms form an agreement between you (\"Customer\") and Cairn (\"we\", \"us\"). By signing up for the hosted service or running the self-host distribution in production you agree to them.",
+      },
+      {
         heading: "Self-host license",
-        body: "Self-host is AGPL-3.0. If you run it as a service, you must release the source of your modifications. Full text at github.com.",
+        body: "The self-host server is AGPL-3.0 — you may run it, fork it, and embed it in products; running a modified copy as a public service triggers the AGPL's source-availability obligation. The official SDK and CLI packages are MIT. A handful of enterprise modules (SAML/SCIM connectors, managed Postgres backup tooling) are source-available under a separate Business Source License that converts to Apache 2.0 on its declared change date.",
       },
       {
         heading: "Cloud subscription",
-        body: "Month-to-month or annual. Cancel anytime; prorated refunds on annual. Prices can change with 60 days notice. Grandfathered pricing on request for the first 100 customers.",
+        body: "Monthly or annual, billed in advance via Stripe. You can cancel at any time from Settings → Billing; the current period remains active until the end of its billing cycle. Annual plans receive a prorated refund on the unused portion at the admin's request.",
+      },
+      {
+        heading: "Fees and taxes",
+        body: "Prices are in USD unless your plan page says otherwise. You're responsible for applicable taxes (VAT/GST/sales tax); Stripe Tax handles the majority of regions automatically. We may change pricing with 60 days' notice emailed to your account admin; the first 100 paying customers keep their price for as long as they remain on a paid plan.",
       },
       {
         heading: "Acceptable use",
-        body: "Do not use NanoRun to attack systems you do not own, exfiltrate data you do not control, or run crypto miners. Everything else is fair game.",
+        body: "Do not use the service to attack systems you do not own, exfiltrate data you do not control, or run resource-abusive workloads (cryptocurrency mining, DDoS reflectors, content scrapers targeting rate-limited third parties). Runbook content remains your property and your responsibility; we may suspend workloads that trip infrastructure safeguards and will notify you before permanent action unless an active incident requires otherwise.",
       },
       {
-        heading: "Warranty",
-        body: "Self-host ships as-is. Cloud ships with the SLA on your plan. We are liable up to 12 months of fees paid in the 12 months prior to the claim.",
+        heading: "Your data, your ownership",
+        body: "You retain all rights to the runbooks, executions, secrets, and logs you upload. We receive a limited license to process that data solely to deliver the service. We do not train AI models on your runbook content, inspect your executions for product analytics, or share your data with third parties beyond the subprocessors listed at /subprocessors.",
+      },
+      {
+        heading: "Availability + SLA",
+        body: "Free and self-host ship with no uptime commitment. Team and Business plans target 99.9% monthly availability on the primary API, measured against our public status page. Missed-SLA credits for Team/Business equal 10% of the month's fees per hour of downtime above the target, capped at 50% of that month. Enterprise contracts may add stricter terms in an executed order form.",
+      },
+      {
+        heading: "Support",
+        body: "Free: community support via GitHub Discussions. Team: email response within two business days. Business: email response within one business day, with a shared incident bridge during customer-confirmed production incidents. Enterprise: contract-defined. We don't guarantee support for unmodified self-host beyond bug reports that reproduce against the current release.",
+      },
+      {
+        heading: "Confidentiality",
+        body: "Each party will protect the other's confidential information with reasonable care and only use it to fulfill the agreement. Our security practices — encryption at rest, per-tenant secret isolation, hash-chained audit logs — are documented on the security page and apply to every customer regardless of plan.",
+      },
+      {
+        heading: "Warranties",
+        body: "The service is provided on an \"as is\" and \"as available\" basis. We disclaim implied warranties to the maximum extent permitted by law. We do warrant that we have authority to grant the rights we grant here and that our production binary is not knowingly shipped with malicious code.",
+      },
+      {
+        heading: "Limitation of liability",
+        body: "Neither party will be liable for indirect, incidental, special, consequential, or punitive damages. Each party's aggregate liability under this agreement is limited to the fees Customer paid in the twelve months preceding the claim. Nothing in this section limits liability for willful misconduct or breach of confidentiality.",
+      },
+      {
+        heading: "Indemnity",
+        body: "We will defend and indemnify you against third-party claims that the service as delivered infringes their intellectual property, except where the infringement arises from your modifications, combination with third-party software, or unlawful use. You will indemnify us against third-party claims arising from your runbook content or your use of the service.",
+      },
+      {
+        heading: "Data processing (GDPR)",
+        body: "For customers processing EU/UK personal data through the service, our Data Processing Addendum (available at /dpa) is incorporated by reference on execution. It covers Article 28 obligations, a current subprocessor list, and Standard Contractual Clauses for international transfers.",
+      },
+      {
+        heading: "Suspension + termination",
+        body: "Either party may terminate for convenience with 30 days' notice (or immediately at the end of the current billing period for hosted). We may suspend the service on short notice if we reasonably believe your account is compromised, engaged in acceptable-use violations, or causing harm to other customers. On termination you can export your data for 30 days; after that it is purged per the retention section of the Privacy policy.",
+      },
+      {
+        heading: "Export controls + sanctions",
+        body: "You represent that you are not on, and will not use the service on behalf of, any party subject to a US, UK, or EU sanctions list, and that you will not export the service to any jurisdiction restricted under applicable trade law.",
+      },
+      {
+        heading: "Changes",
+        body: "Material changes to these terms or the Privacy policy go into effect 30 days after we post a notice at the top of the page and email the admin on record. Non-material edits (typo fixes, clarifications) may take effect immediately and will be listed on /changelog.",
       },
       {
         heading: "Jurisdiction",
-        body: "Delaware, USA. Disputes go to JAMS arbitration before court. No class actions.",
+        body: "These terms are governed by the laws of Delaware, USA, without reference to its conflict-of-laws rules. Disputes go to JAMS arbitration seated in San Francisco under its Streamlined Rules; each party retains the right to seek injunctive relief in any court of competent jurisdiction for intellectual-property misuse. Class actions are waived.",
+      },
+      {
+        heading: "Entire agreement",
+        body: "These terms plus the DPA, order form (if any), and product-specific addenda form the entire agreement. If any provision is found unenforceable, the rest continues to apply.",
       },
     ],
   },

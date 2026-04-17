@@ -1,9 +1,10 @@
 // frontend/components/Workflow/RunDialog.tsx
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, X, Bug } from 'lucide-react';
+import type { RunbookInputDefinition } from '../Editor/RunbookInputsPanel';
 
 interface LogEntry {
     timestamp: string;
@@ -20,12 +21,43 @@ interface RunDialogProps {
     logs?: LogEntry[];
     executionId?: string | null;
     mode?: 'run' | 'debug';
+    /** Typed input declarations. When non-empty the dialog renders a
+     * form and collects values matching the declared types; when
+     * empty it falls back to the raw JSON textarea. */
+    inputs?: RunbookInputDefinition[];
 }
 
-export default function RunDialog({ isOpen, onClose, onRun, lang, isExecuting = false, logs = [], executionId, mode = 'run' }: RunDialogProps) {
+function defaultsFor(inputs: RunbookInputDefinition[]): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const input of inputs) {
+        if (input.default !== undefined) {
+            out[input.name] = input.default;
+        } else if (input.type === 'boolean') {
+            out[input.name] = false;
+        } else {
+            out[input.name] = '';
+        }
+    }
+    return out;
+}
+
+export default function RunDialog({ isOpen, onClose, onRun, lang, isExecuting = false, logs = [], executionId, mode = 'run', inputs = [] }: RunDialogProps) {
+    const hasInputs = inputs.length > 0;
     const [jsonInput, setJsonInput] = useState(`{\n  "key": "value"\n}`);
+    const [formValues, setFormValues] = useState<Record<string, unknown>>(() => defaultsFor(inputs));
     const [error, setError] = useState<string | null>(null);
     const [elapsed, setElapsed] = useState(0);
+
+    // Re-seed form defaults when the declaration list changes identity
+    // (e.g., navigating between runbooks or editing the inputs panel).
+    const inputsFingerprint = useMemo(
+        () => inputs.map((i) => `${i.name}:${i.type}:${i.default ?? ''}`).join('|'),
+        [inputs],
+    );
+    useEffect(() => {
+        setFormValues(defaultsFor(inputs));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [inputsFingerprint]);
 
     // ... timer logic ... (Same as before)
     // Timer for elapsed time
@@ -41,6 +73,42 @@ export default function RunDialog({ isOpen, onClose, onRun, lang, isExecuting = 
     });
 
     const handleRunClick = () => {
+        if (hasInputs) {
+            for (const input of inputs) {
+                const v = formValues[input.name];
+                if (input.required && (v === '' || v === undefined || v === null)) {
+                    setError(
+                        (lang === 'en' ? 'Required: ' : 'Obligatorio: ') +
+                            (input.label || input.name),
+                    );
+                    return;
+                }
+                if (input.type === 'number' && v !== '' && v !== undefined && Number.isNaN(Number(v))) {
+                    setError(
+                        (lang === 'en' ? 'Not a number: ' : 'No es número: ') +
+                            (input.label || input.name),
+                    );
+                    return;
+                }
+            }
+            const payload: Record<string, unknown> = {};
+            for (const input of inputs) {
+                const raw = formValues[input.name];
+                if (raw === '' || raw === undefined) {
+                    if (input.default !== undefined) payload[input.name] = input.default;
+                    continue;
+                }
+                payload[input.name] =
+                    input.type === 'number'
+                        ? Number(raw)
+                        : input.type === 'boolean'
+                          ? !!raw
+                          : raw;
+            }
+            setError(null);
+            onRun(payload);
+            return;
+        }
         try {
             const parsedInput = JSON.parse(jsonInput);
             setError(null);
@@ -134,13 +202,32 @@ export default function RunDialog({ isOpen, onClose, onRun, lang, isExecuting = 
                             {!isExecuting ? (
                                 // INPUT MODE
                                 <div className="flex flex-col gap-4">
-                                    <div className="text-xs font-bold uppercase text-[var(--descriptor-color)] tracking-wider">{text.description}</div>
-                                    <textarea
-                                        value={jsonInput}
-                                        onChange={(e) => setJsonInput(e.target.value)}
-                                        className="w-full h-48 p-3 rounded-lg border border-[var(--border-color)] bg-[rgba(0,0,0,0.3)] font-mono text-sm focus:outline-none focus:border-[var(--highlight-color)] resize-none text-[var(--body-text-color)] transition-colors shadow-inner"
-                                        spellCheck="false"
-                                    />
+                                    <div className="text-xs font-bold uppercase text-[var(--descriptor-color)] tracking-wider">
+                                        {hasInputs
+                                            ? (lang === 'en' ? 'Run with inputs:' : 'Ejecutar con inputs:')
+                                            : text.description}
+                                    </div>
+                                    {hasInputs ? (
+                                        <div className="max-h-72 overflow-y-auto pr-1 space-y-3">
+                                            {inputs.map((input) => (
+                                                <InputField
+                                                    key={input.name}
+                                                    input={input}
+                                                    value={formValues[input.name]}
+                                                    onChange={(v) =>
+                                                        setFormValues((prev) => ({ ...prev, [input.name]: v }))
+                                                    }
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <textarea
+                                            value={jsonInput}
+                                            onChange={(e) => setJsonInput(e.target.value)}
+                                            className="w-full h-48 p-3 rounded-lg border border-[var(--border-color)] bg-[rgba(0,0,0,0.3)] font-mono text-sm focus:outline-none focus:border-[var(--highlight-color)] resize-none text-[var(--body-text-color)] transition-colors shadow-inner"
+                                            spellCheck="false"
+                                        />
+                                    )}
                                     {error && (
                                         <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs px-3 py-2 rounded flex items-center gap-2">
                                             <X size={12} /> {error}
@@ -248,5 +335,67 @@ export default function RunDialog({ isOpen, onClose, onRun, lang, isExecuting = 
                 </div>
             )}
         </AnimatePresence>
+    );
+}
+
+function InputField({
+    input,
+    value,
+    onChange,
+}: {
+    input: RunbookInputDefinition;
+    value: unknown;
+    onChange: (v: unknown) => void;
+}) {
+    const fieldCls =
+        'w-full bg-black/30 border border-[var(--border-color)] rounded px-3 py-2 text-sm text-[var(--body-text-color)] focus:outline-none focus:border-[var(--highlight-color)] transition-colors';
+    const label = input.label || input.name;
+
+    return (
+        <div>
+            <label className="flex items-center gap-1 text-[10px] font-bold uppercase text-slate-400 mb-1 tracking-wider">
+                {label}
+                {input.required && <span className="text-red-400">*</span>}
+                <code className="ml-auto font-mono text-[10px] text-slate-600 normal-case">
+                    {input.name}
+                </code>
+            </label>
+            {input.type === 'boolean' ? (
+                <label className="inline-flex items-center gap-2 text-sm text-slate-200 cursor-pointer select-none">
+                    <input
+                        type="checkbox"
+                        checked={!!value}
+                        onChange={(e) => onChange(e.target.checked)}
+                        className="w-4 h-4"
+                    />
+                    <span className="text-xs text-slate-400">
+                        {value ? 'true' : 'false'}
+                    </span>
+                </label>
+            ) : input.type === 'select' ? (
+                <select
+                    value={(value as string) ?? ''}
+                    onChange={(e) => onChange(e.target.value)}
+                    className={fieldCls}
+                >
+                    {!input.required && <option value="">—</option>}
+                    {(input.options ?? []).map((o) => (
+                        <option key={o} value={o}>
+                            {o}
+                        </option>
+                    ))}
+                </select>
+            ) : (
+                <input
+                    type={input.type === 'number' ? 'number' : 'text'}
+                    value={value === undefined || value === null ? '' : String(value)}
+                    onChange={(e) => onChange(e.target.value)}
+                    className={`${fieldCls} ${input.type === 'number' ? 'font-mono' : ''}`}
+                />
+            )}
+            {input.description && (
+                <p className="text-[10px] text-slate-500 mt-1 leading-snug">{input.description}</p>
+            )}
+        </div>
     );
 }

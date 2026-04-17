@@ -41,6 +41,13 @@ interface RunDetailPayload {
     duration: number | null;
     error: string | null;
     steps: StepLog[];
+    /**
+     * True when this run was started with `dryRun: true`. Every step
+     * logged what it would do but performed no side effect. The UI
+     * badges the run so operators never mistake a dry-run success
+     * for an actual deploy.
+     */
+    dryRun?: boolean;
 }
 
 const STRINGS: Record<'en' | 'es', Record<string, string>> = {
@@ -234,6 +241,14 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
                         className={`h-5 w-5 ${meta.cls} ${run.status === 'RUNNING' ? 'animate-spin' : ''}`}
                     />
                     <span className={`text-sm font-semibold ${meta.cls}`}>{run.status}</span>
+                    {run.dryRun && (
+                        <span
+                            className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400"
+                            title={lang === 'en' ? 'This run was a dry-run — no side effects were performed.' : 'Este run fue dry-run — no se ejecutó ningún side effect.'}
+                        >
+                            Dry run
+                        </span>
+                    )}
                     <span className="text-xs text-zinc-500 font-mono">{run.id}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">

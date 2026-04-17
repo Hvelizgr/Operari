@@ -5,7 +5,10 @@ export function useWorkflowExecution(workflowId: string | null) {
     const [currentExecutionId, setCurrentExecutionId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const executeWorkflow = async (input: any = {}, mode: 'run' | 'debug' = 'run') => {
+    const executeWorkflow = async (
+        input: any = {},
+        mode: 'run' | 'debug' | 'dry-run' = 'run',
+    ) => {
         if (!workflowId) return;
 
         setExecuting(true);
@@ -18,8 +21,17 @@ export function useWorkflowExecution(workflowId: string | null) {
             // aliases to /run with a `debug: true` flag the backend can
             // opt into. Execution still runs to completion, matching the
             // current UX.
+            //
+            // Dry-run mode rides the same endpoint but flips the
+            // `dryRun: true` flag; every step executor logs what it
+            // WOULD do without side effects. Safe to use against prod.
             const endpoint = `${apiBase}/api/executions/${workflowId}/run`;
-            const payload = mode === 'debug' ? { input, debug: true } : { input };
+            const payload =
+                mode === 'debug'
+                    ? { input, debug: true }
+                    : mode === 'dry-run'
+                        ? { input, dryRun: true }
+                        : { input };
 
             const response = await fetch(endpoint, {
                 method: 'POST',
