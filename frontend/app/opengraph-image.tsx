@@ -35,7 +35,7 @@ export default async function Image() {
           display: 'flex',
           flexDirection: 'column',
           background:
-            'radial-gradient(circle at 80% 20%, rgba(249,115,22,0.18), transparent 60%), radial-gradient(circle at 15% 90%, rgba(16,185,129,0.12), transparent 55%), #0a0a0a',
+            'radial-gradient(circle at 80% 20%, rgba(62,207,142,0.18), transparent 60%), radial-gradient(circle at 15% 90%, rgba(36,180,126,0.1), transparent 55%), #0a0a0a',
           padding: '80px',
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
@@ -46,16 +46,17 @@ export default async function Image() {
             style={{
               width: 64,
               height: 64,
-              borderRadius: 14,
-              background: '#f97316',
+              borderRadius: 12,
+              background: '#3ecf8e',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(249,115,22,0.35)',
+              boxShadow: '0 8px 24px rgba(62,207,142,0.35)',
             }}
           >
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9" />
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 18 L12 6 L20 18 Z" />
+              <path d="M8 14 L16 14" />
             </svg>
           </div>
           <div style={{ color: '#fafafa', fontSize: 38, fontWeight: 700, letterSpacing: -0.5 }}>
@@ -85,7 +86,7 @@ export default async function Image() {
           </div>
           <div
             style={{
-              color: '#f97316',
+              color: '#3ecf8e',
               fontSize: 84,
               fontWeight: 800,
               lineHeight: 1.05,

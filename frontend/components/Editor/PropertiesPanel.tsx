@@ -110,7 +110,7 @@ export default function PropertiesPanel({ node, nodeTypeDefinition, onUpdate, on
                                     setLocalTitle(e.target.value);
                                     if (node) onUpdate(node.id, { title: e.target.value });
                                 }}
-                                className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition-colors"
+                                className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-primary transition-colors"
                             />
                         </div>
 
@@ -135,7 +135,7 @@ export default function PropertiesPanel({ node, nodeTypeDefinition, onUpdate, on
 
                     {/* Settings */}
                     <div>
-                        <h3 className="text-xs font-bold uppercase text-blue-400 mb-4 flex items-center gap-2">
+                        <h3 className="text-xs font-bold uppercase text-primary/70 mb-4 flex items-center gap-2">
                             {text.settings}
                         </h3>
 
@@ -322,7 +322,7 @@ function RetryPolicySection({
         exponential: 'Exponential',
     };
 
-    const inputClass = "w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition-colors";
+    const inputClass = "w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-primary transition-colors";
     const labelClass = "text-[11px] font-bold uppercase text-slate-500";
 
     return (
@@ -449,14 +449,14 @@ function ConditionalGatesSection({
         placeholder: '{{steps.check.output.status}} === "ready"',
     };
 
-    const inputClass = "w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition-colors font-mono";
+    const inputClass = "w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200 focus:outline-none focus:border-primary transition-colors font-mono";
     const labelClass = "text-[11px] font-bold uppercase text-slate-500";
 
     return (
         <div>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 text-xs font-bold uppercase text-purple-400 mb-3 hover:text-purple-300 transition-colors w-full"
+                className="flex items-center gap-2 text-xs font-bold uppercase text-primary/70 mb-3 hover:text-primary/40 transition-colors w-full"
             >
                 <GitBranch size={14} />
                 {text.title}

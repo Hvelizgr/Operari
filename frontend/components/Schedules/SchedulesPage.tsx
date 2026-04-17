@@ -145,7 +145,7 @@ function statusDot(status: RunStatus | undefined): string {
         case 'FAILED':
             return 'bg-red-500';
         case 'RUNNING':
-            return 'bg-blue-500 animate-pulse';
+            return 'bg-primary animate-pulse';
         case 'PAUSED':
             return 'bg-amber-500';
         default:
@@ -243,7 +243,7 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
                 <div className="flex items-start justify-between mb-6">
                     <div>
                         <h1 className="text-2xl font-semibold text-white flex items-center gap-2">
-                            <CalendarClock size={22} className="text-blue-400" />
+                            <CalendarClock size={22} className="text-primary/70" />
                             {t.title}
                             <span className="text-xs font-normal text-gray-500 ml-2">
                                 {counts.active} {t.active.toLowerCase()} · {counts.paused}{' '}
@@ -257,7 +257,7 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
                             setEditing(null);
                             setShowForm(true);
                         }}
-                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md"
+                        className="flex items-center gap-2 px-3 py-2 bg-primary hover:bg-primary text-white text-sm rounded-md"
                     >
                         <Plus size={16} />
                         {t.newSchedule}
@@ -296,7 +296,7 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
                                     <span className="text-gray-300 flex-1 truncate">
                                         {s.workflow.name}
                                     </span>
-                                    <span className="text-xs text-blue-400">
+                                    <span className="text-xs text-primary/70">
                                         {relativeTime(s.nextRunAt, now, t)}
                                     </span>
                                 </li>
@@ -370,7 +370,7 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="px-2 py-3 text-xs text-blue-400">
+                                        <td className="px-2 py-3 text-xs text-primary/70">
                                             {s.isActive ? relativeTime(s.nextRunAt, now, t) : '—'}
                                         </td>
                                         <td className="px-4 py-3 text-right">
@@ -529,7 +529,7 @@ function ScheduleForm({
                             onChange={(e) => setWorkflowId(e.target.value)}
                             disabled={!!initial}
                             required
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none disabled:opacity-50"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none disabled:opacity-50"
                         >
                             <option value="">— select —</option>
                             {availableRunbooks.map((rb) => (
@@ -551,7 +551,7 @@ function ScheduleForm({
                                     onClick={() => setCronExpr(p.expr)}
                                     className={`px-2 py-1 text-xs rounded border transition-colors ${
                                         cronExpr === p.expr
-                                            ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+                                            ? 'border-primary bg-primary/20 text-primary/40'
                                             : 'border-white/10 text-gray-400 hover:text-white'
                                     }`}
                                 >
@@ -568,7 +568,7 @@ function ScheduleForm({
                             value={cronExpr}
                             onChange={(e) => setCronExpr(e.target.value)}
                             required
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 font-mono focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 font-mono focus:border-primary focus:outline-none"
                             placeholder="*/5 * * * *"
                         />
                     </div>
@@ -596,7 +596,7 @@ function ScheduleForm({
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded"
+                            className="px-4 py-2 bg-primary hover:bg-primary disabled:opacity-50 text-white text-sm rounded"
                         >
                             {submitting ? '…' : t.save}
                         </button>

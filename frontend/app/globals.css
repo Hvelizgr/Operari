@@ -10,65 +10,75 @@
    hex codes so a future palette tweak is a one-file edit.
    ───────────────────────────────────────────────────────────── */
 :root {
-  --cairn-stone: #78716c;
-  --cairn-moss: #65a30d;
+  --cairn-stone: #a1a1aa;
+  --cairn-moss: #3ecf8e;
   --cairn-sky: #0ea5e9;
-  --cairn-granite: #0c0a09;
-  --cairn-graphite: #1c1917;
-  --cairn-weathered: #44403c;
-  --cairn-snow: #fafaf9;
-  --cairn-fog: #a8a29e;
-  --cairn-lichen: #22c55e;
+  --cairn-granite: #0a0a0a;
+  --cairn-graphite: #171717;
+  --cairn-weathered: #262626;
+  --cairn-snow: #ededed;
+  --cairn-fog: #a1a1aa;
+  --cairn-lichen: #24b47e;
   --cairn-gold: #f59e0b;
-  --cairn-sunset: #dc2626;
+  --cairn-sunset: #ef4444;
   --cairn-ice: #38bdf8;
+
+  /* Landing page polish — Supabase-inspired emerald glow */
+  --landing-glow-emerald: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(62, 207, 142, 0.12), transparent);
+  --landing-glow-deep: radial-gradient(ellipse 60% 40% at 80% 80%, rgba(36, 180, 126, 0.06), transparent);
+  --landing-noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
 }
 
+/* Supabase-inspired design tokens. Primary is Supabase emerald #3ECF8E
+   (HSL 154 60% 53%). Dark is the canonical "true dark" neutral — not
+   blue-tinted — because the emerald is already cool enough. Border is
+   #262626, card surface is #171717. Monospace accents carry the
+   code-first feel. */
 :root {
   --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
+  --foreground: 0 0% 7%;
   --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 0 0% 7%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 247 90% 60%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
+  --popover-foreground: 0 0% 7%;
+  --primary: 154 60% 53%;
+  --primary-foreground: 0 0% 7%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 12%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 42%;
+  --accent: 154 45% 95%;
+  --accent-foreground: 154 60% 22%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 154 60% 53%;
   --radius: 0.5rem;
 }
 
 .dark,
 html[data-theme="dark"],
 html[data-theme="midnight"] {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 247 90% 70%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
+  --background: 0 0% 4%;
+  --foreground: 0 0% 93%;
+  --card: 0 0% 9%;
+  --card-foreground: 0 0% 93%;
+  --popover: 0 0% 6%;
+  --popover-foreground: 0 0% 93%;
+  --primary: 154 60% 53%;
+  --primary-foreground: 0 0% 7%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 93%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 63%;
+  --accent: 154 50% 15%;
+  --accent-foreground: 154 70% 70%;
+  --destructive: 0 70% 45%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 15%;
+  --input: 0 0% 15%;
+  --ring: 154 60% 53%;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -87,25 +97,25 @@ html[data-theme="midnight"] {
    ───────────────────────────────────────────────────────────── */
 
 html[data-theme="light"] {
-  --app-bg: #f8fafc;
+  --app-bg: #fafafa;
   --panel-bg: #ffffff;
-  --panel-border: rgba(15, 23, 42, 0.08);
+  --panel-border: rgba(10, 10, 10, 0.08);
   --panel-elevated: #ffffff;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --accent-color: #3b82f6;
+  --text-primary: #0a0a0a;
+  --text-secondary: #404040;
+  --text-muted: #737373;
+  --accent-color: var(--cairn-moss);
 
   /* Editor (overrides values in WorkflowNode.css :root) */
-  --background-color: #f8fafc;
+  --background-color: #fafafa;
   --box-background-color: #ffffff;
-  --border-color: #e2e8f0;
-  --body-text-color: #0f172a;
-  --label-color: #475569;
-  --descriptor-color: #64748b;
-  --highlight-color: #2563eb;
-  --theme-color: #3b82f6;
-  --shadow-color: rgba(15, 23, 42, 0.08);
+  --border-color: #e5e5e5;
+  --body-text-color: #0a0a0a;
+  --label-color: #404040;
+  --descriptor-color: #737373;
+  --highlight-color: var(--cairn-moss);
+  --theme-color: var(--cairn-moss);
+  --shadow-color: rgba(10, 10, 10, 0.06);
 }
 
 html[data-theme="dark"] {
@@ -205,7 +215,7 @@ html[data-theme="midnight"] {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: rgb(59, 130, 246);
+  background: rgb(62, 207, 142);
   color: white;
   display: flex;
   align-items: center;
@@ -213,13 +223,13 @@ html[data-theme="midnight"] {
   cursor: pointer;
   z-index: 100;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 2px 8px rgba(62, 207, 142, 0.4);
   animation: scale-in 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 .wf-pole-button:hover {
   transform: scale(1.3);
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.8);
+  box-shadow: 0 4px 16px rgba(62, 207, 142, 0.8);
   filter: brightness(1.2);
 }
 
@@ -250,8 +260,8 @@ html[data-theme="midnight"] {
 /* Selection Box */
 .wf-selection-draw {
   position: absolute;
-  border: 2px dashed rgb(59, 130, 246);
-  background: rgba(59, 130, 246, 0.1);
+  border: 2px dashed rgb(62, 207, 142);
+  background: rgba(62, 207, 142, 0.1);
   pointer-events: none;
   z-index: 50;
   border-radius: 4px;
@@ -263,10 +273,10 @@ html[data-theme="midnight"] {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: rgb(59, 130, 246);
+  background: rgb(62, 207, 142);
   pointer-events: none;
   z-index: 100;
-  box-shadow: 0 0 10px rgb(59, 130, 246);
+  box-shadow: 0 0 10px rgb(62, 207, 142);
   animation: tracker-pulse 1.5s infinite;
 }
 
@@ -311,19 +321,19 @@ html[data-theme="midnight"] {
 
   0%,
   100% {
-    box-shadow: 0 0 0 3px rgb(59, 130, 246),
-      0 0 10px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 0 0 3px rgb(62, 207, 142),
+      0 0 10px rgba(62, 207, 142, 0.3);
   }
 
   50% {
-    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.7),
-      0 0 20px rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 0 5px rgba(62, 207, 142, 0.7),
+      0 0 20px rgba(62, 207, 142, 0.5);
   }
 }
 
 .editor-mode-draw .wf-node:hover {
-  box-shadow: 0 0 0 3px rgb(59, 130, 246),
-    0 0 20px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 0 3px rgb(62, 207, 142),
+    0 0 20px rgba(62, 207, 142, 0.4);
   transform: scale(1.02);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   animation: pulse-hover 1.5s infinite;

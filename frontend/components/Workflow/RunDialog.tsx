@@ -116,7 +116,7 @@ export default function RunDialog({ isOpen, onClose, onRun, lang, isExecuting = 
                         >
                             <div className="flex items-center gap-2">
                                 {mode === 'debug' ? (
-                                    <Bug size={16} className={isExecuting ? "animate-pulse text-orange-400" : "text-orange-400"} />
+                                    <Bug size={16} className={isExecuting ? "animate-pulse text-primary/70" : "text-primary/70"} />
                                 ) : (
                                     <Play size={16} className={isExecuting ? "animate-pulse text-green-400" : ""} />
                                 )}
@@ -153,7 +153,7 @@ export default function RunDialog({ isOpen, onClose, onRun, lang, isExecuting = 
                                     {/* Progress Bar */}
                                     <div className="w-full bg-[rgba(255,255,255,0.1)] h-2 rounded-full overflow-hidden relative">
                                         <div
-                                            className="h-full bg-gradient-to-r from-blue-500 to-green-400 absolute top-0 left-0 transition-all duration-300"
+                                            className="h-full bg-gradient-to-r from-primary to-green-400 absolute top-0 left-0 transition-all duration-300"
                                             style={{ width: '100%', animation: 'progress-indeterminate 2s infinite linear' }}
                                         />
                                         <style jsx>{`
@@ -188,7 +188,7 @@ export default function RunDialog({ isOpen, onClose, onRun, lang, isExecuting = 
                                             <span className="text-xs uppercase text-[var(--descriptor-color)] font-bold">{text.cpu}</span>
                                             <div className="flex items-center gap-2">
                                                 <div className="w-16 h-1 bg-gray-700 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: cpuUsage }} />
+                                                    <div className="h-full bg-primary transition-all duration-500" style={{ width: cpuUsage }} />
                                                 </div>
                                                 <span className="font-mono text-xs text-white w-8 text-right">{cpuUsage}</span>
                                             </div>

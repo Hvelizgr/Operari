@@ -213,7 +213,7 @@ export default function WorkflowPropertiesPanel({
                                 {(localProps.tags || []).map((tag) => (
                                     <span
                                         key={tag}
-                                        className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full"
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-primary/20 text-primary/40 text-xs rounded-full"
                                     >
                                         {tag}
                                         <button
@@ -236,7 +236,7 @@ export default function WorkflowPropertiesPanel({
                                 />
                                 <button
                                     onClick={handleAddTag}
-                                    className="px-3 py-2 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 transition-colors text-sm"
+                                    className="px-3 py-2 bg-primary/20 text-primary/70 rounded hover:bg-primary/30 transition-colors text-sm"
                                 >
                                     +
                                 </button>
@@ -308,7 +308,7 @@ export default function WorkflowPropertiesPanel({
                         <div className="p-4 border-t border-slate-700 bg-slate-800/30">
                             <button
                                 onClick={onSave}
-                                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                className="w-full px-4 py-2 bg-primary hover:bg-primary text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                             >
                                 <Save size={16} />
                                 {text.save}

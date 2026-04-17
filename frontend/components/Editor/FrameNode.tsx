@@ -10,6 +10,11 @@ interface FrameNodeProps {
     onUpdate: (nodeId: string, updates: Partial<WorkflowNode>) => void;
     onDragStart: (nodeId: string, e: React.MouseEvent) => void;
     zoom?: number;
+    /** How many non-frame, non-note steps are visually contained inside
+     * this frame's bounding box. Computed once in NodesLayer and passed
+     * down so the frame can render a "N steps" pill without walking the
+     * node list itself. */
+    containedCount?: number;
 }
 
 export default function FrameNode({
@@ -18,6 +23,7 @@ export default function FrameNode({
     onUpdate,
     onDragStart,
     zoom = 1,
+    containedCount = 0,
 }: FrameNodeProps) {
     const [title, setTitle] = useState((node.config as any)?.title || 'Frame');
     const [isEditing, setIsEditing] = useState(false);
@@ -34,7 +40,7 @@ export default function FrameNode({
     // Frame dimensions with defaults
     const width = (node.config as any)?.width || 400;
     const height = (node.config as any)?.height || 300;
-    const color = (node.config as any)?.color || '#3791f5';
+    const color = (node.config as any)?.color || '#3ecf8e';
 
     // Sync title from config
     useEffect(() => {
@@ -160,6 +166,11 @@ export default function FrameNode({
                     />
                 ) : (
                     <span className="frame-title">{title}</span>
+                )}
+                {containedCount > 0 && (
+                    <span className="frame-count-badge" title={`${containedCount} steps inside`}>
+                        {containedCount}
+                    </span>
                 )}
             </div>
 

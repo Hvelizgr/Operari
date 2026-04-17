@@ -167,7 +167,7 @@ export default function RunbookAssistPanel({
         <div className="fixed right-0 top-0 z-[90] h-full w-full max-w-md border-l border-zinc-800 bg-zinc-950 text-white shadow-2xl flex flex-col">
             <header className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
                 <div className="flex items-start gap-2">
-                    <Sparkles className="mt-0.5 text-violet-400" size={18} />
+                    <Sparkles className="mt-0.5 text-primary/70" size={18} />
                     <div>
                         <h2 className="text-base font-semibold">{t.title}</h2>
                         <p className="mt-0.5 text-xs text-zinc-400">{t.subtitle}</p>
@@ -234,7 +234,7 @@ export default function RunbookAssistPanel({
                                 type="button"
                                 onClick={() => setQuestion(q)}
                                 disabled={streaming}
-                                className="rounded border border-zinc-800 bg-zinc-900/50 px-2 py-0.5 text-[11px] text-zinc-400 hover:border-violet-700 hover:text-violet-300 disabled:opacity-50"
+                                className="rounded border border-zinc-800 bg-zinc-900/50 px-2 py-0.5 text-[11px] text-zinc-400 hover:border-primary hover:text-primary/40 disabled:opacity-50"
                             >
                                 {q}
                             </button>
@@ -245,7 +245,7 @@ export default function RunbookAssistPanel({
                 <button
                     onClick={ask}
                     disabled={streaming || !hasFailureContext}
-                    className="flex w-full items-center justify-center gap-2 rounded bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary disabled:opacity-50"
                 >
                     {streaming ? (
                         <>
@@ -272,7 +272,7 @@ export default function RunbookAssistPanel({
 
                 {(reply || streaming) && (
                     <div className="rounded border border-zinc-800 bg-black/40 p-3">
-                        <div className="text-[11px] font-bold uppercase text-violet-400 mb-2">
+                        <div className="text-[11px] font-bold uppercase text-primary/70 mb-2">
                             {t.brand}
                         </div>
                         <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-100">

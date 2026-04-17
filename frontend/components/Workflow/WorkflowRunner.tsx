@@ -134,7 +134,7 @@ export default function WorkflowRunner({
                     <button
                         onClick={executeWorkflow}
                         disabled={nodes.length === 0}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors shadow-lg"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors shadow-lg"
                     >
                         <Play size={16} />
                         {text.run}
@@ -187,7 +187,7 @@ export default function WorkflowRunner({
                                         animate={{ opacity: 1, y: 0 }}
                                     >
                                         {log.status === 'running' && (
-                                            <Loader2 size={16} className="text-blue-500 animate-spin flex-shrink-0 mt-0.5" />
+                                            <Loader2 size={16} className="text-primary animate-spin flex-shrink-0 mt-0.5" />
                                         )}
                                         {log.status === 'success' && (
                                             <CheckCircle2 size={16} className="text-green-500 flex-shrink-0 mt-0.5" />

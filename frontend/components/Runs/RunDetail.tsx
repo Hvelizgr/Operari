@@ -241,7 +241,7 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
                     <button
                         onClick={replayWholeRun}
                         disabled={replayingId !== null || run.status === 'RUNNING'}
-                        className="flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-primary hover:bg-primary disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
                         title={lang === 'en' ? 'Re-run this runbook from the start with the same trigger' : 'Re-ejecutar este runbook desde el principio'}
                     >
                         {replayingId === '__whole__' ? (

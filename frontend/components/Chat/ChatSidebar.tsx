@@ -74,7 +74,7 @@ export default function ChatSidebar({
                 <button
                     onClick={onCreate}
                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg
-                               bg-blue-600 hover:bg-blue-500 text-white text-sm transition-colors
+                               bg-primary hover:bg-primary text-white text-sm transition-colors
                                ${collapsed ? 'justify-center' : ''}`}
                 >
                     <Plus size={16} />
@@ -104,7 +104,7 @@ export default function ChatSidebar({
                                 className={`group flex items-center gap-2 px-3 py-2.5 my-0.5 rounded-lg cursor-pointer
                                            transition-colors text-sm
                                            ${isActive
-                                               ? 'bg-blue-600/20 text-white'
+                                               ? 'bg-primary/20 text-white'
                                                : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
                                            }
                                            ${collapsed ? 'justify-center' : ''}`}

@@ -56,9 +56,9 @@ export default function Hero({ content }: HeroProps) {
       <AuroraBackground
         grid
         orbs={[
-          { color: 'orange', size: 900, x: '10%', y: '-25%', opacity: 0.08, duration: 14, drift: 40 },
-          { color: 'emerald', size: 750, x: '60%', y: '60%', opacity: 0.07, duration: 16, delay: 2, drift: 45 },
-          { color: 'primary', size: 500, x: '40%', y: '20%', opacity: 0.04, duration: 11, delay: 4, drift: 25 },
+          { color: 'emerald', size: 900, x: '10%', y: '-25%', opacity: 0.1, duration: 14, drift: 40 },
+          { color: 'primary', size: 750, x: '60%', y: '60%', opacity: 0.08, duration: 16, delay: 2, drift: 45 },
+          { color: 'emerald', size: 500, x: '40%', y: '20%', opacity: 0.05, duration: 11, delay: 4, drift: 25 },
         ]}
       />
 
@@ -76,8 +76,8 @@ export default function Hero({ content }: HeroProps) {
               className="inline-flex items-center gap-2.5 px-3 sm:px-4 py-1.5 rounded-full bg-secondary/50 border border-secondary text-secondary-foreground/90 text-xs sm:text-sm font-medium mb-6 sm:mb-8 backdrop-blur-sm hover:bg-secondary/70 transition-colors"
             >
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-500 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
               </span>
               {content.badge}
             </motion.a>
@@ -86,9 +86,18 @@ export default function Hero({ content }: HeroProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-5 sm:mb-6 leading-[1.05] whitespace-pre-line text-foreground"
+              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-[-0.03em] mb-5 sm:mb-6 leading-[1.05] whitespace-pre-line text-foreground"
             >
-              {content.title}
+              {content.title.split('\n').map((line, i) => (
+                <span key={i}>
+                  {i === 1 ? (
+                    <span className="bg-gradient-to-r from-primary via-emerald-300 to-primary bg-clip-text text-transparent">{line}</span>
+                  ) : (
+                    line
+                  )}
+                  {i === 0 && '\n'}
+                </span>
+              ))}
             </motion.h1>
 
             <motion.p
@@ -112,14 +121,14 @@ export default function Hero({ content }: HeroProps) {
                   comfortably above the 44px iOS / Android minimum. */}
               <button
                 onClick={copyDockerCmd}
-                className="group h-14 pl-4 sm:pl-5 pr-3 rounded-xl bg-foreground text-background font-mono text-sm md:text-base font-semibold flex items-center gap-2 sm:gap-3 shadow-xl shadow-foreground/10 hover:shadow-2xl hover:shadow-foreground/20 active:scale-[0.98] transition-all w-full sm:w-auto justify-center sm:justify-start"
+                className="group h-14 pl-4 sm:pl-5 pr-3 rounded-xl bg-primary text-primary-foreground font-mono text-sm md:text-base font-semibold flex items-center gap-2 sm:gap-3 shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30 hover:bg-primary/90 active:scale-[0.98] transition-all w-full sm:w-auto justify-center sm:justify-start"
                 aria-label="Copy docker compose command"
               >
-                <span className="text-emerald-400">$</span>
+                <span className="opacity-70">$</span>
                 <span>{content.ctaPrimary}</span>
-                <span className="ml-1 sm:ml-2 h-10 w-10 rounded-lg bg-background/15 flex items-center justify-center group-hover:bg-background/25 transition-colors">
+                <span className="ml-1 sm:ml-2 h-10 w-10 rounded-lg bg-primary-foreground/10 flex items-center justify-center group-hover:bg-primary-foreground/20 transition-colors">
                   {copied ? (
-                    <Check className="w-4 h-4 text-emerald-400" />
+                    <Check className="w-4 h-4" />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
@@ -150,14 +159,14 @@ export default function Hero({ content }: HeroProps) {
                 href={`/${lang}/editor`}
                 className="inline-flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors group"
               >
-                <Play className="w-3.5 h-3.5 text-orange-400" />
+                <Play className="w-3.5 h-3.5 text-primary" />
                 <span className="font-medium">
                   {lang === 'es' ? 'Probar el editor en tu navegador' : 'Try the editor in your browser'}
                 </span>
                 <ArrowRight className="w-3 h-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               </Link>
               <span className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/70" />
+                <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
                 <span>
                   {lang === 'es' ? 'Sin sign-up. Sin telemetría. AGPL para siempre.' : 'No signup. No telemetry. AGPL forever.'}
                 </span>
@@ -207,8 +216,8 @@ function HeroScenario({ content: s }: { content: typeof content.hero.scenario })
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      {/* Subtle frame around the whole stack */}
-      <div className="absolute -inset-4 rounded-3xl bg-gradient-to-b from-orange-500/[0.08] via-transparent to-emerald-500/[0.08] blur-2xl" />
+      {/* Subtle frame around the whole stack — emerald halo top-to-bottom */}
+      <div className="absolute -inset-4 rounded-3xl bg-gradient-to-b from-primary/[0.08] via-transparent to-primary/[0.05] blur-2xl" />
 
       <div key={cycle} className="relative flex flex-col gap-3">
         {/* FRAME 1 — Alert fires (red) — vendor-agnostic on purpose */}

@@ -123,7 +123,7 @@ export default function CronPicker({ lang, value, onChange }: CronPickerProps) {
                         onClick={() => selectPreset(p.key)}
                         className={`rounded border px-2 py-1.5 text-[11px] text-left transition ${
                             preset === p.key
-                                ? 'border-blue-500 bg-blue-500/10 text-blue-200'
+                                ? 'border-primary bg-primary/10 text-primary/20'
                                 : 'border-slate-700 bg-black/20 text-slate-300 hover:border-slate-500'
                         }`}
                     >

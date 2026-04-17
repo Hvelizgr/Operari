@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Menu, X, Github } from 'lucide-react';
+import { Menu, X, Github, ArrowRight } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
 import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
@@ -41,32 +41,36 @@ export default function Navbar({ content, lang }: NavbarProps) {
                     href={`/${lang}`}
                     className="flex items-center gap-2.5 font-bold text-lg tracking-tight text-foreground"
                 >
-                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+                    <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/30">
                         <svg
                             width="18"
                             height="18"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="3"
+                            strokeWidth="2.5"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             aria-hidden="true"
                         >
-                            <polyline points="6 9 12 15 18 9" />
+                            <path d="M4 18 L12 6 L20 18 Z" />
+                            <path d="M8 14 L16 14" />
                         </svg>
                     </div>
                     NanoRun
                 </Link>
 
-                {/* Desktop nav — anchor links to in-page sections */}
+                {/* Desktop nav — anchor links + real page routes */}
                 <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-muted-foreground">
                     <a href="#story" className="hover:text-foreground transition-colors">
                         {content.product}
                     </a>
                     <a href="#triggers" className="hover:text-foreground transition-colors">
-                        {lang === 'es' ? 'Triggers' : 'Triggers'}
+                        Triggers
                     </a>
+                    <Link href={`/${lang}/pricing`} className="hover:text-foreground transition-colors">
+                        {lang === 'es' ? 'Precios' : 'Pricing'}
+                    </Link>
                     <a href="#compare" className="hover:text-foreground transition-colors">
                         {lang === 'es' ? 'Comparar' : 'Compare'}
                     </a>
@@ -92,12 +96,19 @@ export default function Navbar({ content, lang }: NavbarProps) {
                     >
                         <Github className="w-5 h-5" />
                     </a>
-                    <a
-                        href="#self-host"
-                        className="text-sm font-semibold bg-foreground text-background px-4 py-2 rounded-lg hover:bg-foreground/90 transition-colors"
+                    <Link
+                        href={`/${lang}/editor`}
+                        className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                     >
-                        {content.getStarted}
-                    </a>
+                        {lang === 'es' ? 'Entrar' : 'Sign in'}
+                    </Link>
+                    <Link
+                        href={`/${lang}/editor`}
+                        className="text-sm font-semibold bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors shadow-md shadow-primary/20 inline-flex items-center gap-1.5"
+                    >
+                        {lang === 'es' ? 'Abrir editor' : 'Open editor'}
+                        <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
                 </div>
 
                 {/* Mobile toggle */}
@@ -124,6 +135,9 @@ export default function Navbar({ content, lang }: NavbarProps) {
                         <a href="#triggers" onClick={() => setMobileMenuOpen(false)} className="hover:text-primary">
                             Triggers
                         </a>
+                        <Link href={`/${lang}/pricing`} onClick={() => setMobileMenuOpen(false)} className="hover:text-primary">
+                            {lang === 'es' ? 'Precios' : 'Pricing'}
+                        </Link>
                         <a href="#compare" onClick={() => setMobileMenuOpen(false)} className="hover:text-primary">
                             {lang === 'es' ? 'Comparar' : 'Compare'}
                         </a>
@@ -149,10 +163,18 @@ export default function Navbar({ content, lang }: NavbarProps) {
                             <Github className="w-5 h-5" />
                         </a>
                     </div>
+                    <Link
+                        href={`/${lang}/editor`}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl text-center shadow-md shadow-primary/20 inline-flex items-center justify-center gap-2"
+                    >
+                        {lang === 'es' ? 'Abrir editor' : 'Open editor'}
+                        <ArrowRight className="w-4 h-4" />
+                    </Link>
                     <a
                         href="#self-host"
                         onClick={() => setMobileMenuOpen(false)}
-                        className="w-full bg-foreground text-background font-semibold py-3 rounded-xl text-center"
+                        className="text-center text-sm text-muted-foreground hover:text-foreground"
                     >
                         {content.getStarted}
                     </a>

@@ -106,17 +106,17 @@ export default function ContextMenu({
         { icon: Play, label: text.testFromNode, action: onTestFromNode, color: 'text-green-400' },
         { icon: Copy, label: text.duplicate, action: onDuplicate, color: 'text-slate-300' },
         { icon: ToggleRight, label: text.toggleEnable, action: onToggleEnable, color: 'text-slate-300' },
-        { icon: Link2Off, label: text.detach, action: onDetachConnections, color: 'text-orange-400' },
+        { icon: Link2Off, label: text.detach, action: onDetachConnections, color: 'text-primary/70' },
         { icon: Trash2, label: text.delete, action: onDelete, color: 'text-red-400' },
     ];
 
     const canvasMenuItems = [
-        { icon: Plus, label: text.addNode, action: onAddNode, color: 'text-blue-400' },
+        { icon: Plus, label: text.addNode, action: onAddNode, color: 'text-primary/70' },
         { icon: Undo2, label: text.undo, action: onUndo, color: 'text-slate-300', disabled: !canUndo },
         { icon: Redo2, label: text.redo, action: onRedo, color: 'text-slate-300', disabled: !canRedo },
         { icon: Move, label: text.modeMove, action: onSetModeMove, color: 'text-slate-300' },
         { icon: Pencil, label: text.modeDraw, action: onSetModeDraw, color: 'text-slate-300' },
-        { icon: History, label: text.history, action: onHistory, color: 'text-purple-400' },
+        { icon: History, label: text.history, action: onHistory, color: 'text-primary/70' },
         { icon: Keyboard, label: text.shortcuts, action: onShortcuts, color: 'text-slate-300' },
         { icon: ZoomIn, label: text.zoomIn, action: onZoomIn, color: 'text-slate-300' },
         { icon: ZoomOut, label: text.zoomOut, action: onZoomOut, color: 'text-slate-300' },

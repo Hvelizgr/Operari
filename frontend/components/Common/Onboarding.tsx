@@ -50,7 +50,7 @@ export default function Onboarding({
                     exit={{ scale: 0.8, opacity: 0 }}
                     transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                 >
-                    <div className="bg-slate-800 border-2 border-blue-500 rounded-lg shadow-2xl shadow-blue-500/20 p-6 max-w-sm">
+                    <div className="bg-slate-800 border-2 border-primary rounded-lg shadow-2xl shadow-primary/20 p-6 max-w-sm">
                         <div className="flex items-start justify-between mb-3">
                             <div>
                                 <h3 className="text-lg font-semibold text-slate-100">{step.title}</h3>
@@ -59,9 +59,9 @@ export default function Onboarding({
                                         <div
                                             key={idx}
                                             className={`h-1 rounded-full transition-all duration-300 ${idx === currentStep
-                                                ? 'w-6 bg-blue-500'
+                                                ? 'w-6 bg-primary'
                                                 : idx < currentStep
-                                                    ? 'w-2 bg-blue-400'
+                                                    ? 'w-2 bg-primary/70'
                                                     : 'w-2 bg-slate-600'
                                                 }`}
                                         />
@@ -87,7 +87,7 @@ export default function Onboarding({
                             </button>
                             <button
                                 onClick={onNext}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
+                                className="px-4 py-2 bg-primary hover:bg-primary text-white rounded-lg text-sm font-medium transition-colors"
                             >
                                 {currentStep === steps.length - 1 ? 'Get Started' : 'Next'}
                             </button>
@@ -95,7 +95,7 @@ export default function Onboarding({
                     </div>
 
                     <svg
-                        className="absolute -bottom-3 left-8 text-blue-500"
+                        className="absolute -bottom-3 left-8 text-primary"
                         width="24"
                         height="12"
                         viewBox="0 0 24 12"
@@ -135,14 +135,14 @@ export function EmptyStateMessage({ lang }: { lang: 'en' | 'es' }) {
             transition={{ delay: 0.3 }}
         >
             <div className="bg-slate-800/80 backdrop-blur-sm border border-slate-700 rounded-xl p-8 max-w-md">
-                <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                 </div>
                 <h2 className="text-2xl font-bold text-slate-100 mb-2">{text.title}</h2>
                 <p className="text-slate-400 mb-6">{text.description}</p>
-                <button className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors pointer-events-auto">
+                <button className="px-6 py-3 bg-primary hover:bg-primary text-white rounded-lg font-medium transition-colors pointer-events-auto">
                     {text.cta}
                 </button>
             </div>

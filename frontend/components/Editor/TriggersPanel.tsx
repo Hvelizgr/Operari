@@ -188,7 +188,7 @@ export default function TriggersPanel({ lang, workflowId }: TriggersPanelProps) 
                                     className="rounded border border-slate-700 bg-black/30 p-2 space-y-1"
                                 >
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[11px] font-bold uppercase text-blue-400">
+                                        <span className="text-[11px] font-bold uppercase text-primary/70">
                                             {tr.source}
                                         </span>
                                         <button

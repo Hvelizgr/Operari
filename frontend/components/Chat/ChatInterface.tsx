@@ -229,7 +229,7 @@ export default function ChatInterface({ lang }: ChatInterfaceProps) {
                 <div className="h-[50px] flex items-center px-4 border-b border-[#2a2f3a] bg-[#1a1e26]">
                     <h1 className="text-sm font-semibold text-gray-300">{labels.title}</h1>
                     {isLoading && (
-                        <span className="ml-3 text-xs text-blue-400 animate-pulse">
+                        <span className="ml-3 text-xs text-primary/70 animate-pulse">
                             {lang === 'en' ? 'Thinking...' : 'Pensando...'}
                         </span>
                     )}
@@ -258,7 +258,7 @@ export default function ChatInterface({ lang }: ChatInterfaceProps) {
                             disabled={isLoading}
                             rows={1}
                             className="flex-1 bg-[#2a2f3a] text-gray-200 rounded-xl px-4 py-3 text-sm resize-none
-                                       border border-[#3a3f4a] focus:border-blue-500 focus:outline-none
+                                       border border-[#3a3f4a] focus:border-primary focus:outline-none
                                        placeholder-gray-500 disabled:opacity-50 transition-colors"
                             style={{
                                 height: 'auto',
@@ -275,8 +275,8 @@ export default function ChatInterface({ lang }: ChatInterfaceProps) {
                         <button
                             type="submit"
                             disabled={isLoading || !input.trim()}
-                            className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center
-                                       hover:bg-blue-500 disabled:opacity-30 disabled:hover:bg-blue-600 transition-colors"
+                            className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center
+                                       hover:bg-primary disabled:opacity-30 disabled:hover:bg-primary transition-colors"
                         >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <line x1="22" y1="2" x2="11" y2="13" />

@@ -23,6 +23,7 @@ import CommandPalette, { CommandAction } from './CommandPalette';
 import TopBar from './TopBar';
 import YamlViewModal from './YamlViewModal';
 import RunbookAssistPanel from './RunbookAssistPanel';
+import GitHubBranchPanel from './GitHubBranchPanel';
 import EditorSidebar from './EditorSidebar';
 import { createNewNode } from './EditorCanvas.utils';
 import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertiesPanel';
@@ -160,6 +161,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const [isMetricsDashboardOpen, setIsMetricsDashboardOpen] = useState(false);
     const [isYamlViewOpen, setIsYamlViewOpen] = useState(false);
     const [isAssistOpen, setIsAssistOpen] = useState(false);
+    const [isGitHubOpen, setIsGitHubOpen] = useState(false);
     // Load a runbook from /editor?id=<workflowId>. Until this effect
     // ran, the editor showed INITIAL_NODES — a single empty shell step
     // — regardless of what the user clicked from /runbooks. This is
@@ -346,6 +348,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             hasFailedNode={nodes.some((n) => n.executionState === 'error')}
                             snapToGrid={snapToGrid}
                             onToggleSnapToGrid={toggleSnapToGrid}
+                            onGitHub={() => setIsGitHubOpen(true)}
                             onExport={() => {
                                 const data = JSON.stringify({ nodes, connections }, null, 2);
                                 const blob = new Blob([data], { type: 'application/json' });
@@ -413,7 +416,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     >
                         <a
                             href="#workflow-canvas"
-                            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/70"
                         >
                             {lang === 'en' ? 'Skip to workflow canvas' : 'Saltar al lienzo de flujo de trabajo'}
                         </a>
@@ -577,7 +580,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                         {/* Floating Terminal Toggle */}
                         <button
                             onClick={() => setShowTerminal(!showTerminal)}
-                            className={`absolute bottom-6 right-6 p-3 rounded-full shadow-2xl transition-all duration-300 z-50 group ${showTerminal ? 'bg-slate-800 text-slate-400 rotate-90' : 'bg-blue-600 text-white hover:bg-blue-500 hover:scale-110'
+                            className={`absolute bottom-6 right-6 p-3 rounded-full shadow-2xl transition-all duration-300 z-50 group ${showTerminal ? 'bg-slate-800 text-slate-400 rotate-90' : 'bg-primary text-white hover:bg-primary hover:scale-110'
                                 }`}
                             title={lang === 'en' ? 'Toggle Terminal' : 'Alternar Terminal'}
                         >
@@ -623,6 +626,11 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             onClose={() => setIsAssistOpen(false)}
                             lang={lang}
                             failedNode={nodes.find((n) => n.executionState === 'error') ?? null}
+                        />
+                        <GitHubBranchPanel
+                            open={isGitHubOpen}
+                            onClose={() => setIsGitHubOpen(false)}
+                            lang={lang}
                         />
                         <YamlViewModal
                             open={isYamlViewOpen}

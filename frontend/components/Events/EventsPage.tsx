@@ -195,7 +195,7 @@ export default function EventsPage({ lang }: EventsPageProps) {
                     <select
                         value={type}
                         onChange={(e) => setType(e.target.value)}
-                        className="px-3 py-2 bg-[#1a1f2a] border border-white/10 rounded-md text-sm text-gray-300 focus:border-blue-500 focus:outline-none min-w-[180px]"
+                        className="px-3 py-2 bg-[#1a1f2a] border border-white/10 rounded-md text-sm text-gray-300 focus:border-primary focus:outline-none min-w-[180px]"
                     >
                         <option value="">{t.allTypes}</option>
                         {types.map((tt) => (
@@ -213,7 +213,7 @@ export default function EventsPage({ lang }: EventsPageProps) {
                             value={resource}
                             onChange={(e) => setResource(e.target.value)}
                             placeholder={t.searchPlaceholder}
-                            className="w-full pl-9 pr-3 py-2 bg-[#1a1f2a] border border-white/10 rounded-md text-sm text-gray-200 focus:border-blue-500 focus:outline-none"
+                            className="w-full pl-9 pr-3 py-2 bg-[#1a1f2a] border border-white/10 rounded-md text-sm text-gray-200 focus:border-primary focus:outline-none"
                         />
                     </div>
                 </div>
@@ -245,7 +245,7 @@ export default function EventsPage({ lang }: EventsPageProps) {
                                         <span className="text-[10px] text-gray-600 font-mono w-16">
                                             #{ev.seq}
                                         </span>
-                                        <span className="text-xs text-purple-300 font-mono">
+                                        <span className="text-xs text-primary/40 font-mono">
                                             {ev.type}
                                         </span>
                                         <span className="text-xs text-gray-500 flex-1 truncate">
@@ -276,7 +276,7 @@ export default function EventsPage({ lang }: EventsPageProps) {
                                 <button
                                     onClick={() => load(false)}
                                     disabled={loading}
-                                    className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50"
+                                    className="text-xs text-primary/70 hover:text-primary/40 disabled:opacity-50"
                                 >
                                     {loading ? t.loading : t.loadMore}
                                 </button>

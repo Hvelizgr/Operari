@@ -13,7 +13,7 @@ interface ConnectionConditionBadgeProps {
 }
 
 const CONDITION_CONFIG: Record<ConnectionCondition, { color: string; icon: typeof Check; label: string }> = {
-    complete: { color: '#3b82f6', icon: Circle, label: 'Complete' },
+    complete: { color: '#3ecf8e', icon: Circle, label: 'Complete' },
     success: { color: '#22c55e', icon: Check, label: 'Success' },
     error: { color: '#ef4444', icon: X, label: 'Error' },
     warning: { color: '#eab308', icon: AlertTriangle, label: 'Warning' },

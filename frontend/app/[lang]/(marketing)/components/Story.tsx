@@ -21,8 +21,8 @@ export default function Story({ content }: StoryProps) {
     <section className="relative py-24 sm:py-32 overflow-hidden">
       <AuroraBackground
         orbs={[
-          { color: 'primary', size: 1000, x: '20%', y: '-10%', opacity: 0.05, duration: 18, drift: 60 },
-          { color: 'orange', size: 700, x: '70%', y: '60%', opacity: 0.04, duration: 22, delay: 3, drift: 50 },
+          { color: 'primary', size: 1000, x: '20%', y: '-10%', opacity: 0.06, duration: 18, drift: 60 },
+          { color: 'deep', size: 700, x: '70%', y: '60%', opacity: 0.05, duration: 22, delay: 3, drift: 50 },
         ]}
       />
 
@@ -153,9 +153,9 @@ function CanvasMockup() {
         </motion.svg>
 
         {/* Nodes — pop in one by one before the lines connect them */}
-        <AnimatedNode left="6%" top="22%" label="trigger" color="amber" delay={0.1} />
+        <AnimatedNode left="6%" top="22%" label="trigger" color="mono" delay={0.1} />
         <AnimatedNode left="36%" top="22%" label="shell" color="primary" delay={0.3} />
-        <AnimatedNode left="66%" top="22%" label="approve" color="violet" delay={0.5} />
+        <AnimatedNode left="66%" top="22%" label="approve" color="primary" delay={0.5} />
         <AnimatedNode left="36%" top="62%" label="notify" color="emerald" delay={1.4} />
       </div>
     </div>
@@ -187,7 +187,7 @@ function AnimatedLine({
       y1={y1}
       x2={x2}
       y2={y2}
-      stroke="rgb(251 146 60 / 0.65)"
+      stroke="rgb(62 207 142 / 0.65)"
       strokeWidth="0.6"
       strokeLinecap="round"
       vectorEffect="non-scaling-stroke"
@@ -413,29 +413,8 @@ function MockHeader({ filename, badge }: { filename?: string; badge?: string } =
 }
 
 const nodeColor: Record<string, string> = {
-  amber: 'bg-amber-500/15 border-amber-500/40 text-amber-300',
+  mono: 'bg-foreground/5 border-foreground/20 text-foreground/80',
   primary: 'bg-primary/15 border-primary/40 text-primary',
-  violet: 'bg-violet-500/15 border-violet-500/40 text-violet-300',
   emerald: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300',
 };
 
-function MockNode({
-  left,
-  top,
-  label,
-  color,
-}: {
-  left: string;
-  top: string;
-  label: string;
-  color: keyof typeof nodeColor;
-}) {
-  return (
-    <div
-      className={`absolute -translate-x-1/2 -translate-y-1/2 px-3 py-2 rounded-lg border backdrop-blur-sm font-mono text-[11px] ${nodeColor[color]}`}
-      style={{ left, top }}
-    >
-      {label}
-    </div>
-  );
-}

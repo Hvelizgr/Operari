@@ -89,6 +89,25 @@ function configPreview(type: string, config: Record<string, unknown> | undefined
             return (config.expression as string) ?? null;
         case 'nanorun.webhook':
             return (config.path as string) ? `/${config.path}` : null;
+        case 'Condition': {
+            const field = trunc(config.field ?? '', 20);
+            const op = (config.operator as string) ?? '?';
+            const val = trunc(config.value ?? '', 20);
+            return field ? `${field} ${op} ${val}` : null;
+        }
+        case 'Switch': {
+            const sf = trunc(config.field ?? '', 20);
+            let caseCount = 0;
+            try {
+                const parsed = typeof config.cases === 'string' ? JSON.parse(config.cases) : config.cases;
+                caseCount = Array.isArray(parsed) ? parsed.length : 0;
+            } catch { /* ignore */ }
+            return sf ? `${sf} · ${caseCount} cases` : null;
+        }
+        case 'Loop': {
+            const path = trunc(config.itemsPath ?? '', 30);
+            return path ? `each ${path}` : null;
+        }
         default:
             return null;
     }
@@ -123,6 +142,15 @@ function validateConfig(type: string, config: Record<string, unknown> | undefine
         case 'nanorun.cron':
             return config.expression ? null : 'Missing cron expression';
         case 'nanorun.webhook':
+            return null;
+        case 'Condition':
+            if (!config.field) return 'Missing field';
+            if (!config.operator) return 'Missing operator';
+            return null;
+        case 'Switch':
+            return config.field ? null : 'Missing field';
+        case 'Loop':
+            if (!config.itemsPath && !config.items) return 'Missing items or items path';
             return null;
         default:
             return null;

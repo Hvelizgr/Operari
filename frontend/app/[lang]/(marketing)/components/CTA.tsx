@@ -37,8 +37,8 @@ export default function CTA({ content }: CTAProps) {
       <AuroraBackground
         grid
         orbs={[
-          { color: 'primary', size: 1000, x: '15%', y: '15%', opacity: 0.08, duration: 16, drift: 55 },
-          { color: 'orange', size: 600, x: '65%', y: '50%', opacity: 0.05, duration: 20, delay: 3, drift: 40 },
+          { color: 'primary', size: 1000, x: '15%', y: '15%', opacity: 0.1, duration: 16, drift: 55 },
+          { color: 'deep', size: 600, x: '65%', y: '50%', opacity: 0.06, duration: 20, delay: 3, drift: 40 },
         ]}
       />
 
@@ -58,8 +58,8 @@ export default function CTA({ content }: CTAProps) {
                 emerald color matches the success state in the rest of
                 the landing so it reads as "good news" not "marketing". */}
             <div className="inline-flex items-center gap-2 mb-4 sm:mb-5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span className="text-sm font-semibold text-emerald-400 uppercase tracking-wider">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <span className="text-sm font-semibold text-primary uppercase tracking-wider">
                 {content.pricing}
               </span>
             </div>
@@ -101,7 +101,7 @@ export default function CTA({ content }: CTAProps) {
             <pre className="px-4 sm:px-5 py-4 sm:py-5 font-mono text-xs sm:text-sm text-foreground/90 overflow-x-auto">
               {content.code.split('\n').map((line, i) => (
                 <div key={i} className="flex gap-2 sm:gap-3 whitespace-nowrap">
-                  <span className="text-emerald-400 select-none">$</span>
+                  <span className="text-primary select-none">$</span>
                   <span>{line}</span>
                 </div>
               ))}
@@ -114,7 +114,7 @@ export default function CTA({ content }: CTAProps) {
               href={repo.readme}
               target="_blank"
               rel="noopener noreferrer"
-              className="h-12 px-5 sm:px-6 rounded-xl bg-foreground text-background font-semibold hover:bg-foreground/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
+              className="h-12 px-5 sm:px-6 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
             >
               {content.primary}
               <ExternalLink className="w-4 h-4 opacity-70" />

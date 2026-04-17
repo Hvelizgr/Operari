@@ -28,9 +28,9 @@ export default function TriggerSources({ content }: TriggerSourcesProps) {
     <section className="relative py-24 sm:py-32 overflow-hidden">
       <AuroraBackground
         orbs={[
-          { color: 'orange', size: 700, x: '-5%', y: '20%', opacity: 0.05, duration: 17, drift: 50 },
+          { color: 'primary', size: 700, x: '-5%', y: '20%', opacity: 0.06, duration: 17, drift: 50 },
           { color: 'emerald', size: 700, x: '70%', y: '50%', opacity: 0.05, duration: 19, delay: 3, drift: 55 },
-          { color: 'violet', size: 500, x: '40%', y: '-10%', opacity: 0.03, duration: 14, delay: 6, drift: 35 },
+          { color: 'deep', size: 500, x: '40%', y: '-10%', opacity: 0.04, duration: 14, delay: 6, drift: 35 },
         ]}
       />
 
@@ -166,7 +166,7 @@ function ProviderIcon({ name }: { name: string }) {
   switch (name.toLowerCase()) {
     case 'sentry':
       return (
-        <div className="h-10 w-10 rounded-lg bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-300">
+        <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 2L2 22h6l4-7 4 7h6L12 2z" />
           </svg>
@@ -174,7 +174,7 @@ function ProviderIcon({ name }: { name: string }) {
       );
     case 'datadog':
       return (
-        <div className="h-10 w-10 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-300">
+        <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9" />
             <circle cx="12" cy="12" r="4" />
@@ -191,7 +191,7 @@ function ProviderIcon({ name }: { name: string }) {
       );
     default:
       return (
-        <div className="h-10 w-10 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-300">
+        <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-300">
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M18 16.98h-5.99c-1.66 0-3.01-1.34-3.01-3s1.34-3 3.01-3H18M6 8.05V11M6 13v3M14 12.99h.01" />
             <circle cx="6" cy="6" r="3" />

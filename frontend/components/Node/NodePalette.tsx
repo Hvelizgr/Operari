@@ -8,7 +8,8 @@ import {
     Play,
     Bell, Square, StickyNote,
     Terminal, UserCheck,
-    KeyRound, Database
+    KeyRound, Database,
+    GitBranch, Repeat, Route
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
@@ -33,7 +34,7 @@ export interface NodeType {
 const CATEGORIES = [
     { id: 'devops', label: { en: 'Runbook core', es: 'Runbook core' }, icon: Terminal, color: 'text-emerald-400' },
     { id: 'triggers', label: { en: 'Triggers', es: 'Triggers' }, icon: Play, color: 'text-green-400' },
-    { id: 'core', label: { en: 'Core', es: 'Core' }, icon: Zap, color: 'text-blue-400' },
+    { id: 'core', label: { en: 'Core', es: 'Core' }, icon: Zap, color: 'text-primary/70' },
     { id: 'organization', label: { en: 'Organization', es: 'Organización' }, icon: Folder, color: 'text-slate-400' },
 ];
 
@@ -103,7 +104,7 @@ const NODE_TYPES: NodeType[] = [
         type: 'nanorun.database',
         icon: <Database size={18} />,
         label: { en: 'Database', es: 'Base de datos' },
-        color: 'bg-violet-600',
+        color: 'bg-primary',
         category: 'devops',
         description: { en: 'Introspect schema, health check, or read-only query (PostgreSQL)', es: 'Introspección de esquema, health check o consulta de lectura (PostgreSQL)' },
         inputs: ['main'],
@@ -198,12 +199,63 @@ const NODE_TYPES: NodeType[] = [
         ]
     },
 
-    // === CORE ===
+    // === CORE (control flow + integrations) ===
+    {
+        type: 'Condition',
+        icon: <GitBranch size={18} />,
+        label: { en: 'Condition', es: 'Condición' },
+        color: 'bg-primary',
+        category: 'core',
+        description: { en: 'Branch true/false based on a field value', es: 'Bifurcar verdadero/falso según un campo' },
+        inputs: ['main'],
+        outputs: ['true', 'false'],
+        properties: [
+            { name: 'field', displayName: 'Field', type: 'string', default: '', typeOptions: { expression: true }, description: 'Path to evaluate (e.g. "status", "vars.branch")' },
+            { name: 'operator', displayName: 'Operator', type: 'options', options: [
+                { name: 'Equals', value: 'equals' },
+                { name: 'Not equals', value: 'notEquals' },
+                { name: 'Contains', value: 'contains' },
+                { name: 'Greater than', value: 'greaterThan' },
+                { name: 'Less than', value: 'lessThan' },
+                { name: 'Is empty', value: 'isEmpty' },
+                { name: 'Is not empty', value: 'isNotEmpty' },
+            ], default: 'equals' },
+            { name: 'value', displayName: 'Value', type: 'string', default: '', typeOptions: { expression: true }, description: 'Value to compare against. Supports {{vars.x}} templates.' },
+        ]
+    },
+    {
+        type: 'Switch',
+        icon: <Route size={18} />,
+        label: { en: 'Switch', es: 'Switch' },
+        color: 'bg-primary',
+        category: 'core',
+        description: { en: 'Multi-way branch by matching a field against cases', es: 'Bifurcación múltiple comparando un campo contra casos' },
+        inputs: ['main'],
+        outputs: ['case 0', 'case 1', 'default'],
+        properties: [
+            { name: 'field', displayName: 'Field', type: 'string', default: '', typeOptions: { expression: true }, description: 'Path to evaluate (e.g. "status", "vars.action")' },
+            { name: 'cases', displayName: 'Cases (JSON array)', type: 'string', default: '[{"value":"success","label":"success"},{"value":"failure","label":"failure"}]', typeOptions: { rows: 3 }, description: 'Array of {value, label} objects. Each case maps to an output port.' },
+        ]
+    },
+    {
+        type: 'Loop',
+        icon: <Repeat size={18} />,
+        label: { en: 'Loop', es: 'Bucle' },
+        color: 'bg-primary',
+        category: 'core',
+        description: { en: 'Iterate over an array, running children once per item', es: 'Iterar sobre un arreglo, ejecutando hijos una vez por elemento' },
+        inputs: ['main'],
+        outputs: ['iteration'],
+        properties: [
+            { name: 'itemsPath', displayName: 'Items path', type: 'string', default: '', typeOptions: { expression: true }, description: 'Path to the array in input (e.g. "servers", "vars.targets"). Takes precedence over inline items.' },
+            { name: 'items', displayName: 'Items (JSON array)', type: 'string', default: '[]', typeOptions: { rows: 3 }, description: 'Inline array. Used only if Items path is empty.' },
+        ]
+    },
     {
         type: 'nanorun.httpRequest',
         icon: <Globe size={18} />,
         label: { en: 'HTTP request', es: 'HTTP request' },
-        color: 'bg-blue-500',
+        color: 'bg-primary',
         category: 'core',
         description: { en: 'Call an external API (Datadog, Sentry, GitHub, etc.)', es: 'Llamar una API externa (Datadog, Sentry, GitHub, etc.)' },
         inputs: ['main'],
@@ -325,7 +377,7 @@ export default function NodePalette({ lang: langProp, onNodeDragStart, nodeTypes
         >
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white rounded-lg text-sm font-semibold transition-all shadow-lg shadow-orange-500/30 self-start"
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-primary hover:from-primary/70 hover:to-primary text-white rounded-lg text-sm font-semibold transition-all shadow-lg shadow-primary/30 self-start"
             >
                 <Zap size={16} />
                 {text.toggle}
@@ -363,7 +415,7 @@ export default function NodePalette({ lang: langProp, onNodeDragStart, nodeTypes
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     placeholder={text.search}
-                                    className="w-full bg-[#0d0d1a] border border-[#2d2d44] rounded-lg pl-9 pr-8 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition-all"
+                                    className="w-full bg-[#0d0d1a] border border-[#2d2d44] rounded-lg pl-9 pr-8 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all"
                                 />
                                 {searchTerm && (
                                     <button

@@ -18,7 +18,7 @@ export default function SaveStatusIndicator({ saveStatus, lang }: SaveStatusIndi
         saving: {
             icon: Loader2,
             text: lang === 'en' ? 'Saving...' : 'Guardando...',
-            className: 'text-blue-400',
+            className: 'text-primary/70',
             iconClassName: 'animate-spin'
         },
         saved: {

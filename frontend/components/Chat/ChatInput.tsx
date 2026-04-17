@@ -47,15 +47,15 @@ export default function ChatInput({ onSend, disabled, placeholder, sendLabel }: 
                     disabled={disabled}
                     rows={1}
                     className="flex-1 bg-[#2a2f3a] text-gray-200 rounded-xl px-4 py-3 text-sm resize-none
-                               border border-[#3a3f4a] focus:border-blue-500 focus:outline-none
+                               border border-[#3a3f4a] focus:border-primary focus:outline-none
                                placeholder-gray-500 disabled:opacity-50 transition-colors"
                 />
                 <button
                     onClick={handleSubmit}
                     disabled={disabled || !value.trim()}
                     title={sendLabel}
-                    className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center
-                               hover:bg-blue-500 disabled:opacity-30 disabled:hover:bg-blue-600 transition-colors"
+                    className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center
+                               hover:bg-primary disabled:opacity-30 disabled:hover:bg-primary transition-colors"
                 >
                     <Send size={18} />
                 </button>

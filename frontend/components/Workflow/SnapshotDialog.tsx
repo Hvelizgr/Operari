@@ -95,7 +95,7 @@ export default function SnapshotDialog({
                         <div className="p-4 border-b border-[var(--border-color)] bg-[rgba(255,255,255,0.02)]">
                             <button
                                 onClick={onCreate}
-                                className="w-full py-2 px-4 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium flex items-center justify-center gap-2 transition-colors"
+                                className="w-full py-2 px-4 rounded bg-primary hover:bg-primary text-white font-medium flex items-center justify-center gap-2 transition-colors"
                             >
                                 <Camera size={16} />
                                 {text.create}

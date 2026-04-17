@@ -129,7 +129,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                                 }}
                                 className={`flex items-center cursor-pointer mx-2 my-1 px-3 py-2 rounded-md transition-all duration-200 ${
                                     isActive
-                                        ? 'bg-blue-600 text-white shadow-md'
+                                        ? 'bg-primary text-white shadow-md'
                                         : 'hover:bg-white/5 text-gray-400 hover:text-white'
                                 }`}
                                 title={!showLabels ? item.label : ''}

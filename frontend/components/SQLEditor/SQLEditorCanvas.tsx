@@ -165,7 +165,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                                         title={`Double-click to insert "${table.name}"`}
                                     >
                                         {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                                        <Table2 size={12} className="text-blue-400 shrink-0" />
+                                        <Table2 size={12} className="text-primary/70 shrink-0" />
                                         <span className="truncate text-zinc-300">{table.name}</span>
                                         <span className="ml-auto text-zinc-600">{table.columns.length}</span>
                                     </button>
@@ -196,7 +196,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
             <div className="flex flex-col flex-1 min-w-0">
                 {/* Top Bar */}
                 <div className="flex items-center gap-3 px-4 h-11 border-b border-zinc-800 bg-zinc-900/50 shrink-0">
-                    <Database size={16} className="text-violet-400" />
+                    <Database size={16} className="text-primary/70" />
                     <span className="text-sm font-semibold text-white">{t.title}</span>
 
                     <div className="w-px h-5 bg-zinc-700 mx-1" />
@@ -205,7 +205,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     <select
                         value={credentialId}
                         onChange={(e) => setCredentialId(e.target.value)}
-                        className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:border-blue-500 max-w-xs"
+                        className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:border-primary max-w-xs"
                     >
                         {credentials.length === 0 && (
                             <option value="">{t.noCredentials}</option>

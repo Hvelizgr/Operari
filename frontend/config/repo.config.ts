@@ -11,7 +11,7 @@
  * `NEXT_PUBLIC_REPO_SLUG` env vars if you fork or rename.
  */
 const owner = process.env.NEXT_PUBLIC_REPO_OWNER ?? 'Hvelizgr';
-const slug = process.env.NEXT_PUBLIC_REPO_SLUG ?? 'NanoFlow';
+const slug = process.env.NEXT_PUBLIC_REPO_SLUG ?? 'NanoRun';
 
 const base = `https://github.com/${owner}/${slug}`;
 

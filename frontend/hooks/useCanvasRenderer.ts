@@ -43,20 +43,52 @@ const drawSmartBezier = (
     ctx: CanvasRenderingContext2D,
     start: { x: number; y: number; direction: PortDirection },
     end: { x: number; y: number; direction: PortDirection },
-    options: { color?: string; dashOffset?: number, isCyclic?: boolean, flow?: number, lineStyle?: 'bezier' | 'straight' } = {}
+    options: {
+        color?: string;
+        dashOffset?: number,
+        isCyclic?: boolean,
+        flow?: number,
+        lineStyle?: 'bezier' | 'straight',
+        /** Upstream node state — tints the line and drives flow intensity.
+         *  RUNNING: bright emerald + dashed; SUCCESS: pale emerald (path has
+         *  delivered data); FAILED: red; else: neutral gray. */
+        upstreamStatus?: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'SKIPPED' | 'CANCELLED',
+    } = {}
 ) => {
     const { cp1, cp2 } = getControlPoints(start, end);
     const lineStyle = options.lineStyle ?? 'bezier';
 
+    // Line color: status-aware. The rebrand uses emerald #3ecf8e for
+    // "alive" so running/success connections light up in brand color.
+    let strokeColor = options.color || 'rgba(150, 150, 160, 0.55)';
+    if (options.isCyclic) {
+        strokeColor = '#ef4444';
+    } else if (options.upstreamStatus === 'RUNNING') {
+        strokeColor = '#3ecf8e';
+    } else if (options.upstreamStatus === 'SUCCESS') {
+        strokeColor = 'rgba(62, 207, 142, 0.65)';
+    } else if (options.upstreamStatus === 'FAILED') {
+        strokeColor = 'rgba(239, 68, 68, 0.7)';
+    }
+
     // Draw Line
     ctx.save();
-    ctx.strokeStyle = options.isCyclic ? '#ef4444' : options.color || '#888';
-    ctx.lineWidth = 1.6;
-    ctx.shadowBlur = options.isCyclic ? 8 : 0;
-    ctx.shadowColor = options.isCyclic ? 'rgba(239, 68, 68, 0.7)' : 'transparent';
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = options.upstreamStatus === 'RUNNING' ? 2 : 1.6;
+    if (options.isCyclic) {
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(239, 68, 68, 0.7)';
+    } else if (options.upstreamStatus === 'RUNNING') {
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = 'rgba(62, 207, 142, 0.45)';
+    }
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
-    if (options.dashOffset !== undefined) {
+    // RUNNING dashes travel along the line thanks to the live dashOffset.
+    if (options.upstreamStatus === 'RUNNING' && options.dashOffset !== undefined) {
+        ctx.setLineDash([6, 4]);
+        ctx.lineDashOffset = -options.dashOffset;
+    } else if (options.dashOffset !== undefined) {
         ctx.setLineDash([5, 5]);
         ctx.lineDashOffset = -options.dashOffset;
     }
@@ -68,14 +100,11 @@ const drawSmartBezier = (
     ctx.stroke();
     ctx.restore();
 
-    // Draw Micro-mouse (Flow Animation). Skipped entirely when the
-    // user disabled flow animations — the renderer just stops painting
-    // the orbs and the connection becomes a static line.
+    // Flow orb — emerald. Only runs when flow anim is enabled AND upstream
+    // is RUNNING / SUCCESS so a static idle line has zero per-frame cost.
     if (options.flow !== undefined) {
-        for (let i = 0; i < 1; i++) {
-            const t = (options.flow + (i * 0.3)) % 1;
-            if (t < 0.05 || t > 0.95) continue;
-
+        const t = options.flow % 1;
+        if (t >= 0.05 && t <= 0.95) {
             const pos =
                 lineStyle === 'straight'
                     ? {
@@ -84,12 +113,13 @@ const drawSmartBezier = (
                       }
                     : getBezierPoint(t, start, cp1!, cp2!, end);
 
+            const orbRadius = options.upstreamStatus === 'RUNNING' ? 3.5 : 2.5;
             ctx.save();
-            ctx.fillStyle = '#3b82f6'; // Blue data orb
-            ctx.shadowBlur = 6;
-            ctx.shadowColor = '#60a5fa';
+            ctx.fillStyle = '#3ecf8e';
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = 'rgba(62, 207, 142, 0.9)';
             ctx.beginPath();
-            ctx.arc(pos.x, pos.y, 3, 0, Math.PI * 2);
+            ctx.arc(pos.x, pos.y, orbRadius, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         }
@@ -189,6 +219,8 @@ export function useCanvasRenderer({
                 isCyclic: _cyclicConnections.includes(conn.id),
                 flow,
                 lineStyle,
+                upstreamStatus: sourceStatus,
+                dashOffset: sourceStatus === 'RUNNING' ? dashOffset.current : undefined,
             });
         });
 

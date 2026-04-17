@@ -179,12 +179,12 @@ export default function TemplateGallery({
                                             <button
                                                 key={tpl.file}
                                                 onClick={() => handleSelect(tpl)}
-                                                className="text-left rounded-md border border-slate-700 hover:border-blue-500 hover:bg-blue-500/5 p-3 transition-colors"
+                                                className="text-left rounded-md border border-slate-700 hover:border-primary hover:bg-primary/5 p-3 transition-colors"
                                             >
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <FileCode
                                                         size={14}
-                                                        className="text-blue-400"
+                                                        className="text-primary/70"
                                                     />
                                                     <span className="text-sm font-medium text-slate-100 truncate">
                                                         {tpl.name}

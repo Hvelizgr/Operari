@@ -91,15 +91,84 @@ export default function NodesLayer({
         return set;
     }, [connections, nodeStatuses]);
 
+    // For each frame node, count how many real steps sit inside its
+    // bounding rect. O(F * N) where F is frames and N is all nodes;
+    // fine for any runbook you can actually author by hand.
+    const frameContainedCount = useMemo(() => {
+        const counts: Record<string, number> = {};
+        const frames = nodes.filter((n) => n.type === 'custom.frame');
+        if (frames.length === 0) return counts;
+
+        const DEFAULT_NODE_SIZE = { w: 200, h: 90 };
+        for (const frame of frames) {
+            const fw = (frame.config as { width?: number } | undefined)?.width ?? 400;
+            const fh = (frame.config as { height?: number } | undefined)?.height ?? 300;
+            const fx1 = frame.position.x;
+            const fy1 = frame.position.y;
+            const fx2 = fx1 + fw;
+            const fy2 = fy1 + fh;
+            let c = 0;
+            for (const n of nodes) {
+                if (n.id === frame.id) continue;
+                if (n.type === 'custom.frame' || n.type === 'custom.note') continue;
+                const dims = (n as { dimensions?: { width?: number; height?: number } }).dimensions;
+                const nx1 = n.position.x;
+                const ny1 = n.position.y;
+                const nx2 = nx1 + (dims?.width ?? DEFAULT_NODE_SIZE.w);
+                const ny2 = ny1 + (dims?.height ?? DEFAULT_NODE_SIZE.h);
+                const cx = (nx1 + nx2) / 2;
+                const cy = (ny1 + ny2) / 2;
+                if (cx >= fx1 && cx <= fx2 && cy >= fy1 && cy <= fy2) c++;
+            }
+            counts[frame.id] = c;
+        }
+        return counts;
+    }, [nodes]);
+
+    // Map of target-node-id -> status of its most interesting upstream.
+    // Precedence: RUNNING > FAILED > SUCCESS > PAUSED > others. Drives
+    // the input-pole tint on downstream nodes so the operator sees at a
+    // glance which ports have already received data.
+    const upstreamStatusByTarget = useMemo(() => {
+        const order: Record<string, number> = {
+            RUNNING: 5,
+            FAILED: 4,
+            SUCCESS: 3,
+            PAUSED: 2,
+            CANCELLED: 1,
+            SKIPPED: 1,
+        };
+        const map: Record<string, NonNullable<typeof nodeStatuses[string]>> = {};
+        for (const conn of connections) {
+            const s = nodeStatuses[conn.source];
+            if (!s) continue;
+            const prev = map[conn.target];
+            if (!prev || (order[s] ?? 0) > (order[prev] ?? 0)) {
+                map[conn.target] = s;
+            }
+        }
+        return map;
+    }, [connections, nodeStatuses]);
+
     // Mini mode: when the canvas is zoomed below 60% the cards are
     // too small to read. Collapse the body and show only the icon
     // square + title via a wrapper class — the rest of the card
     // (preview, badges, body) hides via CSS.
+    // Nano mode (below 30%): even the title is unreadable, so we
+    // shrink each card down to just its category-colored icon square
+    // with the type-letter badge preserved. Keeps the graph topology
+    // scannable when the user zooms way out.
     const isMiniMode = viewport.zoom < 0.6;
+    const isNanoMode = viewport.zoom < 0.3;
+
+    const layerClass =
+        'wf_canvas_layer' +
+        (isMiniMode ? ' wf_mini_mode' : '') +
+        (isNanoMode ? ' wf_nano_mode' : '');
 
     return (
         <motion.div
-            className={isMiniMode ? 'wf_canvas_layer wf_mini_mode' : 'wf_canvas_layer'}
+            className={layerClass}
             style={{
                 position: 'absolute',
                 top: 0,
@@ -121,6 +190,7 @@ export default function NodesLayer({
                             onUpdate={onNodeUpdate}
                             onDragStart={onNodeDragStart}
                             zoom={viewport.zoom}
+                            containedCount={frameContainedCount[node.id] ?? 0}
                         />
                     );
                 }
@@ -164,6 +234,7 @@ export default function NodesLayer({
                         status={nodeStatuses[node.id]}
                         durationMs={meta?.durationMs ?? null}
                         isNextInPath={nextInPath.has(node.id) && !nodeStatuses[node.id]}
+                        upstreamStatus={upstreamStatusByTarget[node.id] ?? null}
                     />
                 );
             })}

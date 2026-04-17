@@ -159,7 +159,7 @@ function statusDot(status: RunStatus): string {
         case 'FAILED':
             return 'bg-red-500';
         case 'RUNNING':
-            return 'bg-blue-500 animate-pulse';
+            return 'bg-primary animate-pulse';
         case 'PAUSED':
             return 'bg-amber-500';
         case 'CANCELLED':
@@ -304,7 +304,7 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
                                     )}
                                     <button
                                         onClick={() => askAiAboutRun(f.id)}
-                                        className="ml-auto flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded text-xs text-purple-300 hover:bg-purple-500/10 transition-colors"
+                                        className="ml-auto flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded text-xs text-primary/40 hover:bg-primary/10 transition-colors"
                                         title={t.askAi}
                                     >
                                         <Sparkles size={12} />
@@ -329,7 +329,7 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
                                     key={r.id}
                                     className="flex items-center gap-3 py-1 border-b border-white/5 last:border-0"
                                 >
-                                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                                     <span className="text-gray-300 flex-1">{r.runbookName}</span>
                                     <span className="text-xs text-gray-500">
                                         {r.trigger ?? 'manual'}
@@ -349,7 +349,7 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
                     action={
                         <a
                             href={`/${lang}/runs`}
-                            className="text-xs text-blue-400 hover:text-blue-300"
+                            className="text-xs text-primary/70 hover:text-primary/40"
                         >
                             {t.viewAll}
                         </a>
@@ -441,7 +441,7 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
                                 </span>
                             </span>
                             <span className="flex items-center gap-2">
-                                <Zap size={14} className="text-blue-400" />
+                                <Zap size={14} className="text-primary/70" />
                                 <span className="text-gray-400">{t.healthWebhooks}:</span>
                                 <span className="text-gray-300">
                                     {data.health.webhooksActive} {t.active}

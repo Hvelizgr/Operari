@@ -112,7 +112,7 @@ function statusDot(status: string | null): string {
         case 'FAILED':
             return 'bg-red-500';
         case 'RUNNING':
-            return 'bg-blue-500 animate-pulse';
+            return 'bg-primary animate-pulse';
         default:
             return 'bg-gray-600';
     }
@@ -279,7 +279,7 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
                     <div className="relative">
                         <button
                             onClick={() => setShowNewMenu(!showNewMenu)}
-                            className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md"
+                            className="flex items-center gap-2 px-3 py-2 bg-primary hover:bg-primary text-white text-sm rounded-md"
                         >
                             <Plus size={16} />
                             {t.newRunbook}
@@ -318,13 +318,13 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder={t.searchPlaceholder}
-                            className="w-full pl-9 pr-3 py-2 bg-[#1a1f2a] border border-white/10 rounded-md text-sm text-gray-200 focus:border-blue-500 focus:outline-none"
+                            className="w-full pl-9 pr-3 py-2 bg-[#1a1f2a] border border-white/10 rounded-md text-sm text-gray-200 focus:border-primary focus:outline-none"
                         />
                     </div>
                     <select
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
-                        className="px-3 py-2 bg-[#1a1f2a] border border-white/10 rounded-md text-sm text-gray-300 focus:border-blue-500 focus:outline-none"
+                        className="px-3 py-2 bg-[#1a1f2a] border border-white/10 rounded-md text-sm text-gray-300 focus:border-primary focus:outline-none"
                     >
                         <option value="">{t.allCategories}</option>
                         {categories.map((c) => (
@@ -514,10 +514,10 @@ function TemplatePicker({
                                 <button
                                     key={tpl.file}
                                     onClick={() => onSelect(tpl)}
-                                    className="text-left rounded-md border border-white/10 hover:border-blue-500 hover:bg-blue-500/5 p-3 transition-colors"
+                                    className="text-left rounded-md border border-white/10 hover:border-primary hover:bg-primary/5 p-3 transition-colors"
                                 >
                                     <div className="flex items-center gap-2 mb-1">
-                                        <FileCode size={14} className="text-blue-400" />
+                                        <FileCode size={14} className="text-primary/70" />
                                         <span className="text-sm font-medium text-white truncate">
                                             {tpl.name}
                                         </span>

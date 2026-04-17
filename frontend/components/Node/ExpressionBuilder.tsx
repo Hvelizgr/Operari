@@ -254,7 +254,7 @@ export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, co
                         {/* Header */}
                         <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-[#16162a]">
                             <div className="flex items-center gap-2 text-white font-bold">
-                                <Database size={18} className="text-blue-400" />
+                                <Database size={18} className="text-primary/70" />
                                 {text.title}
                             </div>
                             <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
@@ -268,7 +268,7 @@ export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, co
                                 onClick={() => setActiveTab('nodes')}
                                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                                     activeTab === 'nodes'
-                                        ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/10'
+                                        ? 'text-primary/70 border-b-2 border-primary/70 bg-primary/70/10'
                                         : 'text-gray-400 hover:text-white'
                                 }`}
                             >
@@ -279,7 +279,7 @@ export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, co
                                 onClick={() => setActiveTab('functions')}
                                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                                     activeTab === 'functions'
-                                        ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/10'
+                                        ? 'text-primary/70 border-b-2 border-primary/70 bg-primary/70/10'
                                         : 'text-gray-400 hover:text-white'
                                 }`}
                             >
@@ -290,7 +290,7 @@ export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, co
                                 onClick={() => setActiveTab('variables')}
                                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                                     activeTab === 'variables'
-                                        ? 'text-blue-400 border-b-2 border-blue-400 bg-blue-400/10'
+                                        ? 'text-primary/70 border-b-2 border-primary/70 bg-primary/70/10'
                                         : 'text-gray-400 hover:text-white'
                                 }`}
                             >
@@ -308,7 +308,7 @@ export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, co
                                     placeholder={text.search}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full bg-[#0d0d1a] border border-gray-700 rounded-md pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                                    className="w-full bg-[#0d0d1a] border border-gray-700 rounded-md pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
                                 />
                             </div>
                         </div>
@@ -383,7 +383,7 @@ export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, co
                                                                 onClick={() => handleFunctionClick(func.name)}
                                                             >
                                                                 <div className="flex-1">
-                                                                    <div className="text-sm text-blue-300 font-mono">{func.name}</div>
+                                                                    <div className="text-sm text-primary/40 font-mono">{func.name}</div>
                                                                     <div className="text-[10px] text-gray-500">{func.description[lang]}</div>
                                                                     <div className="text-[10px] text-gray-600 font-mono mt-0.5">{func.example}</div>
                                                                 </div>
@@ -413,7 +413,7 @@ export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, co
                                             onClick={() => handleVariableInsert(variable.name)}
                                         >
                                             <div className="flex-1">
-                                                <div className="text-sm text-purple-300 font-mono">{variable.name}</div>
+                                                <div className="text-sm text-primary/40 font-mono">{variable.name}</div>
                                                 <div className="text-[10px] text-gray-500">{variable.description[lang]}</div>
                                                 <div className="text-[10px] text-gray-600 font-mono mt-0.5">Example: {variable.example}</div>
                                             </div>
@@ -441,12 +441,12 @@ export default function ExpressionBuilder({ isOpen, onClose, onInsert, nodes, co
                                     value={previewExpression}
                                     onChange={(e) => setPreviewExpression(e.target.value)}
                                     placeholder={text.previewPlaceholder}
-                                    className="flex-1 bg-[#0d0d1a] border border-gray-700 rounded px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-blue-500"
+                                    className="flex-1 bg-[#0d0d1a] border border-gray-700 rounded px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-primary"
                                 />
                                 <button
                                     onClick={() => previewExpression && onInsert(`{{ ${previewExpression} }}`)}
                                     disabled={!previewExpression.trim()}
-                                    className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded text-sm font-medium transition-colors"
+                                    className="px-3 py-2 bg-primary hover:bg-primary disabled:bg-gray-700 disabled:text-gray-500 text-white rounded text-sm font-medium transition-colors"
                                 >
                                     {text.insert}
                                 </button>
@@ -489,7 +489,7 @@ function RecursiveObjectRenderer({
                     return (
                         <div key={key}>
                             <div className="flex items-start gap-1 group">
-                                <span className="text-blue-300">{key}:</span>
+                                <span className="text-primary/40">{key}:</span>
                                 {typeof value === 'object' && value !== null ? (
                                     <div className="ml-2 border-l border-gray-700 pl-2">
                                         <RecursiveObjectRenderer

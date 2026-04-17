@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Moon, Sun, MoonStar, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Code2, Sparkles, Grid3x3 } from 'lucide-react';
+import { Download, Moon, Sun, MoonStar, Plus, Upload, FileText, Zap, Bug, Wand2, Loader2, CheckCircle2, AlertCircle, LayoutTemplate, ChevronDown, Wrench, BarChart3, Code2, Sparkles, Grid3x3, GitBranch } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -25,6 +25,7 @@ interface TopBarProps {
     hasFailedNode?: boolean;
     snapToGrid?: boolean;
     onToggleSnapToGrid?: () => void;
+    onGitHub?: () => void;
 }
 
 export default function TopBar({
@@ -46,6 +47,7 @@ export default function TopBar({
     hasFailedNode,
     snapToGrid,
     onToggleSnapToGrid,
+    onGitHub,
 }: TopBarProps) {
     const { highContrast, toggleHighContrast } = useAccessibility();
     const { theme, cycleTheme } = useTheme();
@@ -66,10 +68,10 @@ export default function TopBar({
     const renderSaveStatus = () => {
         if (!saveStatus) return null;
         const config = {
-            saving: { icon: Loader2, text: lang === 'en' ? 'Saving...' : 'Guardando...', color: 'text-blue-500' },
+            saving: { icon: Loader2, text: lang === 'en' ? 'Saving...' : 'Guardando...', color: 'text-primary' },
             saved: { icon: CheckCircle2, text: lang === 'en' ? 'Saved' : 'Guardado', color: 'text-green-500' },
             error: { icon: AlertCircle, text: lang === 'en' ? 'Error' : 'Error', color: 'text-red-500' },
-            conflict: { icon: AlertCircle, text: lang === 'en' ? 'Conflict' : 'Conflicto', color: 'text-orange-500' },
+            conflict: { icon: AlertCircle, text: lang === 'en' ? 'Conflict' : 'Conflicto', color: 'text-primary' },
         }[saveStatus];
         if (!config) return null;
         const Icon = config.icon;
@@ -85,7 +87,7 @@ export default function TopBar({
         <div className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 z-40 relative">
             {/* Left: Branding & Runbook info */}
             <div className="flex items-center gap-4">
-                <div className="font-bold text-xl bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+                <div className="font-bold text-xl bg-gradient-to-r from-primary to-primary bg-clip-text text-transparent">
                     NanoRun
                 </div>
                 <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
@@ -156,7 +158,7 @@ export default function TopBar({
                                 <button
                                     onClick={() => { onDebug(); setIsToolsMenuOpen(false); }}
                                     disabled={isExecuting}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors disabled:opacity-50"
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-primary/10 dark:hover:bg-primary/90/20 transition-colors disabled:opacity-50"
                                 >
                                     <Bug size={16} />
                                     {lang === 'en' ? 'Debug runbook' : 'Depurar runbook'}
@@ -170,7 +172,7 @@ export default function TopBar({
                 <button
                     onClick={onRun}
                     disabled={isExecuting}
-                    className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
+                    className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-primary hover:bg-primary rounded-lg transition-colors disabled:opacity-50 shadow-sm"
                     title={lang === 'en' ? 'Run runbook (Ctrl+Enter)' : 'Ejecutar runbook (Ctrl+Enter)'}
                 >
                     <Zap size={16} className={isExecuting ? 'animate-pulse' : ''} />
@@ -186,14 +188,14 @@ export default function TopBar({
                         onClick={onAssist}
                         className={`relative p-2 rounded-lg transition-colors ${
                             hasFailedNode
-                                ? 'text-violet-500 hover:bg-violet-500/10 animate-pulse'
+                                ? 'text-primary hover:bg-primary/10 animate-pulse'
                                 : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                         title={lang === 'en' ? 'AI assist' : 'Asistente IA'}
                     >
                         <Sparkles size={18} />
                         {hasFailedNode && (
-                            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-violet-500" />
+                            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
                         )}
                     </button>
                 )}
@@ -206,6 +208,17 @@ export default function TopBar({
                         title={lang === 'en' ? 'View as YAML' : 'Ver como YAML'}
                     >
                         <Code2 size={18} />
+                    </button>
+                )}
+
+                {/* GitHub Branches */}
+                {onGitHub && (
+                    <button
+                        onClick={onGitHub}
+                        className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                        title={lang === 'en' ? 'GitHub Branches' : 'Ramas de GitHub'}
+                    >
+                        <GitBranch size={18} />
                     </button>
                 )}
 
@@ -260,7 +273,7 @@ export default function TopBar({
                     onClick={onToggleSnapToGrid}
                     className={`p-2 rounded-lg transition-colors ${
                         snapToGrid
-                            ? 'text-blue-500 bg-blue-500/10 hover:bg-blue-500/20'
+                            ? 'text-primary bg-primary/10 hover:bg-primary/20'
                             : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                     title={
@@ -296,7 +309,7 @@ export default function TopBar({
                 </button>
 
                 {/* User Avatar */}
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 ml-2 cursor-pointer ring-2 ring-white dark:ring-slate-900" />
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-pink-500 ml-2 cursor-pointer ring-2 ring-white dark:ring-slate-900" />
             </div>
         </div>
     );

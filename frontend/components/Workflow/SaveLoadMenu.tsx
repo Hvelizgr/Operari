@@ -187,7 +187,7 @@ export default function SaveLoadMenu({ nodes, connections, onLoad, lang }: SaveL
                                 value={importText}
                                 onChange={(e) => setImportText(e.target.value)}
                                 placeholder={text.importPlaceholder}
-                                className="w-full h-64 bg-slate-900 border border-slate-700 rounded-lg p-4 text-slate-200 text-sm font-mono resize-none focus:outline-none focus:border-blue-500"
+                                className="w-full h-64 bg-slate-900 border border-slate-700 rounded-lg p-4 text-slate-200 text-sm font-mono resize-none focus:outline-none focus:border-primary"
                             />
 
                             <div className="flex items-center justify-end gap-3 mt-4">
@@ -199,7 +199,7 @@ export default function SaveLoadMenu({ nodes, connections, onLoad, lang }: SaveL
                                 </button>
                                 <button
                                     onClick={handleImportText}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors"
+                                    className="px-4 py-2 bg-primary hover:bg-primary text-white rounded-lg font-medium transition-colors"
                                 >
                                     {text.importButton}
                                 </button>

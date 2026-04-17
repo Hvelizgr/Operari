@@ -141,10 +141,10 @@ export default function TriggerModifiersSection({ modifiers, onChange, lang }: T
                 className="w-full flex items-center justify-between p-3 hover:bg-slate-700/30 transition-colors"
             >
                 <div className="flex items-center gap-2">
-                    <Shield size={14} className={hasActiveModifiers ? 'text-blue-400' : 'text-slate-500'} />
+                    <Shield size={14} className={hasActiveModifiers ? 'text-primary/70' : 'text-slate-500'} />
                     <span className="text-sm font-medium text-slate-200">{text.title}</span>
                     {hasActiveModifiers && (
-                        <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] rounded-full font-bold">
+                        <span className="px-1.5 py-0.5 bg-primary/20 text-primary/70 text-[10px] rounded-full font-bold">
                             Active
                         </span>
                     )}
@@ -300,13 +300,13 @@ function ModifierSection({
     return (
         <div className={`rounded-lg border transition-colors ${
             enabled
-                ? 'border-blue-500/30 bg-blue-500/5'
+                ? 'border-primary/30 bg-primary/5'
                 : 'border-slate-700 bg-slate-800/20'
         }`}>
             {/* Section Header */}
             <div className="flex items-center justify-between p-2">
                 <div className="flex items-center gap-2">
-                    <span className={enabled ? 'text-blue-400' : 'text-slate-500'}>{icon}</span>
+                    <span className={enabled ? 'text-primary/70' : 'text-slate-500'}>{icon}</span>
                     <div>
                         <div className="text-xs font-medium text-slate-300">{title}</div>
                         <div className="text-[9px] text-slate-500">{description}</div>
@@ -319,7 +319,7 @@ function ModifierSection({
                         checked={enabled}
                         onChange={(e) => onToggle(e.target.checked)}
                     />
-                    <div className="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-500"></div>
+                    <div className="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-primary"></div>
                 </label>
             </div>
 

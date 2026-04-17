@@ -160,7 +160,7 @@ function TabButton({
             onClick={onClick}
             className={`flex items-center gap-2 px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${
                 active
-                    ? 'border-blue-500 text-white'
+                    ? 'border-primary text-white'
                     : 'border-transparent text-gray-500 hover:text-gray-300'
             }`}
         >
@@ -214,7 +214,7 @@ function KeysTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
             <div className="flex justify-end mb-3">
                 <button
                     onClick={() => setShowForm(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-primary hover:bg-primary text-white text-sm rounded-md"
                 >
                     <Plus size={14} />
                     {t.new}
@@ -336,7 +336,7 @@ function WebhooksTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
             <div className="flex justify-end mb-3">
                 <button
                     onClick={() => setShowForm(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-primary hover:bg-primary text-white text-sm rounded-md"
                 >
                     <Plus size={14} />
                     {t.new}
@@ -467,7 +467,7 @@ function SimpleNameForm({
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder={label}
-                    className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-sm text-gray-200 focus:border-blue-500 focus:outline-none mb-4"
+                    className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-sm text-gray-200 focus:border-primary focus:outline-none mb-4"
                 />
                 <div className="flex justify-end gap-2">
                     <button
@@ -478,7 +478,7 @@ function SimpleNameForm({
                     </button>
                     <button
                         onClick={() => name.trim() && onSubmit(name.trim())}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded"
+                        className="px-4 py-2 bg-primary hover:bg-primary text-white text-sm rounded"
                     >
                         {t.save}
                     </button>
@@ -514,7 +514,7 @@ function WebhookForm({
                         <select
                             value={source}
                             onChange={(e) => setSource(e.target.value)}
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-sm text-gray-200 focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-sm text-gray-200 focus:border-primary focus:outline-none"
                         >
                             <option value="sentry">sentry</option>
                             <option value="datadog">datadog</option>
@@ -529,7 +529,7 @@ function WebhookForm({
                         <select
                             value={workflowId}
                             onChange={(e) => setWorkflowId(e.target.value)}
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-sm text-gray-200 focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-sm text-gray-200 focus:border-primary focus:outline-none"
                         >
                             <option value="">— select —</option>
                             {runbooks.map((rb) => (
@@ -546,7 +546,7 @@ function WebhookForm({
                         <input
                             value={secret}
                             onChange={(e) => setSecret(e.target.value)}
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-sm text-gray-200 font-mono focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-sm text-gray-200 font-mono focus:border-primary focus:outline-none"
                         />
                     </div>
                 </div>
@@ -566,7 +566,7 @@ function WebhookForm({
                                 secret: secret || undefined,
                             })
                         }
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded"
+                        className="px-4 py-2 bg-primary hover:bg-primary text-white text-sm rounded"
                     >
                         {t.save}
                     </button>

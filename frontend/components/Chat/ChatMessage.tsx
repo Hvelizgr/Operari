@@ -29,7 +29,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             {/* Avatar */}
             <div
                 className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                    isUser ? 'bg-blue-600' : 'bg-emerald-600'
+                    isUser ? 'bg-primary' : 'bg-emerald-600'
                 }`}
             >
                 {isUser ? <User size={16} className="text-white" /> : <Bot size={16} className="text-white" />}
@@ -39,7 +39,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             <div
                 className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                     isUser
-                        ? 'bg-blue-600 text-white rounded-br-md'
+                        ? 'bg-primary text-white rounded-br-md'
                         : 'bg-[#2a2f3a] text-gray-200 rounded-bl-md border border-[#3a3f4a]'
                 }`}
             >
@@ -73,7 +73,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
                                     return (
                                         <a
                                             href={href}
-                                            className="text-blue-400 hover:text-blue-300 underline"
+                                            className="text-primary/70 hover:text-primary/40 underline"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             {...props}
@@ -107,7 +107,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
                 )}
                 <span
                     className={`text-[10px] mt-1 block ${
-                        isUser ? 'text-blue-200' : 'text-gray-500'
+                        isUser ? 'text-primary/20' : 'text-gray-500'
                     }`}
                 >
                     {new Date(message.createdAt).toLocaleTimeString([], {

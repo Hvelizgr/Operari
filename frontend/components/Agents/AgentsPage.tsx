@@ -253,14 +253,14 @@ export default function AgentsPage({ lang }: AgentsPageProps) {
                 <div className="flex items-start justify-between mb-6">
                     <div>
                         <h1 className="text-2xl font-semibold text-white flex items-center gap-2">
-                            <Bot size={22} className="text-purple-400" />
+                            <Bot size={22} className="text-primary/70" />
                             {t.title}
                         </h1>
                         <p className="text-sm text-gray-500 mt-1 max-w-2xl">{t.subtitle}</p>
                     </div>
                     <button
                         onClick={openCreate}
-                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 bg-primary hover:bg-primary text-white text-sm rounded-md transition-colors"
                     >
                         <Plus size={16} />
                         {t.newAgent}
@@ -349,7 +349,7 @@ function AgentCard({
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={onToggleExpand}>
                     <div className="flex items-center gap-2 text-sm font-medium text-white truncate">
                         {agent.name}
-                        <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-primary/10 text-primary/40 border border-primary/20">
                             {agent.source}
                         </span>
                     </div>
@@ -431,7 +431,7 @@ function AgentCard({
                                         {ex.reason ?? '—'}
                                     </span>
                                     {ex.triggeredRunId && (
-                                        <span className="text-blue-400 text-[10px]">
+                                        <span className="text-primary/70 text-[10px]">
                                             run {ex.triggeredRunId.slice(0, 8)}
                                         </span>
                                     )}
@@ -544,7 +544,7 @@ function AgentForm({
                             onChange={(e) => setName(e.target.value)}
                             required
                             maxLength={120}
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none"
                         />
                     </Field>
                     <Field label={t.formDescription}>
@@ -552,7 +552,7 @@ function AgentForm({
                             value={description ?? ''}
                             onChange={(e) => setDescription(e.target.value)}
                             maxLength={500}
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none"
                         />
                     </Field>
                     <div className="grid grid-cols-2 gap-3">
@@ -560,7 +560,7 @@ function AgentForm({
                             <select
                                 value={source}
                                 onChange={(e) => setSource(e.target.value)}
-                                className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none"
+                                className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none"
                             >
                                 <option value="sentry">sentry</option>
                                 <option value="datadog">datadog</option>
@@ -572,7 +572,7 @@ function AgentForm({
                             <select
                                 value={webhookId}
                                 onChange={(e) => setWebhookId(e.target.value)}
-                                className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none"
+                                className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none"
                             >
                                 <option value="">— none —</option>
                                 {compatibleWebhooks.map((w) => (
@@ -592,7 +592,7 @@ function AgentForm({
                                     onClick={() => setMatcherType(m)}
                                     className={`px-3 py-1 rounded text-xs border transition-colors ${
                                         matcherType === m
-                                            ? 'border-blue-500 bg-blue-500/20 text-blue-300'
+                                            ? 'border-primary bg-primary/20 text-primary/40'
                                             : 'border-white/10 text-gray-400 hover:text-white'
                                     }`}
                                 >
@@ -609,7 +609,7 @@ function AgentForm({
                                 value={matcherConfigText}
                                 onChange={(e) => setMatcherConfigText(e.target.value)}
                                 rows={6}
-                                className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 font-mono text-xs focus:border-blue-500 focus:outline-none"
+                                className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 font-mono text-xs focus:border-primary focus:outline-none"
                             />
                         )}
                         <div className="text-[11px] text-gray-600 mt-1">
@@ -623,7 +623,7 @@ function AgentForm({
                             value={targetRunbookId}
                             onChange={(e) => setTargetRunbookId(e.target.value)}
                             required
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none"
                         >
                             <option value="">— select —</option>
                             {runbooks.map((rb) => (
@@ -638,7 +638,7 @@ function AgentForm({
                             value={varMappingText}
                             onChange={(e) => setVarMappingText(e.target.value)}
                             rows={4}
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 font-mono text-xs focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 font-mono text-xs focus:border-primary focus:outline-none"
                         />
                         <div className="text-[11px] text-gray-600 mt-1">
                             {t.formVarMappingHelp}
@@ -652,7 +652,7 @@ function AgentForm({
                                 max={1000}
                                 value={rateLimit}
                                 onChange={(e) => setRateLimit(parseInt(e.target.value, 10))}
-                                className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none"
+                                className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none"
                             />
                         </Field>
                         <Field label={t.formEnabled}>
@@ -684,7 +684,7 @@ function AgentForm({
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded"
+                            className="px-4 py-2 bg-primary hover:bg-primary disabled:opacity-50 text-white text-sm rounded"
                         >
                             {submitting ? '…' : t.save}
                         </button>

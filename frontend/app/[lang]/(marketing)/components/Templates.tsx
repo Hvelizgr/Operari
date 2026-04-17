@@ -30,8 +30,8 @@ export default function Templates({ content }: TemplatesProps) {
     <section className="relative py-24 sm:py-32 overflow-hidden">
       <AuroraBackground
         orbs={[
-          { color: 'violet', size: 700, x: '-5%', y: '20%', opacity: 0.04, duration: 21, drift: 50 },
-          { color: 'primary', size: 600, x: '70%', y: '60%', opacity: 0.04, duration: 17, delay: 4, drift: 45 },
+          { color: 'deep', size: 700, x: '-5%', y: '20%', opacity: 0.05, duration: 21, drift: 50 },
+          { color: 'primary', size: 600, x: '70%', y: '60%', opacity: 0.05, duration: 17, delay: 4, drift: 45 },
         ]}
       />
 
@@ -111,9 +111,9 @@ export default function Templates({ content }: TemplatesProps) {
 
 const accentClasses: Record<string, { ring: string; bg: string; text: string }> = {
   violet: {
-    ring: 'group-hover:border-violet-500/50',
-    bg: 'bg-violet-500/10 border-violet-500/30',
-    text: 'text-violet-300',
+    ring: 'group-hover:border-primary/50',
+    bg: 'bg-primary/10 border-primary/30',
+    text: 'text-primary',
   },
   primary: {
     ring: 'group-hover:border-primary/50',
@@ -121,9 +121,9 @@ const accentClasses: Record<string, { ring: string; bg: string; text: string }> 
     text: 'text-primary',
   },
   amber: {
-    ring: 'group-hover:border-amber-500/50',
-    bg: 'bg-amber-500/10 border-amber-500/30',
-    text: 'text-amber-300',
+    ring: 'group-hover:border-foreground/30',
+    bg: 'bg-foreground/5 border-foreground/20',
+    text: 'text-foreground/80',
   },
   emerald: {
     ring: 'group-hover:border-emerald-500/50',

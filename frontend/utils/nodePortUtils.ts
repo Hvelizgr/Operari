@@ -51,12 +51,22 @@ export const getNodePortInfo = (
 
     // Controller: Input (Left), Output (Right) - 128x64 pill shape
     // CSS: .wf_ent_controller is 128x64
-    if (type.includes('controller') || type === 'condition') {
-        const { width, height } = NODE_DIMENSIONS.controller;
+    // Matches: Condition, Switch, If, nanorun.if, nanorun.switch
+    if (type.includes('controller') || type === 'condition' || type === 'switch' || type === 'nanorun.switch' || type === 'if' || type === 'nanorun.if') {
+        const { width } = NODE_DIMENSIONS.controller;
+        const outputs = (node as any).outputs as Array<unknown> | undefined;
+        const hasMultiOut = Array.isArray(outputs) && outputs.length > 1;
+        const effectiveHeight = hasMultiOut ? Math.max(64, 14 + outputs!.length * 26) : NODE_DIMENSIONS.controller.height;
+
         if (portType === 'input') {
-            return { x: node.position.x, y: node.position.y + (height / 2), direction: 'left' };
+            return { x: node.position.x, y: node.position.y + (effectiveHeight / 2), direction: 'left' };
         }
-        return { x: node.position.x + width, y: node.position.y + (height / 2), direction: 'right' };
+        // Multi-output: stacked vertically at 14 + i * 26
+        if (hasMultiOut) {
+            const poleY = node.position.y + 14 + portIndex * 26;
+            return { x: node.position.x + width, y: poleY, direction: 'right' };
+        }
+        return { x: node.position.x + width, y: node.position.y + (effectiveHeight / 2), direction: 'right' };
     }
 
     // Action: Input (Left) - 64x64 semicircle on right
@@ -72,8 +82,8 @@ export const getNodePortInfo = (
 
     // Limit: Input (Top), Output (Bottom) - 64x64 diamond rotated 45deg
     // CSS: .wf_ent_limit is 64x64 with transform: rotate(45deg) scale(0.7)
-    // The visual center remains the same, but poles are at top/bottom
-    if (type.includes('limit')) {
+    // Matches: Loop, Iterator, nanorun.loop, and any *limit* type
+    if (type.includes('limit') || type === 'loop' || type === 'iterator' || type === 'nanorun.loop') {
         const { width, height } = NODE_DIMENSIONS.entity;
         if (portType === 'input') {
             // Input at top center

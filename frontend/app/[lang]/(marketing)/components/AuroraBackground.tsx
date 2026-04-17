@@ -25,7 +25,7 @@ import { motion } from 'framer-motion';
  *     gradient with the same colors.
  */
 
-type OrbColor = 'orange' | 'emerald' | 'primary' | 'violet' | 'foreground';
+type OrbColor = 'emerald' | 'primary' | 'foreground' | 'deep';
 
 interface OrbConfig {
   color: OrbColor;
@@ -45,11 +45,10 @@ interface OrbConfig {
 }
 
 const ORB_COLOR_BG: Record<OrbColor, string> = {
-  orange: 'bg-orange-500',
   emerald: 'bg-emerald-500',
   primary: 'bg-primary',
-  violet: 'bg-violet-500',
   foreground: 'bg-foreground',
+  deep: 'bg-emerald-700',
 };
 
 interface AuroraBackgroundProps {

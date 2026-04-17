@@ -33,8 +33,8 @@ export default function Comparison({ content }: ComparisonProps) {
     <section className="relative py-24 sm:py-32 overflow-hidden">
       <AuroraBackground
         orbs={[
-          { color: 'foreground', size: 1100, x: '15%', y: '15%', opacity: 0.025, duration: 24, drift: 70 },
-          { color: 'primary', size: 600, x: '70%', y: '60%', opacity: 0.03, duration: 19, delay: 4, drift: 45 },
+          { color: 'foreground', size: 1100, x: '15%', y: '15%', opacity: 0.03, duration: 24, drift: 70 },
+          { color: 'primary', size: 600, x: '70%', y: '60%', opacity: 0.04, duration: 19, delay: 4, drift: 45 },
         ]}
       />
 
@@ -171,7 +171,7 @@ export default function Comparison({ content }: ComparisonProps) {
         >
           <Link
             href="#self-host"
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-foreground text-background font-semibold text-sm hover:bg-foreground/90 active:scale-[0.98] transition-all group"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/15 group"
           >
             {content.cta}
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />

@@ -163,7 +163,7 @@ export default function YamlViewModal({
                         </button>
                         <button
                             onClick={handleSave}
-                            className="flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+                            className="flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary"
                         >
                             <Save size={14} />
                             {t.save}

@@ -131,7 +131,7 @@ export default function ShortcutsGuide({ isOpen, onClose, lang }: ShortcutsGuide
                     >
                         <div className="sticky top-0 bg-slate-800 p-6 border-b border-slate-700 flex justify-between items-center">
                             <h2 className="text-xl font-semibold text-slate-100 flex items-center gap-3">
-                                <Keyboard size={24} className="text-blue-400" /> {text.title}
+                                <Keyboard size={24} className="text-primary/70" /> {text.title}
                             </h2>
                             <button onClick={onClose} className="text-slate-400 hover:text-slate-200 transition-colors">
                                 <X size={24} />
@@ -140,7 +140,7 @@ export default function ShortcutsGuide({ isOpen, onClose, lang }: ShortcutsGuide
                         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-slate-300">
                             {/* General Actions */}
                             <div>
-                                <h3 className="text-lg font-semibold text-blue-400 mb-3 flex items-center gap-2">
+                                <h3 className="text-lg font-semibold text-primary/70 mb-3 flex items-center gap-2">
                                     <Zap size={18} /> {text.sections.general}
                                 </h3>
                                 <ul className="space-y-2">
@@ -174,7 +174,7 @@ export default function ShortcutsGuide({ isOpen, onClose, lang }: ShortcutsGuide
 
                             {/* Connections (Soldering) */}
                             <div>
-                                <h3 className="text-lg font-semibold text-purple-400 mb-3 flex items-center gap-2">
+                                <h3 className="text-lg font-semibold text-primary/70 mb-3 flex items-center gap-2">
                                     <GitBranch size={18} /> {text.sections.connections}
                                 </h3>
                                 <ul className="space-y-2">
@@ -208,7 +208,7 @@ export default function ShortcutsGuide({ isOpen, onClose, lang }: ShortcutsGuide
 
                             {/* Testing & Debugging */}
                             <div>
-                                <h3 className="text-lg font-semibold text-orange-400 mb-3 flex items-center gap-2">
+                                <h3 className="text-lg font-semibold text-primary/70 mb-3 flex items-center gap-2">
                                     <Terminal size={18} /> {text.sections.testing}
                                 </h3>
                                 <ul className="space-y-2">

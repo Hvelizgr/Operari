@@ -127,7 +127,7 @@ export default function CommandPalette({ isOpen, onClose, actions, lang }: Comma
                                         onMouseEnter={() => setSelectedIndex(index)}
                                         className={`
                                             w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors
-                                            ${index === selectedIndex ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}
+                                            ${index === selectedIndex ? 'bg-primary text-white' : 'text-slate-300 hover:bg-slate-800'}
                                         `}
                                     >
                                         <div className={`${index === selectedIndex ? 'text-white' : 'text-slate-500'}`}>
@@ -136,7 +136,7 @@ export default function CommandPalette({ isOpen, onClose, actions, lang }: Comma
                                         <div className="flex-1">
                                             <div className="text-sm font-medium">{action.label}</div>
                                             {action.subLabel && (
-                                                <div className={`text-[10px] ${index === selectedIndex ? 'text-blue-200' : 'text-slate-500'}`}>
+                                                <div className={`text-[10px] ${index === selectedIndex ? 'text-primary/20' : 'text-slate-500'}`}>
                                                     {action.subLabel}
                                                 </div>
                                             )}

@@ -36,6 +36,10 @@ interface EditorNodeProps {
      * is its direct downstream target. Triggers the "next in path"
      * tenuous glow on the card. */
     isNextInPath?: boolean;
+    /** Status of the direct upstream node(s) — drives the input-pole tint
+     * (emerald after SUCCESS, red after FAILED, pulsing while RUNNING).
+     * Null/undefined leaves the pole in its neutral primary color. */
+    upstreamStatus?: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'SKIPPED' | 'CANCELLED' | null;
     onNodeDoubleClick?: (nodeId: string) => void;
     onUpdate?: (nodeId: string, updates: Partial<WorkflowNode>) => void;
     isConnected?: boolean;
@@ -54,15 +58,20 @@ interface EditorNodeProps {
 function categoryPalette(category: string | undefined): { accent: string; tint: string } {
     switch (category) {
         case 'devops':
-            return { accent: '#10b981', tint: 'rgba(16, 185, 129, 0.12)' };
+            // Supabase emerald — main brand accent for shell/action nodes
+            return { accent: '#3ecf8e', tint: 'rgba(62, 207, 142, 0.14)' };
         case 'triggers':
-            return { accent: '#22c55e', tint: 'rgba(34, 197, 94, 0.12)' };
+            // Slightly brighter emerald so triggers pop against devops
+            return { accent: '#4ade80', tint: 'rgba(74, 222, 128, 0.14)' };
         case 'core':
-            return { accent: '#3b82f6', tint: 'rgba(59, 130, 246, 0.12)' };
+            // Sky cyan — flow control (condition, switch, loop). Distinct
+            // from emerald so branching steps read as "meta" vs "work".
+            return { accent: '#38bdf8', tint: 'rgba(56, 189, 248, 0.14)' };
         case 'organization':
-            return { accent: '#64748b', tint: 'rgba(100, 116, 139, 0.12)' };
+            // Neutral graphite — frames & notes are structural, not actionable
+            return { accent: '#71717a', tint: 'rgba(113, 113, 122, 0.12)' };
         default:
-            return { accent: '#3b82f6', tint: 'rgba(59, 130, 246, 0.10)' };
+            return { accent: '#3ecf8e', tint: 'rgba(62, 207, 142, 0.10)' };
     }
 }
 
@@ -247,6 +256,7 @@ export default function EditorNode({
     onPortDragStart,
     durationMs = null,
     isNextInPath = false,
+    upstreamStatus = null,
 }: EditorNodeProps) {
     const nodeRef = useRef<HTMLDivElement>(null);
     const nodeType = typeDefinition || NODE_TYPES.find(t => t.type === node.type);
@@ -299,8 +309,8 @@ export default function EditorNode({
     const type = node.type.toLowerCase();
     let visualType = 'job';
     if (type.includes('trigger') || type === 'start') visualType = 'trigger';
-    else if (type.includes('controller') || type === 'condition') visualType = 'controller';
-    else if (type.includes('limit')) visualType = 'limit';
+    else if (type.includes('controller') || type === 'condition' || type === 'switch' || type === 'nanorun.switch' || type === 'if' || type === 'nanorun.if') visualType = 'controller';
+    else if (type.includes('limit') || type === 'loop' || type === 'iterator' || type === 'nanorun.loop') visualType = 'limit';
     else if (type.includes('action') || type.includes('email') || type.includes('slack') || type.includes('discord')) visualType = 'action';
 
     // Validation. Two independent failure modes:
@@ -343,7 +353,7 @@ export default function EditorNode({
         if (!status) return null;
         switch (status) {
             case 'RUNNING':
-                return <Icons.Play size={12} className="text-blue-400 animate-pulse" />;
+                return <Icons.Play size={12} className="text-primary/70 animate-pulse" />;
             case 'SUCCESS':
                 return <Icons.CheckCircle2 size={12} className="text-emerald-400" />;
             case 'FAILED':
@@ -436,6 +446,7 @@ export default function EditorNode({
 
     // --- CONTROLLER (Pill) ---
     if (visualType === 'controller') {
+        const hasMultiOutput = Array.isArray(node.outputs) && node.outputs.length > 1;
         return (
             <div
                 ref={nodeRef}
@@ -443,10 +454,12 @@ export default function EditorNode({
                 {...commonProps}
             >
                 <ValidationBadge />
-                <div className="wf_ent_controller">
-                    {/* Input Pole (Purple) */}
+                <div className="wf_ent_controller" style={hasMultiOutput ? { height: Math.max(64, 30 + node.outputs!.length * 26) } : undefined}>
+                    {/* Input Pole */}
                     <div
                         className="wf_pole_button wf_input_pole"
+                        data-pole-label="in"
+                        data-upstream-status={upstreamStatus ?? undefined}
                         onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY }); }}
                     >
                         <Icons.ChevronRight size={12} />
@@ -456,13 +469,31 @@ export default function EditorNode({
                         {renderIcon(nodeType?.icon, 32)}
                     </span>
 
-                    {/* Output Pole (Purple) */}
-                    <div
-                        className="wf_pole_button wf_output_pole"
-                        onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY }); }}
-                    >
-                        <Icons.ChevronRight size={12} />
-                    </div>
+                    {/* Output Poles — multi-port for Condition (true/false) and Switch (cases) */}
+                    {hasMultiOutput ? (
+                        <div className="wf_multi_output_poles">
+                            {node.outputs!.map((out, i) => (
+                                <div
+                                    key={out.id ?? `out-${i}`}
+                                    className="wf_pole_button wf_output_pole"
+                                    style={{ top: `${14 + i * 26}px` }}
+                                    title={out.label ?? `out-${i}`}
+                                    onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, `out-${i}`, 'source', { x: e.clientX, y: e.clientY }); }}
+                                >
+                                    <Icons.ChevronRight size={12} />
+                                    <span className="wf_pole_label">{out.label ?? `out-${i}`}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div
+                            className="wf_pole_button wf_output_pole"
+                            data-pole-label="out"
+                            onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY }); }}
+                        >
+                            <Icons.ChevronRight size={12} />
+                        </div>
+                    )}
                 </div>
                 <span className="wf_ent_title">{nodeType?.category || 'Controller'}</span>
                 <span className="wf_ent_label">{node.title}</span>
@@ -482,6 +513,8 @@ export default function EditorNode({
                     {/* Up Pole (Input) - Handled by CSS rotation magic but we need structure */}
                     <div
                         className="wf_pole_button wf_up_pole"
+                        data-pole-label="in"
+                        data-upstream-status={upstreamStatus ?? undefined}
                         title="Input (Limit)"
                         onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY }); }}
                     >
@@ -507,6 +540,7 @@ export default function EditorNode({
                 */}
                 <div
                     className="wf_pole_button wf_down_pole"
+                    data-pole-label="out"
                     style={{ left: '50%', top: 'calc(100% + 5px)' }}
                     onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY }); }}
                 >
@@ -533,6 +567,7 @@ export default function EditorNode({
                     </span>
                     <div
                         className="wf_pole_button wf_output_pole"
+                        data-pole-label="out"
                         onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY }); }}
                     >
                         <Icons.ChevronRight size={12} />
@@ -555,6 +590,8 @@ export default function EditorNode({
                 <div className="wf_ent_action">
                     <div
                         className="wf_pole_button wf_input_pole"
+                        data-pole-label="in"
+                        data-upstream-status={upstreamStatus ?? undefined}
                         onMouseDown={(e) => { if (e.button !== 0) return; e.stopPropagation(); e.preventDefault(); onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY }); }}
                     >
                         <Icons.ChevronRight size={12} />
@@ -697,6 +734,8 @@ export default function EditorNode({
 
             <div
                 className="wf_pole_button wf_input_pole"
+                        data-pole-label="in"
+                        data-upstream-status={upstreamStatus ?? undefined}
                 onMouseDown={(e) => {
                     if (e.button !== 0) return;
                     e.stopPropagation();
@@ -739,6 +778,7 @@ export default function EditorNode({
             ) : (
                 <div
                     className="wf_pole_button wf_output_pole"
+                    data-pole-label="out"
                     onMouseDown={(e) => {
                         if (e.button !== 0) return;
                         e.stopPropagation();

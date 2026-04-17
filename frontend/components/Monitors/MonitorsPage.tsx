@@ -221,7 +221,7 @@ export default function MonitorsPage({ lang }: MonitorsPageProps) {
                             setEditing(null);
                             setShowForm(true);
                         }}
-                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-md"
+                        className="flex items-center gap-2 px-3 py-2 bg-primary hover:bg-primary text-white text-sm rounded-md"
                     >
                         <Plus size={16} />
                         {t.newMonitor}
@@ -406,7 +406,7 @@ function MonitorForm({
                             onChange={(e) => setName(e.target.value)}
                             required
                             maxLength={120}
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none"
                         />
                     </div>
                     <div>
@@ -417,7 +417,7 @@ function MonitorForm({
                             value={description ?? ''}
                             onChange={(e) => setDescription(e.target.value)}
                             maxLength={500}
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none"
                         />
                     </div>
                     <div>
@@ -429,7 +429,7 @@ function MonitorForm({
                             onChange={(e) => setWorkflowId(e.target.value)}
                             disabled={!!initial}
                             required
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none disabled:opacity-50"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none disabled:opacity-50"
                         >
                             <option value="">— select —</option>
                             {runbooks.map((rb) => (
@@ -446,7 +446,7 @@ function MonitorForm({
                         <select
                             value={checkType}
                             onChange={(e) => setCheckType(e.target.value as CheckType)}
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none"
                         >
                             <option value="last_success_within">{t.checkLastSuccess}</option>
                             <option value="no_run_within">{t.checkNoRun}</option>
@@ -464,7 +464,7 @@ function MonitorForm({
                             value={windowMinutes}
                             onChange={(e) => setWindowMinutes(parseInt(e.target.value, 10))}
                             required
-                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none"
+                            className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none"
                         />
                     </div>
                     {checkType === 'failure_rate_above' && (
@@ -479,7 +479,7 @@ function MonitorForm({
                                 step={0.05}
                                 value={threshold}
                                 onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                                className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-blue-500 focus:outline-none"
+                                className="w-full bg-[#0f1218] border border-white/10 rounded px-3 py-2 text-gray-200 focus:border-primary focus:outline-none"
                             />
                         </div>
                     )}
@@ -507,7 +507,7 @@ function MonitorForm({
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded"
+                            className="px-4 py-2 bg-primary hover:bg-primary disabled:opacity-50 text-white text-sm rounded"
                         >
                             {submitting ? '…' : t.save}
                         </button>

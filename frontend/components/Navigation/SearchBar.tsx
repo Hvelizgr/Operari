@@ -208,7 +208,7 @@ export default function SearchBar({ nodes, onNodeSelect, onNodeAdd, onHighlightN
                                         {/* Available Nodes to Add */}
                                         {filteredAvailableNodes.length > 0 && (
                                             <div className="border-b border-[#2d2d44]">
-                                                <div className="px-4 py-2 bg-[#0d0d1a] text-xs uppercase font-bold text-blue-400 tracking-wider">
+                                                <div className="px-4 py-2 bg-[#0d0d1a] text-xs uppercase font-bold text-primary/70 tracking-wider">
                                                     {text.addNew}
                                                 </div>
                                                 <div className="p-2">
@@ -343,7 +343,7 @@ function NodeItem({
                     </div>
                 )}
             </div>
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400">
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity text-primary/70">
                 <Plus size={16} />
             </div>
         </motion.div>

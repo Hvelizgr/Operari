@@ -272,13 +272,13 @@ See the LICENSE.md file in this repository. */
 .wf_input_pole {
     left: calc(0% - 1px);
     top: 50%;
-    background: var(--blue);
+    background: var(--cairn-moss, #3ecf8e);
 }
 
 .wf_output_pole {
     left: calc(100% + 1px);
     top: 50%;
-    background: var(--blue);
+    background: var(--cairn-moss, #3ecf8e);
 }
 
 .wf_down_pole {
@@ -344,7 +344,7 @@ See the LICENSE.md file in this repository. */
 
 .wf_ent_trigger {
     border-radius: 999em 0px 0px 999em;
-    color: var(--orange);
+    color: var(--cairn-moss, #3ecf8e);
 }
 
 .wf_ent_trigger.wf_option {
@@ -407,7 +407,7 @@ See the LICENSE.md file in this repository. */
 
 .wf_ent_trigger>.wf_output_pole {
     left: calc(100% + 1px);
-    background: var(--orange);
+    background: var(--cairn-moss, #3ecf8e);
 }
 
 .wf_ent_action>.wf_input_pole {
@@ -473,7 +473,7 @@ body.dark .wf_condition {
 }
 
 .wf_condition.complete {
-    background: var(--blue);
+    background: var(--cairn-moss, #3ecf8e);
 }
 
 .wf_condition.continue {
@@ -642,6 +642,27 @@ body.dark .wf_condition {
     white-space: nowrap;
 }
 
+/* Step-count badge in the frame title bar — tells the operator at a
+   glance how much work lives inside this grouping box without having
+   to pan around it. Updates live as nodes are dragged in/out. */
+.wf_frame .frame-count-badge {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #3ecf8e;
+    background: rgba(62, 207, 142, 0.14);
+    border: 1px solid rgba(62, 207, 142, 0.35);
+    border-radius: 10px;
+    letter-spacing: 0.02em;
+}
+
 .wf_frame .frame-title-input {
     background: transparent;
     border: none;
@@ -802,11 +823,11 @@ body.dark .wf_condition {
 /* Active Jobs */
 
 .wf_event {
-    --active-color: var(--blue);
+    --active-color: var(--cairn-moss, #3ecf8e);
 }
 
 .wf_ent_trigger {
-    --active-color: var(--orange);
+    --active-color: var(--cairn-moss, #3ecf8e);
 }
 
 .wf_ent_trigger.wf_option {
@@ -1052,6 +1073,61 @@ body.dark .button {
     pointer-events: none;
 }
 
+/* Port hover labels — n8n style. A pole shows a small "main" / "in"
+   tooltip on hover. For single-pole nodes we synthesize the label via
+   ::after using the aria-label attribute. No extra DOM. */
+.wf_pole_button[data-pole-label]::after {
+    content: attr(data-pole-label);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    text-transform: lowercase;
+    background: rgba(10, 10, 10, 0.92);
+    color: #ededed;
+    border: 1px solid rgba(62, 207, 142, 0.35);
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.wf_pole_button[data-pole-label]:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-2px);
+}
+
+/* Port tint driven by upstream status. Applied via data attr set on the
+   input pole by EditorNode when an upstream node has SUCCEEDED — it
+   makes the "path already delivered data" read at a glance. */
+.wf_pole_button[data-upstream-status="SUCCESS"] {
+    background: rgb(62, 207, 142);
+    box-shadow: 0 0 0 2px rgba(62, 207, 142, 0.25), 0 2px 8px rgba(62, 207, 142, 0.45);
+}
+.wf_pole_button[data-upstream-status="FAILED"] {
+    background: rgb(239, 68, 68);
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25), 0 2px 8px rgba(239, 68, 68, 0.45);
+}
+.wf_pole_button[data-upstream-status="RUNNING"] {
+    background: rgb(62, 207, 142);
+    animation: wf_pole_pulse 1.4s ease-in-out infinite;
+}
+@keyframes wf_pole_pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 2px rgba(62, 207, 142, 0.2), 0 0 0 0 rgba(62, 207, 142, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(62, 207, 142, 0.35), 0 0 0 10px rgba(62, 207, 142, 0);
+    }
+}
+html[data-anim="off"] .wf_pole_button[data-upstream-status="RUNNING"] {
+    animation: none;
+}
+
 /* ─────────────────────────────────────────────────────────────
    Node card upgrades (post-cleanup pass)
    Adds the visual feedback the original "demo" version was missing:
@@ -1068,14 +1144,14 @@ body.dark .button {
 }
 
 .wf_event:hover {
-    outline: 1px solid rgba(59, 130, 246, 0.35);
+    outline: 1px solid rgba(62, 207, 142, 0.35);
     outline-offset: 2px;
 }
 
 .wf_event.selected {
-    outline: 2px dashed var(--theme-color, #3b82f6) !important;
+    outline: 2px dashed var(--theme-color, #3ecf8e) !important;
     outline-offset: 3px;
-    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25), 0 6px 24px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 0 0 1px rgba(62, 207, 142, 0.3), 0 6px 24px rgba(0, 0, 0, 0.35);
 }
 
 .wf_event.dragging {
@@ -1122,9 +1198,9 @@ body.dark .button {
     font-size: 9px;
     padding: 1px 6px;
     border-radius: 3px;
-    background: rgba(59, 130, 246, 0.12);
-    color: #60a5fa;
-    border: 1px solid rgba(59, 130, 246, 0.25);
+    background: rgba(62, 207, 142, 0.12);
+    color: #3ecf8e;
+    border: 1px solid rgba(62, 207, 142, 0.28);
     text-transform: lowercase;
 }
 .wf_category_chip {
@@ -1198,7 +1274,7 @@ body.dark .button {
 
 .wf_event {
     position: relative;
-    border-left: 3px solid var(--node-accent, #3b82f6) !important;
+    border-left: 3px solid var(--node-accent, #3ecf8e) !important;
     overflow: hidden;
 }
 
@@ -1255,7 +1331,7 @@ body.dark .button {
     right: 0;
     bottom: 0;
     height: 2px;
-    background: rgba(59, 130, 246, 0.15);
+    background: rgba(62, 207, 142, 0.18);
     overflow: hidden;
 }
 .wf_progress_bar::after {
@@ -1266,7 +1342,7 @@ body.dark .button {
     background: linear-gradient(
         90deg,
         transparent,
-        var(--node-accent, #3b82f6),
+        var(--node-accent, #3ecf8e),
         transparent
     );
     animation: wf_progress_sweep 1.4s linear infinite;
@@ -1383,4 +1459,42 @@ html[data-anim="off"] .wf_event.wf_next {
     width: 18px;
     height: 18px;
     margin-right: 6px;
+}
+
+/* ─── Nano mode ──────────────────────────────────────────────
+   Below 30% zoom even the title is unreadable. Collapse each card
+   to the colored icon square only — category accent remains so
+   topology is scannable from far away. The type-letter badge in
+   the icon corner is the only glyph that stays legible. */
+.wf_nano_mode .wf_event {
+    min-width: 32px !important;
+    max-width: 32px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 8px;
+    border-left-width: 4px !important;
+}
+.wf_nano_mode .wf_event_title {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background: transparent;
+    border-bottom: none;
+}
+.wf_nano_mode .wf_event_title > .flex-1,
+.wf_nano_mode .wf_event_title > span:not(.wf_event_icon) {
+    display: none !important;
+}
+.wf_nano_mode .wf_event_icon {
+    width: 22px;
+    height: 22px;
+    margin: 0;
+}
+.wf_nano_mode .wf_pole_button[data-pole-label]::after {
+    /* Hover labels would overflow 32px cards — suppress at nano zoom. */
+    display: none;
 }

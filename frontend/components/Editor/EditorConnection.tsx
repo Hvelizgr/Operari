@@ -81,7 +81,7 @@ export default function EditorConnection({
                 stroke={getStrokeColor()}
                 strokeWidth={isCyclic ? "3" : isSelected ? "3" : "2"}
                 strokeLinecap="round"
-                className="group-hover:stroke-blue-400 transition-colors duration-300"
+                className="group-hover:stroke-primary/70 transition-colors duration-300"
                 initial={{ pathLength: 0 }}
                 animate={{ pathLength: 1 }}
                 transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -93,7 +93,7 @@ export default function EditorConnection({
                 cy={targetPos.y}
                 r="4"
                 fill={isSelected ? "#3b82f6" : "#475569"}
-                className="group-hover:fill-blue-400 transition-colors duration-300"
+                className="group-hover:fill-primary/70 transition-colors duration-300"
             />
 
             {isExecuting && (

@@ -144,7 +144,7 @@ export default function MiniMap({ nodes, viewport, canvasSize, onViewportChange,
             <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden">
                 <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-700">
                     <div className="flex items-center gap-2">
-                        <Map size={14} className="text-blue-500" />
+                        <Map size={14} className="text-primary" />
                         <span className="text-xs font-semibold text-slate-200">{text.minimap}</span>
                     </div>
                     <button
@@ -178,7 +178,7 @@ export default function MiniMap({ nodes, viewport, canvasSize, onViewportChange,
                                     return (
                                         <div
                                             key={node.id}
-                                            className="absolute bg-blue-500/40 border border-blue-400/60 rounded-sm"
+                                            className="absolute bg-primary/40 border border-primary/70/60 rounded-sm"
                                             style={{
                                                 left: miniPos.x,
                                                 top: miniPos.y,
@@ -190,7 +190,7 @@ export default function MiniMap({ nodes, viewport, canvasSize, onViewportChange,
                                 })}
 
                                 <motion.div
-                                    className="absolute border-2 border-blue-500 bg-blue-500/10 cursor-move"
+                                    className="absolute border-2 border-primary bg-primary/10 cursor-move"
                                     style={{
                                         left: Math.max(0, Math.min(MINIMAP_WIDTH - viewportInMiniMap.width, viewportInMiniMap.x)),
                                         top: Math.max(0, Math.min(MINIMAP_HEIGHT - viewportInMiniMap.height, viewportInMiniMap.y)),
