@@ -133,9 +133,12 @@ export const createRateLimiter = (tier: RateLimitTier): RateLimitRequestHandler 
                 });
         },
 
-        // Skip rate limiting for health checks and other whitelisted paths
+        // Skip rate limiting for health/liveness probes. Uptime
+        // monitors hit these every 30-60s per checker; counting them
+        // against the limit would either false-alarm or force us to
+        // whitelist monitor IPs per customer.
         skip: (req: Request) => {
-            return req.path === '/health';
+            return req.path === '/health' || req.path === '/live';
         },
     });
 };
@@ -148,6 +151,55 @@ export const authRateLimiter = createRateLimiter(RateLimitTier.AUTH);
 export const executionRateLimiter = createRateLimiter(RateLimitTier.EXECUTION);
 export const standardRateLimiter = createRateLimiter(RateLimitTier.STANDARD);
 export const webhookRateLimiter = createRateLimiter(RateLimitTier.WEBHOOK);
+
+/**
+ * Login-specific rate limit keyed on the *email* the caller tried, not
+ * just the IP. Defends against credential stuffing distributed across
+ * many IPs against one account — the IP-based `authRateLimiter` can't
+ * see that. 5 tries per minute per email is tight enough to kill
+ * automated attempts but still fine for a legit user mistyping.
+ */
+export const loginEmailRateLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: (() => {
+        const client = redisConfig.getClient();
+        if (client && redisConfig.isReady()) {
+            return new RedisStore({
+                // @ts-expect-error - Expected by library type definition issues
+                sendCommand: (...args: string[]) => client.call(...args),
+                prefix: 'ratelimit:auth-email:',
+            });
+        }
+        return undefined;
+    })(),
+    keyGenerator: (req: Request) => {
+        const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+        if (!email) {
+            // No email in body → fall through to the IP-based limiter
+            // by skipping (keyed on IP so it effectively no-ops here).
+            return `no-email:${req.ip ?? 'unknown'}`;
+        }
+        return `email:${email}`;
+    },
+    skip: (req: Request) => {
+        // Only applied to the /login POST. If the shape ever drifts,
+        // let the request through so we don't break legitimate flows.
+        if (typeof req.body?.email !== 'string') return true;
+        return false;
+    },
+    handler: (_req: Request, res: Response) => {
+        res.status(429)
+            .set('Retry-After', '60')
+            .json({
+                error: 'Too many login attempts',
+                message: 'Too many login attempts for this email. Wait a minute and try again.',
+                retryAfter: 60,
+            });
+    },
+});
 
 /**
  * Cleanup function for graceful shutdown

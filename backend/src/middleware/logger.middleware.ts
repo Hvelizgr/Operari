@@ -42,7 +42,11 @@ export const requestLogger = pinoHttp({
     },
     autoLogging: {
         ignore: (req) => {
-            return req.url === '/health' || req.url === '/metrics';
+            return (
+                req.url === '/health' ||
+                req.url === '/live' ||
+                req.url === '/metrics'
+            );
         },
     },
 });

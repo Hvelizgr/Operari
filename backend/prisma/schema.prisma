@@ -11,10 +11,37 @@ datasource db {
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
-  passwordHash String
+  /// Null for users created via OAuth only (Google / GitHub). A user
+  /// can later set a password to enable the email/password login path
+  /// in addition to their OAuth logins — identities are unioned via
+  /// the OAuthAccount table, not by overwriting this field.
+  passwordHash String?
   name         String?
   role         Role     @default(USER)
   tenantId     String
+  /// True once the user has completed the email verification flow.
+  /// OAuth users land here already true because the IdP (Google,
+  /// GitHub) verified the inbox before handing over the token.
+  /// Password-register users start false and see a banner until they
+  /// click the link emailed at register time.
+  emailVerified Boolean @default(false)
+  /// TOTP (RFC 6238) two-factor. `mfaEnabled` flips true only after
+  /// the user proves they have the secret by submitting a valid
+  /// code during enroll. `mfaSecretCiphered` stores the shared
+  /// secret encrypted at rest — a DB leak leaks ciphertext, not
+  /// usable secrets.
+  mfaEnabled        Boolean @default(false)
+  mfaSecretCiphered String?
+  /// Persistent account-lockout counters. Rate limiting at the
+  /// edge catches burst attacks; these fields catch the patient
+  /// slow attacker by carrying state across minutes + restarts.
+  /// `failedLoginAttempts` is the rolling count inside the window
+  /// (reset on success or window expiry). `lockedUntil` is set
+  /// once the threshold is hit — checked on every login attempt
+  /// and cleared on the next successful auth.
+  failedLoginAttempts Int       @default(0)
+  lastFailedLoginAt   DateTime?
+  lockedUntil         DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -24,9 +51,123 @@ model User {
   conversations     Conversation[]
   connectedAccounts ConnectedAccount[]
   roleAssignments   RoleAssignment[]
+  oauthAccounts     OAuthAccount[]
+  passwordResets    PasswordResetToken[]
+  emailVerifications EmailVerificationToken[]
+  mfaBackupCodes    MfaBackupCode[]
 
   @@index([tenantId])
   @@index([email])
+}
+
+/// Federated identity linked to a User. One User can have many
+/// OAuthAccounts (Google + GitHub + ...), plus optionally a
+/// passwordHash — the login paths all resolve back to the same
+/// authenticated user. Rows are unique per (provider, providerId)
+/// which is the natural key from the IDP side.
+model OAuthAccount {
+  id         String   @id @default(uuid())
+  provider   String
+  providerId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@index([userId])
+}
+
+/// Single-use MFA backup code. Generated ten at a time when the user
+/// enrolls in TOTP; shown ONCE (download/copy) and stored SHA-256
+/// hashed at rest. Each code doubles as a phone-lost recovery vector:
+/// the login handler accepts a backup code in the `totpCode` field
+/// when no TOTP matches, consumes it on success (sets `usedAt`). A
+/// stolen DB dump cannot mint usable codes.
+model MfaBackupCode {
+  id        String    @id @default(uuid())
+  codeHash  String    @unique
+  userId    String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Email verification token. Same SHA-256-at-rest pattern as
+/// PasswordResetToken — a DB leak cannot mint a working link. TTL is
+/// longer (7 days vs 30 min) because verification is lower-urgency
+/// than reset and users routinely click the link hours after
+/// registering. Single-use enforced via `usedAt`.
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Outstanding team invites for a tenant. The inviter hands out a
+/// single-use link; the recipient clicks it and joins the inviter's
+/// tenant instead of creating a fresh one. Same SHA-256-at-rest
+/// contract as the reset / verification tokens — a DB leak cannot
+/// mint a working link.
+///
+/// Three terminal states besides "pending":
+///   - `acceptedAt` set: the row is consumed. `acceptedByUserId`
+///     points at the brand-new User so audit can trace joins.
+///   - `revokedAt` set: admin clicked Revoke before acceptance.
+///   - `expiresAt` in the past: natural TTL (7 days).
+///
+/// Only ONE pending invite per (tenantId, email) — the route layer
+/// revokes prior pending rows before creating a new one (Prisma has
+/// no partial unique index so we enforce this in code).
+model TenantInvite {
+  id               String    @id @default(uuid())
+  tokenHash        String    @unique
+  email            String
+  tenantId         String
+  role             Role      @default(USER)
+  invitedByUserId  String
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  acceptedByUserId String?
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([expiresAt])
+}
+
+/// Short-lived password reset token. We store only the SHA-256 of
+/// the token so a database read cannot mint a working reset link —
+/// only the bearer of the raw string can consume it. `usedAt` pins
+/// single-use: once consumed the row stays (audit trail) but is
+/// treated as invalid on subsequent lookups. Expired rows are
+/// swept lazily; no background job required.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Tenant {
@@ -34,6 +175,13 @@ model Tenant {
   name      String
   slug      String   @unique
   plan      Plan     @default(FREE)
+  /// Tenant-wide "everyone must have TOTP enrolled" toggle. When
+  /// true, users without `User.mfaEnabled` receive a login response
+  /// with `mfaEnrollmentRequired: true` and the frontend forces them
+  /// into the enrollment page. Admin-only write; refuses to enable
+  /// when the calling admin has not themselves enrolled (can't
+  /// lock the tenant out of its own admin).
+  mfaRequired Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -49,6 +197,18 @@ model Tenant {
   /// this on every meter event so calls can be attributed to the
   /// right billing-side customer. Null for self-host tenants.
   stripeCustomerId String? @unique
+  /// Stripe subscription id (`sub_...`). Present when the tenant is
+  /// on a paid plan. Written by the /billing/webhook handler on
+  /// checkout.session.completed and cleared on
+  /// customer.subscription.deleted.
+  stripeSubscriptionId String? @unique
+  /// Current billing status. Mirrors Stripe's subscription.status —
+  /// `active`, `past_due`, `canceled`, `trialing`. Null for free
+  /// tenants. Surfaced by the settings banner for dunning warnings.
+  planStatus String?
+  /// End of the current billing period (Stripe's `current_period_end`).
+  /// Used to show the user when the next renewal hits.
+  planCurrentPeriodEnd DateTime?
 
   users             User[]
   workflows         Runbook[]
@@ -61,6 +221,7 @@ model Tenant {
   customRoles       CustomRole[]
   eventAgents       EventAgent[]
   monitors          Monitor[]
+  invites           TenantInvite[]
 
   @@index([slug])
 }
@@ -91,10 +252,23 @@ model Runbook {
   // They will be removed in a future version once all data is migrated
   nodes       Json?
   connections Json?
+  /// Typed input declarations collected from the user before a run
+  /// (Rundeck-style job options). When non-empty, the Run dialog renders
+  /// a form instead of the raw JSON input box. Values flow into
+  /// `ExecutorContext.variables` so `{{vars.foo}}` templates resolve.
+  inputs      Json?    @default("[]")
   isActive    Boolean  @default(false)
   schedule    String?
   userId      String
   tenantId    String
+  /// When a run of this Runbook ends with status=FAILED, the engine
+  /// dispatches a child run of `onErrorRunbookId` with the failure
+  /// payload as input. Designed for "if deploy fails, run rollback"
+  /// style meta-automation. SetNull on delete so deleting the handler
+  /// does not cascade into deleting the parent runbook.
+  onErrorRunbookId String?
+  onErrorRunbook   Runbook?  @relation("RunbookErrorHandler", fields: [onErrorRunbookId], references: [id], onDelete: SetNull)
+  errorHandlerFor  Runbook[] @relation("RunbookErrorHandler")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -114,6 +288,7 @@ model Runbook {
   @@index([userId])
   @@index([tenantId])
   @@index([isActive])
+  @@index([onErrorRunbookId])
 }
 
 // Normalized RunbookStep model.
@@ -173,6 +348,23 @@ model Execution {
   resumeState Json?
   metadata    Json?
 
+  /// Dry-run mode: step executors log what they WOULD do (commands,
+  /// requests, notifications) without executing any side effect.
+  /// Approval gates auto-approve; notify / http / shell / ssh only
+  /// emit log lines. Sub-runs (via the `runbook` step) inherit this
+  /// flag so a whole tree stays consistent. The UI badges dry-run
+  /// executions distinctly so operators can't mistake a dry-run
+  /// success for an actual deploy.
+  dryRun      Boolean         @default(false)
+
+  /// When this Execution was spawned by a `runbook` step inside another
+  /// run, we link it back so the UI can render a parent/child trace and
+  /// the engine can detect cycles (same runbookId appearing twice in an
+  /// ancestor chain = bail out). Null for top-level runs.
+  parentExecutionId String?
+  parent            Execution?  @relation("ExecutionHierarchy", fields: [parentExecutionId], references: [id], onDelete: SetNull)
+  children          Execution[] @relation("ExecutionHierarchy")
+
   workflow        Runbook          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   user            User             @relation(fields: [userId], references: [id])
   nodeLogs        NodeLog[]
@@ -182,6 +374,7 @@ model Execution {
   @@index([userId])
   @@index([status])
   @@index([startedAt])
+  @@index([parentExecutionId])
 }
 
 model NodeLog {
@@ -271,8 +464,17 @@ enum Role {
 
 enum Plan {
   FREE
-  PRO
+  /// Hosted tier aimed at small ops teams. $19/user/mo, includes
+  /// managed Postgres, SSO (Google/Microsoft), 14-day run retention.
+  TEAM
+  /// Platform-eng tier. $49/user/mo, adds SAML+SCIM, audit export,
+  /// 1-year retention, 99.9% SLA.
+  BUSINESS
   ENTERPRISE
+  /// Deprecated legacy tier — kept so existing migrations and any
+  /// stray production rows still resolve. Do not assign to new
+  /// tenants; new code paths should use TEAM/BUSINESS instead.
+  PRO
 }
 
 enum ExecutionStatus {
@@ -297,6 +499,16 @@ enum TriggerType {
   SCHEDULED
   WEBHOOK
   API
+  /// Spawned by a `runbook` step inside another execution. The parent
+  /// Execution.id lives on `parentExecutionId`, which the UI uses to
+  /// render the sub-run tree.
+  WORKFLOW
+  /// Spawned automatically because a parent run hit status=FAILED and
+  /// the parent runbook declared `onErrorRunbookId`. Distinct from
+  /// WORKFLOW so the engine can refuse to chain error triggers (an
+  /// ERROR-triggered run that itself FAILs does NOT trigger its own
+  /// onErrorRunbookId — otherwise a misconfigured handler loops).
+  ERROR
 }
 
 enum ErrorSeverity {
@@ -618,10 +830,51 @@ model Webhook {
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   workflow    Runbook      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   eventAgents EventAgent[]
+  receipts    WebhookReceipt[]
 
   @@index([tenantId])
   @@index([token])
   @@index([workflowId])
+}
+
+/// Debug trail for inbound webhooks. One row per POST to
+/// /webhook/:token — captures the raw headers, body, and outcome
+/// (accepted → runbook triggered, rejected → signature mismatch,
+/// error → executor failure). Retained rolling-50 per webhook so
+/// tenants with noisy sources don't grow the table unbounded.
+///
+/// Drives the "Webhook debugger" panel in TriggersPanel — an SRE
+/// who can see the actual payload the external service sent can
+/// fix their mapping without emailing support.
+model WebhookReceipt {
+  id           String   @id @default(uuid())
+  webhookId    String
+  tenantId     String
+  /// "accepted" | "rejected_signature" | "rejected_inactive" | "error"
+  status       String
+  statusCode   Int
+  /// Short reason for non-accepted statuses (e.g. "HMAC mismatch").
+  /// Null on accepted receipts.
+  reason       String?
+  /// Captured request headers. Sensitive headers (Authorization,
+  /// Cookie) are scrubbed at persistence time.
+  headers      Json
+  /// Parsed JSON body, or { _raw: "<string>" } for non-JSON payloads.
+  body         Json
+  /// Inbound source IP (X-Forwarded-For aware). Useful when
+  /// lock-listing a bad sender.
+  sourceIp     String?
+  /// When the receipt triggered a runbook execution, the id of
+  /// that Execution. Null when the call was rejected before it
+  /// reached the executor. Enables "show me the run this webhook
+  /// spawned" in the UI.
+  executionId  String?
+  receivedAt   DateTime @default(now())
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, receivedAt])
+  @@index([tenantId])
 }
 
 /// Human approval gates. When a runbook reaches an approval node, it pauses

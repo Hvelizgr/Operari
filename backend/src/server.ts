@@ -1,13 +1,30 @@
 import './config/tracing.config'; // Initialize tracing first
 import './config/env.config'; // Validate env vars first
+// Sentry MUST be initialized BEFORE express is imported by any code
+// that gets wrapped by the SDK. Tracing + env already ran above; we
+// init Sentry here so the http instrumentation hooks bind to fresh
+// require() calls.
+import {
+    initSentry,
+    installExpressErrorHandler,
+    installProcessHandlers,
+    flushSentry,
+} from './config/sentry.config';
+initSentry();
+installProcessHandlers();
 import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { PrismaClient } from '@prisma/client';
 import { env } from './config/env.config';
 
 import authRoutes from './routes/auth.routes';
+import oauthRoutes from './routes/oauth.routes';
+import billingRoutes from './routes/billing.routes';
+import invitesRoutes from './routes/invites.routes';
+import tenantsRoutes from './routes/tenants.routes';
 import runbookRoutes from './routes/runbook.routes';
 import executionRoutes from './routes/execution.routes';
 import nodeTypesRoutes from './routes/node-types.routes'; // Added import
@@ -42,9 +59,11 @@ import {
     executionRateLimiter,
     standardRateLimiter,
     webhookRateLimiter,
+    loginEmailRateLimiter,
     cleanupRateLimiters,
 } from './middleware/ratelimit.middleware';
 import { requestLogger, addUserContext } from './middleware/logger.middleware';
+import { csrfProtection } from './middleware/csrf.middleware';
 import { logger } from './config/logger.config';
 // Swagger Documentation
 import swaggerUi from 'swagger-ui-express';
@@ -76,11 +95,33 @@ app.use(express.json({
         (req as unknown as { rawBody?: Buffer }).rawBody = buf;
     },
 }));
+app.use(cookieParser());
 
 app.use(requestLogger);
 app.use(addUserContext);
 
+// Double-submit CSRF guard. No-op when CSRF_ENFORCE is unset so
+// self-host / first deploys pay zero cost; flip the env to
+// "observe" to log mismatches without blocking, then "enforce" once
+// telemetry is clean. Exempt paths (/api/v1/*, /webhook/*, probes)
+// and Bearer-authenticated requests are handled inside the
+// middleware so we can mount it globally here.
+app.use(csrfProtection());
+
+// Per-email login rate limit stacks on top of the IP-based auth limit
+// so distributed credential stuffing against one account still gets
+// blocked. Only the /login POST sees it — every other auth route
+// falls through.
+app.use('/api/auth/login', loginEmailRateLimiter);
 app.use('/api/auth', authRateLimiter, authRoutes);
+// OAuth routes live under /api/auth/:provider but are intentionally
+// mounted AFTER /api/auth so the password register/login paths take
+// precedence. The OAuth router owns dynamic `:provider` + `:provider/callback`
+// and does its own 501 when the provider is not configured.
+app.use('/api/auth', oauthRoutes);
+app.use('/api/billing', standardRateLimiter, billingRoutes);
+app.use('/api/invites', standardRateLimiter, invitesRoutes);
+app.use('/api/tenants', standardRateLimiter, tenantsRoutes);
 app.use('/api/executions', executionRateLimiter, executionRoutes);
 app.use('/api/runbooks', standardRateLimiter, runbookRoutes);
 app.use('/api/node-types', standardRateLimiter, nodeTypesRoutes);
@@ -111,13 +152,39 @@ app.use('/api/v1/audit', standardRateLimiter, v1AuditRoutes);
 app.use('/api/v1/approvals', standardRateLimiter, v1ApprovalRoutes);
 
 /**
- * Liveness + readiness probe.
+ * Liveness probe — pure "the process is responsive".
+ *
+ * Never touches downstream dependencies. A Kubernetes liveness probe
+ * failure triggers a restart; we only want that when the process
+ * itself is wedged (infinite loop, heap exhaustion), not when
+ * postgres is down. Uptime monitors that just want the simplest
+ * "is it up?" signal should hit this endpoint, not /health.
+ *
+ * Kept in the router chain so rate limiters explicitly skip it
+ * (see logger.middleware + ratelimit.middleware path checks).
+ */
+app.get('/live', (_req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        version: process.env.APP_VERSION ?? process.env.NANORUN_VERSION ?? '0.1.0-dev',
+        uptimeSeconds: Math.round(process.uptime()),
+    });
+});
+
+/**
+ * Readiness probe.
  *
  * Verifies the two stateful dependencies (postgres + redis) so a
- * docker-compose `healthcheck:` block or a k8s liveness probe can
+ * docker-compose `healthcheck:` block or a k8s readiness probe can
  * actually distinguish "the process is up" from "the process is up
  * AND can talk to its dependencies". Both checks are wrapped in a
  * 1.5s timeout so a stuck connection does not stall the probe.
+ *
+ * Named `/health` for legacy compatibility (everything from CI to
+ * our own uptime config already points here). The behavior is
+ * readiness-shaped: a DB outage returns 503 so load balancers can
+ * route around the instance.
  */
 app.get('/health', async (_req, res) => {
     const withTimeout = async <T>(p: Promise<T>, ms: number): Promise<T> => {
@@ -159,7 +226,11 @@ app.get('/health', async (_req, res) => {
     res.status(overall === 'ok' ? 200 : 503).json({
         status: overall,
         timestamp: new Date().toISOString(),
-        version: process.env.NANORUN_VERSION ?? '0.1.0-dev',
+        // Prefer APP_VERSION (same value Sentry uses for release tagging)
+        // so one tag correlates uptime pings with error groups. Falls
+        // back to NANORUN_VERSION for legacy compose files.
+        version: process.env.APP_VERSION ?? process.env.NANORUN_VERSION ?? '0.1.0-dev',
+        uptimeSeconds: Math.round(process.uptime()),
         deps: {
             postgres: { status: postgres, ...(postgresError && { error: postgresError }) },
             redis: { status: redis, ...(redisError && { error: redisError }) },
@@ -188,6 +259,11 @@ app.get('/runbook.schema.json', (_req, res) => {
     res.send(runbookJsonSchema);
 });
 
+// Sentry error middleware must land BEFORE the app's custom
+// `errorHandler` so the exception reaches Sentry first (preserving
+// the request scope) and `errorHandler` still formats the wire
+// response. No-op when SENTRY_DSN is not configured.
+installExpressErrorHandler(app);
 app.use(errorHandler);
 
 const scheduler = new SchedulerService(prisma);
@@ -286,6 +362,11 @@ process.on('SIGINT', async () => {
     scheduler.stop();
     cleanupRateLimiters();
     await prisma.$disconnect();
+    // Flush pending Sentry events. 2s timeout is short enough that a
+    // kill -9 during a long flush never deadlocks the pod, and long
+    // enough that the last few events from whatever crashed the
+    // process usually make it through.
+    await flushSentry(2000);
     logger.info('Server stopped');
     process.exit(0);
 });

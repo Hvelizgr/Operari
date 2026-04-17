@@ -34,7 +34,66 @@ export type AuditEventType =
     | 'apikey.used'
     | 'apikey.revoked'
     | 'auth.login'
-    | 'auth.logout';
+    | 'auth.logout'
+    /**
+     * Failed-login + account-lockout trail. `auth.login_failed` fires
+     * on every wrong password (so incident response can count
+     * attempts per user); `auth.account_locked` fires once when the
+     * threshold trips. Both carry `ip` + `userAgent` in payload so
+     * the originating client is grepable.
+     */
+    | 'auth.login_failed'
+    | 'auth.account_locked'
+    /**
+     * GDPR self-serve deletion tombstones. The audit log is hash
+     * chained + immutable so we cannot scrub an existing event's
+     * `actorId`. Instead we write these events at the moment of
+     * purge so the timeline shows "X was deleted here" and the
+     * stream stays verifiable. Payload carries the deleted ids and
+     * the optional tenant-delete-cascade flag.
+     */
+    | 'user.deleted'
+    | 'tenant.deleted'
+    /**
+     * Tenant security policy toggled. Today only `mfaRequired`, but
+     * the type is deliberately broad so future policies (password
+     * complexity, session TTL overrides) can reuse it by setting
+     * `policy` in the payload. Carries `enabled` + `policy` so a
+     * compliance report can trace the flip at incident-review time.
+     */
+    | 'tenant.mfa_policy_changed'
+    /**
+     * Compliance export of the audit log. Written once per download
+     * request so a reviewer can see "who pulled the chain and when".
+     * Payload carries the row count that left the box, the format
+     * (ndjson today), and whether the request came from the admin UI
+     * (`actorType: 'user'`) or a SIEM integration (`'apikey'`).
+     */
+    | 'audit.exported'
+    /**
+     * TOTP two-factor lifecycle. `mfa.enabled` is emitted at
+     * verify-enroll success; `mfa.disabled` at /disable success.
+     * Both carry the user id on `actorId` so incident response can
+     * ask "when did this user turn MFA off, and from where".
+     */
+    | 'mfa.enabled'
+    | 'mfa.disabled'
+    /**
+     * Team-invite lifecycle. `invite.created` is emitted at issue;
+     * `invite.accepted` records the new user id in the payload so
+     * we can trace "X joined via invite from Y"; `invite.revoked`
+     * marks manual teardown before acceptance.
+     */
+    | 'invite.created'
+    | 'invite.accepted'
+    | 'invite.revoked'
+    /**
+     * Plan quota trips. Recorded for usage analytics + lets the
+     * billing dashboard show "X tenants hit their cap this month"
+     * without scraping 4xx logs. Payload carries `resource`,
+     * `current`, `limit` so dashboards can pivot by resource.
+     */
+    | 'quota.exceeded';
 
 export type ActorType = 'user' | 'apikey' | 'system' | 'webhook';
 
@@ -196,6 +255,62 @@ export class AuditService {
             firstBrokenSeq,
             firstGapAfterSeq,
         };
+    }
+
+    /**
+     * Stream a tenant's audit chain in sequence order. Yields one
+     * event at a time so a response handler can pipe directly into
+     * a downloadable body without ever holding the whole table in
+     * memory — a 100k-event export uses O(pageSize) memory, not
+     * O(n). Optional bounds let SIEM pipelines do incremental pulls
+     * via `fromSeq`.
+     *
+     * Not a generator method on the Prisma client itself because
+     * @prisma/client does not ship one, and its `findMany` with
+     * `take + cursor` is the canonical paginated-read pattern.
+     */
+    async *streamEvents(
+        tenantId: string,
+        options: {
+            fromSeq?: bigint;
+            toSeq?: bigint;
+            pageSize?: number;
+            types?: AuditEventType[];
+        } = {},
+    ): AsyncGenerator<{
+        id: string;
+        seq: bigint;
+        type: string;
+        actorId: string | null;
+        actorType: string | null;
+        resource: string | null;
+        payload: unknown;
+        hash: string;
+        prevHash: string;
+        createdAt: Date;
+    }> {
+        const pageSize = options.pageSize ?? 500;
+        let cursorSeq: bigint | undefined = options.fromSeq;
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            const page = await this.prisma.auditEvent.findMany({
+                where: {
+                    tenantId,
+                    ...(cursorSeq !== undefined ? { seq: { gte: cursorSeq } } : {}),
+                    ...(options.toSeq !== undefined ? { seq: { lte: options.toSeq } } : {}),
+                    ...(options.types ? { type: { in: options.types } } : {}),
+                },
+                orderBy: { seq: 'asc' },
+                take: pageSize,
+            });
+            if (page.length === 0) break;
+            for (const row of page) {
+                yield row;
+            }
+            cursorSeq = page[page.length - 1].seq + 1n;
+            if (page.length < pageSize) break;
+        }
     }
 
     /**
