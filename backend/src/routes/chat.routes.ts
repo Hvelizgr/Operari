@@ -40,11 +40,11 @@ async function ensureDefaults() {
         defaultTenantId = tenant.id;
 
         await prisma.user.upsert({
-            where: { email: 'anonymous@nanoflow.local' },
+            where: { email: 'anonymous@nanorun.local' },
             update: {},
             create: {
                 id: 'anonymous',
-                email: 'anonymous@nanoflow.local',
+                email: 'anonymous@nanorun.local',
                 passwordHash: '',
                 name: 'Anonymous',
                 role: 'USER',
@@ -61,7 +61,7 @@ router.use((req: AuthRequest, _res, next) => {
     if (!req.user) {
         req.user = {
             id: 'anonymous',
-            email: 'anonymous@nanoflow.local',
+            email: 'anonymous@nanorun.local',
             role: 'USER',
             tenantId: defaultTenantId,
         };

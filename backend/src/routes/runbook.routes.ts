@@ -66,7 +66,7 @@ router.use((req: AuthRequest, _res, next) => {
     if (!req.user) {
         req.user = {
             id: 'anonymous',
-            email: 'anonymous@nanoflow.local',
+            email: 'anonymous@nanorun.local',
             role: 'USER',
             tenantId: 'default-tenant',
         };

@@ -23,7 +23,7 @@ async function main() {
         update: {},
         create: {
             id: 'anonymous',
-            email: 'anonymous@nanoflow.local',
+            email: 'anonymous@nanorun.local',
             name: 'Anonymous User',
             passwordHash: 'not-used',
             role: 'USER',
