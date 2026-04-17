@@ -138,7 +138,6 @@ export function useEditorCanvas({ lang, workflowId, runbookHeader }: UseEditorCa
     const {
         viewport,
         setViewport,
-        handleWheel,
         handleZoomIn,
         handleZoomOut,
         handleFitView,
@@ -866,7 +865,6 @@ export function useEditorCanvas({ lang, workflowId, runbookHeader }: UseEditorCa
         setEditorMode,
 
         // Handlers
-        handleWheel,
         handleMouseDown,
         handleCanvasMouseMove,
         handleCanvasMouseUp,

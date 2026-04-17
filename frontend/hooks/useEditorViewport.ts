@@ -3,7 +3,7 @@
  * Handles zoom, pan, fit view, and viewport transformations
  */
 
-import { useState, useCallback, useRef, RefObject, WheelEvent } from 'react';
+import { useState, useCallback, useEffect, useRef, RefObject } from 'react';
 import { EDITOR_CONFIG } from '../config/editor.config';
 import type { ViewportState } from '../types/editor.types';
 import type { WorkflowNode } from '../components/Editor';
@@ -17,7 +17,6 @@ interface UseEditorViewportProps {
 interface UseEditorViewportReturn {
     viewport: ViewportState;
     setViewport: React.Dispatch<React.SetStateAction<ViewportState>>;
-    handleWheel: (e: WheelEvent<HTMLDivElement>) => void;
     handleZoomIn: () => void;
     handleZoomOut: () => void;
     handleFitView: () => void;
@@ -36,35 +35,54 @@ export function useEditorViewport({
         zoom: 1,
     });
 
-    const handleWheel = useCallback(
-        (e: WheelEvent<HTMLDivElement>) => {
+    // React (since v17) registers `onWheel` listeners with `{ passive: true }`
+    // unconditionally, which means `e.preventDefault()` is a no-op and the
+    // browser scrolls the page instead of zooming the canvas. The console
+    // also logs "Unable to preventDefault inside passive event listener"
+    // for every tick of the scroll wheel.
+    //
+    // Workaround: attach the native wheel listener ourselves via
+    // addEventListener({ passive: false }), so preventDefault actually
+    // stops page scroll. viewportRef tracks the latest state so the
+    // listener stays in sync without re-attaching on every zoom step.
+    const viewportStateRef = useRef(viewport);
+    useEffect(() => {
+        viewportStateRef.current = viewport;
+    }, [viewport]);
+
+    useEffect(() => {
+        const el = canvasRef.current;
+        if (!el) return;
+
+        const onWheel = (e: WheelEvent) => {
             e.preventDefault();
 
+            const vp = viewportStateRef.current;
             const delta = -e.deltaY * EDITOR_CONFIG.ZOOM.SENSITIVITY;
             const newZoom = Math.min(
-                Math.max(viewport.zoom + delta, EDITOR_CONFIG.ZOOM.MIN),
-                EDITOR_CONFIG.ZOOM.MAX
+                Math.max(vp.zoom + delta, EDITOR_CONFIG.ZOOM.MIN),
+                EDITOR_CONFIG.ZOOM.MAX,
             );
 
-            if (canvasRef.current) {
-                const rect = canvasRef.current.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
+            const rect = el.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
 
-                const zoomPoint = {
-                    x: (mouseX - viewport.x) / viewport.zoom,
-                    y: (mouseY - viewport.y) / viewport.zoom,
-                };
+            const zoomPoint = {
+                x: (mouseX - vp.x) / vp.zoom,
+                y: (mouseY - vp.y) / vp.zoom,
+            };
 
-                setViewport({
-                    x: mouseX - zoomPoint.x * newZoom,
-                    y: mouseY - zoomPoint.y * newZoom,
-                    zoom: newZoom,
-                });
-            }
-        },
-        [viewport, canvasRef]
-    );
+            setViewport({
+                x: mouseX - zoomPoint.x * newZoom,
+                y: mouseY - zoomPoint.y * newZoom,
+                zoom: newZoom,
+            });
+        };
+
+        el.addEventListener('wheel', onWheel, { passive: false });
+        return () => el.removeEventListener('wheel', onWheel);
+    }, [canvasRef]);
 
     const handleZoomIn = useCallback(() => {
         setViewport((prev) => ({
@@ -123,7 +141,6 @@ export function useEditorViewport({
     return {
         viewport,
         setViewport,
-        handleWheel,
         handleZoomIn,
         handleZoomOut,
         handleFitView,

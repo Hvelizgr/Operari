@@ -87,7 +87,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         selectionBox,
         getSelectionBoxStyle,
         // Handlers
-        handleWheel,
         handleMouseDown,
         handleCanvasMouseMove,
         handleCanvasMouseUp,
@@ -402,7 +401,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                             backgroundColor: 'var(--box-background-color)',
                             backgroundImage: 'none'
                         }}
-                        onWheel={handleWheel}
                         onMouseDown={handleMouseDown}
                         onMouseMove={handleCanvasMouseMove}
                         onMouseUp={handleCanvasMouseUp}
