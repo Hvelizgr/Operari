@@ -92,6 +92,44 @@ export class HttpExecutor implements StepExecutor<HttpConfig> {
             timestamp: new Date(),
         });
 
+        // Dry-run: print the outgoing request shape so an operator can
+        // spot a malformed URL or accidental production endpoint before
+        // any packet leaves the host. Headers that look sensitive
+        // (authorization / cookie / x-*-token / api-key) are redacted
+        // in the log line so dry-run output is safe to share.
+        if (context.dryRun) {
+            const redactedHeaders: Record<string, string> = {};
+            for (const [k, v] of Object.entries(headers)) {
+                const lower = k.toLowerCase();
+                redactedHeaders[k] =
+                    lower === 'authorization' ||
+                    lower === 'cookie' ||
+                    lower.includes('token') ||
+                    lower.includes('api-key') ||
+                    lower.includes('apikey')
+                        ? '[redacted]'
+                        : v;
+            }
+            context.emit?.({
+                type: 'log',
+                text: `[dry-run] would ${method} ${url} headers=${JSON.stringify(redactedHeaders)}${body ? ` body=${body.slice(0, 500)}` : ''}`,
+                timestamp: new Date(),
+            });
+            return {
+                success: true,
+                output: {
+                    dryRun: true,
+                    method,
+                    url,
+                    status: 0,
+                    statusText: 'dry-run',
+                    headers: {},
+                    body: '',
+                },
+                duration: Date.now() - startTime,
+            };
+        }
+
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
 

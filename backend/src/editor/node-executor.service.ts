@@ -220,6 +220,7 @@ export class NodeExecutor {
         input: ExecutionInput,
         tenantId: string | undefined,
         executionId: string | undefined,
+        dryRun: boolean = false,
     ): Promise<NodeExecutionResult | null> {
         const executor = this.runbookRegistry.get(node.type);
         if (!executor) return null;
@@ -283,6 +284,7 @@ export class NodeExecutor {
             previousOutputs: (input as Record<string, unknown>) ?? {},
             tenantId: effectiveTenantId,
             secrets,
+            dryRun,
             emit: executionId
                 ? (event) => {
                     socketService.emitLog(executionId, event.text.trimEnd(), {
@@ -315,6 +317,7 @@ export class NodeExecutor {
         input: ExecutionInput,
         tenantId?: string,
         executionId?: string,
+        dryRun?: boolean,
     ): Promise<NodeExecutionResult> {
         const commonErrorContext = {
             nodeId: node.id,
@@ -329,6 +332,7 @@ export class NodeExecutor {
             input,
             tenantId,
             executionId,
+            dryRun ?? false,
         );
         if (runbookResult !== null) {
             return runbookResult;

@@ -43,6 +43,9 @@ const mockPrisma = {
         update: jest.fn(),
         findUnique: jest.fn(),
         findFirst: jest.fn(),
+        // Quota gate counts monthly runs via execution.count.
+        // Default to 0 so the gate never trips in unrelated tests.
+        count: jest.fn().mockResolvedValue(0),
     },
     nodeLog: {
         create: jest.fn(),
@@ -50,6 +53,12 @@ const mockPrisma = {
     },
     executionError: {
         findFirst: jest.fn(),
+    },
+    // Quota gate looks up tenant.plan. Default to BUSINESS (unlimited)
+    // so existing ExecutionService tests that don't care about billing
+    // are not forced to stub it.
+    tenant: {
+        findUnique: jest.fn().mockResolvedValue({ plan: 'BUSINESS' }),
     },
 } as unknown as PrismaClient;
 

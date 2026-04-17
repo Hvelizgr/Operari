@@ -157,6 +157,20 @@ const NODES = [
         outputs: [MAIN_PORT],
     },
 
+    {
+        type: 'runbook',
+        category: 'orchestration',
+        icon: 'GitBranch',
+        color: 'bg-indigo-500',
+        label: { en: 'Sub-runbook', es: 'Sub-runbook' },
+        description: {
+            en: 'Invoke another runbook as a step. Waits for completion by default.',
+            es: 'Ejecutá otro runbook como un paso. Espera a que termine por default.',
+        },
+        inputs: [MAIN_PORT],
+        outputs: [MAIN_PORT],
+    },
+
     // === organization ===
     {
         type: 'approval',

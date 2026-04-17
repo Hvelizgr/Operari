@@ -54,9 +54,16 @@ class FakeAuditService {
 const buildPrismaMock = () => {
     return {
         runbook: { findUnique: jest.fn() },
-        execution: { create: jest.fn(), update: jest.fn() },
+        execution: {
+            create: jest.fn(),
+            update: jest.fn(),
+            count: jest.fn().mockResolvedValue(0),
+        },
         nodeLog: { create: jest.fn(), update: jest.fn() },
         executionError: { findFirst: jest.fn() },
+        tenant: {
+            findUnique: jest.fn().mockResolvedValue({ plan: 'BUSINESS' }),
+        },
     } as unknown as PrismaClient;
 };
 

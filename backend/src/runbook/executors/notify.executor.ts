@@ -84,6 +84,32 @@ export class NotifyExecutor implements StepExecutor<NotifyConfig> {
         const rawMessage = resolveTemplate(config.message ?? '', context);
         const title = config.title ? resolveTemplate(config.title, context) : undefined;
 
+        // Dry-run: log the target channel + truncated message, do NOT
+        // fire the webhook. The URL host is included (but not the
+        // webhook path which is effectively a bearer) so the operator
+        // can verify the right channel would get the ping.
+        if (context.dryRun) {
+            let host = webhookUrl;
+            try {
+                host = new URL(webhookUrl).host;
+            } catch { /* keep the raw value */ }
+            context.emit?.({
+                type: 'log',
+                text: `[dry-run] would notify ${config.channel} at ${host} — ${rawMessage.slice(0, 200)}`,
+                timestamp: new Date(),
+            });
+            return {
+                success: true,
+                output: {
+                    dryRun: true,
+                    channel: config.channel,
+                    host,
+                    title: title ?? null,
+                },
+                duration: Date.now() - startTime,
+            };
+        }
+
         // 2. Validate the URL shape before we send anything. The
         //    executor refuses non-https URLs because a webhook in
         //    plaintext leaks the bearer token to anyone on the path.

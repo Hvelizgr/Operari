@@ -55,6 +55,28 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
         const startTime = Date.now();
         const message = resolveTemplate(config.message, context);
 
+        // Dry-run: skip the human-in-the-loop pause. Emit a log line
+        // so the operator can see which gates would have fired during
+        // the real run + auto-return success so downstream steps
+        // execute. No Approval row is created, so the inbox stays
+        // clean of synthetic approvals.
+        if (context.dryRun) {
+            context.emit?.({
+                type: 'log',
+                text: `[dry-run] would request approval: ${message}`,
+                timestamp: new Date(),
+            });
+            return {
+                success: true,
+                output: {
+                    dryRun: true,
+                    message,
+                    status: 'AUTO_APPROVED',
+                },
+                duration: Date.now() - startTime,
+            };
+        }
+
         // Look up the workflowId from the execution
         const execution = await this.prisma.execution.findUnique({
             where: { id: context.runId },

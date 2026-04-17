@@ -8,12 +8,14 @@ import {
     workflowDefinitionSchema,
     workflowNodeSchema,
     workflowConnectionSchema,
+    runbookInputDefinitionSchema,
     WorkflowNode,
     WorkflowConnection,
     WorkflowDefinition,
 } from '../types/workflow.types';
 import { WorkflowValidatorService, ValidationSeverity } from '../services/workflow-validator.service';
 import { AuditService, AuditEventType } from '../audit/audit.service';
+import { assertRunbookQuota, QuotaExceededError } from '../billing/quotas';
 import {
     toSpec,
     fromSpec,
@@ -409,6 +411,44 @@ router.post('/', async (req: AuthRequest, res) => {
     try {
         const data = workflowDefinitionSchema.parse(req.body);
 
+        // Plan quota gate. Enforced BEFORE logic validation so a
+        // FREE tenant at the runbook cap gets a clean 402 instead
+        // of investing time in a form they cannot submit. Anonymous
+        // mode bypasses (self-host has no plan concept).
+        try {
+            await assertRunbookQuota(prisma, req.user!.tenantId);
+        } catch (err) {
+            if (err instanceof QuotaExceededError) {
+                // Emit an audit event so the billing dashboard can
+                // pivot by "tenants that hit their cap". Fire-and-
+                // forget — audit failure must not override the 402.
+                try {
+                    const audit = new AuditService(prisma);
+                    await audit.record({
+                        tenantId: req.user!.tenantId,
+                        type: 'quota.exceeded',
+                        actorId: req.user!.id,
+                        actorType: 'user',
+                        resource: req.user!.tenantId,
+                        payload: {
+                            resource: err.resource,
+                            current: err.current,
+                            limit: err.limit,
+                            attempt: 'runbook.create',
+                        },
+                    });
+                } catch { /* observability only */ }
+                return res.status(402).json({
+                    error: err.message,
+                    resource: err.resource,
+                    current: err.current,
+                    limit: err.limit,
+                    upgrade: '/api/billing/checkout',
+                });
+            }
+            throw err;
+        }
+
         // Validate logic
         const validator = new WorkflowValidatorService();
         const validation = validator.validate(data as WorkflowDefinition);
@@ -420,14 +460,33 @@ router.post('/', async (req: AuthRequest, res) => {
             });
         }
 
+        // Validate onErrorRunbookId: must belong to same tenant and
+        // must not be self-referential. We check tenant explicitly
+        // here (instead of trusting the schema) because the id comes
+        // from a client body and we cannot let one tenant wire its
+        // error handler to another tenant's runbook.
+        if (data.onErrorRunbookId) {
+            const handler = await prisma.runbook.findFirst({
+                where: { id: data.onErrorRunbookId, tenantId: req.user!.tenantId },
+                select: { id: true },
+            });
+            if (!handler) {
+                return res.status(400).json({
+                    error: 'onErrorRunbookId does not point to a runbook in this tenant',
+                });
+            }
+        }
+
         const workflow = await prisma.runbook.create({
             data: {
                 name: data.name,
                 description: data.description,
                 nodes: data.nodes as unknown as Prisma.InputJsonValue,
                 connections: data.connections as unknown as Prisma.InputJsonValue,
+                inputs: (data.inputs ?? []) as unknown as Prisma.InputJsonValue,
                 isActive: data.isActive || false,
                 schedule: data.schedule,
+                onErrorRunbookId: data.onErrorRunbookId ?? null,
                 userId: req.user!.id,
                 tenantId: req.user!.tenantId,
             },
@@ -670,6 +729,10 @@ router.put('/:id', async (req: AuthRequest, res) => {
             schedule: z.string().optional(),
             version: z.string().optional(), // Allow version field from frontend
             lastModified: z.number().optional(), // Allow lastModified field from frontend
+            // Error handler runbook id. `null` explicitly clears the
+            // wiring; undefined leaves whatever was previously set.
+            onErrorRunbookId: z.string().uuid().nullish(),
+            inputs: z.array(runbookInputDefinitionSchema).optional(),
         });
 
         const data = updateSchema.parse(req.body);
@@ -743,6 +806,36 @@ router.put('/:id', async (req: AuthRequest, res) => {
         if (data.description !== undefined) updateData.description = data.description;
         if (data.isActive !== undefined) updateData.isActive = data.isActive;
         if (data.schedule !== undefined) updateData.schedule = data.schedule;
+        if (data.inputs !== undefined) {
+            updateData.inputs = data.inputs as unknown as Prisma.InputJsonValue;
+        }
+
+        // onErrorRunbookId: undefined leaves it untouched, null clears,
+        // uuid validates against same-tenant + not-self. Self-reference
+        // is forbidden because it would immediately cycle on the first
+        // failure and be caught at dispatch time — catching it here
+        // gives the user a clearer error from the CRUD surface.
+        if (data.onErrorRunbookId !== undefined) {
+            if (data.onErrorRunbookId === null) {
+                updateData.onErrorRunbookId = null;
+            } else {
+                if (data.onErrorRunbookId === workflowId) {
+                    return res.status(400).json({
+                        error: 'onErrorRunbookId cannot reference the runbook itself',
+                    });
+                }
+                const handler = await prisma.runbook.findFirst({
+                    where: { id: data.onErrorRunbookId, tenantId: req.user!.tenantId },
+                    select: { id: true },
+                });
+                if (!handler) {
+                    return res.status(400).json({
+                        error: 'onErrorRunbookId does not point to a runbook in this tenant',
+                    });
+                }
+                updateData.onErrorRunbookId = data.onErrorRunbookId;
+            }
+        }
 
         // Construct full workflow object for validation
         const fullWorkflowForValidation: WorkflowDefinition = {
@@ -813,6 +906,44 @@ router.put('/:id', async (req: AuthRequest, res) => {
         }
         req.log.error({ error }, 'Update workflow error');
         res.status(500).json({ error: 'Failed to update workflow' });
+    }
+});
+
+/**
+ * Dedicated write path for the typed input declarations so the inputs
+ * form can persist without piggybacking on the canvas autosave
+ * (which prefers the YAML round-trip and doesn't carry inputs yet).
+ * Replaces the whole inputs array — the client sends the full list
+ * on every change, which matches how the panel is edited.
+ */
+router.put('/:id/inputs', async (req: AuthRequest, res) => {
+    try {
+        const workflowId = req.params.id as string;
+        const inputs = z
+            .array(runbookInputDefinitionSchema)
+            .parse(req.body?.inputs ?? []);
+
+        const existing = await prisma.runbook.findFirst({
+            where: { id: workflowId, tenantId: req.user!.tenantId },
+            select: { id: true },
+        });
+        if (!existing) {
+            return res.status(404).json({ error: 'Workflow not found' });
+        }
+
+        const updated = await prisma.runbook.update({
+            where: { id: workflowId },
+            data: { inputs: inputs as unknown as Prisma.InputJsonValue },
+            select: { id: true, inputs: true, updatedAt: true },
+        });
+
+        res.json({ ...updated, timestamp: updated.updatedAt.getTime() });
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: error.errors });
+        }
+        req.log.error({ error }, 'Update runbook inputs error');
+        res.status(500).json({ error: 'Failed to update runbook inputs' });
     }
 });
 

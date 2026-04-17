@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../server';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { WebhookService } from '../runbook/services/webhook.service';
+import { ExecutionService } from '../editor/execution/execution.service';
 
 const router = Router();
 
@@ -10,6 +11,12 @@ let service: WebhookService | null = null;
 function getService(): WebhookService {
     if (!service) service = new WebhookService(prisma);
     return service;
+}
+
+let _executionService: ExecutionService | null = null;
+function getExecutionService(): ExecutionService {
+    if (!_executionService) _executionService = new ExecutionService(prisma);
+    return _executionService;
 }
 
 // Anonymous fallback consistent with the rest of the editor surfaces.
@@ -102,6 +109,111 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         }
         req.log.error({ err }, 'Create webhook error');
         res.status(500).json({ error: 'Failed to create webhook' });
+    }
+});
+
+/**
+ * GET /api/webhooks/:id/receipts
+ * Debugger view: the last 50 calls this webhook received (accepted
+ * and rejected). Ordered most-recent-first so the UI can render a
+ * timeline without re-sorting. Tenant-scoped — a webhook id that
+ * belongs to another tenant returns 404.
+ */
+router.get('/:id/receipts', async (req: AuthRequest, res: Response) => {
+    try {
+        const tenantId = req.user!.tenantId;
+        const id = String(req.params.id);
+
+        const webhook = await prisma.webhook.findFirst({
+            where: { id, tenantId },
+            select: { id: true },
+        });
+        if (!webhook) {
+            return res.status(404).json({ error: 'Webhook not found' });
+        }
+
+        const receipts = await prisma.webhookReceipt.findMany({
+            where: { webhookId: id },
+            orderBy: { receivedAt: 'desc' },
+            take: 50,
+        });
+
+        res.json({ data: receipts });
+    } catch (err) {
+        req.log.error({ err }, 'List webhook receipts error');
+        res.status(500).json({ error: 'Failed to list webhook receipts' });
+    }
+});
+
+/**
+ * POST /api/webhooks/:id/receipts/:receiptId/replay
+ * Re-fire the bound runbook with the captured payload. Uses the
+ * same variable mapping as the live path so a replay is
+ * byte-indistinguishable from the original trigger as far as the
+ * runbook is concerned. Writes a fresh "accepted" receipt flagged
+ * with a `replay_of` marker so the debugger can show the chain.
+ */
+router.post('/:id/receipts/:receiptId/replay', async (req: AuthRequest, res: Response) => {
+    try {
+        const tenantId = req.user!.tenantId;
+        const { id, receiptId } = req.params as { id: string; receiptId: string };
+
+        const webhook = await prisma.webhook.findFirst({
+            where: { id, tenantId },
+            include: { workflow: { select: { id: true, userId: true, name: true } } },
+        });
+        if (!webhook) {
+            return res.status(404).json({ error: 'Webhook not found' });
+        }
+
+        const receipt = await prisma.webhookReceipt.findFirst({
+            where: { id: receiptId, webhookId: id },
+        });
+        if (!receipt) {
+            return res.status(404).json({ error: 'Receipt not found' });
+        }
+
+        // Reuse WebhookService.mapPayloadToVariables so replayed
+        // payloads see the same variable shape as the live call.
+        const variables = getService().mapPayloadToVariables(
+            webhook.source,
+            undefined,
+            (receipt.body as Record<string, unknown>) ?? {},
+        );
+
+        const execution = await getExecutionService().execute({
+            workflowId: webhook.workflowId,
+            userId: webhook.workflow.userId,
+            trigger: 'WEBHOOK',
+            input: variables,
+            tenantId: webhook.tenantId,
+        });
+
+        // Stamp the replay receipt. Include a `replay_of` marker on
+        // the reason field so the UI can render "replay of <id>" in
+        // the timeline without needing a separate column.
+        await prisma.webhookReceipt.create({
+            data: {
+                webhookId: webhook.id,
+                tenantId: webhook.tenantId,
+                status: 'accepted',
+                statusCode: 202,
+                reason: `replay_of:${receipt.id}`,
+                headers: receipt.headers ?? {},
+                body: receipt.body ?? {},
+                sourceIp: null,
+                executionId: execution.id,
+            },
+        });
+
+        res.status(202).json({
+            runId: execution.id,
+            runbook: { id: webhook.workflow.id, name: webhook.workflow.name },
+            replayedFrom: receipt.id,
+        });
+    } catch (err) {
+        req.log.error({ err }, 'Replay webhook receipt error');
+        res.status(500).json({ error: 'Failed to replay webhook receipt' });
     }
 });
 

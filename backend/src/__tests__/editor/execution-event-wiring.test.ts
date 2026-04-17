@@ -65,6 +65,7 @@ const mockPrisma = {
         create: jest.fn(),
         update: jest.fn(),
         findUnique: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
     },
     nodeLog: {
         create: jest.fn(),
@@ -72,6 +73,9 @@ const mockPrisma = {
     },
     executionError: {
         findFirst: jest.fn(),
+    },
+    tenant: {
+        findUnique: jest.fn().mockResolvedValue({ plan: 'BUSINESS' }),
     },
 } as unknown as PrismaClient;
 

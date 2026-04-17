@@ -329,6 +329,10 @@ router.post('/:workflowId/run', async (req: AuthRequest, res) => {
             tenantId: req.user!.tenantId,
             trigger: 'MANUAL',
             input: req.body.input || {},
+            // Dry-run is strictly opt-in per request. The body flag
+            // must be literally `true` so there's no way to trigger
+            // a dry run by accident from an incorrectly-typed form.
+            dryRun: req.body.dryRun === true,
         });
 
         res.status(202).json(execution);

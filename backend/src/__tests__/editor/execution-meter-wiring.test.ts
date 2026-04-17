@@ -68,6 +68,10 @@ const buildPrisma = (overrides: { stripeCustomerId?: string | null } = {}) => ({
         create: jest.fn(),
         update: jest.fn(),
         findUnique: jest.fn(),
+        // Runs quota gate hits this. Default to 0 so the gate never
+        // trips inside the billing-wiring tests (they're about meters,
+        // not quotas).
+        count: jest.fn().mockResolvedValue(0),
     },
     nodeLog: {
         create: jest.fn(),
@@ -77,7 +81,11 @@ const buildPrisma = (overrides: { stripeCustomerId?: string | null } = {}) => ({
         findFirst: jest.fn(),
     },
     tenant: {
+        // Must return both the `plan` (for quota checks) and the
+        // `stripeCustomerId` the meter tests care about. Default plan
+        // is BUSINESS (unlimited) so quotas stay out of the way.
         findUnique: jest.fn(async () => ({
+            plan: 'BUSINESS',
             stripeCustomerId: overrides.stripeCustomerId ?? null,
         })),
     },

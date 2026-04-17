@@ -18,6 +18,7 @@ import {
     wrapError,
 } from '../../errors/custom-error';
 import { persistExecutionError } from '../../utils/error-persistence';
+import { assertRunsQuota, QuotaExceededError } from '../../billing/quotas';
 import { socketService } from './socket.service';
 import { AuditService, AuditEventType, ActorType } from '../../audit/audit.service';
 import { RunTracer, getRunTracer } from '../../observability';
@@ -35,6 +36,19 @@ interface ExecuteParams {
     input?: ExecutionInput;
     tenantId?: string;
     startNodeId?: string;
+    /**
+     * When set, the new Execution is tagged as a child of this run.
+     * Used by the `runbook` step executor to spawn sub-workflows and
+     * by the UI to render the parent/child execution tree.
+     */
+    parentExecutionId?: string;
+    /**
+     * Dry-run mode: every step executor logs what it WOULD do
+     * without performing any side effect (no subprocess, no HTTP,
+     * no notify, no pause for approval). Persists on the Execution
+     * row and propagates to sub-runs via the `runbook` step.
+     */
+    dryRun?: boolean;
 }
 
 interface ResumeParams {
@@ -316,8 +330,124 @@ export class ExecutionService {
         }
     }
 
+    /**
+     * Dispatch the `onErrorRunbookId` handler when a run ends FAILED.
+     *
+     * Safety invariants:
+     *   - The parent run's `trigger` must NOT already be `ERROR`. An
+     *     ERROR-triggered run that itself fails does NOT cascade into
+     *     another error run — otherwise a buggy handler loops.
+     *   - The target runbook must not appear anywhere in the ancestor
+     *     chain (cycle detection, same pattern as `RunbookExecutor`).
+     *   - The target must belong to the same tenant.
+     *   - Any failure in the dispatch path is swallowed. The parent's
+     *     FAILED transition already committed before this method runs,
+     *     so a broken handler cannot corrupt run state.
+     */
+    private async dispatchErrorHandler(params: {
+        failedExecutionId: string;
+        workflow: Runbook;
+        errorMessage: string;
+        tenantId: string | undefined;
+        userId: string;
+        // Accept the shape of the ContextLogger without importing it
+        // (avoids dragging the Logger type system into this helper).
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        contextLogger: { info: (...args: any[]) => void; warn: (...args: any[]) => void };
+    }): Promise<void> {
+        const { failedExecutionId, workflow, errorMessage, tenantId, userId, contextLogger } = params;
+
+        const handlerId = (workflow as Runbook & { onErrorRunbookId?: string | null }).onErrorRunbookId;
+        if (!handlerId) return;
+
+        const current = await this.prisma.execution.findUnique({
+            where: { id: failedExecutionId },
+            select: { trigger: true },
+        });
+        if (!current) return;
+        if (current.trigger === 'ERROR') {
+            contextLogger.info('error handler skipped: run was itself ERROR-triggered');
+            return;
+        }
+
+        const cycleMessage = await this.errorHandlerCycleCheck(failedExecutionId, handlerId);
+        if (cycleMessage) {
+            contextLogger.warn(`error handler skipped: ${cycleMessage}`);
+            return;
+        }
+
+        const effectiveTenantId = tenantId ?? workflow.tenantId;
+        const target = await this.prisma.runbook.findFirst({
+            where: { id: handlerId, tenantId: effectiveTenantId },
+            select: { id: true, name: true },
+        });
+        if (!target) {
+            contextLogger.warn('error handler skipped: target runbook not found in tenant', {
+                metadata: { handlerId },
+            });
+            return;
+        }
+
+        try {
+            await this.execute({
+                workflowId: target.id,
+                userId,
+                tenantId: effectiveTenantId,
+                trigger: 'ERROR',
+                parentExecutionId: failedExecutionId,
+                input: {
+                    error: {
+                        runId: failedExecutionId,
+                        runbookId: workflow.id,
+                        runbookName: workflow.name,
+                        message: errorMessage,
+                    },
+                },
+            });
+            contextLogger.info('error handler dispatched', {
+                metadata: { handlerRunbookId: target.id, handlerName: target.name },
+            });
+        } catch (err) {
+            contextLogger.warn('error handler dispatch threw', {
+                error: err instanceof Error ? err : new Error(String(err)),
+            });
+        }
+    }
+
+    /**
+     * Walk up `parentExecutionId` from the failed run. If the target
+     * handler's workflowId appears anywhere in the chain we refuse the
+     * dispatch — the handler is (directly or transitively) already
+     * running above us, and another child would loop.
+     */
+    private async errorHandlerCycleCheck(
+        failedExecutionId: string,
+        targetWorkflowId: string,
+    ): Promise<string | null> {
+        let cursor: string | null = failedExecutionId;
+        const visited = new Set<string>();
+        let depth = 0;
+        const MAX = 10;
+        while (cursor && depth < MAX) {
+            if (visited.has(cursor)) return 'ancestor chain has a loop';
+            visited.add(cursor);
+            const row: { workflowId: string; parentExecutionId: string | null } | null =
+                await this.prisma.execution.findUnique({
+                    where: { id: cursor },
+                    select: { workflowId: true, parentExecutionId: true },
+                });
+            if (!row) break;
+            if (row.workflowId === targetWorkflowId) {
+                return `target handler "${targetWorkflowId}" is already in the run chain`;
+            }
+            cursor = row.parentExecutionId;
+            depth += 1;
+        }
+        return null;
+    }
+
     async execute(params: ExecuteParams) {
-        const { workflowId, userId, trigger, input = {}, tenantId, startNodeId } = params;
+        const { workflowId, userId, trigger, input = {}, tenantId, startNodeId, parentExecutionId, dryRun } = params;
 
         try {
             // Fetch workflow
@@ -334,6 +464,26 @@ export class ExecutionService {
                 });
             }
 
+            // Runs-per-month quota gate. Enforced BEFORE we insert the
+            // Execution row — if the tenant is at their plan cap we do
+            // not want a half-committed run record that the UI shows
+            // as "starting then immediately blocked". ERROR-triggered
+            // sub-runs still count; they're real platform work.
+            const effectiveTenantIdForQuota = tenantId ?? workflow.tenantId;
+            try {
+                await assertRunsQuota(this.prisma, effectiveTenantIdForQuota);
+            } catch (err) {
+                if (err instanceof QuotaExceededError) {
+                    throw new WorkflowError({
+                        message: err.message,
+                        code: ErrorCode.QUOTA_EXCEEDED,
+                        workflowId,
+                        context: { userId, tenantId, resource: err.resource, current: err.current, limit: err.limit },
+                    });
+                }
+                throw err;
+            }
+
             // Create execution record
             const execution = await this.prisma.execution.create({
                 data: {
@@ -341,6 +491,7 @@ export class ExecutionService {
                     userId,
                     trigger,
                     status: 'RUNNING',
+                    parentExecutionId,
                 },
             });
 
@@ -433,7 +584,9 @@ export class ExecutionService {
                 input,
                 executionContext,
                 tenantId,
-                startNodeId
+                startNodeId,
+                undefined,
+                dryRun ?? false,
             ).catch((error) => {
                 // This handles uncaught errors from runWorkflow
                 this.logger.error('Uncaught error in workflow execution', {
@@ -616,7 +769,8 @@ export class ExecutionService {
         executionContext: Record<string, unknown>,
         tenantId?: string,
         startNodeId?: string,
-        initialState?: RunState
+        initialState?: RunState,
+        dryRun: boolean = false,
     ) {
         const startTime = Date.now();
         const contextLogger = this.logger.child(executionContext);
@@ -794,7 +948,7 @@ export class ExecutionService {
 
                 try {
                     nodeContextLogger.debug('Node execution started');
-                    const output = await this.nodeExecutor.execute(currentNode, nodeInput, tenantId, executionId);
+                    const output = await this.nodeExecutor.execute(currentNode, nodeInput, tenantId, executionId, dryRun);
 
                     // Handle suspend signal
                     if ((output as SuspendResult).isSuspended) {
@@ -1212,6 +1366,24 @@ export class ExecutionService {
                     error: err instanceof Error ? err : new Error(String(err)),
                 });
             }
+
+            // Error workflow trigger (n8n-style meta-automation): if the
+            // runbook declares onErrorRunbookId, dispatch a child run of
+            // that handler with the failure payload. Best-effort and
+            // fully isolated — a broken handler must never break the
+            // parent's FAILED transition.
+            await this.dispatchErrorHandler({
+                failedExecutionId: executionId,
+                workflow,
+                errorMessage,
+                tenantId,
+                userId: (executionContext.userId as string | undefined) ?? '',
+                contextLogger,
+            }).catch((err) => {
+                contextLogger.warn('dispatchErrorHandler unhandled throw', {
+                    error: err instanceof Error ? err : new Error(String(err)),
+                });
+            });
 
             // Notify about critical errors
             if (wrappedError instanceof CustomError && [ErrorSeverity.HIGH, ErrorSeverity.CRITICAL].includes(wrappedError.severity)) {

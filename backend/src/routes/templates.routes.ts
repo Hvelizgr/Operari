@@ -30,60 +30,121 @@ function resolveTemplatesDir(): string {
     return candidates[0]; // first try; runtime fallback handled at read time
 }
 
+const CANDIDATE_DIRS = [
+    path.resolve(__dirname, '../../../templates'),
+    path.resolve(process.cwd(), '../templates'),
+    path.resolve(process.cwd(), 'templates'),
+    '/app/templates',
+];
+
+interface TemplateEntry {
+    file: string;
+    slug: string;
+    name: string;
+    description: string | null;
+    category: string | null;
+    stepCount: number;
+    yaml: string;
+}
+
+async function findTemplatesDir(): Promise<{ dir: string; files: string[] } | null> {
+    for (const candidate of CANDIDATE_DIRS) {
+        try {
+            const list = await readdir(candidate);
+            const files = list.filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'));
+            if (files.length > 0) {
+                return { dir: candidate, files };
+            }
+        } catch {
+            // try the next candidate
+        }
+    }
+    return null;
+}
+
+function parseTemplate(file: string, raw: string): TemplateEntry | null {
+    try {
+        const parsed = yaml.load(raw) as {
+            slug?: string;
+            name?: string;
+            description?: string;
+            category?: string;
+            steps?: unknown[];
+        } | null;
+        if (!parsed || typeof parsed !== 'object') return null;
+        return {
+            file,
+            slug: parsed.slug ?? file.replace(/\.ya?ml$/, ''),
+            name: parsed.name ?? file,
+            description: parsed.description ?? null,
+            category: parsed.category ?? null,
+            stepCount: Array.isArray(parsed.steps) ? parsed.steps.length : 0,
+            yaml: raw,
+        };
+    } catch (err) {
+        logger.warn({ err, file }, 'Failed to parse template');
+        return null;
+    }
+}
+
 router.get('/', async (_req: Request, res: Response) => {
     try {
-        const dirs = [
-            path.resolve(__dirname, '../../../templates'),
-            path.resolve(process.cwd(), '../templates'),
-            path.resolve(process.cwd(), 'templates'),
-            '/app/templates',
-        ];
-
-        let dir: string | null = null;
-        let entries: string[] = [];
-        for (const candidate of dirs) {
-            try {
-                const list = await readdir(candidate);
-                entries = list.filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'));
-                if (entries.length > 0) {
-                    dir = candidate;
-                    break;
-                }
-            } catch {
-                // try the next candidate
-            }
-        }
-
-        if (!dir) {
+        const located = await findTemplatesDir();
+        if (!located) {
             return res.json({ data: [] });
         }
 
         const templates = await Promise.all(
-            entries.map(async (file) => {
+            located.files.map(async (file) => {
                 try {
-                    const raw = await readFile(path.join(dir!, file), 'utf-8');
-                    const parsed = yaml.load(raw) as any;
-                    if (!parsed || typeof parsed !== 'object') return null;
-                    return {
-                        file,
-                        slug: parsed.slug ?? file.replace(/\.ya?ml$/, ''),
-                        name: parsed.name ?? file,
-                        description: parsed.description ?? null,
-                        category: parsed.category ?? null,
-                        stepCount: Array.isArray(parsed.steps) ? parsed.steps.length : 0,
-                        yaml: raw,
-                    };
+                    const raw = await readFile(path.join(located.dir, file), 'utf-8');
+                    return parseTemplate(file, raw);
                 } catch (err) {
-                    logger.warn({ err, file }, 'Failed to parse template');
+                    logger.warn({ err, file }, 'Failed to read template');
                     return null;
                 }
             }),
         );
 
-        res.json({ data: templates.filter((t) => t !== null) });
+        res.json({ data: templates.filter((t): t is TemplateEntry => t !== null) });
     } catch (err) {
         logger.error({ err }, 'Failed to list templates');
         res.status(500).json({ error: 'Failed to list templates' });
+    }
+});
+
+/**
+ * GET /api/templates/:slug
+ *
+ * Single-template fetch for the public detail page at `/templates/:slug`.
+ * Scans the same curated directory, parses only the candidates whose
+ * slug (or filename-derived fallback) matches. 404 when the slug is
+ * unknown so the frontend can render a proper "not found" state.
+ */
+router.get('/:slug', async (req: Request, res: Response) => {
+    try {
+        const slug = req.params.slug;
+        if (typeof slug !== 'string' || slug.length === 0) {
+            return res.status(400).json({ error: 'slug is required' });
+        }
+
+        const located = await findTemplatesDir();
+        if (!located) {
+            return res.status(404).json({ error: 'Template not found' });
+        }
+
+        for (const file of located.files) {
+            const raw = await readFile(path.join(located.dir, file), 'utf-8').catch(() => null);
+            if (!raw) continue;
+            const tpl = parseTemplate(file, raw);
+            if (tpl && tpl.slug === slug) {
+                return res.json({ data: tpl });
+            }
+        }
+        return res.status(404).json({ error: 'Template not found' });
+    } catch (err) {
+        logger.error({ err }, 'Failed to read template');
+        return res.status(500).json({ error: 'Failed to read template' });
     }
 });
 

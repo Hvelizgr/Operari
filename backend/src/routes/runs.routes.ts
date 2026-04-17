@@ -73,6 +73,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
             duration: r.duration,
             error: r.error,
             etaMs: r.status === 'RUNNING' ? etaMap.get(r.workflowId) ?? null : null,
+            dryRun: r.dryRun,
         })),
         nextCursor: hasMore ? page[page.length - 1].id : null,
     });
@@ -137,6 +138,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
         completedAt: run.completedAt,
         duration: run.duration,
         error: run.error,
+        dryRun: run.dryRun,
         steps: run.nodeLogs.map((log) => ({
             id: log.id,
             stepId: log.nodeId,

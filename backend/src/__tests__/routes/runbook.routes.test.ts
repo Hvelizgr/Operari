@@ -7,7 +7,9 @@ jest.mock('../../server', () => ({
     prisma: {
         runbook: {
             findMany: jest.fn(),
-            count: jest.fn(),
+            // Default count to 0 so the quota gate on POST /runbooks
+            // does not trip against a number the test forgot to stub.
+            count: jest.fn().mockResolvedValue(0),
             findFirst: jest.fn(),
             create: jest.fn(),
             update: jest.fn(),
@@ -24,6 +26,13 @@ jest.mock('../../server', () => ({
         execution: {
             findMany: jest.fn().mockResolvedValue([]),
             groupBy: jest.fn().mockResolvedValue([]),
+        },
+        // POST /runbooks quota gate looks up the tenant's plan. Default
+        // to BUSINESS (unlimited) so the existing happy-path tests pass
+        // without being explicitly quota-aware — a dedicated block below
+        // overrides this stub to cover the FREE + at-cap branches.
+        tenant: {
+            findUnique: jest.fn().mockResolvedValue({ plan: 'BUSINESS' }),
         },
     },
 }));

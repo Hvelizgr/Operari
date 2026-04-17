@@ -22,6 +22,22 @@ export class WaitExecutor implements StepExecutor<WaitConfig> {
         const startTime = Date.now();
         const duration = Math.max(0, Math.min(config.durationMs ?? 1000, 600_000));
 
+        // Dry-run: no wall-clock delay. A dry run of a 10-step runbook
+        // with three 30s waits should finish in under a second, not
+        // 90 seconds of staring at a spinner.
+        if (context.dryRun) {
+            context.emit?.({
+                type: 'log',
+                text: `[dry-run] would wait ${duration}ms`,
+                timestamp: new Date(),
+            });
+            return {
+                success: true,
+                output: { dryRun: true, waitedMs: 0, wouldWaitMs: duration },
+                duration: 0,
+            };
+        }
+
         context.emit?.({
             type: 'log',
             text: `Waiting ${duration}ms...`,

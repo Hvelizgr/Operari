@@ -33,6 +33,16 @@ export interface ExecutorContext {
     secrets?: Record<string, string>;
     /** Optional callback to stream output (stdout/stderr/log lines) in real time */
     emit?: (event: ExecutorEvent) => void;
+    /**
+     * Dry-run mode. When true, executors MUST NOT perform any side
+     * effect (no subprocess, no HTTP request, no notification, no
+     * approval pause). They should emit a "would do X" log line and
+     * return `{ success: true, output: { dryRun: true, ... } }`.
+     *
+     * Sub-runs spawned by the `runbook` step inherit this flag, so a
+     * dry-run of a parent runbook dry-runs the whole tree.
+     */
+    dryRun?: boolean;
 }
 
 export interface ExecutorEvent {

@@ -4,6 +4,7 @@ import { ExecutionService } from '../editor/execution/execution.service';
 import { WebhookService } from '../runbook/services/webhook.service';
 import { EventAgentService } from '../agent/services/event-agent.service';
 import { GitHubStatusService } from '../runbook/services/github-status.service';
+import { WebhookReceiptService } from '../runbook/services/webhook-receipt.service';
 import { logger } from '../config/logger.config';
 
 const router = Router();
@@ -32,6 +33,20 @@ function getGitHubStatusService() {
     return _githubStatusService;
 }
 
+let _receiptService: WebhookReceiptService | null = null;
+function getReceiptService() {
+    if (!_receiptService) _receiptService = new WebhookReceiptService(prisma);
+    return _receiptService;
+}
+
+function sourceIpOf(req: Request): string | null {
+    const xff = req.headers['x-forwarded-for'];
+    if (typeof xff === 'string' && xff.length > 0) {
+        return xff.split(',')[0]?.trim() ?? null;
+    }
+    return req.ip ?? null;
+}
+
 /**
  * NanoRun-style webhook receiver.
  *
@@ -51,9 +66,29 @@ function getGitHubStatusService() {
 async function handleWebhook(req: Request, res: Response) {
     const { token, event } = req.params;
     const service = getWebhookService();
+    const receipts = getReceiptService();
+    const headers = req.headers as Record<string, unknown>;
+    const body = req.body ?? {};
+    const sourceIp = sourceIpOf(req);
 
     const webhook = await service.findByToken(String(token));
     if (!webhook || !webhook.isActive) {
+        // Inactive/unknown webhook — still debug-worthy if a tenant
+        // just deactivated one and wonders why the trigger stopped.
+        // We can only record if we actually found it; a truly unknown
+        // token has no webhookId FK to anchor the receipt against.
+        if (webhook) {
+            await receipts.record({
+                webhookId: webhook.id,
+                tenantId: webhook.tenantId,
+                status: 'rejected_inactive',
+                statusCode: 404,
+                reason: 'Webhook inactive',
+                headers,
+                body,
+                sourceIp,
+            });
+        }
         return res.status(404).json({ error: 'Webhook not found' });
     }
 
@@ -79,6 +114,16 @@ async function handleWebhook(req: Request, res: Response) {
         );
 
         if (!valid) {
+            await receipts.record({
+                webhookId: webhook.id,
+                tenantId: webhook.tenantId,
+                status: 'rejected_signature',
+                statusCode: 401,
+                reason: 'HMAC signature mismatch',
+                headers,
+                body,
+                sourceIp,
+            });
             return res.status(401).json({ error: 'Invalid webhook signature' });
         }
     }
@@ -91,13 +136,45 @@ async function handleWebhook(req: Request, res: Response) {
     );
 
     // Trigger the bound runbook
-    const execution = await getExecutionService().execute({
-        workflowId: webhook.workflowId,
-        userId: webhook.workflow.userId,
-        trigger: 'WEBHOOK',
-        input: variables,
-        tenantId: webhook.tenantId,
-    });
+    let execution;
+    try {
+        execution = await getExecutionService().execute({
+            workflowId: webhook.workflowId,
+            userId: webhook.workflow.userId,
+            trigger: 'WEBHOOK',
+            input: variables,
+            tenantId: webhook.tenantId,
+        });
+    } catch (err) {
+        await receipts.record({
+            webhookId: webhook.id,
+            tenantId: webhook.tenantId,
+            status: 'error',
+            statusCode: 500,
+            reason: err instanceof Error ? err.message : 'execution failed',
+            headers,
+            body,
+            sourceIp,
+        });
+        throw err;
+    }
+
+    // Record the accepted receipt now that we know the execution id.
+    // Fire-and-forget — the receipt write must never delay the 202.
+    receipts
+        .record({
+            webhookId: webhook.id,
+            tenantId: webhook.tenantId,
+            status: 'accepted',
+            statusCode: 202,
+            headers,
+            body,
+            sourceIp,
+            executionId: execution.id,
+        })
+        .catch(() => {
+            /* already swallowed inside the service */
+        });
 
     // Update webhook stats async
     service.recordTrigger(webhook.id).catch(() => { /* ignore */ });

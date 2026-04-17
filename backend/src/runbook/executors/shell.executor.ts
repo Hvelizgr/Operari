@@ -54,6 +54,30 @@ export class ShellExecutor implements StepExecutor<ShellConfig> {
         const command = resolveTemplate(config.command, context);
         const failOnNonZero = config.failOnNonZeroExit ?? true;
 
+        // Dry-run: never spawn a runner. Emit a log line so the run
+        // timeline shows exactly what the real execution would send to
+        // the shell, then return a success result shaped like a real
+        // ShellOutput with `dryRun: true` so downstream steps can key
+        // off it if they need to branch.
+        if (context.dryRun) {
+            context.emit?.({
+                type: 'log',
+                text: `[dry-run] would execute: ${command}`,
+                timestamp: new Date(),
+            });
+            return {
+                success: true,
+                output: {
+                    dryRun: true,
+                    command,
+                    stdout: '',
+                    stderr: '',
+                    exitCode: 0,
+                },
+                duration: 0,
+            };
+        }
+
         const spec: RunnerSpec = {
             command,
             shell: config.shell,

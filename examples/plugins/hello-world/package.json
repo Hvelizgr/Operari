@@ -1,0 +1,14 @@
+{
+  "name": "@example/cairn-hello-world",
+  "version": "0.1.0",
+  "description": "Minimal Cairn plugin — shows the defineStep() contract end-to-end",
+  "private": true,
+  "main": "index.js",
+  "cairn": {
+    "steps": ["./index.js"]
+  },
+  "peerDependencies": {
+    "@cairn/sdk": "^0.1.0",
+    "zod": "^3.24.0"
+  }
+}

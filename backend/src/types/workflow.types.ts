@@ -293,6 +293,40 @@ export const workflowConnectionSchema = z.object({
 });
 
 // =============================================================================
+// Runbook input declarations (Rundeck-style job options)
+// =============================================================================
+
+export type RunbookInputType = 'text' | 'number' | 'boolean' | 'select';
+
+export interface RunbookInputDefinition {
+    name: string;
+    type: RunbookInputType;
+    label?: string;
+    description?: string;
+    required?: boolean;
+    default?: string | number | boolean;
+    options?: string[];
+}
+
+export const runbookInputDefinitionSchema = z
+    .object({
+        name: z
+            .string()
+            .min(1)
+            .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, 'name must be a valid identifier'),
+        type: z.enum(['text', 'number', 'boolean', 'select']),
+        label: z.string().optional(),
+        description: z.string().optional(),
+        required: z.boolean().optional(),
+        default: z.union([z.string(), z.number(), z.boolean()]).optional(),
+        options: z.array(z.string()).optional(),
+    })
+    .refine(
+        (v) => v.type !== 'select' || (v.options && v.options.length > 0),
+        { message: 'select inputs require at least one option', path: ['options'] },
+    );
+
+// =============================================================================
 // Workflow Definition (full workflow data)
 // =============================================================================
 
@@ -303,6 +337,7 @@ export interface WorkflowDefinition {
     connections: WorkflowConnection[];
     isActive?: boolean;
     schedule?: string;
+    inputs?: RunbookInputDefinition[];
 }
 
 export const workflowDefinitionSchema = z.object({
@@ -312,6 +347,14 @@ export const workflowDefinitionSchema = z.object({
     connections: z.array(workflowConnectionSchema),
     isActive: z.boolean().optional(),
     schedule: z.string().optional(),
+    /**
+     * Optional id of a runbook to dispatch when this runbook's run
+     * fails. The engine validates (same tenant, not self, not null
+     * chain) at execute time, so we accept any valid UUID here and
+     * let the dispatch-site catch bogus ids.
+     */
+    onErrorRunbookId: z.string().uuid().nullish(),
+    inputs: z.array(runbookInputDefinitionSchema).optional(),
 });
 
 // =============================================================================

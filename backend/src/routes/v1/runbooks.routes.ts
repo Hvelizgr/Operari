@@ -15,6 +15,12 @@ function getExecutionService() {
 
 const triggerSchema = z.object({
     variables: z.record(z.unknown()).optional(),
+    /**
+     * Dry-run: the runbook engine logs every step's intent without
+     * performing any side effect. Opt-in per trigger so clients
+     * cannot accidentally trigger a dry run instead of a real one.
+     */
+    dryRun: z.boolean().optional().default(false),
 });
 
 /**
@@ -53,7 +59,7 @@ router.post(
     async (req: ApiKeyRequest, res: Response) => {
         try {
             const { slug } = req.params;
-            const { variables } = triggerSchema.parse(req.body || {});
+            const { variables, dryRun } = triggerSchema.parse(req.body || {});
             const { tenantId } = req.apiContext!;
 
             // Look up runbook by slug OR id (slug preferred, fallback to UUID)
@@ -81,6 +87,7 @@ router.post(
                 trigger: 'API',
                 input: variables ?? {},
                 tenantId,
+                dryRun,
             });
 
             res.status(202).json({
