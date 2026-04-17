@@ -1102,7 +1102,14 @@ html[data-anim="off"] .wf_pole_button[data-upstream-status="RUNNING"] {
 .wf_event {
     position: relative;
     border-left: 3px solid var(--node-accent, #3ecf8e) !important;
-    overflow: hidden;
+    /* NO overflow:hidden here — the input/output pole buttons are
+       absolutely positioned with `left: calc(0% - 1px)` / `calc(100% +
+       1px)` and their centers sit a few pixels outside the card's
+       border-box. A `hidden` overflow would clip the pole visuals in
+       half, which made the connection cables look like they terminated
+       mid-card instead of on the pole.
+       The elements that DO need clipping (the progress-bar sweep,
+       title-strip gradient) already set their own overflow locally. */
 }
 
 /* Tinted icon square in the title strip — replaces the previous
