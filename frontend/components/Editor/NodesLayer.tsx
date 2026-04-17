@@ -175,6 +175,15 @@ export default function NodesLayer({
                 left: 0,
                 width: '100%',
                 height: '100%',
+                // MUST be higher than .wf_canvas (z-index: 1). The
+                // `transform` below creates a new stacking context, which
+                // isolates the child nodes' own z-index (3, 10 when
+                // selected) so they can't win against the sibling
+                // canvas. Without an explicit z-index here the whole
+                // layer defaults to `auto`, which CSS treats as below
+                // any positioned sibling with an explicit z-index —
+                // result: connection lines paint OVER the node cards.
+                zIndex: 2,
                 transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
                 transformOrigin: '0 0',
             }}

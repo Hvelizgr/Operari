@@ -55,7 +55,13 @@ export default function ConnectionBubblesLayer({
                 stiffness: 300,
                 damping: 30,
             }}
-            style={{ transformOrigin: '0 0' }}
+            // framer-motion animate applies a transform, which creates a
+            // stacking context — same gotcha as NodesLayer. Explicit
+            // z-index pushes the bubbles above the canvas (z:1) while
+            // staying below the nodes layer (also z:2, but rendered
+            // after us in the DOM, so nodes still win within the same
+            // integer via source order).
+            style={{ transformOrigin: '0 0', zIndex: 2 }}
         >
             {connections.map(conn => {
                 const sourceNode = nodes.find(n => n.id === conn.source);
