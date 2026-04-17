@@ -6,7 +6,7 @@ import EditorConnection from '@/components/Editor/EditorConnection';
  * EditorConnection renders FOUR SVG paths under the same <g>:
  *   1. an invisible wide path (stroke="transparent") for click hitbox
  *   2. a glow under-line  (rgba(59,130,246,0.3) when selected)
- *   3. the main coloured line (#3b82f6 when selected)
+ *   3. the main coloured line (#3ecf8e emerald when selected)
  *   4. an end dot (circle, not a path)
  *
  * Animated executing-mode dots are rendered with motion.circle and
@@ -63,12 +63,12 @@ describe('EditorConnection', () => {
         expect(paths[0].getAttribute('stroke-width')).toBe('20');
     });
 
-    it('paints the main line blue when selected', () => {
+    it('paints the main line emerald when selected', () => {
         const { container } = renderInSvg({ isSelected: true });
         const paths = container.querySelectorAll('path');
         // The third path (index 2) is the main coloured line.
-        // Selected colour is #3b82f6 (blue-500).
-        expect(paths[2].getAttribute('stroke')).toBe('#3b82f6');
+        // Selected colour is emerald #3ecf8e (post-Cairn rebrand accent).
+        expect(paths[2].getAttribute('stroke')).toBe('#3ecf8e');
     });
 
     it('fires onClick with the connection id when the group is clicked', () => {
