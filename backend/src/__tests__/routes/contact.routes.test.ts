@@ -17,12 +17,25 @@ import contactRouter from '../../routes/contact.routes';
 
 describe('Contact routes', () => {
     let app: express.Application;
+    const originalResendKey = process.env.RESEND_API_KEY;
 
     beforeEach(() => {
         jest.clearAllMocks();
+        // Default: no provider wired — the route falls back to logging.
+        // Individual tests that exercise the provider path set the env
+        // var explicitly + stub global.fetch.
+        delete process.env.RESEND_API_KEY;
         app = express();
         app.use(express.json());
         app.use('/api/contact', contactRouter);
+    });
+
+    afterAll(() => {
+        if (originalResendKey !== undefined) {
+            process.env.RESEND_API_KEY = originalResendKey;
+        } else {
+            delete process.env.RESEND_API_KEY;
+        }
     });
 
     it('accepts a valid submission with 202 + ok body', async () => {
@@ -99,6 +112,68 @@ describe('Contact routes', () => {
         expect(res.status).toBe(204);
         // Empty body on 204 — supertest exposes it as '' not {}.
         expect(res.body).toEqual({});
+    });
+
+    describe('with RESEND_API_KEY set', () => {
+        let fetchSpy: jest.SpyInstance;
+        let fetchMock: jest.Mock;
+
+        beforeEach(() => {
+            process.env.RESEND_API_KEY = 'test-resend-key';
+            fetchMock = jest.fn();
+            // Preserve original fetch so other test files using it in
+            // this Jest run don't see the stub.
+            fetchSpy = jest
+                .spyOn(global, 'fetch' as any)
+                .mockImplementation((...args: unknown[]) => fetchMock(...args));
+        });
+
+        afterEach(() => {
+            fetchSpy.mockRestore();
+        });
+
+        it('posts to the Resend API when the key is set', async () => {
+            fetchMock.mockResolvedValue(
+                new Response(JSON.stringify({ id: 'em_abc123' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                }),
+            );
+
+            const res = await request(app)
+                .post('/api/contact')
+                .send({
+                    name: 'Jane',
+                    email: 'jane@acme.dev',
+                    company: 'Acme',
+                    message: 'Interested in Business tier.',
+                });
+
+            expect(res.status).toBe(202);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            const [url, init] = fetchMock.mock.calls[0];
+            expect(url).toBe('https://api.resend.com/emails');
+            expect(init.method).toBe('POST');
+            expect(init.headers.Authorization).toBe('Bearer test-resend-key');
+            const body = JSON.parse(init.body);
+            expect(body.reply_to).toBe('jane@acme.dev');
+            expect(body.subject).toContain('Jane');
+            expect(body.subject).toContain('Acme');
+            expect(body.text).toContain('Interested in Business tier.');
+        });
+
+        it('still acks 202 even when Resend returns 5xx (delivery is our problem, not theirs)', async () => {
+            fetchMock.mockResolvedValue(
+                new Response('upstream overloaded', { status: 503 }),
+            );
+
+            const res = await request(app)
+                .post('/api/contact')
+                .send({ name: 'Jane', email: 'jane@acme.dev', message: 'Hi' });
+
+            expect(res.status).toBe(202);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
     });
 
     it('rejects a message over 5000 chars (schema cap)', async () => {

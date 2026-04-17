@@ -7,16 +7,22 @@ const router = Router();
 /**
  * Marketing contact form receiver.
  *
- * Pre-launch there is no CRM + no email provider wired, so this route
- * logs the submission to the structured logger so it lands in the
- * ops inbox (via log aggregation) and returns a friendly ack. When a
- * provider (Postmark, Resend, or a Linear issue creator) ships, swap
- * the body of the handler for the real send. The public contract stays
- * the same, so the frontend does not need to change.
+ * Two paths:
+ *   1) Cloud / staging: RESEND_API_KEY is set, so we forward the
+ *      submission to the Resend HTTP API. CONTACT_TO_EMAIL picks the
+ *      inbox. The call is fire-and-forget: a 5s fetch timeout so a
+ *      slow upstream never blocks the ack.
+ *   2) Self-host / pre-provider: no RESEND_API_KEY, so we just log
+ *      the submission with structured pino fields. The ops team picks
+ *      it up through log aggregation.
  *
- * Rate-limited by the same `standardRateLimiter` the rest of /api uses,
- * plus a hard per-submission schema check so bots that POST raw JSON
- * without the required fields get a 400 cheap.
+ * Either way the caller gets 202 + ok. Schema validation is the cheap
+ * gate; a zod failure returns 400 with per-field issues. The honeypot
+ * field is accepted silently and returns 204 so naive bots think they
+ * won.
+ *
+ * Swap to Postmark or SES by replacing `sendViaResend` — the contract
+ * (args + return) stays stable so callers and tests don't change.
  */
 const ContactPayload = z.object({
     name: z.string().trim().min(1, 'name is required').max(120),
@@ -30,7 +36,74 @@ const ContactPayload = z.object({
     website: z.string().max(500).optional().default(''),
 });
 
-router.post('/', (req: Request, res: Response) => {
+type ContactSubmission = {
+    name: string;
+    email: string;
+    company: string;
+    message: string;
+};
+
+/**
+ * Send via Resend. Isolated in its own function so `contact.routes`
+ * can be switched to Postmark/SES without touching the handler flow.
+ *
+ * The route handler awaits this with a short timeout. Errors are
+ * logged and swallowed: the visitor still gets 202, because "email
+ * to us failed" is our reliability problem, not theirs. The log line
+ * has everything we need to recover the message out-of-band.
+ */
+async function sendViaResend(
+    submission: ContactSubmission,
+    apiKey: string,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+    const to = process.env.CONTACT_TO_EMAIL || 'hello@nanorun.dev';
+    const from = process.env.CONTACT_FROM_EMAIL || 'contact@nanorun.dev';
+
+    const subject = `[contact] ${submission.name}${submission.company ? ` · ${submission.company}` : ''}`;
+    const text = [
+        `From: ${submission.name} <${submission.email}>`,
+        submission.company ? `Company: ${submission.company}` : null,
+        '',
+        submission.message,
+    ]
+        .filter((l) => l !== null)
+        .join('\n');
+
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                from,
+                to: [to],
+                reply_to: submission.email,
+                subject,
+                text,
+            }),
+            signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (!res.ok) {
+            const body = await res.text().catch(() => '');
+            return { ok: false, error: `resend_${res.status}: ${body.slice(0, 200)}` };
+        }
+        const json = (await res.json().catch(() => ({}))) as { id?: string };
+        return { ok: true, id: json.id ?? '' };
+    } catch (err) {
+        return {
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+        };
+    }
+}
+
+router.post('/', async (req: Request, res: Response) => {
     const parsed = ContactPayload.safeParse(req.body);
     if (!parsed.success) {
         return res.status(400).json({
@@ -46,10 +119,28 @@ router.post('/', (req: Request, res: Response) => {
         return res.status(204).end();
     }
 
-    logger.info(
-        { name, email, company: company || null, messageLength: message.length },
-        'contact.submission',
-    );
+    const submission: ContactSubmission = { name, email, company, message };
+
+    const apiKey = process.env.RESEND_API_KEY;
+    if (apiKey) {
+        const result = await sendViaResend(submission, apiKey);
+        if (result.ok) {
+            logger.info(
+                { email, company: company || null, provider: 'resend', providerId: result.id },
+                'contact.submission.delivered',
+            );
+        } else {
+            logger.error(
+                { email, company: company || null, provider: 'resend', error: result.error },
+                'contact.submission.delivery_failed',
+            );
+        }
+    } else {
+        logger.info(
+            { name, email, company: company || null, messageLength: message.length },
+            'contact.submission',
+        );
+    }
 
     return res.status(202).json({
         ok: true,
