@@ -15,6 +15,7 @@ import { useEditorNodes } from '../hooks/useEditorNodes';
 import { useEditorSelection } from '../hooks/useEditorSelection';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { createNewNode, createDroppedNode, generateExecutionMetrics } from '../components/Editor/EditorCanvas.utils';
+import { getAutoLayout } from '../utils/layoutUtils';
 
 // Editor-specific types
 import type {
@@ -737,7 +738,19 @@ export function useEditorCanvas({ lang, workflowId, runbookHeader }: UseEditorCa
     }, [setNodes, setConnections, setSelectedNodes, setSelectedConnection]);
 
     const handleSelectTemplate = useCallback((templateNodes: WorkflowNode[], templateConnections: Connection[]) => {
-        setNodes(templateNodes);
+        // Templates from templates/*.yaml don't ship `position:` data
+        // in their YAML (we stayed out of layout so the file stays
+        // hand-editable). specToNodes defaults to x = index*200, y = 0
+        // — which stacks every step on a single horizontal row and,
+        // because job cards are 275 wide but the spacing is 200,
+        // overlaps each card by 75 pixels. The user sees a tangled
+        // pile of cards with cables routing through them.
+        //
+        // Run the dagre auto-layout so the DAG lays out cleanly
+        // before it lands on the canvas. Keep the user's existing
+        // fit-view/reset-zoom flow intact so they can frame it.
+        const laidOut = getAutoLayout(templateNodes, templateConnections);
+        setNodes(laidOut.nodes);
         setConnections(templateConnections);
         setSelectedNodes(new Set());
         setSelectedConnection(null);
