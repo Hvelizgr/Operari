@@ -112,18 +112,51 @@ export function useEditorConnections({
                     : null
             );
 
-            // Check for hovered input nodes
+            // Target detection: the pole buttons are tiny (24px circles
+            // clipped by the edge of the card), so requiring the cursor
+            // to land near the exact pole coordinate made connecting to
+            // entity-shape nodes (trigger/limit/action, 64x64) or to
+            // small/busy cards feel flaky. Instead: snap to any node
+            // whose entire bounding box contains the cursor, OR whose
+            // input-pole anchor is within SNAP_RADIUS (fallback for
+            // dropping slightly beyond the node edge).
+            const cursorLogical = {
+                x: (clientX - rect.left - viewport.x) / viewport.zoom,
+                y: (clientY - rect.top - viewport.y) / viewport.zoom,
+            };
+            const snapRadius = EDITOR_CONFIG.GRID.SNAP_RADIUS / viewport.zoom;
+
             let foundHover = false;
             for (const node of nodes) {
                 if (node.id === creatingConnection.sourceNodeId) continue;
-                const inputPort = getNodeInputPort(node);
-                const dx = inputPort.x - ((clientX - rect.left - viewport.x) / viewport.zoom);
-                const dy = inputPort.y - ((clientY - rect.top - viewport.y) / viewport.zoom);
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                // Scale snap radius by zoom so the hit area feels the
-                // same at any zoom level. Without this, zooming out makes
-                // the radius too large and zooming in makes it too small.
-                if (distance < EDITOR_CONFIG.GRID.SNAP_RADIUS / viewport.zoom) {
+                // Frames and notes are not connection targets.
+                if (node.type === 'custom.frame' || node.type === 'custom.note') continue;
+
+                // Read the rendered node size. Entity-shape nodes
+                // (trigger/action/controller/limit) are 64 (or 128 for
+                // controllers) square; job cards are ~275 wide x
+                // dimensions.height. Inflate the hit box by the snap
+                // radius so dropping a hair past the edge still snaps.
+                type WithDims = { dimensions?: { width?: number; height?: number }; type?: string };
+                const nType = (node.type || '').toLowerCase();
+                const isController = nType.includes('controller') || nType === 'condition' || nType === 'switch' || nType === 'nanorun.switch' || nType === 'if' || nType === 'nanorun.if';
+                const isEntity = nType.includes('trigger') || nType === 'start' ||
+                    nType.includes('action') || nType.includes('email') || nType.includes('slack') || nType.includes('discord') ||
+                    nType.includes('limit') || nType === 'loop' || nType === 'iterator' || nType === 'nanorun.loop';
+
+                const dims = (node as WithDims).dimensions;
+                const nodeW = isController ? 128 : isEntity ? 64 : (dims?.width ?? 275);
+                const nodeH = isController || isEntity ? 64 : (dims?.height ?? 120);
+
+                const left = node.position.x - snapRadius;
+                const right = node.position.x + nodeW + snapRadius;
+                const top = node.position.y - snapRadius;
+                const bottom = node.position.y + nodeH + snapRadius;
+
+                if (
+                    cursorLogical.x >= left && cursorLogical.x <= right &&
+                    cursorLogical.y >= top && cursorLogical.y <= bottom
+                ) {
                     setHoveredInputNode(node.id);
                     foundHover = true;
                     break;
