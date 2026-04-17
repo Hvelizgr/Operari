@@ -88,3 +88,4 @@ backend/prisma/*.db-journal
 
 # Internal documentation (local only)
 /doc/
+/PENDIENTE.md
