@@ -47,8 +47,8 @@ export default function EditorConnection({
 
     const getStrokeColor = () => {
         if (isCyclic) return "#ef4444";
-        if (isSelected) return "#3b82f6";
-        return isExecuting ? "#60a5fa" : "#475569"; // Blue when executing, Slate-600 otherwise
+        if (isSelected) return "#3ecf8e";
+        return isExecuting ? "#3ecf8e" : "#475569"; // Emerald when executing, slate-600 otherwise
     };
 
     return (
@@ -66,7 +66,7 @@ export default function EditorConnection({
             <motion.path
                 d={path}
                 fill="none"
-                stroke={isSelected ? "rgba(59, 130, 246, 0.3)" : "rgba(71, 85, 105, 0.2)"}
+                stroke={isSelected ? "rgba(62, 207, 142, 0.3)" : "rgba(71, 85, 105, 0.2)"}
                 strokeWidth="6"
                 strokeLinecap="round"
                 className="transition-colors duration-300"
@@ -92,7 +92,7 @@ export default function EditorConnection({
                 cx={targetPos.x}
                 cy={targetPos.y}
                 r="4"
-                fill={isSelected ? "#3b82f6" : "#475569"}
+                fill={isSelected ? "#3ecf8e" : "#475569"}
                 className="group-hover:fill-primary/70 transition-colors duration-300"
             />
 
@@ -111,14 +111,14 @@ export default function EditorConnection({
                         }}
                         style={{
                             offsetPath: `path('${path}')`,
-                            filter: 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.8))'
+                            filter: 'drop-shadow(0 0 4px rgba(62, 207, 142, 0.8))'
                         }}
                     />
 
                     {/* Trailing tail */}
                     <motion.circle
                         r="2"
-                        fill="#60a5fa"
+                        fill="#3ecf8e"
                         initial={{ offsetDistance: '0%', opacity: 0 }}
                         animate={{ offsetDistance: '100%', opacity: [0, 1, 0] }}
                         transition={{

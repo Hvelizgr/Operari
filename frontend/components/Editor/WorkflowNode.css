@@ -1,6 +1,10 @@
-/* CSS variables copied from xyOps base.css */
+/* CSS variables seeded from xyOps base.css but aligned to the
+   Supabase-inspired palette (--primary stays emerald #3ecf8e to match
+   the brand). The `--blue` token is preserved as a semantic "info"
+   color for any legacy class that still references it; new code should
+   use --primary or the app-level tokens. */
 :root {
-    --blue: rgb(0, 123, 255);
+    --blue: rgb(56, 189, 248);
     --indigo: rgb(102, 16, 242);
     --purple: rgb(140, 60, 220);
     --pink: rgb(232, 62, 140);
@@ -11,7 +15,7 @@
     --teal: rgb(32, 201, 151);
     --cyan: rgb(23, 162, 184);
     --gray: rgb(138, 147, 155);
-    --primary: rgb(0, 123, 255);
+    --primary: rgb(62, 207, 142);
     --secondary: rgb(108, 117, 125);
     --success: rgb(40, 167, 69);
     --info: rgb(23, 162, 184);

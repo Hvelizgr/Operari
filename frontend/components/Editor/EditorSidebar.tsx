@@ -213,7 +213,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                     style={{
                         '--sidebar-background-color': '#2a2f3a',
                         '--sidebar-text-color': '#ccc',
-                        '--sidebar-active-background': '#3b82f6',
+                        '--sidebar-active-background': '#3ecf8e',
                         '--sidebar-active-text': '#fff',
                     } as any}
                 >

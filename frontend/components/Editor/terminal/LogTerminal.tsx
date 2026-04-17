@@ -25,7 +25,7 @@ export default function LogTerminal({ logs = [], isActive = false }: LogTerminal
             theme: {
                 background: '#0f172a', // slate-900
                 foreground: '#cbd5e1', // slate-300
-                cursor: '#3b82f6',     // blue-500
+                cursor: '#3ecf8e',     // supabase emerald
             },
             fontSize: 12,
             fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
