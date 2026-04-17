@@ -2,7 +2,8 @@
 import { useEffect, useCallback, useRef } from 'react';
 import type { WorkflowNode, Connection } from '@cairn/shared';
 import type { ViewportState } from '../types/editor.types';
-import { getNodePortInfo, PortDirection } from '../utils/nodePortUtils';
+import { PortDirection } from '../utils/nodePortUtils';
+import { resolvePortAnchor } from '../utils/portAnchor';
 
 const getControlPoint = (pos: { x: number, y: number }, direction: PortDirection, distance: number) => {
     switch (direction) {
@@ -242,60 +243,18 @@ export function useCanvasRenderer({
         const portDebug = typeof window !== 'undefined' &&
             new URLSearchParams(window.location.search).get('debug') === 'ports';
 
-        // Helper: read the ACTUAL pole DOM element's screen rect and
-        // convert its center back to logical canvas coords. The canvas
-        // and the NodesLayer already share the same wf_container
-        // parent, so we measure both relative to the same ancestor and
-        // the delta is viewport-free.
-        //
-        // This is the robust anchor: whatever the CSS ends up placing
-        // the pole at (accounting for margins, borders, transforms the
-        // spec didn't model) the cable lands exactly there. Falls back
-        // to the math-based getNodePortInfo when the DOM element isn't
-        // present yet (first paint before layout effect fires, or
-        // nano-mode cards with collapsed poles).
-        const canvasRect = canvas.getBoundingClientRect();
-        const resolvePortAnchor = (
-            node: typeof _nodes[number],
-            portType: 'input' | 'output',
-            portIndex: number,
-        ) => {
-            // Math-based anchor is always computed — it gives us the
-            // direction (left/right/top/bottom) the bezier needs for
-            // control-point placement. We then overwrite x/y if we can
-            // measure the real DOM element below.
-            const math = getNodePortInfo(node, portType, portIndex);
-
-            const container = document.getElementById(`d_wfn_${node.id}`);
-            if (!container) return math;
-
-            const portClass = portType === 'input' ? 'wf_input_pole' : 'wf_output_pole';
-            const altClass = portType === 'input' ? 'wf_up_pole' : 'wf_down_pole';
-            const poles = container.querySelectorAll<HTMLElement>(
-                `.${portClass}, .${altClass}`,
-            );
-            const poleEl = poles[portIndex] ?? poles[0];
-            if (!poleEl) return math;
-
-            const poleRect = poleEl.getBoundingClientRect();
-            if (poleRect.width === 0 || poleRect.height === 0) return math;
-
-            const cxScreen = poleRect.left + poleRect.width / 2 - canvasRect.left;
-            const cyScreen = poleRect.top + poleRect.height / 2 - canvasRect.top;
-            return {
-                x: (cxScreen - _viewport.x) / _viewport.zoom,
-                y: (cyScreen - _viewport.y) / _viewport.zoom,
-                direction: math.direction,
-            };
-        };
+        // Anchor bezier endpoints to the real pole DOM, not the math.
+        // Shared helper so the connection bubble layer agrees on the
+        // exact same coordinate.
+        const anchorCtx = { canvasEl: canvas, viewport: _viewport };
 
         _connections.forEach(conn => {
             const sourceNode = _nodes.find(n => n.id === conn.source);
             const targetNode = _nodes.find(n => n.id === conn.target);
             if (!sourceNode || !targetNode) return;
 
-            const startInfo = resolvePortAnchor(sourceNode, 'output', conn.sourcePort || 0);
-            const endInfo = resolvePortAnchor(targetNode, 'input', conn.targetPort || 0);
+            const startInfo = resolvePortAnchor(sourceNode, 'output', conn.sourcePort || 0, anchorCtx);
+            const endInfo = resolvePortAnchor(targetNode, 'input', conn.targetPort || 0, anchorCtx);
 
             const sourceStatus = _nodeStatuses[conn.source];
             let flow: number | undefined = undefined;

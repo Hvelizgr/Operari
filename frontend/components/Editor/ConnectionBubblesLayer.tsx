@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import type { WorkflowNode, Connection } from '@cairn/shared';
 import type { ViewportState } from '../../types/editor.types';
 import * as Icons from 'lucide-react';
-import { getNodePortInfo } from '../../utils/nodePortUtils';
+import { resolvePortAnchor } from '../../utils/portAnchor';
 
 interface ConnectionBubblesLayerProps {
     connections: Connection[];
@@ -63,17 +63,24 @@ export default function ConnectionBubblesLayer({
             // integer via source order).
             style={{ transformOrigin: '0 0', zIndex: 2 }}
         >
-            {connections.map(conn => {
-                const sourceNode = nodes.find(n => n.id === conn.source);
-                const targetNode = nodes.find(n => n.id === conn.target);
-                if (!sourceNode || !targetNode) return null;
-
-                // Use the shared port resolver so bubbles land on the exact
-                // same anchor the canvas bezier does — no drift when a
-                // node has multiple output ports.
-                const start = getNodePortInfo(sourceNode, 'output', conn.sourcePort ?? 0);
-                const end = getNodePortInfo(targetNode, 'input', conn.targetPort ?? 0);
-                const mid = getBezierMidpoint(start, end);
+            {(() => {
+                // Resolve the canvas element so the port anchor helper
+                // maps screen→logical against the SAME origin the bezier
+                // renderer uses. Without this, bubbles sat at math-
+                // computed midpoints while lines (post-DOM-anchor fix)
+                // ended at the live pole — users saw bubbles drifting
+                // off the visible cable.
+                const canvasEl = typeof document !== 'undefined'
+                    ? (document.querySelector('.wf_canvas') as HTMLElement | null)
+                    : null;
+                const ctx = { canvasEl, viewport };
+                return connections.map(conn => {
+                    const sourceNode = nodes.find(n => n.id === conn.source);
+                    const targetNode = nodes.find(n => n.id === conn.target);
+                    if (!sourceNode || !targetNode) return null;
+                    const start = resolvePortAnchor(sourceNode, 'output', conn.sourcePort ?? 0, ctx);
+                    const end = resolvePortAnchor(targetNode, 'input', conn.targetPort ?? 0, ctx);
+                    const mid = getBezierMidpoint(start, end);
 
                 // Determine bubble style based on connection data or default
                 // xyOps uses CSS classes: wf_condition start, complete, success, error, etc.
@@ -110,7 +117,8 @@ export default function ConnectionBubblesLayer({
                         <Icon size={14} strokeWidth={3} />
                     </div>
                 );
-            })}
+                });
+            })()}
         </motion.div>
     );
 }
