@@ -1,0 +1,210 @@
+name: nanorun-prod
+
+# Production-shaped compose stack for a single-host deployment.
+#
+# Differences vs the dev `docker-compose.yml`:
+#   - No published postgres/redis ports. Both sit on the internal
+#     network; outside traffic only hits Caddy on 80/443.
+#   - Caddy is the TLS terminator — automatic Let's Encrypt via
+#     DNS-01 or HTTP-01 (default: HTTP-01). Edit `caddy/Caddyfile`.
+#   - NO inline env fallbacks. Every secret MUST come from `.env`
+#     or the orchestrator; missing values crash boot loud and early
+#     rather than quietly running with `replace-me-...` in prod.
+#   - Healthchecks are tighter (start_period shorter, no
+#     `:-dev-default` shims).
+#   - NANORUN_ANONYMOUS_MODE defaults to FALSE here so authentication
+#     is always on.
+#
+# Required before `docker compose -f docker-compose.prod.yml up -d`:
+#   1. `cp .env.example .env` and fill every variable marked "required".
+#   2. Point `PUBLIC_DOMAIN` env var at your real DNS A-record target.
+#   3. Edit `caddy/Caddyfile` with your domain.
+#   4. Run `docker compose -f docker-compose.prod.yml up -d`.
+#
+# First boot: Caddy will request a certificate from Let's Encrypt.
+# DNS must resolve to the host and ports 80+443 must be open BEFORE
+# the stack starts, otherwise the ACME challenge fails and Caddy
+# serves over HTTP until the next retry.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nanorun-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:-nanorun}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-nanorun}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Not published — the backend reaches it over the compose network.
+
+  redis:
+    image: redis:7-alpine
+    container_name: nanorun-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Not published.
+
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: nanorun-migrate
+    user: "0:0"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nanorun}?schema=public
+      HOME: /tmp
+    command: >
+      sh -c "
+        node /app/node_modules/.bin/prisma db push --skip-generate --accept-data-loss &&
+        node prisma/seed-nodes.js
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: nanorun-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nanorun}?schema=public
+      REDIS_URL: redis://redis:6379
+      FRONTEND_URL: https://${PUBLIC_DOMAIN:?required}
+      # Required — boot crashes loud if unset.
+      JWT_SECRET: ${JWT_SECRET:?required}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?required}
+      COOKIE_SECURE: "true"
+      # Auth is REQUIRED in prod. Flip only for single-tenant self-host.
+      NANORUN_ANONYMOUS_MODE: "false"
+      # Optional AI provider — without this the AI assist drawer 500s.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_MODEL_PROVIDER: ${AI_MODEL_PROVIDER:-anthropic}
+      AI_MODEL_NAME: ${AI_MODEL_NAME:-claude-sonnet-4-6}
+      # Runner backend. `local` requires the backend container to run
+      # as privileged + allow the shell step — acceptable for small
+      # trusted teams. For multi-tenant cloud flip to `docker` or
+      # `fly` (requires FLY_API_TOKEN).
+      NANORUN_RUNNER: ${NANORUN_RUNNER:-local}
+      FLY_API_TOKEN: ${FLY_API_TOKEN:-}
+      # ADR 0003 durable engine.
+      NANORUN_DURABLE_ENGINE: ${NANORUN_DURABLE_ENGINE:-true}
+      NANORUN_RESUME_WORKER_ACT: ${NANORUN_RESUME_WORKER_ACT:-true}
+      # Observability
+      ENABLE_TRACING: ${ENABLE_TRACING:-false}
+      OTEL_SERVICE_NAME: nanorun-backend
+      JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-}
+      # Transactional email (password reset, team invites, verification).
+      # Missing → log-only (not production-grade).
+      RESEND_API_KEY: ${RESEND_API_KEY:?required}
+      CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL:?required}
+      CONTACT_FROM_EMAIL: ${CONTACT_FROM_EMAIL:?required}
+      # OAuth social login. Unset = feature off.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      OAUTH_REDIRECT_BASE_URL: https://${PUBLIC_DOMAIN}
+      # Stripe billing. Unset = checkout + portal + webhook all 501.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_TEAM_MONTHLY: ${STRIPE_PRICE_TEAM_MONTHLY:-}
+      STRIPE_PRICE_TEAM_YEARLY: ${STRIPE_PRICE_TEAM_YEARLY:-}
+      STRIPE_PRICE_BUSINESS_MONTHLY: ${STRIPE_PRICE_BUSINESS_MONTHLY:-}
+      STRIPE_PRICE_BUSINESS_YEARLY: ${STRIPE_PRICE_BUSINESS_YEARLY:-}
+      NANORUN_BILLING_PROVIDER: ${NANORUN_BILLING_PROVIDER:-stripe}
+      # Plan quotas (env-tunable per tier).
+      NANORUN_QUOTA_FREE_RUNBOOKS: ${NANORUN_QUOTA_FREE_RUNBOOKS:-3}
+      NANORUN_QUOTA_FREE_RUNS: ${NANORUN_QUOTA_FREE_RUNS:-100}
+      # HIBP breach check (fail-open if unreachable).
+      NANORUN_PASSWORD_BREACH_CHECK: ${NANORUN_PASSWORD_BREACH_CHECK:-true}
+      # Custom plugin directory. Mount a volume at /app/plugins to use.
+      NANORUN_PLUGINS_DIR: ${NANORUN_PLUGINS_DIR:-}
+    volumes:
+      # Optional: mount local plugin packages at /app/plugins and set
+      # NANORUN_PLUGINS_DIR=/app/plugins in your .env. Commented out
+      # by default because most deployments don't ship custom plugins.
+      # - ./plugins:/app/plugins:ro
+      - /dev/null:/dev/null
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        API_URL: http://backend:4000
+    container_name: nanorun-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://${PUBLIC_DOMAIN}
+      NEXT_PUBLIC_SITE_URL: https://${PUBLIC_DOMAIN}
+      API_URL: http://backend:4000
+      NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE: "false"
+      # Social login buttons show only when flipped on AND backend has creds.
+      NEXT_PUBLIC_OAUTH_GOOGLE: ${NEXT_PUBLIC_OAUTH_GOOGLE:-false}
+      NEXT_PUBLIC_OAUTH_GITHUB: ${NEXT_PUBLIC_OAUTH_GITHUB:-false}
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: nanorun-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?required}
+      CADDY_EMAIL: ${CADDY_EMAIL:?required}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  caddy-data:
+    driver: local
+  caddy-config:
+    driver: local

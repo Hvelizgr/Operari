@@ -150,6 +150,22 @@ services:
       # JWT/WorkOS provider. Override to "false" for any multi-tenant
       # or networked deployment.
       NANORUN_ANONYMOUS_MODE: ${NANORUN_ANONYMOUS_MODE:-true}
+      # Social login. Both providers are fully optional. When the
+      # *_CLIENT_ID / *_CLIENT_SECRET pair is missing the
+      # /api/auth/{provider} route returns 501 and the frontend hides
+      # the corresponding "Continue with …" button (see frontend env
+      # NEXT_PUBLIC_OAUTH_GOOGLE / NEXT_PUBLIC_OAUTH_GITHUB). Create
+      # apps at:
+      #   Google: https://console.cloud.google.com/apis/credentials
+      #   GitHub: https://github.com/settings/developers
+      # Redirect URIs must exactly match:
+      #   {OAUTH_REDIRECT_BASE_URL or FRONTEND_URL}/api/auth/google/callback
+      #   {OAUTH_REDIRECT_BASE_URL or FRONTEND_URL}/api/auth/github/callback
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:-}
     ports:
       - "4000:4000"
     depends_on:
@@ -185,6 +201,12 @@ services:
       # this, /api/node-types (and every other rewritten path) returns
       # 500 from the Next server because the proxy target is unreachable.
       API_URL: http://backend:4000
+      # Public-safe flags that toggle the social-login buttons at
+      # build time. Set to "true" only after the matching backend
+      # GOOGLE_CLIENT_ID / GITHUB_CLIENT_ID is configured — otherwise
+      # the button will render but the server returns 501.
+      NEXT_PUBLIC_OAUTH_GOOGLE: ${NEXT_PUBLIC_OAUTH_GOOGLE:-false}
+      NEXT_PUBLIC_OAUTH_GITHUB: ${NEXT_PUBLIC_OAUTH_GITHUB:-false}
     ports:
       - "3000:3000"
     depends_on:

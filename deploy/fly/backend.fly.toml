@@ -1,0 +1,70 @@
+# Fly.io app spec for the Cairn/NanoRun backend.
+#
+# Create a Fly app first:
+#   fly apps create cairn-backend --org personal
+#   fly postgres create --name cairn-postgres --region iad
+#   fly redis create --name cairn-redis --region iad
+#
+# Then attach Postgres + Redis:
+#   fly postgres attach cairn-postgres --app cairn-backend
+#   fly redis attach cairn-redis --app cairn-backend
+#
+# Set the required secrets:
+#   fly secrets set --app cairn-backend \
+#     JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(48).toString('hex'))") \
+#     ENCRYPTION_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))") \
+#     RESEND_API_KEY=re_... \
+#     CONTACT_TO_EMAIL=hello@yourdomain.dev \
+#     CONTACT_FROM_EMAIL=noreply@yourdomain.dev \
+#     STRIPE_SECRET_KEY=sk_live_... \
+#     STRIPE_WEBHOOK_SECRET=whsec_... \
+#     STRIPE_PRICE_TEAM_MONTHLY=price_... \
+#     STRIPE_PRICE_TEAM_YEARLY=price_... \
+#     STRIPE_PRICE_BUSINESS_MONTHLY=price_... \
+#     STRIPE_PRICE_BUSINESS_YEARLY=price_... \
+#     GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... \
+#     GITHUB_CLIENT_ID=... GITHUB_CLIENT_SECRET=...
+#
+# Deploy:
+#   fly deploy --config deploy/fly/backend.fly.toml --dockerfile backend/Dockerfile
+
+app = "cairn-backend"
+primary_region = "iad"
+
+[build]
+  dockerfile = "backend/Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "4000"
+  FRONTEND_URL = "https://cairn-frontend.fly.dev"
+  # Replace with the domain you actually CNAME to the frontend app.
+  # FRONTEND_URL = "https://app.yourdomain.dev"
+  NANORUN_ANONYMOUS_MODE = "false"
+  COOKIE_SECURE = "true"
+  # Fly terminates TLS at the edge and forwards X-Forwarded-Proto,
+  # so the backend's protocol detection does the right thing.
+  NANORUN_RUNNER = "fly"
+  NANORUN_DURABLE_ENGINE = "true"
+  NANORUN_BILLING_PROVIDER = "stripe"
+  OAUTH_REDIRECT_BASE_URL = "https://cairn-backend.fly.dev"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "get"
+    path = "/health"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

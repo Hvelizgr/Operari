@@ -1,0 +1,48 @@
+# Caddy reverse proxy config for NanoRun production.
+#
+# Routes:
+#   /api/*       → backend:4000 (backend serves /api/v1, /api/auth, /api/billing, etc.)
+#   /webhook/*   → backend:4000 (runbook trigger webhooks keep their own path)
+#   /*           → frontend:3000 (Next.js SSR + static)
+#
+# TLS: automatic via Let's Encrypt using the email + domain resolved
+# from docker-compose's environment. No action needed past opening
+# ports 80/443 and pointing DNS at this host.
+#
+# Security headers: strict transport + click-jack protection. Adjust
+# Content-Security-Policy if you embed Cairn in another app.
+
+{
+    email {env.CADDY_EMAIL}
+}
+
+{env.PUBLIC_DOMAIN} {
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # API and webhook routes proxy to the backend.
+    @api path /api/* /webhook/* /runbook.schema.json
+    handle @api {
+        # Stripe webhooks need the raw body to verify signatures.
+        # Caddy's reverse_proxy forwards it intact by default.
+        reverse_proxy backend:4000 {
+            header_up X-Forwarded-Proto https
+            header_up X-Forwarded-Host {host}
+        }
+    }
+
+    # Everything else is the Next.js frontend.
+    handle {
+        reverse_proxy frontend:3000 {
+            header_up X-Forwarded-Proto https
+            header_up X-Forwarded-Host {host}
+        }
+    }
+}
