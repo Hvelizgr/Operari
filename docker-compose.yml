@@ -139,6 +139,12 @@ services:
       ENABLE_TRACING: "false"
       OTEL_SERVICE_NAME: nanorun-backend
       JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+      # Marketing contact form → email. When RESEND_API_KEY is unset
+      # the route logs submissions to pino instead of sending; both
+      # paths return 202 to the visitor.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL:-hello@nanorun.dev}
+      CONTACT_FROM_EMAIL: ${CONTACT_FROM_EMAIL:-contact@nanorun.dev}
     ports:
       - "4000:4000"
     depends_on:
