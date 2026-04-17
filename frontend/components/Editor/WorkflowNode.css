@@ -254,13 +254,16 @@ See the LICENSE.md file in this repository. */
 .wf_input_pole {
     left: calc(0% - 1px);
     top: 50%;
-    background: var(--cairn-moss, #3ecf8e);
+    /* Poles follow the user-selected accent from VisualizationContext.
+       --accent-override is set by applyToDocument; falls back to
+       cairn-moss (emerald) when missing. */
+    background: var(--accent-override, var(--cairn-moss, #3ecf8e));
 }
 
 .wf_output_pole {
     left: calc(100% + 1px);
     top: 50%;
-    background: var(--cairn-moss, #3ecf8e);
+    background: var(--accent-override, var(--cairn-moss, #3ecf8e));
 }
 
 .wf_down_pole {
@@ -770,7 +773,7 @@ body.dark .wf_condition {
     background-size: 30px 30px;
     background-position: 0 0;
 
-    animation: wf_active_kf 1s linear infinite;
+    animation: wf_active_kf calc(1s * var(--anim-duration-mult, 1)) linear infinite;
 }
 
 @keyframes wf_active_kf {
@@ -783,7 +786,7 @@ body.dark .wf_condition {
 .wf_entity.wf_completed>div {
     border: 2px solid var(--active-color) !important;
 
-    animation: wf_flash_kf 1s ease-in-out;
+    animation: wf_flash_kf calc(1s * var(--anim-duration-mult, 1)) ease-in-out;
     animation-fill-mode: forwards;
 }
 
@@ -792,7 +795,7 @@ body.dark .wf_condition {
     --active-color: var(--red);
     border: 2px dashed var(--active-color) !important;
 
-    animation: wf_flash_kf 1s ease-in-out;
+    animation: wf_flash_kf calc(1s * var(--anim-duration-mult, 1)) ease-in-out;
     animation-fill-mode: forwards;
 }
 
@@ -941,7 +944,7 @@ body.dark .wf_condition {
 }
 .wf_pole_button[data-upstream-status="RUNNING"] {
     background: rgb(62, 207, 142);
-    animation: wf_pole_pulse 1.4s ease-in-out infinite;
+    animation: wf_pole_pulse calc(1.4s * var(--anim-duration-mult, 1)) ease-in-out infinite;
 }
 @keyframes wf_pole_pulse {
     0%, 100% {
@@ -1179,7 +1182,7 @@ html[data-anim="off"] .wf_pole_button[data-upstream-status="RUNNING"] {
         var(--node-accent, #3ecf8e),
         transparent
     );
-    animation: wf_progress_sweep 1.4s linear infinite;
+    animation: wf_progress_sweep calc(1.4s * var(--anim-duration-mult, 1)) linear infinite;
 }
 @keyframes wf_progress_sweep {
     0% {
@@ -1247,7 +1250,7 @@ html[data-anim="off"] .wf_progress_bar::after {
     box-shadow:
         0 0 0 1px color-mix(in srgb, var(--node-accent) 35%, transparent),
         0 0 18px color-mix(in srgb, var(--node-accent) 20%, transparent);
-    animation: wf_next_pulse 1.6s ease-in-out infinite;
+    animation: wf_next_pulse calc(1.6s * var(--anim-duration-mult, 1)) ease-in-out infinite;
 }
 @keyframes wf_next_pulse {
     0%, 100% {

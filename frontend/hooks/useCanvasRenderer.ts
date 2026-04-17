@@ -49,7 +49,8 @@ const drawSmartBezier = (
         dashOffset?: number,
         isCyclic?: boolean,
         flow?: number,
-        lineStyle?: 'bezier' | 'straight',
+        lineStyle?: 'bezier' | 'straight' | 'step',
+        flowStyle?: 'orbs' | 'dashes' | 'pulse' | 'off',
         /** Upstream node state — tints the line and drives flow intensity.
          *  RUNNING: bright emerald + dashed; SUCCESS: pale emerald (path has
          *  delivered data); FAILED: red; else: neutral gray. */
@@ -58,6 +59,7 @@ const drawSmartBezier = (
 ) => {
     const { cp1, cp2 } = getControlPoints(start, end);
     const lineStyle = options.lineStyle ?? 'bezier';
+    const flowStyle = options.flowStyle ?? 'orbs';
 
     // Line color: status-aware. The rebrand uses emerald #3ecf8e for
     // "alive" so running/success connections light up in brand color.
@@ -72,29 +74,58 @@ const drawSmartBezier = (
         strokeColor = 'rgba(239, 68, 68, 0.7)';
     }
 
+    // Build the path once so stroke + orb traversal share the same waypoints.
+    // For 'step' we use an axis-aligned 3-segment elbow so flow orbs travel
+    // predictably along the visible geometry instead of an imaginary bezier.
+    const stepSegments =
+        lineStyle === 'step'
+            ? buildStepSegments(start, end)
+            : null;
+
+    const isRunning = options.upstreamStatus === 'RUNNING';
+    // Pulse modulates line opacity + width with the shared flow phase so
+    // *all* running lines breathe in sync.
+    let pulseAlpha = 1;
+    let pulseWidthBoost = 0;
+    if (flowStyle === 'pulse' && options.flow !== undefined) {
+        const phase = (Math.sin(options.flow * Math.PI * 2) + 1) / 2;
+        pulseAlpha = 0.55 + phase * 0.45;
+        pulseWidthBoost = phase * 0.8;
+    }
+
     // Draw Line
     ctx.save();
     ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = options.upstreamStatus === 'RUNNING' ? 2 : 1.6;
+    ctx.globalAlpha = pulseAlpha;
+    ctx.lineWidth = (isRunning ? 2 : 1.6) + pulseWidthBoost;
     if (options.isCyclic) {
         ctx.shadowBlur = 8;
         ctx.shadowColor = 'rgba(239, 68, 68, 0.7)';
-    } else if (options.upstreamStatus === 'RUNNING') {
+    } else if (isRunning) {
         ctx.shadowBlur = 6;
         ctx.shadowColor = 'rgba(62, 207, 142, 0.45)';
     }
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
-    // RUNNING dashes travel along the line thanks to the live dashOffset.
-    if (options.upstreamStatus === 'RUNNING' && options.dashOffset !== undefined) {
+    // Dashes: if the user picked the 'dashes' flow flavor AND this line has
+    // active flow, paint marching dashes along the whole path (independent
+    // of the RUNNING-dash legacy behavior, which is also dashed).
+    const useFlowDashes =
+        options.flow !== undefined && flowStyle === 'dashes';
+    if (isRunning && options.dashOffset !== undefined) {
         ctx.setLineDash([6, 4]);
         ctx.lineDashOffset = -options.dashOffset;
+    } else if (useFlowDashes && options.flow !== undefined) {
+        ctx.setLineDash([5, 6]);
+        ctx.lineDashOffset = -options.flow * 22;
     } else if (options.dashOffset !== undefined) {
         ctx.setLineDash([5, 5]);
         ctx.lineDashOffset = -options.dashOffset;
     }
     if (lineStyle === 'straight') {
         ctx.lineTo(end.x, end.y);
+    } else if (stepSegments) {
+        for (const seg of stepSegments) ctx.lineTo(seg.x, seg.y);
     } else {
         ctx.bezierCurveTo(cp1!.x, cp1!.y, cp2!.x, cp2!.y, end.x, end.y);
     }
@@ -103,18 +134,20 @@ const drawSmartBezier = (
 
     // Flow orb — emerald. Only runs when flow anim is enabled AND upstream
     // is RUNNING / SUCCESS so a static idle line has zero per-frame cost.
-    if (options.flow !== undefined) {
+    // Only the 'orbs' flavor draws the orb; 'dashes'/'pulse' are stroke-only.
+    if (options.flow !== undefined && flowStyle === 'orbs') {
         const t = options.flow % 1;
         if (t >= 0.05 && t <= 0.95) {
-            const pos =
-                lineStyle === 'straight'
-                    ? {
-                          x: start.x + (end.x - start.x) * t,
-                          y: start.y + (end.y - start.y) * t,
-                      }
-                    : getBezierPoint(t, start, cp1!, cp2!, end);
+            const pos = stepSegments
+                ? lerpSegments([start, ...stepSegments], t)
+                : lineStyle === 'straight'
+                  ? {
+                        x: start.x + (end.x - start.x) * t,
+                        y: start.y + (end.y - start.y) * t,
+                    }
+                  : getBezierPoint(t, start, cp1!, cp2!, end);
 
-            const orbRadius = options.upstreamStatus === 'RUNNING' ? 3.5 : 2.5;
+            const orbRadius = isRunning ? 3.5 : 2.5;
             ctx.save();
             ctx.fillStyle = '#3ecf8e';
             ctx.shadowBlur = 8;
@@ -126,6 +159,58 @@ const drawSmartBezier = (
         }
     }
 };
+
+// Orthogonal "elbow" path. Goes outward from the source in its exit
+// direction, makes one or two 90° turns, then arrives at the target
+// along its entry direction. Returns the waypoints AFTER start.
+function buildStepSegments(
+    start: { x: number; y: number; direction: PortDirection },
+    end: { x: number; y: number; direction: PortDirection },
+): { x: number; y: number }[] {
+    const midX = (start.x + end.x) / 2;
+    const midY = (start.y + end.y) / 2;
+    const startHoriz = start.direction === 'left' || start.direction === 'right';
+    const endHoriz = end.direction === 'left' || end.direction === 'right';
+
+    if (startHoriz && endHoriz) {
+        return [{ x: midX, y: start.y }, { x: midX, y: end.y }, { x: end.x, y: end.y }];
+    }
+    if (!startHoriz && !endHoriz) {
+        return [{ x: start.x, y: midY }, { x: end.x, y: midY }, { x: end.x, y: end.y }];
+    }
+    if (startHoriz) {
+        return [{ x: end.x, y: start.y }, { x: end.x, y: end.y }];
+    }
+    return [{ x: start.x, y: end.y }, { x: end.x, y: end.y }];
+}
+
+// Walk a polyline of waypoints and return the point at parameter t (0..1)
+// along its total length. Used so the flow orb traces the step path in
+// real space rather than skipping over corners.
+function lerpSegments(pts: { x: number; y: number }[], t: number) {
+    let total = 0;
+    const lens: number[] = [];
+    for (let i = 1; i < pts.length; i++) {
+        const dx = pts[i].x - pts[i - 1].x;
+        const dy = pts[i].y - pts[i - 1].y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        lens.push(len);
+        total += len;
+    }
+    if (total === 0) return pts[0];
+    let target = t * total;
+    for (let i = 0; i < lens.length; i++) {
+        if (target <= lens[i]) {
+            const localT = lens[i] === 0 ? 0 : target / lens[i];
+            return {
+                x: pts[i].x + (pts[i + 1].x - pts[i].x) * localT,
+                y: pts[i].y + (pts[i + 1].y - pts[i].y) * localT,
+            };
+        }
+        target -= lens[i];
+    }
+    return pts[pts.length - 1];
+}
 
 /**
  * Debug crosshair — draws a large hollow ring around the computed
@@ -230,9 +315,22 @@ export function useCanvasRenderer({
         // toggle a setting and see the canvas react instantly without
         // a React rerender.
         const html = document.documentElement;
-        const lineStyle = (html.getAttribute('data-line-style') === 'straight'
-            ? 'straight'
-            : 'bezier') as 'bezier' | 'straight';
+        const rawLineStyle = html.getAttribute('data-line-style');
+        const lineStyle: 'bezier' | 'straight' | 'step' =
+            rawLineStyle === 'straight'
+                ? 'straight'
+                : rawLineStyle === 'step'
+                  ? 'step'
+                  : 'bezier';
+        const rawFlowStyle = html.getAttribute('data-flow-style');
+        const flowStyle: 'orbs' | 'dashes' | 'pulse' | 'off' =
+            rawFlowStyle === 'dashes'
+                ? 'dashes'
+                : rawFlowStyle === 'pulse'
+                  ? 'pulse'
+                  : rawFlowStyle === 'off'
+                    ? 'off'
+                    : 'orbs';
         const flowEnabled = html.getAttribute('data-flow') !== 'off';
         const animEnabled = html.getAttribute('data-anim') !== 'off';
         // Diagnostic: when the URL has `?debug=ports`, draw a small red
@@ -270,6 +368,7 @@ export function useCanvasRenderer({
                 isCyclic: _cyclicConnections.includes(conn.id),
                 flow,
                 lineStyle,
+                flowStyle,
                 upstreamStatus: sourceStatus,
                 dashOffset: sourceStatus === 'RUNNING' ? dashOffset.current : undefined,
             });

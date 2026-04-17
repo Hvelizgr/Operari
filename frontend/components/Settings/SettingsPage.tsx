@@ -16,7 +16,16 @@ import {
     Zap as ZapIcon,
 } from 'lucide-react';
 import { THEMES, useTheme, type Theme } from '@/context/ThemeContext';
-import { useVisualization, type NodeDensity, type LineStyle } from '@/context/VisualizationContext';
+import {
+    useVisualization,
+    ACCENT_HEX,
+    type NodeDensity,
+    type NodeStyle,
+    type LineStyle,
+    type FlowStyle,
+    type AnimationSpeed,
+    type AccentColor,
+} from '@/context/VisualizationContext';
 
 const STRINGS = {
     en: {
@@ -57,6 +66,36 @@ const STRINGS = {
         lineStraight: 'Straight',
         glowLabel: 'Glow intensity',
         glowHint: '0 = no shadow on running nodes. 1 = default. 2 = brighter.',
+        accentLabel: 'Accent color',
+        accentHint: 'Brand color for poles, running nodes and the selected connection.',
+        accentEmerald: 'Emerald',
+        accentSky: 'Sky',
+        accentViolet: 'Violet',
+        accentAmber: 'Amber',
+        accentRose: 'Rose',
+        accentSlate: 'Slate',
+        nodeStyleLabel: 'Node style',
+        nodeStyleHint: 'Shape + shadow preset for job cards. Independent from density.',
+        nodeStyleModern: 'Modern',
+        nodeStyleMinimal: 'Minimal',
+        nodeStyleBold: 'Bold',
+        nodeStyleNeon: 'Neon',
+        nodeStyleGlass: 'Glass',
+        animSpeedLabel: 'Animation speed',
+        animSpeedHint: 'How fast the running-pulse, flash and progress animations play.',
+        animSpeedOff: 'Off',
+        animSpeedCalm: 'Calm',
+        animSpeedDefault: 'Default',
+        animSpeedLively: 'Lively',
+        lineStep: 'Step',
+        flowStyleLabel: 'Line animation',
+        flowStyleHint: 'How an active connection animates while a step is running.',
+        flowStyleOrbs: 'Orbs',
+        flowStyleDashes: 'Dashes',
+        flowStylePulse: 'Pulse',
+        flowStyleOff: 'Static',
+        previewLabel: 'Live preview',
+        previewHint: 'All editor tweaks above are reflected here in real time.',
     },
     es: {
         title: 'Configuración',
@@ -96,6 +135,36 @@ const STRINGS = {
         lineStraight: 'Recta',
         glowLabel: 'Intensidad del brillo',
         glowHint: '0 = sin sombra en nodos en ejecución. 1 = default. 2 = más brillante.',
+        accentLabel: 'Color de acento',
+        accentHint: 'Color de marca para poles, nodos corriendo y la conexión seleccionada.',
+        accentEmerald: 'Esmeralda',
+        accentSky: 'Cielo',
+        accentViolet: 'Violeta',
+        accentAmber: 'Ámbar',
+        accentRose: 'Rosa',
+        accentSlate: 'Pizarra',
+        nodeStyleLabel: 'Estilo de nodo',
+        nodeStyleHint: 'Preset de forma + sombra para las tarjetas. Independiente de la densidad.',
+        nodeStyleModern: 'Moderno',
+        nodeStyleMinimal: 'Minimal',
+        nodeStyleBold: 'Marcado',
+        nodeStyleNeon: 'Neón',
+        nodeStyleGlass: 'Glass',
+        animSpeedLabel: 'Velocidad de animación',
+        animSpeedHint: 'Qué tan rápido corren el pulso, flash y progress.',
+        animSpeedOff: 'Apagado',
+        animSpeedCalm: 'Tranquilo',
+        animSpeedDefault: 'Default',
+        animSpeedLively: 'Enérgico',
+        lineStep: 'Escalón',
+        flowStyleLabel: 'Animación de línea',
+        flowStyleHint: 'Cómo se anima la conexión mientras un step corre.',
+        flowStyleOrbs: 'Orbes',
+        flowStyleDashes: 'Rayas',
+        flowStylePulse: 'Pulso',
+        flowStyleOff: 'Estática',
+        previewLabel: 'Vista previa',
+        previewHint: 'Todos los ajustes del editor se reflejan acá en tiempo real.',
     },
 } as const;
 
@@ -195,6 +264,26 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
                     title={t.vizTitle}
                     hint={t.vizHint}
                 >
+                    {/* Live preview */}
+                    <div className="py-2 first:border-t-0">
+                        <div className="flex items-center justify-between text-sm text-[var(--text-primary)] mb-1">
+                            <span>{t.previewLabel}</span>
+                            <span className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                                {viz.nodeStyle} · {viz.lineStyle} · {viz.flowStyle}
+                            </span>
+                        </div>
+                        <div className="text-[11px] text-[var(--text-muted)] mb-2">
+                            {t.previewHint}
+                        </div>
+                        <LivePreview
+                            nodeStyle={viz.nodeStyle}
+                            lineStyle={viz.lineStyle}
+                            flowStyle={viz.flowStyle}
+                            accent={ACCENT_HEX[viz.accentColor]}
+                            animsOn={viz.animationSpeed !== 'off'}
+                        />
+                    </div>
+
                     {/* Density picker */}
                     <div className="py-2 border-t border-[var(--panel-border)] first:border-t-0">
                         <div className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
@@ -223,6 +312,40 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
                         </div>
                     </div>
 
+                    {/* Node style picker */}
+                    <div className="py-2 border-t border-[var(--panel-border)]">
+                        <div className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+                            <BoxIcon size={14} />
+                            {t.nodeStyleLabel}
+                        </div>
+                        <div className="text-[11px] text-[var(--text-muted)] mt-0.5 mb-2">
+                            {t.nodeStyleHint}
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                            {(
+                                [
+                                    { id: 'modern' as NodeStyle, label: t.nodeStyleModern },
+                                    { id: 'minimal' as NodeStyle, label: t.nodeStyleMinimal },
+                                    { id: 'bold' as NodeStyle, label: t.nodeStyleBold },
+                                    { id: 'neon' as NodeStyle, label: t.nodeStyleNeon },
+                                    { id: 'glass' as NodeStyle, label: t.nodeStyleGlass },
+                                ]
+                            ).map((opt) => (
+                                <PreviewCard
+                                    key={opt.id}
+                                    active={viz.nodeStyle === opt.id}
+                                    label={opt.label}
+                                    onClick={() => viz.setNodeStyle(opt.id)}
+                                >
+                                    <NodeStylePreview
+                                        style={opt.id}
+                                        accent={ACCENT_HEX[viz.accentColor]}
+                                    />
+                                </PreviewCard>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Line style picker */}
                     <div className="py-2 border-t border-[var(--panel-border)]">
                         <div className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
@@ -232,34 +355,136 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
                         <div className="text-[11px] text-[var(--text-muted)] mt-0.5 mb-2">
                             {t.lineStyleHint}
                         </div>
-                        <div className="flex gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                             {(
                                 [
                                     { id: 'bezier' as LineStyle, label: t.lineBezier },
                                     { id: 'straight' as LineStyle, label: t.lineStraight },
+                                    { id: 'step' as LineStyle, label: t.lineStep },
+                                ]
+                            ).map((opt) => (
+                                <PreviewCard
+                                    key={opt.id}
+                                    active={viz.lineStyle === opt.id}
+                                    label={opt.label}
+                                    onClick={() => viz.setLineStyle(opt.id)}
+                                >
+                                    <LineStylePreview
+                                        style={opt.id}
+                                        accent={ACCENT_HEX[viz.accentColor]}
+                                    />
+                                </PreviewCard>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Flow animation picker */}
+                    <div className="py-2 border-t border-[var(--panel-border)]">
+                        <div className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+                            <ZapIcon size={14} />
+                            {t.flowStyleLabel}
+                        </div>
+                        <div className="text-[11px] text-[var(--text-muted)] mt-0.5 mb-2">
+                            {t.flowStyleHint}
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {(
+                                [
+                                    { id: 'orbs' as FlowStyle, label: t.flowStyleOrbs },
+                                    { id: 'dashes' as FlowStyle, label: t.flowStyleDashes },
+                                    { id: 'pulse' as FlowStyle, label: t.flowStylePulse },
+                                    { id: 'off' as FlowStyle, label: t.flowStyleOff },
+                                ]
+                            ).map((opt) => (
+                                <PreviewCard
+                                    key={opt.id}
+                                    active={viz.flowStyle === opt.id}
+                                    label={opt.label}
+                                    onClick={() => viz.setFlowStyle(opt.id)}
+                                >
+                                    <FlowStylePreview
+                                        style={opt.id}
+                                        accent={ACCENT_HEX[viz.accentColor]}
+                                    />
+                                </PreviewCard>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Accent color picker */}
+                    <div className="py-2 border-t border-[var(--panel-border)]">
+                        <div className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+                            <Palette size={14} />
+                            {t.accentLabel}
+                        </div>
+                        <div className="text-[11px] text-[var(--text-muted)] mt-0.5 mb-2">
+                            {t.accentHint}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {(
+                                [
+                                    { id: 'emerald' as AccentColor, label: t.accentEmerald },
+                                    { id: 'sky' as AccentColor, label: t.accentSky },
+                                    { id: 'violet' as AccentColor, label: t.accentViolet },
+                                    { id: 'amber' as AccentColor, label: t.accentAmber },
+                                    { id: 'rose' as AccentColor, label: t.accentRose },
+                                    { id: 'slate' as AccentColor, label: t.accentSlate },
+                                ]
+                            ).map((opt) => {
+                                const active = viz.accentColor === opt.id;
+                                return (
+                                    <button
+                                        key={opt.id}
+                                        onClick={() => viz.setAccentColor(opt.id)}
+                                        title={opt.label}
+                                        aria-label={opt.label}
+                                        aria-pressed={active}
+                                        className={`group flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+                                            active
+                                                ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/10 text-[var(--text-primary)]'
+                                                : 'border-[var(--panel-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-color)]/40'
+                                        }`}
+                                    >
+                                        <span
+                                            className="inline-block w-4 h-4 rounded-full ring-1 ring-black/20 dark:ring-white/10"
+                                            style={{ background: ACCENT_HEX[opt.id] }}
+                                        />
+                                        {opt.label}
+                                        {active && <Check size={12} />}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Animation speed picker */}
+                    <div className="py-2 border-t border-[var(--panel-border)]">
+                        <div className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+                            <Sparkles size={14} />
+                            {t.animSpeedLabel}
+                        </div>
+                        <div className="text-[11px] text-[var(--text-muted)] mt-0.5 mb-2">
+                            {t.animSpeedHint}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {(
+                                [
+                                    { id: 'off' as AnimationSpeed, label: t.animSpeedOff },
+                                    { id: 'calm' as AnimationSpeed, label: t.animSpeedCalm },
+                                    { id: 'default' as AnimationSpeed, label: t.animSpeedDefault },
+                                    { id: 'lively' as AnimationSpeed, label: t.animSpeedLively },
                                 ]
                             ).map((opt) => (
                                 <PillButton
                                     key={opt.id}
-                                    active={viz.lineStyle === opt.id}
-                                    onClick={() => viz.setLineStyle(opt.id)}
+                                    active={viz.animationSpeed === opt.id}
+                                    onClick={() => viz.setAnimationSpeed(opt.id)}
                                 >
                                     {opt.label}
                                 </PillButton>
                             ))}
                         </div>
                     </div>
-
-                    {/* Animations toggle */}
-                    <ToggleRow
-                        icon={<Sparkles size={14} />}
-                        label={t.animLabel}
-                        hint={t.animHint}
-                        value={viz.animationsEnabled}
-                        onChange={viz.setAnimationsEnabled}
-                        on={t.on}
-                        off={t.off}
-                    />
 
                     {/* Flow particles toggle */}
                     <ToggleRow
@@ -493,4 +718,317 @@ function PillButton({
             {children}
         </button>
     );
+}
+
+// Thumbnail card that wraps any in-settings preview SVG. Tap-to-select
+// pattern: active card shows the accent border + check mark so the
+// user never has to guess which variant is currently live on the canvas.
+function PreviewCard({
+    active,
+    label,
+    onClick,
+    children,
+}: {
+    active: boolean;
+    label: string;
+    onClick: () => void;
+    children: React.ReactNode;
+}) {
+    return (
+        <button
+            onClick={onClick}
+            aria-pressed={active}
+            className={`group relative flex flex-col items-stretch gap-1.5 rounded-md border p-2 text-left transition-colors ${
+                active
+                    ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/5'
+                    : 'border-[var(--panel-border)] hover:border-[var(--accent-color)]/40'
+            }`}
+        >
+            <div className="flex h-16 items-center justify-center overflow-hidden rounded bg-[var(--app-bg)]/70 px-2">
+                {children}
+            </div>
+            <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-[var(--text-primary)]">{label}</span>
+                {active && <Check size={11} className="text-[var(--accent-color)]" />}
+            </div>
+        </button>
+    );
+}
+
+// Mini node card rendered with the same CSS knobs each node-style
+// preset flips. The preview is intentionally static so the user
+// compares shape/shadow without the running-pulse distraction.
+function NodeStylePreview({ style, accent }: { style: NodeStyle; accent: string }) {
+    const presets: Record<
+        NodeStyle,
+        { shadow: string; radius: number; borderWidth: number; borderColor: string; bg: string; blur?: string }
+    > = {
+        modern: {
+            shadow: '0 4px 10px rgba(0,0,0,0.25)',
+            radius: 8,
+            borderWidth: 1.5,
+            borderColor: 'var(--panel-border)',
+            bg: 'var(--panel-bg)',
+        },
+        minimal: {
+            shadow: '0 1px 2px rgba(0,0,0,0.12)',
+            radius: 2,
+            borderWidth: 1,
+            borderColor: 'var(--panel-border)',
+            bg: 'var(--panel-bg)',
+        },
+        bold: {
+            shadow: '0 6px 14px rgba(0,0,0,0.4)',
+            radius: 12,
+            borderWidth: 2.5,
+            borderColor: 'var(--panel-border)',
+            bg: 'var(--panel-bg)',
+        },
+        neon: {
+            shadow: `0 0 0 1px ${hexAlpha(accent, 0.55)}, 0 0 12px ${hexAlpha(accent, 0.55)}`,
+            radius: 8,
+            borderWidth: 1,
+            borderColor: hexAlpha(accent, 0.7),
+            bg: 'var(--panel-bg)',
+        },
+        glass: {
+            shadow: '0 4px 14px rgba(0,0,0,0.3)',
+            radius: 10,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.14)',
+            bg: 'rgba(255,255,255,0.06)',
+            blur: 'saturate(140%) blur(6px)',
+        },
+    };
+    const p = presets[style];
+    return (
+        <div
+            className="flex h-11 w-[88%] items-center gap-1.5 px-2"
+            style={{
+                background: p.bg,
+                borderRadius: p.radius,
+                border: `${p.borderWidth}px solid ${p.borderColor}`,
+                boxShadow: p.shadow,
+                backdropFilter: p.blur,
+                WebkitBackdropFilter: p.blur,
+                borderLeft: `3px solid ${accent}`,
+            }}
+        >
+            <span
+                className="inline-block h-3 w-3 rounded-sm"
+                style={{ background: accent }}
+            />
+            <span className="flex-1 space-y-1">
+                <span className="block h-1.5 rounded bg-[var(--text-muted)]/50" style={{ width: '70%' }} />
+                <span className="block h-1 rounded bg-[var(--text-muted)]/30" style={{ width: '50%' }} />
+            </span>
+        </div>
+    );
+}
+
+// SVG illustration of each line-shape variant. Uses the accent color
+// so the preview stays in sync with the color picker above.
+function LineStylePreview({ style, accent }: { style: LineStyle; accent: string }) {
+    const d =
+        style === 'straight'
+            ? 'M8 32 L80 16'
+            : style === 'step'
+              ? 'M8 32 L44 32 L44 16 L80 16'
+              : 'M8 32 C 32 32, 56 16, 80 16';
+    return (
+        <svg viewBox="0 0 88 48" className="h-full w-full">
+            <circle cx="8" cy="32" r="3.5" fill={accent} />
+            <circle cx="80" cy="16" r="3.5" fill={accent} />
+            <path
+                d={d}
+                stroke={accent}
+                strokeWidth="2"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+
+// Visual explanation of each line-animation flavor. `orbs`/`dashes`
+// use SMIL so the thumbnail animates. `pulse` uses a CSS keyframe.
+function FlowStylePreview({ style, accent }: { style: FlowStyle; accent: string }) {
+    const pathD = 'M8 24 C 32 24, 56 24, 80 24';
+    if (style === 'off') {
+        return (
+            <svg viewBox="0 0 88 48" className="h-full w-full">
+                <path d={pathD} stroke={accent} strokeWidth="2" fill="none" />
+            </svg>
+        );
+    }
+    if (style === 'orbs') {
+        return (
+            <svg viewBox="0 0 88 48" className="h-full w-full">
+                <path id="p" d={pathD} stroke={accent} strokeWidth="2" fill="none" />
+                <circle r="3" fill={accent}>
+                    <animateMotion dur="1.6s" repeatCount="indefinite">
+                        <mpath href="#p" />
+                    </animateMotion>
+                </circle>
+            </svg>
+        );
+    }
+    if (style === 'dashes') {
+        return (
+            <svg viewBox="0 0 88 48" className="h-full w-full">
+                <path
+                    d={pathD}
+                    stroke={accent}
+                    strokeWidth="2"
+                    strokeDasharray="5 6"
+                    fill="none"
+                >
+                    <animate
+                        attributeName="stroke-dashoffset"
+                        from="0"
+                        to="-22"
+                        dur="0.8s"
+                        repeatCount="indefinite"
+                    />
+                </path>
+            </svg>
+        );
+    }
+    return (
+        <svg viewBox="0 0 88 48" className="h-full w-full">
+            <path d={pathD} stroke={accent} strokeWidth="2" fill="none">
+                <animate
+                    attributeName="opacity"
+                    values="0.35;1;0.35"
+                    dur="1.8s"
+                    repeatCount="indefinite"
+                />
+                <animate
+                    attributeName="stroke-width"
+                    values="1.5;3;1.5"
+                    dur="1.8s"
+                    repeatCount="indefinite"
+                />
+            </path>
+        </svg>
+    );
+}
+
+// Bigger "what will my canvas look like" panel. Composes the node +
+// line + flow previews together so the user sees the combined effect
+// without leaving the settings page.
+function LivePreview({
+    nodeStyle,
+    lineStyle,
+    flowStyle,
+    accent,
+    animsOn,
+}: {
+    nodeStyle: NodeStyle;
+    lineStyle: LineStyle;
+    flowStyle: FlowStyle;
+    accent: string;
+    animsOn: boolean;
+}) {
+    const path =
+        lineStyle === 'straight'
+            ? 'M60 60 L220 60'
+            : lineStyle === 'step'
+              ? 'M60 60 L140 60 L140 60 L220 60'
+              : 'M60 60 C 110 60, 170 60, 220 60';
+    return (
+        <div className="relative rounded-md border border-[var(--panel-border)] bg-[var(--app-bg)]/60 overflow-hidden" style={{ height: 128 }}>
+            <svg viewBox="0 0 280 120" className="absolute inset-0 h-full w-full">
+                {flowStyle === 'pulse' ? (
+                    <path
+                        d={path}
+                        stroke={accent}
+                        strokeWidth="2"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        {animsOn && (
+                            <>
+                                <animate
+                                    attributeName="opacity"
+                                    values="0.4;1;0.4"
+                                    dur="1.8s"
+                                    repeatCount="indefinite"
+                                />
+                                <animate
+                                    attributeName="stroke-width"
+                                    values="1.5;3;1.5"
+                                    dur="1.8s"
+                                    repeatCount="indefinite"
+                                />
+                            </>
+                        )}
+                    </path>
+                ) : flowStyle === 'dashes' ? (
+                    <path
+                        id="livePath"
+                        d={path}
+                        stroke={accent}
+                        strokeWidth="2"
+                        strokeDasharray="6 7"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        {animsOn && (
+                            <animate
+                                attributeName="stroke-dashoffset"
+                                from="0"
+                                to="-26"
+                                dur="0.8s"
+                                repeatCount="indefinite"
+                            />
+                        )}
+                    </path>
+                ) : (
+                    <>
+                        <path
+                            id="livePath"
+                            d={path}
+                            stroke={accent}
+                            strokeWidth="2"
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                        {flowStyle === 'orbs' && animsOn && (
+                            <circle r="4" fill={accent}>
+                                <animateMotion dur="1.8s" repeatCount="indefinite">
+                                    <mpath href="#livePath" />
+                                </animateMotion>
+                            </circle>
+                        )}
+                    </>
+                )}
+            </svg>
+            <div
+                className="absolute top-1/2 left-4 -translate-y-1/2"
+                style={{ width: 56 }}
+            >
+                <NodeStylePreview style={nodeStyle} accent={accent} />
+            </div>
+            <div
+                className="absolute top-1/2 right-4 -translate-y-1/2"
+                style={{ width: 56 }}
+            >
+                <NodeStylePreview style={nodeStyle} accent={accent} />
+            </div>
+        </div>
+    );
+}
+
+function hexAlpha(hex: string, alpha: number): string {
+    const h = hex.replace('#', '');
+    const bigint = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
