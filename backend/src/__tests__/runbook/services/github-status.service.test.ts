@@ -1,4 +1,5 @@
 import { GitHubStatusService, type GitHubStatusParams } from '../../../runbook/services/github-status.service';
+import { identityGitHubTokenDecryptor } from '../../../security/github-token-resolver';
 
 // ---------------------------------------------------------------------------
 // Fake Prisma
@@ -7,7 +8,8 @@ import { GitHubStatusService, type GitHubStatusParams } from '../../../runbook/s
 function fakePrisma(token: string | null = 'ghp_test-token') {
     return {
         connectedAccount: {
-            findFirst: async () => (token ? { accessToken: token } : null),
+            findFirst: async () =>
+                token ? { id: 'fake-account-id', accessToken: token } : null,
         },
         execution: {
             findUnique: async () => null,
@@ -41,7 +43,7 @@ describe('GitHubStatusService', () => {
     describe('postStatus', () => {
         it('posts a commit status to the correct GitHub API URL', async () => {
             const { fetch: mockFetch, captured } = captureFetch();
-            const svc = new GitHubStatusService(fakePrisma(), mockFetch);
+            const svc = new GitHubStatusService(fakePrisma(), mockFetch, identityGitHubTokenDecryptor);
 
             const result = await svc.postStatus('tenant-1', {
                 owner: 'acme',
@@ -60,7 +62,7 @@ describe('GitHubStatusService', () => {
 
         it('sends correct headers including Bearer token', async () => {
             const { fetch: mockFetch, captured } = captureFetch();
-            const svc = new GitHubStatusService(fakePrisma('ghp_my-token'), mockFetch);
+            const svc = new GitHubStatusService(fakePrisma('ghp_my-token'), mockFetch, identityGitHubTokenDecryptor);
 
             await svc.postStatus('tenant-1', {
                 owner: 'acme',
@@ -78,7 +80,7 @@ describe('GitHubStatusService', () => {
 
         it('sends the correct body payload', async () => {
             const { fetch: mockFetch, captured } = captureFetch();
-            const svc = new GitHubStatusService(fakePrisma(), mockFetch);
+            const svc = new GitHubStatusService(fakePrisma(), mockFetch, identityGitHubTokenDecryptor);
 
             await svc.postStatus('tenant-1', {
                 owner: 'acme',
@@ -99,7 +101,7 @@ describe('GitHubStatusService', () => {
 
         it('defaults context to "nanorun" when not provided', async () => {
             const { fetch: mockFetch, captured } = captureFetch();
-            const svc = new GitHubStatusService(fakePrisma(), mockFetch);
+            const svc = new GitHubStatusService(fakePrisma(), mockFetch, identityGitHubTokenDecryptor);
 
             await svc.postStatus('tenant-1', {
                 owner: 'acme',
@@ -115,7 +117,7 @@ describe('GitHubStatusService', () => {
 
         it('returns false when no GitHub token is found', async () => {
             const { fetch: mockFetch, captured } = captureFetch();
-            const svc = new GitHubStatusService(fakePrisma(null), mockFetch);
+            const svc = new GitHubStatusService(fakePrisma(null), mockFetch, identityGitHubTokenDecryptor);
 
             const result = await svc.postStatus('tenant-1', {
                 owner: 'acme',
@@ -131,7 +133,7 @@ describe('GitHubStatusService', () => {
 
         it('returns false on non-2xx response', async () => {
             const { fetch: mockFetch } = captureFetch(403);
-            const svc = new GitHubStatusService(fakePrisma(), mockFetch);
+            const svc = new GitHubStatusService(fakePrisma(), mockFetch, identityGitHubTokenDecryptor);
 
             const result = await svc.postStatus('tenant-1', {
                 owner: 'acme',
@@ -148,7 +150,7 @@ describe('GitHubStatusService', () => {
             const errorFetch: typeof fetch = async () => {
                 throw new Error('Network error');
             };
-            const svc = new GitHubStatusService(fakePrisma(), errorFetch);
+            const svc = new GitHubStatusService(fakePrisma(), errorFetch, identityGitHubTokenDecryptor);
 
             const result = await svc.postStatus('tenant-1', {
                 owner: 'acme',
@@ -163,7 +165,7 @@ describe('GitHubStatusService', () => {
 
         it('truncates description to 140 characters', async () => {
             const { fetch: mockFetch, captured } = captureFetch();
-            const svc = new GitHubStatusService(fakePrisma(), mockFetch);
+            const svc = new GitHubStatusService(fakePrisma(), mockFetch, identityGitHubTokenDecryptor);
 
             const longDesc = 'A'.repeat(200);
             await svc.postStatus('tenant-1', {
@@ -183,7 +185,7 @@ describe('GitHubStatusService', () => {
     describe('reportRunStart', () => {
         it('posts a pending status with run URL', async () => {
             const { fetch: mockFetch, captured } = captureFetch();
-            const svc = new GitHubStatusService(fakePrisma(), mockFetch);
+            const svc = new GitHubStatusService(fakePrisma(), mockFetch, identityGitHubTokenDecryptor);
 
             const result = await svc.reportRunStart('tenant-1', {
                 owner: 'acme',
@@ -205,7 +207,7 @@ describe('GitHubStatusService', () => {
     describe('reportRunEnd', () => {
         it('posts success status with duration', async () => {
             const { fetch: mockFetch, captured } = captureFetch();
-            const svc = new GitHubStatusService(fakePrisma(), mockFetch);
+            const svc = new GitHubStatusService(fakePrisma(), mockFetch, identityGitHubTokenDecryptor);
 
             await svc.reportRunEnd('tenant-1', {
                 owner: 'acme',
@@ -224,7 +226,7 @@ describe('GitHubStatusService', () => {
 
         it('posts failure status with error message', async () => {
             const { fetch: mockFetch, captured } = captureFetch();
-            const svc = new GitHubStatusService(fakePrisma(), mockFetch);
+            const svc = new GitHubStatusService(fakePrisma(), mockFetch, identityGitHubTokenDecryptor);
 
             await svc.reportRunEnd('tenant-1', {
                 owner: 'acme',

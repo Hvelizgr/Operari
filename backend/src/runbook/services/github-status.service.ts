@@ -1,5 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../../config/logger.config';
+import {
+    type TokenDecryptor,
+    createDefaultGitHubTokenDecryptor,
+} from '../../security/github-token-resolver';
 
 /**
  * GitHub commit status states.
@@ -38,24 +42,36 @@ export interface GitHubStatusParams {
 export class GitHubStatusService {
     /** Override-able for tests. */
     private readonly httpFetch: typeof fetch;
+    private readonly decryptToken: TokenDecryptor;
 
     constructor(
         private readonly prisma: PrismaClient,
         httpFetch?: typeof fetch,
+        decryptToken?: TokenDecryptor,
     ) {
         this.httpFetch = httpFetch ?? fetch;
+        this.decryptToken = decryptToken ?? createDefaultGitHubTokenDecryptor(prisma);
     }
 
     /**
-     * Find a GitHub token for the given tenant. Returns the accessToken
-     * from the first ConnectedAccount with provider="github", or null.
+     * Resolve the tenant's GitHub token to plaintext. Reads the
+     * ciphertext column and sends it through SecretReader so audit
+     * captures every access. Returns null when no account exists or
+     * decryption fails — either way, callers skip the GitHub side
+     * effect instead of crashing the run.
      */
     async findToken(tenantId: string): Promise<string | null> {
         const account = await this.prisma.connectedAccount.findFirst({
             where: { tenantId, provider: 'github' },
-            select: { accessToken: true },
+            select: { id: true, accessToken: true },
         });
-        return account?.accessToken ?? null;
+        if (!account) return null;
+        return this.decryptToken(
+            account.accessToken,
+            account.id,
+            tenantId,
+            'github-status-service',
+        );
     }
 
     /**

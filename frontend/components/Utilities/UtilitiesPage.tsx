@@ -309,7 +309,7 @@ function WebhooksTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
         load();
         fetch(`${API_BASE}/api/runbooks?limit=100`)
             .then((r) => r.json())
-            .then((j) => setRunbooks(j.workflows ?? []))
+            .then((j) => setRunbooks(j.runbooks ?? j.workflows ?? []))
             .catch(() => {});
     }, [load]);
 

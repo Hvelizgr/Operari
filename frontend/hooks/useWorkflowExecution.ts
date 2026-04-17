@@ -13,19 +13,23 @@ export function useWorkflowExecution(workflowId: string | null) {
 
         try {
             const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-            const endpoint = mode === 'debug' ? `${apiBase}/api/executions/${workflowId}/debug` : `${apiBase}/api/executions/${workflowId}/run`;
+            // Debug mode was historically meant to stop on every step, but
+            // the backend /debug route was never wired. Until it is, debug
+            // aliases to /run with a `debug: true` flag the backend can
+            // opt into. Execution still runs to completion, matching the
+            // current UX.
+            const endpoint = `${apiBase}/api/executions/${workflowId}/run`;
+            const payload = mode === 'debug' ? { input, debug: true } : { input };
 
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ input }),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
-                // Determine if it was a 404 because debug endpoint is missing (common in dev), fallback to run?
-                // No, just throw error for now.
                 throw new Error(`Failed to start workflow execution (${mode})`);
             }
 

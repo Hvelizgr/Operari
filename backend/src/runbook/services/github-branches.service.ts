@@ -1,5 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../../config/logger.config';
+import {
+    type TokenDecryptor,
+    createDefaultGitHubTokenDecryptor,
+} from '../../security/github-token-resolver';
 
 export interface GitHubBranch {
     name: string;
@@ -32,20 +36,35 @@ export interface GitHubBranchGraph {
  */
 export class GitHubBranchService {
     private readonly httpFetch: typeof fetch;
+    private readonly decryptToken: TokenDecryptor;
 
     constructor(
         private readonly prisma: PrismaClient,
         httpFetch?: typeof fetch,
+        decryptToken?: TokenDecryptor,
     ) {
         this.httpFetch = httpFetch ?? fetch;
+        this.decryptToken = decryptToken ?? createDefaultGitHubTokenDecryptor(prisma);
     }
 
+    /**
+     * Resolve the tenant's GitHub token to a plaintext string. Returns
+     * null if no ConnectedAccount exists or decryption fails. Reads the
+     * ciphertext column and sends it through SecretReader so the audit
+     * chain captures every access.
+     */
     async findToken(tenantId: string): Promise<string | null> {
         const account = await this.prisma.connectedAccount.findFirst({
             where: { tenantId, provider: 'github' },
-            select: { accessToken: true },
+            select: { id: true, accessToken: true },
         });
-        return account?.accessToken ?? null;
+        if (!account) return null;
+        return this.decryptToken(
+            account.accessToken,
+            account.id,
+            tenantId,
+            'github-branch-service',
+        );
     }
 
     private headers(token: string): Record<string, string> {

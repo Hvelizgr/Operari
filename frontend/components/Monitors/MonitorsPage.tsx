@@ -172,7 +172,7 @@ export default function MonitorsPage({ lang }: MonitorsPageProps) {
             const res = await fetch(`${API_BASE}/api/runbooks?limit=100`);
             if (res.ok) {
                 const json = await res.json();
-                setRunbooks(json.workflows ?? []);
+                setRunbooks(json.runbooks ?? json.workflows ?? []);
             }
         } catch {
             /* noop */

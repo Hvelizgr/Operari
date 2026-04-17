@@ -145,6 +145,11 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL:-hello@nanorun.dev}
       CONTACT_FROM_EMAIL: ${CONTACT_FROM_EMAIL:-contact@nanorun.dev}
+      # Self-host docker-compose defaults to anonymous mode so the
+      # editor + runs surface work out of the box without wiring a
+      # JWT/WorkOS provider. Override to "false" for any multi-tenant
+      # or networked deployment.
+      NANORUN_ANONYMOUS_MODE: ${NANORUN_ANONYMOUS_MODE:-true}
     ports:
       - "4000:4000"
     depends_on:

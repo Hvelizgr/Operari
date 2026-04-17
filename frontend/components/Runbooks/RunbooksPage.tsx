@@ -149,7 +149,7 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
             const res = await fetch(`${API_BASE}/api/runbooks?${params}`);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
-            setRunbooks(json.workflows ?? []);
+            setRunbooks(json.runbooks ?? json.workflows ?? []);
             setError(null);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'unknown');

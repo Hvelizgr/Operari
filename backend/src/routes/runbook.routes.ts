@@ -221,6 +221,12 @@ router.get('/', async (req: AuthRequest, res) => {
         }));
 
         res.json({
+            runbooks: enriched,
+            // Deprecated alias — the frontend clients still on <= v0.5 read
+            // `workflows`. Will be removed once the marketing pivot rename
+            // lands across every consumer (tracked by the fase 2b rename
+            // work). Mirror the same array so swapping one key doesn't
+            // double the payload.
             workflows: enriched,
             pagination: {
                 page: parseInt(page as string),
