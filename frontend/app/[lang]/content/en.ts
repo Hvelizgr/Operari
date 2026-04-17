@@ -16,30 +16,50 @@ export const content = {
     docs: "Docs",
     github: "GitHub",
     login: "Log in",
-    getStarted: "Self-host",
+    getStarted: "Get API key",
   },
   hero: {
-    badge: "Open source · AGPL · pre-launch alpha",
-    title: "Your alert fires.\nNanoRun runs the fix.",
+    badge: "API · pre-launch alpha",
+    title: "Runbooks as\nan API.",
     subtitle:
-      "Open-source runbooks that respond to alerts from Datadog, Sentry, GitHub, PagerDuty, Grafana — or any webhook. Visual to author, YAML to commit, sandboxed to execute, audited to prove.",
-    ctaPrimary: "docker compose up",
-    ctaSecondary: "Star on GitHub",
-    // labels for the 4-frame "alert → runbook → resolved" diagram
+      "Trigger production runbooks with a single HTTP call. Each step runs in a sandboxed executor, every action lands in a signed audit chain, and the whole response is yours in under 300 ms.",
+    ctaPrimary: "Get API key",
+    ctaSecondary: "or self-host",
+    // Terminal-style code + live response panel that replaces the legacy
+    // alert→webhook→resolved scenario card. Written as a single POST to
+    // /api/v1/runs/trigger so readers get the mental model in four lines.
     scenario: {
-      step1Label: "1. Alert fires",
-      step1Body: "TypeError: Cannot read 'user' of undefined",
-      step2Label: "2. Webhook → NanoRun",
-      step2Body: "POST /api/webhooks/incoming  ✓ HMAC verified",
-      step3Label: "3. Runbook executing",
-      step3Steps: [
-        "fetch service logs (kubectl)",
-        "rollback last deploy (helm)",
-        "post status to #incidents",
-        "open Linear ticket",
+      requestMethod: "POST",
+      requestUrl: "/api/v1/runs/trigger",
+      requestLabel: "Request",
+      requestLines: [
+        "curl -X POST https://api.cairn.run/v1/runs/trigger \\",
+        "  -H \"Authorization: Bearer sk_live_…\" \\",
+        "  -H \"Content-Type: application/json\" \\",
+        "  -d '{\"runbook\": \"rollback-last-deploy\",",
+        "       \"vars\": {\"service\": \"api\"}}'",
       ],
-      step4Label: "4. Resolved · 47s",
-      step4Body: "Audit hash: 3f9c…b2e1 · all 4 steps verified",
+      responseLabel: "Response",
+      responseStatus: "201 Created · 284 ms",
+      responseBody: [
+        "{",
+        "  \"run_id\": \"run_3f9c2b7a\",",
+        "  \"status\": \"running\",",
+        "  \"steps\": 4,",
+        "  \"audit_hash\": \"3f9c…b2e1\",",
+        "  \"stream\": \"wss://api.cairn.run/v1/runs/run_3f9c2b7a/stream\"",
+        "}",
+      ],
+      // Emitted to the stream endpoint, replayed by anime.js as the
+      // runbook progresses in real time under the response body.
+      streamLabel: "Stream",
+      streamSteps: [
+        "▸ fetch service logs (kubectl)",
+        "▸ rollback last deploy (helm)",
+        "▸ post status to #incidents",
+        "▸ open Linear ticket",
+      ],
+      streamFooter: "run completed · 4/4 steps · audit chain verified",
     },
   },
   story: {

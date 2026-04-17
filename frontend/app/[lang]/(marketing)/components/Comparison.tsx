@@ -5,6 +5,7 @@ import { Check, X, Minus, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { content } from '@/app/[lang]/content/en';
 import AuroraBackground from './AuroraBackground';
+import { useAnimeStaggerOnView } from '@/hooks/useAnimeStaggerOnView';
 
 type ComparisonProps = {
   content: typeof content.comparison;
@@ -29,6 +30,17 @@ type ComparisonProps = {
  * without being obnoxious.
  */
 export default function Comparison({ content }: ComparisonProps) {
+  // anime.js stagger over <tr> elements. Faster stagger than the card
+  // grids (55ms) because the table reads top-to-bottom and a slower
+  // stagger makes the reader wait for proof they already want.
+  const tableRef = useAnimeStaggerOnView<HTMLDivElement>({
+    selector: '[data-cmp-row]',
+    from: { opacity: 0, translateX: -8 },
+    to: { opacity: [0, 1], translateX: [-8, 0] },
+    stagger: 55,
+    duration: 400,
+    delay: 180,
+  });
   return (
     <section className="relative py-24 sm:py-32 overflow-hidden">
       <AuroraBackground
@@ -78,25 +90,20 @@ export default function Comparison({ content }: ComparisonProps) {
           <MobileComparison content={content} />
         </div>
 
-        {/* Desktop table — visible from md+. Rows reveal one by one. */}
+        {/* Desktop table — visible from md+. anime.js reveals the
+            header + each row with a sub-200ms stagger. */}
         <motion.div
-          initial="hidden"
-          whileInView="visible"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
-          variants={{
-            hidden: { opacity: 0, y: 20 },
-            visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-          }}
+          transition={{ duration: 0.5 }}
           className="hidden md:block rounded-2xl border border-border/60 bg-card/50 backdrop-blur-md overflow-hidden shadow-2xl shadow-black/20"
         >
-          <div className="overflow-x-auto">
+          <div ref={tableRef} className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <motion.tr
-                  variants={{
-                    hidden: { opacity: 0 },
-                    visible: { opacity: 1, transition: { duration: 0.4, delay: 0.15 } },
-                  }}
+                <tr
+                  data-cmp-row
                   className="border-b border-border/60 bg-background/40"
                 >
                   {content.headers.map((header, idx) => (
@@ -111,24 +118,13 @@ export default function Comparison({ content }: ComparisonProps) {
                       {header}
                     </th>
                   ))}
-                </motion.tr>
+                </tr>
               </thead>
               <tbody>
                 {content.rows.map((row, rowIdx) => (
-                  <motion.tr
+                  <tr
                     key={row.feature}
-                    variants={{
-                      hidden: { opacity: 0, x: -8 },
-                      visible: {
-                        opacity: 1,
-                        x: 0,
-                        transition: {
-                          duration: 0.35,
-                          delay: 0.3 + rowIdx * 0.06,
-                          ease: 'easeOut',
-                        },
-                      },
-                    }}
+                    data-cmp-row
                     className={`border-b border-border/30 last:border-0 ${rowIdx % 2 === 0 ? 'bg-background/[0.015]' : ''}`}
                   >
                     <td className="px-4 md:px-5 py-4 text-sm text-foreground/90 font-medium">
@@ -142,7 +138,7 @@ export default function Comparison({ content }: ComparisonProps) {
                         <Cell value={cell} highlighted={cellIdx === 0} />
                       </td>
                     ))}
-                  </motion.tr>
+                  </tr>
                 ))}
               </tbody>
             </table>

@@ -103,10 +103,10 @@ export default function Navbar({ content, lang }: NavbarProps) {
                         {lang === 'es' ? 'Entrar' : 'Sign in'}
                     </Link>
                     <Link
-                        href={`/${lang}/editor`}
+                        href={`/${lang}/signup`}
                         className="text-sm font-semibold bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors shadow-md shadow-primary/20 inline-flex items-center gap-1.5"
                     >
-                        {lang === 'es' ? 'Abrir editor' : 'Open editor'}
+                        {content.getStarted}
                         <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                 </div>
@@ -164,20 +164,20 @@ export default function Navbar({ content, lang }: NavbarProps) {
                         </a>
                     </div>
                     <Link
-                        href={`/${lang}/editor`}
+                        href={`/${lang}/signup`}
                         onClick={() => setMobileMenuOpen(false)}
                         className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-xl text-center shadow-md shadow-primary/20 inline-flex items-center justify-center gap-2"
                     >
-                        {lang === 'es' ? 'Abrir editor' : 'Open editor'}
+                        {content.getStarted}
                         <ArrowRight className="w-4 h-4" />
                     </Link>
-                    <a
-                        href="#self-host"
+                    <Link
+                        href={`/${lang}/editor`}
                         onClick={() => setMobileMenuOpen(false)}
                         className="text-center text-sm text-muted-foreground hover:text-foreground"
                     >
-                        {content.getStarted}
-                    </a>
+                        {lang === 'es' ? 'Abrir editor' : 'Open editor'}
+                    </Link>
                 </motion.div>
             )}
         </motion.header>

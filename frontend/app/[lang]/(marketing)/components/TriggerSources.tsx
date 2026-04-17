@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { content } from '@/app/[lang]/content/en';
 import AuroraBackground from './AuroraBackground';
+import { useAnimeStaggerOnView } from '@/hooks/useAnimeStaggerOnView';
 
 type TriggerSourcesProps = {
   content: typeof content.triggers;
@@ -24,6 +25,25 @@ type TriggerSourcesProps = {
  * users to the docs.
  */
 export default function TriggerSources({ content }: TriggerSourcesProps) {
+  // anime.js stagger for the 4 trigger cards — replaces the prior
+  // framer-motion whileInView stagger so the cards enter together
+  // from the same timeline (matches the Hero animation language).
+  const cardsRef = useAnimeStaggerOnView<HTMLDivElement>({
+    selector: '[data-trigger-card]',
+    from: { opacity: 0, translateY: 20 },
+    to: { opacity: [0, 1], translateY: [20, 0] },
+    stagger: 90,
+    duration: 580,
+  });
+  // Tools chips use a tighter stagger + scale pop so the grid lands
+  // with a "shower" motion that reads as "many tools, one call".
+  const toolsRef = useAnimeStaggerOnView<HTMLDivElement>({
+    selector: '[data-tool-chip]',
+    from: { opacity: 0, translateY: 8, scale: 0.9 },
+    to: { opacity: [0, 1], translateY: [8, 0], scale: [0.9, 1] },
+    stagger: 28,
+    duration: 420,
+  });
   return (
     <section className="relative py-24 sm:py-32 overflow-hidden">
       <AuroraBackground
@@ -69,9 +89,12 @@ export default function TriggerSources({ content }: TriggerSourcesProps) {
         {/* Trigger source cards. Single column on mobile, 2 on small,
             4 on large. The 2-col breakpoint avoids the awkward middle
             state where 4 cards squeeze into a tablet width. */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-14 sm:mb-20">
-          {content.items.map((item, idx) => (
-            <TriggerCard key={item.name} item={item} index={idx} />
+        <div
+          ref={cardsRef}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-14 sm:mb-20"
+        >
+          {content.items.map((item) => (
+            <TriggerCard key={item.name} item={item} />
           ))}
         </div>
 
@@ -91,35 +114,20 @@ export default function TriggerSources({ content }: TriggerSourcesProps) {
               {content.callsAnything.subtitle}
             </p>
           </div>
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-80px' }}
-            variants={{
-              hidden: {},
-              visible: { transition: { staggerChildren: 0.04, delayChildren: 0.1 } },
-            }}
+          <div
+            ref={toolsRef}
             className="flex flex-wrap items-center justify-center gap-2"
           >
             {content.callsAnything.tools.map((tool) => (
-              <motion.span
+              <span
                 key={tool}
-                variants={{
-                  hidden: { opacity: 0, y: 8, scale: 0.9 },
-                  visible: {
-                    opacity: 1,
-                    y: 0,
-                    scale: 1,
-                    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
-                  },
-                }}
-                whileHover={{ y: -2, transition: { duration: 0.15 } }}
-                className="px-3 py-1.5 rounded-lg bg-background/60 border border-border/60 font-mono text-sm text-foreground/80 hover:border-primary/40 hover:text-foreground cursor-default"
+                data-tool-chip
+                className="px-3 py-1.5 rounded-lg bg-background/60 border border-border/60 font-mono text-sm text-foreground/80 hover:border-primary/40 hover:text-foreground hover:-translate-y-0.5 transition-all cursor-default"
               >
                 {tool}
-              </motion.span>
+              </span>
             ))}
-          </motion.div>
+          </div>
         </motion.div>
       </div>
     </section>
@@ -128,17 +136,12 @@ export default function TriggerSources({ content }: TriggerSourcesProps) {
 
 function TriggerCard({
   item,
-  index,
 }: {
   item: typeof content.triggers.items[number];
-  index: number;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-80px' }}
-      transition={{ duration: 0.5, delay: index * 0.08 }}
+    <div
+      data-trigger-card
       className="group relative rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md p-6 hover:border-primary/40 hover:-translate-y-0.5 transition-all"
     >
       <div className="flex items-start justify-between mb-4">
@@ -149,7 +152,7 @@ function TriggerCard({
       </div>
       <h3 className="font-semibold text-foreground mb-2">{item.name}</h3>
       <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
-    </motion.div>
+    </div>
   );
 }
 

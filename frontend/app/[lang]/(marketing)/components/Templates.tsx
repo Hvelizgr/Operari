@@ -5,6 +5,7 @@ import { ArrowUpRight, Github } from 'lucide-react';
 import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
 import AuroraBackground from './AuroraBackground';
+import { useAnimeStaggerOnView } from '@/hooks/useAnimeStaggerOnView';
 
 type TemplatesProps = {
   content: typeof content.templates;
@@ -26,6 +27,13 @@ type TemplatesProps = {
  *   - Card descriptions wrap; no horizontal overflow
  */
 export default function Templates({ content }: TemplatesProps) {
+  const gridRef = useAnimeStaggerOnView<HTMLDivElement>({
+    selector: '[data-template-card]',
+    from: { opacity: 0, translateY: 16 },
+    to: { opacity: [0, 1], translateY: [16, 0] },
+    stagger: 90,
+    duration: 520,
+  });
   return (
     <section className="relative py-24 sm:py-32 overflow-hidden">
       <AuroraBackground
@@ -69,21 +77,17 @@ export default function Templates({ content }: TemplatesProps) {
 
         {/* Cards — single column on mobile, 2 columns on sm, 2 on lg too
             because the descriptions are long and 4 columns squeezes them
-            past readability */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-80px' }}
-          variants={{
-            hidden: {},
-            visible: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
-          }}
+            past readability. anime.js stagger on viewport (shared
+            `useAnimeStaggerOnView` hook) so the cards enter with the
+            same motion curve as the TriggerSources section. */}
+        <div
+          ref={gridRef}
           className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5"
         >
           {content.items.map((tpl) => (
             <TemplateCard key={tpl.slug} item={tpl} />
           ))}
-        </motion.div>
+        </div>
 
         {/* Footer CTA → all templates on GitHub */}
         <motion.div
@@ -135,17 +139,12 @@ const accentClasses: Record<string, { ring: string; bg: string; text: string }> 
 function TemplateCard({ item }: { item: typeof content.templates.items[number] }) {
   const accent = accentClasses[item.accent] ?? accentClasses.primary;
   return (
-    <motion.a
+    <a
       href={repo.templateFile(item.slug)}
       target="_blank"
       rel="noopener noreferrer"
-      variants={{
-        hidden: { opacity: 0, y: 16 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
-      }}
-      whileHover={{ y: -3 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className={`group relative block rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md p-5 sm:p-6 transition-colors ${accent.ring}`}
+      data-template-card
+      className={`group relative block rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md p-5 sm:p-6 transition-all hover:-translate-y-0.5 ${accent.ring}`}
     >
       <div className="flex items-start justify-between gap-3 mb-3 sm:mb-4">
         <span
@@ -164,6 +163,6 @@ function TemplateCard({ item }: { item: typeof content.templates.items[number] }
       <div className="font-mono text-[10px] sm:text-[11px] text-muted-foreground/70 truncate">
         templates/{item.slug}.yaml
       </div>
-    </motion.a>
+    </a>
   );
 }
