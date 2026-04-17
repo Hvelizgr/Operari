@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
     // turbo config moved to root
   },
   async rewrites() {
-    const apiUrl = process.env.API_URL || 'http://localhost:4001';
+    const apiUrl = process.env.API_URL || 'http://localhost:4000';
     return [
       {
         source: '/api/:path*',

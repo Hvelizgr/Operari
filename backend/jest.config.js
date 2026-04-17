@@ -4,12 +4,16 @@ module.exports = {
     roots: ['<rootDir>/src'],
     testMatch: ['**/__tests__/**/*.test.ts'],
     collectCoverageFrom: [
-        'src/services/execution.service.ts',
+        // execution.service lives under editor/execution/ after the
+        // runbook DAG runner was lifted out of src/services/. Keep the
+        // Jest path aligned with the real one so coverage thresholds
+        // keep gating it (a stale path silently passes).
+        'src/editor/execution/execution.service.ts',
         'src/routes/auth.routes.ts',
         'src/middleware/auth.middleware.ts',
     ],
     coverageThreshold: {
-        'src/services/execution.service.ts': {
+        'src/editor/execution/execution.service.ts': {
             statements: 70,
             lines: 70,
         },
