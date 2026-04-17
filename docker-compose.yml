@@ -165,14 +165,26 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        # Baked into next.config.ts rewrites() at build time. Must be
+        # the docker service name (not localhost) so the Next server
+        # reaches the backend container over the compose network.
+        API_URL: ${API_URL:-http://backend:4000}
     container_name: nanorun-frontend
     environment:
       NODE_ENV: production
       # The R2/R3/R4 hooks build URLs as `${NEXT_PUBLIC_API_URL}/api/...`,
       # so this value must NOT include the `/api` suffix. Browser-side
-      # only — server-side rendering uses the same URL because the
-      # container can reach `backend:4000` over the docker network.
+      # URL — what the user's browser sees. Host localhost:4000 is
+      # the published backend port on the docker host.
       NEXT_PUBLIC_API_URL: http://localhost:4000
+      # Server-side URL used by next.config.ts `rewrites()`. Inside the
+      # frontend container, `localhost:4000` does NOT resolve to the
+      # backend (localhost is the frontend container itself); we have
+      # to hit the backend by its docker-compose service name. Without
+      # this, /api/node-types (and every other rewritten path) returns
+      # 500 from the Next server because the proxy target is unreachable.
+      API_URL: http://backend:4000
     ports:
       - "3000:3000"
     depends_on:
