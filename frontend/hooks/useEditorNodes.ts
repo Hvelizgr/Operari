@@ -39,32 +39,60 @@ export function useEditorNodes({ executeCommand }: UseEditorNodesOptions) {
         }
     }, []);
 
-    // Node update with undo/redo
+    // Node update. Two paths:
+    //
+    // 1) Auto-measurement updates (dimensions only) bypass the undo
+    //    stack AND skip the stale-closure snapshot entirely. This is
+    //    the ResizeObserver / useLayoutEffect fix: we MUST merge with
+    //    the freshest node state, because a concurrent drag may have
+    //    already moved `position`. The old code captured
+    //    `oldNode = nodes.find(...)` from a stale closure, then did
+    //    `{ ...oldNode, ...updates }` — which silently reverted a
+    //    user's drag back to the pre-drag position, and visually
+    //    manifested as "cables point at the center, not the node
+    //    where it actually is".
+    //
+    // 2) Real user edits (config, title, retry policy, etc.) go
+    //    through executeCommand so undo/redo can rewind them. We
+    //    capture the old state INSIDE the setNodes callback so the
+    //    snapshot is always from the committed state, not a stale
+    //    closure.
     const handleNodeUpdate = useCallback((nodeId: string, updates: Partial<WorkflowNode>) => {
-        // Get current node state for undo
-        const oldNode = nodes.find(n => n.id === nodeId);
-        if (!oldNode) return;
+        const isDimensionsOnly =
+            Object.keys(updates).length === 1 && 'dimensions' in updates;
 
-        const oldState = { ...oldNode };
-        const newState = { ...oldNode, ...updates };
+        if (isDimensionsOnly) {
+            setNodes((prev: WorkflowNode[]) =>
+                prev.map((node: WorkflowNode) =>
+                    node.id === nodeId ? { ...node, ...updates } : node,
+                ),
+            );
+            return;
+        }
 
+        let capturedOldState: WorkflowNode | null = null;
         executeCommand({
             execute: () => {
-                setNodes((prev: WorkflowNode[]) =>
-                    prev.map((node: WorkflowNode) =>
-                        node.id === nodeId ? newState : node
-                    )
-                );
+                setNodes((prev: WorkflowNode[]) => {
+                    const oldNode = prev.find((n) => n.id === nodeId);
+                    if (!oldNode) return prev;
+                    capturedOldState = { ...oldNode };
+                    return prev.map((node: WorkflowNode) =>
+                        node.id === nodeId ? { ...node, ...updates } : node,
+                    );
+                });
             },
             undo: () => {
+                if (!capturedOldState) return;
+                const snapshot = capturedOldState;
                 setNodes((prev: WorkflowNode[]) =>
                     prev.map((node: WorkflowNode) =>
-                        node.id === nodeId ? oldState : node
-                    )
+                        node.id === nodeId ? snapshot : node,
+                    ),
                 );
             },
         });
-    }, [nodes, executeCommand]);
+    }, [executeCommand]);
 
     // Config panel
     const handleCloseConfigPanel = useCallback(() => {
