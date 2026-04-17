@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../server';
-import { authenticate, AuthRequest } from '../middleware/auth.middleware';
+import { authenticate, AuthRequest, anonymousFallback } from '../middleware/auth.middleware';
 import { ExecutionService } from '../editor/execution/execution.service';
 import { AuditService } from '../audit/audit.service';
 import { getRunner } from '../runbook/runners';
@@ -27,20 +27,8 @@ function getEventStore(): ExecutionEventStore | null {
 
 const router = Router();
 
-// router.use(authenticate);
-
-// Set default anonymous user for public API access
-router.use((req: AuthRequest, _res, next) => {
-    if (!req.user) {
-        req.user = {
-            id: 'anonymous',
-            email: 'anonymous@nanoflow.local',
-            role: 'USER',
-            tenantId: 'default-tenant',
-        };
-    }
-    next();
-});
+// Anonymous fallback gated by NANORUN_ANONYMOUS_MODE=true.
+router.use(anonymousFallback);
 
 /**
  * @swagger

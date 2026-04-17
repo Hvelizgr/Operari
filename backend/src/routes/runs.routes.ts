@@ -1,23 +1,11 @@
 import { Router, Response } from 'express';
 import { prisma } from '../server';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, anonymousFallback } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Anonymous fallback for dev/single-tenant self-host. Mirror of
-// /api/v1/runs that the in-app Run History page uses without an
-// API key. Real auth lives on /api/v1/runs.
-router.use((req: AuthRequest, _res, next) => {
-    if (!req.user) {
-        req.user = {
-            id: 'anonymous',
-            email: 'anonymous@nanoflow.local',
-            role: 'USER',
-            tenantId: 'default-tenant',
-        };
-    }
-    next();
-});
+// Anonymous fallback gated by NANORUN_ANONYMOUS_MODE=true.
+router.use(anonymousFallback);
 
 /**
  * GET /api/runs

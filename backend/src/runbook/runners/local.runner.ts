@@ -1,10 +1,29 @@
 import { spawn, ChildProcess } from 'child_process';
+import { mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import {
     Runner,
     RunnerContext,
     RunnerResult,
     RunnerSpec,
 } from './runner.types';
+
+/**
+ * Env vars that should NEVER leak into step commands. Even in
+ * single-tenant self-host, a buggy step printing `env` would expose
+ * the backend's secrets.
+ */
+const FILTERED_ENV_KEYS = [
+    'ENCRYPTION_KEY',
+    'JWT_SECRET',
+    'DATABASE_URL',
+    'ANTHROPIC_API_KEY',
+    'OPENAI_API_KEY',
+    'GMAIL_CLIENT_SECRET',
+    'SLACK_CLIENT_SECRET',
+    'REDIS_URL',
+];
 
 /**
  * LocalRunner — executes commands directly on the backend host process.
@@ -39,10 +58,27 @@ export class LocalRunner implements Runner {
         const shell = spec.shell ?? 'sh';
         const timeoutMs = spec.timeoutMs ?? 60_000;
 
+        // Create an isolated tmpdir for each step so commands can't
+        // read/write each other's temp files. Cleaned up after execution.
+        const stepTmpDir = mkdtempSync(join(tmpdir(), `nanorun-${context.runId}-`));
+        const cwd = spec.cwd ?? stepTmpDir;
+
+        // Filter dangerous env vars from the inherited environment
+        const safeEnv: Record<string, string | undefined> = { ...process.env };
+        for (const key of FILTERED_ENV_KEYS) {
+            delete safeEnv[key];
+        }
+        // TMPDIR/TMP/TEMP point to the isolated tmpdir
+        safeEnv.TMPDIR = stepTmpDir;
+        safeEnv.TMP = stepTmpDir;
+        safeEnv.TEMP = stepTmpDir;
+        // Merge step-specific env vars on top
+        Object.assign(safeEnv, spec.env ?? {});
+
         return new Promise<RunnerResult>((resolve) => {
             const proc = spawn(shell, ['-c', spec.command], {
-                cwd: spec.cwd,
-                env: { ...process.env, ...(spec.env ?? {}) },
+                cwd,
+                env: safeEnv,
             });
 
             this.track(context.runId, proc);
@@ -71,6 +107,7 @@ export class LocalRunner implements Runner {
             proc.on('error', (err) => {
                 clearTimeout(timer);
                 this.untrack(context.runId, proc);
+                try { rmSync(stepTmpDir, { recursive: true, force: true }); } catch { /* best-effort */ }
                 resolve({
                     exitCode: null,
                     stdout,
@@ -83,6 +120,7 @@ export class LocalRunner implements Runner {
             proc.on('close', (exitCode) => {
                 clearTimeout(timer);
                 this.untrack(context.runId, proc);
+                try { rmSync(stepTmpDir, { recursive: true, force: true }); } catch { /* best-effort */ }
                 resolve({
                     exitCode,
                     stdout: stdout.trimEnd(),

@@ -11,6 +11,7 @@ import { MultiplexNodeExecutor } from './logic/multiplex-node.executor';
 import { DelayNodeExecutor } from './nodes/delay.executor';
 import { TransformNodeExecutor } from './nodes/transform.executor';
 import { ConditionNodeExecutor } from './nodes/condition.executor';
+import { SwitchNodeExecutor } from './nodes/switch.executor';
 import { NoteNodeExecutor } from './nodes/note.executor';
 import { FrameNodeExecutor } from './nodes/frame.executor';
 import { HttpNodeExecutor } from './nodes/http.executor';
@@ -135,6 +136,7 @@ export class NodeExecutor {
         register(new DelayNodeExecutor());
         register(new TransformNodeExecutor(editorNodeDeps));
         register(new ConditionNodeExecutor());
+        register(new SwitchNodeExecutor());
         register(new NoteNodeExecutor());
         register(new FrameNodeExecutor());
 

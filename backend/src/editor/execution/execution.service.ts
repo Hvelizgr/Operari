@@ -893,12 +893,73 @@ export class ExecutionService {
                         });
                     }
 
-                    const nextNodes = connections
-                        .filter(c => c.source === currentNode.id)
-                        .map(c => nodes.find(n => n.id === c.target))
-                        .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
+                    // --- Conditional branching ---
+                    // Condition/If nodes: follow port 0 (true) or port 1 (false)
+                    // based on conditionResult. Switch nodes: follow the port
+                    // matching matchedCase. Loop nodes: iterate children once per
+                    // item, injecting currentItem/currentIndex into the context.
+                    const nodeOutput = nodeOutputs[currentNode.id] as Record<string, unknown> | undefined;
+                    const isConditionNode = currentNode.type === 'Condition' || currentNode.type === 'If' || currentNode.type === 'nanorun.if';
+                    const isSwitchNode = currentNode.type === 'Switch' || currentNode.type === 'nanorun.switch';
+                    const isLoopNode = currentNode.type === 'Loop' || currentNode.type === 'Iterator' || currentNode.type === 'nanorun.loop';
 
-                    nodesToExecute.push(...nextNodes);
+                    let outgoingConnections = connections.filter(c => c.source === currentNode.id);
+
+                    if (isConditionNode && nodeOutput) {
+                        const passed = Boolean(nodeOutput.conditionResult);
+                        // Port 0 = true branch, port 1 = false branch.
+                        // Connections without sourcePort follow the true branch (backward compat).
+                        outgoingConnections = outgoingConnections.filter(c => {
+                            if (passed) return c.sourcePort === 0 || c.sourcePort === undefined;
+                            return c.sourcePort === 1;
+                        });
+                    } else if (isSwitchNode && nodeOutput) {
+                        const matchedCase = nodeOutput.matchedCase as number | undefined;
+                        if (matchedCase !== undefined) {
+                            outgoingConnections = outgoingConnections.filter(c =>
+                                c.sourcePort === matchedCase || c.sourcePort === undefined,
+                            );
+                        }
+                    }
+
+                    if (isLoopNode && nodeOutput) {
+                        const items = Array.isArray(nodeOutput.items) ? nodeOutput.items : [];
+                        const childNodes = outgoingConnections
+                            .map(c => nodes.find(n => n.id === c.target))
+                            .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
+
+                        // Execute children once per iteration, passing item context
+                        for (let i = 0; i < items.length; i++) {
+                            for (const child of childNodes) {
+                                // Inject loop iteration variables into the node's input
+                                nodeOutputs[currentNode.id] = {
+                                    ...nodeOutput,
+                                    currentItem: items[i],
+                                    currentIndex: i,
+                                    isFirst: i === 0,
+                                    isLast: i === items.length - 1,
+                                };
+                            }
+                            // Re-run children for this iteration by temporarily clearing their executed state
+                            if (i < items.length - 1) {
+                                for (const child of childNodes) {
+                                    executedNodes.delete(child.id);
+                                }
+                            }
+                            nodesToExecute.push(...childNodes);
+                        }
+
+                        if (items.length === 0) {
+                            // No items — skip children entirely
+                            nodesToExecute.push(...childNodes);
+                        }
+                    } else {
+                        const nextNodes = outgoingConnections
+                            .map(c => nodes.find(n => n.id === c.target))
+                            .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
+
+                        nodesToExecute.push(...nextNodes);
+                    }
                 } catch (error) {
                     const wrappedError = wrapError(error, nodeContext);
                     const nodeDuration = Date.now() - nodeStartTime;

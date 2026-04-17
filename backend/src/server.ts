@@ -32,6 +32,8 @@ import monitorsRoutes from './routes/monitors.routes';
 import eventsRoutes from './routes/events.routes';
 import adminRoutes from './routes/admin.routes';
 import sqlRoutes from './routes/sql.routes';
+import githubExplorerRoutes from './routes/github-explorer.routes';
+import contactRoutes from './routes/contact.routes';
 import { MonitorService } from './services/monitor.service';
 import { errorHandler } from './middleware/error.middleware';
 import { SchedulerService } from './services/scheduler.service';
@@ -97,6 +99,8 @@ app.use('/api/monitors', standardRateLimiter, monitorsRoutes);
 app.use('/api/events', standardRateLimiter, eventsRoutes);
 app.use('/api/admin', standardRateLimiter, adminRoutes);
 app.use('/api/sql', standardRateLimiter, sqlRoutes);
+app.use('/api/github', standardRateLimiter, githubExplorerRoutes);
+app.use('/api/contact', standardRateLimiter, contactRoutes);
 
 // NanoRun API v1 (SDK & CLI)
 app.use('/api/v1/runbooks', executionRateLimiter, v1RunbookRoutes);
@@ -191,6 +195,26 @@ export { scheduler };
 
 async function main() {
     try {
+        // Startup security checks
+        if (!env.ENCRYPTION_KEY) {
+            logger.warn(
+                '⚠️  ENCRYPTION_KEY is not set. Connected accounts and secrets will use an insecure default key. ' +
+                'Set ENCRYPTION_KEY to a random 64-char hex string for production use.',
+            );
+        } else if (env.ENCRYPTION_KEY === '0'.repeat(64) || env.ENCRYPTION_KEY === '0'.repeat(32)) {
+            logger.warn(
+                '⚠️  ENCRYPTION_KEY is set to a known default value. ' +
+                'Generate a random key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+            );
+        }
+
+        if (env.NANORUN_ANONYMOUS_MODE === 'true') {
+            logger.warn(
+                '⚠️  NANORUN_ANONYMOUS_MODE=true — all API routes allow unauthenticated access. ' +
+                'Only use this for single-tenant self-host deployments.',
+            );
+        }
+
         await prisma.$connect();
         logger.info('Database connected');
 

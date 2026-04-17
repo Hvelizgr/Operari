@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { prisma } from '../server';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, anonymousFallback } from '../middleware/auth.middleware';
 import { ConnectedAccountService } from '../security/connected-account.service';
 import { SecretCipher } from '../security/secret-cipher';
 import { SecretReader } from '../security/secret-reader';
@@ -26,19 +26,8 @@ function getService(): ConnectedAccountService {
     return service;
 }
 
-// Anonymous fallback for dev/single-tenant self-host. Mirrors the
-// pattern in workflow.routes.ts and approvals.routes.ts.
-router.use((req: AuthRequest, _res, next) => {
-    if (!req.user) {
-        req.user = {
-            id: 'anonymous',
-            email: 'anonymous@nanoflow.local',
-            role: 'USER',
-            tenantId: 'default-tenant',
-        };
-    }
-    next();
-});
+// Anonymous fallback gated by NANORUN_ANONYMOUS_MODE=true.
+router.use(anonymousFallback);
 
 /**
  * GET /api/connected-accounts

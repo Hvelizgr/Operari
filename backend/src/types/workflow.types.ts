@@ -90,6 +90,17 @@ export interface LoopNodeConfig {
     itemsPath?: string;
 }
 
+export interface SwitchNodeConfig {
+    field?: string;
+    cases?: Array<{ value: string; label?: string }>;
+}
+
+export interface SwitchResult extends ExecutionOutput {
+    switchValue: unknown;
+    matchedCase: number;
+    matchedLabel: string | null;
+}
+
 export interface DecisionNodeConfig {
     expression?: string; // Jexl expression
 }
@@ -184,6 +195,7 @@ export type NodeConfig =
     | DatabaseNodeConfig
     | DelayNodeConfig
     | LoopNodeConfig
+    | SwitchNodeConfig
     | DecisionNodeConfig
     | SplitNodeConfig
     | JoinNodeConfig
@@ -444,6 +456,7 @@ export type NodeExecutionResult =
     | ConditionResult
     | DelayResult
     | LoopResult
+    | SwitchResult
     | DatabaseResult
     | DecisionResult
     | SplitResult

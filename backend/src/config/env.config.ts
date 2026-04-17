@@ -20,6 +20,10 @@ const envSchema = z.object({
 
     // OAuth / Connected Accounts
     ENCRYPTION_KEY: z.string().min(32).optional(),
+
+    // Self-host: allow anonymous access (no auth required).
+    // Set to "true" ONLY for single-tenant self-host deployments.
+    NANORUN_ANONYMOUS_MODE: z.enum(['true', 'false']).default('false'),
     GMAIL_CLIENT_ID: z.string().optional(),
     GMAIL_CLIENT_SECRET: z.string().optional(),
     SLACK_CLIENT_ID: z.string().optional(),

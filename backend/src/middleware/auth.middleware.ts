@@ -62,6 +62,31 @@ export const authenticate = async (
     }
 };
 
+/**
+ * Anonymous fallback middleware — sets a default user when no auth is
+ * present and NANORUN_ANONYMOUS_MODE=true. Used by self-host single-
+ * tenant deployments that don't need login.
+ *
+ * If NANORUN_ANONYMOUS_MODE is not "true", this middleware is a no-op,
+ * so routes that require auth will return 401 via the `authenticate`
+ * middleware.
+ */
+export const anonymousFallback = (
+    req: AuthRequest,
+    _res: Response,
+    next: NextFunction,
+) => {
+    if (!req.user && process.env.NANORUN_ANONYMOUS_MODE === 'true') {
+        req.user = {
+            id: 'anonymous',
+            email: 'anonymous@nanorun.local',
+            role: 'USER',
+            tenantId: 'default-tenant',
+        };
+    }
+    next();
+};
+
 export const requireRole = (...roles: string[]) => {
     return (req: AuthRequest, res: Response, next: NextFunction) => {
         if (!req.user) {
