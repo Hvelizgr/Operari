@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import type { WorkflowNode, Connection } from '@cairn/shared';
 import type { ViewportState } from '../../types/editor.types';
 import * as Icons from 'lucide-react';
+import { getNodePortInfo } from '../../utils/nodePortUtils';
 
 interface ConnectionBubblesLayerProps {
     connections: Connection[];
@@ -14,46 +15,23 @@ interface ConnectionBubblesLayerProps {
     onBubbleClick?: (connectionId: string) => void;
 }
 
-// Replicating logic from useCanvasRenderer for consistency
-const getNodePortPosition = (node: WorkflowNode, portType: string) => {
-    const type = node.type.toLowerCase();
-    if (type.includes('trigger') || type === 'start') {
-        if (portType === 'input') return { x: node.position.x, y: node.position.y + 32 };
-        return { x: node.position.x + 64, y: node.position.y + 32 };
-    }
-    if (type.includes('controller') || type === 'condition') {
-        if (portType === 'input') return { x: node.position.x, y: node.position.y + 32 };
-        return { x: node.position.x + 128, y: node.position.y + 32 };
-    }
-    if (type.includes('limit')) {
-        if (portType === 'input') return { x: node.position.x + 32, y: node.position.y };
-        return { x: node.position.x + 32, y: node.position.y + 64 };
-    }
-    if (portType === 'input') return { x: node.position.x, y: node.position.y + 60 };
-    return { x: node.position.x + 275, y: node.position.y + 60 };
-};
-
-const getBezierMidpoint = (start: { x: number, y: number }, end: { x: number, y: number }) => {
+// Simple cubic-bezier midpoint at t=0.5. Control points mirror the
+// curvature used by the canvas renderer so the bubble sits exactly
+// where the line peaks, not off to one side.
+const getBezierMidpoint = (start: { x: number; y: number }, end: { x: number; y: number }) => {
     const halfWayX = (start.x + end.x) / 2;
-    // Cubic Bezier t=0.5
-    // P0=start, P1=(med, startY), P2=(med, endY), P3=end
     const t = 0.5;
     const invT = 1 - t;
-
-    // Coefficients
-    const c0 = invT * invT * invT;         // 0.125
-    const c1 = 3 * invT * invT * t;        // 0.375
-    const c2 = 3 * invT * t * t;           // 0.375
-    const c3 = t * t * t;                  // 0.125
-
-    // Control Points
+    const c0 = invT * invT * invT;
+    const c1 = 3 * invT * invT * t;
+    const c2 = 3 * invT * t * t;
+    const c3 = t * t * t;
     const p1 = { x: halfWayX, y: start.y };
     const p2 = { x: halfWayX, y: end.y };
-
-    const x = c0 * start.x + c1 * p1.x + c2 * p2.x + c3 * end.x;
-    const y = c0 * start.y + c1 * p1.y + c2 * p2.y + c3 * end.y;
-
-    return { x, y };
+    return {
+        x: c0 * start.x + c1 * p1.x + c2 * p2.x + c3 * end.x,
+        y: c0 * start.y + c1 * p1.y + c2 * p2.y + c3 * end.y,
+    };
 };
 
 export default function ConnectionBubblesLayer({
@@ -84,8 +62,11 @@ export default function ConnectionBubblesLayer({
                 const targetNode = nodes.find(n => n.id === conn.target);
                 if (!sourceNode || !targetNode) return null;
 
-                const start = getNodePortPosition(sourceNode, 'output');
-                const end = getNodePortPosition(targetNode, 'input');
+                // Use the shared port resolver so bubbles land on the exact
+                // same anchor the canvas bezier does — no drift when a
+                // node has multiple output ports.
+                const start = getNodePortInfo(sourceNode, 'output', conn.sourcePort ?? 0);
+                const end = getNodePortInfo(targetNode, 'input', conn.targetPort ?? 0);
                 const mid = getBezierMidpoint(start, end);
 
                 // Determine bubble style based on connection data or default

@@ -5,7 +5,7 @@ import type { WorkflowNode, Connection, ConnectionCondition } from '@cairn/share
 import { useCanvasRenderer } from '../../hooks/useCanvasRenderer';
 import type { CreatingConnectionState, ViewportState } from '../../types/editor.types';
 import ConnectionConditionBadge from './ConnectionConditionBadge';
-import { getNodeOutputPort, getNodeInputPort } from './EditorNode';
+import { getNodePortInfo } from '../../utils/nodePortUtils';
 
 interface ConnectionsLayerProps {
     connections: Connection[];
@@ -47,9 +47,10 @@ export default function ConnectionsLayer({
 
             if (!sourceNode || !targetNode) return null;
 
-            // Get port positions
-            const sourcePort = getNodeOutputPort(sourceNode as any, conn.sourcePort || 0);
-            const targetPort = getNodeInputPort(targetNode as any, conn.targetPort || 0);
+            // Get port positions from the shared resolver. Typed as
+            // NodeWithDimensions so no `as any` cast is needed.
+            const sourcePort = getNodePortInfo(sourceNode, 'output', conn.sourcePort ?? 0);
+            const targetPort = getNodePortInfo(targetNode, 'input', conn.targetPort ?? 0);
 
             // Calculate midpoint
             const midX = (sourcePort.x + targetPort.x) / 2;
