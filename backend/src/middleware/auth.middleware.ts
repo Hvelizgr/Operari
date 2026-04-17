@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../server';
 import { getAuthProvider, AuthTransportError } from '../auth';
+import { SESSION_COOKIE_NAME } from '../auth/session-cookie';
 
 export interface AuthRequest extends Request {
     user?: {
@@ -12,32 +13,44 @@ export interface AuthRequest extends Request {
 }
 
 /**
- * Bearer-token authentication middleware.
+ * Dual-transport authentication middleware.
  *
- * Routes the token through the configured AuthProvider (default
- * JwtAuthProvider for self-host, WorkOSAuthProvider for cloud when
- * NANORUN_AUTH_PROVIDER=workos). The middleware itself never knows
- * which provider is in use — switching to WorkOS is a single env
- * variable flip with zero route changes.
+ * Accepts either `Authorization: Bearer <jwt>` (SDK/CLI/machine clients)
+ * or the HttpOnly `nanorun_session` cookie (web UI). Bearer wins when
+ * both are present so existing SDK flows are unaffected. The cookie
+ * path means the browser session is XSS-resistant — JS in the Next.js
+ * app can never read the token.
+ *
+ * The token itself still goes through the configured AuthProvider
+ * (JwtAuthProvider for self-host, WorkOSAuthProvider for cloud) so the
+ * transport change is orthogonal to the provider change.
  *
  * Response codes:
- *   - 401 "No token provided" when the Authorization header is missing
+ *   - 401 "No token provided" when neither transport carries a token
  *   - 401 "Invalid token" when the provider returns null
  *   - 503 "Auth service unavailable" when the provider throws
  *     AuthTransportError (e.g. WorkOS JWKS endpoint unreachable).
  *     The 503 distinction matters because clients should retry on
  *     503 but re-authenticate on 401.
  */
+function extractToken(req: AuthRequest): string | null {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.substring(7);
+    }
+    const cookieToken = (req as Request & { cookies?: Record<string, string> }).cookies?.[SESSION_COOKIE_NAME];
+    return cookieToken ?? null;
+}
+
 export const authenticate = async (
     req: AuthRequest,
     res: Response,
     next: NextFunction
 ) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = extractToken(req);
+    if (!token) {
         return res.status(401).json({ error: 'No token provided' });
     }
-    const token = authHeader.substring(7);
 
     try {
         const user = await getAuthProvider(prisma).verifyToken(token);

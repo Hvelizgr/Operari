@@ -158,8 +158,13 @@ describe('Contact routes', () => {
             const body = JSON.parse(init.body);
             expect(body.reply_to).toBe('jane@acme.dev');
             expect(body.subject).toContain('Jane');
-            expect(body.subject).toContain('Acme');
+            expect(body.text).toContain('Acme');
             expect(body.text).toContain('Interested in Business tier.');
+            // Company moved from the subject line into the body when
+            // contact forwards switched to branded HTML templates;
+            // operators read both anyway and the cleaner subject
+            // survives Gmail's "View original" preview better.
+            expect(body.html).toContain('Acme');
         });
 
         it('still acks 202 even when Resend returns 5xx (delivery is our problem, not theirs)', async () => {

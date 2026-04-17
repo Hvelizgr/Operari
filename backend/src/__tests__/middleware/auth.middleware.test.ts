@@ -45,8 +45,11 @@ function buildRes(): {
     return { res, status, json };
 }
 
-function buildReq(headers: Record<string, string> = {}): AuthRequest {
-    return { headers } as unknown as AuthRequest;
+function buildReq(
+    headers: Record<string, string> = {},
+    cookies: Record<string, string> = {},
+): AuthRequest {
+    return { headers, cookies } as unknown as AuthRequest;
 }
 
 function stubProvider(
@@ -121,6 +124,37 @@ describe('authenticate middleware', () => {
         // route layer should never branch on which provider issued the
         // token.
         expect((req.user as Record<string, unknown>).provider).toBeUndefined();
+    });
+
+    it('falls back to the nanorun_session cookie when no Bearer header is set', async () => {
+        const provider = stubProvider({ kind: 'ok' });
+        setAuthProviderForTest(provider);
+        const { res, status } = buildRes();
+        const next = jest.fn() as unknown as NextFunction;
+        const req = buildReq({}, { nanorun_session: 'cookie-token' });
+
+        await authenticate(req, res, next);
+
+        expect(provider.verifyToken).toHaveBeenCalledWith('cookie-token');
+        expect(status).not.toHaveBeenCalled();
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(req.user?.id).toBe('user-1');
+    });
+
+    it('prefers the Authorization header over the cookie when both are present', async () => {
+        const provider = stubProvider({ kind: 'ok' });
+        setAuthProviderForTest(provider);
+        const { res } = buildRes();
+        const next = jest.fn() as unknown as NextFunction;
+        const req = buildReq(
+            { authorization: 'Bearer header-wins' },
+            { nanorun_session: 'cookie-loses' },
+        );
+
+        await authenticate(req, res, next);
+
+        expect(provider.verifyToken).toHaveBeenCalledWith('header-wins');
+        expect(next).toHaveBeenCalledTimes(1);
     });
 
     it('returns 401 "Invalid token" when the provider returns null', async () => {

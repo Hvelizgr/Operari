@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { logger } from '../config/logger.config';
+import { sendEmail } from '../services/email.service';
+import { renderContactForwardEmail } from '../services/email-templates';
 
 const router = Router();
 
@@ -43,66 +45,6 @@ type ContactSubmission = {
     message: string;
 };
 
-/**
- * Send via Resend. Isolated in its own function so `contact.routes`
- * can be switched to Postmark/SES without touching the handler flow.
- *
- * The route handler awaits this with a short timeout. Errors are
- * logged and swallowed: the visitor still gets 202, because "email
- * to us failed" is our reliability problem, not theirs. The log line
- * has everything we need to recover the message out-of-band.
- */
-async function sendViaResend(
-    submission: ContactSubmission,
-    apiKey: string,
-): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-    const to = process.env.CONTACT_TO_EMAIL || 'hello@nanorun.dev';
-    const from = process.env.CONTACT_FROM_EMAIL || 'contact@nanorun.dev';
-
-    const subject = `[contact] ${submission.name}${submission.company ? ` · ${submission.company}` : ''}`;
-    const text = [
-        `From: ${submission.name} <${submission.email}>`,
-        submission.company ? `Company: ${submission.company}` : null,
-        '',
-        submission.message,
-    ]
-        .filter((l) => l !== null)
-        .join('\n');
-
-    try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-                from,
-                to: [to],
-                reply_to: submission.email,
-                subject,
-                text,
-            }),
-            signal: controller.signal,
-        });
-        clearTimeout(timeout);
-
-        if (!res.ok) {
-            const body = await res.text().catch(() => '');
-            return { ok: false, error: `resend_${res.status}: ${body.slice(0, 200)}` };
-        }
-        const json = (await res.json().catch(() => ({}))) as { id?: string };
-        return { ok: true, id: json.id ?? '' };
-    } catch (err) {
-        return {
-            ok: false,
-            error: err instanceof Error ? err.message : String(err),
-        };
-    }
-}
-
 router.post('/', async (req: Request, res: Response) => {
     const parsed = ContactPayload.safeParse(req.body);
     if (!parsed.success) {
@@ -120,25 +62,30 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const submission: ContactSubmission = { name, email, company, message };
+    const tpl = renderContactForwardEmail({
+        name: submission.name,
+        fromEmail: submission.email,
+        company: submission.company || null,
+        message: submission.message,
+    });
+    const to = process.env.CONTACT_TO_EMAIL || 'hello@nanorun.dev';
 
-    const apiKey = process.env.RESEND_API_KEY;
-    if (apiKey) {
-        const result = await sendViaResend(submission, apiKey);
-        if (result.ok) {
-            logger.info(
-                { email, company: company || null, provider: 'resend', providerId: result.id },
-                'contact.submission.delivered',
-            );
-        } else {
-            logger.error(
-                { email, company: company || null, provider: 'resend', error: result.error },
-                'contact.submission.delivery_failed',
-            );
-        }
-    } else {
+    const result = await sendEmail({
+        to,
+        subject: tpl.subject,
+        text: tpl.text,
+        html: tpl.html,
+        replyTo: email,
+    });
+    if (result.delivered && !result.loggedOnly) {
         logger.info(
-            { name, email, company: company || null, messageLength: message.length },
-            'contact.submission',
+            { email, company: company || null, providerId: result.providerId },
+            'contact.submission.delivered',
+        );
+    } else if (!result.delivered) {
+        logger.error(
+            { email, company: company || null, error: result.error },
+            'contact.submission.delivery_failed',
         );
     }
 

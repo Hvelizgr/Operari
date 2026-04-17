@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import type { PrismaClient } from '@prisma/client';
 import type { AuthProvider, AuthenticatedUser } from './auth-provider.types';
+import { isJtiRevoked } from './session-denylist';
 
 /**
  * JwtAuthProvider — wraps the existing self-host JWT auth so it
@@ -34,10 +35,24 @@ export class JwtAuthProvider implements AuthProvider {
             return null;
         }
 
-        let decoded: { userId: string; email: string; role: string; tenantId: string };
+        let decoded: {
+            userId: string;
+            email: string;
+            role: string;
+            tenantId: string;
+            jti?: string;
+        };
         try {
             decoded = jwt.verify(token, this.secret) as typeof decoded;
         } catch {
+            return null;
+        }
+
+        // Session revocation: reject tokens whose JTI lives in the
+        // Redis denylist (written by /auth/logout). If Redis is not
+        // configured this degrades to stateless JWT, which is the
+        // self-host default.
+        if (decoded.jti && (await isJtiRevoked(decoded.jti))) {
             return null;
         }
 
