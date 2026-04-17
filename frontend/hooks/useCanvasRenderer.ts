@@ -126,6 +126,33 @@ const drawSmartBezier = (
     }
 };
 
+/**
+ * Debug crosshair marker — draws a small + sign at the computed port
+ * anchor so operators can eyeball any math drift against the live
+ * pole DOM. Red for source outputs, blue for target inputs.
+ */
+function drawPortCrosshair(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    color: string,
+) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x - 6, y);
+    ctx.lineTo(x + 6, y);
+    ctx.moveTo(x, y - 6);
+    ctx.lineTo(x, y + 6);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+}
+
 interface UseCanvasRendererProps {
     canvasRef: React.RefObject<HTMLCanvasElement | null>;
     nodes: WorkflowNode[];
@@ -196,6 +223,13 @@ export function useCanvasRenderer({
             : 'bezier') as 'bezier' | 'straight';
         const flowEnabled = html.getAttribute('data-flow') !== 'off';
         const animEnabled = html.getAttribute('data-anim') !== 'off';
+        // Diagnostic: when the URL has `?debug=ports`, draw a small red
+        // crosshair at every computed port anchor. Compare visually
+        // against the live pole buttons — if they don't overlap, we
+        // have a port-position math bug. Toggle off by removing the
+        // query param.
+        const portDebug = typeof window !== 'undefined' &&
+            new URLSearchParams(window.location.search).get('debug') === 'ports';
 
         _connections.forEach(conn => {
             const sourceNode = _nodes.find(n => n.id === conn.source);
@@ -222,6 +256,11 @@ export function useCanvasRenderer({
                 upstreamStatus: sourceStatus,
                 dashOffset: sourceStatus === 'RUNNING' ? dashOffset.current : undefined,
             });
+
+            if (portDebug) {
+                drawPortCrosshair(ctx, startInfo.x, startInfo.y, '#ef4444');
+                drawPortCrosshair(ctx, endInfo.x, endInfo.y, '#3b82f6');
+            }
         });
 
         ctx.restore();
