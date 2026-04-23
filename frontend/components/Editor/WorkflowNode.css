@@ -4,74 +4,74 @@
    color for any legacy class that still references it; new code should
    use --primary or the app-level tokens. */
 :root {
-    --blue: rgb(56, 189, 248);
-    --indigo: rgb(102, 16, 242);
-    --purple: rgb(140, 60, 220);
-    --pink: rgb(232, 62, 140);
-    --red: rgb(220, 53, 69);
-    --orange: rgb(253, 126, 20);
-    --yellow: rgb(240, 200, 0);
-    --green: rgb(40, 167, 69);
-    --teal: rgb(32, 201, 151);
-    --cyan: rgb(23, 162, 184);
-    --gray: rgb(138, 147, 155);
-    --primary: rgb(62, 207, 142);
-    --secondary: rgb(108, 117, 125);
-    --success: rgb(40, 167, 69);
-    --info: rgb(23, 162, 184);
-    --warning: rgb(255, 193, 7);
-    --danger: rgb(220, 53, 69);
-    --light: rgb(248, 249, 250);
-    --dark: rgb(52, 58, 64);
+  --blue: rgb(56, 189, 248);
+  --indigo: rgb(102, 16, 242);
+  --purple: rgb(140, 60, 220);
+  --pink: rgb(232, 62, 140);
+  --red: rgb(220, 53, 69);
+  --orange: rgb(253, 126, 20);
+  --yellow: rgb(240, 200, 0);
+  --green: rgb(40, 167, 69);
+  --teal: rgb(32, 201, 151);
+  --cyan: rgb(23, 162, 184);
+  --gray: rgb(138, 147, 155);
+  --primary: rgb(62, 207, 142);
+  --secondary: rgb(108, 117, 125);
+  --success: rgb(40, 167, 69);
+  --info: rgb(23, 162, 184);
+  --warning: rgb(255, 193, 7);
+  --danger: rgb(220, 53, 69);
+  --light: rgb(248, 249, 250);
+  --dark: rgb(52, 58, 64);
 
-    --blue-highlight: color-mix(in srgb, var(--blue) 80%, white);
-    --indigo-highlight: color-mix(in srgb, var(--indigo) 80%, white);
-    --purple-highlight: color-mix(in srgb, var(--purple) 80%, white);
-    --pink-highlight: color-mix(in srgb, var(--pink) 80%, white);
-    --red-highlight: color-mix(in srgb, var(--red) 80%, white);
-    --orange-highlight: color-mix(in srgb, var(--orange) 80%, white);
-    --yellow-highlight: color-mix(in srgb, var(--yellow) 80%, white);
-    --green-highlight: color-mix(in srgb, var(--green) 80%, white);
-    --teal-highlight: color-mix(in srgb, var(--teal) 80%, white);
-    --cyan-highlight: color-mix(in srgb, var(--cyan) 80%, white);
-    --gray-highlight: color-mix(in srgb, var(--gray) 80%, white);
+  --blue-highlight: color-mix(in srgb, var(--blue) 80%, white);
+  --indigo-highlight: color-mix(in srgb, var(--indigo) 80%, white);
+  --purple-highlight: color-mix(in srgb, var(--purple) 80%, white);
+  --pink-highlight: color-mix(in srgb, var(--pink) 80%, white);
+  --red-highlight: color-mix(in srgb, var(--red) 80%, white);
+  --orange-highlight: color-mix(in srgb, var(--orange) 80%, white);
+  --yellow-highlight: color-mix(in srgb, var(--yellow) 80%, white);
+  --green-highlight: color-mix(in srgb, var(--green) 80%, white);
+  --teal-highlight: color-mix(in srgb, var(--teal) 80%, white);
+  --cyan-highlight: color-mix(in srgb, var(--cyan) 80%, white);
+  --gray-highlight: color-mix(in srgb, var(--gray) 80%, white);
 
-    --green-brighter: rgb(60, 187, 89);
-    --red-brighter: rgb(240, 73, 89);
+  --green-brighter: rgb(60, 187, 89);
+  --red-brighter: rgb(240, 73, 89);
 
-    --theme-color: rgb(55, 145, 245);
-    --theme-color-highlight: rgb(80, 170, 255);
-    --theme-color-half: rgba(55, 145, 245, 0.5);
+  --theme-color: rgb(55, 145, 245);
+  --theme-color-highlight: rgb(80, 170, 255);
+  --theme-color-half: rgba(55, 145, 245, 0.5);
 
-    --border-color: rgb(227, 229, 233);
-    --shadow-color: rgb(233, 236, 240);
-    --background-color: rgb(248, 250, 252);
-    --box-background-color: rgb(255, 255, 255);
-    --form-background-color: rgb(248, 250, 252);
-    --table-header-background-color: rgba(0, 50, 100, 0.03);
+  --border-color: rgb(227, 229, 233);
+  --shadow-color: rgb(233, 236, 240);
+  --background-color: rgb(248, 250, 252);
+  --box-background-color: rgb(255, 255, 255);
+  --form-background-color: rgb(248, 250, 252);
+  --table-header-background-color: rgba(0, 50, 100, 0.03);
 
-    --label-color: rgb(115, 115, 130);
-    --body-text-color: rgb(60, 70, 85);
-    --icon-color: rgb(185, 190, 200);
+  --label-color: rgb(115, 115, 130);
+  --body-text-color: rgb(60, 70, 85);
+  --icon-color: rgb(185, 190, 200);
 }
 
 /* Dark mode overrides */
 @media (prefers-color-scheme: dark) {
-    :root {
-        --yellow: rgb(204, 154, 6);
-        --gray: rgb(98, 107, 115);
+  :root {
+    --yellow: rgb(204, 154, 6);
+    --gray: rgb(98, 107, 115);
 
-        --border-color: rgb(50, 50, 58);
-        --shadow-color: rgba(0, 0, 0, 0.0);
-        --background-color: rgb(24, 24, 32);
-        --box-background-color: rgb(32, 32, 38);
-        --form-background-color: rgb(40, 40, 48);
-        --table-header-background-color: rgba(200, 225, 255, 0.03);
+    --border-color: rgb(50, 50, 58);
+    --shadow-color: rgba(0, 0, 0, 0);
+    --background-color: rgb(24, 24, 32);
+    --box-background-color: rgb(32, 32, 38);
+    --form-background-color: rgb(40, 40, 48);
+    --table-header-background-color: rgba(200, 225, 255, 0.03);
 
-        --label-color: rgb(145, 145, 170);
-        --body-text-color: rgb(170, 170, 200);
-        --icon-color: rgb(115, 115, 130);
-    }
+    --label-color: rgb(145, 145, 170);
+    --body-text-color: rgb(170, 170, 200);
+    --icon-color: rgb(115, 115, 130);
+  }
 }
 
 /* xyOps Workflow Editor and Viewer */
@@ -81,730 +81,824 @@ Released under the BSD 3-Clause License.
 See the LICENSE.md file in this repository. */
 
 .wf_container {
-    position: relative;
-    /* overflow: hidden; */
+  position: relative;
+  /* overflow: hidden; */
 
-    user-select: none;
-    -moz-user-select: none;
-    -webkit-user-select: none;
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
 }
 
 .wf_root {
-    position: relative;
-    width: 100%;
-    height: 100%;
+  position: relative;
+  width: 100%;
+  height: 100%;
 
-    background-color: var(--box-background-color);
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="2" cy="2" r="1" fill="rgba(128,130,132,0.55)" /></svg>');
-    background-size: 20px 20px;
+  background-color: var(--box-background-color);
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="2" cy="2" r="1" fill="rgba(128,130,132,0.55)" /></svg>');
+  background-size: 20px 20px;
 
-    cursor: grab;
+  cursor: grab;
 }
 
 .wf_root.wf_tool_draw {
-    cursor: default;
+  cursor: default;
 }
 
 .wf_fade {
-    position: relative;
-    width: 100%;
-    height: 100%;
+  position: relative;
+  width: 100%;
+  height: 100%;
 
-    mask-image: linear-gradient(to bottom, transparent 0px, transparent 25px, black 50px, black calc(100% - 50px), transparent calc(100% - 25px), transparent 100%),
-        linear-gradient(to right, transparent 0px, black 25px, black calc(100% - 25px), transparent 100%);
-    mask-composite: intersect;
+  mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 25px,
+      black 50px,
+      black calc(100% - 50px),
+      transparent calc(100% - 25px),
+      transparent 100%
+    ),
+    linear-gradient(
+      to right,
+      transparent 0px,
+      black 25px,
+      black calc(100% - 25px),
+      transparent 100%
+    );
+  mask-composite: intersect;
 }
 
 .wf_container.preview .wf_fade {
-    mask-image: linear-gradient(to bottom, transparent 0px, black 25px, black calc(100% - 25px), transparent 100%),
-        linear-gradient(to right, transparent 0px, black 25px, black calc(100% - 25px), transparent 100%);
-    pointer-events: none;
+  mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0px,
+      black 25px,
+      black calc(100% - 25px),
+      transparent 100%
+    ),
+    linear-gradient(
+      to right,
+      transparent 0px,
+      black 25px,
+      black calc(100% - 25px),
+      transparent 100%
+    );
+  pointer-events: none;
 }
 
 .wf_container.job_preview .wf_fade {
-    mask-image: linear-gradient(to bottom, transparent 0px, black 25px, black calc(100% - 25px), transparent 100%),
-        linear-gradient(to right, transparent 0px, black 25px, black calc(100% - 25px), transparent 100%);
+  mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0px,
+      black 25px,
+      black calc(100% - 25px),
+      transparent 100%
+    ),
+    linear-gradient(
+      to right,
+      transparent 0px,
+      black 25px,
+      black calc(100% - 25px),
+      transparent 100%
+    );
 }
 
 .wf_canvas {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-    pointer-events: none;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .wf_grid_header {
-    position: absolute;
-    left: 0;
-    top: 1px;
-    width: 100%;
-    height: 30px;
-    z-index: 4;
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 100%;
+  height: 30px;
+  z-index: 4;
 }
 
-.wf_grid_header>.wf_title {
-    height: 30px;
-    line-height: 30px;
-    /* background: var(--box-background-color); */
-    font-size: 14px;
-    font-weight: bold;
-    text-transform: uppercase;
-    color: var(--theme-color);
-    /* box-shadow: 0px 0px 4px 4px var(--box-background-color); */
+.wf_grid_header > .wf_title {
+  height: 30px;
+  line-height: 30px;
+  /* background: var(--box-background-color); */
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: var(--theme-color);
+  /* box-shadow: 0px 0px 4px 4px var(--box-background-color); */
 }
 
 .wf_grid_header div.button.right {
-    margin-left: 14px;
-    margin-right: 1px;
+  margin-left: 14px;
+  margin-right: 1px;
 }
 
 .wf_grid_header div.button.left {
-    margin-right: 14px;
+  margin-right: 14px;
 }
 
 .wf_container.dragging .wf_grid_header {
-    pointer-events: none;
-    cursor: grabbing;
+  pointer-events: none;
+  cursor: grabbing;
 }
 
 .wf_node {
-    position: absolute;
-    z-index: 3;
-    cursor: pointer;
+  position: absolute;
+  z-index: 3;
+  cursor: pointer;
 }
 
 .wf_node.selected {
-    cursor: default;
+  cursor: default;
 }
 
 .wf_event {
-    background: var(--background-color);
-    border: 2px solid var(--border-color);
-    border-radius: 8px;
-    /* Refined from 16px */
+  background: var(--background-color);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  /* Refined from 16px */
 
-    width: 275px;
-    height: auto;
+  width: 275px;
+  height: auto;
 }
 
 /* ... */
 
 .wf_event_title {
-    /* ... */
-    border-top-left-radius: 6px;
-    /* Match outer - 2px border */
-    border-top-right-radius: 6px;
-    /* ... */
+  /* ... */
+  border-top-left-radius: 6px;
+  /* Match outer - 2px border */
+  border-top-right-radius: 6px;
+  /* ... */
 }
 
 /* ... */
 
 .wf_pole_button {
-    position: absolute;
-    width: 24px;
-    height: 24px;
-    margin-top: -12px;
-    margin-left: -12px;
-    background: var(--theme-color);
-    border-radius: 999em;
-    z-index: 2;
-    cursor: pointer;
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin-top: -12px;
+  margin-left: -12px;
+  background: var(--theme-color);
+  border-radius: 999em;
+  z-index: 2;
+  cursor: pointer;
 
-    font-size: 16px;
-    line-height: 24px;
-    text-align: center;
-    color: white;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: center;
+  color: white;
 
-    /* Larger clickable area */
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  /* Larger clickable area */
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .wf_pole_button:hover {
-    transform: scale(1.15);
-    box-shadow: 0 0 8px rgba(55, 145, 245, 0.5);
+  transform: scale(1.15);
+  box-shadow: 0 0 8px rgba(55, 145, 245, 0.5);
 }
 
 /* ... */
 
-.wf_ent_trigger>.wf_pole_button.wf_output_pole:hover {
-    background: var(--orange-highlight);
+.wf_ent_trigger > .wf_pole_button.wf_output_pole:hover {
+  background: var(--orange-highlight);
 }
 
-.wf_ent_action>.wf_pole_button.wf_input_pole:hover {
-    background: var(--green-highlight);
+.wf_ent_action > .wf_pole_button.wf_input_pole:hover {
+  background: var(--green-highlight);
 }
 
-.wf_ent_limit>.wf_pole_button.wf_up_pole:hover {
-    background: var(--cyan-highlight);
+.wf_ent_limit > .wf_pole_button.wf_up_pole:hover {
+  background: var(--cyan-highlight);
 }
 
-.wf_ent_controller>.wf_pole_button.wf_input_pole:hover {
-    background: var(--purple-highlight);
+.wf_ent_controller > .wf_pole_button.wf_input_pole:hover {
+  background: var(--purple-highlight);
 }
 
-.wf_ent_controller>.wf_pole_button.wf_output_pole:hover {
-    background: var(--purple-highlight);
+.wf_ent_controller > .wf_pole_button.wf_output_pole:hover {
+  background: var(--purple-highlight);
 }
 
 /* .wf_pole_button.soldering { background: var(--label-color) !important; } */
 
 .wf_input_pole {
-    left: calc(0% - 1px);
-    top: 50%;
-    /* Poles follow the user-selected accent from VisualizationContext.
+  left: calc(0% - 1px);
+  top: 50%;
+  /* Poles follow the user-selected accent from VisualizationContext.
        --accent-override is set by applyToDocument; falls back to
        cairn-moss (emerald) when missing. */
-    background: var(--accent-override, var(--cairn-moss, #3ecf8e));
+  background: var(--accent-override, var(--cairn-moss, #3ecf8e));
 }
 
 .wf_output_pole {
-    left: calc(100% + 1px);
-    top: 50%;
-    background: var(--accent-override, var(--cairn-moss, #3ecf8e));
+  left: calc(100% + 1px);
+  top: 50%;
+  background: var(--accent-override, var(--cairn-moss, #3ecf8e));
 }
 
 .wf_down_pole {
-    left: 50%;
-    top: calc(100% + 1px);
-    background: var(--cyan);
+  left: 50%;
+  top: calc(100% + 1px);
+  background: var(--cyan);
 
-    /* background: var(--cyan);
+  /* background: var(--cyan);
 	transform-origin: center;
 	transform: scale(0.8); */
-    /* border: 1px solid var(--border-color); */
-    /* border-radius: 0;
+  /* border: 1px solid var(--border-color); */
+  /* border-radius: 0;
 	transform-origin: center;
 	transform: rotate(45deg) scale(0.8); */
 }
 
 .wf_event.disabled .wf_pole {
-    background: var(--icon-color) !important;
+  background: var(--icon-color) !important;
 }
 
 .wf_entity {
-    width: 64px;
+  width: 64px;
 }
 
 .wf_entity:has(> .wf_ent_controller) {
-    width: 128px;
+  width: 128px;
 }
 
-.wf_entity.selected>div {
-    outline: 2px dashed var(--theme-color);
+.wf_entity.selected > div {
+  outline: 2px dashed var(--theme-color);
 }
 
-.wf_entity.disabled>div {
-    color: var(--icon-color) !important;
+.wf_entity.disabled > div {
+  color: var(--icon-color) !important;
 }
 
 .wf_entity.disabled .wf_pole {
-    background: var(--icon-color) !important;
+  background: var(--icon-color) !important;
 }
 
-.wf_entity.error>div {
-    color: var(--red) !important;
-    border-color: var(--red) !important;
+.wf_entity.error > div {
+  color: var(--red) !important;
+  border-color: var(--red) !important;
 }
 
 .wf_ent_trigger,
 .wf_ent_action,
 .wf_ent_limit,
 .wf_ent_controller {
-    position: relative;
-    left: 0px;
-    width: 64px;
-    height: 64px;
-    line-height: 61px;
-    text-align: center;
-    font-size: 32px;
-    color: var(--label-color);
-    background: var(--background-color);
-    border: 2px solid var(--border-color);
+  position: relative;
+  left: 0px;
+  width: 64px;
+  height: 64px;
+  line-height: 61px;
+  text-align: center;
+  font-size: 32px;
+  color: var(--label-color);
+  background: var(--background-color);
+  border: 2px solid var(--border-color);
 
-    /* outline: 2px dashed var(--theme-color); */
+  /* outline: 2px dashed var(--theme-color); */
 }
 
 .wf_ent_trigger {
-    border-radius: 999em 0px 0px 999em;
-    color: var(--cairn-moss, #3ecf8e);
+  border-radius: 999em 0px 0px 999em;
+  color: var(--cairn-moss, #3ecf8e);
 }
 
 .wf_ent_action {
-    border-radius: 0px 999em 999em 0px;
-    color: var(--green);
+  border-radius: 0px 999em 999em 0px;
+  color: var(--green);
 }
 
 .wf_ent_controller {
-    width: 128px;
-    left: 0px;
-    border-radius: 999em;
-    color: var(--purple);
+  width: 128px;
+  left: 0px;
+  border-radius: 999em;
+  color: var(--purple);
 }
 
 .wf_ent_limit {
-    border-radius: 0;
-    transform-origin: center;
-    transform: rotate(45deg) scale(0.7);
-    color: var(--cyan);
+  border-radius: 0;
+  transform-origin: center;
+  transform: rotate(45deg) scale(0.7);
+  color: var(--cyan);
 }
 
 .wf_ent_title {
-    display: block;
-    position: absolute;
-    width: 128px;
-    top: 70px;
-    left: -32px;
-    text-align: center;
-    font-size: 12px;
-    font-weight: bold;
-    color: var(--label-color);
-    text-shadow: -1px -1px 1px var(--box-background-color), 1px -1px 1px var(--box-background-color), 1px 1px 1px var(--box-background-color), -1px 1px 1px var(--box-background-color);
+  display: block;
+  position: absolute;
+  width: 128px;
+  top: 70px;
+  left: -32px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--label-color);
+  text-shadow:
+    -1px -1px 1px var(--box-background-color),
+    1px -1px 1px var(--box-background-color),
+    1px 1px 1px var(--box-background-color),
+    -1px 1px 1px var(--box-background-color);
 
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .wf_ent_label {
-    display: block;
-    position: absolute;
-    width: 128px;
-    top: 85px;
-    left: -32px;
-    text-align: center;
-    font-size: 12px;
-    font-weight: normal;
-    color: var(--label-color);
-    text-shadow: -1px -1px 1px var(--box-background-color), 1px -1px 1px var(--box-background-color), 1px 1px 1px var(--box-background-color), -1px 1px 1px var(--box-background-color);
+  display: block;
+  position: absolute;
+  width: 128px;
+  top: 85px;
+  left: -32px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--label-color);
+  text-shadow:
+    -1px -1px 1px var(--box-background-color),
+    1px -1px 1px var(--box-background-color),
+    1px 1px 1px var(--box-background-color),
+    -1px 1px 1px var(--box-background-color);
 
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.wf_ent_trigger>.wf_output_pole {
-    left: calc(100% + 1px);
-    background: var(--cairn-moss, #3ecf8e);
+.wf_ent_trigger > .wf_output_pole {
+  left: calc(100% + 1px);
+  background: var(--cairn-moss, #3ecf8e);
 }
 
-.wf_ent_action>.wf_input_pole {
-    left: calc(0% - 1px);
-    background: var(--green);
+.wf_ent_action > .wf_input_pole {
+  left: calc(0% - 1px);
+  background: var(--green);
 }
 
-.wf_ent_controller>.wf_input_pole {
-    left: calc(0% - 1px);
-    background: var(--purple);
+.wf_ent_controller > .wf_input_pole {
+  left: calc(0% - 1px);
+  background: var(--purple);
 }
 
-.wf_ent_controller>.wf_output_pole {
-    left: calc(100% + 1px);
-    background: var(--purple);
+.wf_ent_controller > .wf_output_pole {
+  left: calc(100% + 1px);
+  background: var(--purple);
 }
 
-.wf_ent_limit>.wf_up_pole {
-    left: 50%;
-    top: calc(0% - 1px);
-    background: var(--cyan);
-    transform-origin: center;
-    transform: translate(-32px, 0) scale(1) rotate(-45deg);
+.wf_ent_limit > .wf_up_pole {
+  left: 50%;
+  top: calc(0% - 1px);
+  background: var(--cyan);
+  transform-origin: center;
+  transform: translate(-32px, 0) scale(1) rotate(-45deg);
 }
 
 .wf_container.job_preview .wf_entity,
 .wf_container.job_preview .wf_condition,
 .wf_container.job_preview .wf_note {
-    pointer-events: none;
+  pointer-events: none;
 }
 
 /* Condition lives inside of a wire connection */
 
 .wf_condition {
-    position: absolute;
-    width: 24px;
-    /* Refined from 32px */
-    height: 24px;
-    line-height: 24px;
-    font-size: 16px;
-    /* Scaled down */
-    text-align: center;
-    border-radius: 999px;
-    color: white;
-    z-index: 2;
-    cursor: pointer;
-    text-shadow: 0px 1px 0px rgba(0, 0, 0, 0.5);
-    box-shadow: 0 0 0 2px var(--box-background-color);
-    /* Add white ring for separation */
+  position: absolute;
+  width: 24px;
+  /* Refined from 32px */
+  height: 24px;
+  line-height: 24px;
+  font-size: 16px;
+  /* Scaled down */
+  text-align: center;
+  border-radius: 999px;
+  color: white;
+  z-index: 2;
+  cursor: pointer;
+  text-shadow: 0px 1px 0px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 2px var(--box-background-color);
+  /* Add white ring for separation */
 }
 
 body.dark .wf_condition {
-    color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .wf_condition.start {
-    background: var(--orange);
+  background: var(--orange);
 }
 
 .wf_condition.complete {
-    background: var(--cairn-moss, #3ecf8e);
+  background: var(--cairn-moss, #3ecf8e);
 }
 
 .wf_condition.continue {
-    background: var(--teal);
-    font-size: 24px;
+  background: var(--teal);
+  font-size: 24px;
 }
 
 .wf_condition.success {
-    background: var(--green);
+  background: var(--green);
 }
 
 .wf_condition.error {
-    background: var(--red);
+  background: var(--red);
 }
 
 .wf_condition.warning {
-    background: var(--yellow);
-    font-size: 28px;
+  background: var(--yellow);
+  font-size: 28px;
 }
 
 .wf_condition.critical {
-    background: var(--purple);
+  background: var(--purple);
 }
 
 .wf_condition.abort {
-    background: var(--gray);
+  background: var(--gray);
 }
 
 .wf_condition.tag {
-    background: var(--pink);
-    font-size: 28px;
+  background: var(--pink);
+  font-size: 28px;
 }
 
 .wf_condition.disabled {
-    background: var(--icon-color);
+  background: var(--icon-color);
 }
 
 .wf_condition.start:hover {
-    background: var(--orange-highlight);
+  background: var(--orange-highlight);
 }
 
 .wf_condition.complete:hover {
-    background: var(--blue-highlight);
+  background: var(--blue-highlight);
 }
 
 .wf_condition.continue:hover {
-    background: var(--teal-highlight);
+  background: var(--teal-highlight);
 }
 
 .wf_condition.success:hover {
-    background: var(--green-highlight);
+  background: var(--green-highlight);
 }
 
 .wf_condition.error:hover {
-    background: var(--red-highlight);
+  background: var(--red-highlight);
 }
 
 .wf_condition.warning:hover {
-    background: var(--yellow-highlight);
+  background: var(--yellow-highlight);
 }
 
 .wf_condition.critical:hover {
-    background: var(--purple-highlight);
+  background: var(--purple-highlight);
 }
 
 .wf_condition.abort:hover {
-    background: var(--gray-highlight);
+  background: var(--gray-highlight);
 }
 
 .wf_condition.tag:hover {
-    background: var(--pink-highlight);
+  background: var(--pink-highlight);
 }
 
 .wf_condition.popped {
-    outline: 2px dashed var(--theme-color);
+  outline: 2px dashed var(--theme-color);
 }
 
 /* Note */
 
 .wf_node.wf_note {
-    z-index: 0;
+  z-index: 0;
 }
 
 .wf_note {
-    width: 275px;
-    height: auto;
-    border-radius: 16px;
-    background-color: var(--box-background-color);
-    font-size: 13px;
+  width: 275px;
+  height: auto;
+  border-radius: 16px;
+  background-color: var(--box-background-color);
+  font-size: 13px;
 }
 
 .wf_note.selected {
-    outline: 2px dashed var(--theme-color);
+  outline: 2px dashed var(--theme-color);
 }
 
 .wf_note .markdown-body {
-    padding: 10px;
+  padding: 10px;
 }
 
 /* Frame Node */
 
 .wf_node.wf_frame {
-    z-index: 0;
-    border: 2px dashed var(--frame-color, var(--theme-color));
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--frame-color, var(--theme-color)) 5%, transparent);
-    min-width: 200px;
-    min-height: 150px;
-    cursor: default;
+  z-index: 0;
+  border: 2px dashed var(--frame-color, var(--theme-color));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--frame-color, var(--theme-color)) 5%, transparent);
+  min-width: 200px;
+  min-height: 150px;
+  cursor: default;
 }
 
 .wf_frame.selected {
-    border-style: solid;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--frame-color, var(--theme-color)) 30%, transparent);
+  border-style: solid;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--frame-color, var(--theme-color)) 30%, transparent);
 }
 
 .wf_frame .frame-title-bar {
-    position: absolute;
-    top: -28px;
-    left: 8px;
-    height: 24px;
-    padding: 0 10px;
-    background: var(--box-background-color);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--label-color);
-    cursor: move;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    user-select: none;
-    z-index: 1;
+  position: absolute;
+  top: -28px;
+  left: 8px;
+  height: 24px;
+  padding: 0 10px;
+  background: var(--box-background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--label-color);
+  cursor: move;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  z-index: 1;
 }
 
 .wf_frame .frame-title-bar:hover {
-    border-color: var(--frame-color, var(--theme-color));
+  border-color: var(--frame-color, var(--theme-color));
 }
 
 .wf_frame .frame-title {
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Step-count badge in the frame title bar — tells the operator at a
    glance how much work lives inside this grouping box without having
    to pan around it. Updates live as nodes are dragged in/out. */
 .wf_frame .frame-count-badge {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    height: 18px;
-    padding: 0 6px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 10px;
-    font-weight: 700;
-    color: #3ecf8e;
-    background: rgba(62, 207, 142, 0.14);
-    border: 1px solid rgba(62, 207, 142, 0.35);
-    border-radius: 10px;
-    letter-spacing: 0.02em;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #3ecf8e;
+  background: rgba(62, 207, 142, 0.14);
+  border: 1px solid rgba(62, 207, 142, 0.35);
+  border-radius: 10px;
+  letter-spacing: 0.02em;
 }
 
 .wf_frame .frame-title-input {
-    background: transparent;
-    border: none;
-    outline: none;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--body-text-color);
-    width: 150px;
-    padding: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--body-text-color);
+  width: 150px;
+  padding: 0;
 }
 
 .wf_frame .frame-content {
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .wf_frame .frame-resize-handle {
-    position: absolute;
-    background: var(--frame-color, var(--theme-color));
-    border-radius: 2px;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-    z-index: 2;
+  position: absolute;
+  background: var(--frame-color, var(--theme-color));
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 2;
 }
 
 .wf_frame:hover .frame-resize-handle,
 .wf_frame.selected .frame-resize-handle {
-    opacity: 0.6;
+  opacity: 0.6;
 }
 
 .wf_frame .frame-resize-handle:hover {
-    opacity: 1;
+  opacity: 1;
 }
 
 /* Corner handles */
 .wf_frame .frame-resize-handle.se {
-    right: -4px;
-    bottom: -4px;
-    width: 10px;
-    height: 10px;
-    cursor: se-resize;
+  right: -4px;
+  bottom: -4px;
+  width: 10px;
+  height: 10px;
+  cursor: se-resize;
 }
 
 .wf_frame .frame-resize-handle.sw {
-    left: -4px;
-    bottom: -4px;
-    width: 10px;
-    height: 10px;
-    cursor: sw-resize;
+  left: -4px;
+  bottom: -4px;
+  width: 10px;
+  height: 10px;
+  cursor: sw-resize;
 }
 
 .wf_frame .frame-resize-handle.ne {
-    right: -4px;
-    top: -4px;
-    width: 10px;
-    height: 10px;
-    cursor: ne-resize;
+  right: -4px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  cursor: ne-resize;
 }
 
 .wf_frame .frame-resize-handle.nw {
-    left: -4px;
-    top: -4px;
-    width: 10px;
-    height: 10px;
-    cursor: nw-resize;
+  left: -4px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  cursor: nw-resize;
 }
 
 /* Edge handles */
 .wf_frame .frame-resize-handle.e {
-    right: -3px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 6px;
-    height: 30px;
-    cursor: e-resize;
+  right: -3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 30px;
+  cursor: e-resize;
 }
 
 .wf_frame .frame-resize-handle.w {
-    left: -3px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 6px;
-    height: 30px;
-    cursor: w-resize;
+  left: -3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 30px;
+  cursor: w-resize;
 }
 
 .wf_frame .frame-resize-handle.s {
-    bottom: -3px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 30px;
-    height: 6px;
-    cursor: s-resize;
+  bottom: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 6px;
+  cursor: s-resize;
 }
 
 .wf_frame .frame-resize-handle.n {
-    top: -3px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 30px;
-    height: 6px;
-    cursor: n-resize;
+  top: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 6px;
+  cursor: n-resize;
 }
 
 /* Misc */
 
 #d_wf_selection_draw {
-    position: absolute;
-    pointer-events: none;
+  position: absolute;
+  pointer-events: none;
 
-    background: color-mix(in srgb, var(--theme-color) 6%, transparent);
-    border: 1px dashed var(--theme-color-highlight);
-    z-index: 1;
+  background: color-mix(in srgb, var(--theme-color) 6%, transparent);
+  border: 1px dashed var(--theme-color-highlight);
+  z-index: 1;
 }
 
 /* Active Jobs */
 
 .wf_event {
-    --active-color: var(--cairn-moss, #3ecf8e);
+  --active-color: var(--cairn-moss, #3ecf8e);
 }
 
 .wf_ent_trigger {
-    --active-color: var(--cairn-moss, #3ecf8e);
+  --active-color: var(--cairn-moss, #3ecf8e);
 }
 
 .wf_ent_limit {
-    --active-color: var(--cyan);
+  --active-color: var(--cyan);
 }
 
 .wf_ent_action {
-    --active-color: var(--green);
+  --active-color: var(--green);
 }
 
 .wf_ent_controller {
-    --active-color: var(--purple);
+  --active-color: var(--purple);
+}
+
+/* User-level status color overrides.
+
+   The Appearance page sets --status-running / --status-success /
+   --status-failed on <html> as inline style properties when the user
+   picks a custom hex (and REMOVES the property entirely when the
+   user clears the override — see VisualizationContext.applyToDocument).
+
+   We use `html[style*="..."]` attribute selectors as a gate so the
+   override only kicks in when the property is actually present on
+   <html>. When removed, the selector stops matching and the cascade
+   falls through to the per-category --active-color set above, which
+   preserves the subtle per-type tinting (trigger=moss, limit=cyan,
+   action=green, controller=purple).
+
+   Why not `--active-color: var(--status-running, var(--active-color))`?
+   Self-referencing a custom property through a var() fallback triggers
+   "invalid at computed-value time" per the CSS Custom Properties spec,
+   and the behavior on cascade rollback is inconsistent across engines.
+   This selector-gated approach is unambiguous. */
+html[style*='--status-running:'] .wf_event.wf_active,
+html[style*='--status-running:'] .wf_entity.wf_active > div {
+  --active-color: var(--status-running);
+}
+html[style*='--status-success:'] .wf_event.wf_completed,
+html[style*='--status-success:'] .wf_entity.wf_completed > div {
+  --active-color: var(--status-success);
+}
+html[style*='--status-failed:'] .wf_event.wf_error,
+html[style*='--status-failed:'] .wf_entity.wf_error > div {
+  --active-color: var(--status-failed);
+}
+
+/* Idle node left-stripe override: when the user picks a custom idle
+   color, paint the 3px border-left with it instead of --node-accent.
+   Only IDLE (no state class) — running/success/failed use their own
+   status colors above. */
+html[style*='--status-idle:'] .wf_event:not(.wf_active):not(.wf_completed):not(.wf_error) {
+  border-left-color: var(--status-idle) !important;
 }
 
 .wf_event.wf_active,
-.wf_entity.wf_active>div {
-    border: 2px solid transparent !important;
+.wf_entity.wf_active > div {
+  border: 2px solid transparent !important;
 
-    background:
-        linear-gradient(var(--background-color), var(--background-color)) padding-box,
-        linear-gradient(-45deg,
-            var(--active-color) 25%,
-            transparent 25%,
-            transparent 50%,
-            var(--active-color) 50%,
-            var(--active-color) 75%,
-            transparent 75%,
-            transparent) border-box;
+  background:
+    linear-gradient(var(--background-color), var(--background-color)) padding-box,
+    linear-gradient(
+        -45deg,
+        var(--active-color) 25%,
+        transparent 25%,
+        transparent 50%,
+        var(--active-color) 50%,
+        var(--active-color) 75%,
+        transparent 75%,
+        transparent
+      )
+      border-box;
 
-    background-size: 30px 30px;
-    background-position: 0 0;
+  background-size: 30px 30px;
+  background-position: 0 0;
 
-    animation: wf_active_kf calc(1s * var(--anim-duration-mult, 1)) linear infinite;
+  animation: wf_active_kf calc(1s * var(--anim-duration-mult, 1)) linear infinite;
 }
 
 @keyframes wf_active_kf {
-    to {
-        background-position: 30px 0;
-    }
+  to {
+    background-position: 30px 0;
+  }
 }
 
 .wf_event.wf_completed,
-.wf_entity.wf_completed>div {
-    border: 2px solid var(--active-color) !important;
+.wf_entity.wf_completed > div {
+  border: 2px solid var(--active-color) !important;
 
-    animation: wf_flash_kf calc(1s * var(--anim-duration-mult, 1)) ease-in-out;
-    animation-fill-mode: forwards;
+  animation: wf_flash_kf calc(1s * var(--anim-duration-mult, 1)) ease-in-out;
+  animation-fill-mode: forwards;
 }
 
 .wf_event.wf_error,
-.wf_entity.wf_error>div {
-    --active-color: var(--red);
-    border: 2px dashed var(--active-color) !important;
+.wf_entity.wf_error > div {
+  --active-color: var(--red);
+  border: 2px dashed var(--active-color) !important;
 
-    animation: wf_flash_kf calc(1s * var(--anim-duration-mult, 1)) ease-in-out;
-    animation-fill-mode: forwards;
+  animation: wf_flash_kf calc(1s * var(--anim-duration-mult, 1)) ease-in-out;
+  animation-fill-mode: forwards;
 }
 
-.wf_entity.wf_error>div {
-    color: var(--active-color) !important;
+.wf_entity.wf_error > div {
+  color: var(--active-color) !important;
 }
 
 .wf_entity.wf_error .wf_pole {
-    background: var(--active-color) !important;
+  background: var(--active-color) !important;
 }
 
 /* Select Animation — wf_flash_kf is reused by wf_completed / wf_error
@@ -812,13 +906,13 @@ body.dark .wf_condition {
    .wf_flash class has no remaining consumer. */
 
 @keyframes wf_flash_kf {
-    0% {
-        box-shadow: 0px 0px 24px 12px var(--active-color);
-    }
+  0% {
+    box-shadow: 0px 0px 24px 12px var(--active-color);
+  }
 
-    100% {
-        box-shadow: 0px 0px 0px 0px transparent;
-    }
+  100% {
+    box-shadow: 0px 0px 0px 0px transparent;
+  }
 }
 
 /* Toolbar buttons used by EditorToolbar (`button icon right`,
@@ -826,54 +920,58 @@ body.dark .wf_condition {
    travel with them because the toolbar lays its actions out with
    float-right/float-left rather than flex. */
 .button {
-    position: relative;
-    display: inline-block;
-    height: 30px;
-    line-height: 28px;
-    padding: 0 10px;
-    background: var(--box-background-color);
-    color: var(--label-color);
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    font-size: 13px;
-    font-weight: bold;
-    text-align: center;
-    cursor: pointer;
-    user-select: none;
-    transition: 0.15s ease all;
+  position: relative;
+  display: inline-block;
+  height: 30px;
+  line-height: 28px;
+  padding: 0 10px;
+  background: var(--box-background-color);
+  color: var(--label-color);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  transition: 0.15s ease all;
 }
 .button:hover {
-    color: var(--theme-color);
-    border-color: var(--theme-color);
-    box-shadow: 0 1px 2px var(--shadow-color);
+  color: var(--theme-color);
+  border-color: var(--theme-color);
+  box-shadow: 0 1px 2px var(--shadow-color);
 }
 .button.primary {
-    background: var(--theme-color);
-    color: white;
+  background: var(--theme-color);
+  color: white;
 }
 .button.delete {
-    background: var(--red);
-    color: white;
-    border-color: var(--red);
+  background: var(--red);
+  color: white;
+  border-color: var(--red);
 }
 .button.delete:hover {
-    background: var(--red-brighter);
-    color: white;
-    border-color: var(--red);
+  background: var(--red-brighter);
+  color: white;
+  border-color: var(--red);
 }
 .button.icon {
-    padding: 0 8px;
+  padding: 0 8px;
 }
 .wf_button_separator {
-    display: inline-block;
-    width: 1px;
-    height: 24px;
-    margin: 0 8px;
-    background: var(--border-color);
-    vertical-align: middle;
+  display: inline-block;
+  width: 1px;
+  height: 24px;
+  margin: 0 8px;
+  background: var(--border-color);
+  vertical-align: middle;
 }
-.left { float: left; }
-.right { float: right; }
+.left {
+  float: left;
+}
+.right {
+  float: right;
+}
 
 /* Multi-output poles for nodes that declare more than one output
    (e.g. approval with approved/rejected). Each pole is positioned
@@ -881,81 +979,92 @@ body.dark .wf_condition {
    text label so the operator can tell which branch they are
    wiring without inspecting the YAML. */
 .wf_multi_output_poles {
-    position: absolute;
-    right: -10px;
-    top: 0;
-    height: 100%;
+  position: absolute;
+  right: -10px;
+  top: 0;
+  height: 100%;
 }
 .wf_multi_output_poles .wf_pole_button {
-    position: absolute;
-    right: 0;
+  position: absolute;
+  right: 0;
 }
 .wf_pole_label {
-    position: absolute;
-    left: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--descriptor-color);
-    white-space: nowrap;
-    pointer-events: none;
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--descriptor-color);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* Port hover labels — n8n style. A pole shows a small "main" / "in"
    tooltip on hover. For single-pole nodes we synthesize the label via
    ::after using the aria-label attribute. No extra DOM. */
 .wf_pole_button[data-pole-label]::after {
-    content: attr(data-pole-label);
-    position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 2px 6px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 9px;
-    letter-spacing: 0.04em;
-    text-transform: lowercase;
-    background: rgba(10, 10, 10, 0.92);
-    color: #ededed;
-    border: 1px solid rgba(62, 207, 142, 0.35);
-    border-radius: 4px;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.15s ease, transform 0.15s ease;
+  content: attr(data-pole-label);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  background: rgba(10, 10, 10, 0.92);
+  color: #ededed;
+  border: 1px solid rgba(62, 207, 142, 0.35);
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 .wf_pole_button[data-pole-label]:hover::after {
-    opacity: 1;
-    transform: translateX(-50%) translateY(-2px);
+  opacity: 1;
+  transform: translateX(-50%) translateY(-2px);
 }
 
 /* Port tint driven by upstream status. Applied via data attr set on the
    input pole by EditorNode when an upstream node has SUCCEEDED — it
    makes the "path already delivered data" read at a glance. */
-.wf_pole_button[data-upstream-status="SUCCESS"] {
-    background: rgb(62, 207, 142);
-    box-shadow: 0 0 0 2px rgba(62, 207, 142, 0.25), 0 2px 8px rgba(62, 207, 142, 0.45);
+.wf_pole_button[data-upstream-status='SUCCESS'] {
+  background: rgb(62, 207, 142);
+  box-shadow:
+    0 0 0 2px rgba(62, 207, 142, 0.25),
+    0 2px 8px rgba(62, 207, 142, 0.45);
 }
-.wf_pole_button[data-upstream-status="FAILED"] {
-    background: rgb(239, 68, 68);
-    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25), 0 2px 8px rgba(239, 68, 68, 0.45);
+.wf_pole_button[data-upstream-status='FAILED'] {
+  background: rgb(239, 68, 68);
+  box-shadow:
+    0 0 0 2px rgba(239, 68, 68, 0.25),
+    0 2px 8px rgba(239, 68, 68, 0.45);
 }
-.wf_pole_button[data-upstream-status="RUNNING"] {
-    background: rgb(62, 207, 142);
-    animation: wf_pole_pulse calc(1.4s * var(--anim-duration-mult, 1)) ease-in-out infinite;
+.wf_pole_button[data-upstream-status='RUNNING'] {
+  background: rgb(62, 207, 142);
+  animation: wf_pole_pulse calc(1.4s * var(--anim-duration-mult, 1)) ease-in-out infinite;
 }
 @keyframes wf_pole_pulse {
-    0%, 100% {
-        box-shadow: 0 0 0 2px rgba(62, 207, 142, 0.2), 0 0 0 0 rgba(62, 207, 142, 0.5);
-    }
-    50% {
-        box-shadow: 0 0 0 4px rgba(62, 207, 142, 0.35), 0 0 0 10px rgba(62, 207, 142, 0);
-    }
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(62, 207, 142, 0.2),
+      0 0 0 0 rgba(62, 207, 142, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(62, 207, 142, 0.35),
+      0 0 0 10px rgba(62, 207, 142, 0);
+  }
 }
-html[data-anim="off"] .wf_pole_button[data-upstream-status="RUNNING"] {
-    animation: none;
+html[data-anim='off'] .wf_pole_button[data-upstream-status='RUNNING'] {
+  animation: none;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -970,128 +1079,133 @@ html[data-anim="off"] .wf_pole_button[data-upstream-status="RUNNING"] {
    ───────────────────────────────────────────────────────────── */
 
 .wf_event {
-    transition: outline 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    outline 0.12s ease,
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .wf_event:hover {
-    outline: 1px solid rgba(62, 207, 142, 0.35);
-    outline-offset: 2px;
+  outline: 1px solid rgba(62, 207, 142, 0.35);
+  outline-offset: 2px;
 }
 
 .wf_event.selected {
-    outline: 2px dashed var(--theme-color, #3ecf8e) !important;
-    outline-offset: 3px;
-    box-shadow: 0 0 0 1px rgba(62, 207, 142, 0.3), 0 6px 24px rgba(0, 0, 0, 0.35);
+  outline: 2px dashed var(--theme-color, #3ecf8e) !important;
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 1px rgba(62, 207, 142, 0.3),
+    0 6px 24px rgba(0, 0, 0, 0.35);
 }
 
 .wf_event.dragging {
-    transform: scale(1.02);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  transform: scale(1.02);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
 .wf_event.disabled {
-    opacity: 0.5;
-    filter: grayscale(0.4);
+  opacity: 0.5;
+  filter: grayscale(0.4);
 }
 
 /* Status states beyond running/success/error */
 .wf_paused {
-    border-color: #f59e0b !important;
-    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4);
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4);
 }
 .wf_skipped {
-    opacity: 0.55;
-    border-style: dashed !important;
+  opacity: 0.55;
+  border-style: dashed !important;
 }
 .wf_cancelled {
-    opacity: 0.45;
-    text-decoration-color: #6b7280;
+  opacity: 0.45;
+  text-decoration-color: #6b7280;
 }
 
 /* Title strip — make sure it's a flex row so the status icon sits
    on the right and the title truncates instead of wrapping. */
 .wf_event_title {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* Type / category chips */
 .wf_type_strip {
-    display: flex;
-    gap: 4px;
-    margin: 4px 0 6px;
-    align-items: center;
+  display: flex;
+  gap: 4px;
+  margin: 4px 0 6px;
+  align-items: center;
 }
 .wf_type_chip {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 9px;
-    padding: 1px 6px;
-    border-radius: 3px;
-    background: rgba(62, 207, 142, 0.12);
-    color: #3ecf8e;
-    border: 1px solid rgba(62, 207, 142, 0.28);
-    text-transform: lowercase;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(62, 207, 142, 0.12);
+  color: #3ecf8e;
+  border: 1px solid rgba(62, 207, 142, 0.28);
+  text-transform: lowercase;
 }
 .wf_category_chip {
-    font-size: 9px;
-    padding: 1px 6px;
-    border-radius: 3px;
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--descriptor-color, #94a3b8);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--descriptor-color, #94a3b8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 /* Config preview — the line that tells you what this node actually
    does without opening the config panel. Mono so a `kubectl get pods`
    reads cleanly. */
 .wf_preview {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
-    color: var(--body-text-color, #cbd5e1);
-    background: rgba(0, 0, 0, 0.18);
-    padding: 4px 6px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    margin-bottom: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--body-text-color, #cbd5e1);
+  background: rgba(0, 0, 0, 0.18);
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 6px;
 }
 
 /* Cross-cutting badges row */
 .wf_badges {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 .wf_badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    font-size: 9px;
-    font-weight: 600;
-    padding: 1px 5px;
-    border-radius: 3px;
-    border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid;
 }
 .wf_badge_retry {
-    color: #fbbf24;
-    background: rgba(251, 191, 36, 0.1);
-    border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.3);
 }
 .wf_badge_cond {
-    color: #c084fc;
-    background: rgba(192, 132, 252, 0.1);
-    border-color: rgba(192, 132, 252, 0.3);
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.1);
+  border-color: rgba(192, 132, 252, 0.3);
 }
 .wf_badge_secret {
-    color: #f59e0b;
-    background: rgba(245, 158, 11, 0.1);
-    border-color: rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -1103,9 +1217,9 @@ html[data-anim="off"] .wf_pole_button[data-upstream-status="RUNNING"] {
    ───────────────────────────────────────────────────────────── */
 
 .wf_event {
-    position: relative;
-    border-left: 3px solid var(--node-accent, #3ecf8e) !important;
-    /* NO overflow:hidden here — the input/output pole buttons are
+  position: relative;
+  border-left: 3px solid var(--node-accent, #3ecf8e) !important;
+  /* NO overflow:hidden here — the input/output pole buttons are
        absolutely positioned with `left: calc(0% - 1px)` / `calc(100% +
        1px)` and their centers sit a few pixels outside the card's
        border-box. A `hidden` overflow would clip the pole visuals in
@@ -1117,45 +1231,53 @@ html[data-anim="off"] .wf_pole_button[data-upstream-status="RUNNING"] {
 
 /* Tinted icon square in the title strip — replaces the previous
    GripVertical + raw icon. Visual: a 22x22 rounded square filled
-   with the category tint and the icon in the accent color. */
+   with the category tint and the icon in the accent color.
+   The inner Lucide SVG has its `size` pinned inline (EditorNode.tsx
+   ~line 663), so CSS `width/height` can't change it. Instead we
+   transform: scale() the whole wrapper so the visual size follows
+   the Appearance → Nodes → Icon size preference. `--node-icon-scale`
+   is set on <html> by globals.css `html[data-node-icon="…"]`. */
 .wf_event_icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 5px;
-    margin-right: 8px;
-    flex-shrink: 0;
-    border: 1px solid color-mix(in srgb, var(--node-accent) 28%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--node-accent) 28%, transparent);
+  transform: scale(var(--node-icon-scale, 1));
+  transform-origin: center center;
+  transition: transform 120ms ease;
 }
 
 .wf_event_title {
-    padding: 6px 8px;
-    font-weight: 600;
-    font-size: 12px;
-    color: var(--body-text-color, #e5e7eb);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--node-accent) 4%, transparent),
-        transparent
-    );
+  padding: 6px 8px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--body-text-color, #e5e7eb);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--node-accent) 4%, transparent),
+    transparent
+  );
 }
 
 /* HTTP smart preview chips */
 .wf_http_method {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 10px;
-    font-weight: 700;
-    margin-right: 6px;
-    letter-spacing: 0.04em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  margin-right: 6px;
+  letter-spacing: 0.04em;
 }
 .wf_http_url {
-    color: var(--body-text-color, #cbd5e1);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  color: var(--body-text-color, #cbd5e1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Indeterminate progress bar — slim 2px bar at the bottom of the
@@ -1163,40 +1285,35 @@ html[data-anim="off"] .wf_pole_button[data-upstream-status="RUNNING"] {
    left-to-right indefinitely. Cheap (no JS), respects animations-off
    via the data-anim selector. */
 .wf_progress_bar {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 2px;
-    background: rgba(62, 207, 142, 0.18);
-    overflow: hidden;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(62, 207, 142, 0.18);
+  overflow: hidden;
 }
 .wf_progress_bar::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    width: 33%;
-    background: linear-gradient(
-        90deg,
-        transparent,
-        var(--node-accent, #3ecf8e),
-        transparent
-    );
-    animation: wf_progress_sweep calc(1.4s * var(--anim-duration-mult, 1)) linear infinite;
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 33%;
+  background: linear-gradient(90deg, transparent, var(--node-accent, #3ecf8e), transparent);
+  animation: wf_progress_sweep calc(1.4s * var(--anim-duration-mult, 1)) linear infinite;
 }
 @keyframes wf_progress_sweep {
-    0% {
-        transform: translateX(-100%);
-    }
-    100% {
-        transform: translateX(400%);
-    }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
 }
-html[data-anim="off"] .wf_progress_bar::after {
-    animation: none;
-    transform: translateX(0);
-    width: 100%;
-    opacity: 0.5;
+html[data-anim='off'] .wf_progress_bar::after {
+  animation: none;
+  transform: translateX(0);
+  width: 100%;
+  opacity: 0.5;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -1212,34 +1329,34 @@ html[data-anim="off"] .wf_progress_bar::after {
    background so it reads as "extra info on the icon" rather than
    competing with it. */
 .wf_event_icon {
-    position: relative;
+  position: relative;
 }
 .wf_event_icon_badge {
-    position: absolute;
-    bottom: -3px;
-    right: -3px;
-    width: 11px;
-    height: 11px;
-    border-radius: 3px;
-    color: white;
-    font-size: 8px;
-    font-weight: 700;
-    line-height: 11px;
-    text-align: center;
-    box-shadow: 0 0 0 1.5px var(--box-background-color, #1a1f2a);
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  color: white;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 11px;
+  text-align: center;
+  box-shadow: 0 0 0 1.5px var(--box-background-color, #1a1f2a);
 }
 
 /* Duration footer */
 .wf_duration_footer {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 9px;
-    color: var(--descriptor-color, #94a3b8);
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
-    background: rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  color: var(--descriptor-color, #94a3b8);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.18);
 }
 
 /* Next-in-path glow — applied to the direct downstream targets of
@@ -1247,25 +1364,26 @@ html[data-anim="off"] .wf_progress_bar::after {
    running node's own pulse, but visible enough to give the operator
    a sense of "what's about to happen". */
 .wf_event.wf_next {
-    box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--node-accent) 35%, transparent),
-        0 0 18px color-mix(in srgb, var(--node-accent) 20%, transparent);
-    animation: wf_next_pulse calc(1.6s * var(--anim-duration-mult, 1)) ease-in-out infinite;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--node-accent) 35%, transparent),
+    0 0 18px color-mix(in srgb, var(--node-accent) 20%, transparent);
+  animation: wf_next_pulse calc(1.6s * var(--anim-duration-mult, 1)) ease-in-out infinite;
 }
 @keyframes wf_next_pulse {
-    0%, 100% {
-        box-shadow:
-            0 0 0 1px color-mix(in srgb, var(--node-accent) 30%, transparent),
-            0 0 12px color-mix(in srgb, var(--node-accent) 18%, transparent);
-    }
-    50% {
-        box-shadow:
-            0 0 0 1.5px color-mix(in srgb, var(--node-accent) 50%, transparent),
-            0 0 22px color-mix(in srgb, var(--node-accent) 32%, transparent);
-    }
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--node-accent) 30%, transparent),
+      0 0 12px color-mix(in srgb, var(--node-accent) 18%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1.5px color-mix(in srgb, var(--node-accent) 50%, transparent),
+      0 0 22px color-mix(in srgb, var(--node-accent) 32%, transparent);
+  }
 }
-html[data-anim="off"] .wf_event.wf_next {
-    animation: none;
+html[data-anim='off'] .wf_event.wf_next {
+  animation: none;
 }
 
 /* ─── Mini mode ───────────────────────────────────────────────
@@ -1276,26 +1394,26 @@ html[data-anim="off"] .wf_event.wf_next {
    becomes a clear pill at low zoom — readable across the canvas. */
 
 .wf_mini_mode .wf_event {
-    min-width: 120px !important;
-    max-width: 140px;
+  min-width: 120px !important;
+  max-width: 140px;
 }
 .wf_mini_mode .wf_event .wf_body {
-    display: none;
+  display: none;
 }
 .wf_mini_mode .wf_event .wf_duration_footer {
-    display: none;
+  display: none;
 }
 .wf_mini_mode .wf_event .wf_progress_bar {
-    /* Keep the progress bar visible — it is the "alive" signal. */
+  /* Keep the progress bar visible — it is the "alive" signal. */
 }
 .wf_mini_mode .wf_event_title {
-    border-bottom: none;
-    padding: 5px 6px;
+  border-bottom: none;
+  padding: 5px 6px;
 }
 .wf_mini_mode .wf_event_icon {
-    width: 18px;
-    height: 18px;
-    margin-right: 6px;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
 }
 
 /* ─── Nano mode ──────────────────────────────────────────────
@@ -1304,34 +1422,34 @@ html[data-anim="off"] .wf_event.wf_next {
    topology is scannable from far away. The type-letter badge in
    the icon corner is the only glyph that stays legible. */
 .wf_nano_mode .wf_event {
-    min-width: 32px !important;
-    max-width: 32px;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border-radius: 8px;
-    border-left-width: 4px !important;
+  min-width: 32px !important;
+  max-width: 32px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  border-left-width: 4px !important;
 }
 .wf_nano_mode .wf_event_title {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    background: transparent;
-    border-bottom: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  background: transparent;
+  border-bottom: none;
 }
 .wf_nano_mode .wf_event_title > .flex-1,
 .wf_nano_mode .wf_event_title > span:not(.wf_event_icon) {
-    display: none !important;
+  display: none !important;
 }
 .wf_nano_mode .wf_event_icon {
-    width: 22px;
-    height: 22px;
-    margin: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
 }
 .wf_nano_mode .wf_pole_button[data-pole-label]::after {
-    /* Hover labels would overflow 32px cards — suppress at nano zoom. */
-    display: none;
+  /* Hover labels would overflow 32px cards — suppress at nano zoom. */
+  display: none;
 }

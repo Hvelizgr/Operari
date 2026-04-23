@@ -24,8 +24,16 @@
   --cairn-ice: #38bdf8;
 
   /* Landing page polish — Supabase-inspired emerald glow */
-  --landing-glow-emerald: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(62, 207, 142, 0.12), transparent);
-  --landing-glow-deep: radial-gradient(ellipse 60% 40% at 80% 80%, rgba(36, 180, 126, 0.06), transparent);
+  --landing-glow-emerald: radial-gradient(
+    ellipse 80% 50% at 50% -20%,
+    rgba(62, 207, 142, 0.12),
+    transparent
+  );
+  --landing-glow-deep: radial-gradient(
+    ellipse 60% 40% at 80% 80%,
+    rgba(36, 180, 126, 0.06),
+    transparent
+  );
   --landing-noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
 }
 
@@ -58,8 +66,8 @@
 }
 
 .dark,
-html[data-theme="dark"],
-html[data-theme="midnight"] {
+html[data-theme='dark'],
+html[data-theme='midnight'] {
   --background: 0 0% 4%;
   --foreground: 0 0% 93%;
   --card: 0 0% 9%;
@@ -96,7 +104,7 @@ html[data-theme="midnight"] {
    twelve lines and nothing else.
    ───────────────────────────────────────────────────────────── */
 
-html[data-theme="light"] {
+html[data-theme='light'] {
   --app-bg: #fafafa;
   --panel-bg: #ffffff;
   --panel-border: rgba(10, 10, 10, 0.08);
@@ -121,7 +129,7 @@ html[data-theme="light"] {
   --shadow-color: rgba(10, 10, 10, 0.06);
 }
 
-html[data-theme="dark"] {
+html[data-theme='dark'] {
   --app-bg: var(--cairn-granite);
   --panel-bg: var(--cairn-graphite);
   --panel-border: rgba(250, 250, 249, 0.08);
@@ -142,7 +150,7 @@ html[data-theme="dark"] {
   --shadow-color: rgba(0, 0, 0, 0.4);
 }
 
-html[data-theme="midnight"] {
+html[data-theme='midnight'] {
   --app-bg: #050608;
   --panel-bg: #0c0e13;
   --panel-border: rgba(125, 211, 252, 0.1);
@@ -166,7 +174,9 @@ html[data-theme="midnight"] {
 @layer base {
   body {
     @apply bg-background text-foreground tracking-tight antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 }
 
@@ -176,7 +186,7 @@ html[data-theme="midnight"] {
   }
 
   .glass {
-    @apply bg-white/10 backdrop-blur-lg border border-white/20;
+    @apply border border-white/20 bg-white/10 backdrop-blur-lg;
   }
 }
 
@@ -247,7 +257,6 @@ html[data-theme="midnight"] {
 }
 
 @keyframes pulse-solder {
-
   0%,
   100% {
     opacity: 1;
@@ -284,7 +293,6 @@ html[data-theme="midnight"] {
 }
 
 @keyframes tracker-pulse {
-
   0%,
   100% {
     transform: scale(1);
@@ -321,21 +329,23 @@ html[data-theme="midnight"] {
 
 /* Node Hover States in Draw Mode */
 @keyframes pulse-hover {
-
   0%,
   100% {
-    box-shadow: 0 0 0 3px rgb(62, 207, 142),
+    box-shadow:
+      0 0 0 3px rgb(62, 207, 142),
       0 0 10px rgba(62, 207, 142, 0.3);
   }
 
   50% {
-    box-shadow: 0 0 0 5px rgba(62, 207, 142, 0.7),
+    box-shadow:
+      0 0 0 5px rgba(62, 207, 142, 0.7),
       0 0 20px rgba(62, 207, 142, 0.5);
   }
 }
 
 .editor-mode-draw .wf-node:hover {
-  box-shadow: 0 0 0 3px rgb(62, 207, 142),
+  box-shadow:
+    0 0 0 3px rgb(62, 207, 142),
     0 0 20px rgba(62, 207, 142, 0.4);
   transform: scale(1.02);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -379,32 +389,32 @@ html[data-theme="midnight"] {
 
 /* Default values; overridden per density below. */
 html {
-    --node-pad-x: 14px;
-    --node-pad-y: 10px;
-    --node-radius: 8px;
-    --node-min-width: 200px;
-    --editor-glow: 1;
+  --node-pad-x: 14px;
+  --node-pad-y: 10px;
+  --node-radius: 8px;
+  --node-min-width: 200px;
+  --editor-glow: 1;
 }
 
-html[data-density="compact"] {
-    --node-pad-x: 8px;
-    --node-pad-y: 6px;
-    --node-radius: 4px;
-    --node-min-width: 160px;
+html[data-density='compact'] {
+  --node-pad-x: 8px;
+  --node-pad-y: 6px;
+  --node-radius: 4px;
+  --node-min-width: 160px;
 }
 
-html[data-density="comfortable"] {
-    --node-pad-x: 14px;
-    --node-pad-y: 10px;
-    --node-radius: 8px;
-    --node-min-width: 200px;
+html[data-density='comfortable'] {
+  --node-pad-x: 14px;
+  --node-pad-y: 10px;
+  --node-radius: 8px;
+  --node-min-width: 200px;
 }
 
-html[data-density="spacious"] {
-    --node-pad-x: 22px;
-    --node-pad-y: 16px;
-    --node-radius: 12px;
-    --node-min-width: 240px;
+html[data-density='spacious'] {
+  --node-pad-x: 22px;
+  --node-pad-y: 16px;
+  --node-radius: 12px;
+  --node-min-width: 240px;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -412,47 +422,47 @@ html[data-density="spacious"] {
    independently from density (density = packing, style = aesthetic).
    Values fall back to sensible defaults if the attribute is missing.
    ───────────────────────────────────────────────────────────── */
-html[data-node-style="modern"] {
-    --node-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
-    --node-radius-multiplier: 1;
-    --node-border-width: 2px;
-    --node-bg-override: var(--background-color);
-    --node-backdrop: none;
+html[data-node-style='modern'] {
+  --node-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  --node-radius-multiplier: 1;
+  --node-border-width: 2px;
+  --node-bg-override: var(--background-color);
+  --node-backdrop: none;
 }
-html[data-node-style="minimal"] {
-    --node-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-    --node-radius-multiplier: 0.25;
-    --node-border-width: 1px;
-    --node-bg-override: var(--background-color);
-    --node-backdrop: none;
+html[data-node-style='minimal'] {
+  --node-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --node-radius-multiplier: 0.25;
+  --node-border-width: 1px;
+  --node-bg-override: var(--background-color);
+  --node-backdrop: none;
 }
-html[data-node-style="bold"] {
-    --node-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
-    --node-radius-multiplier: 1.75;
-    --node-border-width: 3px;
-    --node-bg-override: var(--background-color);
-    --node-backdrop: none;
+html[data-node-style='bold'] {
+  --node-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  --node-radius-multiplier: 1.75;
+  --node-border-width: 3px;
+  --node-bg-override: var(--background-color);
+  --node-backdrop: none;
 }
 /* Neon: accent-tinted glow aura; sharp border in the accent color. */
-html[data-node-style="neon"] {
-    --node-shadow:
-        0 0 0 1px color-mix(in srgb, var(--accent-override, #3ecf8e) 60%, transparent),
-        0 0 18px color-mix(in srgb, var(--accent-override, #3ecf8e) 40%, transparent),
-        0 4px 22px rgba(0, 0, 0, 0.3);
-    --node-radius-multiplier: 1;
-    --node-border-width: 1.5px;
-    --node-border-override: color-mix(in srgb, var(--accent-override, #3ecf8e) 70%, transparent);
-    --node-bg-override: var(--background-color);
-    --node-backdrop: none;
+html[data-node-style='neon'] {
+  --node-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-override, #3ecf8e) 60%, transparent),
+    0 0 18px color-mix(in srgb, var(--accent-override, #3ecf8e) 40%, transparent),
+    0 4px 22px rgba(0, 0, 0, 0.3);
+  --node-radius-multiplier: 1;
+  --node-border-width: 1.5px;
+  --node-border-override: color-mix(in srgb, var(--accent-override, #3ecf8e) 70%, transparent);
+  --node-bg-override: var(--background-color);
+  --node-backdrop: none;
 }
 /* Glass: translucent card with frosted backdrop blur. */
-html[data-node-style="glass"] {
-    --node-shadow: 0 6px 24px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-    --node-radius-multiplier: 1.4;
-    --node-border-width: 1px;
-    --node-border-override: rgba(255, 255, 255, 0.12);
-    --node-bg-override: color-mix(in srgb, var(--background-color) 55%, transparent);
-    --node-backdrop: saturate(140%) blur(10px);
+html[data-node-style='glass'] {
+  --node-shadow: 0 6px 24px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --node-radius-multiplier: 1.4;
+  --node-border-width: 1px;
+  --node-border-override: rgba(255, 255, 255, 0.12);
+  --node-bg-override: color-mix(in srgb, var(--background-color) 55%, transparent);
+  --node-backdrop: saturate(140%) blur(10px);
 }
 
 /* Default animation duration multiplier. VisualizationContext
@@ -460,61 +470,198 @@ html[data-node-style="glass"] {
    named speed. Keyframe-consuming classes divide their base duration
    by this value so lively < 1 speeds up and calm > 1 slows down. */
 html {
-    --anim-duration-mult: 1;
+  --anim-duration-mult: 1;
 }
 
 /* Apply to the editor's job/event nodes. The CSS below is
    intentionally additive — it only OVERRIDES padding/radius/width
    on .wf_event so the existing visual types (trigger, action,
-   controller, limit) keep their hardcoded shapes. */
+   controller, limit) keep their hardcoded shapes.
+   Layering: the density + style presets still drive base padding,
+   radius multiplier, border width and shadow. The Appearance page
+   adds three further knobs via CSS vars:
+     --node-radius-boost  (px extra radius, default 0)
+     --node-scale         (numeric multiplier for transform: scale)
+     --node-shadow-user   (user shadow preset, layered after style)
+   Each is scoped so if the var is unset, behavior falls back to
+   the legacy visual.
+   ───────────────────────────────────────────────────────────── */
 .wf_event {
-    padding: var(--node-pad-y) var(--node-pad-x) !important;
-    border-radius: calc(var(--node-radius) * var(--node-radius-multiplier, 1)) !important;
-    min-width: var(--node-min-width) !important;
-    box-shadow: var(--node-shadow, none);
-    border-width: var(--node-border-width, 2px) !important;
-    border-color: var(--node-border-override, var(--border-color)) !important;
-    background: var(--node-bg-override, var(--background-color)) !important;
-    backdrop-filter: var(--node-backdrop, none);
-    -webkit-backdrop-filter: var(--node-backdrop, none);
+  padding: var(--node-pad-y) var(--node-pad-x) !important;
+  border-radius: calc(
+    (var(--node-radius) * var(--node-radius-multiplier, 1)) + var(--node-radius-boost, 0px)
+  ) !important;
+  min-width: var(--node-min-width) !important;
+  box-shadow: var(--node-shadow-user, var(--node-shadow, none));
+  border-width: var(--node-border-width, 2px) !important;
+  border-color: var(--node-border-override, var(--border-color)) !important;
+  background: var(--node-bg-override, var(--background-color)) !important;
+  backdrop-filter: var(--node-backdrop, none);
+  -webkit-backdrop-filter: var(--node-backdrop, none);
+}
+
+/* Node scale — applied to every visual node wrapper. Defaults to 1
+   so the rule is a no-op unless the user drags the slider. The origin
+   is center to keep dragging behavior intuitive (the node grows from
+   its current center, not from one corner). */
+html[style*='--node-scale'] .wf_node .wf_event {
+  transform: scale(var(--node-scale, 1));
+  transform-origin: center center;
+}
+
+/* Icon scale — the icon wrapper `.wf_event_icon` is a fixed-size
+   flex container (see WorkflowNode.css: 1121). Its Lucide SVG child
+   gets its `size` prop hardcoded in EditorNode.tsx:663. Changing the
+   inline size from CSS isn't possible (inline wins), but a
+   `transform: scale()` on the wrapper visually scales the icon
+   without touching any React code. The 3 buckets are picked so
+   `md` == 1x (no visual change from the 22×22 default), `sm` shrinks
+   to 78%, `lg` grows to 128%. Status-color overrides for the node
+   border live in WorkflowNode.css and use `--status-accent` +
+   `--active-color` cascades directly. */
+html[data-node-icon='sm'] {
+  --node-icon-scale: 0.78;
+}
+html[data-node-icon='md'] {
+  --node-icon-scale: 1;
+}
+html[data-node-icon='lg'] {
+  --node-icon-scale: 1.28;
+}
+
+/* Pulse variants — each preset ships its own keyframe so the running
+   state can read as "breathe" (opacity+scale), "wave" (repeating
+   outward shadow), "ripple" (single expanding ring), or "none"
+   (static). The legacy `.wf_active` animation is preserved and then
+   overridden where needed. */
+html[data-pulse-variant='breathe'] .wf_active {
+  animation: nanorun-pulse-breathe calc(1.6s * var(--anim-duration-mult, 1)) ease-in-out infinite;
+}
+html[data-pulse-variant='wave'] .wf_active {
+  animation: nanorun-pulse-wave calc(1.4s * var(--anim-duration-mult, 1)) ease-out infinite;
+}
+html[data-pulse-variant='ripple'] .wf_active {
+  animation: nanorun-pulse-ripple calc(2s * var(--anim-duration-mult, 1)) ease-out infinite;
+}
+html[data-pulse-variant='none'] .wf_active {
+  animation: none !important;
+}
+
+@keyframes nanorun-pulse-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 calc(6px * var(--editor-glow, 1))
+      color-mix(in srgb, var(--accent-override, #3ecf8e) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 calc(18px * var(--editor-glow, 1))
+      color-mix(in srgb, var(--accent-override, #3ecf8e) 70%, transparent);
+  }
+}
+
+@keyframes nanorun-pulse-wave {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-override, #3ecf8e) 55%, transparent);
+  }
+  80%,
+  100% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+}
+
+@keyframes nanorun-pulse-ripple {
+  0% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--accent-override, #3ecf8e) 70%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--accent-override, #3ecf8e) 40%, transparent);
+  }
+  60% {
+    box-shadow:
+      0 0 0 8px color-mix(in srgb, var(--accent-override, #3ecf8e) 0%, transparent),
+      0 0 0 16px color-mix(in srgb, var(--accent-override, #3ecf8e) 0%, transparent);
+  }
+  100% {
+    box-shadow:
+      0 0 0 8px transparent,
+      0 0 0 16px transparent;
+  }
+}
+
+/* Completion flash — one-shot animations played when a node transitions
+   to `.wf_completed`. Each variant maps the same hook `.wf_completed`
+   to a different keyframe. */
+html[data-flash-variant='flash'] .wf_completed {
+  animation: nanorun-flash-flash calc(0.9s * var(--anim-duration-mult, 1)) ease-out 1;
+}
+html[data-flash-variant='bounce'] .wf_completed {
+  animation: nanorun-flash-bounce calc(0.55s * var(--anim-duration-mult, 1))
+    cubic-bezier(0.34, 1.56, 0.64, 1) 1;
+}
+html[data-flash-variant='none'] .wf_completed {
+  animation: none !important;
+}
+
+@keyframes nanorun-flash-flash {
+  0% {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--accent-override, #3ecf8e) 80%, transparent),
+      0 0 20px color-mix(in srgb, var(--accent-override, #3ecf8e) 60%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes nanorun-flash-bounce {
+  0% {
+    transform: scale(var(--node-scale, 1));
+  }
+  40% {
+    transform: scale(calc(var(--node-scale, 1) * 1.08));
+  }
+  70% {
+    transform: scale(calc(var(--node-scale, 1) * 0.98));
+  }
+  100% {
+    transform: scale(var(--node-scale, 1));
+  }
 }
 
 /* Animations off → kill every transition + every keyframe in the
    editor surface. Page-level framer-motion transitions outside the
    editor still run; this is intentional (we don't want the
    marketing pages to jank when this flips). */
-html[data-anim="off"] .wf_node,
-html[data-anim="off"] .wf_event,
-html[data-anim="off"] .wf_pole_button,
-html[data-anim="off"] .wf-pole-button {
-    transition: none !important;
-    animation: none !important;
+html[data-anim='off'] .wf_node,
+html[data-anim='off'] .wf_event,
+html[data-anim='off'] .wf_pole_button,
+html[data-anim='off'] .wf-pole-button {
+  transition: none !important;
+  animation: none !important;
 }
 
-html[data-anim="off"] .wf_active,
-html[data-anim="off"] .wf_completed,
-html[data-anim="off"] .wf_error {
-    animation: none !important;
+html[data-anim='off'] .wf_active,
+html[data-anim='off'] .wf_completed,
+html[data-anim='off'] .wf_error {
+  animation: none !important;
 }
 
 /* Glow intensity drives box-shadow opacity on running / completed
    nodes. The keyframe defines the base shadow; we multiply it
    here. Falls back to 1 (default) if the var is unset. */
 .wf_active {
-    box-shadow:
-        0 0 calc(8px * var(--editor-glow, 1))
-        rgba(96, 165, 250, calc(0.5 * var(--editor-glow, 1)));
+  box-shadow: 0 0 calc(8px * var(--editor-glow, 1))
+    rgba(96, 165, 250, calc(0.5 * var(--editor-glow, 1)));
 }
 
 /* Respect user OS preference unless they overrode it explicitly */
 @media (prefers-reduced-motion: reduce) {
-    html:not([data-anim="on"]) .wf_node,
-    html:not([data-anim="on"]) .wf_event,
-    html:not([data-anim="on"]) .wf_pole_button,
-    html:not([data-anim="on"]) .wf-pole-button {
-        transition: none !important;
-        animation: none !important;
-    }
+  html:not([data-anim='on']) .wf_node,
+  html:not([data-anim='on']) .wf_event,
+  html:not([data-anim='on']) .wf_pole_button,
+  html:not([data-anim='on']) .wf-pole-button {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -532,46 +679,46 @@ html[data-anim="off"] .wf_error {
    in a data URL keeps it a single paintable layer; `pointer-events:
    none` means clicks fall straight through to the content. */
 .marketing-shell {
-    position: relative;
-    isolation: isolate;
+  position: relative;
+  isolation: isolate;
 }
 
 .marketing-shell::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: var(--landing-noise);
-    background-size: 180px 180px;
-    opacity: 0.45;
-    mix-blend-mode: overlay;
-    pointer-events: none;
-    z-index: 1;
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--landing-noise);
+  background-size: 180px 180px;
+  opacity: 0.45;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* Nav link underline-slide. The pseudo-element sits below the
    link text; scaleX(0) → scaleX(1) with a slow expo-out reads as
    deliberate, not snappy. Pair with `group` modifier for stagger. */
 .nav-link-slide {
-    position: relative;
-    padding-bottom: 2px;
+  position: relative;
+  padding-bottom: 2px;
 }
 
 .nav-link-slide::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -1px;
-    height: 1px;
-    background: hsl(var(--primary));
-    transform: scaleX(0);
-    transform-origin: left center;
-    transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: hsl(var(--primary));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nav-link-slide:hover::after,
 .nav-link-slide[aria-current='page']::after {
-    transform: scaleX(1);
+  transform: scaleX(1);
 }
 
 /* Shared eyebrow treatment for marketing section headers.
@@ -579,47 +726,47 @@ html[data-anim="off"] .wf_error {
    Templates, TriggerSources, and Comparison — they used to each
    hand-roll it. */
 .m-eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: hsl(var(--primary));
-    opacity: 0.9;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: hsl(var(--primary));
+  opacity: 0.9;
 }
 
 .m-eyebrow::before {
-    content: '';
-    width: 1.5rem;
-    height: 1px;
-    background: hsl(var(--primary) / 0.55);
+  content: '';
+  width: 1.5rem;
+  height: 1px;
+  background: hsl(var(--primary) / 0.55);
 }
 
 /* Card shimmer on hover — the thin gradient stripe travels once
    across a border on hover. Enterprise-subtle; never loops. */
 .shimmer-hover {
-    position: relative;
-    overflow: hidden;
+  position: relative;
+  overflow: hidden;
 }
 
 .shimmer-hover::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background: linear-gradient(
-        120deg,
-        transparent 20%,
-        hsl(var(--primary) / 0.08) 50%,
-        transparent 80%
-    );
-    transform: translateX(-100%);
-    transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    transparent 20%,
+    hsl(var(--primary) / 0.08) 50%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .shimmer-hover:hover::after {
-    transform: translateX(100%);
+  transform: translateX(100%);
 }

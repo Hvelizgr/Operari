@@ -4,211 +4,253 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Map, Minimize2, Maximize2 } from 'lucide-react';
 import { useState, useCallback, useRef } from 'react';
 import { WorkflowNode } from '../Editor';
+import { useVisualization, type MinimapPosition } from '@/context/VisualizationContext';
 
 interface MiniMapProps {
-    nodes: WorkflowNode[];
-    viewport: { x: number; y: number; zoom: number };
-    canvasSize: { width: number; height: number };
-    onViewportChange: (x: number, y: number) => void;
-    lang: 'en' | 'es';
+  nodes: WorkflowNode[];
+  viewport: { x: number; y: number; zoom: number };
+  canvasSize: { width: number; height: number };
+  onViewportChange: (x: number, y: number) => void;
+  lang: 'en' | 'es';
 }
 
-export default function MiniMap({ nodes, viewport, canvasSize, onViewportChange, lang }: MiniMapProps) {
-    const [isCollapsed, setIsCollapsed] = useState(false);
-    const [isDragging, setIsDragging] = useState(false);
-    const miniMapRef = useRef<HTMLDivElement>(null);
+/** Maps the user's minimap position preference to Tailwind corner
+ *  classes. Kept in-module so the MiniMap file is self-contained. */
+const POSITION_CLASSES: Record<Exclude<MinimapPosition, 'hidden'>, string> = {
+  'top-left': 'top-4 left-4',
+  'top-right': 'top-4 right-4',
+  'bottom-left': 'bottom-4 left-4',
+  'bottom-right': 'bottom-4 right-4',
+};
 
-    const MINIMAP_WIDTH = 240;
-    const MINIMAP_HEIGHT = 180;
-    const SCALE = 0.1;
+export default function MiniMap({
+  nodes,
+  viewport,
+  canvasSize,
+  onViewportChange,
+  lang,
+}: MiniMapProps) {
+  const { minimapPosition } = useVisualization();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const miniMapRef = useRef<HTMLDivElement>(null);
 
-    const content = {
-        en: {
-            minimap: 'Mini Map',
-            collapse: 'Collapse',
-            expand: 'Expand',
-        },
-        es: {
-            minimap: 'Mini Mapa',
-            collapse: 'Contraer',
-            expand: 'Expandir',
-        },
-    };
+  const MINIMAP_WIDTH = 240;
+  const MINIMAP_HEIGHT = 180;
+  const SCALE = 0.1;
 
-    const text = content[lang] || content['en'];
+  const content = {
+    en: {
+      minimap: 'Mini Map',
+      collapse: 'Collapse',
+      expand: 'Expand',
+    },
+    es: {
+      minimap: 'Mini Mapa',
+      collapse: 'Contraer',
+      expand: 'Expandir',
+    },
+  };
 
-    const calculateBounds = () => {
-        if (nodes.length === 0) {
-            return { minX: 0, minY: 0, maxX: 1000, maxY: 800 };
-        }
+  const text = content[lang] || content['en'];
 
-        let minX = Infinity;
-        let minY = Infinity;
-        let maxX = -Infinity;
-        let maxY = -Infinity;
+  const calculateBounds = () => {
+    if (nodes.length === 0) {
+      return { minX: 0, minY: 0, maxX: 1000, maxY: 800 };
+    }
 
-        nodes.forEach(node => {
-            minX = Math.min(minX, node.position.x);
-            minY = Math.min(minY, node.position.y);
-            maxX = Math.max(maxX, node.position.x + 200);
-            maxY = Math.max(maxY, node.position.y + 100);
-        });
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
 
-        const padding = 200;
-        return {
-            minX: minX - padding,
-            minY: minY - padding,
-            maxX: maxX + padding,
-            maxY: maxY + padding,
-        };
-    };
-
-    const bounds = calculateBounds();
-    const worldWidth = bounds.maxX - bounds.minX;
-    const worldHeight = bounds.maxY - bounds.minY;
-
-    const scaleX = MINIMAP_WIDTH / worldWidth;
-    const scaleY = MINIMAP_HEIGHT / worldHeight;
-    const scale = Math.min(scaleX, scaleY);
-
-    const toMiniMapCoords = (x: number, y: number) => ({
-        x: (x - bounds.minX) * scale,
-        y: (y - bounds.minY) * scale,
+    nodes.forEach(node => {
+      minX = Math.min(minX, node.position.x);
+      minY = Math.min(minY, node.position.y);
+      maxX = Math.max(maxX, node.position.x + 200);
+      maxY = Math.max(maxY, node.position.y + 100);
     });
 
-    const fromMiniMapCoords = (x: number, y: number) => ({
-        x: x / scale + bounds.minX,
-        y: y / scale + bounds.minY,
-    });
-
-    const viewportInWorld = {
-        x: -viewport.x / viewport.zoom,
-        y: -viewport.y / viewport.zoom,
-        width: canvasSize.width / viewport.zoom,
-        height: canvasSize.height / viewport.zoom,
+    const padding = 200;
+    return {
+      minX: minX - padding,
+      minY: minY - padding,
+      maxX: maxX + padding,
+      maxY: maxY + padding,
     };
+  };
 
-    const viewportInMiniMap = {
-        x: (viewportInWorld.x - bounds.minX) * scale,
-        y: (viewportInWorld.y - bounds.minY) * scale,
-        width: viewportInWorld.width * scale,
-        height: viewportInWorld.height * scale,
-    };
+  const bounds = calculateBounds();
+  const worldWidth = bounds.maxX - bounds.minX;
+  const worldHeight = bounds.maxY - bounds.minY;
 
-    const handleMiniMapClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-        if (!miniMapRef.current) return;
+  const scaleX = MINIMAP_WIDTH / worldWidth;
+  const scaleY = MINIMAP_HEIGHT / worldHeight;
+  const scale = Math.min(scaleX, scaleY);
 
-        const rect = miniMapRef.current.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        const clickY = e.clientY - rect.top;
+  const toMiniMapCoords = (x: number, y: number) => ({
+    x: (x - bounds.minX) * scale,
+    y: (y - bounds.minY) * scale,
+  });
 
-        const worldCoords = fromMiniMapCoords(clickX, clickY);
+  const fromMiniMapCoords = (x: number, y: number) => ({
+    x: x / scale + bounds.minX,
+    y: y / scale + bounds.minY,
+  });
 
-        const newX = -(worldCoords.x - canvasSize.width / viewport.zoom / 2) * viewport.zoom;
-        const newY = -(worldCoords.y - canvasSize.height / viewport.zoom / 2) * viewport.zoom;
+  const viewportInWorld = {
+    x: -viewport.x / viewport.zoom,
+    y: -viewport.y / viewport.zoom,
+    width: canvasSize.width / viewport.zoom,
+    height: canvasSize.height / viewport.zoom,
+  };
 
-        onViewportChange(newX, newY);
-    }, [bounds, scale, viewport.zoom, canvasSize, onViewportChange]);
+  const viewportInMiniMap = {
+    x: (viewportInWorld.x - bounds.minX) * scale,
+    y: (viewportInWorld.y - bounds.minY) * scale,
+    width: viewportInWorld.width * scale,
+    height: viewportInWorld.height * scale,
+  };
 
-    const handleViewportDragStart = useCallback((e: React.MouseEvent) => {
-        e.stopPropagation();
-        setIsDragging(true);
-    }, []);
+  const handleMiniMapClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!miniMapRef.current) return;
 
-    const handleViewportDrag = useCallback((e: React.MouseEvent) => {
-        if (!isDragging || !miniMapRef.current) return;
+      const rect = miniMapRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
 
-        const rect = miniMapRef.current.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        const clickY = e.clientY - rect.top;
+      const worldCoords = fromMiniMapCoords(clickX, clickY);
 
-        const worldCoords = fromMiniMapCoords(clickX, clickY);
+      const newX = -(worldCoords.x - canvasSize.width / viewport.zoom / 2) * viewport.zoom;
+      const newY = -(worldCoords.y - canvasSize.height / viewport.zoom / 2) * viewport.zoom;
 
-        const newX = -(worldCoords.x - canvasSize.width / viewport.zoom / 2) * viewport.zoom;
-        const newY = -(worldCoords.y - canvasSize.height / viewport.zoom / 2) * viewport.zoom;
+      onViewportChange(newX, newY);
+    },
+    [bounds, scale, viewport.zoom, canvasSize, onViewportChange]
+  );
 
-        onViewportChange(newX, newY);
-    }, [isDragging, bounds, scale, viewport.zoom, canvasSize, onViewportChange]);
+  const handleViewportDragStart = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
 
-    const handleViewportDragEnd = useCallback(() => {
-        setIsDragging(false);
-    }, []);
+  const handleViewportDrag = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isDragging || !miniMapRef.current) return;
 
-    return (
-        <motion.div
-            className="absolute bottom-4 left-4 z-40"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3 }}
-        >
-            <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-2xl overflow-hidden">
-                <div className="flex items-center justify-between px-3 py-2 bg-slate-900 border-b border-slate-700">
-                    <div className="flex items-center gap-2">
-                        <Map size={14} className="text-primary" />
-                        <span className="text-xs font-semibold text-slate-200">{text.minimap}</span>
-                    </div>
-                    <button
-                        onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="text-slate-400 hover:text-slate-200 transition-colors"
-                        title={isCollapsed ? text.expand : text.collapse}
-                    >
-                        {isCollapsed ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
-                    </button>
-                </div>
+      const rect = miniMapRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
 
-                <AnimatePresence>
-                    {!isCollapsed && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            <div
-                                ref={miniMapRef}
-                                className="relative bg-slate-950 cursor-pointer"
-                                style={{ width: MINIMAP_WIDTH, height: MINIMAP_HEIGHT }}
-                                onClick={handleMiniMapClick}
-                                onMouseMove={handleViewportDrag}
-                                onMouseUp={handleViewportDragEnd}
-                                onMouseLeave={handleViewportDragEnd}
-                            >
-                                {nodes.map(node => {
-                                    const miniPos = toMiniMapCoords(node.position.x, node.position.y);
-                                    return (
-                                        <div
-                                            key={node.id}
-                                            className="absolute bg-primary/40 border border-primary/70/60 rounded-sm"
-                                            style={{
-                                                left: miniPos.x,
-                                                top: miniPos.y,
-                                                width: 200 * scale,
-                                                height: 100 * scale,
-                                            }}
-                                        />
-                                    );
-                                })}
+      const worldCoords = fromMiniMapCoords(clickX, clickY);
 
-                                <motion.div
-                                    className="absolute border-2 border-primary bg-primary/10 cursor-move"
-                                    style={{
-                                        left: Math.max(0, Math.min(MINIMAP_WIDTH - viewportInMiniMap.width, viewportInMiniMap.x)),
-                                        top: Math.max(0, Math.min(MINIMAP_HEIGHT - viewportInMiniMap.height, viewportInMiniMap.y)),
-                                        width: Math.min(MINIMAP_WIDTH, viewportInMiniMap.width),
-                                        height: Math.min(MINIMAP_HEIGHT, viewportInMiniMap.height),
-                                    }}
-                                    onMouseDown={handleViewportDragStart}
-                                    animate={{
-                                        left: Math.max(0, Math.min(MINIMAP_WIDTH - viewportInMiniMap.width, viewportInMiniMap.x)),
-                                        top: Math.max(0, Math.min(MINIMAP_HEIGHT - viewportInMiniMap.height, viewportInMiniMap.y)),
-                                    }}
-                                    transition={{ type: 'tween', duration: 0.1 }}
-                                />
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-        </motion.div>
-    );
+      const newX = -(worldCoords.x - canvasSize.width / viewport.zoom / 2) * viewport.zoom;
+      const newY = -(worldCoords.y - canvasSize.height / viewport.zoom / 2) * viewport.zoom;
+
+      onViewportChange(newX, newY);
+    },
+    [isDragging, bounds, scale, viewport.zoom, canvasSize, onViewportChange]
+  );
+
+  const handleViewportDragEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // User picked "hidden" in Appearance → Canvas → Minimap position —
+  // skip rendering entirely so the minimap isn't just visually
+  // offscreen but actually absent from the DOM and the tab order.
+  if (minimapPosition === 'hidden') return null;
+
+  const positionClass = POSITION_CLASSES[minimapPosition] ?? POSITION_CLASSES['bottom-left'];
+
+  return (
+    <motion.div
+      className={`absolute ${positionClass} z-40`}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay: 0.3 }}
+    >
+      <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-800 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-700 bg-slate-900 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Map size={14} className="text-primary" />
+            <span className="text-xs font-semibold text-slate-200">{text.minimap}</span>
+          </div>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="text-slate-400 transition-colors hover:text-slate-200"
+            title={isCollapsed ? text.expand : text.collapse}
+          >
+            {isCollapsed ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {!isCollapsed && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div
+                ref={miniMapRef}
+                className="relative cursor-pointer bg-slate-950"
+                style={{ width: MINIMAP_WIDTH, height: MINIMAP_HEIGHT }}
+                onClick={handleMiniMapClick}
+                onMouseMove={handleViewportDrag}
+                onMouseUp={handleViewportDragEnd}
+                onMouseLeave={handleViewportDragEnd}
+              >
+                {nodes.map(node => {
+                  const miniPos = toMiniMapCoords(node.position.x, node.position.y);
+                  return (
+                    <div
+                      key={node.id}
+                      className="bg-primary/40 border-primary/70/60 absolute rounded-sm border"
+                      style={{
+                        left: miniPos.x,
+                        top: miniPos.y,
+                        width: 200 * scale,
+                        height: 100 * scale,
+                      }}
+                    />
+                  );
+                })}
+
+                <motion.div
+                  className="border-primary bg-primary/10 absolute cursor-move border-2"
+                  style={{
+                    left: Math.max(
+                      0,
+                      Math.min(MINIMAP_WIDTH - viewportInMiniMap.width, viewportInMiniMap.x)
+                    ),
+                    top: Math.max(
+                      0,
+                      Math.min(MINIMAP_HEIGHT - viewportInMiniMap.height, viewportInMiniMap.y)
+                    ),
+                    width: Math.min(MINIMAP_WIDTH, viewportInMiniMap.width),
+                    height: Math.min(MINIMAP_HEIGHT, viewportInMiniMap.height),
+                  }}
+                  onMouseDown={handleViewportDragStart}
+                  animate={{
+                    left: Math.max(
+                      0,
+                      Math.min(MINIMAP_WIDTH - viewportInMiniMap.width, viewportInMiniMap.x)
+                    ),
+                    top: Math.max(
+                      0,
+                      Math.min(MINIMAP_HEIGHT - viewportInMiniMap.height, viewportInMiniMap.y)
+                    ),
+                  }}
+                  transition={{ type: 'tween', duration: 0.1 }}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
 }
