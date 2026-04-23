@@ -16,6 +16,7 @@ import { ExecutionEventStore } from '../../runbook/engine/execution-event.store'
 import type { ExecutionEventPayload } from '../../runbook/engine/execution-event.types';
 import { getRunner } from '../../runbook/runners';
 import { GitHubStatusService } from '../../runbook/services/github-status.service';
+import { applyRunbookVersionSnapshot } from '../../runbook/services/runbook-version.service';
 import { ErrorNotificationService } from '../../services/error-notification.service';
 import { Logger } from '../../services/logger.service';
 import {
@@ -500,6 +501,17 @@ export class ExecutionService {
         throw err;
       }
 
+      // Pin the run to the latest frozen RunbookVersion. The engine
+      // then walks THAT snapshot rather than the mutable Runbook row,
+      // so an edit that lands mid-run cannot rewrite the DAG under a
+      // running execution. Null only for runbooks saved before A1
+      // landed — the next save creates version 1 and the next run
+      // pins itself.
+      const latestVersion = await this.prisma.runbookVersion.findFirst({
+        where: { runbookId: workflowId },
+        orderBy: { version: 'desc' },
+      });
+
       // Create execution record
       const execution = await this.prisma.execution.create({
         data: {
@@ -509,6 +521,7 @@ export class ExecutionService {
           trigger,
           status: 'RUNNING',
           parentExecutionId,
+          runbookVersionId: latestVersion?.id ?? null,
         },
       });
 
@@ -594,10 +607,19 @@ export class ExecutionService {
         });
       }
 
+      // Build the effective runbook: when we have a frozen version,
+      // splice its snapshot's definition fields over the current
+      // Runbook row. The engine reads `nodes` / `connections` /
+      // `inputs` from this object, so a user editing the runbook
+      // mid-flight cannot corrupt an in-flight run.
+      const effectiveWorkflow = latestVersion
+        ? applyRunbookVersionSnapshot(workflow, latestVersion.snapshot)
+        : workflow;
+
       // Run workflow asynchronously with proper error handling
       this.runWorkflow(
         execution.id,
-        workflow,
+        effectiveWorkflow,
         input,
         executionContext,
         tenantId,

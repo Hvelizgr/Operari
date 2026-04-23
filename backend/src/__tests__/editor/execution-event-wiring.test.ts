@@ -74,6 +74,10 @@ const mockPrisma = {
   tenant: {
     findUnique: jest.fn().mockResolvedValue({ plan: 'BUSINESS' }),
   },
+  // A1: execute() pins to latest RunbookVersion. null → fallback.
+  runbookVersion: {
+    findFirst: jest.fn().mockResolvedValue(null),
+  },
 } as unknown as PrismaClient;
 
 describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
