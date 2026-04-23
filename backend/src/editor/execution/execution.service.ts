@@ -810,6 +810,108 @@ export class ExecutionService {
     return execution;
   }
 
+  /**
+   * Phase-4 durable resume entry point — the ResumeWorker calls this
+   * after reconstructing a run's checkpoint from the event log.
+   *
+   * Inputs:
+   *   - `executionId` / `workflow`: already loaded by the worker so we
+   *     don't make a second trip for them.
+   *   - `completedNodeIds`: union of successful + skipped + failed
+   *     step ids. The engine skips these on re-entry.
+   *   - `nodeOutputs`: outputs captured from `step.completed` events,
+   *     keyed by nodeId. Downstream nodes read from here instead of
+   *     re-running predecessors.
+   *
+   * Contract: does NOT create a new Execution row. Flips the existing
+   * one back to RUNNING, appends a `run.resumed` event, then re-enters
+   * the same runWorkflow loop the initial dispatch used, seeded with
+   * the reconstructed state. Fire-and-forget like `execute()`.
+   *
+   * Safety: the worker is responsible for making sure no steps were
+   * `step.started` without a terminal event (i.e. `inFlightSteps` is
+   * empty). If that invariant breaks, the resumed run will re-execute
+   * side effects the interrupted step already issued.
+   */
+  async resumeFromEventLog(params: {
+    executionId: string;
+    workflow: Runbook;
+    completedNodeIds: string[];
+    nodeOutputs: Record<string, unknown>;
+    userId: string;
+    tenantId: string;
+  }): Promise<void> {
+    const { executionId, workflow, completedNodeIds, nodeOutputs, userId, tenantId } = params;
+    const allNodes = workflow.nodes as unknown as WorkflowNode[];
+    const allConnections = workflow.connections as unknown as WorkflowConnection[];
+
+    // Cast the raw event-log outputs to the engine's ExecutionOutput
+    // shape. The outputs were serialized from this same engine, so the
+    // structural cast is safe — we just lost the nominal type through
+    // Json round-tripping.
+    const nodeOutputsTyped: Record<string, ExecutionOutput> = {};
+    for (const [nodeId, output] of Object.entries(nodeOutputs)) {
+      nodeOutputsTyped[nodeId] = output as ExecutionOutput;
+    }
+
+    // Seed nodesToExecute = children of completed nodes that haven't
+    // themselves completed. The runWorkflow loop already walks
+    // children of executedNodes once the queue drains, so this gives
+    // it a starting frontier without asking it to re-enter from the
+    // original triggers (which would re-execute the whole chain).
+    const executedSet = new Set(completedNodeIds);
+    const nextFrontier = new Map<string, WorkflowNode>();
+    for (const conn of allConnections) {
+      if (!executedSet.has(conn.source)) continue;
+      if (executedSet.has(conn.target)) continue;
+      const targetNode = allNodes.find(n => n.id === conn.target);
+      if (targetNode) nextFrontier.set(targetNode.id, targetNode);
+    }
+
+    const initialState: RunState = {
+      nodeOutputs: nodeOutputsTyped,
+      executedNodes: executedSet,
+      nodesToExecute: Array.from(nextFrontier.values()),
+    };
+
+    await this.prisma.execution.update({
+      where: { id: executionId },
+      data: { status: 'RUNNING' },
+    });
+
+    await this.safeAppendEvent(executionId, tenantId, {
+      type: 'run.resumed',
+      payload: { actorId: null },
+    });
+
+    const executionContext = {
+      executionId,
+      workflowId: workflow.id,
+      workflowName: workflow.name,
+      userId,
+      tenantId,
+      isResumedFromEventLog: true,
+    };
+
+    this.logger
+      .child(executionContext)
+      .info('Runbook resumed from event log (phase 4 durable engine)');
+
+    this.runWorkflow(
+      executionId,
+      workflow,
+      {},
+      executionContext,
+      tenantId,
+      undefined,
+      initialState
+    ).catch(error => {
+      this.logger.error('Uncaught error in event-log resumed workflow', {
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+    });
+  }
+
   private async runWorkflow(
     executionId: string,
     workflow: Runbook,

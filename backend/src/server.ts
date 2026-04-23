@@ -371,30 +371,38 @@ async function main() {
     process.on('SIGTERM', () => clearInterval(monitorInterval));
     logger.info('Monitor watchdog started (1-minute interval)');
 
-    // ADR 0003 phase 3: scan for runs that were in flight when the
-    // previous backend instance died and abandon them so they stop
-    // showing up in dashboards. Behind two flags:
-    //   NANORUN_DURABLE_ENGINE=true   → engine is wired in general
+    // ADR 0003 phase 3 + 4: scan for runs that were in flight when the
+    // previous backend instance died. Behind three flags:
+    //   NANORUN_DURABLE_ENGINE=true    → engine is wired in general
     //   NANORUN_RESUME_WORKER_ACT=true → act on decisions, not just dryRun
-    // Default: dryRun=true so a fresh deploy logs the report and the
-    // operator confirms it before letting the worker mutate.
-    if (process.env.NANORUN_DURABLE_ENGINE === 'true') {
+    //   NANORUN_RESUME_WORKER_REPLAY=true → phase 4 (replay instead of
+    //     abandon) for runs whose event log shows no step mid-execution
+    // Default: dryRun=true + replay=false so a fresh deploy logs the
+    // report without mutation and keeps the conservative abandon policy.
+    if (env.NANORUN_DURABLE_ENGINE === 'true') {
       try {
         const { ExecutionEventStore } = await import('./runbook/engine/execution-event.store');
         const { ResumeWorker } = await import('./runbook/engine/resume-worker');
+        const { ExecutionService } = await import('./editor/execution/execution.service');
         const { Logger } = await import('./services/logger.service');
         const eventStore = new ExecutionEventStore(prisma);
-        const worker = new ResumeWorker(eventStore, Logger.getInstance());
-        const dryRun = process.env.NANORUN_RESUME_WORKER_ACT !== 'true';
-        const report = await worker.runOnce({ dryRun });
+        const executionService = new ExecutionService(prisma);
+        const worker = new ResumeWorker(eventStore, Logger.getInstance(), {
+          prisma,
+          executionService,
+        });
+        const dryRun = env.NANORUN_RESUME_WORKER_ACT !== 'true';
+        const replay = env.NANORUN_RESUME_WORKER_REPLAY === 'true';
+        const report = await worker.runOnce({ dryRun, replay });
         logger.info(
           {
             scannedTenants: report.scannedTenants,
             scannedRuns: report.scannedRuns,
             abandoned: report.counts.ABANDON,
             skipped: report.counts.SKIP,
-            wouldResume: report.counts.RESUME,
+            resumed: report.counts.RESUME,
             dryRun: report.dryRun,
+            replay,
             durationMs: report.durationMs,
           },
           'Resume worker scan complete'

@@ -155,6 +155,24 @@ export interface RunState {
   failedSteps: string[];
   /** Subset of step events that were skipped */
   skippedSteps: string[];
+  /**
+   * Outputs captured from each `step.completed` event, keyed by
+   * nodeId. Used by the phase-4 resume path to reseed the downstream
+   * engine with what each completed step produced, so steps that
+   * merge multiple parents still get their real inputs instead of
+   * re-running an already-committed predecessor.
+   */
+  completedStepOutputs: Record<string, unknown>;
+  /**
+   * Steps that emitted `step.started` but never a matching
+   * `step.completed` / `step.failed` / `step.skipped`. These are the
+   * ones that were actively executing when the backend crashed — the
+   * engine cannot resume them safely because their side effects may
+   * have partially landed (HTTP POST issued, SQL INSERT executed).
+   * The resume worker policy keys on this: empty → safe to replay,
+   * non-empty → abandon.
+   */
+  inFlightSteps: string[];
   /** node id where the run is paused, if PAUSED */
   pausedAt: string | null;
   /** Final error message if the run is FAILED */

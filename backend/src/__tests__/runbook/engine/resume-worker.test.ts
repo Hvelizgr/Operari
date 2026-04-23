@@ -21,6 +21,8 @@ const baseState = (overrides: Partial<RunState> = {}): RunState => ({
   completedSteps: [],
   failedSteps: [],
   skippedSteps: [],
+  completedStepOutputs: {},
+  inFlightSteps: [],
   pausedAt: null,
   errorMessage: null,
   durationMs: null,
@@ -36,10 +38,31 @@ describe('ResumeWorker.decide (pure)', () => {
     expect(decision.tenantId).toBe('t-1');
   });
 
-  it('RUNNING → ABANDON pending phase 4 step replay', () => {
+  it('RUNNING → ABANDON when replay flag is off (default behavior)', () => {
     const decision = ResumeWorker.decide(baseState({ status: 'RUNNING' }), 't-1');
     expect(decision.action).toBe('ABANDON');
-    expect(decision.reason).toMatch(/phase 4/);
+    expect(decision.reason).toMatch(/replay feature flag is off/i);
+  });
+
+  it('RUNNING + replay flag + no inFlightSteps → RESUME', () => {
+    const decision = ResumeWorker.decide(
+      baseState({ status: 'RUNNING', inFlightSteps: [] }),
+      't-1',
+      { replay: true }
+    );
+    expect(decision.action).toBe('RESUME');
+    expect(decision.reason).toMatch(/replay is safe/i);
+  });
+
+  it('RUNNING + replay flag + inFlightSteps non-empty → ABANDON', () => {
+    const decision = ResumeWorker.decide(
+      baseState({ status: 'RUNNING', inFlightSteps: ['n-1'] }),
+      't-1',
+      { replay: true }
+    );
+    expect(decision.action).toBe('ABANDON');
+    expect(decision.reason).toMatch(/mid-execution at crash/i);
+    expect(decision.reason).toContain('n-1');
   });
 
   it('PAUSED → SKIP (waiting on human resume)', () => {
@@ -205,6 +228,112 @@ describe('ResumeWorker.runOnce', () => {
     const report = await worker.runOnce({ dryRun: false });
     // Decision was made, the append failed, the worker logged and moved on
     expect(report.counts.ABANDON).toBe(1);
+  });
+
+  // ─── Phase 4 (C1) — RESUME action wiring ─────────────────────
+
+  function buildResumeDeps() {
+    const resumeCalls: Array<Record<string, unknown>> = [];
+    const executionService = {
+      resumeFromEventLog: jest.fn(async (params: Record<string, unknown>) => {
+        resumeCalls.push(params);
+      }),
+    };
+    const runbookRow = {
+      id: 'wf-1',
+      tenantId: 't-1',
+      name: 'Deploy',
+      description: null,
+      category: null,
+      nodes: [{ id: 'n-1', type: 'HTTP' }],
+      connections: [],
+      inputs: [],
+      onErrorRunbookId: null,
+    };
+    const prisma = {
+      execution: {
+        findUnique: jest.fn(async () => ({
+          id: 'exec-A',
+          userId: 'user-1',
+          tenantId: 't-1',
+          workflow: runbookRow,
+          runbookVersion: null,
+        })),
+      },
+    };
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      deps: { prisma, executionService } as any,
+      resumeCalls,
+      executionService,
+      prisma,
+    };
+  }
+
+  it('RESUME action loads Execution + calls executionService.resumeFromEventLog', async () => {
+    const { store } = buildStore({
+      tenants: ['t-1'],
+      inFlightByTenant: { 't-1': ['exec-A'] },
+      statesByExecution: {
+        'exec-A': baseState({
+          executionId: 'exec-A',
+          status: 'RUNNING',
+          completedSteps: ['n-1'],
+          completedStepOutputs: { 'n-1': { ok: true } },
+          inFlightSteps: [],
+        }),
+      },
+    });
+    const { deps, resumeCalls, executionService } = buildResumeDeps();
+    const worker = new ResumeWorker(store, buildLogger(), deps);
+
+    const report = await worker.runOnce({ dryRun: false, replay: true });
+    expect(report.counts.RESUME).toBe(1);
+    expect(executionService.resumeFromEventLog).toHaveBeenCalledTimes(1);
+    expect(resumeCalls[0]).toMatchObject({
+      executionId: 'exec-A',
+      completedNodeIds: ['n-1'],
+      nodeOutputs: { 'n-1': { ok: true } },
+      tenantId: 't-1',
+      userId: 'user-1',
+    });
+  });
+
+  it('RESUME downgrades to ABANDON when the worker was constructed without deps', async () => {
+    const { store, appended } = buildStore({
+      tenants: ['t-1'],
+      inFlightByTenant: { 't-1': ['exec-A'] },
+      statesByExecution: {
+        'exec-A': baseState({ executionId: 'exec-A', status: 'RUNNING', inFlightSteps: [] }),
+      },
+    });
+    const worker = new ResumeWorker(store, buildLogger()); // no deps
+
+    const report = await worker.runOnce({ dryRun: false, replay: true });
+    // The decision was RESUME (policy still says replay-safe), but
+    // without deps the worker cannot carry it out, so it abandons
+    // to avoid leaving a ghost RUNNING run.
+    expect(report.counts.RESUME).toBe(1);
+    expect(appended.filter(a => a.type === 'run.failed')).toHaveLength(1);
+  });
+
+  it('RESUME downgrades to ABANDON when executionService throws', async () => {
+    const { store, appended } = buildStore({
+      tenants: ['t-1'],
+      inFlightByTenant: { 't-1': ['exec-A'] },
+      statesByExecution: {
+        'exec-A': baseState({ executionId: 'exec-A', status: 'RUNNING', inFlightSteps: [] }),
+      },
+    });
+    const { deps, executionService } = buildResumeDeps();
+    (executionService.resumeFromEventLog as jest.Mock).mockRejectedValue(new Error('engine boom'));
+    const worker = new ResumeWorker(store, buildLogger(), deps);
+
+    const report = await worker.runOnce({ dryRun: false, replay: true });
+    expect(report.counts.RESUME).toBe(1);
+    const failed = appended.filter(a => a.type === 'run.failed');
+    expect(failed).toHaveLength(1);
+    expect(failed[0].executionId).toBe('exec-A');
   });
 
   it('idempotency contract: a second runOnce after acting sees zero in-flight', async () => {

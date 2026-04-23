@@ -51,6 +51,8 @@ export function reduceRunState(executionId: string, events: ReplayableEvent[]): 
     completedSteps: [],
     failedSteps: [],
     skippedSteps: [],
+    completedStepOutputs: {},
+    inFlightSteps: [],
     pausedAt: null,
     errorMessage: null,
     durationMs: null,
@@ -119,25 +121,38 @@ function applyEvent(state: RunState, event: ReplayableEvent): void {
       state.status = 'CANCELLED';
       return;
     }
-    case 'step.queued':
+    case 'step.queued': {
+      return;
+    }
     case 'step.started': {
-      // Tracked via stepCount; no separate state needed yet.
+      // Mark the step as actively executing. We remove it from
+      // inFlightSteps when a matching step.completed / .failed /
+      // .skipped lands — anything still here at scan time was
+      // interrupted mid-execution and cannot be safely replayed.
+      if (event.nodeId) state.inFlightSteps.push(event.nodeId);
       return;
     }
     case 'step.completed': {
       const p = payload as unknown as StepCompletedPayload;
       state.stepCount++;
-      if (event.nodeId) state.completedSteps.push(event.nodeId);
-      // Suppress unused-var warning while keeping the type binding
-      // intentionally — the reducer ignores p.output today; the
-      // worker will read it on replay in a follow-up commit.
-      void p;
+      if (event.nodeId) {
+        state.completedSteps.push(event.nodeId);
+        removeFromList(state.inFlightSteps, event.nodeId);
+        // Capture the output so the resume path can hand it to the
+        // downstream nodes instead of re-executing this predecessor.
+        if (p.output !== undefined) {
+          state.completedStepOutputs[event.nodeId] = p.output;
+        }
+      }
       return;
     }
     case 'step.failed': {
       const p = payload as unknown as StepFailedPayload;
       state.stepCount++;
-      if (event.nodeId) state.failedSteps.push(event.nodeId);
+      if (event.nodeId) {
+        state.failedSteps.push(event.nodeId);
+        removeFromList(state.inFlightSteps, event.nodeId);
+      }
       // The run.failed event records the canonical error; we do
       // not promote a step.failed to a terminal state on its own
       // because retryable errors might still recover.
@@ -147,7 +162,10 @@ function applyEvent(state: RunState, event: ReplayableEvent): void {
     case 'step.skipped': {
       const p = payload as unknown as StepSkippedPayload;
       state.stepCount++;
-      if (event.nodeId) state.skippedSteps.push(event.nodeId);
+      if (event.nodeId) {
+        state.skippedSteps.push(event.nodeId);
+        removeFromList(state.inFlightSteps, event.nodeId);
+      }
       void p;
       return;
     }
@@ -162,3 +180,8 @@ const RunStatePrecedence = {
     return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED';
   },
 } as const;
+
+function removeFromList(list: string[], value: string): void {
+  const idx = list.indexOf(value);
+  if (idx !== -1) list.splice(idx, 1);
+}
