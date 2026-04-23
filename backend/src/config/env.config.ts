@@ -130,6 +130,12 @@ const envSchema = z.object({
   /** Resume-worker active-action guard — prevents double-resume when
    *  two workers race on the same suspended run. Defaults on. */
   NANORUN_RESUME_WORKER_ACT: z.enum(['true', 'false']).default('true'),
+  /** ADR 0003 phase 4. When 'true', the resume worker REPLAYS a
+   *  crashed run whose event log shows no step actively executing at
+   *  crash time (inFlightSteps empty). Off by default so the phase-3
+   *  "abandon interrupted runs" behavior stays in force until an
+   *  operator validates their event log is stable. */
+  NANORUN_RESUME_WORKER_REPLAY: z.enum(['true', 'false']).default('false'),
   /** Directory the plugin loader scans at boot for third-party step
    *  types (see packages/sdk/src/steps). */
   NANORUN_PLUGINS_DIR: z.string().optional(),

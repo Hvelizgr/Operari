@@ -1,4 +1,8 @@
+import type { PrismaClient, Runbook } from '@prisma/client';
+
+import type { ExecutionService } from '../../editor/execution/execution.service';
 import type { Logger } from '../../services/logger.service';
+import { applyRunbookVersionSnapshot } from '../services/runbook-version.service';
 import type { ExecutionEventStore } from './execution-event.store';
 import type { RunState, RunStatus } from './execution-event.types';
 
@@ -67,6 +71,15 @@ export interface ResumeWorkerOptions {
    * what they expect before letting it act.
    */
   dryRun?: boolean;
+  /**
+   * Phase-4 feature flag. When false (default), every interrupted
+   * RUNNING run is still abandoned — the conservative phase-3
+   * behavior. When true, runs whose event log shows no step actively
+   * executing at crash time (`inFlightSteps` empty) are replayed from
+   * their last checkpoint instead. Keep it off until the operator has
+   * verified the event log is stable in their environment.
+   */
+  replay?: boolean;
 }
 
 export interface ResumeReport {
@@ -79,10 +92,23 @@ export interface ResumeReport {
   durationMs: number;
 }
 
+/**
+ * Optional collaborators the worker needs for the phase-4 RESUME
+ * action. Split out so callers that only want the phase-3 scanner
+ * (the scan-and-abandon path) can skip constructing them.
+ *
+ * Both are required when `options.replay=true` is passed to runOnce.
+ */
+export interface ResumeWorkerDependencies {
+  prisma: PrismaClient;
+  executionService: ExecutionService;
+}
+
 export class ResumeWorker {
   constructor(
     private readonly store: ExecutionEventStore,
-    private readonly logger: Logger
+    private readonly logger: Logger,
+    private readonly deps?: ResumeWorkerDependencies
   ) {}
 
   /**
@@ -95,6 +121,7 @@ export class ResumeWorker {
    */
   async runOnce(options: ResumeWorkerOptions = {}): Promise<ResumeReport> {
     const dryRun = options.dryRun ?? true;
+    const replay = options.replay ?? false;
     const startedAt = Date.now();
     const decisions: ResumeDecision[] = [];
     const counts: Record<ResumeAction, number> = { ABANDON: 0, SKIP: 0, RESUME: 0 };
@@ -113,12 +140,15 @@ export class ResumeWorker {
           continue;
         }
 
-        const decision = ResumeWorker.decide(state, tenantId);
+        const decision = ResumeWorker.decide(state, tenantId, { replay });
         decisions.push(decision);
         counts[decision.action]++;
 
         if (!dryRun && decision.action === 'ABANDON') {
           await this.abandon(decision);
+        }
+        if (!dryRun && decision.action === 'RESUME') {
+          await this.resume(decision, state);
         }
       }
     }
@@ -151,11 +181,19 @@ export class ResumeWorker {
    * Pure decision function — no I/O, no time. Exposed as `static`
    * so tests can verify the policy without standing up a store.
    *
-   * The mapping from RunStatus to ResumeAction is intentionally
-   * conservative: phase 3 marks every interrupted run as ABANDONED.
-   * Phase 4 will flip RUNNING → RESUME once step replay is in.
+   * Phase-3 default: every interrupted run is ABANDONED.
+   * Phase-4 replay: when `opts.replay=true`, a RUNNING run whose
+   * `inFlightSteps` is empty becomes RESUME (the crash landed
+   * between steps, every started step had already committed a
+   * terminal event, so replay is safe). A non-empty `inFlightSteps`
+   * still ABANDONS because a step may have half-landed its side
+   * effects (HTTP POST issued, SQL INSERT executed).
    */
-  static decide(state: RunState, tenantId: string): ResumeDecision {
+  static decide(
+    state: RunState,
+    tenantId: string,
+    opts: { replay?: boolean } = {}
+  ): ResumeDecision {
     const base = {
       executionId: state.executionId,
       tenantId,
@@ -170,13 +208,20 @@ export class ResumeWorker {
           reason:
             'run.created seen but never started — backend likely died between create and start',
         };
-      case 'RUNNING':
-        return {
-          ...base,
-          action: 'ABANDON',
-          reason:
-            'run was running when backend restarted; step replay not yet implemented (phase 4)',
-        };
+      case 'RUNNING': {
+        if (opts.replay && state.inFlightSteps.length === 0) {
+          return {
+            ...base,
+            action: 'RESUME',
+            reason:
+              'crash landed between steps — every started step committed a terminal event, replay is safe',
+          };
+        }
+        const why = opts.replay
+          ? `step(s) ${state.inFlightSteps.join(',')} were mid-execution at crash; replay would re-issue partial side effects`
+          : 'run was running when backend restarted; replay feature flag is off';
+        return { ...base, action: 'ABANDON', reason: why };
+      }
       case 'PAUSED':
         return {
           ...base,
@@ -193,6 +238,75 @@ export class ResumeWorker {
           action: 'SKIP',
           reason: `terminal status ${state.status} appeared in in-flight scan — likely a race, no action needed`,
         };
+    }
+  }
+
+  /**
+   * Phase-4 resume. Loads the Execution row, resolves the frozen
+   * RunbookVersion snapshot it was dispatched against (falling back
+   * to the current Runbook row for pre-A1 rows), and hands the
+   * reconstructed checkpoint to `ExecutionService.resumeFromEventLog`.
+   *
+   * Like `abandon`, this is best-effort. On any failure the decision
+   * is downgraded to ABANDON so the run terminates — leaving a run
+   * flagged RESUME but never actually resumed creates a ghost that
+   * shows up in every subsequent scan.
+   */
+  private async resume(decision: ResumeDecision, state: RunState): Promise<void> {
+    if (!this.deps) {
+      this.logger.error('ResumeWorker RESUME action requires prisma + executionService deps', {
+        metadata: { executionId: decision.executionId },
+      });
+      await this.abandon({
+        ...decision,
+        reason: 'resume requested but worker lacks deps — falling back to abandon',
+      });
+      return;
+    }
+    const { prisma, executionService } = this.deps;
+
+    try {
+      const execution = await prisma.execution.findUnique({
+        where: { id: decision.executionId },
+        include: { workflow: true, runbookVersion: true },
+      });
+      if (!execution || !execution.workflow) {
+        throw new Error(`Execution ${decision.executionId} has no workflow — cannot resume`);
+      }
+
+      // Walk the frozen snapshot when this run was pinned to one
+      // (post-A1); the current Runbook row is the fallback path for
+      // historical rows. `applyRunbookVersionSnapshot` returns a new
+      // object so the Runbook row itself is never mutated.
+      const effectiveWorkflow: Runbook = execution.runbookVersion
+        ? applyRunbookVersionSnapshot(execution.workflow, execution.runbookVersion.snapshot)
+        : execution.workflow;
+
+      // Union everything that must not re-execute: successful,
+      // skipped, and failed steps. Failed steps had a terminal event
+      // already; re-running them would double-fire the failure side
+      // effects the engine dispatched before (onErrorRunbook, alerts).
+      const completedNodeIds = Array.from(
+        new Set([...state.completedSteps, ...state.skippedSteps, ...state.failedSteps])
+      );
+
+      await executionService.resumeFromEventLog({
+        executionId: decision.executionId,
+        workflow: effectiveWorkflow,
+        completedNodeIds,
+        nodeOutputs: state.completedStepOutputs,
+        userId: execution.userId,
+        tenantId: execution.tenantId,
+      });
+    } catch (err) {
+      this.logger.error('ResumeWorker resume failed — downgrading to abandon', {
+        error: err instanceof Error ? err : new Error(String(err)),
+        metadata: { executionId: decision.executionId, tenantId: decision.tenantId },
+      });
+      await this.abandon({
+        ...decision,
+        reason: `resume failed: ${err instanceof Error ? err.message : 'unknown error'}`,
+      });
     }
   }
 

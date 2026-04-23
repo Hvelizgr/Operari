@@ -135,5 +135,113 @@ describe('reduceRunState', () => {
     expect(state.status).toBe('PENDING');
     expect(state.lastSeq).toBe(0n);
     expect(state.stepCount).toBe(0);
+    expect(state.completedStepOutputs).toEqual({});
+    expect(state.inFlightSteps).toEqual([]);
+  });
+
+  // ─── Phase 4 (C1) — outputs + inFlightSteps tracking ─────────────
+
+  it('captures step.completed.output into completedStepOutputs keyed by nodeId', () => {
+    const state = reduceRunState('exec-1', [
+      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(2, 'run.started', {}),
+      ev(
+        3,
+        'step.completed',
+        { nodeName: 'a', nodeType: 'HTTP', durationMs: 5, output: { statusCode: 200 } },
+        'n-1'
+      ),
+      ev(
+        4,
+        'step.completed',
+        { nodeName: 'b', nodeType: 'Email', durationMs: 7, output: 'sent' },
+        'n-2'
+      ),
+    ]);
+    expect(state.completedStepOutputs).toEqual({
+      'n-1': { statusCode: 200 },
+      'n-2': 'sent',
+    });
+  });
+
+  it('omits outputs when step.completed carries no output payload', () => {
+    const state = reduceRunState('exec-1', [
+      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(2, 'run.started', {}),
+      ev(3, 'step.completed', { nodeName: 'a', nodeType: 'Delay', durationMs: 5 }, 'n-1'),
+    ]);
+    expect(state.completedStepOutputs).toEqual({});
+  });
+
+  it('tracks a step as inFlight between step.started and step.completed', () => {
+    const state = reduceRunState('exec-1', [
+      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(2, 'run.started', {}),
+      ev(
+        3,
+        'step.started',
+        { nodeName: 'a', nodeType: 'HTTP', startedAt: '2026-04-07T00:00:00Z' },
+        'n-1'
+      ),
+      // Crash landed here — n-1 never got its terminal event.
+    ]);
+    expect(state.inFlightSteps).toEqual(['n-1']);
+  });
+
+  it('clears a step from inFlightSteps when step.completed lands', () => {
+    const state = reduceRunState('exec-1', [
+      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(2, 'run.started', {}),
+      ev(
+        3,
+        'step.started',
+        { nodeName: 'a', nodeType: 'HTTP', startedAt: '2026-04-07T00:00:00Z' },
+        'n-1'
+      ),
+      ev(
+        4,
+        'step.completed',
+        { nodeName: 'a', nodeType: 'HTTP', durationMs: 5, output: { ok: true } },
+        'n-1'
+      ),
+    ]);
+    expect(state.inFlightSteps).toEqual([]);
+    expect(state.completedSteps).toEqual(['n-1']);
+  });
+
+  it('clears a step from inFlightSteps on step.failed or step.skipped', () => {
+    const state = reduceRunState('exec-1', [
+      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(2, 'run.started', {}),
+      ev(3, 'step.started', { nodeName: 'a', nodeType: 'HTTP', startedAt: 't' }, 'n-1'),
+      ev(
+        4,
+        'step.failed',
+        { nodeName: 'a', nodeType: 'HTTP', durationMs: 5, errorMessage: 'oops' },
+        'n-1'
+      ),
+      ev(5, 'step.started', { nodeName: 'b', nodeType: 'HTTP', startedAt: 't' }, 'n-2'),
+      ev(6, 'step.skipped', { nodeName: 'b', nodeType: 'HTTP', reason: 'disabled' }, 'n-2'),
+    ]);
+    expect(state.inFlightSteps).toEqual([]);
+  });
+
+  it('retains only the steps still mid-flight when a later step completes', () => {
+    // Two parallel branches — a finishes, b crashes mid-way.
+    const state = reduceRunState('exec-1', [
+      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(2, 'run.started', {}),
+      ev(3, 'step.started', { nodeName: 'a', nodeType: 'HTTP', startedAt: 't' }, 'n-1'),
+      ev(4, 'step.started', { nodeName: 'b', nodeType: 'SSH', startedAt: 't' }, 'n-2'),
+      ev(
+        5,
+        'step.completed',
+        { nodeName: 'a', nodeType: 'HTTP', durationMs: 5, output: { ok: true } },
+        'n-1'
+      ),
+      // Crash: n-2 has no terminal event.
+    ]);
+    expect(state.inFlightSteps).toEqual(['n-2']);
+    expect(state.completedStepOutputs).toEqual({ 'n-1': { ok: true } });
   });
 });
