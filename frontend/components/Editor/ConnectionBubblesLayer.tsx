@@ -84,11 +84,13 @@ export default function ConnectionBubblesLayer({
           const end = resolvePortAnchor(targetNode, 'input', conn.targetPort ?? 0, ctx);
           const mid = getBezierMidpoint(start, end);
 
-          // Determine bubble style based on connection data or default
-          // xyOps uses CSS classes: wf_condition start, complete, success, error, etc.
-          // Assuming we store this in conn.data?.condition or similar. Defaul to 'complete' (blue).
-          const conditionType = (conn as any).data?.condition || 'complete';
-          const iconMap: Record<string, any> = {
+          // xyOps uses CSS classes: wf_condition start, complete, success,
+          // error, etc. The Connection type stores the selector at
+          // `conn.condition` directly; the old `(conn as any).data?.condition`
+          // was a stale path from before the shape was typed. Default to
+          // 'complete' (blue) if absent.
+          const conditionType = conn.condition || 'complete';
+          const iconMap: Record<string, typeof Icons.Check> = {
             complete: Icons.Check,
             success: Icons.Check,
             error: Icons.AlertTriangle,

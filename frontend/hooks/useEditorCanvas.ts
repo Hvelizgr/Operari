@@ -1,4 +1,4 @@
-import { Connection, WorkflowNode } from '@cairn/shared';
+import { Connection, FrameNodeConfig, WorkflowNode } from '@cairn/shared';
 import { DragEvent, MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import {
@@ -70,9 +70,11 @@ function findContainingFrame(node: WorkflowNode, nodes: WorkflowNode[]): string 
   let smallestArea = Infinity;
 
   for (const frame of frames) {
-    const frameConfig = frame.config as any;
-    const frameWidth = frameConfig?.width || 400;
-    const frameHeight = frameConfig?.height || 300;
+    // `frames` was pre-filtered to `node.type === 'custom.frame'` upstream,
+    // so the config is safely a FrameNodeConfig.
+    const frameConfig = (frame.config ?? {}) as FrameNodeConfig;
+    const frameWidth = frameConfig.width || 400;
+    const frameHeight = frameConfig.height || 300;
 
     const isInside =
       nodeCenter.x >= frame.position.x &&

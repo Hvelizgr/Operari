@@ -27,7 +27,8 @@ export function useNodeTypes() {
           const parsed = JSON.parse(cached);
           // Map icons for cached data
           const mappedCached = parsed.map((node: any) => {
-            const IconComponent = (Icons as any)[node.icon] || Icons.Box;
+            const IconComponent =
+              (Icons as unknown as Record<string, LucideIcon>)[node.icon] || Icons.Box;
             return { ...node, icon: createElement(IconComponent, { size: 18 }) };
           });
           setNodeTypes(mappedCached);
@@ -48,7 +49,8 @@ export function useNodeTypes() {
 
         const mappedNodes = data.map((node: any) => {
           // Resolve icon from string name
-          const IconComponent = (Icons as any)[node.icon] || Icons.Box;
+          const IconComponent =
+            (Icons as unknown as Record<string, LucideIcon>)[node.icon] || Icons.Box;
 
           return {
             ...node,

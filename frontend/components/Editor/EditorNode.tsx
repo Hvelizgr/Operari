@@ -129,7 +129,7 @@ export default function EditorNode({
 
     resizeObserver.observe(nodeRef.current);
     return () => resizeObserver.disconnect();
-  }, [node.id, onUpdate, (node as any).dimensions?.height]);
+  }, [node.id, onUpdate, (node as Partial<{ dimensions: { height: number } }>).dimensions?.height]);
 
   const renderIcon = (icon: any, size = 16) => {
     if (!icon) return <Icons.Box size={size} />;
@@ -555,16 +555,21 @@ export default function EditorNode({
   // --- JOB (Standard) ---
   return (
     <div
-      className={`wf_node wf_event ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''} ${status === 'SUCCESS' ? 'wf_completed' : ''} ${status === 'FAILED' ? 'wf_error' : ''} ${status === 'PAUSED' ? 'wf_paused' : ''} ${status === 'SKIPPED' ? 'wf_skipped' : ''} ${status === 'CANCELLED' ? 'wf_cancelled' : ''} ${isNextInPath ? 'wf_next' : ''} ${(node as any).enabled === false ? 'disabled' : ''} `}
+      className={`wf_node wf_event ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''} ${status === 'SUCCESS' ? 'wf_completed' : ''} ${status === 'FAILED' ? 'wf_error' : ''} ${status === 'PAUSED' ? 'wf_paused' : ''} ${status === 'SKIPPED' ? 'wf_skipped' : ''} ${status === 'CANCELLED' ? 'wf_cancelled' : ''} ${isNextInPath ? 'wf_next' : ''} ${node.enabled === false ? 'disabled' : ''} `}
       ref={nodeRef}
       {...commonProps}
       // Inline accent vars so each card paints itself with the
-      // category palette without needing a class explosion.
-      style={{
-        ...((commonProps as any).style ?? {}),
-        ['--node-accent' as any]: palette.accent,
-        ['--node-tint' as any]: palette.tint,
-      }}
+      // category palette without needing a class explosion. The
+      // cast to CSSProperties & Record<string,string> tells TS the
+      // object is allowed to carry CSS custom properties (`--foo`)
+      // in addition to the known React style keys.
+      style={
+        {
+          ...commonProps.style,
+          '--node-accent': palette.accent,
+          '--node-tint': palette.tint,
+        } as React.CSSProperties & Record<string, string | number>
+      }
       title={titleTooltip}
     >
       <ValidationBadge />

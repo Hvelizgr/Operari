@@ -138,7 +138,18 @@ export default function ContextMenu({
 
   const text = content[lang] || content['en'];
 
-  const nodeMenuItems = [
+  // Shared row shape. Typing both arrays with it eliminates the
+  // widen-or-narrow mismatch that forced `as any` around `.disabled`
+  // (which only `canvasMenuItems` uses).
+  type MenuItem = {
+    icon: typeof Play;
+    label: string;
+    action?: () => void;
+    color: string;
+    disabled?: boolean;
+  };
+
+  const nodeMenuItems: MenuItem[] = [
     { icon: Play, label: text.testFromNode, action: onTestFromNode, color: 'text-green-400' },
     { icon: Copy, label: text.duplicate, action: onDuplicate, color: 'text-slate-300' },
     {
@@ -151,7 +162,7 @@ export default function ContextMenu({
     { icon: Trash2, label: text.delete, action: onDelete, color: 'text-red-400' },
   ];
 
-  const canvasMenuItems = [
+  const canvasMenuItems: MenuItem[] = [
     { icon: Plus, label: text.addNode, action: onAddNode, color: 'text-primary/70' },
     { icon: Undo2, label: text.undo, action: onUndo, color: 'text-slate-300', disabled: !canUndo },
     { icon: Redo2, label: text.redo, action: onRedo, color: 'text-slate-300', disabled: !canRedo },
@@ -185,12 +196,12 @@ export default function ContextMenu({
               <button
                 key={index}
                 onClick={() => {
-                  if ((item as any).disabled) return;
+                  if (item.disabled) return;
                   item.action?.();
                   onClose();
                 }}
-                disabled={(item as any).disabled}
-                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-700 ${(item as any).disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+                disabled={item.disabled}
+                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-700 ${item.disabled ? 'cursor-not-allowed opacity-40' : ''}`}
               >
                 <item.icon size={16} className={item.color} />
                 <span className="text-sm text-slate-200">{item.label}</span>

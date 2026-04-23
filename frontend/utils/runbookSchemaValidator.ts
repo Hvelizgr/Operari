@@ -134,11 +134,17 @@ export interface SchemaValidationResult {
 function formatError(err: ErrorObject): string {
   const path = err.instancePath || '/';
   const msg = err.message || 'invalid';
+  // AJV types `err.params` as `Record<string, any>`, but we've already
+  // narrowed the keyword above, so the concrete shape is known at each
+  // branch. The casts turn `any` into the exact AJV-documented shape
+  // for that keyword.
   if (err.keyword === 'enum' && err.params && 'allowedValues' in err.params) {
-    return `${path}: ${msg} (allowed: ${(err.params as any).allowedValues.join(', ')})`;
+    const params = err.params as { allowedValues: unknown[] };
+    return `${path}: ${msg} (allowed: ${params.allowedValues.join(', ')})`;
   }
   if (err.keyword === 'required' && err.params && 'missingProperty' in err.params) {
-    return `${path}: missing required field "${(err.params as any).missingProperty}"`;
+    const params = err.params as { missingProperty: string };
+    return `${path}: missing required field "${params.missingProperty}"`;
   }
   return `${path}: ${msg}`;
 }
