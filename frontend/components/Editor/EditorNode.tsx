@@ -1,13 +1,15 @@
 'use client';
 
-import { MouseEvent, useRef, useLayoutEffect } from 'react';
-import { NodeType, NODE_TYPES } from '../Node';
-import { WorkflowNode } from '@cairn/shared';
 import './WorkflowNode.css';
+
+import { WorkflowNode } from '@cairn/shared';
 import * as Icons from 'lucide-react';
+import { MouseEvent, useLayoutEffect, useRef } from 'react';
+
 import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
+import { NODE_TYPES, NodeType } from '../Node';
 // Import shared port utilities
-export { getNodeInputPort, getNodeOutputPort, getNodePortInfo } from '../../utils/nodePortUtils';
+export { getNodePortInfo } from '../../utils/nodePortUtils';
 
 interface EditorNodeProps {
   node: WorkflowNode;

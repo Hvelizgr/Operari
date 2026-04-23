@@ -145,30 +145,6 @@ export const getNodePortInfo = (
 };
 
 /**
- * Legacy function for backward compatibility - get input port position
- * @deprecated Use getNodePortInfo instead
- */
-export const getNodeInputPort = (
-  node: NodeWithDimensions,
-  portIndex: number = 0
-): { x: number; y: number } => {
-  const info = getNodePortInfo(node, 'input', portIndex);
-  return { x: info.x, y: info.y };
-};
-
-/**
- * Legacy function for backward compatibility - get output port position
- * @deprecated Use getNodePortInfo instead
- */
-export const getNodeOutputPort = (
-  node: NodeWithDimensions,
-  portIndex: number = 0
-): { x: number; y: number } => {
-  const info = getNodePortInfo(node, 'output', portIndex);
-  return { x: info.x, y: info.y };
-};
-
-/**
  * Check if a connection already exists between two nodes
  * @param connections - Array of existing connections
  * @param sourceId - Source node ID

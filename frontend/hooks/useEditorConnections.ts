@@ -3,13 +3,14 @@
  * Handles connection state, creation, selection, and cycle detection
  */
 
-import { useState, useCallback, useEffect, RefObject } from 'react';
-import { WorkflowNode, getNodeInputPort } from '../components/Editor';
+import { RefObject, useCallback, useEffect, useState } from 'react';
+
+import { WorkflowNode } from '../components/Editor';
 import { Connection } from '../components/Editor';
-import { INITIAL_CONNECTIONS } from '../constants/editor.constants';
-import { hasCycle, getCyclicConnections } from '../utils/cycleDetection';
 import { EDITOR_CONFIG } from '../config/editor.config';
+import { INITIAL_CONNECTIONS } from '../constants/editor.constants';
 import type { CreatingConnectionState, ViewportState } from '../types/editor.types';
+import { getCyclicConnections, hasCycle } from '../utils/cycleDetection';
 
 interface UseEditorConnectionsOptions {
   nodes: WorkflowNode[];

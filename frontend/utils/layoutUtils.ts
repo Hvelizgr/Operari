@@ -1,6 +1,5 @@
+import { Connection, WorkflowNode } from '@cairn/shared';
 import dagre from 'dagre';
-import { WorkflowNode, Connection } from '@cairn/shared';
-import { getNodeInputPort, getNodeOutputPort } from '../components/Editor/EditorNode';
 
 // Configuration for layout
 const NODE_WIDTH = 250;
