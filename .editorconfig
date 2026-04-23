@@ -1,0 +1,33 @@
+# EditorConfig — file-format conventions editors respect before Prettier
+# runs. Prettier is the source of truth for TS/TSX/JS/JSX/JSON/MD/CSS
+# (see .prettierrc); this file handles the few formats Prettier doesn't
+# touch (Makefile, .env.example, .gitignore, Dockerfile, YAML with
+# aligned keys, etc.) and gives VS Code / JetBrains sensible defaults
+# so a contributor without Prettier installed locally still produces
+# the right indentation on new files.
+#
+# Settings mirror .prettierrc where they overlap: 2-space indent,
+# LF line endings, UTF-8, single final newline, trim trailing
+# whitespace. YAML uses 2 spaces because every template in the repo
+# does. Makefile keeps hard tabs because make requires them.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{ts,tsx,js,jsx,json,md,mdx,css,yaml,yml}]
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+
+[*.md]
+# Don't trim trailing whitespace in markdown — two trailing spaces is
+# the CommonMark way to force a <br> and removing them changes rendering.
+trim_trailing_whitespace = false
