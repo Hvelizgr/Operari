@@ -97,8 +97,13 @@ export class ConnectedAccountService {
    * NEVER logged.
    */
   async link(input: LinkAccountInput): Promise<ConnectedAccountSummary> {
-    const accessTokenCipher = this.cipher.encrypt(input.accessToken);
-    const refreshTokenCipher = input.refreshToken ? this.cipher.encrypt(input.refreshToken) : null;
+    // Per-tenant key derivation (v2). A leaked accessToken ciphertext
+    // from tenant A cannot be decrypted under tenant B's derived key,
+    // even if both share the same master NANORUN_SECRET_KEY.
+    const accessTokenCipher = this.cipher.encryptForTenant(input.accessToken, input.tenantId);
+    const refreshTokenCipher = input.refreshToken
+      ? this.cipher.encryptForTenant(input.refreshToken, input.tenantId)
+      : null;
 
     const account = await this.prisma.connectedAccount.create({
       data: {

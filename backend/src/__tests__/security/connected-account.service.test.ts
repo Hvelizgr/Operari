@@ -93,9 +93,10 @@ describe('ConnectedAccountService', () => {
       expect(SecretCipher.isCiphertext(rows[0].accessToken)).toBe(true);
       expect(rows[0].refreshToken).not.toBe('ghr_refreshme');
       expect(SecretCipher.isCiphertext(rows[0].refreshToken!)).toBe(true);
-      // Round-trip works with the same key
-      expect(cipher.decrypt(rows[0].accessToken)).toBe('ghp_supersecret');
-      expect(cipher.decrypt(rows[0].refreshToken!)).toBe('ghr_refreshme');
+      // Round-trip works with the per-tenant derived key (v2).
+      expect(cipher.decryptForTenant(rows[0].accessToken, TENANT)).toBe('ghp_supersecret');
+      expect(cipher.decryptForTenant(rows[0].refreshToken!, TENANT)).toBe('ghr_refreshme');
+      expect(SecretCipher.versionOf(rows[0].accessToken)).toBe('v2');
     });
 
     it('emits connectedaccount.linked with the right metadata', async () => {

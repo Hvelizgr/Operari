@@ -63,7 +63,11 @@ export class SecretReader {
     const startedAt = Date.now();
     let plaintext: string;
     try {
-      plaintext = this.cipher.decrypt(request.ciphertext, request.aad);
+      // decryptForTenant accepts both v1 (legacy, master-key) and v2
+      // (per-tenant derived) payloads transparently, so this one call
+      // site covers the migration window without branching on
+      // SecretCipher.versionOf().
+      plaintext = this.cipher.decryptForTenant(request.ciphertext, request.tenantId, request.aad);
     } catch (err) {
       await this.recordSafe({
         request,

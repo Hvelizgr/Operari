@@ -106,3 +106,78 @@ describe('secretCipherFromEnv', () => {
     expect(() => secretCipherFromEnv({})).toThrow(SecretCipherError);
   });
 });
+
+describe('SecretCipher v2 (per-tenant derived keys)', () => {
+  it('encryptForTenant emits a v2-prefixed payload', () => {
+    const cipher = new SecretCipher(HEX_KEY);
+    const blob = cipher.encryptForTenant('payload', 'tenant-a');
+    expect(blob.startsWith('v2:')).toBe(true);
+    expect(SecretCipher.isCiphertext(blob)).toBe(true);
+    expect(SecretCipher.versionOf(blob)).toBe('v2');
+  });
+
+  it('decryptForTenant round-trips a v2 payload with the same tenantId', () => {
+    const cipher = new SecretCipher(HEX_KEY);
+    const blob = cipher.encryptForTenant('ghp_supersecret', 'tenant-a');
+    expect(cipher.decryptForTenant(blob, 'tenant-a')).toBe('ghp_supersecret');
+  });
+
+  it('rejects cross-tenant decryption even with the same master key', () => {
+    // This is the whole point of v2: a leaked ciphertext from tenant A
+    // cannot be read by tenant B.
+    const cipher = new SecretCipher(HEX_KEY);
+    const tenantAPayload = cipher.encryptForTenant('secret', 'tenant-a');
+    expect(() => cipher.decryptForTenant(tenantAPayload, 'tenant-b')).toThrow(SecretCipherError);
+  });
+
+  it('produces different ciphertexts for the same plaintext in different tenants', () => {
+    const cipher = new SecretCipher(HEX_KEY);
+    const a = cipher.encryptForTenant('same-secret', 'tenant-a');
+    const b = cipher.encryptForTenant('same-secret', 'tenant-b');
+    expect(a).not.toBe(b);
+    // Both decrypt under their own tenantId.
+    expect(cipher.decryptForTenant(a, 'tenant-a')).toBe('same-secret');
+    expect(cipher.decryptForTenant(b, 'tenant-b')).toBe('same-secret');
+  });
+
+  it('tenant derivation is deterministic under a stable master key', () => {
+    const cipherA = new SecretCipher(HEX_KEY);
+    const cipherB = new SecretCipher(HEX_KEY);
+    const blob = cipherA.encryptForTenant('same-secret', 'tenant-a');
+    // Different cipher instance, same master key → same derived key
+    // → can decrypt.
+    expect(cipherB.decryptForTenant(blob, 'tenant-a')).toBe('same-secret');
+  });
+
+  it('decryptForTenant also accepts v1 (legacy master-key) payloads transparently', () => {
+    const cipher = new SecretCipher(HEX_KEY);
+    const legacy = cipher.encrypt('old-blob', 'aad');
+    expect(SecretCipher.versionOf(legacy)).toBe('v1');
+    // Passing tenantId is harmless for v1 — the method ignores it.
+    expect(cipher.decryptForTenant(legacy, 'any-tenant', 'aad')).toBe('old-blob');
+  });
+
+  it('decrypt (v1-only) refuses v2 payloads with a clear error', () => {
+    const cipher = new SecretCipher(HEX_KEY);
+    const v2 = cipher.encryptForTenant('x', 'tenant-a');
+    expect(() => cipher.decrypt(v2)).toThrow(/decryptForTenant/);
+  });
+
+  it('encryptForTenant refuses an empty tenantId', () => {
+    const cipher = new SecretCipher(HEX_KEY);
+    expect(() => cipher.encryptForTenant('x', '')).toThrow(SecretCipherError);
+  });
+
+  it('AAD binding still applies in v2', () => {
+    const cipher = new SecretCipher(HEX_KEY);
+    const blob = cipher.encryptForTenant('payload', 'tenant-a', 'aad-xyz');
+    expect(cipher.decryptForTenant(blob, 'tenant-a', 'aad-xyz')).toBe('payload');
+    expect(() => cipher.decryptForTenant(blob, 'tenant-a', 'wrong-aad')).toThrow(SecretCipherError);
+  });
+
+  it('versionOf returns null for non-ciphertext strings', () => {
+    expect(SecretCipher.versionOf('plaintext')).toBeNull();
+    expect(SecretCipher.versionOf('v3:foo:bar:baz')).toBeNull();
+    expect(SecretCipher.versionOf('')).toBeNull();
+  });
+});

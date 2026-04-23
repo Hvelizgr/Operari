@@ -1,4 +1,11 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  hkdfSync,
+  randomBytes,
+  timingSafeEqual,
+} from 'crypto';
 
 /**
  * SecretCipher — at-rest encryption for sensitive blobs (OAuth tokens,
@@ -7,9 +14,21 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEq
  * Algorithm: AES-256-GCM (authenticated encryption, FIPS-approved, built
  * into Node's `crypto` module — no new dependency).
  *
- * Format (versioned to allow future migration to XChaCha20-Poly1305):
+ * Two ciphertext formats, both versioned:
  *
- *     v1:<base64(nonce 12 B)>:<base64(ciphertext)>:<base64(tag 16 B)>
+ *   v1:<base64(nonce)>:<base64(ciphertext)>:<base64(tag)>
+ *     Encrypted directly with the master key. Tenant isolation relies
+ *     on AAD binding alone — a stolen key compromises every tenant at
+ *     once. Kept for backward compatibility with existing rows.
+ *
+ *   v2:<base64(nonce)>:<base64(ciphertext)>:<base64(tag)>
+ *     Encrypted with a per-tenant key derived from the master via
+ *     HKDF-SHA256, salted for the "tenant KEK" domain and info'd with
+ *     the tenantId. Leaking one tenant's ciphertext (or even the
+ *     derived subkey) does NOT compromise other tenants' data. The
+ *     master key is still required to derive new tenant keys, but the
+ *     blast radius of a DB-only leak stays scoped to the cracked
+ *     tenant. Requires a tenantId at both encrypt and decrypt time.
  *
  * Each ciphertext binds an optional `aad` (additional authenticated data),
  * which lets callers tie an encrypted blob to its owner — e.g. the user ID
@@ -23,14 +42,23 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEq
  *
  * KEY ROTATION: re-encrypt all rows by reading them with the old key and
  * writing them back with a new SecretCipher instance. The version prefix
- * (`v1:`) lets us run two ciphers side-by-side during the migration.
+ * lets us run two ciphers side-by-side during the migration.
  */
 export class SecretCipher {
-  private static readonly VERSION = 'v1';
+  private static readonly VERSION_V1 = 'v1';
+  private static readonly VERSION_V2 = 'v2';
   private static readonly ALGO = 'aes-256-gcm';
   private static readonly KEY_BYTES = 32;
   private static readonly NONCE_BYTES = 12;
   private static readonly TAG_BYTES = 16;
+  /**
+   * Domain-separator salt for the tenant-KEK HKDF. Bumping this string
+   * is equivalent to a global key-rotation event: every tenant's
+   * derived key changes. Only change it as part of a documented
+   * rotation path — stored v2 ciphertexts derived under the old salt
+   * become unreadable.
+   */
+  private static readonly TENANT_KEK_SALT = Buffer.from('nanorun-tenant-kek-v1', 'utf8');
 
   private readonly key: Buffer;
 
@@ -39,19 +67,58 @@ export class SecretCipher {
   }
 
   /**
-   * Encrypt a UTF-8 string. Returns the versioned compact format.
-   * `aad` is bound to the ciphertext but stored separately by the caller.
+   * HKDF-SHA256 derivation of a 32-byte tenant KEK. Pure function of
+   * (masterKey, TENANT_KEK_SALT, tenantId) — deterministic and cheap
+   * (~100µs), so no caching is needed on the hot path.
+   *
+   * Exposed as a private helper so tests can assert both the encrypt
+   * path and the derivation path against known vectors.
+   */
+  private deriveTenantKey(tenantId: string): Buffer {
+    if (!tenantId) {
+      throw new SecretCipherError('tenantId is required for v2 encryption');
+    }
+    const info = Buffer.from(tenantId, 'utf8');
+    // hkdfSync returns an ArrayBuffer; wrap it so Buffer APIs work.
+    const derived = hkdfSync(
+      'sha256',
+      this.key,
+      SecretCipher.TENANT_KEK_SALT,
+      info,
+      SecretCipher.KEY_BYTES
+    );
+    return Buffer.from(derived);
+  }
+
+  /**
+   * Encrypt a UTF-8 string with the master key (v1 format). Kept for
+   * call sites that do not yet carry a tenantId in scope; new code
+   * should prefer {@link encryptForTenant}.
    */
   encrypt(plaintext: string, aad?: string): string {
+    return this.encryptWithKey(SecretCipher.VERSION_V1, this.key, plaintext, aad);
+  }
+
+  /**
+   * Encrypt with a per-tenant derived key (v2 format). Leaking the
+   * resulting ciphertext to another tenant's attacker does not give
+   * them the plaintext — their tenantId derives a different key.
+   */
+  encryptForTenant(plaintext: string, tenantId: string, aad?: string): string {
+    const key = this.deriveTenantKey(tenantId);
+    return this.encryptWithKey(SecretCipher.VERSION_V2, key, plaintext, aad);
+  }
+
+  private encryptWithKey(version: string, key: Buffer, plaintext: string, aad?: string): string {
     const nonce = randomBytes(SecretCipher.NONCE_BYTES);
-    const cipher = createCipheriv(SecretCipher.ALGO, this.key, nonce);
+    const cipher = createCipheriv(SecretCipher.ALGO, key, nonce);
     if (aad) {
       cipher.setAAD(Buffer.from(aad, 'utf8'));
     }
     const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
     const tag = cipher.getAuthTag();
     return [
-      SecretCipher.VERSION,
+      version,
       nonce.toString('base64'),
       ciphertext.toString('base64'),
       tag.toString('base64'),
@@ -59,30 +126,47 @@ export class SecretCipher {
   }
 
   /**
-   * Decrypt a value previously produced by {@link encrypt}.
-   * Throws if the version is unknown, the format is malformed, or the
-   * authentication tag does not verify (tampering / wrong key / wrong
-   * AAD).
+   * Decrypt a v1 payload. Throws if the payload is v2 — the caller
+   * doesn't have the tenantId in scope, which is a bug in the
+   * migration path.
    */
   decrypt(payload: string, aad?: string): string {
-    const parts = payload.split(':');
-    if (parts.length !== 4) {
-      throw new SecretCipherError('Malformed ciphertext: expected 4 segments');
+    const { version, nonce, ciphertext, tag } = SecretCipher.parseCiphertext(payload);
+    if (version !== SecretCipher.VERSION_V1) {
+      throw new SecretCipherError(
+        `Unsupported ciphertext version: ${version}. ` +
+          (version === SecretCipher.VERSION_V2 ? 'Use decryptForTenant() with a tenantId.' : '')
+      );
     }
-    const [version, nonceB64, ciphertextB64, tagB64] = parts;
-    if (version !== SecretCipher.VERSION) {
-      throw new SecretCipherError(`Unsupported ciphertext version: ${version}`);
+    return SecretCipher.decryptBytes(this.key, nonce, ciphertext, tag, aad);
+  }
+
+  /**
+   * Decrypt a v2 payload (per-tenant derived key). Also accepts v1
+   * payloads transparently — convenient for migration paths where the
+   * same column holds both formats side-by-side. The caller already
+   * has the tenantId; passing it is cheap and silences v2 errors.
+   */
+  decryptForTenant(payload: string, tenantId: string, aad?: string): string {
+    const { version, nonce, ciphertext, tag } = SecretCipher.parseCiphertext(payload);
+    if (version === SecretCipher.VERSION_V1) {
+      return SecretCipher.decryptBytes(this.key, nonce, ciphertext, tag, aad);
     }
-    const nonce = Buffer.from(nonceB64, 'base64');
-    const ciphertext = Buffer.from(ciphertextB64, 'base64');
-    const tag = Buffer.from(tagB64, 'base64');
-    if (nonce.length !== SecretCipher.NONCE_BYTES) {
-      throw new SecretCipherError('Malformed ciphertext: bad nonce length');
+    if (version === SecretCipher.VERSION_V2) {
+      const key = this.deriveTenantKey(tenantId);
+      return SecretCipher.decryptBytes(key, nonce, ciphertext, tag, aad);
     }
-    if (tag.length !== SecretCipher.TAG_BYTES) {
-      throw new SecretCipherError('Malformed ciphertext: bad tag length');
-    }
-    const decipher = createDecipheriv(SecretCipher.ALGO, this.key, nonce);
+    throw new SecretCipherError(`Unsupported ciphertext version: ${version}`);
+  }
+
+  private static decryptBytes(
+    key: Buffer,
+    nonce: Buffer,
+    ciphertext: Buffer,
+    tag: Buffer,
+    aad?: string
+  ): string {
+    const decipher = createDecipheriv(SecretCipher.ALGO, key, nonce);
     if (aad) {
       decipher.setAAD(Buffer.from(aad, 'utf8'));
     }
@@ -97,12 +181,51 @@ export class SecretCipher {
     }
   }
 
+  private static parseCiphertext(payload: string): {
+    version: string;
+    nonce: Buffer;
+    ciphertext: Buffer;
+    tag: Buffer;
+  } {
+    const parts = payload.split(':');
+    if (parts.length !== 4) {
+      throw new SecretCipherError('Malformed ciphertext: expected 4 segments');
+    }
+    const [version, nonceB64, ciphertextB64, tagB64] = parts;
+    const nonce = Buffer.from(nonceB64, 'base64');
+    const ciphertext = Buffer.from(ciphertextB64, 'base64');
+    const tag = Buffer.from(tagB64, 'base64');
+    if (nonce.length !== SecretCipher.NONCE_BYTES) {
+      throw new SecretCipherError('Malformed ciphertext: bad nonce length');
+    }
+    if (tag.length !== SecretCipher.TAG_BYTES) {
+      throw new SecretCipherError('Malformed ciphertext: bad tag length');
+    }
+    return { version, nonce, ciphertext, tag };
+  }
+
   /**
-   * Quickly check whether a string looks like a SecretCipher payload.
-   * Useful during migrations: rows still in plaintext won't match.
+   * Quickly check whether a string looks like a SecretCipher payload
+   * (either version). Useful during migrations: rows still in
+   * plaintext won't match.
    */
   static isCiphertext(value: string): boolean {
-    return typeof value === 'string' && value.startsWith(`${SecretCipher.VERSION}:`);
+    if (typeof value !== 'string') return false;
+    return (
+      value.startsWith(`${SecretCipher.VERSION_V1}:`) ||
+      value.startsWith(`${SecretCipher.VERSION_V2}:`)
+    );
+  }
+
+  /**
+   * Reveals which version a ciphertext uses without decrypting it.
+   * Returns null for strings that don't parse as ciphertext at all.
+   */
+  static versionOf(value: string): 'v1' | 'v2' | null {
+    if (typeof value !== 'string') return null;
+    if (value.startsWith(`${SecretCipher.VERSION_V1}:`)) return 'v1';
+    if (value.startsWith(`${SecretCipher.VERSION_V2}:`)) return 'v2';
+    return null;
   }
 
   /**

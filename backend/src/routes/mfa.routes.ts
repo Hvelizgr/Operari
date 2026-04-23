@@ -71,7 +71,10 @@ router.post('/enroll', authenticate, async (req: AuthRequest, res: Response) => 
 
   const cipher = secretCipherFromEnv();
   const secret = generateTotpSecret();
-  const ciphered = cipher.encrypt(secret, `mfa:${user.id}`);
+  // v2: per-tenant derived key. A leak of mfaSecretCiphered from one
+  // tenant cannot be decrypted by another tenant's derived subkey,
+  // even if both tenants share the same master env var.
+  const ciphered = cipher.encryptForTenant(secret, req.user!.tenantId, `mfa:${user.id}`);
 
   await prisma.user.update({
     where: { id: user.id },
@@ -100,7 +103,14 @@ router.post('/verify-enroll', authenticate, async (req: AuthRequest, res: Respon
   }
 
   const cipher = secretCipherFromEnv();
-  const secret = cipher.decrypt(user.mfaSecretCiphered, `mfa:${user.id}`);
+  // decryptForTenant accepts both v1 (legacy) and v2 (per-tenant)
+  // payloads transparently so existing enrolled users keep working
+  // through the migration.
+  const secret = cipher.decryptForTenant(
+    user.mfaSecretCiphered,
+    req.user!.tenantId,
+    `mfa:${user.id}`
+  );
   if (!verifyTotp(secret, parsed.data.code)) {
     return res.status(400).json({ error: 'Invalid TOTP code' });
   }
@@ -188,7 +198,11 @@ router.post('/disable', authenticate, async (req: AuthRequest, res: Response) =>
   if (!pwOk) return res.status(401).json({ error: 'Invalid credentials' });
 
   const cipher = secretCipherFromEnv();
-  const secret = cipher.decrypt(user.mfaSecretCiphered, `mfa:${user.id}`);
+  const secret = cipher.decryptForTenant(
+    user.mfaSecretCiphered,
+    req.user!.tenantId,
+    `mfa:${user.id}`
+  );
   if (!verifyTotp(secret, parsed.data.code)) {
     return res.status(401).json({ error: 'Invalid TOTP code' });
   }
