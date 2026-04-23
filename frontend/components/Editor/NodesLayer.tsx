@@ -3,7 +3,7 @@
 import type { WorkflowNode } from '@cairn/shared';
 import { motion } from 'framer-motion';
 import type { MouseEvent } from 'react';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import type { NodeMeta } from '../../hooks/useExecutionSocket';
 import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
@@ -49,7 +49,7 @@ interface NodesLayerProps {
   nodeMeta?: Record<string, NodeMeta>;
 }
 
-export default function NodesLayer({
+function NodesLayer({
   nodes,
   connections,
   nodeTypes,
@@ -257,3 +257,10 @@ export default function NodesLayer({
     </motion.div>
   );
 }
+
+// Memoized: pan/zoom drives re-renders of the parent EditorCanvas, but
+// as long as the node list + viewport + selection state are reference-
+// equal, NodesLayer does not need to re-render its 500+ EditorNode
+// children. Shallow prop compare is enough — all props are primitives,
+// readonly arrays, or stable callbacks owned by useEditorCanvas.
+export default memo(NodesLayer);

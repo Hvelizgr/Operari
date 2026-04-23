@@ -109,8 +109,14 @@ services:
       # ADR 0003 durable engine.
       NANORUN_DURABLE_ENGINE: ${NANORUN_DURABLE_ENGINE:-true}
       NANORUN_RESUME_WORKER_ACT: ${NANORUN_RESUME_WORKER_ACT:-true}
-      # Observability
-      ENABLE_TRACING: ${ENABLE_TRACING:-false}
+      # Observability. Tracing defaults ON in prod so operators are
+      # not blind after a deploy — every runbook execution maps to a
+      # trace whose spans match the step timeline. JAEGER_ENDPOINT
+      # stays unset by default; RunTracer becomes a no-op collector
+      # (spans created, nothing exported) which is still useful for
+      # traceId correlation in logs. Set JAEGER_ENDPOINT in the .env
+      # to actually ship spans to a Jaeger / OTel collector.
+      ENABLE_TRACING: ${ENABLE_TRACING:-true}
       OTEL_SERVICE_NAME: nanorun-backend
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-}
       # Transactional email (password reset, team invites, verification).
