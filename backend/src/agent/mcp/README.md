@@ -11,15 +11,15 @@ they call into for runbook context.
 
 ## Planned tools
 
-| Tool                   | Purpose                                                  | Source of truth                       |
-| ---------------------- | -------------------------------------------------------- | ------------------------------------- |
-| `list_runbooks`        | Enumerate runbooks visible to the caller's API key       | `backend/src/routes/v1/runbooks.ts`   |
-| `get_runbook`          | Fetch a runbook definition by slug or id                 | same                                  |
-| `trigger_runbook`      | Start a run, return the run id (does not block)          | `backend/src/routes/v1/runs.ts`       |
-| `get_run_status`       | Poll a run by id                                         | same                                  |
-| `get_execution_logs`   | Stream or paginate logs for a run                        | `NodeLog` + audit chain               |
-| `get_secret_metadata`  | List secret names + scopes — **never the value**         | `ConnectedAccount` (encrypted)        |
-| `verify_audit_chain`   | Run audit verification on demand                         | `backend/src/audit/audit.service.ts`  |
+| Tool                  | Purpose                                            | Source of truth                      |
+| --------------------- | -------------------------------------------------- | ------------------------------------ |
+| `list_runbooks`       | Enumerate runbooks visible to the caller's API key | `backend/src/routes/v1/runbooks.ts`  |
+| `get_runbook`         | Fetch a runbook definition by slug or id           | same                                 |
+| `trigger_runbook`     | Start a run, return the run id (does not block)    | `backend/src/routes/v1/runs.ts`      |
+| `get_run_status`      | Poll a run by id                                   | same                                 |
+| `get_execution_logs`  | Stream or paginate logs for a run                  | `NodeLog` + audit chain              |
+| `get_secret_metadata` | List secret names + scopes — **never the value**   | `ConnectedAccount` (encrypted)       |
+| `verify_audit_chain`  | Run audit verification on demand                   | `backend/src/audit/audit.service.ts` |
 
 ## Constraints
 

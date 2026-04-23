@@ -21,9 +21,9 @@ import type { Logger } from '../../services/logger.service';
  * call sites short and consistent.
  */
 export interface NodeErrorContext {
-    nodeId: string;
-    nodeName: string;
-    nodeType: string;
+  nodeId: string;
+  nodeName: string;
+  nodeType: string;
 }
 
 /**
@@ -36,11 +36,11 @@ export interface NodeErrorContext {
  * real problem.
  */
 export function resolveTemplate(template: string, context: ExecutionInput): string {
-    if (typeof template !== 'string') return String(template);
-    return template.replace(/\{\{([^}]+)\}\}/g, (_, path) => {
-        const value = getNestedValue(context, String(path).trim());
-        return value !== undefined ? String(value) : '';
-    });
+  if (typeof template !== 'string') return String(template);
+  return template.replace(/\{\{([^}]+)\}\}/g, (_, path) => {
+    const value = getNestedValue(context, String(path).trim());
+    return value !== undefined ? String(value) : '';
+  });
 }
 
 /**
@@ -49,12 +49,12 @@ export function resolveTemplate(template: string, context: ExecutionInput): stri
  * may need to read structured input directly without template syntax.
  */
 export function getNestedValue(obj: ExecutionInput, path: string): unknown {
-    return path.split('.').reduce<unknown>((current, key) => {
-        if (current && typeof current === 'object' && key in current) {
-            return (current as Record<string, unknown>)[key];
-        }
-        return undefined;
-    }, obj);
+  return path.split('.').reduce<unknown>((current, key) => {
+    if (current && typeof current === 'object' && key in current) {
+      return (current as Record<string, unknown>)[key];
+    }
+    return undefined;
+  }, obj);
 }
 
 /**
@@ -64,17 +64,17 @@ export function getNestedValue(obj: ExecutionInput, path: string): unknown {
  * dependency graph and so tests can inject a plain `{ sendMail: jest.fn() }`.
  */
 export interface EmailTransporterLike {
-    sendMail(options: {
-        from?: string;
-        to?: string | string[];
-        subject?: string;
-        text?: string;
-        html?: string;
-    }): Promise<{
-        messageId: string;
-        accepted: string[] | Array<{ address: string }>;
-        rejected: string[] | Array<{ address: string }>;
-    }>;
+  sendMail(options: {
+    from?: string;
+    to?: string | string[];
+    subject?: string;
+    text?: string;
+    html?: string;
+  }): Promise<{
+    messageId: string;
+    accepted: string[] | Array<{ address: string }>;
+    rejected: string[] | Array<{ address: string }>;
+  }>;
 }
 
 /**
@@ -90,14 +90,14 @@ export interface EmailTransporterLike {
  * Steps that need to run user code go through a runner, not in-process.
  */
 export interface NodeExecutorDeps {
-    logger: Logger;
-    /**
-     * Lazy accessor for the email transporter. Returns null when
-     * SMTP is not configured. The function form lets the executor
-     * be constructed before the transporter is wired and lets tests
-     * swap the transporter without rebuilding the executor.
-     */
-    getEmailTransporter?: () => EmailTransporterLike | null;
+  logger: Logger;
+  /**
+   * Lazy accessor for the email transporter. Returns null when
+   * SMTP is not configured. The function form lets the executor
+   * be constructed before the transporter is wired and lets tests
+   * swap the transporter without rebuilding the executor.
+   */
+  getEmailTransporter?: () => EmailTransporterLike | null;
 }
 
 /**
@@ -113,28 +113,28 @@ export interface NodeExecutorDeps {
  * in a single PR.
  */
 export interface EditorNodeExecutor<TConfig, TResult extends NodeExecutionResult> {
-    /** Canonical node type, e.g. "Transform" */
-    readonly type: string;
-    /** Other node types that should route to this executor, e.g. ["Code"] */
-    readonly aliases?: readonly string[];
-    /**
-     * Run the node. The two trailing parameters (`tenantId`, `executionId`)
-     * are optional because most executors do not need them — pure-logic and
-     * IO nodes ignore them. State nodes (store-set, store-get, set-metadata)
-     * REQUIRE tenantId or executionId at the call site and throw a
-     * configuration error when missing. The dispatcher in
-     * `node-executor.service.ts` is responsible for refusing to invoke a
-     * state node without the required scoping.
-     *
-     * Step 6 of the ADR collapses this into a single context object; the
-     * positional form is preserved here to keep the diff small while
-     * steps 2-5 land incrementally.
-     */
-    execute(
-        config: TConfig,
-        input: ExecutionInput,
-        errorContext: NodeErrorContext,
-        tenantId?: string,
-        executionId?: string,
-    ): Promise<TResult>;
+  /** Canonical node type, e.g. "Transform" */
+  readonly type: string;
+  /** Other node types that should route to this executor, e.g. ["Code"] */
+  readonly aliases?: readonly string[];
+  /**
+   * Run the node. The two trailing parameters (`tenantId`, `executionId`)
+   * are optional because most executors do not need them — pure-logic and
+   * IO nodes ignore them. State nodes (store-set, store-get, set-metadata)
+   * REQUIRE tenantId or executionId at the call site and throw a
+   * configuration error when missing. The dispatcher in
+   * `node-executor.service.ts` is responsible for refusing to invoke a
+   * state node without the required scoping.
+   *
+   * Step 6 of the ADR collapses this into a single context object; the
+   * positional form is preserved here to keep the diff small while
+   * steps 2-5 land incrementally.
+   */
+  execute(
+    config: TConfig,
+    input: ExecutionInput,
+    errorContext: NodeErrorContext,
+    tenantId?: string,
+    executionId?: string
+  ): Promise<TResult>;
 }

@@ -8,16 +8,16 @@ import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
  * `executeDelay` method in node-executor.service.ts.
  */
 export class DelayNodeExecutor implements EditorNodeExecutor<DelayNodeConfig, DelayResult> {
-    readonly type = 'Delay';
-    readonly aliases = ['Wait'] as const;
+  readonly type = 'Delay';
+  readonly aliases = ['Wait'] as const;
 
-    async execute(
-        config: DelayNodeConfig,
-        _input: ExecutionInput,
-        _errorContext: NodeErrorContext,
-    ): Promise<DelayResult> {
-        const { duration = 1000 } = config;
-        await new Promise<void>((resolve) => setTimeout(resolve, duration));
-        return { delayed: true, duration };
-    }
+  async execute(
+    config: DelayNodeConfig,
+    _input: ExecutionInput,
+    _errorContext: NodeErrorContext
+  ): Promise<DelayResult> {
+    const { duration = 1000 } = config;
+    await new Promise<void>(resolve => setTimeout(resolve, duration));
+    return { delayed: true, duration };
+  }
 }

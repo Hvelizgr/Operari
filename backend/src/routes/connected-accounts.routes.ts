@@ -16,14 +16,14 @@ const router = Router();
 // list endpoint never crashes a self-host setup.
 let service: ConnectedAccountService | null = null;
 function getService(): ConnectedAccountService {
-    if (!service) {
-        const key = env.ENCRYPTION_KEY ?? '0'.repeat(64);
-        const cipher = new SecretCipher(key);
-        const audit = new AuditService(prisma);
-        const reader = new SecretReader(cipher, audit);
-        service = new ConnectedAccountService(prisma, cipher, reader, audit);
-    }
-    return service;
+  if (!service) {
+    const key = env.ENCRYPTION_KEY ?? '0'.repeat(64);
+    const cipher = new SecretCipher(key);
+    const audit = new AuditService(prisma);
+    const reader = new SecretReader(cipher, audit);
+    service = new ConnectedAccountService(prisma, cipher, reader, audit);
+  }
+  return service;
 }
 
 // Anonymous fallback gated by NANORUN_ANONYMOUS_MODE=true.
@@ -41,27 +41,25 @@ router.use(anonymousFallback);
  * Optional ?provider=github filter to scope the picker by provider.
  */
 router.get('/', async (req: AuthRequest, res: Response) => {
-    try {
-        const { id: userId, tenantId } = req.user!;
-        const accounts = await getService().list(tenantId, userId);
-        const provider = req.query.provider as string | undefined;
-        const filtered = provider
-            ? accounts.filter((a) => a.provider === provider)
-            : accounts;
-        res.json({
-            data: filtered.map((a) => ({
-                id: a.id,
-                provider: a.provider,
-                displayName: a.displayName,
-                scopes: a.scopes,
-                createdAt: a.createdAt,
-                tokenExpiry: a.tokenExpiry,
-            })),
-        });
-    } catch (err) {
-        req.log.error({ err }, 'List connected accounts error');
-        res.status(500).json({ error: 'Failed to list connected accounts' });
-    }
+  try {
+    const { id: userId, tenantId } = req.user!;
+    const accounts = await getService().list(tenantId, userId);
+    const provider = req.query.provider as string | undefined;
+    const filtered = provider ? accounts.filter(a => a.provider === provider) : accounts;
+    res.json({
+      data: filtered.map(a => ({
+        id: a.id,
+        provider: a.provider,
+        displayName: a.displayName,
+        scopes: a.scopes,
+        createdAt: a.createdAt,
+        tokenExpiry: a.tokenExpiry,
+      })),
+    });
+  } catch (err) {
+    req.log.error({ err }, 'List connected accounts error');
+    res.status(500).json({ error: 'Failed to list connected accounts' });
+  }
 });
 
 export default router;

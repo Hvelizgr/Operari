@@ -144,40 +144,39 @@ vocabulary directly — say "step" not "task", "runbook" not
   not a Socratic dialogue.`;
 
 function getModel() {
-    const provider = process.env.AI_MODEL_PROVIDER ?? 'anthropic';
-    const modelName = process.env.AI_MODEL_NAME ?? 'claude-sonnet-4-6';
-    if (provider === 'openai') {
-        return openai(modelName);
-    }
-    return anthropic(modelName);
+  const provider = process.env.AI_MODEL_PROVIDER ?? 'anthropic';
+  const modelName = process.env.AI_MODEL_NAME ?? 'claude-sonnet-4-6';
+  if (provider === 'openai') {
+    return openai(modelName);
+  }
+  return anthropic(modelName);
 }
 
 export interface OrchestratorContext {
-    /** Required for tool calls — every tool is bound to this tenant. */
-    tenantId?: string;
-    /** Prisma client for tool execution. Optional for tool-less callers. */
-    prisma?: PrismaClient;
+  /** Required for tool calls — every tool is bound to this tenant. */
+  tenantId?: string;
+  /** Prisma client for tool execution. Optional for tool-less callers. */
+  prisma?: PrismaClient;
 }
 
 export function streamOrchestratorReply(
-    messages: ModelMessage[],
-    context: OrchestratorContext = {},
+  messages: ModelMessage[],
+  context: OrchestratorContext = {}
 ): StreamTextResult<any, any> {
-    const { tenantId, prisma } = context;
-    const tools =
-        tenantId && prisma ? buildOrchestratorTools(prisma, tenantId) : undefined;
+  const { tenantId, prisma } = context;
+  const tools = tenantId && prisma ? buildOrchestratorTools(prisma, tenantId) : undefined;
 
-    return streamText({
-        model: getModel(),
-        system: SYSTEM_PROMPT,
-        messages,
-        ...(tools
-            ? {
-                  tools,
-                  // Allow up to 4 tool-call → response cycles per user turn so
-                  // the model can chain (e.g. list_recent_runs → get_run_details).
-                  stopWhen: stepCountIs(4),
-              }
-            : {}),
-    });
+  return streamText({
+    model: getModel(),
+    system: SYSTEM_PROMPT,
+    messages,
+    ...(tools
+      ? {
+          tools,
+          // Allow up to 4 tool-call → response cycles per user turn so
+          // the model can chain (e.g. list_recent_runs → get_run_details).
+          stopWhen: stepCountIs(4),
+        }
+      : {}),
+  });
 }

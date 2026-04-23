@@ -20,13 +20,13 @@ export const WINDOW_MS = 15 * 60 * 1000;
 export const LOCK_DURATION_MS = 30 * 60 * 1000;
 
 interface LockoutRequestCtx {
-    ip?: string | null;
-    userAgent?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
 }
 
 export type LockedUserSummary = Pick<
-    User,
-    'id' | 'tenantId' | 'failedLoginAttempts' | 'lastFailedLoginAt' | 'lockedUntil'
+  User,
+  'id' | 'tenantId' | 'failedLoginAttempts' | 'lastFailedLoginAt' | 'lockedUntil'
 >;
 
 /**
@@ -47,103 +47,103 @@ export type LockedUserSummary = Pick<
  * prevent the login flow from responding.
  */
 export class AccountLockoutService {
-    constructor(
-        private readonly prisma: PrismaClient,
-        private readonly audit?: AuditService,
-    ) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly audit?: AuditService
+  ) {}
 
-    isLocked(user: LockedUserSummary | null, now: Date = new Date()): boolean {
-        if (!user?.lockedUntil) return false;
-        return user.lockedUntil.getTime() > now.getTime();
+  isLocked(user: LockedUserSummary | null, now: Date = new Date()): boolean {
+    if (!user?.lockedUntil) return false;
+    return user.lockedUntil.getTime() > now.getTime();
+  }
+
+  /**
+   * Record a wrong-password attempt. Returns the updated
+   * `failedLoginAttempts` and whether this attempt tripped the
+   * lock so the caller can log-structured the outcome if it cares.
+   *
+   * When the last failure happened more than WINDOW_MS ago the
+   * counter resets to 1 on this call — we want 5 failures *inside*
+   * the window, not 5 failures ever.
+   */
+  async recordFailure(
+    user: LockedUserSummary,
+    ctx: LockoutRequestCtx = {},
+    now: Date = new Date()
+  ): Promise<{ attempts: number; nowLocked: boolean }> {
+    const lastFailureMs = user.lastFailedLoginAt?.getTime() ?? 0;
+    const windowExpired = now.getTime() - lastFailureMs > WINDOW_MS;
+    const attempts = windowExpired ? 1 : user.failedLoginAttempts + 1;
+    const nowLocked = attempts >= MAX_FAILURES;
+    const lockedUntil = nowLocked ? new Date(now.getTime() + LOCK_DURATION_MS) : null;
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: attempts,
+        lastFailedLoginAt: now,
+        ...(nowLocked ? { lockedUntil } : {}),
+      },
+    });
+
+    // Always audit the failure. Fan out to account_locked only
+    // on the transition edge so the audit stream shows the single
+    // moment a lock was tripped, not every subsequent failed
+    // attempt against an already-locked account.
+    this.safeAudit('auth.login_failed', user, ctx, {
+      attempts,
+      windowMs: WINDOW_MS,
+    });
+    if (nowLocked) {
+      this.safeAudit('auth.account_locked', user, ctx, {
+        lockedUntil: lockedUntil?.toISOString(),
+        lockDurationMs: LOCK_DURATION_MS,
+        triggeredByAttempt: attempts,
+      });
     }
 
-    /**
-     * Record a wrong-password attempt. Returns the updated
-     * `failedLoginAttempts` and whether this attempt tripped the
-     * lock so the caller can log-structured the outcome if it cares.
-     *
-     * When the last failure happened more than WINDOW_MS ago the
-     * counter resets to 1 on this call — we want 5 failures *inside*
-     * the window, not 5 failures ever.
-     */
-    async recordFailure(
-        user: LockedUserSummary,
-        ctx: LockoutRequestCtx = {},
-        now: Date = new Date(),
-    ): Promise<{ attempts: number; nowLocked: boolean }> {
-        const lastFailureMs = user.lastFailedLoginAt?.getTime() ?? 0;
-        const windowExpired = now.getTime() - lastFailureMs > WINDOW_MS;
-        const attempts = windowExpired ? 1 : user.failedLoginAttempts + 1;
-        const nowLocked = attempts >= MAX_FAILURES;
-        const lockedUntil = nowLocked ? new Date(now.getTime() + LOCK_DURATION_MS) : null;
+    return { attempts, nowLocked };
+  }
 
-        await this.prisma.user.update({
-            where: { id: user.id },
-            data: {
-                failedLoginAttempts: attempts,
-                lastFailedLoginAt: now,
-                ...(nowLocked ? { lockedUntil } : {}),
-            },
-        });
+  /**
+   * Clear the counter + lock after a successful login. Idempotent:
+   * zero-counter users just stay zero. Called as the first thing
+   * in the success branch so a failed bcrypt doesn't get the
+   * wipe treatment.
+   */
+  async recordSuccess(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        failedLoginAttempts: 0,
+        lastFailedLoginAt: null,
+        lockedUntil: null,
+      },
+    });
+  }
 
-        // Always audit the failure. Fan out to account_locked only
-        // on the transition edge so the audit stream shows the single
-        // moment a lock was tripped, not every subsequent failed
-        // attempt against an already-locked account.
-        this.safeAudit('auth.login_failed', user, ctx, {
-            attempts,
-            windowMs: WINDOW_MS,
-        });
-        if (nowLocked) {
-            this.safeAudit('auth.account_locked', user, ctx, {
-                lockedUntil: lockedUntil?.toISOString(),
-                lockDurationMs: LOCK_DURATION_MS,
-                triggeredByAttempt: attempts,
-            });
-        }
-
-        return { attempts, nowLocked };
-    }
-
-    /**
-     * Clear the counter + lock after a successful login. Idempotent:
-     * zero-counter users just stay zero. Called as the first thing
-     * in the success branch so a failed bcrypt doesn't get the
-     * wipe treatment.
-     */
-    async recordSuccess(userId: string): Promise<void> {
-        await this.prisma.user.update({
-            where: { id: userId },
-            data: {
-                failedLoginAttempts: 0,
-                lastFailedLoginAt: null,
-                lockedUntil: null,
-            },
-        });
-    }
-
-    private safeAudit(
-        type: 'auth.login_failed' | 'auth.account_locked',
-        user: LockedUserSummary,
-        ctx: LockoutRequestCtx,
-        extra: Record<string, unknown>,
-    ): void {
-        if (!this.audit) return;
-        void this.audit
-            .record({
-                tenantId: user.tenantId,
-                type,
-                actorId: user.id,
-                actorType: 'user',
-                resource: user.id,
-                payload: {
-                    ip: ctx.ip ?? null,
-                    userAgent: ctx.userAgent ?? null,
-                    ...extra,
-                },
-            })
-            .catch(() => {
-                /* never block auth on a broken audit chain */
-            });
-    }
+  private safeAudit(
+    type: 'auth.login_failed' | 'auth.account_locked',
+    user: LockedUserSummary,
+    ctx: LockoutRequestCtx,
+    extra: Record<string, unknown>
+  ): void {
+    if (!this.audit) return;
+    void this.audit
+      .record({
+        tenantId: user.tenantId,
+        type,
+        actorId: user.id,
+        actorType: 'user',
+        resource: user.id,
+        payload: {
+          ip: ctx.ip ?? null,
+          userAgent: ctx.userAgent ?? null,
+          ...extra,
+        },
+      })
+      .catch(() => {
+        /* never block auth on a broken audit chain */
+      });
+  }
 }

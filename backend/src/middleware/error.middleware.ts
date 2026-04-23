@@ -2,35 +2,35 @@ import { Request, Response, NextFunction } from 'express';
 import { logger } from '../config/logger.config';
 
 export class AppError extends Error {
-    statusCode: number;
-    isOperational: boolean;
+  statusCode: number;
+  isOperational: boolean;
 
-    constructor(message: string, statusCode: number) {
-        super(message);
-        this.statusCode = statusCode;
-        this.isOperational = true;
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.statusCode = statusCode;
+    this.isOperational = true;
 
-        Error.captureStackTrace(this, this.constructor);
-    }
+    Error.captureStackTrace(this, this.constructor);
+  }
 }
 
 export const errorHandler = (
-    err: Error | AppError,
-    req: Request,
-    res: Response,
-    next: NextFunction
+  err: Error | AppError,
+  req: Request,
+  res: Response,
+  next: NextFunction
 ) => {
-    if (err instanceof AppError) {
-        return res.status(err.statusCode).json({
-            error: err.message,
-            status: err.statusCode,
-        });
-    }
-
-    logger.error({ err, path: req.path, method: req.method }, 'Unhandled error');
-
-    return res.status(500).json({
-        error: 'Internal server error',
-        status: 500,
+  if (err instanceof AppError) {
+    return res.status(err.statusCode).json({
+      error: err.message,
+      status: err.statusCode,
     });
+  }
+
+  logger.error({ err, path: req.path, method: req.method }, 'Unhandled error');
+
+  return res.status(500).json({
+    error: 'Internal server error',
+    status: 500,
+  });
 };

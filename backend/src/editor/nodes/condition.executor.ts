@@ -1,7 +1,7 @@
 import type {
-    ConditionNodeConfig,
-    ConditionResult,
-    ExecutionInput,
+  ConditionNodeConfig,
+  ConditionResult,
+  ExecutionInput,
 } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { resolveTemplate, getNestedValue } from './_shared';
@@ -21,48 +21,50 @@ import { resolveTemplate, getNestedValue } from './_shared';
  * — preserved on purpose; tightening it would change behavior for
  * existing runbooks that compare "1" to 1.
  */
-export class ConditionNodeExecutor
-    implements EditorNodeExecutor<ConditionNodeConfig, ConditionResult> {
-    readonly type = 'Condition';
-    readonly aliases = ['If', 'nanorun.if'] as const;
+export class ConditionNodeExecutor implements EditorNodeExecutor<
+  ConditionNodeConfig,
+  ConditionResult
+> {
+  readonly type = 'Condition';
+  readonly aliases = ['If', 'nanorun.if'] as const;
 
-    async execute(
-        config: ConditionNodeConfig,
-        input: ExecutionInput,
-        _errorContext: NodeErrorContext,
-    ): Promise<ConditionResult> {
-        const { field, operator, value } = config;
-        let result = false;
+  async execute(
+    config: ConditionNodeConfig,
+    input: ExecutionInput,
+    _errorContext: NodeErrorContext
+  ): Promise<ConditionResult> {
+    const { field, operator, value } = config;
+    let result = false;
 
-        if (field && operator) {
-            const fieldValue = getNestedValue(input, field);
-            const compareValue = value ? resolveTemplate(value, input) : '';
+    if (field && operator) {
+      const fieldValue = getNestedValue(input, field);
+      const compareValue = value ? resolveTemplate(value, input) : '';
 
-            switch (operator) {
-                case 'equals':
-                    result = fieldValue == compareValue;
-                    break;
-                case 'notEquals':
-                    result = fieldValue != compareValue;
-                    break;
-                case 'contains':
-                    result = String(fieldValue).includes(compareValue);
-                    break;
-                case 'greaterThan':
-                    result = Number(fieldValue) > Number(compareValue);
-                    break;
-                case 'lessThan':
-                    result = Number(fieldValue) < Number(compareValue);
-                    break;
-                case 'isEmpty':
-                    result = !fieldValue || fieldValue === '';
-                    break;
-                case 'isNotEmpty':
-                    result = !!fieldValue && fieldValue !== '';
-                    break;
-            }
-        }
-
-        return { ...input, conditionResult: result };
+      switch (operator) {
+        case 'equals':
+          result = fieldValue == compareValue;
+          break;
+        case 'notEquals':
+          result = fieldValue != compareValue;
+          break;
+        case 'contains':
+          result = String(fieldValue).includes(compareValue);
+          break;
+        case 'greaterThan':
+          result = Number(fieldValue) > Number(compareValue);
+          break;
+        case 'lessThan':
+          result = Number(fieldValue) < Number(compareValue);
+          break;
+        case 'isEmpty':
+          result = !fieldValue || fieldValue === '';
+          break;
+        case 'isNotEmpty':
+          result = !!fieldValue && fieldValue !== '';
+          break;
+      }
     }
+
+    return { ...input, conditionResult: result };
+  }
 }

@@ -49,174 +49,177 @@ import type { RunState, RunStatus } from './execution-event.types';
 export type ResumeAction = 'ABANDON' | 'SKIP' | 'RESUME';
 
 export interface ResumeDecision {
-    executionId: string;
-    tenantId: string;
-    status: RunStatus;
-    action: ResumeAction;
-    /** Free-form reason recorded in logs and (for ABANDON) in the failure payload */
-    reason: string;
-    /** Last seq seen by the reducer at scan time — useful for debug */
-    lastSeq: bigint;
+  executionId: string;
+  tenantId: string;
+  status: RunStatus;
+  action: ResumeAction;
+  /** Free-form reason recorded in logs and (for ABANDON) in the failure payload */
+  reason: string;
+  /** Last seq seen by the reducer at scan time — useful for debug */
+  lastSeq: bigint;
 }
 
 export interface ResumeWorkerOptions {
-    /**
-     * When true (default), the worker only computes decisions and
-     * returns the report — it never appends events. Operators should
-     * run dryRun=true on a fresh deploy to confirm the scanner sees
-     * what they expect before letting it act.
-     */
-    dryRun?: boolean;
+  /**
+   * When true (default), the worker only computes decisions and
+   * returns the report — it never appends events. Operators should
+   * run dryRun=true on a fresh deploy to confirm the scanner sees
+   * what they expect before letting it act.
+   */
+  dryRun?: boolean;
 }
 
 export interface ResumeReport {
-    scannedTenants: number;
-    scannedRuns: number;
-    decisions: ResumeDecision[];
-    counts: Record<ResumeAction, number>;
-    dryRun: boolean;
-    /** Wall-clock duration of the scan in ms */
-    durationMs: number;
+  scannedTenants: number;
+  scannedRuns: number;
+  decisions: ResumeDecision[];
+  counts: Record<ResumeAction, number>;
+  dryRun: boolean;
+  /** Wall-clock duration of the scan in ms */
+  durationMs: number;
 }
 
 export class ResumeWorker {
-    constructor(
-        private readonly store: ExecutionEventStore,
-        private readonly logger: Logger,
-    ) { }
+  constructor(
+    private readonly store: ExecutionEventStore,
+    private readonly logger: Logger
+  ) {}
 
-    /**
-     * Walk every tenant, scan for in-flight runs, decide what to do
-     * with each. Returns a `ResumeReport` the caller can log, ship to
-     * a metric, or assert on in tests.
-     *
-     * Idempotent: a second invocation after the first acted on every
-     * decision sees no in-flight runs and returns an empty report.
-     */
-    async runOnce(options: ResumeWorkerOptions = {}): Promise<ResumeReport> {
-        const dryRun = options.dryRun ?? true;
-        const startedAt = Date.now();
-        const decisions: ResumeDecision[] = [];
-        const counts: Record<ResumeAction, number> = { ABANDON: 0, SKIP: 0, RESUME: 0 };
-        let scannedRuns = 0;
+  /**
+   * Walk every tenant, scan for in-flight runs, decide what to do
+   * with each. Returns a `ResumeReport` the caller can log, ship to
+   * a metric, or assert on in tests.
+   *
+   * Idempotent: a second invocation after the first acted on every
+   * decision sees no in-flight runs and returns an empty report.
+   */
+  async runOnce(options: ResumeWorkerOptions = {}): Promise<ResumeReport> {
+    const dryRun = options.dryRun ?? true;
+    const startedAt = Date.now();
+    const decisions: ResumeDecision[] = [];
+    const counts: Record<ResumeAction, number> = { ABANDON: 0, SKIP: 0, RESUME: 0 };
+    let scannedRuns = 0;
 
-        const tenants = await this.store.listTenantsWithEvents();
+    const tenants = await this.store.listTenantsWithEvents();
 
-        for (const tenantId of tenants) {
-            const inFlight = await this.store.listInFlightExecutions(tenantId);
-            for (const executionId of inFlight) {
-                scannedRuns++;
-                const state = await this.store.reduceState(executionId);
-                if (!state) {
-                    // Race: the run terminated between listInFlight and
-                    // reduceState. Nothing to do.
-                    continue;
-                }
-
-                const decision = ResumeWorker.decide(state, tenantId);
-                decisions.push(decision);
-                counts[decision.action]++;
-
-                if (!dryRun && decision.action === 'ABANDON') {
-                    await this.abandon(decision);
-                }
-            }
+    for (const tenantId of tenants) {
+      const inFlight = await this.store.listInFlightExecutions(tenantId);
+      for (const executionId of inFlight) {
+        scannedRuns++;
+        const state = await this.store.reduceState(executionId);
+        if (!state) {
+          // Race: the run terminated between listInFlight and
+          // reduceState. Nothing to do.
+          continue;
         }
 
-        const report: ResumeReport = {
-            scannedTenants: tenants.length,
-            scannedRuns,
-            decisions,
-            counts,
-            dryRun,
-            durationMs: Date.now() - startedAt,
+        const decision = ResumeWorker.decide(state, tenantId);
+        decisions.push(decision);
+        counts[decision.action]++;
+
+        if (!dryRun && decision.action === 'ABANDON') {
+          await this.abandon(decision);
+        }
+      }
+    }
+
+    const report: ResumeReport = {
+      scannedTenants: tenants.length,
+      scannedRuns,
+      decisions,
+      counts,
+      dryRun,
+      durationMs: Date.now() - startedAt,
+    };
+
+    this.logger.info('ResumeWorker scan complete', {
+      metadata: {
+        scannedTenants: report.scannedTenants,
+        scannedRuns: report.scannedRuns,
+        abandoned: report.counts.ABANDON,
+        skipped: report.counts.SKIP,
+        wouldResume: report.counts.RESUME,
+        dryRun: report.dryRun,
+        durationMs: report.durationMs,
+      },
+    });
+
+    return report;
+  }
+
+  /**
+   * Pure decision function — no I/O, no time. Exposed as `static`
+   * so tests can verify the policy without standing up a store.
+   *
+   * The mapping from RunStatus to ResumeAction is intentionally
+   * conservative: phase 3 marks every interrupted run as ABANDONED.
+   * Phase 4 will flip RUNNING → RESUME once step replay is in.
+   */
+  static decide(state: RunState, tenantId: string): ResumeDecision {
+    const base = {
+      executionId: state.executionId,
+      tenantId,
+      status: state.status,
+      lastSeq: state.lastSeq,
+    };
+    switch (state.status) {
+      case 'PENDING':
+        return {
+          ...base,
+          action: 'ABANDON',
+          reason:
+            'run.created seen but never started — backend likely died between create and start',
         };
-
-        this.logger.info('ResumeWorker scan complete', {
-            metadata: {
-                scannedTenants: report.scannedTenants,
-                scannedRuns: report.scannedRuns,
-                abandoned: report.counts.ABANDON,
-                skipped: report.counts.SKIP,
-                wouldResume: report.counts.RESUME,
-                dryRun: report.dryRun,
-                durationMs: report.durationMs,
-            },
-        });
-
-        return report;
-    }
-
-    /**
-     * Pure decision function — no I/O, no time. Exposed as `static`
-     * so tests can verify the policy without standing up a store.
-     *
-     * The mapping from RunStatus to ResumeAction is intentionally
-     * conservative: phase 3 marks every interrupted run as ABANDONED.
-     * Phase 4 will flip RUNNING → RESUME once step replay is in.
-     */
-    static decide(state: RunState, tenantId: string): ResumeDecision {
-        const base = {
-            executionId: state.executionId,
-            tenantId,
-            status: state.status,
-            lastSeq: state.lastSeq,
+      case 'RUNNING':
+        return {
+          ...base,
+          action: 'ABANDON',
+          reason:
+            'run was running when backend restarted; step replay not yet implemented (phase 4)',
         };
-        switch (state.status) {
-            case 'PENDING':
-                return {
-                    ...base,
-                    action: 'ABANDON',
-                    reason: 'run.created seen but never started — backend likely died between create and start',
-                };
-            case 'RUNNING':
-                return {
-                    ...base,
-                    action: 'ABANDON',
-                    reason: 'run was running when backend restarted; step replay not yet implemented (phase 4)',
-                };
-            case 'PAUSED':
-                return {
-                    ...base,
-                    action: 'SKIP',
-                    reason: 'paused waiting on human input — leave for manual resume via the existing endpoint',
-                };
-            case 'COMPLETED':
-            case 'FAILED':
-            case 'CANCELLED':
-                // Defensive: listInFlightExecutions should filter these.
-                return {
-                    ...base,
-                    action: 'SKIP',
-                    reason: `terminal status ${state.status} appeared in in-flight scan — likely a race, no action needed`,
-                };
-        }
+      case 'PAUSED':
+        return {
+          ...base,
+          action: 'SKIP',
+          reason:
+            'paused waiting on human input — leave for manual resume via the existing endpoint',
+        };
+      case 'COMPLETED':
+      case 'FAILED':
+      case 'CANCELLED':
+        // Defensive: listInFlightExecutions should filter these.
+        return {
+          ...base,
+          action: 'SKIP',
+          reason: `terminal status ${state.status} appeared in in-flight scan — likely a race, no action needed`,
+        };
     }
+  }
 
-    /**
-     * Append a `run.failed` event with the abandon reason so the run
-     * is terminal and stops showing up in future scans. Best-effort:
-     * if the append throws, the worker logs but does not retry — the
-     * next worker invocation will see the run again and try again.
-     */
-    private async abandon(decision: ResumeDecision): Promise<void> {
-        try {
-            await this.store.append(decision.executionId, decision.tenantId, {
-                type: 'run.failed',
-                payload: {
-                    durationMs: 0,
-                    errorCode: 'RUN_ABANDONED_BY_RESTART',
-                    errorMessage: decision.reason,
-                },
-            });
-        } catch (err) {
-            this.logger.error('ResumeWorker abandon append failed', {
-                error: err instanceof Error ? err : new Error(String(err)),
-                metadata: {
-                    executionId: decision.executionId,
-                    tenantId: decision.tenantId,
-                },
-            });
-        }
+  /**
+   * Append a `run.failed` event with the abandon reason so the run
+   * is terminal and stops showing up in future scans. Best-effort:
+   * if the append throws, the worker logs but does not retry — the
+   * next worker invocation will see the run again and try again.
+   */
+  private async abandon(decision: ResumeDecision): Promise<void> {
+    try {
+      await this.store.append(decision.executionId, decision.tenantId, {
+        type: 'run.failed',
+        payload: {
+          durationMs: 0,
+          errorCode: 'RUN_ABANDONED_BY_RESTART',
+          errorMessage: decision.reason,
+        },
+      });
+    } catch (err) {
+      this.logger.error('ResumeWorker abandon append failed', {
+        error: err instanceof Error ? err : new Error(String(err)),
+        metadata: {
+          executionId: decision.executionId,
+          tenantId: decision.tenantId,
+        },
+      });
     }
+  }
 }

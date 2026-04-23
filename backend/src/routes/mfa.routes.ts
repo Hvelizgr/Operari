@@ -3,11 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../server';
 import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
-import {
-    buildOtpauthUrl,
-    generateTotpSecret,
-    verifyTotp,
-} from '../auth/totp';
+import { buildOtpauthUrl, generateTotpSecret, verifyTotp } from '../auth/totp';
 import { secretCipherFromEnv } from '../security/secret-cipher';
 import { AuditService, type AuditEventType } from '../audit/audit.service';
 import { issueBackupCodes } from '../auth/mfa-backup-codes';
@@ -16,8 +12,8 @@ const router = Router();
 
 let auditService: AuditService | null = null;
 function getAudit(): AuditService {
-    if (!auditService) auditService = new AuditService(prisma);
-    return auditService;
+  if (!auditService) auditService = new AuditService(prisma);
+  return auditService;
 }
 
 /**
@@ -25,23 +21,23 @@ function getAudit(): AuditService {
  * the MFA endpoints must never fail because the audit chain wobbled.
  */
 async function safeAudit(
-    type: AuditEventType,
-    actorId: string,
-    tenantId: string,
-    payload: Record<string, unknown>,
+  type: AuditEventType,
+  actorId: string,
+  tenantId: string,
+  payload: Record<string, unknown>
 ): Promise<void> {
-    try {
-        await getAudit().record({
-            tenantId,
-            type,
-            actorId,
-            actorType: 'user',
-            resource: actorId,
-            payload,
-        });
-    } catch {
-        // Observability, not a hard dependency.
-    }
+  try {
+    await getAudit().record({
+      tenantId,
+      type,
+      actorId,
+      actorType: 'user',
+      resource: actorId,
+      payload,
+    });
+  } catch {
+    // Observability, not a hard dependency.
+  }
 }
 
 /**
@@ -63,65 +59,65 @@ async function safeAudit(
 const verifySchema = z.object({ code: z.string().regex(/^\d{6}$/) });
 
 router.post('/enroll', authenticate, async (req: AuthRequest, res: Response) => {
-    const user = await prisma.user.findUnique({
-        where: { id: req.user!.id },
-        select: { id: true, email: true, mfaEnabled: true },
-    });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (user.mfaEnabled) {
-        return res.status(409).json({ error: 'MFA is already enabled. Disable first to re-enroll.' });
-    }
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: { id: true, email: true, mfaEnabled: true },
+  });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (user.mfaEnabled) {
+    return res.status(409).json({ error: 'MFA is already enabled. Disable first to re-enroll.' });
+  }
 
-    const cipher = secretCipherFromEnv();
-    const secret = generateTotpSecret();
-    const ciphered = cipher.encrypt(secret, `mfa:${user.id}`);
+  const cipher = secretCipherFromEnv();
+  const secret = generateTotpSecret();
+  const ciphered = cipher.encrypt(secret, `mfa:${user.id}`);
 
-    await prisma.user.update({
-        where: { id: user.id },
-        data: { mfaSecretCiphered: ciphered },
-    });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { mfaSecretCiphered: ciphered },
+  });
 
-    const otpauth = buildOtpauthUrl({ secret, accountName: user.email });
-    return res.json({
-        secret,
-        otpauth,
-    });
+  const otpauth = buildOtpauthUrl({ secret, accountName: user.email });
+  return res.json({
+    secret,
+    otpauth,
+  });
 });
 
 router.post('/verify-enroll', authenticate, async (req: AuthRequest, res: Response) => {
-    const parsed = verifySchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid code' });
+  const parsed = verifySchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid code' });
 
-    const user = await prisma.user.findUnique({
-        where: { id: req.user!.id },
-        select: { id: true, mfaEnabled: true, mfaSecretCiphered: true },
-    });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (user.mfaEnabled) return res.status(409).json({ error: 'MFA already enabled' });
-    if (!user.mfaSecretCiphered) {
-        return res.status(409).json({ error: 'No pending MFA enrollment — call /enroll first' });
-    }
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: { id: true, mfaEnabled: true, mfaSecretCiphered: true },
+  });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (user.mfaEnabled) return res.status(409).json({ error: 'MFA already enabled' });
+  if (!user.mfaSecretCiphered) {
+    return res.status(409).json({ error: 'No pending MFA enrollment — call /enroll first' });
+  }
 
-    const cipher = secretCipherFromEnv();
-    const secret = cipher.decrypt(user.mfaSecretCiphered, `mfa:${user.id}`);
-    if (!verifyTotp(secret, parsed.data.code)) {
-        return res.status(400).json({ error: 'Invalid TOTP code' });
-    }
+  const cipher = secretCipherFromEnv();
+  const secret = cipher.decrypt(user.mfaSecretCiphered, `mfa:${user.id}`);
+  if (!verifyTotp(secret, parsed.data.code)) {
+    return res.status(400).json({ error: 'Invalid TOTP code' });
+  }
 
-    await prisma.user.update({
-        where: { id: user.id },
-        data: { mfaEnabled: true },
-    });
-    // Backup codes are only generated on the first enroll success.
-    // The plaintext codes are returned in THIS response and never
-    // again — the user is expected to print/save them. Any future
-    // regeneration happens via POST /auth/mfa/backup-codes.
-    const backupCodes = await issueBackupCodes(prisma, user.id);
-    await safeAudit('mfa.enabled', req.user!.id, req.user!.tenantId, {
-        method: 'totp',
-        backupCodesGenerated: backupCodes.length,
-    });
-    return res.json({ mfaEnabled: true, backupCodes });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { mfaEnabled: true },
+  });
+  // Backup codes are only generated on the first enroll success.
+  // The plaintext codes are returned in THIS response and never
+  // again — the user is expected to print/save them. Any future
+  // regeneration happens via POST /auth/mfa/backup-codes.
+  const backupCodes = await issueBackupCodes(prisma, user.id);
+  await safeAudit('mfa.enabled', req.user!.id, req.user!.tenantId, {
+    method: 'totp',
+    backupCodesGenerated: backupCodes.length,
+  });
+  return res.json({ mfaEnabled: true, backupCodes });
 });
 
 /**
@@ -134,76 +130,76 @@ router.post('/verify-enroll', authenticate, async (req: AuthRequest, res: Respon
 const regenSchema = z.object({ password: z.string().min(1) });
 
 router.post('/backup-codes', authenticate, async (req: AuthRequest, res: Response) => {
-    const parsed = regenSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: 'Password required' });
+  const parsed = regenSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Password required' });
 
-    const user = await prisma.user.findUnique({
-        where: { id: req.user!.id },
-        select: { id: true, passwordHash: true, mfaEnabled: true },
-    });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (!user.mfaEnabled) return res.status(409).json({ error: 'MFA is not enabled' });
-    if (!user.passwordHash) {
-        return res
-            .status(409)
-            .json({ error: 'Account has no password. Use /forgot-password to set one first.' });
-    }
-    const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: { id: true, passwordHash: true, mfaEnabled: true },
+  });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!user.mfaEnabled) return res.status(409).json({ error: 'MFA is not enabled' });
+  if (!user.passwordHash) {
+    return res
+      .status(409)
+      .json({ error: 'Account has no password. Use /forgot-password to set one first.' });
+  }
+  const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
+  if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const backupCodes = await issueBackupCodes(prisma, user.id);
-    return res.json({ backupCodes });
+  const backupCodes = await issueBackupCodes(prisma, user.id);
+  return res.json({ backupCodes });
 });
 
 const disableSchema = z.object({
-    password: z.string().min(1),
-    code: z.string().regex(/^\d{6}$/),
+  password: z.string().min(1),
+  code: z.string().regex(/^\d{6}$/),
 });
 
 router.post('/disable', authenticate, async (req: AuthRequest, res: Response) => {
-    const parsed = disableSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: 'Invalid payload' });
+  const parsed = disableSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid payload' });
 
-    const user = await prisma.user.findUnique({
-        where: { id: req.user!.id },
-        select: {
-            id: true,
-            passwordHash: true,
-            mfaEnabled: true,
-            mfaSecretCiphered: true,
-        },
-    });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (!user.mfaEnabled || !user.mfaSecretCiphered) {
-        return res.status(409).json({ error: 'MFA is not enabled' });
-    }
-    if (!user.passwordHash) {
-        return res
-            .status(409)
-            .json({ error: 'Account has no password. Use /forgot-password to set one first.' });
-    }
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: {
+      id: true,
+      passwordHash: true,
+      mfaEnabled: true,
+      mfaSecretCiphered: true,
+    },
+  });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (!user.mfaEnabled || !user.mfaSecretCiphered) {
+    return res.status(409).json({ error: 'MFA is not enabled' });
+  }
+  if (!user.passwordHash) {
+    return res
+      .status(409)
+      .json({ error: 'Account has no password. Use /forgot-password to set one first.' });
+  }
 
-    // Require BOTH password and a valid TOTP to disable — lets an
-    // admin recover the account if their phone is stolen (they still
-    // need the password), but prevents a stolen session cookie from
-    // silently disabling MFA.
-    const pwOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
-    if (!pwOk) return res.status(401).json({ error: 'Invalid credentials' });
+  // Require BOTH password and a valid TOTP to disable — lets an
+  // admin recover the account if their phone is stolen (they still
+  // need the password), but prevents a stolen session cookie from
+  // silently disabling MFA.
+  const pwOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
+  if (!pwOk) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const cipher = secretCipherFromEnv();
-    const secret = cipher.decrypt(user.mfaSecretCiphered, `mfa:${user.id}`);
-    if (!verifyTotp(secret, parsed.data.code)) {
-        return res.status(401).json({ error: 'Invalid TOTP code' });
-    }
+  const cipher = secretCipherFromEnv();
+  const secret = cipher.decrypt(user.mfaSecretCiphered, `mfa:${user.id}`);
+  if (!verifyTotp(secret, parsed.data.code)) {
+    return res.status(401).json({ error: 'Invalid TOTP code' });
+  }
 
-    await prisma.user.update({
-        where: { id: user.id },
-        data: { mfaEnabled: false, mfaSecretCiphered: null },
-    });
-    await safeAudit('mfa.disabled', req.user!.id, req.user!.tenantId, {
-        method: 'totp',
-    });
-    return res.json({ mfaEnabled: false });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { mfaEnabled: false, mfaSecretCiphered: null },
+  });
+  await safeAudit('mfa.disabled', req.user!.id, req.user!.tenantId, {
+    method: 'totp',
+  });
+  return res.json({ mfaEnabled: false });
 });
 
 export default router;

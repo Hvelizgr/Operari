@@ -39,23 +39,29 @@ const result = await client.run('deploy-frontend', {
 ## API
 
 ### `new Cairn(config)`
+
 - `config.apiKey` (required) — your API key starting with `nr_live_` or `nr_test_`
 - `config.baseURL` (optional) — defaults to `https://api.nanorun.dev`
 - `config.fetch` (optional) — custom fetch implementation
 
 ### `client.listRunbooks()`
+
 List all runbooks accessible to your API key.
 
 ### `client.trigger(slugOrId, options?)`
+
 Trigger a runbook by slug or id. Returns immediately with the run record.
 
 ### `client.getRun(runId)`
+
 Get the current state of a run.
 
 ### `client.waitForCompletion(runId, options?)`
+
 Poll until the run reaches a terminal state.
 
 ### `client.run(slugOrId, options?)`
+
 Convenience: trigger AND wait. Throws if the run fails.
 
 ## License

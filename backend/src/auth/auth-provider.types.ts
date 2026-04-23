@@ -35,38 +35,41 @@
  */
 
 export interface AuthenticatedUser {
-    id: string;
-    email: string;
-    role: string;
-    tenantId: string;
-    /**
-     * Stable identifier of the provider that issued the session.
-     * Recorded in audit events as `actorMetadata.authProvider` so
-     * incident timelines can show "logged in via WorkOS SSO".
-     */
-    provider: string;
+  id: string;
+  email: string;
+  role: string;
+  tenantId: string;
+  /**
+   * Stable identifier of the provider that issued the session.
+   * Recorded in audit events as `actorMetadata.authProvider` so
+   * incident timelines can show "logged in via WorkOS SSO".
+   */
+  provider: string;
 }
 
 export interface AuthProvider {
-    /** Stable provider name: 'jwt' | 'workos' | … */
-    readonly name: string;
+  /** Stable provider name: 'jwt' | 'workos' | … */
+  readonly name: string;
 
-    /**
-     * Verify a bearer token and return the authenticated user, or
-     * null if the token is invalid / expired / revoked. Implementations
-     * MUST NOT throw on rejection — return null instead so the route
-     * layer can respond with a uniform 401.
-     *
-     * Throwing IS allowed for transport-level failures (the auth
-     * service is unreachable), which the middleware translates into
-     * a 503.
-     */
-    verifyToken(token: string): Promise<AuthenticatedUser | null>;
+  /**
+   * Verify a bearer token and return the authenticated user, or
+   * null if the token is invalid / expired / revoked. Implementations
+   * MUST NOT throw on rejection — return null instead so the route
+   * layer can respond with a uniform 401.
+   *
+   * Throwing IS allowed for transport-level failures (the auth
+   * service is unreachable), which the middleware translates into
+   * a 503.
+   */
+  verifyToken(token: string): Promise<AuthenticatedUser | null>;
 }
 
 export class AuthTransportError extends Error {
-    constructor(message: string, public readonly provider: string) {
-        super(message);
-        this.name = 'AuthTransportError';
-    }
+  constructor(
+    message: string,
+    public readonly provider: string
+  ) {
+    super(message);
+    this.name = 'AuthTransportError';
+  }
 }

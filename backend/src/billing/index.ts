@@ -3,11 +3,7 @@ import { NoopBillingMeter } from './noop-billing-meter';
 import { StripeBillingMeter } from './stripe-billing-meter';
 import { buildStripeMeterEventSender } from './stripe-http-client';
 
-export type {
-    BillableEvent,
-    BillableEventType,
-    BillingMeter,
-} from './billing-meter.types';
+export type { BillableEvent, BillableEventType, BillingMeter } from './billing-meter.types';
 export { NoopBillingMeter } from './noop-billing-meter';
 export { StripeBillingMeter } from './stripe-billing-meter';
 export type { SendMeterEventFn, StripeBillingMeterOptions } from './stripe-billing-meter';
@@ -27,42 +23,42 @@ export type { StripeHttpClientOptions } from './stripe-http-client';
  * half-configured env.
  */
 export function buildBillingMeter(): BillingMeter {
-    const provider = (process.env.NANORUN_BILLING_PROVIDER ?? 'noop').toLowerCase();
-    switch (provider) {
-        case 'stripe': {
-            const secretKey = process.env.STRIPE_SECRET_KEY;
-            if (!secretKey) {
-                // Loud refusal — operator forgot to set STRIPE_SECRET_KEY.
-                // Returning a meter whose inner sender no-ops protects
-                // against accidentally double-billing if someone half-
-                // configured the env in a deploy.
-                return new StripeBillingMeter({
-                    sendMeterEvent: async () => undefined,
-                });
-            }
-            return new StripeBillingMeter({
-                sendMeterEvent: buildStripeMeterEventSender({ secretKey }),
-            });
-        }
-        case 'noop':
-        default:
-            return new NoopBillingMeter();
+  const provider = (process.env.NANORUN_BILLING_PROVIDER ?? 'noop').toLowerCase();
+  switch (provider) {
+    case 'stripe': {
+      const secretKey = process.env.STRIPE_SECRET_KEY;
+      if (!secretKey) {
+        // Loud refusal — operator forgot to set STRIPE_SECRET_KEY.
+        // Returning a meter whose inner sender no-ops protects
+        // against accidentally double-billing if someone half-
+        // configured the env in a deploy.
+        return new StripeBillingMeter({
+          sendMeterEvent: async () => undefined,
+        });
+      }
+      return new StripeBillingMeter({
+        sendMeterEvent: buildStripeMeterEventSender({ secretKey }),
+      });
     }
+    case 'noop':
+    default:
+      return new NoopBillingMeter();
+  }
 }
 
 let meterSingleton: BillingMeter | null = null;
 
 export function getBillingMeter(): BillingMeter {
-    if (!meterSingleton) {
-        meterSingleton = buildBillingMeter();
-    }
-    return meterSingleton;
+  if (!meterSingleton) {
+    meterSingleton = buildBillingMeter();
+  }
+  return meterSingleton;
 }
 
 export function setBillingMeterForTest(meter: BillingMeter): void {
-    meterSingleton = meter;
+  meterSingleton = meter;
 }
 
 export function resetBillingMeterForTest(): void {
-    meterSingleton = null;
+  meterSingleton = null;
 }

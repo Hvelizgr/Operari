@@ -1,7 +1,7 @@
 import type {
-    DatabaseNodeConfig,
-    DatabaseResult,
-    ExecutionInput,
+  DatabaseNodeConfig,
+  DatabaseResult,
+  ExecutionInput,
 } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { resolveTemplate } from './_shared';
@@ -31,38 +31,39 @@ import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
  */
 const ALLOWED_OPERATIONS = new Set(['migrate', 'health', 'backup']);
 
-export class DatabaseNodeExecutor
-    implements EditorNodeExecutor<DatabaseNodeConfig, DatabaseResult> {
-    readonly type = 'Database';
-    readonly aliases = ['nanorun.postgres'] as const;
+export class DatabaseNodeExecutor implements EditorNodeExecutor<
+  DatabaseNodeConfig,
+  DatabaseResult
+> {
+  readonly type = 'Database';
+  readonly aliases = ['nanorun.postgres'] as const;
 
-    async execute(
-        config: DatabaseNodeConfig,
-        input: ExecutionInput,
-        errorContext: NodeErrorContext,
-    ): Promise<DatabaseResult> {
-        const { operation, table, query, data } = config;
+  async execute(
+    config: DatabaseNodeConfig,
+    input: ExecutionInput,
+    errorContext: NodeErrorContext
+  ): Promise<DatabaseResult> {
+    const { operation, table, query, data } = config;
 
-        if (operation && !ALLOWED_OPERATIONS.has(operation)) {
-            throw new NodeExecutionError({
-                ...errorContext,
-                message: `Database operation "${operation}" is not allowed in a runbook step. ` +
-                    `Use one of: ${[...ALLOWED_OPERATIONS].join(', ')}, or run it from a shell step.`,
-                code: ErrorCode.NODE_EXECUTION_FAILED,
-                userMessage:
-                    'This database operation is blocked. Runbooks can only run migrations, ' +
-                    'health checks, or backups; arbitrary DML belongs in a shell step.',
-            });
-        }
-
-        return {
-            operation,
-            table,
-            query: resolveTemplate(query || '', input),
-            data: data
-                ? JSON.parse(resolveTemplate(JSON.stringify(data), input))
-                : null,
-            message: 'Database step is a stub — wire prisma in NodeExecutorDeps to make it active',
-        };
+    if (operation && !ALLOWED_OPERATIONS.has(operation)) {
+      throw new NodeExecutionError({
+        ...errorContext,
+        message:
+          `Database operation "${operation}" is not allowed in a runbook step. ` +
+          `Use one of: ${[...ALLOWED_OPERATIONS].join(', ')}, or run it from a shell step.`,
+        code: ErrorCode.NODE_EXECUTION_FAILED,
+        userMessage:
+          'This database operation is blocked. Runbooks can only run migrations, ' +
+          'health checks, or backups; arbitrary DML belongs in a shell step.',
+      });
     }
+
+    return {
+      operation,
+      table,
+      query: resolveTemplate(query || '', input),
+      data: data ? JSON.parse(resolveTemplate(JSON.stringify(data), input)) : null,
+      message: 'Database step is a stub — wire prisma in NodeExecutorDeps to make it active',
+    };
+  }
 }

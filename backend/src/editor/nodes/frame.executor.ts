@@ -11,15 +11,17 @@ import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
  * canvas and running the workflow throws "Unknown node type: custom.frame"
  * because the palette exposes the type but no executor handled it.
  */
-export class FrameNodeExecutor
-    implements EditorNodeExecutor<Record<string, unknown>, NodeExecutionResult> {
-    readonly type = 'custom.frame';
+export class FrameNodeExecutor implements EditorNodeExecutor<
+  Record<string, unknown>,
+  NodeExecutionResult
+> {
+  readonly type = 'custom.frame';
 
-    async execute(
-        _config: Record<string, unknown>,
-        input: ExecutionInput,
-        _errorContext: NodeErrorContext,
-    ): Promise<NodeExecutionResult> {
-        return input as NodeExecutionResult;
-    }
+  async execute(
+    _config: Record<string, unknown>,
+    input: ExecutionInput,
+    _errorContext: NodeErrorContext
+  ): Promise<NodeExecutionResult> {
+    return input as NodeExecutionResult;
+  }
 }

@@ -23,46 +23,44 @@ app.use(express.json());
 app.use('/api/templates', templatesRoutes);
 
 describe('GET /api/templates', () => {
-    it('returns the curated list with slug + yaml + stepCount', async () => {
-        const response = await request(app).get('/api/templates');
-        expect(response.status).toBe(200);
-        expect(Array.isArray(response.body.data)).toBe(true);
+  it('returns the curated list with slug + yaml + stepCount', async () => {
+    const response = await request(app).get('/api/templates');
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body.data)).toBe(true);
 
-        const k8s = response.body.data.find(
-            (t: { slug: string }) => t.slug === 'k8s-rolling-deploy',
-        );
-        expect(k8s).toBeDefined();
-        expect(k8s.name).toBeTruthy();
-        expect(typeof k8s.yaml).toBe('string');
-        expect(k8s.yaml.length).toBeGreaterThan(0);
-        expect(typeof k8s.stepCount).toBe('number');
-        expect(k8s.stepCount).toBeGreaterThan(0);
-    });
+    const k8s = response.body.data.find((t: { slug: string }) => t.slug === 'k8s-rolling-deploy');
+    expect(k8s).toBeDefined();
+    expect(k8s.name).toBeTruthy();
+    expect(typeof k8s.yaml).toBe('string');
+    expect(k8s.yaml.length).toBeGreaterThan(0);
+    expect(typeof k8s.stepCount).toBe('number');
+    expect(k8s.stepCount).toBeGreaterThan(0);
+  });
 });
 
 describe('GET /api/templates/:slug', () => {
-    it('returns 200 + payload for a known slug', async () => {
-        const response = await request(app).get('/api/templates/k8s-rolling-deploy');
-        expect(response.status).toBe(200);
-        expect(response.body.data).toBeDefined();
-        expect(response.body.data.slug).toBe('k8s-rolling-deploy');
-        expect(response.body.data.yaml).toMatch(/K8s Rolling Deploy/);
-    });
+  it('returns 200 + payload for a known slug', async () => {
+    const response = await request(app).get('/api/templates/k8s-rolling-deploy');
+    expect(response.status).toBe(200);
+    expect(response.body.data).toBeDefined();
+    expect(response.body.data.slug).toBe('k8s-rolling-deploy');
+    expect(response.body.data.yaml).toMatch(/K8s Rolling Deploy/);
+  });
 
-    it('returns 404 for an unknown slug without leaking filesystem paths', async () => {
-        const response = await request(app).get('/api/templates/does-not-exist-anywhere');
-        expect(response.status).toBe(404);
-        expect(response.body.error).toMatch(/not found/i);
-        // Defensive: make sure we never echo a path back
-        expect(JSON.stringify(response.body)).not.toMatch(/\/app\/|\/home\//);
-    });
+  it('returns 404 for an unknown slug without leaking filesystem paths', async () => {
+    const response = await request(app).get('/api/templates/does-not-exist-anywhere');
+    expect(response.status).toBe(404);
+    expect(response.body.error).toMatch(/not found/i);
+    // Defensive: make sure we never echo a path back
+    expect(JSON.stringify(response.body)).not.toMatch(/\/app\/|\/home\//);
+  });
 
-    it('rejects an empty-ish slug', async () => {
-        // With `/:slug` Express will not match an empty segment, so
-        // this actually hits the list route (200). Documenting the
-        // behaviour to pin it.
-        const response = await request(app).get('/api/templates/');
-        expect(response.status).toBe(200);
-        expect(Array.isArray(response.body.data)).toBe(true);
-    });
+  it('rejects an empty-ish slug', async () => {
+    // With `/:slug` Express will not match an empty segment, so
+    // this actually hits the list route (200). Documenting the
+    // behaviour to pin it.
+    const response = await request(app).get('/api/templates/');
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body.data)).toBe(true);
+  });
 });

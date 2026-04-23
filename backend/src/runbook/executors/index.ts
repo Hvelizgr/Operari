@@ -22,11 +22,11 @@ export { DatabaseExecutor } from './database.executor';
 export { RunbookExecutor } from './runbook.executor';
 
 export interface ExecutorRegistryOptions {
-    /**
-     * Runner used by command-executing steps (shell, future http/kubectl).
-     * If not provided, builds one from process.env via runnerOptionsFromEnv().
-     */
-    runner?: Runner;
+  /**
+   * Runner used by command-executing steps (shell, future http/kubectl).
+   * If not provided, builds one from process.env via runnerOptionsFromEnv().
+   */
+  runner?: Runner;
 }
 
 /**
@@ -38,31 +38,31 @@ export interface ExecutorRegistryOptions {
  *   3. Add the corresponding node palette entry in the frontend
  */
 export function createExecutorRegistry(
-    prisma: PrismaClient,
-    options: ExecutorRegistryOptions = {},
+  prisma: PrismaClient,
+  options: ExecutorRegistryOptions = {}
 ): Map<string, StepExecutor> {
-    const runner = options.runner ?? getRunner();
+  const runner = options.runner ?? getRunner();
 
-    const registry = new Map<string, StepExecutor>();
+  const registry = new Map<string, StepExecutor>();
 
-    registry.set('shell', new ShellExecutor(runner));
-    registry.set('approval', new ApprovalExecutor(prisma));
-    registry.set('notify', new NotifyExecutor());
-    registry.set('wait', new WaitExecutor());
-    registry.set('ssh', new SSHExecutor());
-    registry.set('nanorun.httpRequest', new HttpExecutor());
-    registry.set('nanorun.database', new DatabaseExecutor());
-    registry.set('runbook', new RunbookExecutor(prisma));
+  registry.set('shell', new ShellExecutor(runner));
+  registry.set('approval', new ApprovalExecutor(prisma));
+  registry.set('notify', new NotifyExecutor());
+  registry.set('wait', new WaitExecutor());
+  registry.set('ssh', new SSHExecutor());
+  registry.set('nanorun.httpRequest', new HttpExecutor());
+  registry.set('nanorun.database', new DatabaseExecutor());
+  registry.set('runbook', new RunbookExecutor(prisma));
 
-    // User-authored plugins. Loaded from NANORUN_PLUGINS_DIR (opt-in
-    // per deployment). The loader catches its own errors so a broken
-    // plugin never prevents the core registry from being built; we
-    // only skip the offending entry and log it.
-    const registeredTypes = new Set<string>(registry.keys());
-    const { executors: pluginExecutors } = loadPluginsSync({ registeredTypes });
-    for (const executor of pluginExecutors) {
-        registry.set(executor.type, executor);
-    }
+  // User-authored plugins. Loaded from NANORUN_PLUGINS_DIR (opt-in
+  // per deployment). The loader catches its own errors so a broken
+  // plugin never prevents the core registry from being built; we
+  // only skip the offending entry and log it.
+  const registeredTypes = new Set<string>(registry.keys());
+  const { executors: pluginExecutors } = loadPluginsSync({ registeredTypes });
+  for (const executor of pluginExecutors) {
+    registry.set(executor.type, executor);
+  }
 
-    return registry;
+  return registry;
 }

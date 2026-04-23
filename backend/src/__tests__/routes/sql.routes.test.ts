@@ -14,12 +14,12 @@ import request from 'supertest';
 // ---------------------------------------------------------------------------
 
 jest.mock('../../config/logger.config', () => ({
-    logger: {
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-    },
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 
 // ---------------------------------------------------------------------------
@@ -30,11 +30,11 @@ jest.mock('../../config/logger.config', () => ({
 
 const connectedAccountFindFirst = jest.fn();
 jest.mock('../../server', () => ({
-    prisma: {
-        connectedAccount: {
-            findFirst: (args: any) => connectedAccountFindFirst(args),
-        },
+  prisma: {
+    connectedAccount: {
+      findFirst: (args: any) => connectedAccountFindFirst(args),
     },
+  },
 }));
 
 // ---------------------------------------------------------------------------
@@ -43,9 +43,9 @@ jest.mock('../../server', () => ({
 // ---------------------------------------------------------------------------
 
 jest.mock('../../audit/audit.service', () => ({
-    AuditService: jest.fn().mockImplementation(() => ({
-        append: jest.fn().mockResolvedValue(undefined),
-    })),
+  AuditService: jest.fn().mockImplementation(() => ({
+    append: jest.fn().mockResolvedValue(undefined),
+  })),
 }));
 
 // ---------------------------------------------------------------------------
@@ -55,9 +55,9 @@ jest.mock('../../audit/audit.service', () => ({
 // ---------------------------------------------------------------------------
 
 jest.mock('../../security/secret-reader', () => ({
-    SecretReader: jest.fn().mockImplementation(() => ({
-        read: jest.fn(async ({ ciphertext }: { ciphertext: string }) => ciphertext),
-    })),
+  SecretReader: jest.fn().mockImplementation(() => ({
+    read: jest.fn(async ({ ciphertext }: { ciphertext: string }) => ciphertext),
+  })),
 }));
 
 // ---------------------------------------------------------------------------
@@ -68,253 +68,254 @@ jest.mock('../../security/secret-reader', () => ({
 // ---------------------------------------------------------------------------
 
 type ResponseSpec =
-    | { rows: any[]; rowCount: number; fields?: Array<{ name: string; dataTypeID: number }> }
-    | { error: string };
+  | { rows: any[]; rowCount: number; fields?: Array<{ name: string; dataTypeID: number }> }
+  | { error: string };
 
 const pgQueue: ResponseSpec[] = [];
 let pgCalls: string[] = [];
 let endCalls = 0;
 
 jest.mock('pg', () => {
-    class FakeClient {
-        constructor(_cfg: any) {}
-        async connect() { /* noop */ }
-        async query(sql: string, _params?: any[]) {
-            pgCalls.push(sql.trim());
-            if (sql.includes('SET statement_timeout') || sql === 'BEGIN TRANSACTION READ ONLY' || sql === 'COMMIT' || sql === 'ROLLBACK') {
-                return { rows: [], rowCount: 0 };
-            }
-            // Everything else is treated as "the user query" OR a schema
-            // introspection call, both pulled from the queue.
-            const next = pgQueue.shift();
-            if (!next) throw new Error('no pg response queued');
-            if ('error' in next) throw new Error(next.error);
-            return { rows: next.rows, rowCount: next.rowCount, fields: next.fields };
-        }
-        async end() { endCalls++; }
+  class FakeClient {
+    constructor(_cfg: any) {}
+    async connect() {
+      /* noop */
     }
-    return { Client: FakeClient };
+    async query(sql: string, _params?: any[]) {
+      pgCalls.push(sql.trim());
+      if (
+        sql.includes('SET statement_timeout') ||
+        sql === 'BEGIN TRANSACTION READ ONLY' ||
+        sql === 'COMMIT' ||
+        sql === 'ROLLBACK'
+      ) {
+        return { rows: [], rowCount: 0 };
+      }
+      // Everything else is treated as "the user query" OR a schema
+      // introspection call, both pulled from the queue.
+      const next = pgQueue.shift();
+      if (!next) throw new Error('no pg response queued');
+      if ('error' in next) throw new Error(next.error);
+      return { rows: next.rows, rowCount: next.rowCount, fields: next.fields };
+    }
+    async end() {
+      endCalls++;
+    }
+  }
+  return { Client: FakeClient };
 });
 
 import sqlRouter from '../../routes/sql.routes';
 
 function buildApp() {
-    const app = express();
-    app.use(express.json());
-    // Inject a fake user so AuthRequest.user.tenantId is populated.
-    app.use((req: any, _res, next) => {
-        req.user = { id: 'u1', email: 'u@e', role: 'USER', tenantId: 't1' };
-        next();
-    });
-    app.use('/api/sql', sqlRouter);
-    return app;
+  const app = express();
+  app.use(express.json());
+  // Inject a fake user so AuthRequest.user.tenantId is populated.
+  app.use((req: any, _res, next) => {
+    req.user = { id: 'u1', email: 'u@e', role: 'USER', tenantId: 't1' };
+    next();
+  });
+  app.use('/api/sql', sqlRouter);
+  return app;
 }
 
 describe('SQL routes', () => {
-    beforeEach(() => {
-        jest.clearAllMocks();
-        pgQueue.length = 0;
-        pgCalls = [];
-        endCalls = 0;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    pgQueue.length = 0;
+    pgCalls = [];
+    endCalls = 0;
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /query
+  // -----------------------------------------------------------------------
+
+  describe('POST /api/sql/query', () => {
+    it('rejects requests missing credentialId or query with 400', async () => {
+      const app = buildApp();
+      const res = await request(app).post('/api/sql/query').send({ query: 'SELECT 1' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/credentialId.*query/);
     });
 
-    // -----------------------------------------------------------------------
-    // POST /query
-    // -----------------------------------------------------------------------
-
-    describe('POST /api/sql/query', () => {
-        it('rejects requests missing credentialId or query with 400', async () => {
-            const app = buildApp();
-            const res = await request(app).post('/api/sql/query').send({ query: 'SELECT 1' });
-            expect(res.status).toBe(400);
-            expect(res.body.error).toMatch(/credentialId.*query/);
-        });
-
-        it('returns 404 when the credential does not exist for the tenant', async () => {
-            connectedAccountFindFirst.mockResolvedValueOnce(null);
-            const app = buildApp();
-            const res = await request(app)
-                .post('/api/sql/query')
-                .send({ credentialId: 'missing', query: 'SELECT 1' });
-            expect(res.status).toBe(404);
-            expect(res.body.error).toMatch(/not found/i);
-        });
-
-        it('wraps the user query in BEGIN TRANSACTION READ ONLY + COMMIT', async () => {
-            connectedAccountFindFirst.mockResolvedValueOnce({
-                id: 'acc-1',
-                accessToken: 'postgres://x@h:5432/db',
-            });
-            pgQueue.push({ rows: [{ n: 1 }], rowCount: 1, fields: [{ name: 'n', dataTypeID: 23 }] });
-
-            const app = buildApp();
-            const res = await request(app)
-                .post('/api/sql/query')
-                .send({ credentialId: 'acc-1', query: 'SELECT 1 AS n' });
-
-            expect(res.status).toBe(200);
-            // Read-only transaction must wrap the user query.
-            expect(pgCalls).toContain('BEGIN TRANSACTION READ ONLY');
-            expect(pgCalls).toContain('COMMIT');
-            // User query executed between BEGIN and COMMIT, not before.
-            const begin = pgCalls.indexOf('BEGIN TRANSACTION READ ONLY');
-            const user = pgCalls.indexOf('SELECT 1 AS n');
-            const commit = pgCalls.indexOf('COMMIT');
-            expect(begin).toBeLessThan(user);
-            expect(user).toBeLessThan(commit);
-        });
-
-        it('caps statement_timeout at 60000ms even when the caller asks for more', async () => {
-            connectedAccountFindFirst.mockResolvedValueOnce({
-                id: 'acc-1',
-                accessToken: 'postgres://x@h:5432/db',
-            });
-            pgQueue.push({ rows: [], rowCount: 0 });
-
-            const app = buildApp();
-            await request(app)
-                .post('/api/sql/query')
-                .send({ credentialId: 'acc-1', query: 'SELECT 1', timeout: 999999 });
-
-            const setCall = pgCalls.find((c) => c.startsWith('SET statement_timeout'));
-            expect(setCall).toBeDefined();
-            // 999999 > 60000 so the route should clamp to 60000.
-            expect(setCall).toContain('60000');
-        });
-
-        it('returns the query rows + rowCount + fields + durationMs on success', async () => {
-            connectedAccountFindFirst.mockResolvedValueOnce({
-                id: 'acc-1',
-                accessToken: 'postgres://x@h:5432/db',
-            });
-            pgQueue.push({
-                rows: [{ id: 1, name: 'alice' }],
-                rowCount: 1,
-                fields: [
-                    { name: 'id', dataTypeID: 23 },
-                    { name: 'name', dataTypeID: 25 },
-                ],
-            });
-
-            const app = buildApp();
-            const res = await request(app)
-                .post('/api/sql/query')
-                .send({ credentialId: 'acc-1', query: 'SELECT * FROM users' });
-
-            expect(res.status).toBe(200);
-            expect(res.body.rows).toEqual([{ id: 1, name: 'alice' }]);
-            expect(res.body.rowCount).toBe(1);
-            expect(res.body.fields).toEqual([
-                { name: 'id', dataTypeID: 23 },
-                { name: 'name', dataTypeID: 25 },
-            ]);
-            expect(typeof res.body.durationMs).toBe('number');
-        });
-
-        it('returns 422 + error message on query failure without leaking stack traces', async () => {
-            connectedAccountFindFirst.mockResolvedValueOnce({
-                id: 'acc-1',
-                accessToken: 'postgres://x@h:5432/db',
-            });
-            pgQueue.push({ error: 'syntax error at or near "SELEC"' });
-
-            const app = buildApp();
-            const res = await request(app)
-                .post('/api/sql/query')
-                .send({ credentialId: 'acc-1', query: 'SELEC 1' });
-
-            expect(res.status).toBe(422);
-            expect(res.body.error).toContain('syntax error');
-            expect(res.body).not.toHaveProperty('stack');
-            expect(typeof res.body.durationMs).toBe('number');
-        });
-
-        it('closes the pg connection even on failure', async () => {
-            connectedAccountFindFirst.mockResolvedValueOnce({
-                id: 'acc-1',
-                accessToken: 'postgres://x@h:5432/db',
-            });
-            pgQueue.push({ error: 'boom' });
-
-            const app = buildApp();
-            await request(app)
-                .post('/api/sql/query')
-                .send({ credentialId: 'acc-1', query: 'SELECT 1' });
-
-            expect(endCalls).toBe(1);
-        });
+    it('returns 404 when the credential does not exist for the tenant', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce(null);
+      const app = buildApp();
+      const res = await request(app)
+        .post('/api/sql/query')
+        .send({ credentialId: 'missing', query: 'SELECT 1' });
+      expect(res.status).toBe(404);
+      expect(res.body.error).toMatch(/not found/i);
     });
 
-    // -----------------------------------------------------------------------
-    // POST /schema
-    // -----------------------------------------------------------------------
+    it('wraps the user query in BEGIN TRANSACTION READ ONLY + COMMIT', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'acc-1',
+        accessToken: 'postgres://x@h:5432/db',
+      });
+      pgQueue.push({ rows: [{ n: 1 }], rowCount: 1, fields: [{ name: 'n', dataTypeID: 23 }] });
 
-    describe('POST /api/sql/schema', () => {
-        it('rejects requests missing credentialId with 400', async () => {
-            const app = buildApp();
-            const res = await request(app).post('/api/sql/schema').send({});
-            expect(res.status).toBe(400);
-            expect(res.body.error).toMatch(/credentialId/);
-        });
+      const app = buildApp();
+      const res = await request(app)
+        .post('/api/sql/query')
+        .send({ credentialId: 'acc-1', query: 'SELECT 1 AS n' });
 
-        it('returns 404 when the credential is not found', async () => {
-            connectedAccountFindFirst.mockResolvedValueOnce(null);
-            const app = buildApp();
-            const res = await request(app)
-                .post('/api/sql/schema')
-                .send({ credentialId: 'missing' });
-            expect(res.status).toBe(404);
-        });
-
-        it('introspects tables + columns into the canonical shape', async () => {
-            connectedAccountFindFirst.mockResolvedValueOnce({
-                id: 'acc-1',
-                accessToken: 'postgres://x@h:5432/db',
-            });
-            // First call: list tables. Second call: columns for the single table.
-            pgQueue.push({
-                rows: [{ table_schema: 'public', table_name: 'users' }],
-                rowCount: 1,
-            });
-            pgQueue.push({
-                rows: [
-                    { column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null },
-                    { column_name: 'email', data_type: 'text', is_nullable: 'YES', column_default: null },
-                ],
-                rowCount: 2,
-            });
-
-            const app = buildApp();
-            const res = await request(app)
-                .post('/api/sql/schema')
-                .send({ credentialId: 'acc-1' });
-
-            expect(res.status).toBe(200);
-            expect(res.body.tables).toEqual([
-                {
-                    schema: 'public',
-                    name: 'users',
-                    columns: [
-                        { name: 'id', type: 'integer', nullable: false, default: null },
-                        { name: 'email', type: 'text', nullable: true, default: null },
-                    ],
-                },
-            ]);
-        });
-
-        it('returns 422 when introspection fails', async () => {
-            connectedAccountFindFirst.mockResolvedValueOnce({
-                id: 'acc-1',
-                accessToken: 'postgres://x@h:5432/db',
-            });
-            pgQueue.push({ error: 'connection terminated' });
-
-            const app = buildApp();
-            const res = await request(app)
-                .post('/api/sql/schema')
-                .send({ credentialId: 'acc-1' });
-            expect(res.status).toBe(422);
-            expect(res.body.error).toContain('connection terminated');
-        });
+      expect(res.status).toBe(200);
+      // Read-only transaction must wrap the user query.
+      expect(pgCalls).toContain('BEGIN TRANSACTION READ ONLY');
+      expect(pgCalls).toContain('COMMIT');
+      // User query executed between BEGIN and COMMIT, not before.
+      const begin = pgCalls.indexOf('BEGIN TRANSACTION READ ONLY');
+      const user = pgCalls.indexOf('SELECT 1 AS n');
+      const commit = pgCalls.indexOf('COMMIT');
+      expect(begin).toBeLessThan(user);
+      expect(user).toBeLessThan(commit);
     });
+
+    it('caps statement_timeout at 60000ms even when the caller asks for more', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'acc-1',
+        accessToken: 'postgres://x@h:5432/db',
+      });
+      pgQueue.push({ rows: [], rowCount: 0 });
+
+      const app = buildApp();
+      await request(app)
+        .post('/api/sql/query')
+        .send({ credentialId: 'acc-1', query: 'SELECT 1', timeout: 999999 });
+
+      const setCall = pgCalls.find(c => c.startsWith('SET statement_timeout'));
+      expect(setCall).toBeDefined();
+      // 999999 > 60000 so the route should clamp to 60000.
+      expect(setCall).toContain('60000');
+    });
+
+    it('returns the query rows + rowCount + fields + durationMs on success', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'acc-1',
+        accessToken: 'postgres://x@h:5432/db',
+      });
+      pgQueue.push({
+        rows: [{ id: 1, name: 'alice' }],
+        rowCount: 1,
+        fields: [
+          { name: 'id', dataTypeID: 23 },
+          { name: 'name', dataTypeID: 25 },
+        ],
+      });
+
+      const app = buildApp();
+      const res = await request(app)
+        .post('/api/sql/query')
+        .send({ credentialId: 'acc-1', query: 'SELECT * FROM users' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.rows).toEqual([{ id: 1, name: 'alice' }]);
+      expect(res.body.rowCount).toBe(1);
+      expect(res.body.fields).toEqual([
+        { name: 'id', dataTypeID: 23 },
+        { name: 'name', dataTypeID: 25 },
+      ]);
+      expect(typeof res.body.durationMs).toBe('number');
+    });
+
+    it('returns 422 + error message on query failure without leaking stack traces', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'acc-1',
+        accessToken: 'postgres://x@h:5432/db',
+      });
+      pgQueue.push({ error: 'syntax error at or near "SELEC"' });
+
+      const app = buildApp();
+      const res = await request(app)
+        .post('/api/sql/query')
+        .send({ credentialId: 'acc-1', query: 'SELEC 1' });
+
+      expect(res.status).toBe(422);
+      expect(res.body.error).toContain('syntax error');
+      expect(res.body).not.toHaveProperty('stack');
+      expect(typeof res.body.durationMs).toBe('number');
+    });
+
+    it('closes the pg connection even on failure', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'acc-1',
+        accessToken: 'postgres://x@h:5432/db',
+      });
+      pgQueue.push({ error: 'boom' });
+
+      const app = buildApp();
+      await request(app).post('/api/sql/query').send({ credentialId: 'acc-1', query: 'SELECT 1' });
+
+      expect(endCalls).toBe(1);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /schema
+  // -----------------------------------------------------------------------
+
+  describe('POST /api/sql/schema', () => {
+    it('rejects requests missing credentialId with 400', async () => {
+      const app = buildApp();
+      const res = await request(app).post('/api/sql/schema').send({});
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/credentialId/);
+    });
+
+    it('returns 404 when the credential is not found', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce(null);
+      const app = buildApp();
+      const res = await request(app).post('/api/sql/schema').send({ credentialId: 'missing' });
+      expect(res.status).toBe(404);
+    });
+
+    it('introspects tables + columns into the canonical shape', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'acc-1',
+        accessToken: 'postgres://x@h:5432/db',
+      });
+      // First call: list tables. Second call: columns for the single table.
+      pgQueue.push({
+        rows: [{ table_schema: 'public', table_name: 'users' }],
+        rowCount: 1,
+      });
+      pgQueue.push({
+        rows: [
+          { column_name: 'id', data_type: 'integer', is_nullable: 'NO', column_default: null },
+          { column_name: 'email', data_type: 'text', is_nullable: 'YES', column_default: null },
+        ],
+        rowCount: 2,
+      });
+
+      const app = buildApp();
+      const res = await request(app).post('/api/sql/schema').send({ credentialId: 'acc-1' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.tables).toEqual([
+        {
+          schema: 'public',
+          name: 'users',
+          columns: [
+            { name: 'id', type: 'integer', nullable: false, default: null },
+            { name: 'email', type: 'text', nullable: true, default: null },
+          ],
+        },
+      ]);
+    });
+
+    it('returns 422 when introspection fails', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'acc-1',
+        accessToken: 'postgres://x@h:5432/db',
+      });
+      pgQueue.push({ error: 'connection terminated' });
+
+      const app = buildApp();
+      const res = await request(app).post('/api/sql/schema').send({ credentialId: 'acc-1' });
+      expect(res.status).toBe(422);
+      expect(res.body.error).toContain('connection terminated');
+    });
+  });
 });

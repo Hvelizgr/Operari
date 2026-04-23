@@ -25,188 +25,191 @@ import type { PermissionService } from './permission.service';
  */
 
 export interface GrantRoleInput {
-    /** User receiving the role */
-    userId: string;
-    /** Role being granted */
-    roleId: string;
-    /** Tenant the operation is scoped to (must own user AND role) */
-    tenantId: string;
-    /** Who is performing the grant. `null` for system-initiated grants. */
-    actorId?: string | null;
-    actorType?: ActorType | null;
-    /** Free-form reason recorded in the audit payload */
-    reason?: string;
+  /** User receiving the role */
+  userId: string;
+  /** Role being granted */
+  roleId: string;
+  /** Tenant the operation is scoped to (must own user AND role) */
+  tenantId: string;
+  /** Who is performing the grant. `null` for system-initiated grants. */
+  actorId?: string | null;
+  actorType?: ActorType | null;
+  /** Free-form reason recorded in the audit payload */
+  reason?: string;
 }
 
 export interface RevokeRoleInput {
-    userId: string;
-    roleId: string;
-    tenantId: string;
-    actorId?: string | null;
-    actorType?: ActorType | null;
-    reason?: string;
+  userId: string;
+  roleId: string;
+  tenantId: string;
+  actorId?: string | null;
+  actorType?: ActorType | null;
+  reason?: string;
 }
 
 export class RoleAssignmentError extends Error {
-    constructor(message: string, public readonly code: 'NOT_FOUND' | 'CROSS_TENANT' | 'ALREADY_ASSIGNED' | 'NOT_ASSIGNED') {
-        super(message);
-        this.name = 'RoleAssignmentError';
-    }
+  constructor(
+    message: string,
+    public readonly code: 'NOT_FOUND' | 'CROSS_TENANT' | 'ALREADY_ASSIGNED' | 'NOT_ASSIGNED'
+  ) {
+    super(message);
+    this.name = 'RoleAssignmentError';
+  }
 }
 
 export class RoleAssignmentService {
-    constructor(
-        private readonly prisma: PrismaClient,
-        private readonly audit: AuditService,
-        private readonly permissions: PermissionService,
-    ) { }
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly audit: AuditService,
+    private readonly permissions: PermissionService
+  ) {}
 
-    /**
-     * Grant a role to a user. Idempotent at the DB layer (`@@unique([userId, roleId])`)
-     * but we throw `ALREADY_ASSIGNED` rather than silently no-op'ing so
-     * the audit chain does not get spammed with duplicates.
-     */
-    async grant(input: GrantRoleInput): Promise<{ assignmentId: string }> {
-        const { user, role } = await this.loadAndVerify(input.userId, input.roleId, input.tenantId);
+  /**
+   * Grant a role to a user. Idempotent at the DB layer (`@@unique([userId, roleId])`)
+   * but we throw `ALREADY_ASSIGNED` rather than silently no-op'ing so
+   * the audit chain does not get spammed with duplicates.
+   */
+  async grant(input: GrantRoleInput): Promise<{ assignmentId: string }> {
+    const { user, role } = await this.loadAndVerify(input.userId, input.roleId, input.tenantId);
 
-        const existing = await this.prisma.roleAssignment.findUnique({
-            where: { userId_roleId: { userId: input.userId, roleId: input.roleId } },
-            select: { id: true },
-        });
-        if (existing) {
-            throw new RoleAssignmentError(
-                `User ${input.userId} already has role ${input.roleId}`,
-                'ALREADY_ASSIGNED',
-            );
-        }
-
-        const assignment = await this.prisma.roleAssignment.create({
-            data: {
-                userId: input.userId,
-                roleId: input.roleId,
-                grantedBy: input.actorId ?? null,
-            },
-            select: { id: true },
-        });
-
-        this.permissions.invalidate(input.userId);
-
-        await this.recordSafe('role.granted', {
-            tenantId: input.tenantId,
-            actorId: input.actorId ?? null,
-            actorType: input.actorType ?? 'user',
-            resource: `user:${input.userId}`,
-            payload: {
-                userId: input.userId,
-                userEmail: user.email,
-                roleId: input.roleId,
-                roleName: role.name,
-                assignmentId: assignment.id,
-                reason: input.reason ?? null,
-            },
-        });
-
-        return { assignmentId: assignment.id };
+    const existing = await this.prisma.roleAssignment.findUnique({
+      where: { userId_roleId: { userId: input.userId, roleId: input.roleId } },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new RoleAssignmentError(
+        `User ${input.userId} already has role ${input.roleId}`,
+        'ALREADY_ASSIGNED'
+      );
     }
 
-    /**
-     * Revoke a role from a user. Throws `NOT_ASSIGNED` if the assignment
-     * does not exist — see grant() rationale.
-     */
-    async revoke(input: RevokeRoleInput): Promise<void> {
-        const { user, role } = await this.loadAndVerify(input.userId, input.roleId, input.tenantId);
+    const assignment = await this.prisma.roleAssignment.create({
+      data: {
+        userId: input.userId,
+        roleId: input.roleId,
+        grantedBy: input.actorId ?? null,
+      },
+      select: { id: true },
+    });
 
-        const existing = await this.prisma.roleAssignment.findUnique({
-            where: { userId_roleId: { userId: input.userId, roleId: input.roleId } },
-            select: { id: true },
-        });
-        if (!existing) {
-            throw new RoleAssignmentError(
-                `User ${input.userId} does not have role ${input.roleId}`,
-                'NOT_ASSIGNED',
-            );
-        }
+    this.permissions.invalidate(input.userId);
 
-        await this.prisma.roleAssignment.delete({
-            where: { userId_roleId: { userId: input.userId, roleId: input.roleId } },
-        });
+    await this.recordSafe('role.granted', {
+      tenantId: input.tenantId,
+      actorId: input.actorId ?? null,
+      actorType: input.actorType ?? 'user',
+      resource: `user:${input.userId}`,
+      payload: {
+        userId: input.userId,
+        userEmail: user.email,
+        roleId: input.roleId,
+        roleName: role.name,
+        assignmentId: assignment.id,
+        reason: input.reason ?? null,
+      },
+    });
 
-        this.permissions.invalidate(input.userId);
+    return { assignmentId: assignment.id };
+  }
 
-        await this.recordSafe('role.revoked', {
-            tenantId: input.tenantId,
-            actorId: input.actorId ?? null,
-            actorType: input.actorType ?? 'user',
-            resource: `user:${input.userId}`,
-            payload: {
-                userId: input.userId,
-                userEmail: user.email,
-                roleId: input.roleId,
-                roleName: role.name,
-                assignmentId: existing.id,
-                reason: input.reason ?? null,
-            },
-        });
+  /**
+   * Revoke a role from a user. Throws `NOT_ASSIGNED` if the assignment
+   * does not exist — see grant() rationale.
+   */
+  async revoke(input: RevokeRoleInput): Promise<void> {
+    const { user, role } = await this.loadAndVerify(input.userId, input.roleId, input.tenantId);
+
+    const existing = await this.prisma.roleAssignment.findUnique({
+      where: { userId_roleId: { userId: input.userId, roleId: input.roleId } },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new RoleAssignmentError(
+        `User ${input.userId} does not have role ${input.roleId}`,
+        'NOT_ASSIGNED'
+      );
     }
 
-    /**
-     * Load both ends of the assignment, verify they exist, verify both
-     * belong to the same tenant the caller claims. Cross-tenant grants
-     * are never silent — they throw.
-     */
-    private async loadAndVerify(userId: string, roleId: string, tenantId: string) {
-        const [user, role] = await Promise.all([
-            this.prisma.user.findUnique({
-                where: { id: userId },
-                select: { id: true, email: true, tenantId: true },
-            }),
-            this.prisma.customRole.findUnique({
-                where: { id: roleId },
-                select: { id: true, name: true, tenantId: true },
-            }),
-        ]);
+    await this.prisma.roleAssignment.delete({
+      where: { userId_roleId: { userId: input.userId, roleId: input.roleId } },
+    });
 
-        if (!user) {
-            throw new RoleAssignmentError(`User ${userId} not found`, 'NOT_FOUND');
-        }
-        if (!role) {
-            throw new RoleAssignmentError(`Role ${roleId} not found`, 'NOT_FOUND');
-        }
-        if (user.tenantId !== tenantId || role.tenantId !== tenantId) {
-            throw new RoleAssignmentError(
-                `Cross-tenant role assignment refused (user.tenant=${user.tenantId}, role.tenant=${role.tenantId}, caller.tenant=${tenantId})`,
-                'CROSS_TENANT',
-            );
-        }
-        return { user, role };
-    }
+    this.permissions.invalidate(input.userId);
 
-    /**
-     * Best-effort audit write. The actual grant/revoke already happened
-     * — losing the audit row is a verifier-detectable gap, not a reason
-     * to undo a successful permission change.
-     */
-    private async recordSafe(
-        type: 'role.granted' | 'role.revoked',
-        params: {
-            tenantId: string;
-            actorId: string | null;
-            actorType: ActorType;
-            resource: string;
-            payload: Record<string, unknown>;
-        },
-    ): Promise<void> {
-        try {
-            await this.audit.record({
-                tenantId: params.tenantId,
-                type,
-                actorId: params.actorId,
-                actorType: params.actorType,
-                resource: params.resource,
-                payload: params.payload,
-            });
-        } catch {
-            // intentional
-        }
+    await this.recordSafe('role.revoked', {
+      tenantId: input.tenantId,
+      actorId: input.actorId ?? null,
+      actorType: input.actorType ?? 'user',
+      resource: `user:${input.userId}`,
+      payload: {
+        userId: input.userId,
+        userEmail: user.email,
+        roleId: input.roleId,
+        roleName: role.name,
+        assignmentId: existing.id,
+        reason: input.reason ?? null,
+      },
+    });
+  }
+
+  /**
+   * Load both ends of the assignment, verify they exist, verify both
+   * belong to the same tenant the caller claims. Cross-tenant grants
+   * are never silent — they throw.
+   */
+  private async loadAndVerify(userId: string, roleId: string, tenantId: string) {
+    const [user, role] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, tenantId: true },
+      }),
+      this.prisma.customRole.findUnique({
+        where: { id: roleId },
+        select: { id: true, name: true, tenantId: true },
+      }),
+    ]);
+
+    if (!user) {
+      throw new RoleAssignmentError(`User ${userId} not found`, 'NOT_FOUND');
     }
+    if (!role) {
+      throw new RoleAssignmentError(`Role ${roleId} not found`, 'NOT_FOUND');
+    }
+    if (user.tenantId !== tenantId || role.tenantId !== tenantId) {
+      throw new RoleAssignmentError(
+        `Cross-tenant role assignment refused (user.tenant=${user.tenantId}, role.tenant=${role.tenantId}, caller.tenant=${tenantId})`,
+        'CROSS_TENANT'
+      );
+    }
+    return { user, role };
+  }
+
+  /**
+   * Best-effort audit write. The actual grant/revoke already happened
+   * — losing the audit row is a verifier-detectable gap, not a reason
+   * to undo a successful permission change.
+   */
+  private async recordSafe(
+    type: 'role.granted' | 'role.revoked',
+    params: {
+      tenantId: string;
+      actorId: string | null;
+      actorType: ActorType;
+      resource: string;
+      payload: Record<string, unknown>;
+    }
+  ): Promise<void> {
+    try {
+      await this.audit.record({
+        tenantId: params.tenantId,
+        type,
+        actorId: params.actorId,
+        actorType: params.actorType,
+        resource: params.resource,
+        payload: params.payload,
+      });
+    } catch {
+      // intentional
+    }
+  }
 }

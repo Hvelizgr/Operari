@@ -12,9 +12,9 @@ import type { BillableEvent, BillingMeter } from './billing-meter.types';
  * called it with the right shape, even when the provider is no-op.
  */
 export class NoopBillingMeter implements BillingMeter {
-    readonly name = 'noop';
+  readonly name = 'noop';
 
-    async record(_event: BillableEvent): Promise<boolean> {
-        return false;
-    }
+  async record(_event: BillableEvent): Promise<boolean> {
+    return false;
+  }
 }

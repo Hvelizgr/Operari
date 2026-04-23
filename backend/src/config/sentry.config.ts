@@ -24,32 +24,31 @@ import * as Sentry from '@sentry/node';
 let _enabled = false;
 
 export function initSentry(): void {
-    const dsn = process.env.SENTRY_DSN;
-    if (!dsn) return;
+  const dsn = process.env.SENTRY_DSN;
+  if (!dsn) return;
 
-    const tracesSampleRate = Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? '0.1');
-    const environment =
-        process.env.SENTRY_ENV ?? process.env.NODE_ENV ?? 'development';
-    const release = process.env.APP_VERSION ?? 'dev';
+  const tracesSampleRate = Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? '0.1');
+  const environment = process.env.SENTRY_ENV ?? process.env.NODE_ENV ?? 'development';
+  const release = process.env.APP_VERSION ?? 'dev';
 
-    Sentry.init({
-        dsn,
-        environment,
-        release,
-        tracesSampleRate: Number.isFinite(tracesSampleRate) ? tracesSampleRate : 0.1,
-        sendDefaultPii: false,
-        // Don't ship sensitive request data to Sentry. We still get
-        // the URL, method, status, and headers minus auth — plenty to
-        // triage without shipping a cookie jar to a third party.
-        beforeSend(event) {
-            return scrubEvent(event);
-        },
-        beforeBreadcrumb(breadcrumb) {
-            return scrubBreadcrumb(breadcrumb);
-        },
-    });
+  Sentry.init({
+    dsn,
+    environment,
+    release,
+    tracesSampleRate: Number.isFinite(tracesSampleRate) ? tracesSampleRate : 0.1,
+    sendDefaultPii: false,
+    // Don't ship sensitive request data to Sentry. We still get
+    // the URL, method, status, and headers minus auth — plenty to
+    // triage without shipping a cookie jar to a third party.
+    beforeSend(event) {
+      return scrubEvent(event);
+    },
+    beforeBreadcrumb(breadcrumb) {
+      return scrubBreadcrumb(breadcrumb);
+    },
+  });
 
-    _enabled = true;
+  _enabled = true;
 }
 
 /**
@@ -60,7 +59,7 @@ export function initSentry(): void {
  * the void.
  */
 export function isSentryEnabled(): boolean {
-    return _enabled;
+  return _enabled;
 }
 
 /**
@@ -69,8 +68,8 @@ export function isSentryEnabled(): boolean {
  * error first and the handler still formats the response.
  */
 export function installExpressErrorHandler(app: import('express').Express): void {
-    if (!_enabled) return;
-    Sentry.setupExpressErrorHandler(app);
+  if (!_enabled) return;
+  Sentry.setupExpressErrorHandler(app);
 }
 
 /**
@@ -80,13 +79,13 @@ export function installExpressErrorHandler(app: import('express').Express): void
  * named function keeps the server bootstrap readable.
  */
 export function installProcessHandlers(): void {
-    if (!_enabled) return;
-    process.on('uncaughtException', (err) => {
-        Sentry.captureException(err);
-    });
-    process.on('unhandledRejection', (reason) => {
-        Sentry.captureException(reason);
-    });
+  if (!_enabled) return;
+  process.on('uncaughtException', err => {
+    Sentry.captureException(err);
+  });
+  process.on('unhandledRejection', reason => {
+    Sentry.captureException(reason);
+  });
 }
 
 /**
@@ -96,12 +95,12 @@ export function installProcessHandlers(): void {
  * block container shutdown for 30s during a deploy.
  */
 export async function flushSentry(timeoutMs = 2000): Promise<void> {
-    if (!_enabled) return;
-    try {
-        await Sentry.close(timeoutMs);
-    } catch {
-        /* never block shutdown on Sentry */
-    }
+  if (!_enabled) return;
+  try {
+    await Sentry.close(timeoutMs);
+  } catch {
+    /* never block shutdown on Sentry */
+  }
 }
 
 /**
@@ -110,17 +109,14 @@ export async function flushSentry(timeoutMs = 2000): Promise<void> {
  * try/catch). Auto-tags the event so filtering by runbook/step in
  * the Sentry UI is one click.
  */
-export function captureError(
-    err: unknown,
-    context: Record<string, unknown> = {},
-): void {
-    if (!_enabled) return;
-    Sentry.withScope((scope) => {
-        for (const [k, v] of Object.entries(context)) {
-            scope.setTag(k, typeof v === 'string' ? v : JSON.stringify(v));
-        }
-        Sentry.captureException(err);
-    });
+export function captureError(err: unknown, context: Record<string, unknown> = {}): void {
+  if (!_enabled) return;
+  Sentry.withScope(scope => {
+    for (const [k, v] of Object.entries(context)) {
+      scope.setTag(k, typeof v === 'string' ? v : JSON.stringify(v));
+    }
+    Sentry.captureException(err);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -128,62 +124,62 @@ export function captureError(
 // ─────────────────────────────────────────────────────────────
 
 const REDACTED_HEADERS = new Set([
-    'authorization',
-    'cookie',
-    'set-cookie',
-    'x-api-key',
-    'x-webhook-signature',
-    'x-hub-signature-256',
-    'x-stripe-signature',
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'x-api-key',
+  'x-webhook-signature',
+  'x-hub-signature-256',
+  'x-stripe-signature',
 ]);
 
 const REDACTED_BODY_KEYS = new Set([
-    'password',
-    'passwordhash',
-    'currentpassword',
-    'newpassword',
-    'token',
-    'secret',
-    'totpcode',
-    'apikey',
+  'password',
+  'passwordhash',
+  'currentpassword',
+  'newpassword',
+  'token',
+  'secret',
+  'totpcode',
+  'apikey',
 ]);
 
 function scrubEvent(event: Sentry.ErrorEvent): Sentry.ErrorEvent | null {
-    if (event.request) {
-        event.request = scrubRequest(event.request);
-    }
-    return event;
+  if (event.request) {
+    event.request = scrubRequest(event.request);
+  }
+  return event;
 }
 
 function scrubBreadcrumb(b: Sentry.Breadcrumb): Sentry.Breadcrumb | null {
-    if (b.data && typeof b.data === 'object') {
-        b.data = scrubObject(b.data as Record<string, unknown>);
-    }
-    return b;
+  if (b.data && typeof b.data === 'object') {
+    b.data = scrubObject(b.data as Record<string, unknown>);
+  }
+  return b;
 }
 
 function scrubRequest(req: Sentry.Request): Sentry.Request {
-    if (req.headers) {
-        const out: Record<string, string> = {};
-        for (const [k, v] of Object.entries(req.headers)) {
-            out[k] = REDACTED_HEADERS.has(k.toLowerCase()) ? '<redacted>' : String(v);
-        }
-        req.headers = out;
+  if (req.headers) {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(req.headers)) {
+      out[k] = REDACTED_HEADERS.has(k.toLowerCase()) ? '<redacted>' : String(v);
     }
-    if (req.data && typeof req.data === 'object') {
-        req.data = scrubObject(req.data as Record<string, unknown>);
-    }
-    return req;
+    req.headers = out;
+  }
+  if (req.data && typeof req.data === 'object') {
+    req.data = scrubObject(req.data as Record<string, unknown>);
+  }
+  return req;
 }
 
 function scrubObject(obj: Record<string, unknown>): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj)) {
-        if (REDACTED_BODY_KEYS.has(k.toLowerCase())) {
-            out[k] = '<redacted>';
-            continue;
-        }
-        out[k] = v;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (REDACTED_BODY_KEYS.has(k.toLowerCase())) {
+      out[k] = '<redacted>';
+      continue;
     }
-    return out;
+    out[k] = v;
+  }
+  return out;
 }

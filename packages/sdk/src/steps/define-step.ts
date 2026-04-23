@@ -1,9 +1,4 @@
-import type {
-    DefineStepOptions,
-    PluginContext,
-    PluginResult,
-    PluginStep,
-} from './types';
+import type { DefineStepOptions, PluginContext, PluginResult, PluginStep } from './types';
 
 /**
  * Author a custom step executor loaded by NanoRun at boot.
@@ -40,37 +35,30 @@ import type {
  * descriptor object. The backend loader reads this descriptor and
  * registers the step in its executor registry at boot.
  */
-export function defineStep<TConfig>(
-    options: DefineStepOptions<TConfig>,
-): PluginStep<TConfig> {
-    if (!options || typeof options !== 'object') {
-        throw new TypeError('defineStep: options object is required');
-    }
-    if (typeof options.type !== 'string' || options.type.length === 0) {
-        throw new TypeError('defineStep: options.type must be a non-empty string');
-    }
-    if (
-        !options.configSchema ||
-        typeof options.configSchema.parse !== 'function'
-    ) {
-        throw new TypeError(
-            'defineStep: options.configSchema must have a parse(input) method',
-        );
-    }
-    if (typeof options.execute !== 'function') {
-        throw new TypeError('defineStep: options.execute must be a function');
-    }
+export function defineStep<TConfig>(options: DefineStepOptions<TConfig>): PluginStep<TConfig> {
+  if (!options || typeof options !== 'object') {
+    throw new TypeError('defineStep: options object is required');
+  }
+  if (typeof options.type !== 'string' || options.type.length === 0) {
+    throw new TypeError('defineStep: options.type must be a non-empty string');
+  }
+  if (!options.configSchema || typeof options.configSchema.parse !== 'function') {
+    throw new TypeError('defineStep: options.configSchema must have a parse(input) method');
+  }
+  if (typeof options.execute !== 'function') {
+    throw new TypeError('defineStep: options.execute must be a function');
+  }
 
-    // Reserved prefixes are enforced at the loader level (so messages
-    // include the plugin path), not here. The helper only checks the
-    // shape. That keeps defineStep usable in unit tests without a
-    // loader attached.
+  // Reserved prefixes are enforced at the loader level (so messages
+  // include the plugin path), not here. The helper only checks the
+  // shape. That keeps defineStep usable in unit tests without a
+  // loader attached.
 
-    return {
-        type: options.type,
-        configSchema: options.configSchema,
-        execute: options.execute,
-    };
+  return {
+    type: options.type,
+    configSchema: options.configSchema,
+    execute: options.execute,
+  };
 }
 
 export type { DefineStepOptions, PluginContext, PluginResult, PluginStep };

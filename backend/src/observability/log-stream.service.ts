@@ -46,169 +46,156 @@ import type { Redis } from 'ioredis';
  */
 
 export interface LogStreamEntry {
-    /** Redis stream id, e.g. "1712515200000-0". Use as the cursor for replay. */
-    id: string;
-    message: string;
-    timestamp: string;
-    metadata?: Record<string, unknown>;
+  /** Redis stream id, e.g. "1712515200000-0". Use as the cursor for replay. */
+  id: string;
+  message: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface FetchOptions {
-    /** Starting stream id (inclusive). Default '-' = beginning of stream. */
-    fromId?: string;
-    /** Ending stream id (inclusive). Default '+' = end of stream. */
-    toId?: string;
-    /** Max entries to return. Default 1000. */
-    count?: number;
+  /** Starting stream id (inclusive). Default '-' = beginning of stream. */
+  fromId?: string;
+  /** Ending stream id (inclusive). Default '+' = end of stream. */
+  toId?: string;
+  /** Max entries to return. Default 1000. */
+  count?: number;
 }
 
 const DEFAULT_MAX_ENTRIES = 10_000;
 const DEFAULT_FETCH_COUNT = 1_000;
 
 export class LogStreamService {
-    private readonly maxEntries: number;
+  private readonly maxEntries: number;
 
-    /**
-     * Construct with an injected Redis client (or null when Redis is
-     * not configured). Tests pass a fake client; production passes
-     * the singleton from `redisConfig.getClient()`.
-     */
-    constructor(
-        private readonly redis: Redis | null,
-        options: { maxEntries?: number } = {},
-    ) {
-        this.maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES;
-    }
+  /**
+   * Construct with an injected Redis client (or null when Redis is
+   * not configured). Tests pass a fake client; production passes
+   * the singleton from `redisConfig.getClient()`.
+   */
+  constructor(
+    private readonly redis: Redis | null,
+    options: { maxEntries?: number } = {}
+  ) {
+    this.maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES;
+  }
 
-    /**
-     * Append a log line to the run's stream. Returns the assigned
-     * stream id, or null if Redis is not configured / the publish
-     * failed (the caller should not branch on the return value —
-     * publish is fire-and-forget).
-     *
-     * The MAXLEN trim caps memory at maxEntries per stream. Approx
-     * trim (`~`) is used so Redis can drop entries at chunk
-     * boundaries — much faster than exact trim and good enough for
-     * our backpressure goal.
-     */
-    async publish(
-        executionId: string,
-        message: string,
-        metadata?: Record<string, unknown>,
-    ): Promise<string | null> {
-        if (!this.redis) return null;
-        const key = LogStreamService.streamKey(executionId);
-        const fields: string[] = [
-            'message', message,
-            'timestamp', new Date().toISOString(),
-        ];
-        if (metadata) {
-            fields.push('metadata', JSON.stringify(metadata));
-        }
-        try {
-            // XADD key MAXLEN ~ N * field value [field value ...]
-            const id = await this.redis.xadd(
-                key,
-                'MAXLEN',
-                '~',
-                String(this.maxEntries),
-                '*',
-                ...fields,
-            );
-            return id ?? null;
-        } catch {
-            // Best-effort — never break the caller. The socket.io path
-            // is the live UI fallback.
-            return null;
-        }
+  /**
+   * Append a log line to the run's stream. Returns the assigned
+   * stream id, or null if Redis is not configured / the publish
+   * failed (the caller should not branch on the return value —
+   * publish is fire-and-forget).
+   *
+   * The MAXLEN trim caps memory at maxEntries per stream. Approx
+   * trim (`~`) is used so Redis can drop entries at chunk
+   * boundaries — much faster than exact trim and good enough for
+   * our backpressure goal.
+   */
+  async publish(
+    executionId: string,
+    message: string,
+    metadata?: Record<string, unknown>
+  ): Promise<string | null> {
+    if (!this.redis) return null;
+    const key = LogStreamService.streamKey(executionId);
+    const fields: string[] = ['message', message, 'timestamp', new Date().toISOString()];
+    if (metadata) {
+      fields.push('metadata', JSON.stringify(metadata));
     }
+    try {
+      // XADD key MAXLEN ~ N * field value [field value ...]
+      const id = await this.redis.xadd(key, 'MAXLEN', '~', String(this.maxEntries), '*', ...fields);
+      return id ?? null;
+    } catch {
+      // Best-effort — never break the caller. The socket.io path
+      // is the live UI fallback.
+      return null;
+    }
+  }
 
-    /**
-     * Replay log entries from the run's stream. Default returns up
-     * to 1000 entries from the beginning. To page, pass `fromId`
-     * = the last id from the previous page + '-1'... easier: the
-     * Redis stream id is monotonic, so the next page starts at the
-     * id immediately after the last returned one.
-     *
-     * Returns an empty array if Redis is not configured, the stream
-     * does not exist, or the call fails.
-     */
-    async fetch(
-        executionId: string,
-        opts: FetchOptions = {},
-    ): Promise<LogStreamEntry[]> {
-        if (!this.redis) return [];
-        const key = LogStreamService.streamKey(executionId);
-        const fromId = opts.fromId ?? '-';
-        const toId = opts.toId ?? '+';
-        const count = opts.count ?? DEFAULT_FETCH_COUNT;
-        try {
-            // XRANGE key start end COUNT N
-            const rows = await this.redis.xrange(key, fromId, toId, 'COUNT', count);
-            return rows.map(LogStreamService.parseEntry);
-        } catch {
-            return [];
-        }
+  /**
+   * Replay log entries from the run's stream. Default returns up
+   * to 1000 entries from the beginning. To page, pass `fromId`
+   * = the last id from the previous page + '-1'... easier: the
+   * Redis stream id is monotonic, so the next page starts at the
+   * id immediately after the last returned one.
+   *
+   * Returns an empty array if Redis is not configured, the stream
+   * does not exist, or the call fails.
+   */
+  async fetch(executionId: string, opts: FetchOptions = {}): Promise<LogStreamEntry[]> {
+    if (!this.redis) return [];
+    const key = LogStreamService.streamKey(executionId);
+    const fromId = opts.fromId ?? '-';
+    const toId = opts.toId ?? '+';
+    const count = opts.count ?? DEFAULT_FETCH_COUNT;
+    try {
+      // XRANGE key start end COUNT N
+      const rows = await this.redis.xrange(key, fromId, toId, 'COUNT', count);
+      return rows.map(LogStreamService.parseEntry);
+    } catch {
+      return [];
     }
+  }
 
-    /**
-     * Approximate stream length. Useful for dashboards (".. of N
-     * lines"). Returns null if Redis is not configured.
-     */
-    async length(executionId: string): Promise<number | null> {
-        if (!this.redis) return null;
-        try {
-            return await this.redis.xlen(LogStreamService.streamKey(executionId));
-        } catch {
-            return null;
-        }
+  /**
+   * Approximate stream length. Useful for dashboards (".. of N
+   * lines"). Returns null if Redis is not configured.
+   */
+  async length(executionId: string): Promise<number | null> {
+    if (!this.redis) return null;
+    try {
+      return await this.redis.xlen(LogStreamService.streamKey(executionId));
+    } catch {
+      return null;
     }
+  }
 
-    /**
-     * Delete the stream entirely. Used by retention sweeps and tests.
-     * Returns the number of keys deleted (0 or 1) or null if Redis
-     * is not configured.
-     */
-    async drop(executionId: string): Promise<number | null> {
-        if (!this.redis) return null;
-        try {
-            return await this.redis.del(LogStreamService.streamKey(executionId));
-        } catch {
-            return null;
-        }
+  /**
+   * Delete the stream entirely. Used by retention sweeps and tests.
+   * Returns the number of keys deleted (0 or 1) or null if Redis
+   * is not configured.
+   */
+  async drop(executionId: string): Promise<number | null> {
+    if (!this.redis) return null;
+    try {
+      return await this.redis.del(LogStreamService.streamKey(executionId));
+    } catch {
+      return null;
     }
+  }
 
-    /** Per-execution stream key. Centralized so a future rename has one site. */
-    static streamKey(executionId: string): string {
-        return `runs:${executionId}:logs`;
-    }
+  /** Per-execution stream key. Centralized so a future rename has one site. */
+  static streamKey(executionId: string): string {
+    return `runs:${executionId}:logs`;
+  }
 
-    /**
-     * Convert a single XRANGE row [id, [field, value, field, value, ...]]
-     * to a typed entry. Centralized so the field-pair walk lives in
-     * one place.
-     */
-    static parseEntry(row: [string, string[]]): LogStreamEntry {
-        const [id, fields] = row;
-        const map: Record<string, string> = {};
-        for (let i = 0; i < fields.length; i += 2) {
-            map[fields[i]] = fields[i + 1];
-        }
-        const entry: LogStreamEntry = {
-            id,
-            message: map.message ?? '',
-            timestamp: map.timestamp ?? '',
-        };
-        if (map.metadata) {
-            try {
-                entry.metadata = JSON.parse(map.metadata);
-            } catch {
-                // Stored as string by an older writer or hand-edited; preserve raw
-                entry.metadata = { raw: map.metadata };
-            }
-        }
-        return entry;
+  /**
+   * Convert a single XRANGE row [id, [field, value, field, value, ...]]
+   * to a typed entry. Centralized so the field-pair walk lives in
+   * one place.
+   */
+  static parseEntry(row: [string, string[]]): LogStreamEntry {
+    const [id, fields] = row;
+    const map: Record<string, string> = {};
+    for (let i = 0; i < fields.length; i += 2) {
+      map[fields[i]] = fields[i + 1];
     }
+    const entry: LogStreamEntry = {
+      id,
+      message: map.message ?? '',
+      timestamp: map.timestamp ?? '',
+    };
+    if (map.metadata) {
+      try {
+        entry.metadata = JSON.parse(map.metadata);
+      } catch {
+        // Stored as string by an older writer or hand-edited; preserve raw
+        entry.metadata = { raw: map.metadata };
+      }
+    }
+    return entry;
+  }
 }
 
 /**
@@ -218,22 +205,22 @@ export class LogStreamService {
 let logStreamSingleton: LogStreamService | null = null;
 
 export function getLogStream(): LogStreamService {
-    if (!logStreamSingleton) {
-        // Lazy import to avoid pulling redisConfig into test environments
-        // that mock this module entirely.
-        const { redisConfig } = require('../config/redis.config');
-        const maxEntries = process.env.NANORUN_LOG_STREAM_MAX_ENTRIES
-            ? parseInt(process.env.NANORUN_LOG_STREAM_MAX_ENTRIES, 10)
-            : undefined;
-        logStreamSingleton = new LogStreamService(redisConfig.getClient(), { maxEntries });
-    }
-    return logStreamSingleton;
+  if (!logStreamSingleton) {
+    // Lazy import to avoid pulling redisConfig into test environments
+    // that mock this module entirely.
+    const { redisConfig } = require('../config/redis.config');
+    const maxEntries = process.env.NANORUN_LOG_STREAM_MAX_ENTRIES
+      ? parseInt(process.env.NANORUN_LOG_STREAM_MAX_ENTRIES, 10)
+      : undefined;
+    logStreamSingleton = new LogStreamService(redisConfig.getClient(), { maxEntries });
+  }
+  return logStreamSingleton;
 }
 
 export function setLogStreamForTest(stream: LogStreamService): void {
-    logStreamSingleton = stream;
+  logStreamSingleton = stream;
 }
 
 export function resetLogStreamForTest(): void {
-    logStreamSingleton = null;
+  logStreamSingleton = null;
 }

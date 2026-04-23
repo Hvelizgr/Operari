@@ -26,32 +26,31 @@ export { WorkOSJwksVerifier } from './workos-jwks-verifier';
  * insecurity.
  */
 export function buildAuthProvider(prisma: PrismaClient): AuthProvider {
-    const provider = (process.env.NANORUN_AUTH_PROVIDER ?? 'jwt').toLowerCase();
-    switch (provider) {
-        case 'workos': {
-            const clientId = process.env.WORKOS_CLIENT_ID;
-            if (!clientId) {
-                // Loud refusal — operator forgot to set WORKOS_CLIENT_ID.
-                // Returning a no-op verifier ensures every request 401s
-                // instead of silently letting tokens through.
-                return new WorkOSAuthProvider(prisma, {
-                    verifyJwksToken: async () => null,
-                });
-            }
-            const verifier = new WorkOSJwksVerifier({
-                jwksUrl: process.env.WORKOS_JWKS_URL
-                    ?? `https://api.workos.com/sso/jwks/${clientId}`,
-                expectedIssuer: process.env.WORKOS_ISSUER ?? 'https://api.workos.com',
-                expectedAudience: clientId,
-            });
-            return new WorkOSAuthProvider(prisma, {
-                verifyJwksToken: verifier.asVerifyTokenFn(),
-            });
-        }
-        case 'jwt':
-        default:
-            return new JwtAuthProvider(prisma);
+  const provider = (process.env.NANORUN_AUTH_PROVIDER ?? 'jwt').toLowerCase();
+  switch (provider) {
+    case 'workos': {
+      const clientId = process.env.WORKOS_CLIENT_ID;
+      if (!clientId) {
+        // Loud refusal — operator forgot to set WORKOS_CLIENT_ID.
+        // Returning a no-op verifier ensures every request 401s
+        // instead of silently letting tokens through.
+        return new WorkOSAuthProvider(prisma, {
+          verifyJwksToken: async () => null,
+        });
+      }
+      const verifier = new WorkOSJwksVerifier({
+        jwksUrl: process.env.WORKOS_JWKS_URL ?? `https://api.workos.com/sso/jwks/${clientId}`,
+        expectedIssuer: process.env.WORKOS_ISSUER ?? 'https://api.workos.com',
+        expectedAudience: clientId,
+      });
+      return new WorkOSAuthProvider(prisma, {
+        verifyJwksToken: verifier.asVerifyTokenFn(),
+      });
     }
+    case 'jwt':
+    default:
+      return new JwtAuthProvider(prisma);
+  }
 }
 
 /**
@@ -61,16 +60,16 @@ export function buildAuthProvider(prisma: PrismaClient): AuthProvider {
 let providerSingleton: AuthProvider | null = null;
 
 export function getAuthProvider(prisma: PrismaClient): AuthProvider {
-    if (!providerSingleton) {
-        providerSingleton = buildAuthProvider(prisma);
-    }
-    return providerSingleton;
+  if (!providerSingleton) {
+    providerSingleton = buildAuthProvider(prisma);
+  }
+  return providerSingleton;
 }
 
 export function setAuthProviderForTest(provider: AuthProvider): void {
-    providerSingleton = provider;
+  providerSingleton = provider;
 }
 
 export function resetAuthProviderForTest(): void {
-    providerSingleton = null;
+  providerSingleton = null;
 }

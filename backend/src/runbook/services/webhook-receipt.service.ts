@@ -15,29 +15,25 @@ const RETENTION_PER_WEBHOOK = 50;
  * transfer-encoding) that adds no debug value.
  */
 const SENSITIVE_HEADERS = new Set([
-    'authorization',
-    'cookie',
-    'set-cookie',
-    'proxy-authorization',
-    'x-api-key',
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'proxy-authorization',
+  'x-api-key',
 ]);
 
-export type ReceiptStatus =
-    | 'accepted'
-    | 'rejected_inactive'
-    | 'rejected_signature'
-    | 'error';
+export type ReceiptStatus = 'accepted' | 'rejected_inactive' | 'rejected_signature' | 'error';
 
 export interface RecordReceiptParams {
-    webhookId: string;
-    tenantId: string;
-    status: ReceiptStatus;
-    statusCode: number;
-    reason?: string;
-    headers: Record<string, unknown>;
-    body: unknown;
-    sourceIp?: string | null;
-    executionId?: string | null;
+  webhookId: string;
+  tenantId: string;
+  status: ReceiptStatus;
+  statusCode: number;
+  reason?: string;
+  headers: Record<string, unknown>;
+  body: unknown;
+  sourceIp?: string | null;
+  executionId?: string | null;
 }
 
 /**
@@ -48,56 +44,56 @@ export interface RecordReceiptParams {
  * dropping the trigger.
  */
 export class WebhookReceiptService {
-    constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
-    async record(params: RecordReceiptParams): Promise<string | null> {
-        try {
-            const created = await this.prisma.webhookReceipt.create({
-                data: {
-                    webhookId: params.webhookId,
-                    tenantId: params.tenantId,
-                    status: params.status,
-                    statusCode: params.statusCode,
-                    reason: params.reason ?? null,
-                    headers: scrubHeaders(params.headers) as Prisma.InputJsonValue,
-                    body: normalizeBody(params.body) as Prisma.InputJsonValue,
-                    sourceIp: params.sourceIp ?? null,
-                    executionId: params.executionId ?? null,
-                },
-                select: { id: true },
-            });
-            void this.trim(params.webhookId);
-            return created.id;
-        } catch {
-            return null;
-        }
+  async record(params: RecordReceiptParams): Promise<string | null> {
+    try {
+      const created = await this.prisma.webhookReceipt.create({
+        data: {
+          webhookId: params.webhookId,
+          tenantId: params.tenantId,
+          status: params.status,
+          statusCode: params.statusCode,
+          reason: params.reason ?? null,
+          headers: scrubHeaders(params.headers) as Prisma.InputJsonValue,
+          body: normalizeBody(params.body) as Prisma.InputJsonValue,
+          sourceIp: params.sourceIp ?? null,
+          executionId: params.executionId ?? null,
+        },
+        select: { id: true },
+      });
+      void this.trim(params.webhookId);
+      return created.id;
+    } catch {
+      return null;
     }
+  }
 
-    /**
-     * Drop any receipt past the RETENTION_PER_WEBHOOK cap for this
-     * webhook. Uses a subquery via findMany + deleteMany because
-     * Postgres doesn't support ORDER BY + LIMIT inside DELETE
-     * directly through Prisma.
-     */
-    private async trim(webhookId: string): Promise<void> {
-        try {
-            const keep = await this.prisma.webhookReceipt.findMany({
-                where: { webhookId },
-                orderBy: { receivedAt: 'desc' },
-                take: RETENTION_PER_WEBHOOK,
-                select: { id: true },
-            });
-            if (keep.length < RETENTION_PER_WEBHOOK) return;
-            await this.prisma.webhookReceipt.deleteMany({
-                where: {
-                    webhookId,
-                    id: { notIn: keep.map((r) => r.id) },
-                },
-            });
-        } catch {
-            // Best-effort. Next write retries the trim.
-        }
+  /**
+   * Drop any receipt past the RETENTION_PER_WEBHOOK cap for this
+   * webhook. Uses a subquery via findMany + deleteMany because
+   * Postgres doesn't support ORDER BY + LIMIT inside DELETE
+   * directly through Prisma.
+   */
+  private async trim(webhookId: string): Promise<void> {
+    try {
+      const keep = await this.prisma.webhookReceipt.findMany({
+        where: { webhookId },
+        orderBy: { receivedAt: 'desc' },
+        take: RETENTION_PER_WEBHOOK,
+        select: { id: true },
+      });
+      if (keep.length < RETENTION_PER_WEBHOOK) return;
+      await this.prisma.webhookReceipt.deleteMany({
+        where: {
+          webhookId,
+          id: { notIn: keep.map(r => r.id) },
+        },
+      });
+    } catch {
+      // Best-effort. Next write retries the trim.
     }
+  }
 }
 
 /**
@@ -106,16 +102,16 @@ export class WebhookReceiptService {
  * headers as arrays (e.g. X-Forwarded-For); we keep them as-is.
  */
 function scrubHeaders(headers: Record<string, unknown>): Record<string, unknown> {
-    const out: Record<string, unknown> = {};
-    for (const [rawKey, value] of Object.entries(headers)) {
-        const key = rawKey.toLowerCase();
-        if (SENSITIVE_HEADERS.has(key)) {
-            out[key] = '<redacted>';
-            continue;
-        }
-        out[key] = value;
+  const out: Record<string, unknown> = {};
+  for (const [rawKey, value] of Object.entries(headers)) {
+    const key = rawKey.toLowerCase();
+    if (SENSITIVE_HEADERS.has(key)) {
+      out[key] = '<redacted>';
+      continue;
     }
-    return out;
+    out[key] = value;
+  }
+  return out;
 }
 
 /**
@@ -125,10 +121,10 @@ function scrubHeaders(headers: Record<string, unknown>): Record<string, unknown>
  * wrapped so the column stays JSON-typed.
  */
 function normalizeBody(body: unknown): unknown {
-    if (body == null) return {};
-    if (typeof body === 'string') return { _raw: body };
-    if (typeof body === 'object') return body;
-    return { _value: body };
+  if (body == null) return {};
+  if (typeof body === 'string') return { _raw: body };
+  if (typeof body === 'object') return body;
+  return { _value: body };
 }
 
 export { RETENTION_PER_WEBHOOK };

@@ -12,10 +12,10 @@ import { createHash, randomBytes } from 'crypto';
 export const INVITE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function generateInviteToken(): { token: string; tokenHash: string } {
-    const token = randomBytes(24).toString('base64url');
-    return { token, tokenHash: hashInviteToken(token) };
+  const token = randomBytes(24).toString('base64url');
+  return { token, tokenHash: hashInviteToken(token) };
 }
 
 export function hashInviteToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
+  return createHash('sha256').update(token).digest('hex');
 }

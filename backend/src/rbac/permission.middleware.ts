@@ -10,13 +10,13 @@ let permissionService: PermissionService | null = null;
  * has no side effects at boot time.
  */
 function getService(): PermissionService {
-    if (!permissionService) permissionService = new PermissionService(prisma);
-    return permissionService;
+  if (!permissionService) permissionService = new PermissionService(prisma);
+  return permissionService;
 }
 
 /** Test-only: replace the global service with an injected fake. */
 export function __setPermissionServiceForTest(service: PermissionService | null): void {
-    permissionService = service;
+  permissionService = service;
 }
 
 /**
@@ -37,28 +37,28 @@ export function __setPermissionServiceForTest(service: PermissionService | null)
  * `req.user.id` being set.
  */
 export function requirePermission(required: string) {
-    return async (req: AuthRequest, res: Response, next: NextFunction) => {
-        if (!req.user?.id) {
-            return res.status(401).json({ error: 'Authentication required', code: 'unauthorized' });
-        }
-        try {
-            const ok = await getService().hasPermission(req.user.id, required);
-            if (!ok) {
-                return res.status(403).json({
-                    error: `Missing permission: ${required}`,
-                    code: 'permission_denied',
-                    required,
-                });
-            }
-            return next();
-        } catch (err) {
-            return res.status(500).json({
-                error: 'Permission check failed',
-                code: 'permission_check_failed',
-                details: (err as Error).message,
-            });
-        }
-    };
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user?.id) {
+      return res.status(401).json({ error: 'Authentication required', code: 'unauthorized' });
+    }
+    try {
+      const ok = await getService().hasPermission(req.user.id, required);
+      if (!ok) {
+        return res.status(403).json({
+          error: `Missing permission: ${required}`,
+          code: 'permission_denied',
+          required,
+        });
+      }
+      return next();
+    } catch (err) {
+      return res.status(500).json({
+        error: 'Permission check failed',
+        code: 'permission_check_failed',
+        details: (err as Error).message,
+      });
+    }
+  };
 }
 
 /**
@@ -66,33 +66,33 @@ export function requirePermission(required: string) {
  * Useful when an endpoint can be reached via multiple privilege paths.
  */
 export function requireAnyPermission(...required: string[]) {
-    if (required.length === 0) {
-        throw new Error('requireAnyPermission: at least one permission must be supplied');
+  if (required.length === 0) {
+    throw new Error('requireAnyPermission: at least one permission must be supplied');
+  }
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user?.id) {
+      return res.status(401).json({ error: 'Authentication required', code: 'unauthorized' });
     }
-    return async (req: AuthRequest, res: Response, next: NextFunction) => {
-        if (!req.user?.id) {
-            return res.status(401).json({ error: 'Authentication required', code: 'unauthorized' });
+    try {
+      const service = getService();
+      const granted = await service.getPermissions(req.user.id);
+      for (const perm of required) {
+        if (await service.hasPermission(req.user.id, perm)) {
+          return next();
         }
-        try {
-            const service = getService();
-            const granted = await service.getPermissions(req.user.id);
-            for (const perm of required) {
-                if (await service.hasPermission(req.user.id, perm)) {
-                    return next();
-                }
-            }
-            void granted;
-            return res.status(403).json({
-                error: `Missing one of: ${required.join(', ')}`,
-                code: 'permission_denied',
-                required,
-            });
-        } catch (err) {
-            return res.status(500).json({
-                error: 'Permission check failed',
-                code: 'permission_check_failed',
-                details: (err as Error).message,
-            });
-        }
-    };
+      }
+      void granted;
+      return res.status(403).json({
+        error: `Missing one of: ${required.join(', ')}`,
+        code: 'permission_denied',
+        required,
+      });
+    } catch (err) {
+      return res.status(500).json({
+        error: 'Permission check failed',
+        code: 'permission_check_failed',
+        details: (err as Error).message,
+      });
+    }
+  };
 }

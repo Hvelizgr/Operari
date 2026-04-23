@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { prisma } from '../../server';
 import { requireApiKey, ApiKeyRequest } from '../../middleware/api-key.middleware';
 import {
-    ApprovalService,
-    ApprovalServiceError,
-    ResolveAction,
+  ApprovalService,
+  ApprovalServiceError,
+  ResolveAction,
 } from '../../runbook/services/approval.service';
 import { ExecutionService } from '../../editor/execution/execution.service';
 
@@ -13,66 +13,63 @@ const router = Router();
 
 let approvalService: ApprovalService | null = null;
 function getService(): ApprovalService {
-    if (!approvalService) {
-        const executionService = new ExecutionService(prisma);
-        approvalService = new ApprovalService(prisma, {
-            // Bind so `this` inside resumeExecution stays correct
-            resumeExecution: executionService.resumeExecution.bind(executionService),
-        });
-    }
-    return approvalService;
+  if (!approvalService) {
+    const executionService = new ExecutionService(prisma);
+    approvalService = new ApprovalService(prisma, {
+      // Bind so `this` inside resumeExecution stays correct
+      resumeExecution: executionService.resumeExecution.bind(executionService),
+    });
+  }
+  return approvalService;
 }
 
 const bodySchema = z.object({
-    comment: z.string().max(2000).optional(),
+  comment: z.string().max(2000).optional(),
 });
 
-const handle = (action: ResolveAction) =>
-    async (req: ApiKeyRequest, res: Response) => {
-        const { tenantId, keyId } = req.apiContext!;
-        const approvalId = String(req.params.id);
+const handle = (action: ResolveAction) => async (req: ApiKeyRequest, res: Response) => {
+  const { tenantId, keyId } = req.apiContext!;
+  const approvalId = String(req.params.id);
 
-        const parsed = bodySchema.safeParse(req.body ?? {});
-        if (!parsed.success) {
-            return res.status(400).json({
-                error: 'Invalid request body',
-                code: 'invalid_body',
-                details: parsed.error.flatten(),
-            });
-        }
+  const parsed = bodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid request body',
+      code: 'invalid_body',
+      details: parsed.error.flatten(),
+    });
+  }
 
-        try {
-            const result = await getService().resolve({
-                approvalId,
-                tenantId,
-                action,
-                actorId: `apikey:${keyId}`,
-                comment: parsed.data.comment,
-            });
+  try {
+    const result = await getService().resolve({
+      approvalId,
+      tenantId,
+      action,
+      actorId: `apikey:${keyId}`,
+      comment: parsed.data.comment,
+    });
 
-            return res.json({
-                id: result.id,
-                status: result.status,
-                workflowId: result.workflowId,
-                executionId: result.executionId,
-                stepId: result.stepId,
-                approvedBy: result.approvedBy,
-                approvedAt: result.approvedAt,
-                comment: result.comment,
-                executionResumed: result.executionResumed,
-                executionCancelled: result.executionCancelled,
-            });
-        } catch (err) {
-            if (err instanceof ApprovalServiceError) {
-                const status =
-                    err.code === 'approval_not_found' ? 404 :
-                        err.code === 'approval_not_pending' ? 409 :
-                            500;
-                return res.status(status).json({ error: err.message, code: err.code });
-            }
-            throw err;
-        }
-    };
+    return res.json({
+      id: result.id,
+      status: result.status,
+      workflowId: result.workflowId,
+      executionId: result.executionId,
+      stepId: result.stepId,
+      approvedBy: result.approvedBy,
+      approvedAt: result.approvedAt,
+      comment: result.comment,
+      executionResumed: result.executionResumed,
+      executionCancelled: result.executionCancelled,
+    });
+  } catch (err) {
+    if (err instanceof ApprovalServiceError) {
+      const status =
+        err.code === 'approval_not_found' ? 404 : err.code === 'approval_not_pending' ? 409 : 500;
+      return res.status(status).json({ error: err.message, code: err.code });
+    }
+    throw err;
+  }
+};
 
 /**
  * POST /api/v1/approvals/:id/grant
@@ -99,61 +96,61 @@ const handle = (action: ResolveAction) =>
  * Requires scope: `approvals:read`.
  */
 router.get('/', requireApiKey('approvals:read'), async (req: ApiKeyRequest, res: Response) => {
-    const { tenantId } = req.apiContext!;
+  const { tenantId } = req.apiContext!;
 
-    const statusParam = (req.query.status as string | undefined)?.toUpperCase();
-    const allowedStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'] as const;
-    type StatusValue = typeof allowedStatuses[number];
-    let statusFilter: { in: StatusValue[] } | undefined;
-    if (!statusParam || statusParam === '') {
-        statusFilter = { in: ['PENDING'] };
-    } else if (statusParam === 'ALL') {
-        statusFilter = undefined;
-    } else if ((allowedStatuses as readonly string[]).includes(statusParam)) {
-        statusFilter = { in: [statusParam as StatusValue] };
-    } else {
-        return res.status(400).json({
-            error: `Invalid status: ${statusParam}. Must be one of PENDING|APPROVED|REJECTED|EXPIRED|all.`,
-            code: 'invalid_status',
-        });
-    }
-
-    const limitRaw = parseInt((req.query.limit as string) ?? '50', 10);
-    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 50;
-    const cursor = req.query.cursor as string | undefined;
-
-    const approvals = await prisma.approval.findMany({
-        where: {
-            workflow: { tenantId },
-            ...(statusFilter ? { status: statusFilter } : {}),
-        },
-        include: {
-            workflow: { select: { id: true, slug: true, name: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit + 1,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  const statusParam = (req.query.status as string | undefined)?.toUpperCase();
+  const allowedStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'] as const;
+  type StatusValue = (typeof allowedStatuses)[number];
+  let statusFilter: { in: StatusValue[] } | undefined;
+  if (!statusParam || statusParam === '') {
+    statusFilter = { in: ['PENDING'] };
+  } else if (statusParam === 'ALL') {
+    statusFilter = undefined;
+  } else if ((allowedStatuses as readonly string[]).includes(statusParam)) {
+    statusFilter = { in: [statusParam as StatusValue] };
+  } else {
+    return res.status(400).json({
+      error: `Invalid status: ${statusParam}. Must be one of PENDING|APPROVED|REJECTED|EXPIRED|all.`,
+      code: 'invalid_status',
     });
+  }
 
-    const hasMore = approvals.length > limit;
-    const page = hasMore ? approvals.slice(0, limit) : approvals;
+  const limitRaw = parseInt((req.query.limit as string) ?? '50', 10);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 50;
+  const cursor = req.query.cursor as string | undefined;
 
-    res.json({
-        data: page.map((a) => ({
-            id: a.id,
-            status: a.status,
-            message: a.message,
-            workflow: a.workflow,
-            executionId: a.executionId,
-            stepId: a.stepId,
-            requestedBy: a.requestedBy,
-            createdAt: a.createdAt,
-            approvedBy: a.approvedBy,
-            approvedAt: a.approvedAt,
-            comment: a.comment,
-        })),
-        nextCursor: hasMore ? page[page.length - 1].id : null,
-    });
+  const approvals = await prisma.approval.findMany({
+    where: {
+      workflow: { tenantId },
+      ...(statusFilter ? { status: statusFilter } : {}),
+    },
+    include: {
+      workflow: { select: { id: true, slug: true, name: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  });
+
+  const hasMore = approvals.length > limit;
+  const page = hasMore ? approvals.slice(0, limit) : approvals;
+
+  res.json({
+    data: page.map(a => ({
+      id: a.id,
+      status: a.status,
+      message: a.message,
+      workflow: a.workflow,
+      executionId: a.executionId,
+      stepId: a.stepId,
+      requestedBy: a.requestedBy,
+      createdAt: a.createdAt,
+      approvedBy: a.approvedBy,
+      approvedAt: a.approvedAt,
+      comment: a.comment,
+    })),
+    nextCursor: hasMore ? page[page.length - 1].id : null,
+  });
 });
 
 router.post('/:id/grant', requireApiKey('approvals:resolve'), handle('grant'));

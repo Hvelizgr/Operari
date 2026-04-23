@@ -35,54 +35,54 @@
  */
 
 export type BillableEventType =
-    | 'run.started'
-    | 'run.completed'
-    | 'runner.minute'
-    | 'storage.gb_hour';
+  | 'run.started'
+  | 'run.completed'
+  | 'runner.minute'
+  | 'storage.gb_hour';
 
 export interface BillableEvent {
-    /** Stable identifier of the billable thing being measured */
-    type: BillableEventType;
-    /**
-     * Billing-side customer id (Stripe `cus_...`, Orb `cust_...`).
-     * NOT the NanoRun tenant id; resolution happens at the call site
-     * via `Tenant.stripeCustomerId`. Pass undefined to skip the
-     * write — the meter no-ops rather than guessing.
-     */
-    customerId?: string;
-    /**
-     * Numeric value to add to the meter. For counter-style events
-     * (run.started) this is 1; for duration-style events
-     * (runner.minute) it's the number of minutes; for capacity events
-     * (storage.gb_hour) it's the GB-hours consumed since last record.
-     */
-    value: number;
-    /**
-     * Idempotency key. Stripe rejects duplicate events with the same
-     * key within a 24h window; the runtime uses
-     * `${type}:${runId}:${stepId?}` so retries collapse.
-     */
-    idempotencyKey?: string;
-    /**
-     * Free-form metadata recorded alongside the meter event. Surfaces
-     * in the billing provider dashboard for debugging "why was I
-     * charged for this run".
-     */
-    metadata?: Record<string, string>;
+  /** Stable identifier of the billable thing being measured */
+  type: BillableEventType;
+  /**
+   * Billing-side customer id (Stripe `cus_...`, Orb `cust_...`).
+   * NOT the NanoRun tenant id; resolution happens at the call site
+   * via `Tenant.stripeCustomerId`. Pass undefined to skip the
+   * write — the meter no-ops rather than guessing.
+   */
+  customerId?: string;
+  /**
+   * Numeric value to add to the meter. For counter-style events
+   * (run.started) this is 1; for duration-style events
+   * (runner.minute) it's the number of minutes; for capacity events
+   * (storage.gb_hour) it's the GB-hours consumed since last record.
+   */
+  value: number;
+  /**
+   * Idempotency key. Stripe rejects duplicate events with the same
+   * key within a 24h window; the runtime uses
+   * `${type}:${runId}:${stepId?}` so retries collapse.
+   */
+  idempotencyKey?: string;
+  /**
+   * Free-form metadata recorded alongside the meter event. Surfaces
+   * in the billing provider dashboard for debugging "why was I
+   * charged for this run".
+   */
+  metadata?: Record<string, string>;
 }
 
 export interface BillingMeter {
-    /** Stable provider identifier: 'noop' | 'stripe' | 'orb' | … */
-    readonly name: string;
+  /** Stable provider identifier: 'noop' | 'stripe' | 'orb' | … */
+  readonly name: string;
 
-    /**
-     * Record a billable event. Fire-and-forget — implementations MUST
-     * swallow errors and never throw on the request hot path.
-     *
-     * Returns true if the event was actually written to the billing
-     * provider, false if it was no-op'd (missing customer id, missing
-     * config, provider failure). Callers should NOT branch on this
-     * return value; it exists for tests to assert.
-     */
-    record(event: BillableEvent): Promise<boolean>;
+  /**
+   * Record a billable event. Fire-and-forget — implementations MUST
+   * swallow errors and never throw on the request hot path.
+   *
+   * Returns true if the event was actually written to the billing
+   * provider, false if it was no-op'd (missing customer id, missing
+   * config, provider failure). Callers should NOT branch on this
+   * return value; it exists for tests to assert.
+   */
+  record(event: BillableEvent): Promise<boolean>;
 }

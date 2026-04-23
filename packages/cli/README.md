@@ -36,25 +36,32 @@ nanorun status <run-id>
 ## Commands
 
 ### `nanorun login`
+
 Save your API key to `~/.nanorun/config.json` (mode 0600).
 
 Options:
+
 - `--api-key <key>` — skip the prompt
 - `--base-url <url>` — server URL (default: prompt or `http://localhost:4000`)
 
 ### `nanorun logout`
+
 Delete saved credentials.
 
 ### `nanorun whoami`
+
 Show current login info (key prefix only).
 
 ### `nanorun list` (alias: `ls`)
+
 List all runbooks accessible to your API key.
 
 ### `nanorun run <slug>`
+
 Trigger a runbook by slug or id and stream the output.
 
 Options:
+
 - `-v, --var <key=value>` — set a variable (repeatable)
 - `--async` — trigger and return immediately, don't wait for completion
 - `--timeout <seconds>` — max time to wait (default: 300)
@@ -62,6 +69,7 @@ Options:
 Exits with code `0` on success, `1` on failure or timeout.
 
 ### `nanorun status <run-id>`
+
 Get the status of a previous run.
 
 ## Use in CI

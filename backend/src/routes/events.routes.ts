@@ -5,15 +5,15 @@ import { AuthRequest } from '../middleware/auth.middleware';
 const router = Router();
 
 router.use((req: AuthRequest, _res, next) => {
-    if (!req.user) {
-        req.user = {
-            id: 'anonymous',
-            email: 'anonymous@nanorun.local',
-            role: 'USER',
-            tenantId: 'default-tenant',
-        };
-    }
-    next();
+  if (!req.user) {
+    req.user = {
+      id: 'anonymous',
+      email: 'anonymous@nanorun.local',
+      role: 'USER',
+      tenantId: 'default-tenant',
+    };
+  }
+  next();
 });
 
 /**
@@ -31,40 +31,40 @@ router.use((req: AuthRequest, _res, next) => {
  *   ?cursor=<seq>         pagination cursor (the seq number, descending)
  */
 router.get('/', async (req: AuthRequest, res: Response) => {
-    const tenantId = req.user!.tenantId;
-    const type = req.query.type ? String(req.query.type) : undefined;
-    const resource = req.query.resource ? String(req.query.resource) : undefined;
-    const limitRaw = parseInt(String(req.query.limit ?? '100'), 10);
-    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 100;
-    const cursorRaw = req.query.cursor ? String(req.query.cursor) : undefined;
+  const tenantId = req.user!.tenantId;
+  const type = req.query.type ? String(req.query.type) : undefined;
+  const resource = req.query.resource ? String(req.query.resource) : undefined;
+  const limitRaw = parseInt(String(req.query.limit ?? '100'), 10);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 100;
+  const cursorRaw = req.query.cursor ? String(req.query.cursor) : undefined;
 
-    const where: Record<string, unknown> = { tenantId };
-    if (type) where.type = type;
-    if (resource) where.resource = resource;
-    if (cursorRaw) where.seq = { lt: BigInt(cursorRaw) };
+  const where: Record<string, unknown> = { tenantId };
+  if (type) where.type = type;
+  if (resource) where.resource = resource;
+  if (cursorRaw) where.seq = { lt: BigInt(cursorRaw) };
 
-    const events = await prisma.auditEvent.findMany({
-        where,
-        orderBy: { seq: 'desc' },
-        take: limit + 1,
-    });
-    const hasMore = events.length > limit;
-    const page = hasMore ? events.slice(0, limit) : events;
+  const events = await prisma.auditEvent.findMany({
+    where,
+    orderBy: { seq: 'desc' },
+    take: limit + 1,
+  });
+  const hasMore = events.length > limit;
+  const page = hasMore ? events.slice(0, limit) : events;
 
-    res.json({
-        data: page.map((e) => ({
-            id: e.id,
-            seq: e.seq.toString(),
-            type: e.type,
-            actorId: e.actorId,
-            actorType: e.actorType,
-            resource: e.resource,
-            payload: e.payload,
-            hash: e.hash,
-            createdAt: e.createdAt,
-        })),
-        nextCursor: hasMore ? page[page.length - 1].seq.toString() : null,
-    });
+  res.json({
+    data: page.map(e => ({
+      id: e.id,
+      seq: e.seq.toString(),
+      type: e.type,
+      actorId: e.actorId,
+      actorType: e.actorType,
+      resource: e.resource,
+      payload: e.payload,
+      hash: e.hash,
+      createdAt: e.createdAt,
+    })),
+    nextCursor: hasMore ? page[page.length - 1].seq.toString() : null,
+  });
 });
 
 /**
@@ -73,17 +73,17 @@ router.get('/', async (req: AuthRequest, res: Response) => {
  * populate the type filter dropdown in the UI.
  */
 router.get('/types', async (req: AuthRequest, res: Response) => {
-    const tenantId = req.user!.tenantId;
-    const rows = await prisma.auditEvent.groupBy({
-        by: ['type'],
-        where: { tenantId },
-        _count: { _all: true },
-        orderBy: { _count: { type: 'desc' } },
-        take: 50,
-    });
-    res.json({
-        data: rows.map((r) => ({ type: r.type, count: r._count._all })),
-    });
+  const tenantId = req.user!.tenantId;
+  const rows = await prisma.auditEvent.groupBy({
+    by: ['type'],
+    where: { tenantId },
+    _count: { _all: true },
+    orderBy: { _count: { type: 'desc' } },
+    take: 50,
+  });
+  res.json({
+    data: rows.map(r => ({ type: r.type, count: r._count._all })),
+  });
 });
 
 export default router;

@@ -12,89 +12,74 @@ import { rundeckImportCommand } from './commands/import/rundeck';
 
 const program = new Command();
 
-program
-    .name('nanorun')
-    .description('Run NanoRun runbooks from your terminal')
-    .version('0.1.0');
+program.name('nanorun').description('Run NanoRun runbooks from your terminal').version('0.1.0');
 
 program
-    .command('login')
-    .description('Authenticate with NanoRun')
-    .option('--api-key <key>', 'API key (skip the prompt)')
-    .option('--base-url <url>', 'Server URL (skip the prompt)')
-    .action(loginCommand);
+  .command('login')
+  .description('Authenticate with NanoRun')
+  .option('--api-key <key>', 'API key (skip the prompt)')
+  .option('--base-url <url>', 'Server URL (skip the prompt)')
+  .action(loginCommand);
+
+program.command('logout').description('Clear stored credentials').action(logoutCommand);
+
+program.command('whoami').description('Show current login info').action(whoamiCommand);
+
+program.command('list').alias('ls').description('List available runbooks').action(listCommand);
 
 program
-    .command('logout')
-    .description('Clear stored credentials')
-    .action(logoutCommand);
+  .command('run <slug>')
+  .description('Trigger a runbook and stream output')
+  .option(
+    '-v, --var <key=value>',
+    'Set a variable (repeatable)',
+    (val: string, prev: string[] = []) => [...prev, val],
+    []
+  )
+  .option('--async', 'Trigger and return immediately, do not wait')
+  .option('--timeout <seconds>', 'Max time to wait for completion', '300')
+  .action(runCommand);
 
-program
-    .command('whoami')
-    .description('Show current login info')
-    .action(whoamiCommand);
+program.command('status <runId>').description('Get the status of a run').action(statusCommand);
 
-program
-    .command('list')
-    .alias('ls')
-    .description('List available runbooks')
-    .action(listCommand);
-
-program
-    .command('run <slug>')
-    .description('Trigger a runbook and stream output')
-    .option('-v, --var <key=value>', 'Set a variable (repeatable)', (val: string, prev: string[] = []) => [...prev, val], [])
-    .option('--async', 'Trigger and return immediately, do not wait')
-    .option('--timeout <seconds>', 'Max time to wait for completion', '300')
-    .action(runCommand);
-
-program
-    .command('status <runId>')
-    .description('Get the status of a run')
-    .action(statusCommand);
-
-const audit = program
-    .command('audit')
-    .description('Tamper-evident audit log operations');
+const audit = program.command('audit').description('Tamper-evident audit log operations');
 
 audit
-    .command('verify')
-    .description("Verify the integrity of this tenant's audit chain")
-    .option('--from-seq <seq>', 'Start verification at this seq instead of the beginning')
-    .option('--page-size <n>', 'Rows fetched per page (1-10000, default 1000)')
-    .option('--json', 'Print machine-readable JSON instead of pretty output')
-    .action(auditVerifyCommand);
+  .command('verify')
+  .description("Verify the integrity of this tenant's audit chain")
+  .option('--from-seq <seq>', 'Start verification at this seq instead of the beginning')
+  .option('--page-size <n>', 'Rows fetched per page (1-10000, default 1000)')
+  .option('--json', 'Print machine-readable JSON instead of pretty output')
+  .action(auditVerifyCommand);
 
-const approval = program
-    .command('approval')
-    .description('Resolve human-in-the-loop approvals');
+const approval = program.command('approval').description('Resolve human-in-the-loop approvals');
 
 approval
-    .command('grant <approvalId>')
-    .description('Grant a pending approval and resume the execution')
-    .option('-c, --comment <text>', 'Comment recorded next to the approval')
-    .option('--json', 'Print machine-readable JSON instead of pretty output')
-    .action(approvalGrantCommand);
+  .command('grant <approvalId>')
+  .description('Grant a pending approval and resume the execution')
+  .option('-c, --comment <text>', 'Comment recorded next to the approval')
+  .option('--json', 'Print machine-readable JSON instead of pretty output')
+  .action(approvalGrantCommand);
 
 approval
-    .command('reject <approvalId>')
-    .description('Reject a pending approval and cancel the execution')
-    .option('-c, --comment <text>', 'Comment recorded next to the rejection')
-    .option('--json', 'Print machine-readable JSON instead of pretty output')
-    .action(approvalRejectCommand);
+  .command('reject <approvalId>')
+  .description('Reject a pending approval and cancel the execution')
+  .option('-c, --comment <text>', 'Comment recorded next to the rejection')
+  .option('--json', 'Print machine-readable JSON instead of pretty output')
+  .action(approvalRejectCommand);
 
 const importCmd = program
-    .command('import')
-    .description('Import runbooks from other automation tools');
+  .command('import')
+  .description('Import runbooks from other automation tools');
 
 importCmd
-    .command('rundeck <file>')
-    .description('Convert a Rundeck jobs.yaml export to NanoRun runbooks (stub)')
-    .option('-o, --output <dir>', 'Output directory for generated runbooks', './runbooks')
-    .option('--json', 'Print machine-readable JSON instead of pretty output')
-    .action(rundeckImportCommand);
+  .command('rundeck <file>')
+  .description('Convert a Rundeck jobs.yaml export to NanoRun runbooks (stub)')
+  .option('-o, --output <dir>', 'Output directory for generated runbooks', './runbooks')
+  .option('--json', 'Print machine-readable JSON instead of pretty output')
+  .action(rundeckImportCommand);
 
-program.parseAsync(process.argv).catch((err) => {
-    console.error(err);
-    process.exit(1);
+program.parseAsync(process.argv).catch(err => {
+  console.error(err);
+  process.exit(1);
 });

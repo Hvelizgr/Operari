@@ -9,15 +9,17 @@ import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
  *
  * Behavior preserved exactly from the legacy `case 'custom.note': return input`.
  */
-export class NoteNodeExecutor
-    implements EditorNodeExecutor<Record<string, unknown>, NodeExecutionResult> {
-    readonly type = 'custom.note';
+export class NoteNodeExecutor implements EditorNodeExecutor<
+  Record<string, unknown>,
+  NodeExecutionResult
+> {
+  readonly type = 'custom.note';
 
-    async execute(
-        _config: Record<string, unknown>,
-        input: ExecutionInput,
-        _errorContext: NodeErrorContext,
-    ): Promise<NodeExecutionResult> {
-        return input as NodeExecutionResult;
-    }
+  async execute(
+    _config: Record<string, unknown>,
+    input: ExecutionInput,
+    _errorContext: NodeErrorContext
+  ): Promise<NodeExecutionResult> {
+    return input as NodeExecutionResult;
+  }
 }

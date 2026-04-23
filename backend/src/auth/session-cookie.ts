@@ -23,38 +23,38 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
  * the header).
  */
 function isSecureRequest(req: Request): boolean {
-    if (process.env.COOKIE_SECURE === 'true') return true;
-    if (process.env.COOKIE_SECURE === 'false') return false;
-    if (req.secure) return true;
-    const forwardedProto = req.get('x-forwarded-proto');
-    return forwardedProto === 'https';
+  if (process.env.COOKIE_SECURE === 'true') return true;
+  if (process.env.COOKIE_SECURE === 'false') return false;
+  if (req.secure) return true;
+  const forwardedProto = req.get('x-forwarded-proto');
+  return forwardedProto === 'https';
 }
 
 function baseOptions(req: Request): CookieOptions {
-    return {
-        httpOnly: true,
-        secure: isSecureRequest(req),
-        sameSite: 'lax',
-        path: '/',
-    };
+  return {
+    httpOnly: true,
+    secure: isSecureRequest(req),
+    sameSite: 'lax',
+    path: '/',
+  };
 }
 
 export function setSessionCookie(req: Request, res: Response, token: string): void {
-    res.cookie(SESSION_COOKIE_NAME, token, {
-        ...baseOptions(req),
-        maxAge: SEVEN_DAYS_MS,
-    });
-    // Double-submit CSRF: mint a new token alongside every session
-    // cookie rotation so the frontend always has a fresh value to
-    // echo into the X-CSRF-Token header. Pairing the two mints
-    // here (rather than at each call site) makes it impossible to
-    // add a new login path that forgets the CSRF cookie.
-    setCsrfCookie(req, res);
+  res.cookie(SESSION_COOKIE_NAME, token, {
+    ...baseOptions(req),
+    maxAge: SEVEN_DAYS_MS,
+  });
+  // Double-submit CSRF: mint a new token alongside every session
+  // cookie rotation so the frontend always has a fresh value to
+  // echo into the X-CSRF-Token header. Pairing the two mints
+  // here (rather than at each call site) makes it impossible to
+  // add a new login path that forgets the CSRF cookie.
+  setCsrfCookie(req, res);
 }
 
 export function clearSessionCookie(req: Request, res: Response): void {
-    res.clearCookie(SESSION_COOKIE_NAME, baseOptions(req));
-    res.clearCookie(CSRF_COOKIE_NAME, csrfOptions(req));
+  res.clearCookie(SESSION_COOKIE_NAME, baseOptions(req));
+  res.clearCookie(CSRF_COOKIE_NAME, csrfOptions(req));
 }
 
 /**
@@ -69,12 +69,12 @@ export function clearSessionCookie(req: Request, res: Response): void {
  * to defeat both.
  */
 function csrfOptions(req: Request): CookieOptions {
-    return {
-        httpOnly: false,
-        secure: isSecureRequest(req),
-        sameSite: 'lax',
-        path: '/',
-    };
+  return {
+    httpOnly: false,
+    secure: isSecureRequest(req),
+    sameSite: 'lax',
+    path: '/',
+  };
 }
 
 /**
@@ -84,7 +84,7 @@ function csrfOptions(req: Request): CookieOptions {
  * never leaves the browser after it's set.
  */
 export function generateCsrfToken(): string {
-    return randomBytes(32).toString('base64url');
+  return randomBytes(32).toString('base64url');
 }
 
 /**
@@ -94,10 +94,10 @@ export function generateCsrfToken(): string {
  * cookie is minted.
  */
 export function setCsrfCookie(req: Request, res: Response, token?: string): string {
-    const csrf = token ?? generateCsrfToken();
-    res.cookie(CSRF_COOKIE_NAME, csrf, {
-        ...csrfOptions(req),
-        maxAge: SEVEN_DAYS_MS,
-    });
-    return csrf;
+  const csrf = token ?? generateCsrfToken();
+  res.cookie(CSRF_COOKIE_NAME, csrf, {
+    ...csrfOptions(req),
+    maxAge: SEVEN_DAYS_MS,
+  });
+  return csrf;
 }

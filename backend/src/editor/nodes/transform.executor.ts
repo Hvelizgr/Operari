@@ -1,7 +1,7 @@
 import type {
-    TransformNodeConfig,
-    ExecutionInput,
-    ExecutionOutput,
+  TransformNodeConfig,
+  ExecutionInput,
+  ExecutionOutput,
 } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_shared';
 import { resolveTemplate } from './_shared';
@@ -19,40 +19,42 @@ import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
  *      `{{template}}` against the input and return the new object.
  *   2. Otherwise pass the input through unchanged.
  */
-export class TransformNodeExecutor
-    implements EditorNodeExecutor<TransformNodeConfig, ExecutionOutput> {
-    readonly type = 'Transform';
+export class TransformNodeExecutor implements EditorNodeExecutor<
+  TransformNodeConfig,
+  ExecutionOutput
+> {
+  readonly type = 'Transform';
 
-    // Reserved for future logging needs (e.g. mapping diagnostics).
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    constructor(private readonly _deps: Pick<NodeExecutorDeps, 'logger'>) { }
+  // Reserved for future logging needs (e.g. mapping diagnostics).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(private readonly _deps: Pick<NodeExecutorDeps, 'logger'>) {}
 
-    async execute(
-        config: TransformNodeConfig,
-        input: ExecutionInput,
-        _errorContext: NodeErrorContext,
-    ): Promise<ExecutionOutput> {
-        const { mapping } = config;
+  async execute(
+    config: TransformNodeConfig,
+    input: ExecutionInput,
+    _errorContext: NodeErrorContext
+  ): Promise<ExecutionOutput> {
+    const { mapping } = config;
 
-        if (mapping) {
-            try {
-                const result: ExecutionOutput = {};
-                for (const [key, value] of Object.entries(mapping)) {
-                    result[key] = resolveTemplate(value, input);
-                }
-                return result;
-            } catch (error) {
-                throw new NodeExecutionError({
-                    message: `Failed to map transformation: ${error instanceof Error ? error.message : String(error)}`,
-                    nodeId: '',
-                    nodeName: 'Transform',
-                    nodeType: 'Transform',
-                    code: ErrorCode.NODE_EXECUTION_FAILED,
-                    cause: error instanceof Error ? error : undefined,
-                });
-            }
+    if (mapping) {
+      try {
+        const result: ExecutionOutput = {};
+        for (const [key, value] of Object.entries(mapping)) {
+          result[key] = resolveTemplate(value, input);
         }
-
-        return input;
+        return result;
+      } catch (error) {
+        throw new NodeExecutionError({
+          message: `Failed to map transformation: ${error instanceof Error ? error.message : String(error)}`,
+          nodeId: '',
+          nodeName: 'Transform',
+          nodeType: 'Transform',
+          code: ErrorCode.NODE_EXECUTION_FAILED,
+          cause: error instanceof Error ? error : undefined,
+        });
+      }
     }
+
+    return input;
+  }
 }

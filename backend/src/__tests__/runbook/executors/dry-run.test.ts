@@ -15,129 +15,128 @@ import type { Runner } from '../../../runbook/runners/runner.types';
  * checked too so the timeline stays informative.
  */
 
-function buildContext(overrides: Partial<ExecutorContext> = {}): ExecutorContext & { _logs: string[] } {
-    const _logs: string[] = [];
-    return {
-        runId: 'run-dry',
-        stepId: 'step-1',
-        tenantId: 't-1',
-        variables: {},
-        previousOutputs: {},
-        secrets: {},
-        emit: (event) => _logs.push(event.text),
-        dryRun: true,
-        ...overrides,
-        _logs,
-    };
+function buildContext(
+  overrides: Partial<ExecutorContext> = {}
+): ExecutorContext & { _logs: string[] } {
+  const _logs: string[] = [];
+  return {
+    runId: 'run-dry',
+    stepId: 'step-1',
+    tenantId: 't-1',
+    variables: {},
+    previousOutputs: {},
+    secrets: {},
+    emit: event => _logs.push(event.text),
+    dryRun: true,
+    ...overrides,
+    _logs,
+  };
 }
 
 describe('ShellExecutor dry-run', () => {
-    it('never invokes the runner', async () => {
-        const runner: Runner = {
-            type: 'mock',
-            run: jest.fn(async () => {
-                throw new Error('runner should not be called in dry-run');
-            }),
-            cancel: jest.fn(async () => 0),
-        };
-        const executor = new ShellExecutor(runner);
-        const context = buildContext();
-        const result = await executor.execute({ command: 'rm -rf /' }, context);
+  it('never invokes the runner', async () => {
+    const runner: Runner = {
+      type: 'mock',
+      run: jest.fn(async () => {
+        throw new Error('runner should not be called in dry-run');
+      }),
+      cancel: jest.fn(async () => 0),
+    };
+    const executor = new ShellExecutor(runner);
+    const context = buildContext();
+    const result = await executor.execute({ command: 'rm -rf /' }, context);
 
-        expect(result.success).toBe(true);
-        expect((result.output as { dryRun?: boolean }).dryRun).toBe(true);
-        expect(context._logs.some((l) => l.startsWith('[dry-run] would execute:'))).toBe(true);
-        expect(runner.run).not.toHaveBeenCalled();
-    });
+    expect(result.success).toBe(true);
+    expect((result.output as { dryRun?: boolean }).dryRun).toBe(true);
+    expect(context._logs.some(l => l.startsWith('[dry-run] would execute:'))).toBe(true);
+    expect(runner.run).not.toHaveBeenCalled();
+  });
 });
 
 describe('HttpExecutor dry-run', () => {
-    it('never fires fetch + redacts sensitive headers', async () => {
-        const fetchSpy = jest.fn(async () => {
-            throw new Error('fetch should not be called in dry-run');
-        });
-        const executor = new HttpExecutor(fetchSpy as unknown as typeof fetch);
-        const context = buildContext();
-        const result = await executor.execute(
-            {
-                method: 'POST',
-                url: 'https://api.prod.example.com/pay',
-                headers: {
-                    Authorization: 'Bearer live-key',
-                    'X-Request-Id': 'abc',
-                },
-                body: '{"amount":100}',
-            },
-            context,
-        );
-
-        expect(result.success).toBe(true);
-        expect((result.output as { dryRun?: boolean }).dryRun).toBe(true);
-        expect(fetchSpy).not.toHaveBeenCalled();
-        const dryLog = context._logs.find((l) => l.includes('[dry-run] would POST'));
-        expect(dryLog).toBeDefined();
-        // Sensitive header redacted, non-sensitive kept verbatim.
-        expect(dryLog).toContain('"Authorization":"[redacted]"');
-        expect(dryLog).toContain('"X-Request-Id":"abc"');
+  it('never fires fetch + redacts sensitive headers', async () => {
+    const fetchSpy = jest.fn(async () => {
+      throw new Error('fetch should not be called in dry-run');
     });
+    const executor = new HttpExecutor(fetchSpy as unknown as typeof fetch);
+    const context = buildContext();
+    const result = await executor.execute(
+      {
+        method: 'POST',
+        url: 'https://api.prod.example.com/pay',
+        headers: {
+          Authorization: 'Bearer live-key',
+          'X-Request-Id': 'abc',
+        },
+        body: '{"amount":100}',
+      },
+      context
+    );
+
+    expect(result.success).toBe(true);
+    expect((result.output as { dryRun?: boolean }).dryRun).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    const dryLog = context._logs.find(l => l.includes('[dry-run] would POST'));
+    expect(dryLog).toBeDefined();
+    // Sensitive header redacted, non-sensitive kept verbatim.
+    expect(dryLog).toContain('"Authorization":"[redacted]"');
+    expect(dryLog).toContain('"X-Request-Id":"abc"');
+  });
 });
 
 describe('ApprovalExecutor dry-run', () => {
-    it('never creates an Approval row + returns success synchronously', async () => {
-        const prisma = {
-            approval: { create: jest.fn() },
-            execution: { findUnique: jest.fn() },
-        } as unknown as PrismaClient;
-        const executor = new ApprovalExecutor(prisma, { audit: null });
-        const context = buildContext();
-        const result = await executor.execute(
-            { message: 'Deploy to prod?' },
-            context,
-        );
+  it('never creates an Approval row + returns success synchronously', async () => {
+    const prisma = {
+      approval: { create: jest.fn() },
+      execution: { findUnique: jest.fn() },
+    } as unknown as PrismaClient;
+    const executor = new ApprovalExecutor(prisma, { audit: null });
+    const context = buildContext();
+    const result = await executor.execute({ message: 'Deploy to prod?' }, context);
 
-        expect(result.success).toBe(true);
-        expect(result.paused).toBeUndefined();
-        expect((result.output as { dryRun?: boolean; status?: string }).dryRun).toBe(true);
-        expect((result.output as { status?: string }).status).toBe('AUTO_APPROVED');
-        expect(prisma.approval.create).not.toHaveBeenCalled();
-        expect(prisma.execution.findUnique).not.toHaveBeenCalled();
-    });
+    expect(result.success).toBe(true);
+    expect(result.paused).toBeUndefined();
+    expect((result.output as { dryRun?: boolean; status?: string }).dryRun).toBe(true);
+    expect((result.output as { status?: string }).status).toBe('AUTO_APPROVED');
+    expect(prisma.approval.create).not.toHaveBeenCalled();
+    expect(prisma.execution.findUnique).not.toHaveBeenCalled();
+  });
 });
 
 describe('NotifyExecutor dry-run', () => {
-    it('never opens a network connection + logs redacted target', async () => {
-        const executor = new NotifyExecutor();
-        const context = buildContext();
-        const result = await executor.execute(
-            {
-                channel: 'slack',
-                webhookUrl: 'https://hooks.slack.com/services/T/B/VERY-SECRET',
-                message: 'Deploy complete',
-            },
-            context,
-        );
-        expect(result.success).toBe(true);
-        expect((result.output as { dryRun?: boolean }).dryRun).toBe(true);
-        const log = context._logs.find((l) => l.includes('[dry-run] would notify slack'));
-        expect(log).toBeDefined();
-        // Host shown, full path (secret) NOT shown.
-        expect(log).toContain('hooks.slack.com');
-        expect(log).not.toContain('VERY-SECRET');
-    });
+  it('never opens a network connection + logs redacted target', async () => {
+    const executor = new NotifyExecutor();
+    const context = buildContext();
+    const result = await executor.execute(
+      {
+        channel: 'slack',
+        webhookUrl: 'https://hooks.slack.com/services/T/B/VERY-SECRET',
+        message: 'Deploy complete',
+      },
+      context
+    );
+    expect(result.success).toBe(true);
+    expect((result.output as { dryRun?: boolean }).dryRun).toBe(true);
+    const log = context._logs.find(l => l.includes('[dry-run] would notify slack'));
+    expect(log).toBeDefined();
+    // Host shown, full path (secret) NOT shown.
+    expect(log).toContain('hooks.slack.com');
+    expect(log).not.toContain('VERY-SECRET');
+  });
 });
 
 describe('WaitExecutor dry-run', () => {
-    it('returns immediately without waiting', async () => {
-        const executor = new WaitExecutor();
-        const context = buildContext();
-        const t0 = Date.now();
-        const result = await executor.execute({ durationMs: 5000 }, context);
-        const elapsed = Date.now() - t0;
-        expect(result.success).toBe(true);
-        expect(elapsed).toBeLessThan(100); // should be ~0ms, NOT 5000
-        const output = result.output as { dryRun: boolean; waitedMs: number; wouldWaitMs: number };
-        expect(output.dryRun).toBe(true);
-        expect(output.waitedMs).toBe(0);
-        expect(output.wouldWaitMs).toBe(5000);
-    });
+  it('returns immediately without waiting', async () => {
+    const executor = new WaitExecutor();
+    const context = buildContext();
+    const t0 = Date.now();
+    const result = await executor.execute({ durationMs: 5000 }, context);
+    const elapsed = Date.now() - t0;
+    expect(result.success).toBe(true);
+    expect(elapsed).toBeLessThan(100); // should be ~0ms, NOT 5000
+    const output = result.output as { dryRun: boolean; waitedMs: number; wouldWaitMs: number };
+    expect(output.dryRun).toBe(true);
+    expect(output.waitedMs).toBe(0);
+    expect(output.wouldWaitMs).toBe(5000);
+  });
 });

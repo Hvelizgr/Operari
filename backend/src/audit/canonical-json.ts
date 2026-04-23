@@ -15,29 +15,27 @@
  * minimal in security-critical code.
  */
 export function canonicalJson(value: unknown): string {
-    if (value === null || value === undefined) return 'null';
-    if (typeof value === 'number') {
-        if (!Number.isFinite(value)) {
-            throw new TypeError('canonicalJson: non-finite number is not allowed');
-        }
-        return JSON.stringify(value);
+  if (value === null || value === undefined) return 'null';
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new TypeError('canonicalJson: non-finite number is not allowed');
     }
-    if (typeof value === 'boolean') return value ? 'true' : 'false';
-    if (typeof value === 'string') return JSON.stringify(value);
-    if (typeof value === 'bigint') return JSON.stringify(value.toString());
-    if (value instanceof Date) return JSON.stringify(value.toISOString());
-    if (Array.isArray(value)) {
-        return '[' + value.map(canonicalJson).join(',') + ']';
-    }
-    if (typeof value === 'object') {
-        const obj = value as Record<string, unknown>;
-        const keys = Object.keys(obj)
-            .filter((k) => obj[k] !== undefined)
-            .sort();
-        const parts = keys.map(
-            (k) => JSON.stringify(k) + ':' + canonicalJson(obj[k]),
-        );
-        return '{' + parts.join(',') + '}';
-    }
-    throw new TypeError(`canonicalJson: unsupported type ${typeof value}`);
+    return JSON.stringify(value);
+  }
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (typeof value === 'bigint') return JSON.stringify(value.toString());
+  if (value instanceof Date) return JSON.stringify(value.toISOString());
+  if (Array.isArray(value)) {
+    return '[' + value.map(canonicalJson).join(',') + ']';
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj)
+      .filter(k => obj[k] !== undefined)
+      .sort();
+    const parts = keys.map(k => JSON.stringify(k) + ':' + canonicalJson(obj[k]));
+    return '{' + parts.join(',') + '}';
+  }
+  throw new TypeError(`canonicalJson: unsupported type ${typeof value}`);
 }

@@ -13,12 +13,12 @@ export const VERIFICATION_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
  * reconstruct it.
  */
 export function generateVerificationToken(): { token: string; tokenHash: string } {
-    const token = randomBytes(24).toString('base64url');
-    return { token, tokenHash: hashVerificationToken(token) };
+  const token = randomBytes(24).toString('base64url');
+  return { token, tokenHash: hashVerificationToken(token) };
 }
 
 export function hashVerificationToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
+  return createHash('sha256').update(token).digest('hex');
 }
 
 /**
@@ -32,48 +32,45 @@ export function hashVerificationToken(token: string): string {
  * typically the register handler or a rate-limited resend endpoint,
  * and neither cares about the reason.
  */
-export async function issueVerificationEmail(
-    prisma: PrismaClient,
-    userId: string,
-): Promise<void> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true, email: true, emailVerified: true },
+export async function issueVerificationEmail(prisma: PrismaClient, userId: string): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, emailVerified: true },
+  });
+  if (!user) return;
+  if (user.emailVerified) return;
+
+  await prisma.emailVerificationToken.updateMany({
+    where: { userId: user.id, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+
+  const { token, tokenHash } = generateVerificationToken();
+  const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
+  await prisma.emailVerificationToken.create({
+    data: { tokenHash, userId: user.id, expiresAt },
+  });
+
+  const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+  // The verify endpoint lives on the backend API. Next.js rewrites
+  // `/api/*` to the backend, so this URL works both for browser
+  // clicks (proxied) and for direct API calls. The handler redirects
+  // back to the frontend on success/failure.
+  const verifyUrl = `${frontendUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+  const tpl = renderVerificationEmail({ verifyUrl, userEmail: user.email });
+
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: tpl.subject,
+      text: tpl.text,
+      html: tpl.html,
     });
-    if (!user) return;
-    if (user.emailVerified) return;
-
-    await prisma.emailVerificationToken.updateMany({
-        where: { userId: user.id, usedAt: null },
-        data: { usedAt: new Date() },
+  } catch (err) {
+    logger.warn({
+      err: err instanceof Error ? err.message : String(err),
+      userId: user.id,
+      msg: 'email_verification: send failed',
     });
-
-    const { token, tokenHash } = generateVerificationToken();
-    const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
-    await prisma.emailVerificationToken.create({
-        data: { tokenHash, userId: user.id, expiresAt },
-    });
-
-    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
-    // The verify endpoint lives on the backend API. Next.js rewrites
-    // `/api/*` to the backend, so this URL works both for browser
-    // clicks (proxied) and for direct API calls. The handler redirects
-    // back to the frontend on success/failure.
-    const verifyUrl = `${frontendUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
-    const tpl = renderVerificationEmail({ verifyUrl, userEmail: user.email });
-
-    try {
-        await sendEmail({
-            to: user.email,
-            subject: tpl.subject,
-            text: tpl.text,
-            html: tpl.html,
-        });
-    } catch (err) {
-        logger.warn({
-            err: err instanceof Error ? err.message : String(err),
-            userId: user.id,
-            msg: 'email_verification: send failed',
-        });
-    }
+  }
 }

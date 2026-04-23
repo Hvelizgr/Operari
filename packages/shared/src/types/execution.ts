@@ -6,24 +6,18 @@
 // Execution Status
 // =============================================================================
 
-export type ExecutionStatus =
-    | 'pending'
-    | 'running'
-    | 'success'
-    | 'error'
-    | 'cancelled'
-    | 'timeout';
+export type ExecutionStatus = 'pending' | 'running' | 'success' | 'error' | 'cancelled' | 'timeout';
 
 // =============================================================================
 // Execution Metrics (for dashboard/analytics)
 // =============================================================================
 
 export interface ExecutionMetric {
-    nodeId: string;
-    nodeName: string;
-    executionTime: number;
-    status: 'success' | 'error';
-    timestamp: number;
+  nodeId: string;
+  nodeName: string;
+  executionTime: number;
+  status: 'success' | 'error';
+  timestamp: number;
 }
 
 // =============================================================================
@@ -31,16 +25,16 @@ export interface ExecutionMetric {
 // =============================================================================
 
 export interface NodeLogEntry {
-    id: string;
-    nodeId: string;
-    nodeName: string;
-    status: ExecutionStatus;
-    input?: unknown;
-    output?: unknown;
-    error?: string;
-    startedAt: string;
-    finishedAt?: string;
-    duration?: number;
+  id: string;
+  nodeId: string;
+  nodeName: string;
+  status: ExecutionStatus;
+  input?: unknown;
+  output?: unknown;
+  error?: string;
+  startedAt: string;
+  finishedAt?: string;
+  duration?: number;
 }
 
 // =============================================================================
@@ -48,15 +42,15 @@ export interface NodeLogEntry {
 // =============================================================================
 
 export interface ExecutionResult {
-    id: string;
-    workflowId: string;
-    status: ExecutionStatus;
-    startedAt: string;
-    finishedAt?: string;
-    duration?: number;
-    nodeLogs: NodeLogEntry[];
-    error?: string;
-    output?: unknown;
+  id: string;
+  workflowId: string;
+  status: ExecutionStatus;
+  startedAt: string;
+  finishedAt?: string;
+  duration?: number;
+  nodeLogs: NodeLogEntry[];
+  error?: string;
+  output?: unknown;
 }
 
 // =============================================================================
@@ -64,11 +58,11 @@ export interface ExecutionResult {
 // =============================================================================
 
 export interface ExecutionInput {
-    [key: string]: unknown;
+  [key: string]: unknown;
 }
 
 export interface ExecutionOutput {
-    [key: string]: unknown;
+  [key: string]: unknown;
 }
 
 // =============================================================================
@@ -76,9 +70,9 @@ export interface ExecutionOutput {
 // =============================================================================
 
 export interface ExecutionContext {
-    workflowId: string;
-    executionId: string;
-    input: ExecutionInput;
-    output: ExecutionOutput;
-    variables?: Record<string, unknown>;
+  workflowId: string;
+  executionId: string;
+  input: ExecutionInput;
+  output: ExecutionOutput;
+  variables?: Record<string, unknown>;
 }

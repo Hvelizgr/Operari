@@ -11,12 +11,12 @@ export { FlyMachineRunner } from './fly-machine.runner';
 export type RunnerType = 'local' | 'docker' | 'fly';
 
 export interface RunnerRegistryOptions {
-    /** Which backend to use as the default runner */
-    type: RunnerType;
-    /** Optional config for the docker runner */
-    docker?: DockerRunnerOptions;
-    /** Required when type === "fly" */
-    fly?: FlyMachineRunnerOptions;
+  /** Which backend to use as the default runner */
+  type: RunnerType;
+  /** Optional config for the docker runner */
+  docker?: DockerRunnerOptions;
+  /** Required when type === "fly" */
+  fly?: FlyMachineRunnerOptions;
 }
 
 /**
@@ -26,23 +26,23 @@ export interface RunnerRegistryOptions {
  * Read configuration from env in production via {@link runnerOptionsFromEnv}.
  */
 export function createRunner(options: RunnerRegistryOptions): Runner {
-    switch (options.type) {
-        case 'local':
-            return new LocalRunner();
-        case 'docker':
-            return new DockerRunner(options.docker);
-        case 'fly':
-            if (!options.fly) {
-                throw new RunnerError(
-                    'createRunner({ type: "fly" }) requires fly options (apiToken, appName)',
-                );
-            }
-            return new FlyMachineRunner(options.fly);
-        default: {
-            const exhaustive: never = options.type;
-            throw new RunnerError(`Unknown runner type: ${exhaustive as string}`);
-        }
+  switch (options.type) {
+    case 'local':
+      return new LocalRunner();
+    case 'docker':
+      return new DockerRunner(options.docker);
+    case 'fly':
+      if (!options.fly) {
+        throw new RunnerError(
+          'createRunner({ type: "fly" }) requires fly options (apiToken, appName)'
+        );
+      }
+      return new FlyMachineRunner(options.fly);
+    default: {
+      const exhaustive: never = options.type;
+      throw new RunnerError(`Unknown runner type: ${exhaustive as string}`);
     }
+  }
 }
 
 /**
@@ -57,31 +57,31 @@ export function createRunner(options: RunnerRegistryOptions): Runner {
  *   FLY_REGION             = "iad" | "sjc" | ...          (optional)
  */
 export function runnerOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): RunnerRegistryOptions {
-    const type = (env.NANORUN_RUNNER ?? 'local') as RunnerType;
+  const type = (env.NANORUN_RUNNER ?? 'local') as RunnerType;
 
-    if (type === 'fly') {
-        return {
-            type: 'fly',
-            fly: {
-                apiToken: env.FLY_API_TOKEN ?? '',
-                appName: env.FLY_APP_NAME ?? '',
-                region: env.FLY_REGION,
-                defaultImage: env.NANORUN_RUNNER_IMAGE,
-            },
-        };
-    }
+  if (type === 'fly') {
+    return {
+      type: 'fly',
+      fly: {
+        apiToken: env.FLY_API_TOKEN ?? '',
+        appName: env.FLY_APP_NAME ?? '',
+        region: env.FLY_REGION,
+        defaultImage: env.NANORUN_RUNNER_IMAGE,
+      },
+    };
+  }
 
-    if (type === 'docker') {
-        return {
-            type: 'docker',
-            docker: {
-                defaultImage: env.NANORUN_RUNNER_IMAGE,
-                dockerBinary: env.DOCKER_BINARY,
-            },
-        };
-    }
+  if (type === 'docker') {
+    return {
+      type: 'docker',
+      docker: {
+        defaultImage: env.NANORUN_RUNNER_IMAGE,
+        dockerBinary: env.DOCKER_BINARY,
+      },
+    };
+  }
 
-    return { type };
+  return { type };
 }
 
 /**
@@ -98,16 +98,16 @@ export function runnerOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): Runn
 let runnerSingleton: Runner | null = null;
 
 export function getRunner(): Runner {
-    if (!runnerSingleton) {
-        runnerSingleton = createRunner(runnerOptionsFromEnv());
-    }
-    return runnerSingleton;
+  if (!runnerSingleton) {
+    runnerSingleton = createRunner(runnerOptionsFromEnv());
+  }
+  return runnerSingleton;
 }
 
 export function setRunnerForTest(runner: Runner): void {
-    runnerSingleton = runner;
+  runnerSingleton = runner;
 }
 
 export function resetRunnerForTest(): void {
-    runnerSingleton = null;
+  runnerSingleton = null;
 }

@@ -1,10 +1,6 @@
 import { timingSafeEqual } from 'crypto';
 import type { NextFunction, Request, Response } from 'express';
-import {
-    CSRF_COOKIE_NAME,
-    CSRF_HEADER_NAME,
-    SESSION_COOKIE_NAME,
-} from '../auth/session-cookie';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, SESSION_COOKIE_NAME } from '../auth/session-cookie';
 
 /**
  * Double-submit cookie CSRF protection.
@@ -47,39 +43,39 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
  * receivers authenticate differently; health probes are unauth.
  */
 const EXEMPT_PREFIXES = [
-    '/api/v1/', // API-key auth, never a cookie session
-    '/webhook/', // HMAC + opaque-token auth
-    '/health',
-    '/live',
-    '/metrics',
+  '/api/v1/', // API-key auth, never a cookie session
+  '/webhook/', // HMAC + opaque-token auth
+  '/health',
+  '/live',
+  '/metrics',
 ];
 
 function isExemptPath(path: string): boolean {
-    for (const p of EXEMPT_PREFIXES) {
-        if (path === p || path.startsWith(p)) return true;
-    }
-    return false;
+  for (const p of EXEMPT_PREFIXES) {
+    if (path === p || path.startsWith(p)) return true;
+  }
+  return false;
 }
 
 function hasBearerAuth(req: Request): boolean {
-    const auth = req.headers.authorization;
-    return typeof auth === 'string' && auth.toLowerCase().startsWith('bearer ');
+  const auth = req.headers.authorization;
+  return typeof auth === 'string' && auth.toLowerCase().startsWith('bearer ');
 }
 
 function sessionCookieOf(req: Request): string | undefined {
-    const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
-    return cookies?.[SESSION_COOKIE_NAME];
+  const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
+  return cookies?.[SESSION_COOKIE_NAME];
 }
 
 function csrfCookieOf(req: Request): string | undefined {
-    const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
-    return cookies?.[CSRF_COOKIE_NAME];
+  const cookies = (req as Request & { cookies?: Record<string, string> }).cookies;
+  return cookies?.[CSRF_COOKIE_NAME];
 }
 
 function csrfHeaderOf(req: Request): string | undefined {
-    const raw = req.headers[CSRF_HEADER_NAME];
-    if (Array.isArray(raw)) return raw[0];
-    return raw;
+  const raw = req.headers[CSRF_HEADER_NAME];
+  if (Array.isArray(raw)) return raw[0];
+  return raw;
 }
 
 /**
@@ -89,65 +85,62 @@ function csrfHeaderOf(req: Request): string | undefined {
  * normalized to the same capped value.
  */
 function safeEqual(a: string, b: string): boolean {
-    const bufA = Buffer.from(a);
-    const bufB = Buffer.from(b);
-    if (bufA.length !== bufB.length) return false;
-    return timingSafeEqual(bufA, bufB);
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
 }
 
 export type CsrfEnforcement = 'enforce' | 'observe' | 'off';
 
 function resolveMode(): CsrfEnforcement {
-    const raw = (process.env.CSRF_ENFORCE ?? '').trim().toLowerCase();
-    if (raw === 'true' || raw === 'enforce' || raw === '1') return 'enforce';
-    if (raw === 'observe' || raw === 'log') return 'observe';
-    if (raw === 'off' || raw === 'false' || raw === '0' || raw === '') return 'off';
-    return 'off';
+  const raw = (process.env.CSRF_ENFORCE ?? '').trim().toLowerCase();
+  if (raw === 'true' || raw === 'enforce' || raw === '1') return 'enforce';
+  if (raw === 'observe' || raw === 'log') return 'observe';
+  if (raw === 'off' || raw === 'false' || raw === '0' || raw === '') return 'off';
+  return 'off';
 }
 
 export function csrfProtection() {
-    return function csrfMiddleware(req: Request, res: Response, next: NextFunction) {
-        const mode = resolveMode();
-        if (mode === 'off') return next();
+  return function csrfMiddleware(req: Request, res: Response, next: NextFunction) {
+    const mode = resolveMode();
+    if (mode === 'off') return next();
 
-        if (SAFE_METHODS.has(req.method)) return next();
-        if (isExemptPath(req.path)) return next();
-        if (hasBearerAuth(req)) return next();
+    if (SAFE_METHODS.has(req.method)) return next();
+    if (isExemptPath(req.path)) return next();
+    if (hasBearerAuth(req)) return next();
 
-        const session = sessionCookieOf(req);
-        if (!session) return next();
+    const session = sessionCookieOf(req);
+    if (!session) return next();
 
-        const cookieToken = csrfCookieOf(req);
-        const headerToken = csrfHeaderOf(req);
+    const cookieToken = csrfCookieOf(req);
+    const headerToken = csrfHeaderOf(req);
 
-        const ok =
-            !!cookieToken &&
-            !!headerToken &&
-            safeEqual(cookieToken, headerToken);
+    const ok = !!cookieToken && !!headerToken && safeEqual(cookieToken, headerToken);
 
-        if (ok) return next();
+    if (ok) return next();
 
-        req.log?.warn(
-            {
-                method: req.method,
-                path: req.path,
-                hasCookie: !!cookieToken,
-                hasHeader: !!headerToken,
-                mode,
-            },
-            'csrf.mismatch',
-        );
+    req.log?.warn(
+      {
+        method: req.method,
+        path: req.path,
+        hasCookie: !!cookieToken,
+        hasHeader: !!headerToken,
+        mode,
+      },
+      'csrf.mismatch'
+    );
 
-        if (mode === 'observe') {
-            // Phase-1 rollout: log and let through so a missing
-            // frontend attach doesn't brick the app. Flip to
-            // CSRF_ENFORCE=true once telemetry shows zero mismatches.
-            return next();
-        }
+    if (mode === 'observe') {
+      // Phase-1 rollout: log and let through so a missing
+      // frontend attach doesn't brick the app. Flip to
+      // CSRF_ENFORCE=true once telemetry shows zero mismatches.
+      return next();
+    }
 
-        return res.status(403).json({
-            error: 'CSRF token missing or invalid',
-            code: 'csrf_invalid',
-        });
-    };
+    return res.status(403).json({
+      error: 'CSRF token missing or invalid',
+      code: 'csrf_invalid',
+    });
+  };
 }

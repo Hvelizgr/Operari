@@ -11,38 +11,39 @@ const isTracingEnabled = process.env.ENABLE_TRACING === 'true';
 let sdk: NodeSDK | null = null;
 
 if (isTracingEnabled) {
-    // Configure Jaeger Exporter
-    const exporter = new JaegerExporter({
-        endpoint: process.env.JAEGER_ENDPOINT || 'http://localhost:14268/api/traces',
+  // Configure Jaeger Exporter
+  const exporter = new JaegerExporter({
+    endpoint: process.env.JAEGER_ENDPOINT || 'http://localhost:14268/api/traces',
+  });
+
+  sdk = new NodeSDK({
+    // Service name is automatically detected from OTEL_SERVICE_NAME env var
+    traceExporter: exporter,
+    instrumentations: [
+      new HttpInstrumentation(),
+      new ExpressInstrumentation(),
+      new PrismaInstrumentation(),
+    ],
+  });
+
+  // Start the SDK
+  try {
+    sdk.start();
+    logger.info('OpenTelemetry Tracing initialized');
+
+    // Gracefully shut down the SDK on process exit
+    process.on('SIGTERM', () => {
+      sdk
+        ?.shutdown()
+        .then(() => logger.info('Tracing terminated'))
+        .catch(error => logger.error('Error terminating tracing', { error: error as Error }))
+        .finally(() => process.exit(0));
     });
-
-    sdk = new NodeSDK({
-        // Service name is automatically detected from OTEL_SERVICE_NAME env var
-        traceExporter: exporter,
-        instrumentations: [
-            new HttpInstrumentation(),
-            new ExpressInstrumentation(),
-            new PrismaInstrumentation(),
-        ],
-    });
-
-    // Start the SDK
-    try {
-        sdk.start();
-        logger.info('OpenTelemetry Tracing initialized');
-
-        // Gracefully shut down the SDK on process exit
-        process.on('SIGTERM', () => {
-            sdk?.shutdown()
-                .then(() => logger.info('Tracing terminated'))
-                .catch((error) => logger.error('Error terminating tracing', { error: error as Error }))
-                .finally(() => process.exit(0));
-        });
-    } catch (error) {
-        logger.error('Failed to initialize OpenTelemetry Tracing', { error: error as Error });
-    }
+  } catch (error) {
+    logger.error('Failed to initialize OpenTelemetry Tracing', { error: error as Error });
+  }
 } else {
-    logger.info('Tracing disabled (ENABLE_TRACING not set)');
+  logger.info('Tracing disabled (ENABLE_TRACING not set)');
 }
 
 export default sdk;

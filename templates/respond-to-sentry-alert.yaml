@@ -32,7 +32,6 @@ description: >-
   warranted, gate on human approval, roll back via Helm, and open a
   post-mortem ticket. The runbook that the landing page promises.
 category: incident-response
-
 steps:
   # 1. Pull the last 200 log lines from the affected service so the
   # on-call engineer (and the AI side-panel) have something to look at

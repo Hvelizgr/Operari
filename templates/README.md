@@ -4,13 +4,13 @@ Production-ready runbook templates you can import into NanoRun and adapt to your
 
 ## Available templates
 
-| Template | Category | What it does |
-|---|---|---|
-| [`deploy-nextjs-vercel.yaml`](./deploy-nextjs-vercel.yaml) | deploy | Pull main → tests → build → approval → Vercel deploy → smoke test → Slack |
-| [`db-migration-prisma.yaml`](./db-migration-prisma.yaml) | migration | Backup DB → check pending migrations → approval → apply → verify → notify |
-| [`rotate-aws-secrets.yaml`](./rotate-aws-secrets.yaml) | security | Create new IAM key → propagate to Vercel/GitHub → verify → revoke old key |
-| [`k8s-rolling-deploy.yaml`](./k8s-rolling-deploy.yaml) | deploy | Update image → watch rollout → smoke test pods → notify |
-| [`onboard-new-developer.yaml`](./onboard-new-developer.yaml) | ops | GitHub invite → team membership → IAM user → welcome Slack message |
+| Template                                                     | Category  | What it does                                                              |
+| ------------------------------------------------------------ | --------- | ------------------------------------------------------------------------- |
+| [`deploy-nextjs-vercel.yaml`](./deploy-nextjs-vercel.yaml)   | deploy    | Pull main → tests → build → approval → Vercel deploy → smoke test → Slack |
+| [`db-migration-prisma.yaml`](./db-migration-prisma.yaml)     | migration | Backup DB → check pending migrations → approval → apply → verify → notify |
+| [`rotate-aws-secrets.yaml`](./rotate-aws-secrets.yaml)       | security  | Create new IAM key → propagate to Vercel/GitHub → verify → revoke old key |
+| [`k8s-rolling-deploy.yaml`](./k8s-rolling-deploy.yaml)       | deploy    | Update image → watch rollout → smoke test pods → notify                   |
+| [`onboard-new-developer.yaml`](./onboard-new-developer.yaml) | ops       | GitHub invite → team membership → IAM user → welcome Slack message        |
 
 ## How to use
 
@@ -62,6 +62,7 @@ Reference variables in any string config field with `{{vars.name}}`:
 ```
 
 Variables are passed when triggering the runbook:
+
 - CLI: `cairn run my-runbook -v environment=production`
 - SDK: `client.trigger('my-runbook', { variables: { environment: 'production' } })`
 - Webhook: extracted from the incoming payload
@@ -69,6 +70,7 @@ Variables are passed when triggering the runbook:
 ## Contributing
 
 Have a battle-tested runbook? PRs welcome. Keep templates:
+
 - **Generic** — easy to adapt to any stack
 - **Safe** — use approval gates for destructive ops
 - **Documented** — explain required variables in the file header

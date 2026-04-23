@@ -5,10 +5,10 @@ import './config/env.config'; // Validate env vars first
 // init Sentry here so the http instrumentation hooks bind to fresh
 // require() calls.
 import {
-    initSentry,
-    installExpressErrorHandler,
-    installProcessHandlers,
-    flushSentry,
+  initSentry,
+  installExpressErrorHandler,
+  installProcessHandlers,
+  flushSentry,
 } from './config/sentry.config';
 initSentry();
 installProcessHandlers();
@@ -55,12 +55,12 @@ import { MonitorService } from './services/monitor.service';
 import { errorHandler } from './middleware/error.middleware';
 import { SchedulerService } from './services/scheduler.service';
 import {
-    authRateLimiter,
-    executionRateLimiter,
-    standardRateLimiter,
-    webhookRateLimiter,
-    loginEmailRateLimiter,
-    cleanupRateLimiters,
+  authRateLimiter,
+  executionRateLimiter,
+  standardRateLimiter,
+  webhookRateLimiter,
+  loginEmailRateLimiter,
+  cleanupRateLimiters,
 } from './middleware/ratelimit.middleware';
 import { requestLogger, addUserContext } from './middleware/logger.middleware';
 import { csrfProtection } from './middleware/csrf.middleware';
@@ -79,22 +79,26 @@ import { socketService } from './editor/execution/socket.service';
 socketService.initialize(httpServer, env.FRONTEND_URL);
 
 app.use(helmet());
-app.use(cors({
+app.use(
+  cors({
     origin: env.FRONTEND_URL,
     credentials: true,
-}));
+  })
+);
 // Capture the raw body so webhook routes can verify HMAC against the
 // exact bytes the sender signed. Re-serializing req.body via
 // JSON.stringify() does NOT preserve byte-for-byte the original
 // payload (key ordering, whitespace, number precision can all
 // differ), which is the canonical webhook security bug.
 // See backend/src/routes/webhook.routes.ts for the consumer.
-app.use(express.json({
+app.use(
+  express.json({
     limit: '10mb',
     verify: (req, _res, buf) => {
-        (req as unknown as { rawBody?: Buffer }).rawBody = buf;
+      (req as unknown as { rawBody?: Buffer }).rawBody = buf;
     },
-}));
+  })
+);
 app.use(cookieParser());
 
 app.use(requestLogger);
@@ -164,12 +168,12 @@ app.use('/api/v1/approvals', standardRateLimiter, v1ApprovalRoutes);
  * (see logger.middleware + ratelimit.middleware path checks).
  */
 app.get('/live', (_req, res) => {
-    res.status(200).json({
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        version: process.env.APP_VERSION ?? process.env.NANORUN_VERSION ?? '0.1.0-dev',
-        uptimeSeconds: Math.round(process.uptime()),
-    });
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    version: process.env.APP_VERSION ?? process.env.NANORUN_VERSION ?? '0.1.0-dev',
+    uptimeSeconds: Math.round(process.uptime()),
+  });
 });
 
 /**
@@ -187,61 +191,59 @@ app.get('/live', (_req, res) => {
  * route around the instance.
  */
 app.get('/health', async (_req, res) => {
-    const withTimeout = async <T>(p: Promise<T>, ms: number): Promise<T> => {
-        return Promise.race([
-            p,
-            new Promise<T>((_, reject) =>
-                setTimeout(() => reject(new Error('timeout')), ms)
-            ),
-        ]);
-    };
+  const withTimeout = async <T>(p: Promise<T>, ms: number): Promise<T> => {
+    return Promise.race([
+      p,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+    ]);
+  };
 
-    let postgres: 'ok' | 'error' = 'ok';
-    let postgresError: string | undefined;
-    try {
-        await withTimeout(prisma.$queryRaw`SELECT 1`, 1500);
-    } catch (err) {
-        postgres = 'error';
-        postgresError = err instanceof Error ? err.message : 'unknown';
+  let postgres: 'ok' | 'error' = 'ok';
+  let postgresError: string | undefined;
+  try {
+    await withTimeout(prisma.$queryRaw`SELECT 1`, 1500);
+  } catch (err) {
+    postgres = 'error';
+    postgresError = err instanceof Error ? err.message : 'unknown';
+  }
+
+  // Redis is optional in self-host (LogStreamService is no-op when
+  // not configured) so we report status separately and never fail
+  // the overall probe on redis alone.
+  let redis: 'ok' | 'error' | 'disabled' = 'disabled';
+  let redisError: string | undefined;
+  try {
+    const { redisConfig } = await import('./config/redis.config');
+    const client = redisConfig.getClient();
+    if (client) {
+      await withTimeout(client.ping(), 1500);
+      redis = 'ok';
     }
+  } catch (err) {
+    redis = 'error';
+    redisError = err instanceof Error ? err.message : 'unknown';
+  }
 
-    // Redis is optional in self-host (LogStreamService is no-op when
-    // not configured) so we report status separately and never fail
-    // the overall probe on redis alone.
-    let redis: 'ok' | 'error' | 'disabled' = 'disabled';
-    let redisError: string | undefined;
-    try {
-        const { redisConfig } = await import('./config/redis.config');
-        const client = redisConfig.getClient();
-        if (client) {
-            await withTimeout(client.ping(), 1500);
-            redis = 'ok';
-        }
-    } catch (err) {
-        redis = 'error';
-        redisError = err instanceof Error ? err.message : 'unknown';
-    }
-
-    const overall: 'ok' | 'degraded' = postgres === 'ok' ? 'ok' : 'degraded';
-    res.status(overall === 'ok' ? 200 : 503).json({
-        status: overall,
-        timestamp: new Date().toISOString(),
-        // Prefer APP_VERSION (same value Sentry uses for release tagging)
-        // so one tag correlates uptime pings with error groups. Falls
-        // back to NANORUN_VERSION for legacy compose files.
-        version: process.env.APP_VERSION ?? process.env.NANORUN_VERSION ?? '0.1.0-dev',
-        uptimeSeconds: Math.round(process.uptime()),
-        deps: {
-            postgres: { status: postgres, ...(postgresError && { error: postgresError }) },
-            redis: { status: redis, ...(redisError && { error: redisError }) },
-        },
-    });
+  const overall: 'ok' | 'degraded' = postgres === 'ok' ? 'ok' : 'degraded';
+  res.status(overall === 'ok' ? 200 : 503).json({
+    status: overall,
+    timestamp: new Date().toISOString(),
+    // Prefer APP_VERSION (same value Sentry uses for release tagging)
+    // so one tag correlates uptime pings with error groups. Falls
+    // back to NANORUN_VERSION for legacy compose files.
+    version: process.env.APP_VERSION ?? process.env.NANORUN_VERSION ?? '0.1.0-dev',
+    uptimeSeconds: Math.round(process.uptime()),
+    deps: {
+      postgres: { status: postgres, ...(postgresError && { error: postgresError }) },
+      redis: { status: redis, ...(redisError && { error: redisError }) },
+    },
+  });
 });
 
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get('/api/openapi.json', (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(swaggerSpec);
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
 });
 
 // Canonical RunbookSpec JSON Schema. Served at the root so VS Code's
@@ -254,9 +256,9 @@ app.get('/api/openapi.json', (req, res) => {
 // so it can be served statically without a build step. The require()
 // pattern matches how swaggerSpec is loaded above.
 app.get('/runbook.schema.json', (_req, res) => {
-    res.setHeader('Content-Type', 'application/schema+json');
-    res.setHeader('Cache-Control', 'public, max-age=300');
-    res.send(runbookJsonSchema);
+  res.setHeader('Content-Type', 'application/schema+json');
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.send(runbookJsonSchema);
 });
 
 // Sentry error middleware must land BEFORE the app's custom
@@ -270,105 +272,105 @@ const scheduler = new SchedulerService(prisma);
 export { scheduler };
 
 async function main() {
-    try {
-        // Startup security checks
-        if (!env.ENCRYPTION_KEY) {
-            logger.warn(
-                '⚠️  ENCRYPTION_KEY is not set. Connected accounts and secrets will use an insecure default key. ' +
-                'Set ENCRYPTION_KEY to a random 64-char hex string for production use.',
-            );
-        } else if (env.ENCRYPTION_KEY === '0'.repeat(64) || env.ENCRYPTION_KEY === '0'.repeat(32)) {
-            logger.warn(
-                '⚠️  ENCRYPTION_KEY is set to a known default value. ' +
-                'Generate a random key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
-            );
-        }
-
-        if (env.NANORUN_ANONYMOUS_MODE === 'true') {
-            logger.warn(
-                '⚠️  NANORUN_ANONYMOUS_MODE=true — all API routes allow unauthenticated access. ' +
-                'Only use this for single-tenant self-host deployments.',
-            );
-        }
-
-        await prisma.$connect();
-        logger.info('Database connected');
-
-        scheduler.start();
-        logger.info('Scheduler started');
-
-        // Monitor watchdog: 1-minute polling worker. Kept dead simple
-        // (setInterval) — monitors are not on a hot path. The worker
-        // also runs once at startup so the UI shows fresh status without
-        // a 1-minute lag after a restart.
-        const monitorService = new MonitorService(prisma);
-        monitorService.evaluateAll().catch((err) => {
-            logger.error({ err }, 'Initial monitor sweep failed');
-        });
-        const monitorInterval = setInterval(() => {
-            monitorService.evaluateAll().catch((err) => {
-                logger.error({ err }, 'Monitor sweep failed');
-            });
-        }, 60_000);
-        process.on('SIGTERM', () => clearInterval(monitorInterval));
-        logger.info('Monitor watchdog started (1-minute interval)');
-
-        // ADR 0003 phase 3: scan for runs that were in flight when the
-        // previous backend instance died and abandon them so they stop
-        // showing up in dashboards. Behind two flags:
-        //   NANORUN_DURABLE_ENGINE=true   → engine is wired in general
-        //   NANORUN_RESUME_WORKER_ACT=true → act on decisions, not just dryRun
-        // Default: dryRun=true so a fresh deploy logs the report and the
-        // operator confirms it before letting the worker mutate.
-        if (process.env.NANORUN_DURABLE_ENGINE === 'true') {
-            try {
-                const { ExecutionEventStore } = await import('./runbook/engine/execution-event.store');
-                const { ResumeWorker } = await import('./runbook/engine/resume-worker');
-                const { Logger } = await import('./services/logger.service');
-                const eventStore = new ExecutionEventStore(prisma);
-                const worker = new ResumeWorker(eventStore, Logger.getInstance());
-                const dryRun = process.env.NANORUN_RESUME_WORKER_ACT !== 'true';
-                const report = await worker.runOnce({ dryRun });
-                logger.info(
-                    {
-                        scannedTenants: report.scannedTenants,
-                        scannedRuns: report.scannedRuns,
-                        abandoned: report.counts.ABANDON,
-                        skipped: report.counts.SKIP,
-                        wouldResume: report.counts.RESUME,
-                        dryRun: report.dryRun,
-                        durationMs: report.durationMs,
-                    },
-                    'Resume worker scan complete',
-                );
-            } catch (workerErr) {
-                // Worker failure must NEVER block server startup. Log and
-                // proceed; the next deploy can re-run the scan.
-                logger.error({ err: workerErr }, 'Resume worker scan failed');
-            }
-        }
-
-        httpServer.listen(PORT, () => {
-            logger.info({ port: PORT }, `Server running on port ${PORT}`);
-        });
-    } catch (error) {
-        logger.error({ error }, 'Failed to start server');
-        process.exit(1);
+  try {
+    // Startup security checks
+    if (!env.ENCRYPTION_KEY) {
+      logger.warn(
+        '⚠️  ENCRYPTION_KEY is not set. Connected accounts and secrets will use an insecure default key. ' +
+          'Set ENCRYPTION_KEY to a random 64-char hex string for production use.'
+      );
+    } else if (env.ENCRYPTION_KEY === '0'.repeat(64) || env.ENCRYPTION_KEY === '0'.repeat(32)) {
+      logger.warn(
+        '⚠️  ENCRYPTION_KEY is set to a known default value. ' +
+          "Generate a random key with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+      );
     }
+
+    if (env.NANORUN_ANONYMOUS_MODE === 'true') {
+      logger.warn(
+        '⚠️  NANORUN_ANONYMOUS_MODE=true — all API routes allow unauthenticated access. ' +
+          'Only use this for single-tenant self-host deployments.'
+      );
+    }
+
+    await prisma.$connect();
+    logger.info('Database connected');
+
+    scheduler.start();
+    logger.info('Scheduler started');
+
+    // Monitor watchdog: 1-minute polling worker. Kept dead simple
+    // (setInterval) — monitors are not on a hot path. The worker
+    // also runs once at startup so the UI shows fresh status without
+    // a 1-minute lag after a restart.
+    const monitorService = new MonitorService(prisma);
+    monitorService.evaluateAll().catch(err => {
+      logger.error({ err }, 'Initial monitor sweep failed');
+    });
+    const monitorInterval = setInterval(() => {
+      monitorService.evaluateAll().catch(err => {
+        logger.error({ err }, 'Monitor sweep failed');
+      });
+    }, 60_000);
+    process.on('SIGTERM', () => clearInterval(monitorInterval));
+    logger.info('Monitor watchdog started (1-minute interval)');
+
+    // ADR 0003 phase 3: scan for runs that were in flight when the
+    // previous backend instance died and abandon them so they stop
+    // showing up in dashboards. Behind two flags:
+    //   NANORUN_DURABLE_ENGINE=true   → engine is wired in general
+    //   NANORUN_RESUME_WORKER_ACT=true → act on decisions, not just dryRun
+    // Default: dryRun=true so a fresh deploy logs the report and the
+    // operator confirms it before letting the worker mutate.
+    if (process.env.NANORUN_DURABLE_ENGINE === 'true') {
+      try {
+        const { ExecutionEventStore } = await import('./runbook/engine/execution-event.store');
+        const { ResumeWorker } = await import('./runbook/engine/resume-worker');
+        const { Logger } = await import('./services/logger.service');
+        const eventStore = new ExecutionEventStore(prisma);
+        const worker = new ResumeWorker(eventStore, Logger.getInstance());
+        const dryRun = process.env.NANORUN_RESUME_WORKER_ACT !== 'true';
+        const report = await worker.runOnce({ dryRun });
+        logger.info(
+          {
+            scannedTenants: report.scannedTenants,
+            scannedRuns: report.scannedRuns,
+            abandoned: report.counts.ABANDON,
+            skipped: report.counts.SKIP,
+            wouldResume: report.counts.RESUME,
+            dryRun: report.dryRun,
+            durationMs: report.durationMs,
+          },
+          'Resume worker scan complete'
+        );
+      } catch (workerErr) {
+        // Worker failure must NEVER block server startup. Log and
+        // proceed; the next deploy can re-run the scan.
+        logger.error({ err: workerErr }, 'Resume worker scan failed');
+      }
+    }
+
+    httpServer.listen(PORT, () => {
+      logger.info({ port: PORT }, `Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    logger.error({ error }, 'Failed to start server');
+    process.exit(1);
+  }
 }
 
 process.on('SIGINT', async () => {
-    logger.info('Shutting down gracefully...');
-    scheduler.stop();
-    cleanupRateLimiters();
-    await prisma.$disconnect();
-    // Flush pending Sentry events. 2s timeout is short enough that a
-    // kill -9 during a long flush never deadlocks the pod, and long
-    // enough that the last few events from whatever crashed the
-    // process usually make it through.
-    await flushSentry(2000);
-    logger.info('Server stopped');
-    process.exit(0);
+  logger.info('Shutting down gracefully...');
+  scheduler.stop();
+  cleanupRateLimiters();
+  await prisma.$disconnect();
+  // Flush pending Sentry events. 2s timeout is short enough that a
+  // kill -9 during a long flush never deadlocks the pod, and long
+  // enough that the last few events from whatever crashed the
+  // process usually make it through.
+  await flushSentry(2000);
+  logger.info('Server stopped');
+  process.exit(0);
 });
 
 main();

@@ -36,117 +36,117 @@ import { AuthTransportError } from './auth-provider.types';
  * organization id and role within that organization.
  */
 export interface WorkOSClaims {
-    sub: string;
-    email: string;
-    /** WorkOS organization id — maps to NanoRun tenant */
-    organization_id: string;
-    /** WorkOS-side role string. Defaults to 'member'. */
-    role?: string;
-    /** Issued-at timestamp (epoch seconds) */
-    iat: number;
-    /** Expiration timestamp (epoch seconds) */
-    exp: number;
+  sub: string;
+  email: string;
+  /** WorkOS organization id — maps to NanoRun tenant */
+  organization_id: string;
+  /** WorkOS-side role string. Defaults to 'member'. */
+  role?: string;
+  /** Issued-at timestamp (epoch seconds) */
+  iat: number;
+  /** Expiration timestamp (epoch seconds) */
+  exp: number;
 }
 
 export type VerifyJwksTokenFn = (token: string) => Promise<WorkOSClaims | null>;
 
 export interface WorkOSAuthProviderOptions {
-    /**
-     * Function that verifies a WorkOS-issued token against the WorkOS
-     * JWKS endpoint and returns the decoded claims (or null on
-     * failure). Production passes a real implementation backed by
-     * `fetch('https://api.workos.com/sso/jwks/<client_id>')`. Tests
-     * pass a fake.
-     */
-    verifyJwksToken: VerifyJwksTokenFn;
+  /**
+   * Function that verifies a WorkOS-issued token against the WorkOS
+   * JWKS endpoint and returns the decoded claims (or null on
+   * failure). Production passes a real implementation backed by
+   * `fetch('https://api.workos.com/sso/jwks/<client_id>')`. Tests
+   * pass a fake.
+   */
+  verifyJwksToken: VerifyJwksTokenFn;
 
-    /**
-     * Map a WorkOS role string to a NanoRun role. Defaults to
-     * `(role) => role ?? 'USER'`. Override for tenants that use
-     * custom WorkOS roles.
-     */
-    mapRole?: (workosRole: string | undefined) => string;
+  /**
+   * Map a WorkOS role string to a NanoRun role. Defaults to
+   * `(role) => role ?? 'USER'`. Override for tenants that use
+   * custom WorkOS roles.
+   */
+  mapRole?: (workosRole: string | undefined) => string;
 }
 
 export class WorkOSAuthProvider implements AuthProvider {
-    readonly name = 'workos';
+  readonly name = 'workos';
 
-    private readonly verifyJwksToken: VerifyJwksTokenFn;
-    private readonly mapRole: (workosRole: string | undefined) => string;
+  private readonly verifyJwksToken: VerifyJwksTokenFn;
+  private readonly mapRole: (workosRole: string | undefined) => string;
 
-    constructor(
-        private readonly prisma: PrismaClient,
-        options: WorkOSAuthProviderOptions,
-    ) {
-        this.verifyJwksToken = options.verifyJwksToken;
-        this.mapRole = options.mapRole ?? ((role) => role ?? 'USER');
+  constructor(
+    private readonly prisma: PrismaClient,
+    options: WorkOSAuthProviderOptions
+  ) {
+    this.verifyJwksToken = options.verifyJwksToken;
+    this.mapRole = options.mapRole ?? (role => role ?? 'USER');
+  }
+
+  async verifyToken(token: string): Promise<AuthenticatedUser | null> {
+    let claims: WorkOSClaims | null;
+    try {
+      claims = await this.verifyJwksToken(token);
+    } catch (err) {
+      // Transport-level failure (WorkOS unreachable) is different
+      // from a bad token. The middleware translates this into 503
+      // so clients know to retry rather than re-authenticate.
+      throw new AuthTransportError(
+        err instanceof Error ? err.message : 'WorkOS verify failed',
+        this.name
+      );
     }
+    if (!claims) return null;
 
-    async verifyToken(token: string): Promise<AuthenticatedUser | null> {
-        let claims: WorkOSClaims | null;
-        try {
-            claims = await this.verifyJwksToken(token);
-        } catch (err) {
-            // Transport-level failure (WorkOS unreachable) is different
-            // from a bad token. The middleware translates this into 503
-            // so clients know to retry rather than re-authenticate.
-            throw new AuthTransportError(
-                err instanceof Error ? err.message : 'WorkOS verify failed',
-                this.name,
-            );
-        }
-        if (!claims) return null;
+    // Resolve the NanoRun tenant from the WorkOS organization id.
+    // The tenants table has a workosOrganizationId column added by
+    // the cloud beta migration; until that lands, this lookup
+    // returns null and the request fails closed.
+    const tenant = await this.findTenantByWorkOSOrgId(claims.organization_id);
+    if (!tenant) return null;
 
-        // Resolve the NanoRun tenant from the WorkOS organization id.
-        // The tenants table has a workosOrganizationId column added by
-        // the cloud beta migration; until that lands, this lookup
-        // returns null and the request fails closed.
-        const tenant = await this.findTenantByWorkOSOrgId(claims.organization_id);
-        if (!tenant) return null;
+    // Upsert the user row. WorkOS owns identity (email, sub) and
+    // we mirror it locally so RBAC and per-tenant resources can
+    // join against User.id.
+    const mappedRole = this.mapRole(claims.role) as Role;
+    const user = await this.prisma.user.upsert({
+      where: { email: claims.email },
+      create: {
+        email: claims.email,
+        name: claims.email,
+        passwordHash: '',
+        tenantId: tenant.id,
+        role: mappedRole,
+      },
+      update: {
+        tenantId: tenant.id,
+        role: mappedRole,
+      },
+    });
 
-        // Upsert the user row. WorkOS owns identity (email, sub) and
-        // we mirror it locally so RBAC and per-tenant resources can
-        // join against User.id.
-        const mappedRole = this.mapRole(claims.role) as Role;
-        const user = await this.prisma.user.upsert({
-            where: { email: claims.email },
-            create: {
-                email: claims.email,
-                name: claims.email,
-                passwordHash: '',
-                tenantId: tenant.id,
-                role: mappedRole,
-            },
-            update: {
-                tenantId: tenant.id,
-                role: mappedRole,
-            },
-        });
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenantId,
+      provider: this.name,
+    };
+  }
 
-        return {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            tenantId: user.tenantId,
-            provider: this.name,
-        };
-    }
-
-    /**
-     * Look up the NanoRun tenant by WorkOS organization id. Returns
-     * null when no tenant is linked to the org — verifyToken turns
-     * that into a 401, which is the fail-closed default for "WorkOS
-     * knows the user but the user belongs to an org we don't host".
-     *
-     * The lookup uses the unique index added by the
-     * `add_tenant_external_ids` migration so it is a single-row
-     * point query, fast on every request.
-     */
-    private async findTenantByWorkOSOrgId(orgId: string): Promise<{ id: string } | null> {
-        if (!orgId) return null;
-        return this.prisma.tenant.findUnique({
-            where: { workosOrganizationId: orgId },
-            select: { id: true },
-        });
-    }
+  /**
+   * Look up the NanoRun tenant by WorkOS organization id. Returns
+   * null when no tenant is linked to the org — verifyToken turns
+   * that into a 401, which is the fail-closed default for "WorkOS
+   * knows the user but the user belongs to an org we don't host".
+   *
+   * The lookup uses the unique index added by the
+   * `add_tenant_external_ids` migration so it is a single-row
+   * point query, fast on every request.
+   */
+  private async findTenantByWorkOSOrgId(orgId: string): Promise<{ id: string } | null> {
+    if (!orgId) return null;
+    return this.prisma.tenant.findUnique({
+      where: { workosOrganizationId: orgId },
+      select: { id: true },
+    });
+  }
 }

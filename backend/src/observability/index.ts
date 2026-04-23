@@ -13,16 +13,16 @@ export type { StartRunInput, StartStepInput } from './run-tracer';
 let tracerSingleton: RunTracer | null = null;
 
 export function getRunTracer(): RunTracer {
-    if (!tracerSingleton) {
-        tracerSingleton = new RunTracer();
-    }
-    return tracerSingleton;
+  if (!tracerSingleton) {
+    tracerSingleton = new RunTracer();
+  }
+  return tracerSingleton;
 }
 
 export function setRunTracerForTest(tracer: RunTracer): void {
-    tracerSingleton = tracer;
+  tracerSingleton = tracer;
 }
 
 export function resetRunTracerForTest(): void {
-    tracerSingleton = null;
+  tracerSingleton = null;
 }

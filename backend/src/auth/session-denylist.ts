@@ -17,15 +17,15 @@ import { redisConfig } from '../config/redis.config';
 const KEY_PREFIX = 'auth:denylist:';
 
 export async function revokeJti(jti: string, expirySeconds: number): Promise<void> {
-    const client = redisConfig.getClient();
-    if (!client || !redisConfig.isReady()) return;
-    const ttl = Math.max(1, Math.floor(expirySeconds));
-    await client.set(`${KEY_PREFIX}${jti}`, '1', 'EX', ttl);
+  const client = redisConfig.getClient();
+  if (!client || !redisConfig.isReady()) return;
+  const ttl = Math.max(1, Math.floor(expirySeconds));
+  await client.set(`${KEY_PREFIX}${jti}`, '1', 'EX', ttl);
 }
 
 export async function isJtiRevoked(jti: string): Promise<boolean> {
-    const client = redisConfig.getClient();
-    if (!client || !redisConfig.isReady()) return false;
-    const value = await client.get(`${KEY_PREFIX}${jti}`);
-    return value !== null;
+  const client = redisConfig.getClient();
+  if (!client || !redisConfig.isReady()) return false;
+  const value = await client.get(`${KEY_PREFIX}${jti}`);
+  return value !== null;
 }

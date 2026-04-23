@@ -22,41 +22,41 @@ import type { AuthRequest } from './auth.middleware';
  * `upgrade` hint the frontend can map to /api/billing/checkout.
  */
 export function requirePlan(
-    ...allowedPlans: Plan[]
+  ...allowedPlans: Plan[]
 ): (req: AuthRequest, res: Response, next: NextFunction) => Promise<void> {
-    return async (req, res, next) => {
-        if (process.env.NANORUN_ANONYMOUS_MODE === 'true') {
-            return next();
-        }
-        if (!req.user) {
-            res.status(401).json({ error: 'Not authenticated' });
-            return;
-        }
+  return async (req, res, next) => {
+    if (process.env.NANORUN_ANONYMOUS_MODE === 'true') {
+      return next();
+    }
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
-        const tenant = await prisma.tenant.findUnique({
-            where: { id: req.user.tenantId },
-            select: { plan: true, planStatus: true },
-        });
-        if (!tenant) {
-            res.status(404).json({ error: 'Tenant not found' });
-            return;
-        }
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.user.tenantId },
+      select: { plan: true, planStatus: true },
+    });
+    if (!tenant) {
+      res.status(404).json({ error: 'Tenant not found' });
+      return;
+    }
 
-        // Enterprise passes every gate unconditionally — they get
-        // whatever was negotiated off-platform.
-        if (tenant.plan === 'ENTERPRISE') return next();
+    // Enterprise passes every gate unconditionally — they get
+    // whatever was negotiated off-platform.
+    if (tenant.plan === 'ENTERPRISE') return next();
 
-        // past_due subscriptions keep access until Stripe fully
-        // cancels (customer.subscription.deleted flips plan to FREE).
-        // That matches the dunning grace period the user expects
-        // and avoids a short outage when a card expires.
-        if (allowedPlans.includes(tenant.plan)) return next();
+    // past_due subscriptions keep access until Stripe fully
+    // cancels (customer.subscription.deleted flips plan to FREE).
+    // That matches the dunning grace period the user expects
+    // and avoids a short outage when a card expires.
+    if (allowedPlans.includes(tenant.plan)) return next();
 
-        res.status(402).json({
-            error: 'Plan upgrade required',
-            currentPlan: tenant.plan,
-            requiredPlans: allowedPlans,
-            upgrade: '/api/billing/checkout',
-        });
-    };
+    res.status(402).json({
+      error: 'Plan upgrade required',
+      currentPlan: tenant.plan,
+      requiredPlans: allowedPlans,
+      upgrade: '/api/billing/checkout',
+    });
+  };
 }

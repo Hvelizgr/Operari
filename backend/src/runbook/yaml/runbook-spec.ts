@@ -19,62 +19,62 @@
  */
 
 export interface RunbookSpec {
-    /** Schema version. Bump on breaking changes. */
-    version: 1;
-    /** Stable slug used by the CLI/SDK. */
-    slug?: string;
-    /** Human-readable name. */
-    name: string;
-    /** Optional one-line description. */
-    description?: string;
-    /** Free-form category (e.g. "deploy", "incident"). */
-    category?: string;
-    /** Cron expression if scheduled. */
-    schedule?: string;
-    /** Variables exposed via {{vars.foo}} at run time. */
-    vars?: Record<string, unknown>;
-    /** Ordered list of steps. */
-    steps: RunbookStep[];
+  /** Schema version. Bump on breaking changes. */
+  version: 1;
+  /** Stable slug used by the CLI/SDK. */
+  slug?: string;
+  /** Human-readable name. */
+  name: string;
+  /** Optional one-line description. */
+  description?: string;
+  /** Free-form category (e.g. "deploy", "incident"). */
+  category?: string;
+  /** Cron expression if scheduled. */
+  schedule?: string;
+  /** Variables exposed via {{vars.foo}} at run time. */
+  vars?: Record<string, unknown>;
+  /** Ordered list of steps. */
+  steps: RunbookStep[];
 }
 
 export interface RunbookStep {
-    /** Unique id within the runbook. Slug-cased, e.g. "deploy-canary". */
-    id: string;
-    /** Step type matching a registered executor (shell, http, approval, ...). */
-    type: string;
-    /** Human-readable label shown in the UI. */
-    name?: string;
-    /** Whether this step runs. Defaults to true. */
-    enabled?: boolean;
-    /** Type-specific configuration (shell command, http url+method, ...). */
-    config?: Record<string, unknown>;
-    /**
-     * Retry policy applied when the step's executor reports failure.
-     * Cross-cutting (every step type honours it) so it lives at the
-     * step level rather than inside `config`.
-     */
-    retry?: RetryPolicy;
-    /**
-     * Template expression evaluated before the step runs. If it
-     * resolves to a falsy value the step is skipped (status: SKIPPED)
-     * and execution continues with the next step. Mutually exclusive
-     * with `skipIf` — if both are set, `skipIf` wins.
-     */
-    runIf?: string;
-    /**
-     * Inverse of `runIf`: if it resolves to truthy the step is
-     * skipped. Useful for "skip on dry-run" patterns where the
-     * positive expression is the noisy one.
-     */
-    skipIf?: string;
-    /**
-     * Successor step id(s). Omit on the final step. Strings are
-     * resolved as the next step id. The graph form preserves the
-     * original WorkflowConnection ports.
-     */
-    next?: string | string[] | StepConnection[];
-    /** Editor-only metadata, preserved on round-trip. */
-    position?: { x: number; y: number };
+  /** Unique id within the runbook. Slug-cased, e.g. "deploy-canary". */
+  id: string;
+  /** Step type matching a registered executor (shell, http, approval, ...). */
+  type: string;
+  /** Human-readable label shown in the UI. */
+  name?: string;
+  /** Whether this step runs. Defaults to true. */
+  enabled?: boolean;
+  /** Type-specific configuration (shell command, http url+method, ...). */
+  config?: Record<string, unknown>;
+  /**
+   * Retry policy applied when the step's executor reports failure.
+   * Cross-cutting (every step type honours it) so it lives at the
+   * step level rather than inside `config`.
+   */
+  retry?: RetryPolicy;
+  /**
+   * Template expression evaluated before the step runs. If it
+   * resolves to a falsy value the step is skipped (status: SKIPPED)
+   * and execution continues with the next step. Mutually exclusive
+   * with `skipIf` — if both are set, `skipIf` wins.
+   */
+  runIf?: string;
+  /**
+   * Inverse of `runIf`: if it resolves to truthy the step is
+   * skipped. Useful for "skip on dry-run" patterns where the
+   * positive expression is the noisy one.
+   */
+  skipIf?: string;
+  /**
+   * Successor step id(s). Omit on the final step. Strings are
+   * resolved as the next step id. The graph form preserves the
+   * original WorkflowConnection ports.
+   */
+  next?: string | string[] | StepConnection[];
+  /** Editor-only metadata, preserved on round-trip. */
+  position?: { x: number; y: number };
 }
 
 /**
@@ -90,17 +90,17 @@ export interface RunbookStep {
  * what differs from default keeps the YAML readable.
  */
 export interface RetryPolicy {
-    count: number;
-    backoff?: 'fixed' | 'exponential';
-    delayMs?: number;
-    maxDelayMs?: number;
+  count: number;
+  backoff?: 'fixed' | 'exponential';
+  delayMs?: number;
+  maxDelayMs?: number;
 }
 
 export interface StepConnection {
-    /** Target step id. */
-    to: string;
-    /** Source port index on this step (defaults to 0). */
-    fromPort?: number;
-    /** Target port index on the destination step (defaults to 0). */
-    toPort?: number;
+  /** Target step id. */
+  to: string;
+  /** Source port index on this step (defaults to 0). */
+  fromPort?: number;
+  /** Target port index on the destination step (defaults to 0). */
+  toPort?: number;
 }

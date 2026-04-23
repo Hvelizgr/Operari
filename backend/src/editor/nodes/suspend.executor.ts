@@ -1,8 +1,4 @@
-import type {
-    SuspendNodeConfig,
-    SuspendResult,
-    ExecutionInput,
-} from '../../types/workflow.types';
+import type { SuspendNodeConfig, SuspendResult, ExecutionInput } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 
 /**
@@ -15,15 +11,14 @@ import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
  *
  * Behavior preserved exactly from the legacy `executeSuspend` method.
  */
-export class SuspendNodeExecutor
-    implements EditorNodeExecutor<SuspendNodeConfig, SuspendResult> {
-    readonly type = 'Suspend';
+export class SuspendNodeExecutor implements EditorNodeExecutor<SuspendNodeConfig, SuspendResult> {
+  readonly type = 'Suspend';
 
-    async execute(
-        _config: SuspendNodeConfig,
-        input: ExecutionInput,
-        _errorContext: NodeErrorContext,
-    ): Promise<SuspendResult> {
-        return { ...input, isSuspended: true };
-    }
+  async execute(
+    _config: SuspendNodeConfig,
+    input: ExecutionInput,
+    _errorContext: NodeErrorContext
+  ): Promise<SuspendResult> {
+    return { ...input, isSuspended: true };
+  }
 }

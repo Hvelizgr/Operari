@@ -4,12 +4,12 @@ import { getAuthProvider, AuthTransportError } from '../auth';
 import { SESSION_COOKIE_NAME } from '../auth/session-cookie';
 
 export interface AuthRequest extends Request {
-    user?: {
-        id: string;
-        email: string;
-        role: string;
-        tenantId: string;
-    };
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+    tenantId: string;
+  };
 }
 
 /**
@@ -34,45 +34,43 @@ export interface AuthRequest extends Request {
  *     503 but re-authenticate on 401.
  */
 function extractToken(req: AuthRequest): string | null {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        return authHeader.substring(7);
-    }
-    const cookieToken = (req as Request & { cookies?: Record<string, string> }).cookies?.[SESSION_COOKIE_NAME];
-    return cookieToken ?? null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  const cookieToken = (req as Request & { cookies?: Record<string, string> }).cookies?.[
+    SESSION_COOKIE_NAME
+  ];
+  return cookieToken ?? null;
 }
 
-export const authenticate = async (
-    req: AuthRequest,
-    res: Response,
-    next: NextFunction
-) => {
-    const token = extractToken(req);
-    if (!token) {
-        return res.status(401).json({ error: 'No token provided' });
-    }
+export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const token = extractToken(req);
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
 
-    try {
-        const user = await getAuthProvider(prisma).verifyToken(token);
-        if (!user) {
-            return res.status(401).json({ error: 'Invalid token' });
-        }
-        req.user = {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            tenantId: user.tenantId,
-        };
-        next();
-    } catch (error) {
-        if (error instanceof AuthTransportError) {
-            return res.status(503).json({
-                error: 'Auth service unavailable',
-                provider: error.provider,
-            });
-        }
-        return res.status(401).json({ error: 'Invalid token' });
+  try {
+    const user = await getAuthProvider(prisma).verifyToken(token);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid token' });
     }
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenantId,
+    };
+    next();
+  } catch (error) {
+    if (error instanceof AuthTransportError) {
+      return res.status(503).json({
+        error: 'Auth service unavailable',
+        provider: error.provider,
+      });
+    }
+    return res.status(401).json({ error: 'Invalid token' });
+  }
 };
 
 /**
@@ -84,32 +82,28 @@ export const authenticate = async (
  * so routes that require auth will return 401 via the `authenticate`
  * middleware.
  */
-export const anonymousFallback = (
-    req: AuthRequest,
-    _res: Response,
-    next: NextFunction,
-) => {
-    if (!req.user && process.env.NANORUN_ANONYMOUS_MODE === 'true') {
-        req.user = {
-            id: 'anonymous',
-            email: 'anonymous@nanorun.local',
-            role: 'USER',
-            tenantId: 'default-tenant',
-        };
-    }
-    next();
+export const anonymousFallback = (req: AuthRequest, _res: Response, next: NextFunction) => {
+  if (!req.user && process.env.NANORUN_ANONYMOUS_MODE === 'true') {
+    req.user = {
+      id: 'anonymous',
+      email: 'anonymous@nanorun.local',
+      role: 'USER',
+      tenantId: 'default-tenant',
+    };
+  }
+  next();
 };
 
 export const requireRole = (...roles: string[]) => {
-    return (req: AuthRequest, res: Response, next: NextFunction) => {
-        if (!req.user) {
-            return res.status(401).json({ error: 'Not authenticated' });
-        }
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
 
-        if (!roles.includes(req.user.role)) {
-            return res.status(403).json({ error: 'Insufficient permissions' });
-        }
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
 
-        next();
-    };
+    next();
+  };
 };

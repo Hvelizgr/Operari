@@ -16,10 +16,10 @@ import { createHash, randomBytes } from 'crypto';
 export const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 
 export function generateResetToken(): { token: string; tokenHash: string } {
-    const token = randomBytes(24).toString('base64url');
-    return { token, tokenHash: hashResetToken(token) };
+  const token = randomBytes(24).toString('base64url');
+  return { token, tokenHash: hashResetToken(token) };
 }
 
 export function hashResetToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
+  return createHash('sha256').update(token).digest('hex');
 }

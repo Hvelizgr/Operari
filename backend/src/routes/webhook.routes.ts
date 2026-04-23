@@ -11,40 +11,40 @@ const router = Router();
 
 let _executionService: ExecutionService | null = null;
 function getExecutionService() {
-    if (!_executionService) _executionService = new ExecutionService(prisma);
-    return _executionService;
+  if (!_executionService) _executionService = new ExecutionService(prisma);
+  return _executionService;
 }
 
 let _webhookService: WebhookService | null = null;
 function getWebhookService() {
-    if (!_webhookService) _webhookService = new WebhookService(prisma);
-    return _webhookService;
+  if (!_webhookService) _webhookService = new WebhookService(prisma);
+  return _webhookService;
 }
 
 let _eventAgentService: EventAgentService | null = null;
 function getEventAgentService() {
-    if (!_eventAgentService) _eventAgentService = new EventAgentService(prisma);
-    return _eventAgentService;
+  if (!_eventAgentService) _eventAgentService = new EventAgentService(prisma);
+  return _eventAgentService;
 }
 
 let _githubStatusService: GitHubStatusService | null = null;
 function getGitHubStatusService() {
-    if (!_githubStatusService) _githubStatusService = new GitHubStatusService(prisma);
-    return _githubStatusService;
+  if (!_githubStatusService) _githubStatusService = new GitHubStatusService(prisma);
+  return _githubStatusService;
 }
 
 let _receiptService: WebhookReceiptService | null = null;
 function getReceiptService() {
-    if (!_receiptService) _receiptService = new WebhookReceiptService(prisma);
-    return _receiptService;
+  if (!_receiptService) _receiptService = new WebhookReceiptService(prisma);
+  return _receiptService;
 }
 
 function sourceIpOf(req: Request): string | null {
-    const xff = req.headers['x-forwarded-for'];
-    if (typeof xff === 'string' && xff.length > 0) {
-        return xff.split(',')[0]?.trim() ?? null;
-    }
-    return req.ip ?? null;
+  const xff = req.headers['x-forwarded-for'];
+  if (typeof xff === 'string' && xff.length > 0) {
+    return xff.split(',')[0]?.trim() ?? null;
+  }
+  return req.ip ?? null;
 }
 
 /**
@@ -64,179 +64,180 @@ function sourceIpOf(req: Request): string | null {
  * runbook is triggered immediately.
  */
 async function handleWebhook(req: Request, res: Response) {
-    const { token, event } = req.params;
-    const service = getWebhookService();
-    const receipts = getReceiptService();
-    const headers = req.headers as Record<string, unknown>;
-    const body = req.body ?? {};
-    const sourceIp = sourceIpOf(req);
+  const { token, event } = req.params;
+  const service = getWebhookService();
+  const receipts = getReceiptService();
+  const headers = req.headers as Record<string, unknown>;
+  const body = req.body ?? {};
+  const sourceIp = sourceIpOf(req);
 
-    const webhook = await service.findByToken(String(token));
-    if (!webhook || !webhook.isActive) {
-        // Inactive/unknown webhook — still debug-worthy if a tenant
-        // just deactivated one and wonders why the trigger stopped.
-        // We can only record if we actually found it; a truly unknown
-        // token has no webhookId FK to anchor the receipt against.
-        if (webhook) {
-            await receipts.record({
-                webhookId: webhook.id,
-                tenantId: webhook.tenantId,
-                status: 'rejected_inactive',
-                statusCode: 404,
-                reason: 'Webhook inactive',
-                headers,
-                body,
-                sourceIp,
-            });
-        }
-        return res.status(404).json({ error: 'Webhook not found' });
+  const webhook = await service.findByToken(String(token));
+  if (!webhook || !webhook.isActive) {
+    // Inactive/unknown webhook — still debug-worthy if a tenant
+    // just deactivated one and wonders why the trigger stopped.
+    // We can only record if we actually found it; a truly unknown
+    // token has no webhookId FK to anchor the receipt against.
+    if (webhook) {
+      await receipts.record({
+        webhookId: webhook.id,
+        tenantId: webhook.tenantId,
+        status: 'rejected_inactive',
+        statusCode: 404,
+        reason: 'Webhook inactive',
+        headers,
+        body,
+        sourceIp,
+      });
     }
+    return res.status(404).json({ error: 'Webhook not found' });
+  }
 
-    // HMAC validation if a secret is configured.
-    //
-    // CRITICAL: pass the EXACT bytes the sender signed via req.rawBody.
-    // Re-serializing req.body via JSON.stringify() does not preserve
-    // those bytes (key ordering, whitespace, number precision, escape
-    // sequences can all differ) and HMAC verification will fail
-    // randomly. The raw body is captured by the express.json verify
-    // hook in server.ts.
-    if (webhook.secret) {
-        const sigHeader =
-            (req.headers['x-hub-signature-256'] as string) ??
-            (req.headers['x-webhook-signature'] as string);
-        const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody;
+  // HMAC validation if a secret is configured.
+  //
+  // CRITICAL: pass the EXACT bytes the sender signed via req.rawBody.
+  // Re-serializing req.body via JSON.stringify() does not preserve
+  // those bytes (key ordering, whitespace, number precision, escape
+  // sequences can all differ) and HMAC verification will fail
+  // randomly. The raw body is captured by the express.json verify
+  // hook in server.ts.
+  if (webhook.secret) {
+    const sigHeader =
+      (req.headers['x-hub-signature-256'] as string) ??
+      (req.headers['x-webhook-signature'] as string);
+    const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody;
 
-        const valid = service.verifySignature(
-            webhook.secret,
-            rawBody,
-            sigHeader,
-            webhook.source,
-        );
+    const valid = service.verifySignature(webhook.secret, rawBody, sigHeader, webhook.source);
 
-        if (!valid) {
-            await receipts.record({
-                webhookId: webhook.id,
-                tenantId: webhook.tenantId,
-                status: 'rejected_signature',
-                statusCode: 401,
-                reason: 'HMAC signature mismatch',
-                headers,
-                body,
-                sourceIp,
-            });
-            return res.status(401).json({ error: 'Invalid webhook signature' });
-        }
+    if (!valid) {
+      await receipts.record({
+        webhookId: webhook.id,
+        tenantId: webhook.tenantId,
+        status: 'rejected_signature',
+        statusCode: 401,
+        reason: 'HMAC signature mismatch',
+        headers,
+        body,
+        sourceIp,
+      });
+      return res.status(401).json({ error: 'Invalid webhook signature' });
     }
+  }
 
-    // Map payload → variables
-    const variables = service.mapPayloadToVariables(
-        webhook.source,
-        event ? String(event) : undefined,
-        req.body || {},
-    );
+  // Map payload → variables
+  const variables = service.mapPayloadToVariables(
+    webhook.source,
+    event ? String(event) : undefined,
+    req.body || {}
+  );
 
-    // Trigger the bound runbook
-    let execution;
-    try {
-        execution = await getExecutionService().execute({
-            workflowId: webhook.workflowId,
-            userId: webhook.workflow.userId,
-            trigger: 'WEBHOOK',
-            input: variables,
-            tenantId: webhook.tenantId,
-        });
-    } catch (err) {
-        await receipts.record({
-            webhookId: webhook.id,
-            tenantId: webhook.tenantId,
-            status: 'error',
-            statusCode: 500,
-            reason: err instanceof Error ? err.message : 'execution failed',
-            headers,
-            body,
-            sourceIp,
-        });
-        throw err;
-    }
-
-    // Record the accepted receipt now that we know the execution id.
-    // Fire-and-forget — the receipt write must never delay the 202.
-    receipts
-        .record({
-            webhookId: webhook.id,
-            tenantId: webhook.tenantId,
-            status: 'accepted',
-            statusCode: 202,
-            headers,
-            body,
-            sourceIp,
-            executionId: execution.id,
-        })
-        .catch(() => {
-            /* already swallowed inside the service */
-        });
-
-    // Update webhook stats async
-    service.recordTrigger(webhook.id).catch(() => { /* ignore */ });
-
-    // GitHub: post "pending" commit status and store metadata for the
-    // completion hook in execution.service.
-    if (webhook.source === 'github' && variables.head_sha && variables.owner && variables.repo) {
-        const githubMeta = {
-            owner: variables.owner as string,
-            repo: variables.repo as string,
-            sha: variables.head_sha as string,
-            runbookName: webhook.workflow.name,
-        };
-
-        // Store on execution so the completion hook can find it.
-        prisma.execution.update({
-            where: { id: execution.id },
-            data: { metadata: { github: githubMeta } },
-        }).catch(() => { /* best-effort */ });
-
-        // Post "pending" status to GitHub.
-        getGitHubStatusService()
-            .reportRunStart(webhook.tenantId, {
-                ...githubMeta,
-                runId: execution.id,
-            })
-            .catch((err) => {
-                logger.warn({ err, executionId: execution.id }, 'GitHub pending status failed');
-            });
-    }
-
-    // Fan out to EventAgents bound to this webhook. Additive: the
-    // webhook's own bound runbook always fires (legacy single-mapping
-    // semantics); agents add a parallel "this payload also matches X,
-    // trigger Y" branch. Non-blocking — the webhook responds to the
-    // sender as soon as the primary trigger lands.
-    const execService = getExecutionService();
-    const tenantId = webhook.tenantId;
-    const userId = webhook.workflow.userId;
-    getEventAgentService()
-        .processWebhookEvent(webhook.id, req.body || {}, async (workflowId, vars) => {
-            const run = await execService.execute({
-                workflowId,
-                userId,
-                trigger: 'WEBHOOK',
-                input: vars,
-                tenantId,
-            });
-            return { id: run.id };
-        })
-        .catch((err) => {
-            // Never let a misbehaving agent take down the webhook receiver.
-            // The error is already logged inside the service; the parent
-            // request has already been answered by the time this resolves.
-            logger.error({ err, webhookId: webhook.id }, 'EventAgent fan-out failed');
-        });
-
-    res.status(202).json({
-        runId: execution.id,
-        runbook: { id: webhook.workflow.id, name: webhook.workflow.name },
-        triggered: true,
+  // Trigger the bound runbook
+  let execution;
+  try {
+    execution = await getExecutionService().execute({
+      workflowId: webhook.workflowId,
+      userId: webhook.workflow.userId,
+      trigger: 'WEBHOOK',
+      input: variables,
+      tenantId: webhook.tenantId,
     });
+  } catch (err) {
+    await receipts.record({
+      webhookId: webhook.id,
+      tenantId: webhook.tenantId,
+      status: 'error',
+      statusCode: 500,
+      reason: err instanceof Error ? err.message : 'execution failed',
+      headers,
+      body,
+      sourceIp,
+    });
+    throw err;
+  }
+
+  // Record the accepted receipt now that we know the execution id.
+  // Fire-and-forget — the receipt write must never delay the 202.
+  receipts
+    .record({
+      webhookId: webhook.id,
+      tenantId: webhook.tenantId,
+      status: 'accepted',
+      statusCode: 202,
+      headers,
+      body,
+      sourceIp,
+      executionId: execution.id,
+    })
+    .catch(() => {
+      /* already swallowed inside the service */
+    });
+
+  // Update webhook stats async
+  service.recordTrigger(webhook.id).catch(() => {
+    /* ignore */
+  });
+
+  // GitHub: post "pending" commit status and store metadata for the
+  // completion hook in execution.service.
+  if (webhook.source === 'github' && variables.head_sha && variables.owner && variables.repo) {
+    const githubMeta = {
+      owner: variables.owner as string,
+      repo: variables.repo as string,
+      sha: variables.head_sha as string,
+      runbookName: webhook.workflow.name,
+    };
+
+    // Store on execution so the completion hook can find it.
+    prisma.execution
+      .update({
+        where: { id: execution.id },
+        data: { metadata: { github: githubMeta } },
+      })
+      .catch(() => {
+        /* best-effort */
+      });
+
+    // Post "pending" status to GitHub.
+    getGitHubStatusService()
+      .reportRunStart(webhook.tenantId, {
+        ...githubMeta,
+        runId: execution.id,
+      })
+      .catch(err => {
+        logger.warn({ err, executionId: execution.id }, 'GitHub pending status failed');
+      });
+  }
+
+  // Fan out to EventAgents bound to this webhook. Additive: the
+  // webhook's own bound runbook always fires (legacy single-mapping
+  // semantics); agents add a parallel "this payload also matches X,
+  // trigger Y" branch. Non-blocking — the webhook responds to the
+  // sender as soon as the primary trigger lands.
+  const execService = getExecutionService();
+  const tenantId = webhook.tenantId;
+  const userId = webhook.workflow.userId;
+  getEventAgentService()
+    .processWebhookEvent(webhook.id, req.body || {}, async (workflowId, vars) => {
+      const run = await execService.execute({
+        workflowId,
+        userId,
+        trigger: 'WEBHOOK',
+        input: vars,
+        tenantId,
+      });
+      return { id: run.id };
+    })
+    .catch(err => {
+      // Never let a misbehaving agent take down the webhook receiver.
+      // The error is already logged inside the service; the parent
+      // request has already been answered by the time this resolves.
+      logger.error({ err, webhookId: webhook.id }, 'EventAgent fan-out failed');
+    });
+
+  res.status(202).json({
+    runId: execution.id,
+    runbook: { id: webhook.workflow.id, name: webhook.workflow.name },
+    triggered: true,
+  });
 }
 
 router.post('/:token', handleWebhook);

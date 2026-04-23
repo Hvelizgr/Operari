@@ -26,15 +26,15 @@ const prisma = new PrismaClient();
  *                 description: "Conditional logic"
  */
 router.get('/', async (req, res) => {
-    try {
-        const nodeTypes = await prisma.nodeType.findMany({
-            orderBy: { type: 'asc' }
-        });
-        res.json(nodeTypes);
-    } catch (error) {
-        logger.error({ err: error }, 'Error fetching node types');
-        res.status(500).json({ error: 'Failed to fetch node types' });
-    }
+  try {
+    const nodeTypes = await prisma.nodeType.findMany({
+      orderBy: { type: 'asc' },
+    });
+    res.json(nodeTypes);
+  } catch (error) {
+    logger.error({ err: error }, 'Error fetching node types');
+    res.status(500).json({ error: 'Failed to fetch node types' });
+  }
 });
 
 export default router;

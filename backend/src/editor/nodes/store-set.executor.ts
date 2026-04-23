@@ -1,9 +1,5 @@
 import type { PrismaClient, Prisma } from '@prisma/client';
-import type {
-    StoreSetNodeConfig,
-    StoreResult,
-    ExecutionInput,
-} from '../../types/workflow.types';
+import type { StoreSetNodeConfig, StoreResult, ExecutionInput } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { resolveTemplate } from './_shared';
 import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
@@ -23,57 +19,56 @@ import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
  * Requires `tenantId` from the dispatcher; the dispatcher refuses to
  * invoke this executor without one.
  */
-export class StoreSetNodeExecutor
-    implements EditorNodeExecutor<StoreSetNodeConfig, StoreResult> {
-    readonly type = 'StoreSet';
+export class StoreSetNodeExecutor implements EditorNodeExecutor<StoreSetNodeConfig, StoreResult> {
+  readonly type = 'StoreSet';
 
-    constructor(private readonly prisma: PrismaClient) { }
+  constructor(private readonly prisma: PrismaClient) {}
 
-    async execute(
-        config: StoreSetNodeConfig,
-        input: ExecutionInput,
-        errorContext: NodeErrorContext,
-        tenantId?: string,
-    ): Promise<StoreResult> {
-        if (!tenantId) {
-            throw new NodeExecutionError({
-                ...errorContext,
-                message: 'Tenant ID is required for storage operations',
-                code: ErrorCode.CONFIGURATION_ERROR,
-            });
-        }
-
-        const { bucketName = 'default', key, value } = config;
-        if (!key) {
-            throw new NodeExecutionError({
-                ...errorContext,
-                message: 'Storage key is required for Set operation',
-                code: ErrorCode.CONFIGURATION_ERROR,
-            });
-        }
-
-        const resolvedBucketName = resolveTemplate(bucketName, input);
-        const resolvedKey = resolveTemplate(key, input);
-        const resolvedValue = resolveTemplate(value, input);
-
-        const bucket = await this.prisma.storageBucket.upsert({
-            where: { tenantId_name: { tenantId, name: resolvedBucketName } },
-            create: {
-                name: resolvedBucketName,
-                tenantId,
-                data: {} as Prisma.InputJsonValue,
-            },
-            update: {},
-        });
-
-        const currentData = (bucket.data as Record<string, unknown>) || {};
-        const newData = { ...currentData, [resolvedKey]: resolvedValue };
-
-        await this.prisma.storageBucket.update({
-            where: { id: bucket.id },
-            data: { data: newData as Prisma.InputJsonValue },
-        });
-
-        return { success: true, key: resolvedKey, value: resolvedValue };
+  async execute(
+    config: StoreSetNodeConfig,
+    input: ExecutionInput,
+    errorContext: NodeErrorContext,
+    tenantId?: string
+  ): Promise<StoreResult> {
+    if (!tenantId) {
+      throw new NodeExecutionError({
+        ...errorContext,
+        message: 'Tenant ID is required for storage operations',
+        code: ErrorCode.CONFIGURATION_ERROR,
+      });
     }
+
+    const { bucketName = 'default', key, value } = config;
+    if (!key) {
+      throw new NodeExecutionError({
+        ...errorContext,
+        message: 'Storage key is required for Set operation',
+        code: ErrorCode.CONFIGURATION_ERROR,
+      });
+    }
+
+    const resolvedBucketName = resolveTemplate(bucketName, input);
+    const resolvedKey = resolveTemplate(key, input);
+    const resolvedValue = resolveTemplate(value, input);
+
+    const bucket = await this.prisma.storageBucket.upsert({
+      where: { tenantId_name: { tenantId, name: resolvedBucketName } },
+      create: {
+        name: resolvedBucketName,
+        tenantId,
+        data: {} as Prisma.InputJsonValue,
+      },
+      update: {},
+    });
+
+    const currentData = (bucket.data as Record<string, unknown>) || {};
+    const newData = { ...currentData, [resolvedKey]: resolvedValue };
+
+    await this.prisma.storageBucket.update({
+      where: { id: bucket.id },
+      data: { data: newData as Prisma.InputJsonValue },
+    });
+
+    return { success: true, key: resolvedKey, value: resolvedValue };
+  }
 }

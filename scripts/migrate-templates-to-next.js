@@ -22,57 +22,57 @@ const yaml = require('js-yaml');
 const TEMPLATES = path.join(__dirname, '..', 'templates');
 
 function extractLeadingComments(text) {
-    const lines = text.split('\n');
-    const out = [];
-    for (const line of lines) {
-        if (line.startsWith('#') || line.trim() === '') {
-            out.push(line);
-        } else {
-            break;
-        }
+  const lines = text.split('\n');
+  const out = [];
+  for (const line of lines) {
+    if (line.startsWith('#') || line.trim() === '') {
+      out.push(line);
+    } else {
+      break;
     }
-    return out;
+  }
+  return out;
 }
 
 for (const file of fs.readdirSync(TEMPLATES)) {
-    if (!file.endsWith('.yaml') && !file.endsWith('.yml')) continue;
-    const full = path.join(TEMPLATES, file);
-    const original = fs.readFileSync(full, 'utf-8');
-    const doc = yaml.load(original);
-    if (!doc || typeof doc !== 'object') continue;
+  if (!file.endsWith('.yaml') && !file.endsWith('.yml')) continue;
+  const full = path.join(TEMPLATES, file);
+  const original = fs.readFileSync(full, 'utf-8');
+  const doc = yaml.load(original);
+  if (!doc || typeof doc !== 'object') continue;
 
-    // 1. Inject version
-    const versioned = doc.version ? doc : { version: 1, ...doc };
+  // 1. Inject version
+  const versioned = doc.version ? doc : { version: 1, ...doc };
 
-    // 2. Rename title → name on each step
+  // 2. Rename title → name on each step
+  for (const step of versioned.steps ?? []) {
+    if (step.title && !step.name) {
+      step.name = step.title;
+      delete step.title;
+    }
+  }
+
+  // 3. Convert connections → next
+  if (Array.isArray(versioned.connections)) {
+    const nextMap = new Map();
+    for (const conn of versioned.connections) {
+      const arr = nextMap.get(conn.source) ?? [];
+      arr.push(conn.target);
+      nextMap.set(conn.source, arr);
+    }
     for (const step of versioned.steps ?? []) {
-        if (step.title && !step.name) {
-            step.name = step.title;
-            delete step.title;
-        }
+      const targets = nextMap.get(step.id);
+      if (!targets || targets.length === 0) continue;
+      step.next = targets.length === 1 ? targets[0] : targets;
     }
+    delete versioned.connections;
+  }
 
-    // 3. Convert connections → next
-    if (Array.isArray(versioned.connections)) {
-        const nextMap = new Map();
-        for (const conn of versioned.connections) {
-            const arr = nextMap.get(conn.source) ?? [];
-            arr.push(conn.target);
-            nextMap.set(conn.source, arr);
-        }
-        for (const step of versioned.steps ?? []) {
-            const targets = nextMap.get(step.id);
-            if (!targets || targets.length === 0) continue;
-            step.next = targets.length === 1 ? targets[0] : targets;
-        }
-        delete versioned.connections;
-    }
+  const commentLines = extractLeadingComments(original);
+  const commentBlock = commentLines.length > 0 ? commentLines.join('\n') + '\n' : '';
 
-    const commentLines = extractLeadingComments(original);
-    const commentBlock = commentLines.length > 0 ? commentLines.join('\n') + '\n' : '';
+  const dumped = yaml.dump(versioned, { lineWidth: 100, noRefs: true, sortKeys: false });
 
-    const dumped = yaml.dump(versioned, { lineWidth: 100, noRefs: true, sortKeys: false });
-
-    fs.writeFileSync(full, commentBlock + dumped);
-    console.log(`migrated ${file}`);
+  fs.writeFileSync(full, commentBlock + dumped);
+  console.log(`migrated ${file}`);
 }

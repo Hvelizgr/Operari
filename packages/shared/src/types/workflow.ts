@@ -9,8 +9,8 @@ import { NodePort, NodeConfig, NoteNodeConfig } from './node';
 // =============================================================================
 
 export interface Position {
-    x: number;
-    y: number;
+  x: number;
+  y: number;
 }
 
 // =============================================================================
@@ -20,16 +20,16 @@ export interface Position {
 export type ExecutionState = 'idle' | 'running' | 'success' | 'error';
 
 export interface WorkflowNode {
-    id: string;
-    type: string;
-    position: Position;
-    title: string;
-    config?: Record<string, any> | NoteNodeConfig;
-    executionState?: ExecutionState;
-    enabled?: boolean;
-    inputs?: NodePort[];
-    outputs?: NodePort[];
-    parentId?: string; // Reference to parent frame node for grouping
+  id: string;
+  type: string;
+  position: Position;
+  title: string;
+  config?: Record<string, any> | NoteNodeConfig;
+  executionState?: ExecutionState;
+  enabled?: boolean;
+  inputs?: NodePort[];
+  outputs?: NodePort[];
+  parentId?: string; // Reference to parent frame node for grouping
 }
 
 // =============================================================================
@@ -39,12 +39,12 @@ export interface WorkflowNode {
 export type ConnectionCondition = 'complete' | 'success' | 'error' | 'warning' | 'disabled';
 
 export interface Connection {
-    id: string;
-    source: string;
-    target: string;
-    sourcePort?: number;
-    targetPort?: number;
-    condition?: ConnectionCondition; // Default: 'complete' - always executes
+  id: string;
+  source: string;
+  target: string;
+  sourcePort?: number;
+  targetPort?: number;
+  condition?: ConnectionCondition; // Default: 'complete' - always executes
 }
 
 // =============================================================================
@@ -52,13 +52,13 @@ export interface Connection {
 // =============================================================================
 
 export interface WorkflowDefinition {
-    id?: string;
-    name: string;
-    description?: string;
-    nodes: WorkflowNode[];
-    connections: Connection[];
-    isActive?: boolean;
-    schedule?: string;
-    createdAt?: string;
-    updatedAt?: string;
+  id?: string;
+  name: string;
+  description?: string;
+  nodes: WorkflowNode[];
+  connections: Connection[];
+  isActive?: boolean;
+  schedule?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
