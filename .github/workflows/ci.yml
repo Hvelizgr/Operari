@@ -52,6 +52,14 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install workspace deps
         run: npm ci --ignore-scripts
+      # frontend imports `@cairn/shared` via npm-workspaces, which
+      # resolves to `packages/shared/package.json` → `dist/index.js` +
+      # `dist/index.d.ts`. With --ignore-scripts above, no postinstall
+      # builds dist, so every frontend step (typecheck, test, build)
+      # fails with TS2307 "Cannot find module '@cairn/shared'" unless
+      # we build it ourselves first.
+      - name: Build shared
+        run: npm run build -w @cairn/shared
       - name: Lint
         run: npm run lint -w frontend
       - name: Typecheck
