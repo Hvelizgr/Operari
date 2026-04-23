@@ -35,102 +35,100 @@ import anime from 'animejs';
  * state" before the animation runs.
  */
 export interface AnimeStaggerOnViewOptions {
-    /** CSS selector for the children to animate. */
-    selector: string;
-    /** Styles to set on each target before the animation starts. */
-    from: Record<string, number | string | (number | string)[]>;
-    /** Animation end state. */
-    to: Record<string, number | string | (number | string)[]>;
-    /** Per-item stagger in ms. Default 80. */
-    stagger?: number;
-    /** Duration of each item's animation in ms. Default 520. */
-    duration?: number;
-    /** Delay before the first item fires in ms. Default 80. */
-    delay?: number;
-    /** anime.js easing string. Default `easeOutQuart`. */
-    easing?: string;
-    /** IntersectionObserver rootMargin. Default `-80px`. */
-    rootMargin?: string;
-    /** Only fire once (default true — matches the prior framer behavior). */
-    once?: boolean;
+  /** CSS selector for the children to animate. */
+  selector: string;
+  /** Styles to set on each target before the animation starts. */
+  from: Record<string, number | string | (number | string)[]>;
+  /** Animation end state. */
+  to: Record<string, number | string | (number | string)[]>;
+  /** Per-item stagger in ms. Default 80. */
+  stagger?: number;
+  /** Duration of each item's animation in ms. Default 520. */
+  duration?: number;
+  /** Delay before the first item fires in ms. Default 80. */
+  delay?: number;
+  /** anime.js easing string. Default `easeOutQuart`. */
+  easing?: string;
+  /** IntersectionObserver rootMargin. Default `-80px`. */
+  rootMargin?: string;
+  /** Only fire once (default true — matches the prior framer behavior). */
+  once?: boolean;
 }
 
-export function useAnimeStaggerOnView<T extends HTMLElement>(
-    options: AnimeStaggerOnViewOptions,
-) {
-    const ref = useRef<T | null>(null);
-    const playedRef = useRef(false);
+export function useAnimeStaggerOnView<T extends HTMLElement>(options: AnimeStaggerOnViewOptions) {
+  const ref = useRef<T | null>(null);
+  const playedRef = useRef(false);
 
-    const {
-        selector,
-        from,
-        to,
-        stagger = 80,
-        duration = 520,
-        delay = 80,
-        easing = 'easeOutQuart',
-        rootMargin = '-80px',
-        once = true,
-    } = options;
+  const {
+    selector,
+    from,
+    to,
+    stagger = 80,
+    duration = 520,
+    delay = 80,
+    easing = 'easeOutQuart',
+    rootMargin = '-80px',
+    once = true,
+  } = options;
 
-    // Snap children to the `from` state before paint so SSR output doesn't
-    // flash visible before the observer fires. We run this in a layout-ish
-    // useEffect (sync after commit, before the next frame) to minimize the
-    // visible gap.
-    useEffect(() => {
-        const root = ref.current;
-        if (!root) return;
-        const targets = root.querySelectorAll<HTMLElement>(selector);
-        targets.forEach((el) => {
-            Object.entries(from).forEach(([k, v]) => {
-                // opacity + scalar styles get applied directly; transform
-                // fields are composed so multiple transforms don't stomp.
-                if (k === 'opacity') el.style.opacity = String(v);
-                else if (k === 'translateX' || k === 'translateY' || k === 'scale') {
-                    const existing = el.style.transform || '';
-                    const unit = k === 'scale' ? '' : 'px';
-                    el.style.transform = `${existing} ${k}(${v}${unit})`.trim();
-                }
-            });
-            el.style.willChange = 'transform, opacity';
-        });
-    }, [selector, from]);
+  // Snap children to the `from` state before paint so SSR output doesn't
+  // flash visible before the observer fires. We run this in a layout-ish
+  // useEffect (sync after commit, before the next frame) to minimize the
+  // visible gap.
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const targets = root.querySelectorAll<HTMLElement>(selector);
+    targets.forEach(el => {
+      Object.entries(from).forEach(([k, v]) => {
+        // opacity + scalar styles get applied directly; transform
+        // fields are composed so multiple transforms don't stomp.
+        if (k === 'opacity') el.style.opacity = String(v);
+        else if (k === 'translateX' || k === 'translateY' || k === 'scale') {
+          const existing = el.style.transform || '';
+          const unit = k === 'scale' ? '' : 'px';
+          el.style.transform = `${existing} ${k}(${v}${unit})`.trim();
+        }
+      });
+      el.style.willChange = 'transform, opacity';
+    });
+  }, [selector, from]);
 
-    useEffect(() => {
-        const root = ref.current;
-        if (!root) return;
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                for (const entry of entries) {
-                    if (!entry.isIntersecting) continue;
-                    if (once && playedRef.current) return;
-                    playedRef.current = true;
+    const observer = new IntersectionObserver(
+      entries => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          if (once && playedRef.current) return;
+          playedRef.current = true;
 
-                    anime({
-                        targets: root.querySelectorAll<HTMLElement>(selector),
-                        ...to,
-                        duration,
-                        easing,
-                        delay: anime.stagger(stagger, { start: delay }),
-                        complete: () => {
-                            // Drop will-change so the browser can release
-                            // the compositor layer once the anim settles.
-                            root
-                                .querySelectorAll<HTMLElement>(selector)
-                                .forEach((el) => (el.style.willChange = 'auto'));
-                        },
-                    });
-
-                    if (once) observer.disconnect();
-                }
+          anime({
+            targets: root.querySelectorAll<HTMLElement>(selector),
+            ...to,
+            duration,
+            easing,
+            delay: anime.stagger(stagger, { start: delay }),
+            complete: () => {
+              // Drop will-change so the browser can release
+              // the compositor layer once the anim settles.
+              root
+                .querySelectorAll<HTMLElement>(selector)
+                .forEach(el => (el.style.willChange = 'auto'));
             },
-            { rootMargin, threshold: 0.05 },
-        );
+          });
 
-        observer.observe(root);
-        return () => observer.disconnect();
-    }, [selector, to, stagger, duration, delay, easing, rootMargin, once]);
+          if (once) observer.disconnect();
+        }
+      },
+      { rootMargin, threshold: 0.05 }
+    );
 
-    return ref;
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [selector, to, stagger, duration, delay, easing, rootMargin, once]);
+
+  return ref;
 }

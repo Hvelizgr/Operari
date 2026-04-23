@@ -27,105 +27,112 @@ export const contentType = 'image/png';
 
 export default async function Image() {
   return new ImageResponse(
-    (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          background:
-            'radial-gradient(circle at 80% 20%, rgba(62,207,142,0.18), transparent 60%), radial-gradient(circle at 15% 90%, rgba(36,180,126,0.1), transparent 55%), #0a0a0a',
-          padding: '80px',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-        }}
-      >
-        {/* Top: brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 12,
-              background: '#3ecf8e',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(62,207,142,0.35)',
-            }}
-          >
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 18 L12 6 L20 18 Z" />
-              <path d="M8 14 L16 14" />
-            </svg>
-          </div>
-          <div style={{ color: '#fafafa', fontSize: 38, fontWeight: 700, letterSpacing: -0.5 }}>
-            NanoRun
-          </div>
-        </div>
-
-        {/* Middle: the sentence */}
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        background:
+          'radial-gradient(circle at 80% 20%, rgba(62,207,142,0.18), transparent 60%), radial-gradient(circle at 15% 90%, rgba(36,180,126,0.1), transparent 55%), #0a0a0a',
+        padding: '80px',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+      }}
+    >
+      {/* Top: brand */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
         <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            marginTop: 'auto',
-            marginBottom: 'auto',
-          }}
-        >
-          <div
-            style={{
-              color: '#fafafa',
-              fontSize: 84,
-              fontWeight: 800,
-              lineHeight: 1.05,
-              letterSpacing: -2,
-            }}
-          >
-            Your alert fires.
-          </div>
-          <div
-            style={{
-              color: '#3ecf8e',
-              fontSize: 84,
-              fontWeight: 800,
-              lineHeight: 1.05,
-              letterSpacing: -2,
-            }}
-          >
-            NanoRun runs the fix.
-          </div>
-          <div
-            style={{
-              color: 'rgba(250,250,250,0.65)',
-              fontSize: 30,
-              marginTop: 28,
-              fontWeight: 400,
-              maxWidth: 900,
-              lineHeight: 1.4,
-            }}
-          >
-            Open-source visual runbooks that respond to your alerts.
-          </div>
-        </div>
-
-        {/* Bottom: meta strip */}
-        <div
-          style={{
+            width: 64,
+            height: 64,
+            borderRadius: 12,
+            background: '#3ecf8e',
             display: 'flex',
             alignItems: 'center',
-            gap: 24,
-            color: 'rgba(250,250,250,0.55)',
-            fontSize: 22,
-            fontFamily: 'monospace',
+            justifyContent: 'center',
+            boxShadow: '0 8px 24px rgba(62,207,142,0.35)',
           }}
         >
-          <span>{repo.displayHost}</span>
-          <span style={{ opacity: 0.4 }}>·</span>
-          <span>AGPL · self-host</span>
+          <svg
+            width="36"
+            height="36"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#0a0a0a"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 18 L12 6 L20 18 Z" />
+            <path d="M8 14 L16 14" />
+          </svg>
+        </div>
+        <div style={{ color: '#fafafa', fontSize: 38, fontWeight: 700, letterSpacing: -0.5 }}>
+          NanoRun
         </div>
       </div>
-    ),
-    { ...size },
+
+      {/* Middle: the sentence */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          marginTop: 'auto',
+          marginBottom: 'auto',
+        }}
+      >
+        <div
+          style={{
+            color: '#fafafa',
+            fontSize: 84,
+            fontWeight: 800,
+            lineHeight: 1.05,
+            letterSpacing: -2,
+          }}
+        >
+          Your alert fires.
+        </div>
+        <div
+          style={{
+            color: '#3ecf8e',
+            fontSize: 84,
+            fontWeight: 800,
+            lineHeight: 1.05,
+            letterSpacing: -2,
+          }}
+        >
+          NanoRun runs the fix.
+        </div>
+        <div
+          style={{
+            color: 'rgba(250,250,250,0.65)',
+            fontSize: 30,
+            marginTop: 28,
+            fontWeight: 400,
+            maxWidth: 900,
+            lineHeight: 1.4,
+          }}
+        >
+          Open-source visual runbooks that respond to your alerts.
+        </div>
+      </div>
+
+      {/* Bottom: meta strip */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 24,
+          color: 'rgba(250,250,250,0.55)',
+          fontSize: 22,
+          fontFamily: 'monospace',
+        }}
+      >
+        <span>{repo.displayHost}</span>
+        <span style={{ opacity: 0.4 }}>·</span>
+        <span>AGPL · self-host</span>
+      </div>
+    </div>,
+    { ...size }
   );
 }

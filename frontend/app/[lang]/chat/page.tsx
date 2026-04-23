@@ -6,17 +6,13 @@ import EditorSidebar from '@/components/Editor/EditorSidebar';
 // because there is no Suspense boundary around the search-params read.
 export const dynamic = 'force-dynamic';
 
-export default async function ChatPage({
-    params,
-}: {
-    params: Promise<{ lang: string }>;
-}) {
-    const { lang } = await params;
-    const typedLang = lang as 'en' | 'es';
-    return (
-        <div className="h-screen w-full flex bg-black text-white">
-            <EditorSidebar lang={typedLang} />
-            <ChatInterface lang={typedLang} />
-        </div>
-    );
+export default async function ChatPage({ params }: { params: Promise<{ lang: string }> }) {
+  const { lang } = await params;
+  const typedLang = lang as 'en' | 'es';
+  return (
+    <div className="flex h-screen w-full bg-black text-white">
+      <EditorSidebar lang={typedLang} />
+      <ChatInterface lang={typedLang} />
+    </div>
+  );
 }

@@ -6,28 +6,24 @@ import { resetStrings, type AuthLang } from '../strings';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
-    params,
+  params,
 }: {
-    params: Promise<{ lang: string }>;
+  params: Promise<{ lang: string }>;
 }): Promise<Metadata> {
-    const { lang } = await params;
-    const typedLang: AuthLang = lang === 'es' ? 'es' : 'en';
-    return {
-        title: `${resetStrings[typedLang].reset.eyebrow} · Cairn`,
-        description: resetStrings[typedLang].reset.subtitle,
-    };
+  const { lang } = await params;
+  const typedLang: AuthLang = lang === 'es' ? 'es' : 'en';
+  return {
+    title: `${resetStrings[typedLang].reset.eyebrow} · Cairn`,
+    description: resetStrings[typedLang].reset.subtitle,
+  };
 }
 
-export default async function ResetPasswordPage({
-    params,
-}: {
-    params: Promise<{ lang: string }>;
-}) {
-    const { lang } = await params;
-    const typedLang: AuthLang = lang === 'es' ? 'es' : 'en';
-    return (
-        <Suspense>
-            <ResetPasswordForm lang={typedLang} />
-        </Suspense>
-    );
+export default async function ResetPasswordPage({ params }: { params: Promise<{ lang: string }> }) {
+  const { lang } = await params;
+  const typedLang: AuthLang = lang === 'es' ? 'es' : 'en';
+  return (
+    <Suspense>
+      <ResetPasswordForm lang={typedLang} />
+    </Suspense>
+  );
 }

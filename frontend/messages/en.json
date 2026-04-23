@@ -1,216 +1,216 @@
 {
-    "common": {
-        "welcome": "Welcome",
-        "save": "Save",
-        "cancel": "Cancel",
-        "delete": "Delete",
-        "loading": "Loading...",
-        "error": "Error",
-        "success": "Success",
-        "back": "Back",
-        "next": "Next",
-        "confirm": "Confirm",
-        "notifications": {
-            "zero": "No notifications",
-            "one": "One notification",
-            "other": "{count} notifications"
-        },
-        "date": {
-            "long": "{date, date, ::yyyyMMdd}",
-            "short": "{date, date, short}"
-        },
-        "navigation": {
-            "product": "Product",
-            "solutions": "Use cases",
-            "pricing": "Pricing",
-            "docs": "Docs",
-            "login": "Log in",
-            "getStarted": "Get started"
-        },
-        "footer": {
-            "rights": "All rights reserved.",
-            "links": {
-                "product": "Product",
-                "company": "Company",
-                "legal": "Legal"
-            }
-        }
+  "common": {
+    "welcome": "Welcome",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "back": "Back",
+    "next": "Next",
+    "confirm": "Confirm",
+    "notifications": {
+      "zero": "No notifications",
+      "one": "One notification",
+      "other": "{count} notifications"
     },
-    "auth": {
-        "login": "Log in",
-        "register": "Register",
-        "logout": "Log out",
-        "email": "Email",
-        "password": "Password",
-        "forgotPassword": "Forgot password?",
-        "alreadyHaveAccount": "Already have an account?"
+    "date": {
+      "long": "{date, date, ::yyyyMMdd}",
+      "short": "{date, date, short}"
     },
-    "editor": {
-        "nodes": "Steps",
-        "connections": "Sequence",
-        "properties": "Settings",
-        "run": "Run",
-        "stop": "Stop",
-        "zoomIn": "Zoom in",
-        "zoomOut": "Zoom out",
-        "fitView": "Fit view",
-        "undo": "Undo",
-        "redo": "Redo",
-        "title": "Visual runbooks for engineers",
-        "description": "Stop hiding deploys, migrations, and incident response in dead Confluence wikis. Compose shell-native runbooks with approval gates and an audit chain you can verify.",
-        "nodeTypes": {
-            "webhook": "Webhook trigger",
-            "action": "Shell command",
-            "trigger": "Trigger",
-            "condition": "Condition",
-            "transform": "Set variable",
-            "api": "HTTP request",
-            "db": "Postgres query"
-        }
+    "navigation": {
+      "product": "Product",
+      "solutions": "Use cases",
+      "pricing": "Pricing",
+      "docs": "Docs",
+      "login": "Log in",
+      "getStarted": "Get started"
     },
-    "marketing": {
-        "seo": {
-            "title": "Cairn — Visual runbooks for engineers",
-            "description": "Open-source runbook automation for SRE and platform teams. Shell-native, approval-gated, audit-logged. Stop hiding deploys in dead Confluence pages.",
-            "openGraph": {
-                "title": "Cairn — Visual runbooks for engineers",
-                "description": "The Sentry for operational procedures. Open source, dev-first, AI-native."
-            }
-        },
-        "hero": {
-            "badge": "Open source · AGPL · v0.1",
-            "title": "Visual runbooks for engineers.",
-            "subtitle": "Stop hiding deploys, migrations, and incident response in dead Confluence wikis. Compose shell-native runbooks with approval gates and an audit chain you can verify with one CLI command.",
-            "ctaPrimary": "Run self-host",
-            "ctaSecondary": "Read the docs"
-        },
-        "useCases": {
-            "title": "What engineers run on it",
-            "items": {
-                "0": {
-                    "title": "Production deploys",
-                    "description": "Codify the kubectl, helm, and smoke-test sequence behind a single Run button. Approval gates pause for the on-call engineer."
-                },
-                "1": {
-                    "title": "Database migrations",
-                    "description": "Backup → migrate → verify → notify. Every step is shell, every step is auditable, every step is replayable."
-                },
-                "2": {
-                    "title": "Incident response runbooks",
-                    "description": "Triggered by Sentry, Datadog, or PagerDuty. Pre-built procedures execute under tenant-isolated runners while the on-call gets logs in real time."
-                }
-            }
-        },
-        "howItWorks": {
-            "title": "From bash script to runbook",
-            "steps": {
-                "0": {
-                    "title": "Compose",
-                    "description": "Drag shell, HTTP, approval gate, and notify steps onto the canvas. Or write the YAML directly — both views stay in sync."
-                },
-                "1": {
-                    "title": "Run",
-                    "description": "Each step executes in a sandboxed runner (Docker self-host, Firecracker microVM in cloud). Logs stream live via xterm.js."
-                },
-                "2": {
-                    "title": "Audit",
-                    "description": "Every step lands in an append-only hash chain. `cairn audit verify` walks the chain end to end."
-                }
-            }
-        },
-        "features": {
-            "headline": "Built for the SRE who's tired of Confluence",
-            "subheadline": "Shell-native primitives, audit-ready by default.",
-            "items": {
-                "0": {
-                    "title": "Visual canvas",
-                    "description": "Compose runbooks step by step. Toggle to YAML for git versioning.",
-                    "icon": "🧱"
-                },
-                "1": {
-                    "title": "Sandboxed runners",
-                    "description": "Docker for self-host, Firecracker microVMs for cloud. Cancel propagates to live containers.",
-                    "icon": "📦"
-                },
-                "2": {
-                    "title": "AI agent in-context",
-                    "description": "Step fails? The agent reads the last 5 step outputs and suggests the fix.",
-                    "icon": "🤖"
-                },
-                "3": {
-                    "title": "Approval gates",
-                    "description": "Pause until a human approves via Slack or the CLI. Every approval lands in the audit chain.",
-                    "icon": "🚦"
-                },
-                "4": {
-                    "title": "Tamper-evident audit",
-                    "description": "Append-only Postgres log with SHA-256 hash chain. Verifiable from a single CLI command.",
-                    "icon": "🔐"
-                },
-                "5": {
-                    "title": "Open source",
-                    "description": "AGPL server, MIT SDK and CLI. Self-host with `docker compose up`.",
-                    "icon": "📂"
-                }
-            }
-        },
-        "integrations": {
-            "title": "Plugs into the stack you already use",
-            "subtitle": "Trigger from Sentry, Datadog, GitHub, or any HTTP webhook with HMAC verification.",
-            "items": "GitHub · Slack · Sentry · Datadog · PagerDuty · Postgres · Docker · Kubernetes"
-        },
-        "testimonials": {
-            "title": "What design partners say",
-            "items": {
-                "0": {
-                    "quote": "Replaced our Confluence deploy page with a Cairn runbook in an afternoon. The Slack approval gate is the killer feature.",
-                    "author": "Sarah Jenkins",
-                    "role": "Staff SRE @ TechFlow"
-                },
-                "1": {
-                    "quote": "Finally a tool that treats `kubectl` as a first-class citizen instead of hiding it behind 'visual blocks'.",
-                    "author": "Mike Chen",
-                    "role": "Platform Lead"
-                },
-                "2": {
-                    "quote": "Audit chain saved us in our SOC2 review. Auditor ran `cairn audit verify` and we were done.",
-                    "author": "Elena Rodriguez",
-                    "role": "Head of Platform"
-                }
-            }
-        },
-        "cta": {
-            "title": "Stop running deploys from a Confluence page.",
-            "subtitle": "Self-host with `docker compose up`. Free forever. Open source.",
-            "button": "Get Cairn"
-        },
-        "modal": {
-            "title": "Join the cloud beta",
-            "subtitle": "We'll send an invite when the managed cloud opens. Self-host is available today.",
-            "placeholder": "you@company.com",
-            "button": "Request invite",
-            "processing": "Sending...",
-            "successTitle": "You're on the list",
-            "successDesc": "We'll be in touch when cloud beta opens.",
-            "successButton": "Close"
-        }
-    },
-    "chat": {
-        "title": "Runbook agent",
-        "newConversation": "New conversation",
-        "placeholder": "Describe the procedure you want to automate...",
-        "send": "Send",
-        "noConversations": "No conversations yet",
-        "noConversationsHint": "Start by describing the runbook you want to build",
-        "noMessages": "What runbook are we building?",
-        "noMessagesHint": "Tell me the procedure — deploy, migration, secret rotation — and I'll scaffold it.",
-        "agentWorking": "Agent is working...",
-        "connecting": "Connecting...",
-        "today": "Today",
-        "yesterday": "Yesterday",
-        "deleteConfirm": "Archive this conversation?",
-        "archived": "Conversation archived",
-        "sidebar": "Conversations",
-        "agents": "Agents"
+    "footer": {
+      "rights": "All rights reserved.",
+      "links": {
+        "product": "Product",
+        "company": "Company",
+        "legal": "Legal"
+      }
     }
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Register",
+    "logout": "Log out",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "alreadyHaveAccount": "Already have an account?"
+  },
+  "editor": {
+    "nodes": "Steps",
+    "connections": "Sequence",
+    "properties": "Settings",
+    "run": "Run",
+    "stop": "Stop",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fitView": "Fit view",
+    "undo": "Undo",
+    "redo": "Redo",
+    "title": "Visual runbooks for engineers",
+    "description": "Stop hiding deploys, migrations, and incident response in dead Confluence wikis. Compose shell-native runbooks with approval gates and an audit chain you can verify.",
+    "nodeTypes": {
+      "webhook": "Webhook trigger",
+      "action": "Shell command",
+      "trigger": "Trigger",
+      "condition": "Condition",
+      "transform": "Set variable",
+      "api": "HTTP request",
+      "db": "Postgres query"
+    }
+  },
+  "marketing": {
+    "seo": {
+      "title": "Cairn — Visual runbooks for engineers",
+      "description": "Open-source runbook automation for SRE and platform teams. Shell-native, approval-gated, audit-logged. Stop hiding deploys in dead Confluence pages.",
+      "openGraph": {
+        "title": "Cairn — Visual runbooks for engineers",
+        "description": "The Sentry for operational procedures. Open source, dev-first, AI-native."
+      }
+    },
+    "hero": {
+      "badge": "Open source · AGPL · v0.1",
+      "title": "Visual runbooks for engineers.",
+      "subtitle": "Stop hiding deploys, migrations, and incident response in dead Confluence wikis. Compose shell-native runbooks with approval gates and an audit chain you can verify with one CLI command.",
+      "ctaPrimary": "Run self-host",
+      "ctaSecondary": "Read the docs"
+    },
+    "useCases": {
+      "title": "What engineers run on it",
+      "items": {
+        "0": {
+          "title": "Production deploys",
+          "description": "Codify the kubectl, helm, and smoke-test sequence behind a single Run button. Approval gates pause for the on-call engineer."
+        },
+        "1": {
+          "title": "Database migrations",
+          "description": "Backup → migrate → verify → notify. Every step is shell, every step is auditable, every step is replayable."
+        },
+        "2": {
+          "title": "Incident response runbooks",
+          "description": "Triggered by Sentry, Datadog, or PagerDuty. Pre-built procedures execute under tenant-isolated runners while the on-call gets logs in real time."
+        }
+      }
+    },
+    "howItWorks": {
+      "title": "From bash script to runbook",
+      "steps": {
+        "0": {
+          "title": "Compose",
+          "description": "Drag shell, HTTP, approval gate, and notify steps onto the canvas. Or write the YAML directly — both views stay in sync."
+        },
+        "1": {
+          "title": "Run",
+          "description": "Each step executes in a sandboxed runner (Docker self-host, Firecracker microVM in cloud). Logs stream live via xterm.js."
+        },
+        "2": {
+          "title": "Audit",
+          "description": "Every step lands in an append-only hash chain. `cairn audit verify` walks the chain end to end."
+        }
+      }
+    },
+    "features": {
+      "headline": "Built for the SRE who's tired of Confluence",
+      "subheadline": "Shell-native primitives, audit-ready by default.",
+      "items": {
+        "0": {
+          "title": "Visual canvas",
+          "description": "Compose runbooks step by step. Toggle to YAML for git versioning.",
+          "icon": "🧱"
+        },
+        "1": {
+          "title": "Sandboxed runners",
+          "description": "Docker for self-host, Firecracker microVMs for cloud. Cancel propagates to live containers.",
+          "icon": "📦"
+        },
+        "2": {
+          "title": "AI agent in-context",
+          "description": "Step fails? The agent reads the last 5 step outputs and suggests the fix.",
+          "icon": "🤖"
+        },
+        "3": {
+          "title": "Approval gates",
+          "description": "Pause until a human approves via Slack or the CLI. Every approval lands in the audit chain.",
+          "icon": "🚦"
+        },
+        "4": {
+          "title": "Tamper-evident audit",
+          "description": "Append-only Postgres log with SHA-256 hash chain. Verifiable from a single CLI command.",
+          "icon": "🔐"
+        },
+        "5": {
+          "title": "Open source",
+          "description": "AGPL server, MIT SDK and CLI. Self-host with `docker compose up`.",
+          "icon": "📂"
+        }
+      }
+    },
+    "integrations": {
+      "title": "Plugs into the stack you already use",
+      "subtitle": "Trigger from Sentry, Datadog, GitHub, or any HTTP webhook with HMAC verification.",
+      "items": "GitHub · Slack · Sentry · Datadog · PagerDuty · Postgres · Docker · Kubernetes"
+    },
+    "testimonials": {
+      "title": "What design partners say",
+      "items": {
+        "0": {
+          "quote": "Replaced our Confluence deploy page with a Cairn runbook in an afternoon. The Slack approval gate is the killer feature.",
+          "author": "Sarah Jenkins",
+          "role": "Staff SRE @ TechFlow"
+        },
+        "1": {
+          "quote": "Finally a tool that treats `kubectl` as a first-class citizen instead of hiding it behind 'visual blocks'.",
+          "author": "Mike Chen",
+          "role": "Platform Lead"
+        },
+        "2": {
+          "quote": "Audit chain saved us in our SOC2 review. Auditor ran `cairn audit verify` and we were done.",
+          "author": "Elena Rodriguez",
+          "role": "Head of Platform"
+        }
+      }
+    },
+    "cta": {
+      "title": "Stop running deploys from a Confluence page.",
+      "subtitle": "Self-host with `docker compose up`. Free forever. Open source.",
+      "button": "Get Cairn"
+    },
+    "modal": {
+      "title": "Join the cloud beta",
+      "subtitle": "We'll send an invite when the managed cloud opens. Self-host is available today.",
+      "placeholder": "you@company.com",
+      "button": "Request invite",
+      "processing": "Sending...",
+      "successTitle": "You're on the list",
+      "successDesc": "We'll be in touch when cloud beta opens.",
+      "successButton": "Close"
+    }
+  },
+  "chat": {
+    "title": "Runbook agent",
+    "newConversation": "New conversation",
+    "placeholder": "Describe the procedure you want to automate...",
+    "send": "Send",
+    "noConversations": "No conversations yet",
+    "noConversationsHint": "Start by describing the runbook you want to build",
+    "noMessages": "What runbook are we building?",
+    "noMessagesHint": "Tell me the procedure — deploy, migration, secret rotation — and I'll scaffold it.",
+    "agentWorking": "Agent is working...",
+    "connecting": "Connecting...",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "deleteConfirm": "Archive this conversation?",
+    "archived": "Conversation archived",
+    "sidebar": "Conversations",
+    "agents": "Agents"
+  }
 }

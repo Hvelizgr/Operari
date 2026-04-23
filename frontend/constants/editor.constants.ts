@@ -17,13 +17,13 @@ import type { WorkflowNode, Connection } from '@cairn/shared';
  * actually runs.
  */
 export const INITIAL_NODES: WorkflowNode[] = [
-    {
-        id: 'node-1',
-        type: 'shell',
-        title: 'Shell command',
-        position: { x: 200, y: 200 },
-        outputs: [{ id: 'out-1', label: 'Output' }],
-    },
+  {
+    id: 'node-1',
+    type: 'shell',
+    title: 'Shell command',
+    position: { x: 200, y: 200 },
+    outputs: [{ id: 'out-1', label: 'Output' }],
+  },
 ];
 
 /**

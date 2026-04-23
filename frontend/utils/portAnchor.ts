@@ -12,9 +12,9 @@ import type { WorkflowNode } from '@cairn/shared';
 import { getNodePortInfo, type NodeWithDimensions, type PortInfo } from './nodePortUtils';
 
 export interface PortAnchorContext {
-    /** Parent element whose getBoundingClientRect defines logical 0,0. */
-    canvasEl: HTMLElement | null;
-    viewport: { x: number; y: number; zoom: number };
+  /** Parent element whose getBoundingClientRect defines logical 0,0. */
+  canvasEl: HTMLElement | null;
+  viewport: { x: number; y: number; zoom: number };
 }
 
 /**
@@ -29,34 +29,32 @@ export interface PortAnchorContext {
  * from a limit's output-bottom, regardless of DOM layout).
  */
 export function resolvePortAnchor(
-    node: WorkflowNode,
-    portType: 'input' | 'output',
-    portIndex: number,
-    ctx: PortAnchorContext,
+  node: WorkflowNode,
+  portType: 'input' | 'output',
+  portIndex: number,
+  ctx: PortAnchorContext
 ): PortInfo {
-    const math = getNodePortInfo(node as NodeWithDimensions, portType, portIndex);
-    if (!ctx.canvasEl || typeof document === 'undefined') return math;
+  const math = getNodePortInfo(node as NodeWithDimensions, portType, portIndex);
+  if (!ctx.canvasEl || typeof document === 'undefined') return math;
 
-    const container = document.getElementById(`d_wfn_${node.id}`);
-    if (!container) return math;
+  const container = document.getElementById(`d_wfn_${node.id}`);
+  if (!container) return math;
 
-    const portClass = portType === 'input' ? 'wf_input_pole' : 'wf_output_pole';
-    const altClass = portType === 'input' ? 'wf_up_pole' : 'wf_down_pole';
-    const poles = container.querySelectorAll<HTMLElement>(
-        `.${portClass}, .${altClass}`,
-    );
-    const poleEl = poles[portIndex] ?? poles[0];
-    if (!poleEl) return math;
+  const portClass = portType === 'input' ? 'wf_input_pole' : 'wf_output_pole';
+  const altClass = portType === 'input' ? 'wf_up_pole' : 'wf_down_pole';
+  const poles = container.querySelectorAll<HTMLElement>(`.${portClass}, .${altClass}`);
+  const poleEl = poles[portIndex] ?? poles[0];
+  if (!poleEl) return math;
 
-    const poleRect = poleEl.getBoundingClientRect();
-    if (poleRect.width === 0 || poleRect.height === 0) return math;
+  const poleRect = poleEl.getBoundingClientRect();
+  if (poleRect.width === 0 || poleRect.height === 0) return math;
 
-    const canvasRect = ctx.canvasEl.getBoundingClientRect();
-    const cxScreen = poleRect.left + poleRect.width / 2 - canvasRect.left;
-    const cyScreen = poleRect.top + poleRect.height / 2 - canvasRect.top;
-    return {
-        x: (cxScreen - ctx.viewport.x) / ctx.viewport.zoom,
-        y: (cyScreen - ctx.viewport.y) / ctx.viewport.zoom,
-        direction: math.direction,
-    };
+  const canvasRect = ctx.canvasEl.getBoundingClientRect();
+  const cxScreen = poleRect.left + poleRect.width / 2 - canvasRect.left;
+  const cyScreen = poleRect.top + poleRect.height / 2 - canvasRect.top;
+  return {
+    x: (cxScreen - ctx.viewport.x) / ctx.viewport.zoom,
+    y: (cyScreen - ctx.viewport.y) / ctx.viewport.zoom,
+    direction: math.direction,
+  };
 }

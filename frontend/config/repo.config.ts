@@ -16,22 +16,21 @@ const slug = process.env.NEXT_PUBLIC_REPO_SLUG ?? 'NanoRun';
 const base = `https://github.com/${owner}/${slug}`;
 
 export const repo = {
-    owner,
-    slug,
-    base,
-    readme: `${base}#readme`,
-    status: `${base}#status`,
-    notWorkingYet: `${base}#what-does-not-work-yet`,
-    roadmap: `${base}#roadmap`,
-    issues: `${base}/issues`,
-    discussions: `${base}/discussions`,
-    license: `${base}/blob/main/LICENSE`,
-    contributing: `${base}/blob/main/CONTRIBUTING.md`,
-    templatesTree: `${base}/tree/main/templates`,
-    templateFile: (templateSlug: string) =>
-        `${base}/blob/main/templates/${templateSlug}.yaml`,
-    /** Display label without the protocol — used in the footer. */
-    displayHost: `github.com/${owner}/${slug}`,
-    /** Two-line clone+up snippet rendered in the CTA code block. */
-    cloneSnippet: `git clone ${base}\ncd ${slug} && docker compose up`,
+  owner,
+  slug,
+  base,
+  readme: `${base}#readme`,
+  status: `${base}#status`,
+  notWorkingYet: `${base}#what-does-not-work-yet`,
+  roadmap: `${base}#roadmap`,
+  issues: `${base}/issues`,
+  discussions: `${base}/discussions`,
+  license: `${base}/blob/main/LICENSE`,
+  contributing: `${base}/blob/main/CONTRIBUTING.md`,
+  templatesTree: `${base}/tree/main/templates`,
+  templateFile: (templateSlug: string) => `${base}/blob/main/templates/${templateSlug}.yaml`,
+  /** Display label without the protocol — used in the footer. */
+  displayHost: `github.com/${owner}/${slug}`,
+  /** Two-line clone+up snippet rendered in the CTA code block. */
+  cloneSnippet: `git clone ${base}\ncd ${slug} && docker compose up`,
 } as const;

@@ -9,29 +9,25 @@ import { authStrings, type AuthLang } from '../strings';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
-    params,
+  params,
 }: {
-    params: Promise<{ lang: string }>;
+  params: Promise<{ lang: string }>;
 }): Promise<Metadata> {
-    const { lang } = await params;
-    const typedLang: AuthLang = lang === 'es' ? 'es' : 'en';
-    const title = authStrings[typedLang].login.eyebrow;
-    return {
-        title: `${title} · Cairn`,
-        description: authStrings[typedLang].login.subtitle,
-    };
+  const { lang } = await params;
+  const typedLang: AuthLang = lang === 'es' ? 'es' : 'en';
+  const title = authStrings[typedLang].login.eyebrow;
+  return {
+    title: `${title} · Cairn`,
+    description: authStrings[typedLang].login.subtitle,
+  };
 }
 
-export default async function LoginPage({
-    params,
-}: {
-    params: Promise<{ lang: string }>;
-}) {
-    const { lang } = await params;
-    const typedLang: AuthLang = lang === 'es' ? 'es' : 'en';
-    return (
-        <Suspense>
-            <LoginForm lang={typedLang} />
-        </Suspense>
-    );
+export default async function LoginPage({ params }: { params: Promise<{ lang: string }> }) {
+  const { lang } = await params;
+  const typedLang: AuthLang = lang === 'es' ? 'es' : 'en';
+  return (
+    <Suspense>
+      <LoginForm lang={typedLang} />
+    </Suspense>
+  );
 }
