@@ -70,6 +70,7 @@ import webhooksAdminRoutes from './routes/webhooks-admin.routes';
 import runbookJsonSchema from './runbook/yaml/runbook.schema.json';
 import { MonitorService } from './services/monitor.service';
 import { SchedulerService } from './services/scheduler.service';
+import { SchedulerLeader } from './services/scheduler-leader';
 
 const app = express();
 const httpServer = createServer(app);
@@ -270,6 +271,23 @@ installExpressErrorHandler(app);
 app.use(errorHandler);
 
 const scheduler = new SchedulerService(prisma);
+// Coordinator that ensures only one pod runs the scheduler at a time.
+// Constructed here (not in main) so SIGINT can always stop() it without
+// racing against server startup.
+const schedulerLeader: SchedulerLeader | null =
+  env.SCHEDULER_LEADER_DISABLE === 'true'
+    ? null
+    : new SchedulerLeader({
+        onAcquire: async () => {
+          await scheduler.start();
+        },
+        onLose: async () => {
+          // Connection to the advisory-lock session dropped. Stop the
+          // local cron tasks so another pod that takes over does not
+          // race with them. Re-acquisition will re-start them.
+          scheduler.stop();
+        },
+      });
 export { scheduler };
 
 async function main() {
@@ -297,8 +315,21 @@ async function main() {
     await prisma.$connect();
     logger.info('Database connected');
 
-    scheduler.start();
-    logger.info('Scheduler started');
+    if (schedulerLeader) {
+      await schedulerLeader.start();
+      logger.info(
+        { isLeader: schedulerLeader.isLeader() },
+        schedulerLeader.isLeader()
+          ? 'Scheduler started (leader)'
+          : 'Scheduler standing by (follower — will take over if leader dies)'
+      );
+    } else {
+      await scheduler.start();
+      logger.warn(
+        'Scheduler started without leader election (SCHEDULER_LEADER_DISABLE=true). ' +
+          'Safe only for single-pod deployments.'
+      );
+    }
 
     // Monitor watchdog: 1-minute polling worker. Kept dead simple
     // (setInterval) — monitors are not on a hot path. The worker
@@ -363,6 +394,9 @@ async function main() {
 process.on('SIGINT', async () => {
   logger.info('Shutting down gracefully...');
   scheduler.stop();
+  if (schedulerLeader) {
+    await schedulerLeader.stop();
+  }
   cleanupRateLimiters();
   await prisma.$disconnect();
   // Flush pending Sentry events. 2s timeout is short enough that a

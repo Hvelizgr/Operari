@@ -133,6 +133,12 @@ const envSchema = z.object({
   /** Directory the plugin loader scans at boot for third-party step
    *  types (see packages/sdk/src/steps). */
   NANORUN_PLUGINS_DIR: z.string().optional(),
+  /** Opt-out for cron scheduler leader election. On by default so
+   *  multi-pod deploys do not double-fire scheduled runs. Set to 'true'
+   *  only for dev or tests where the dedicated pg connection is
+   *  undesirable; single-pod deploys can leave the default — the
+   *  advisory lock is acquired instantly when there is no contention. */
+  SCHEDULER_LEADER_DISABLE: z.enum(['true', 'false']).default('false'),
 
   // ─── Version display ───────────────────────────────────────────
   /** Self-host build tag shown in the /health endpoint + UI footer.
