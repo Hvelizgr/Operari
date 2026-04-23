@@ -300,41 +300,11 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
     expect(calls).toEqual([]);
   });
 
-  it('skips meter calls silently when tenantId is missing', async () => {
-    const prisma = buildPrisma();
-    (prisma.runbook.findUnique as jest.Mock).mockResolvedValue({
-      id: 'wf-1',
-      name: 'Deploy',
-      nodes: [],
-      connections: [],
-    });
-    (prisma.execution.create as jest.Mock).mockResolvedValue({
-      id: 'exec-1',
-      workflowId: 'wf-1',
-      userId: 'user-1',
-      status: 'RUNNING',
-      trigger: 'MANUAL',
-    });
-
-    const { meter, calls } = buildRecordingMeter();
-    const svc = new ExecutionService(prisma, {
-      audit: null,
-      tracer: null,
-      eventStore: null,
-      meter,
-    });
-
-    // Call without tenantId on purpose — the runtime should skip
-    // billing because it has no tenant to attribute the event to.
-    await svc.execute({
-      workflowId: 'wf-1',
-      userId: 'user-1',
-      trigger: TriggerType.MANUAL,
-    });
-    await new Promise(resolve => setImmediate(resolve));
-
-    expect(calls).toEqual([]);
-  });
+  // The "skip meter when tenantId missing" case is no longer
+  // reachable: ExecuteParams.tenantId is required at compile time.
+  // The billing pipeline can still skip per Tenant.stripeCustomerId
+  // being null (self-host / free plan) — that coverage is provided
+  // by the 'skips when tenant has no stripeCustomerId' case above.
 
   it('does not crash execute() when the meter throws on record', async () => {
     const prisma = buildPrisma({ stripeCustomerId: 'cus_acme' });

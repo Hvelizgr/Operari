@@ -160,39 +160,10 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     expect(events).toHaveLength(0);
   });
 
-  it('skips emission silently when tenantId is missing', async () => {
-    (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue({
-      id: 'wf-1',
-      name: 'Deploy',
-      nodes: [],
-      connections: [],
-    });
-    (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
-      id: 'exec-1',
-      workflowId: 'wf-1',
-      userId: 'user-1',
-      status: 'RUNNING',
-      trigger: 'MANUAL',
-    });
-
-    const { store, events } = buildRecordingEventStore();
-    const svc = new ExecutionService(mockPrisma, {
-      audit: null,
-      tracer: null,
-      eventStore: store,
-    });
-
-    await svc.execute({
-      workflowId: 'wf-1',
-      userId: 'user-1',
-      trigger: TriggerType.MANUAL,
-      // tenantId omitted on purpose
-    });
-    await new Promise(resolve => setImmediate(resolve));
-
-    // Skipping is silent — no events recorded, no throw
-    expect(events).toHaveLength(0);
-  });
+  // The "skip event store when tenantId missing" case is no longer
+  // reachable: ExecuteParams.tenantId is required at compile time,
+  // and the Execution row itself NOT NULLs tenantId. The compiler
+  // rejects the legacy call shape this test used to guard.
 
   it('does not crash execute() when the event store throws on append', async () => {
     (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue({

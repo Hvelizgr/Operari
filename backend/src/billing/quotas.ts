@@ -147,7 +147,7 @@ export async function assertRunsQuota(
   const monthStart = startOfUtcMonth();
   const current = await prisma.execution.count({
     where: {
-      workflow: { tenantId },
+      tenantId,
       startedAt: { gte: monthStart },
     },
   });
@@ -187,7 +187,7 @@ export async function getTenantUsage(
   const [runbooks, runs] = await Promise.all([
     prisma.runbook.count({ where: { tenantId } }),
     prisma.execution.count({
-      where: { workflow: { tenantId }, startedAt: { gte: monthStart } },
+      where: { tenantId, startedAt: { gte: monthStart } },
     }),
   ]);
 

@@ -36,6 +36,7 @@ import {
   standardRateLimiter,
   webhookRateLimiter,
 } from './middleware/ratelimit.middleware';
+import { installTenantScopeGuard } from './middleware/tenant-scope-guard';
 import adminRoutes from './routes/admin.routes';
 import approvalRoutes from './routes/approvals.routes';
 import authRoutes from './routes/auth.routes';
@@ -74,6 +75,11 @@ import { SchedulerService } from './services/scheduler.service';
 const app = express();
 const httpServer = createServer(app);
 const prisma = new PrismaClient();
+// Every query against Execution / NodeLog / ExecutionError must
+// filter by tenantId. installTenantScopeGuard rejects queries that
+// forget it (throws in dev/test, logs in prod) — belt + braces on
+// top of the NOT NULL + FK we added in the migration.
+installTenantScopeGuard(prisma);
 const PORT = env.PORT;
 
 import { socketService } from './editor/execution/socket.service';

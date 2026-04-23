@@ -122,6 +122,7 @@ describe('ExecutionService', () => {
       const result = await executionService.execute({
         workflowId: 'workflow-1',
         userId: 'user-1',
+        tenantId: 'tenant-1',
         trigger: TriggerType.MANUAL,
       });
 
@@ -134,6 +135,7 @@ describe('ExecutionService', () => {
       expect(mockPrisma.execution.create).toHaveBeenCalledWith({
         data: {
           workflowId: 'workflow-1',
+          tenantId: 'tenant-1',
           userId: 'user-1',
           trigger: TriggerType.MANUAL,
           status: 'RUNNING',
@@ -148,6 +150,7 @@ describe('ExecutionService', () => {
         executionService.execute({
           workflowId: 'non-existent',
           userId: 'user-1',
+          tenantId: 'tenant-1',
           trigger: TriggerType.MANUAL,
         })
       ).rejects.toThrow();
@@ -177,6 +180,7 @@ describe('ExecutionService', () => {
       const result = await executionService.execute({
         workflowId: 'workflow-1',
         userId: 'user-1',
+        tenantId: 'tenant-1',
         trigger: TriggerType.MANUAL,
       });
 
@@ -323,6 +327,7 @@ describe('ExecutionService', () => {
       expect(mockPrisma.execution.create).toHaveBeenCalledWith({
         data: {
           workflowId: 'workflow-1',
+          tenantId: 'tenant-1',
           userId: 'user-2',
           trigger: 'MANUAL',
           status: 'RUNNING',

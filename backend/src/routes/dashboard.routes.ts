@@ -36,7 +36,11 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
   const stuckThreshold = new Date(now.getTime() - 5 * 60 * 1000);
   const since2h = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
-  const tenantWorkflowFilter = { workflow: { tenantId } };
+  // Execution now carries tenantId directly (post-C4), so filter
+  // against the denormalized column — eliminates the join to Runbook
+  // and lets Postgres serve these queries from the composite index
+  // (tenantId, status, startedAt DESC).
+  const tenantWorkflowFilter = { tenantId };
 
   const [
     runs24hCount,

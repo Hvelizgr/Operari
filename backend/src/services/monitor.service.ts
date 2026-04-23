@@ -117,6 +117,7 @@ export class MonitorService {
    */
   async evaluate(monitor: {
     id: string;
+    tenantId: string;
     workflowId: string;
     checkType: string;
     checkConfig: unknown;
@@ -128,6 +129,7 @@ export class MonitorService {
     if (monitor.checkType === 'last_success_within') {
       const lastSuccess = await this.prisma.execution.findFirst({
         where: {
+          tenantId: monitor.tenantId,
           workflowId: monitor.workflowId,
           status: 'SUCCESS',
           startedAt: { gte: since },
@@ -146,6 +148,7 @@ export class MonitorService {
     if (monitor.checkType === 'no_run_within') {
       const anyRun = await this.prisma.execution.findFirst({
         where: {
+          tenantId: monitor.tenantId,
           workflowId: monitor.workflowId,
           startedAt: { gte: since },
         },
@@ -165,6 +168,7 @@ export class MonitorService {
       const groups = await this.prisma.execution.groupBy({
         by: ['status'],
         where: {
+          tenantId: monitor.tenantId,
           workflowId: monitor.workflowId,
           startedAt: { gte: since },
         },
