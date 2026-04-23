@@ -3,84 +3,171 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+/**
+ * Central env-var schema.
+ *
+ * Every `process.env.X` the backend reads is declared here. Adding a
+ * new env var anywhere in the code without touching this file breaks
+ * boot — that's intentional: we fail loud the first time `parseEnv()`
+ * runs so a typo or a missing deploy secret surfaces immediately
+ * instead of blowing up a user request three hours later.
+ *
+ * The parsed result is re-exported as both `env` (the historical name
+ * many modules import) and `config` (the alias new code should prefer)
+ * so a future sweep can migrate call sites without a flag day.
+ *
+ * Optional-by-default: everything not already required stays optional
+ * so self-host deploys that don't care about Stripe/WorkOS/Sentry can
+ * boot without setting those secrets. Required vars (DATABASE_URL,
+ * JWT_SECRET) fail loudly with a clear message.
+ */
+
+/** URL that may be absent OR an empty string (docker-compose frequently
+ *  interpolates an unset host var to ""). Treats empty as undefined. */
+const optionalUrl = z.preprocess(v => (v === '' ? undefined : v), z.string().url().optional());
+
+/** Positive integer parsed from an env string. `fallback` applies when
+ *  the var is unset. Clamp with `.min()` if the caller cares. */
+const intFromString = (fallback: number) =>
+  z.preprocess(v => {
+    if (v === undefined || v === null || v === '') return fallback;
+    const n = parseInt(String(v), 10);
+    return Number.isFinite(n) ? n : fallback;
+  }, z.number().int());
+
 const envSchema = z.object({
-    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-    PORT: z.string().transform(Number).default('4001'),
-    DATABASE_URL: z.string().url(),
-    JWT_SECRET: z.string().min(32, 'JWT secret must be at least 32 characters long'),
-    JWT_EXPIRES_IN: z.string().default('7d'),
-    FRONTEND_URL: z.string().url().default('http://localhost:3000'),
-    REDIS_URL: z.string().url().optional(),
+  // ─── Core runtime ──────────────────────────────────────────────
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  PORT: z.string().transform(Number).default('4001'),
+  APP_VERSION: z.string().default('dev'),
+  APP_URL: z.string().optional(),
+  LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
 
-    // AI Agent System
-    ANTHROPIC_API_KEY: z.string().optional(),
-    OPENAI_API_KEY: z.string().optional(),
-    AI_MODEL_PROVIDER: z.enum(['anthropic', 'openai']).default('anthropic'),
-    AI_MODEL_NAME: z.string().default('claude-sonnet-4-6'),
+  // ─── Persistence ───────────────────────────────────────────────
+  DATABASE_URL: z.string().url(),
+  REDIS_URL: z.string().url().optional(),
 
-    // OAuth / Connected Accounts
-    ENCRYPTION_KEY: z.string().min(32).optional(),
+  // ─── Auth ──────────────────────────────────────────────────────
+  JWT_SECRET: z.string().min(32, 'JWT secret must be at least 32 characters long'),
+  JWT_EXPIRES_IN: z.string().default('7d'),
+  COOKIE_SECURE: z.enum(['true', 'false']).optional(),
+  CSRF_ENFORCE: z.enum(['true', 'false']).optional(),
+  NANORUN_ANONYMOUS_MODE: z.enum(['true', 'false']).default('false'),
+  NANORUN_AUTH_PROVIDER: z.enum(['jwt', 'workos']).default('jwt'),
+  NANORUN_PASSWORD_BREACH_CHECK: z.enum(['true', 'false']).default('true'),
+  NANORUN_PASSWORD_BREACH_THRESHOLD: intFromString(1),
+  NANORUN_SECRET_KEY: z.string().optional(),
+  ENCRYPTION_KEY: z.string().min(32).optional(),
 
-    // Self-host: allow anonymous access (no auth required).
-    // Set to "true" ONLY for single-tenant self-host deployments.
-    NANORUN_ANONYMOUS_MODE: z.enum(['true', 'false']).default('false'),
-    GMAIL_CLIENT_ID: z.string().optional(),
-    GMAIL_CLIENT_SECRET: z.string().optional(),
-    SLACK_CLIENT_ID: z.string().optional(),
-    SLACK_CLIENT_SECRET: z.string().optional(),
-    // Empty-string tolerant because docker-compose interpolation of an
-    // unset host var yields "" (not undefined), which would otherwise
-    // fail .url() validation and crash boot on a fresh self-host.
-    OAUTH_REDIRECT_BASE_URL: z
-        .preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+  // ─── Frontend linkage ──────────────────────────────────────────
+  FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  OAUTH_REDIRECT_BASE_URL: optionalUrl,
 
-    // Social login providers. Both are optional — when the pair is
-    // unset the /api/auth/{provider} route returns 501 and the
-    // frontend hides the corresponding "Continue with …" button via
-    // NEXT_PUBLIC_OAUTH_* flags (see frontend env). Create apps at:
-    //   Google: https://console.cloud.google.com/apis/credentials
-    //   GitHub: https://github.com/settings/developers
-    // Redirect URIs (use your OAUTH_REDIRECT_BASE_URL or localhost in dev):
-    //   {base}/api/auth/google/callback
-    //   {base}/api/auth/github/callback
-    GOOGLE_CLIENT_ID: z.string().optional(),
-    GOOGLE_CLIENT_SECRET: z.string().optional(),
-    GITHUB_CLIENT_ID: z.string().optional(),
-    GITHUB_CLIENT_SECRET: z.string().optional(),
+  // ─── AI agent ──────────────────────────────────────────────────
+  ANTHROPIC_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  AI_MODEL_PROVIDER: z.enum(['anthropic', 'openai']).default('anthropic'),
+  AI_MODEL_NAME: z.string().default('claude-sonnet-4-6'),
+  /** Feature flag that enables write-capable agent tools (create/update
+   *  runbook, dispatch runs, modify RBAC). Off by default — the audit
+   *  surface for write tools is still being shaped. */
+  CAIRN_AGENT_WRITE_TOOLS: z.enum(['true', 'false']).default('false'),
 
-    // Forces the HttpOnly session cookie's Secure flag. Leave unset to
-    // let the cookie code auto-detect the request protocol (right for
-    // local HTTP + prod HTTPS in most setups). Set explicitly to
-    // `true` when serving over HTTPS behind a proxy that does not pass
-    // X-Forwarded-Proto.
-    COOKIE_SECURE: z.enum(['true', 'false']).optional(),
+  // ─── Social login providers ────────────────────────────────────
+  // All optional — when a pair is unset, /api/auth/{provider} returns
+  // 501 and the frontend hides the button.
+  GMAIL_CLIENT_ID: z.string().optional(),
+  GMAIL_CLIENT_SECRET: z.string().optional(),
+  SLACK_CLIENT_ID: z.string().optional(),
+  SLACK_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GITHUB_CLIENT_ID: z.string().optional(),
+  GITHUB_CLIENT_SECRET: z.string().optional(),
 
-    // Sentry error + perf observability. Optional in every
-    // environment — self-host deployments leave DSN unset and the
-    // SDK is never initialized. When DSN is set, traces_sample_rate
-    // defaults to 0.1 (10%) because full sampling drops prod cost
-    // faster than it helps debug. SENTRY_ENV differentiates
-    // staging/prod in the Sentry UI without forcing NODE_ENV
-    // assumptions.
-    SENTRY_DSN: z
-        .preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
-    SENTRY_ENV: z.string().optional(),
-    SENTRY_TRACES_SAMPLE_RATE: z
-        .string()
-        .transform(Number)
-        .pipe(z.number().min(0).max(1))
-        .default('0.1'),
-    /// Release tag surfaced in Sentry for "which build started
-    /// throwing". Populated by CI from the git sha; falls back to
-    /// a literal when the env var is empty so events still group.
-    APP_VERSION: z.string().default('dev'),
+  // ─── WorkOS SSO (cloud tier) ───────────────────────────────────
+  WORKOS_CLIENT_ID: z.string().optional(),
+  WORKOS_ISSUER: z.string().optional(),
+  WORKOS_JWKS_URL: z.string().optional(),
+
+  // ─── Billing (Stripe) ──────────────────────────────────────────
+  NANORUN_BILLING_PROVIDER: z.enum(['stripe', 'none']).default('none'),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  NANORUN_QUOTA_FREE_RUNS: intFromString(100),
+  NANORUN_QUOTA_FREE_RUNBOOKS: intFromString(3),
+
+  // ─── Email (SMTP + Resend) ─────────────────────────────────────
+  // Two providers supported — SMTP for self-host, Resend for cloud.
+  RESEND_API_KEY: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: intFromString(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  CONTACT_FROM_EMAIL: z.string().optional(),
+  CONTACT_TO_EMAIL: z.string().optional(),
+
+  // ─── Sentry ────────────────────────────────────────────────────
+  SENTRY_DSN: optionalUrl,
+  SENTRY_ENV: z.string().optional(),
+  SENTRY_TRACES_SAMPLE_RATE: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().min(0).max(1))
+    .default('0.1'),
+
+  // ─── OpenTelemetry tracing ─────────────────────────────────────
+  ENABLE_TRACING: z.enum(['true', 'false']).default('false'),
+  JAEGER_ENDPOINT: z.string().url().optional(),
+
+  // ─── Execution engine ──────────────────────────────────────────
+  /** Toggles the durable (Redis-backed) runbook event store. When
+   *  off, executions use the in-memory store — lost on process
+   *  restart, fine for dev + single-tenant self-host. */
+  NANORUN_DURABLE_ENGINE: z.enum(['true', 'false']).default('false'),
+  /** Cap on live log-stream entries per step kept in memory. */
+  NANORUN_LOG_STREAM_MAX_ENTRIES: intFromString(1000),
+  /** Resume-worker active-action guard — prevents double-resume when
+   *  two workers race on the same suspended run. Defaults on. */
+  NANORUN_RESUME_WORKER_ACT: z.enum(['true', 'false']).default('true'),
+  /** Directory the plugin loader scans at boot for third-party step
+   *  types (see packages/sdk/src/steps). */
+  NANORUN_PLUGINS_DIR: z.string().optional(),
+
+  // ─── Version display ───────────────────────────────────────────
+  /** Self-host build tag shown in the /health endpoint + UI footer.
+   *  Separate from APP_VERSION which goes to Sentry release. */
+  NANORUN_VERSION: z.string().optional(),
 });
 
-const parsedEnv = envSchema.safeParse(process.env);
-
-if (!parsedEnv.success) {
-    console.error('❌ Invalid environment variables:', JSON.stringify(parsedEnv.error.format(), null, 4));
+/** Silence validation in test runs so CI (or a bare `jest` call)
+ *  can boot with the minimum envs declared in the workflow. Tests
+ *  that need a specific var should set it explicitly. */
+function parseEnv() {
+  const parsed = envSchema.safeParse(process.env);
+  if (!parsed.success) {
+    console.error(
+      '❌ Invalid environment variables:',
+      JSON.stringify(parsed.error.format(), null, 4)
+    );
     process.exit(1);
+  }
+  return parsed.data;
 }
 
-export const env = parsedEnv.data;
+/**
+ * Parsed, typed environment snapshot. Frozen so a misguided assignment
+ * like `env.NODE_ENV = 'production'` throws in dev. The whole point of
+ * this module is that env values are read-only after boot.
+ *
+ * Two names for the same object:
+ * - `env`: historical name, still imported by dozens of files.
+ * - `config`: the alias new code should prefer. Future migration will
+ *    codemod `process.env.X` → `config.X` and then drop the `env` alias.
+ */
+export const env = Object.freeze(parseEnv());
+export const config = env;
+
+/** Exported type so a function signature can accept a subset of the
+ *  config without importing the full object. */
+export type EnvConfig = typeof env;
