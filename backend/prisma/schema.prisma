@@ -771,6 +771,15 @@ model Monitor {
   lastCheckAt DateTime?
   lastFiredAt DateTime?
   lastReason  String?
+  /// Slack incoming-webhook URL. When set and the monitor flips to
+  /// FIRING, MonitorAlertService POSTs a minimal payload here. Null
+  /// disables the channel; per-monitor config is the v1 surface and
+  /// richer tenant-wide routing can layer on later.
+  alertWebhookUrl String?
+  /// Recipient email address for FIRING alerts. Delivered via the
+  /// existing SMTP/Resend sendEmail helper; log-only if neither is
+  /// configured.
+  alertEmail      String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
