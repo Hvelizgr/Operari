@@ -222,6 +222,7 @@ model Tenant {
   eventAgents       EventAgent[]
   monitors          Monitor[]
   invites           TenantInvite[]
+  webhookEvents     WebhookEvent[]
 
   @@index([slug])
 }
@@ -1038,4 +1039,29 @@ model ExecutionEvent {
   @@index([executionId, seq])
   @@index([executionId, type])
   @@index([tenantId, createdAt])
+}
+
+/// Dedup ledger for inbound webhooks (Stripe, runbook webhooks, future
+/// providers). (source, eventId) is UNIQUE — handlers try INSERT and
+/// treat P2002 as "already processed, skip". tenantId is optional
+/// because most provider event ids (evt_..., delivery UUIDs) are
+/// globally unique; we keep the column so per-tenant retention sweeps
+/// and cascade-on-tenant-delete work cleanly.
+model WebhookEvent {
+  id         String   @id @default(uuid())
+  /// Provider discriminator — 'stripe', 'github', 'sentry', 'datadog',
+  /// 'generic'. Combined with eventId to form the dedup key.
+  source     String
+  /// The provider's own unique event id (evt_..., delivery uuid,
+  /// etc.). Stored as-is, no normalization — what the provider sends
+  /// is what we compare against on the next delivery.
+  eventId    String
+  tenantId   String?
+  receivedAt DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([source, eventId])
+  @@index([receivedAt])
+  @@index([tenantId, receivedAt])
 }
