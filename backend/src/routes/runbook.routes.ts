@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { AuditEventType, AuditService } from '../audit/audit.service';
 import { assertRunbookQuota, QuotaExceededError } from '../billing/quotas';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { RunbookVersionService } from '../runbook/services/runbook-version.service';
 import {
   fromSpec,
   RunbookSerializerError,
@@ -32,6 +33,48 @@ let auditService: AuditService | null = null;
 function getAudit(): AuditService {
   if (!auditService) auditService = new AuditService(prisma);
   return auditService;
+}
+
+let versionService: RunbookVersionService | null = null;
+function getVersioner(): RunbookVersionService {
+  if (!versionService) versionService = new RunbookVersionService(prisma);
+  return versionService;
+}
+
+/**
+ * Fire-and-forget wrapper around RunbookVersionService.createVersion.
+ * The save response should never fail because the version ledger
+ * couldn't write — the mutable Runbook row already holds the new
+ * definition. A failed version write leaves a verifier-detectable gap
+ * (same contract as the audit chain).
+ */
+async function safeCreateVersion(runbookId: string, actorId: string): Promise<void> {
+  try {
+    await getVersioner().createVersion({ runbookId, actorId });
+  } catch (err) {
+    // intentional: log-level only; callers must not know about this.
+    // eslint-disable-next-line no-console
+    console.warn('runbook-version: createVersion failed', { runbookId, err });
+  }
+}
+
+/**
+ * True when an update payload touched the definition (nodes /
+ * connections / inputs / name / description / category /
+ * onErrorRunbookId). isActive + schedule flips alone do NOT bump
+ * the version — the DAG is identical, so a new snapshot would just
+ * inflate the ledger.
+ */
+function updateChangedDefinition(data: Record<string, unknown>): boolean {
+  return (
+    data.nodes !== undefined ||
+    data.connections !== undefined ||
+    data.inputs !== undefined ||
+    data.name !== undefined ||
+    data.description !== undefined ||
+    data.category !== undefined ||
+    data.onErrorRunbookId !== undefined
+  );
 }
 
 /**
@@ -489,6 +532,10 @@ router.post('/', async (req: AuthRequest, res) => {
       },
     });
 
+    // Freeze the initial definition as version 1 so any run dispatched
+    // against this runbook can replay exactly these bytes.
+    await safeCreateVersion(workflow.id, req.user!.id);
+
     if (data.schedule && data.isActive) {
       await prisma.scheduledJob.create({
         data: {
@@ -760,6 +807,8 @@ router.put('/:id', async (req: AuthRequest, res) => {
           },
         });
 
+        await safeCreateVersion(newWorkflow.id, req.user!.id);
+
         if (data.schedule && data.isActive) {
           await prisma.scheduledJob.create({
             data: {
@@ -859,6 +908,10 @@ router.put('/:id', async (req: AuthRequest, res) => {
       data: updateData,
     });
 
+    if (updateChangedDefinition(updateData)) {
+      await safeCreateVersion(workflow.id, req.user!.id);
+    }
+
     await safeAuditWorkflow('runbook.updated', {
       tenantId: req.user!.tenantId,
       actorId: req.user!.id,
@@ -931,6 +984,10 @@ router.put('/:id/inputs', async (req: AuthRequest, res) => {
       data: { inputs: inputs as unknown as Prisma.InputJsonValue },
       select: { id: true, inputs: true, updatedAt: true },
     });
+
+    // Inputs are part of the frozen definition (the Run dialog form
+    // is derived from them), so a change here deserves a new version.
+    await safeCreateVersion(updated.id, req.user!.id);
 
     res.json({ ...updated, timestamp: updated.updatedAt.getTime() });
   } catch (error) {
@@ -1051,6 +1108,8 @@ router.post('/:id/duplicate', async (req: AuthRequest, res) => {
         tenantId: req.user!.tenantId,
       },
     });
+
+    await safeCreateVersion(workflow.id, req.user!.id);
 
     await safeAuditWorkflow('runbook.created', {
       tenantId: req.user!.tenantId,

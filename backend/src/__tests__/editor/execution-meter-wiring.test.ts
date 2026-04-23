@@ -91,6 +91,10 @@ const buildPrisma = (overrides: { stripeCustomerId?: string | null } = {}) =>
         stripeCustomerId: overrides.stripeCustomerId ?? null,
       })),
     },
+    // A1: execute() pins to latest RunbookVersion. null → fallback.
+    runbookVersion: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
   }) as unknown as PrismaClient;
 
 const baseExecuteParams = {

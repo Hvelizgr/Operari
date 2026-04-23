@@ -1,40 +1,57 @@
 import express from 'express';
 import request from 'supertest';
 
-// Mock dependencies BEFORE importing routes
-jest.mock('../../server', () => ({
-  prisma: {
-    runbook: {
-      findMany: jest.fn(),
-      // Default count to 0 so the quota gate on POST /runbooks
-      // does not trip against a number the test forgot to stub.
-      count: jest.fn().mockResolvedValue(0),
-      findFirst: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    },
-    scheduledJob: {
-      create: jest.fn(),
-      upsert: jest.fn(),
-      deleteMany: jest.fn(),
-    },
-    // GET /workflows enriches each runbook with last-run + success rate
-    // via `execution.findMany` and `execution.groupBy`. Default to empty
-    // results so the enrichment path is a no-op.
-    execution: {
-      findMany: jest.fn().mockResolvedValue([]),
-      groupBy: jest.fn().mockResolvedValue([]),
-    },
-    // POST /runbooks quota gate looks up the tenant's plan. Default
-    // to BUSINESS (unlimited) so the existing happy-path tests pass
-    // without being explicitly quota-aware — a dedicated block below
-    // overrides this stub to cover the FREE + at-cap branches.
-    tenant: {
-      findUnique: jest.fn().mockResolvedValue({ plan: 'BUSINESS' }),
-    },
+// Mock dependencies BEFORE importing routes.
+// A1: RunbookVersionService is invoked fire-and-forget after every
+// save. We declare the mock prisma as a const first so the $transaction
+// stub can pass it back as the tx argument.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prismaMock: any = {
+  runbook: {
+    findMany: jest.fn(),
+    count: jest.fn().mockResolvedValue(0),
+    findFirst: jest.fn(),
+    // findUnique is used by RunbookVersionService.createVersion inside
+    // $transaction; return a minimal Runbook-shaped row so the version
+    // writer succeeds silently instead of logging a warning.
+    findUnique: jest.fn().mockResolvedValue({
+      id: 'r',
+      tenantId: 't',
+      name: 'n',
+      description: null,
+      category: null,
+      nodes: [],
+      connections: [],
+      inputs: [],
+      onErrorRunbookId: null,
+    }),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   },
-}));
+  scheduledJob: {
+    create: jest.fn(),
+    upsert: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  execution: {
+    findMany: jest.fn().mockResolvedValue([]),
+    groupBy: jest.fn().mockResolvedValue([]),
+  },
+  tenant: {
+    findUnique: jest.fn().mockResolvedValue({ plan: 'BUSINESS' }),
+  },
+  runbookVersion: {
+    findFirst: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue({ id: 'rv', version: 1 }),
+  },
+};
+prismaMock.$transaction = jest.fn(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async (fn: (tx: any) => Promise<unknown>) => fn(prismaMock)
+);
+
+jest.mock('../../server', () => ({ prisma: prismaMock }));
 
 import runbookRouter from '../../routes/runbook.routes';
 import { prisma } from '../../server';

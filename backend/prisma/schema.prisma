@@ -55,6 +55,7 @@ model User {
   passwordResets    PasswordResetToken[]
   emailVerifications EmailVerificationToken[]
   mfaBackupCodes    MfaBackupCode[]
+  runbookVersions   RunbookVersion[]
 
   @@index([tenantId])
   @@index([email])
@@ -226,6 +227,7 @@ model Tenant {
   nodeLogs          NodeLog[]
   executionErrors   ExecutionError[]
   webhookEvents     WebhookEvent[]
+  runbookVersions   RunbookVersion[]
 
   @@index([slug])
 }
@@ -279,6 +281,7 @@ model Runbook {
   user                User                @relation(fields: [userId], references: [id])
   tenant              Tenant              @relation(fields: [tenantId], references: [id])
   executions          Execution[]
+  versions            RunbookVersion[]
   // New normalized relationships
   workflowNodes       RunbookStep[]
   workflowConnections RunbookConnection[]
@@ -293,6 +296,40 @@ model Runbook {
   @@index([tenantId])
   @@index([isActive])
   @@index([onErrorRunbookId])
+}
+
+/// Immutable snapshot of a Runbook definition at save time.
+///
+/// Every save on Runbook produces a new row here (monotonic `version`
+/// per runbookId). The engine reads from the snapshot — never from the
+/// mutable Runbook columns — for any Execution that carries a
+/// runbookVersionId. A historical run therefore always replays against
+/// the exact bytes it was dispatched with.
+///
+/// Kept separate from the `Runbook` row so the working copy can keep
+/// evolving (drafts, autosaves) without polluting the version ledger.
+/// `snapshot` is a JSON blob with the definition (nodes, connections,
+/// inputs, metadata) plus the runbook's metadata at save time — the
+/// engine treats it as the source of truth for THIS run.
+model RunbookVersion {
+  id              String   @id @default(uuid())
+  runbookId       String
+  /// Denormalized tenant scope matches Execution's pattern — the
+  /// tenant guard middleware expects tenantId on any table it cares
+  /// about, and historical queries filter by tenant before version.
+  tenantId        String
+  version         Int
+  snapshot        Json
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  runbook    Runbook     @relation(fields: [runbookId], references: [id], onDelete: Cascade)
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy  User?       @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  executions Execution[]
+
+  @@unique([runbookId, version])
+  @@index([tenantId, createdAt])
 }
 
 // Normalized RunbookStep model.
@@ -375,9 +412,16 @@ model Execution {
   parent            Execution?  @relation("ExecutionHierarchy", fields: [parentExecutionId], references: [id], onDelete: SetNull)
   children          Execution[] @relation("ExecutionHierarchy")
 
+  /// Frozen definition this run was dispatched against. Null for
+  /// pre-A1 historical rows (backfill is deliberately lossy — we
+  /// cannot truthfully claim which version they saw). New executions
+  /// always populate this.
+  runbookVersionId String?
+
   workflow        Runbook          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user            User             @relation(fields: [userId], references: [id])
+  runbookVersion  RunbookVersion?  @relation(fields: [runbookVersionId], references: [id], onDelete: SetNull)
   nodeLogs        NodeLog[]
   executionErrors ExecutionError[]
 
@@ -386,6 +430,7 @@ model Execution {
   @@index([status])
   @@index([startedAt])
   @@index([parentExecutionId])
+  @@index([runbookVersionId])
   @@index([tenantId, status, startedAt(sort: Desc)])
 }
 

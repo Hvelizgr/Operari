@@ -69,6 +69,9 @@ const buildPrismaMock = () => {
     tenant: {
       findUnique: jest.fn().mockResolvedValue({ plan: 'BUSINESS' }),
     },
+    // A1: execute() pins the run to the latest RunbookVersion. Return
+    // null so the engine falls back to the current Runbook row.
+    runbookVersion: { findFirst: jest.fn().mockResolvedValue(null) },
   } as unknown as PrismaClient;
 };
 

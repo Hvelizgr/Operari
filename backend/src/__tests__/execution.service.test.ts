@@ -61,6 +61,11 @@ const mockPrisma = {
   tenant: {
     findUnique: jest.fn().mockResolvedValue({ plan: 'BUSINESS' }),
   },
+  // A1: execute() pins to latest RunbookVersion. null → engine falls
+  // back to the current Runbook row (matches pre-A1 behavior).
+  runbookVersion: {
+    findFirst: jest.fn().mockResolvedValue(null),
+  },
 } as unknown as PrismaClient;
 
 describe('ExecutionService', () => {
@@ -139,6 +144,10 @@ describe('ExecutionService', () => {
           userId: 'user-1',
           trigger: TriggerType.MANUAL,
           status: 'RUNNING',
+          parentExecutionId: undefined,
+          // A1: no version backfilled by the test's null-returning
+          // runbookVersion.findFirst stub, so the engine pins to null.
+          runbookVersionId: null,
         },
       });
     });
