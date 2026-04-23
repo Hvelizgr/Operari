@@ -1,7 +1,6 @@
 import { Connection, WorkflowNode } from '@cairn/shared';
 import { DragEvent, MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 
-import { ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from '../components/Common';
 import {
   createDroppedNode,
   createNewNode,
@@ -13,9 +12,12 @@ import { useAccessibility } from '../context/AccessibilityContext';
 import { useAdvancedUndoRedo } from '../hooks/useAdvancedUndoRedo';
 import { useAutosave } from '../hooks/useAutosave';
 import { useEditorConnections } from '../hooks/useEditorConnections';
+import { useEditorDialogs } from '../hooks/useEditorDialogs';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorNodes } from '../hooks/useEditorNodes';
+import { useEditorOnboarding } from '../hooks/useEditorOnboarding';
 import { useEditorSelection } from '../hooks/useEditorSelection';
+import { SNAP_GRID_PX, useEditorSnapToGrid } from '../hooks/useEditorSnapToGrid';
 import { useEditorViewport } from '../hooks/useEditorViewport';
 import { useNodeTypes } from '../hooks/useNodeTypes';
 import useWindowSize from '../hooks/useWindowSize';
@@ -208,8 +210,6 @@ export function useEditorCanvas({ lang, workflowId, runbookHeader }: UseEditorCa
   // Local state
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>({
     open: false,
     nodeIds: [],
@@ -219,41 +219,28 @@ export function useEditorCanvas({ lang, workflowId, runbookHeader }: UseEditorCa
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [executionMetrics, setExecutionMetrics] = useState<ExecutionMetric[]>([]);
   const [editorMode, setEditorMode] = useState<'move' | 'connect'>('move');
-  const [isRunDialogOpen, setIsRunDialogOpen] = useState(false);
-  const [isShortcutsGuideOpen, setIsShortcutsGuideOpen] = useState(false);
-  // Snap-to-grid for node drag. Persisted in localStorage so the
-  // operator's preference survives reloads. Default off because the
-  // existing runbooks were authored without snap and force-snapping
-  // them on first edit would scramble layouts.
-  const [snapToGrid, setSnapToGridState] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('nanorun-editor-snap-to-grid') === '1';
-  });
-  const toggleSnapToGrid = useCallback(() => {
-    setSnapToGridState(prev => {
-      const next = !prev;
-      try {
-        localStorage.setItem('nanorun-editor-snap-to-grid', next ? '1' : '0');
-      } catch {
-        /* noop */
-      }
-      return next;
-    });
-  }, []);
-  const SNAP_GRID_PX = 20;
 
-  const handleOpenRunDialog = () => setIsRunDialogOpen(true);
-  const handleCloseRunDialog = () => setIsRunDialogOpen(false);
-  const handleOpenShortcutsGuide = () => setIsShortcutsGuideOpen(true);
-  const handleCloseShortcutsGuide = () => setIsShortcutsGuideOpen(false);
+  // Dialog toggles, onboarding flow and snap-to-grid are independent
+  // of drag/select/pan arbitration — they live in their own leaf hooks
+  // so this file stays focused on canvas mechanics.
+  const {
+    isRunDialogOpen,
+    isShortcutsGuideOpen,
+    handleOpenRunDialog,
+    handleCloseRunDialog,
+    handleOpenShortcutsGuide,
+    handleCloseShortcutsGuide,
+  } = useEditorDialogs();
 
-  // Onboarding effect
-  useEffect(() => {
-    const hasSeenOnboarding = localStorage.getItem('nanoflow-onboarding-seen');
-    if (!hasSeenOnboarding && nodes.length > 0) {
-      setShowOnboarding(true);
-    }
-  }, [nodes.length]);
+  const {
+    showOnboarding,
+    onboardingStep,
+    handleOnboardingNext,
+    handleOnboardingSkip,
+    handleOnboardingClose,
+  } = useEditorOnboarding(nodes, lang);
+
+  const { snapToGrid, toggleSnapToGrid } = useEditorSnapToGrid();
 
   // Keyboard shortcuts
   useEditorKeyboard({
@@ -511,26 +498,6 @@ export function useEditorCanvas({ lang, workflowId, runbookHeader }: UseEditorCa
     clearSelectionBox();
     completeConnection();
   }, [completeConnection, clearSelectionBox]);
-
-  const handleOnboardingNext = useCallback(() => {
-    const steps = lang === 'es' ? ONBOARDING_STEPS_ES : ONBOARDING_STEPS_EN;
-    if (onboardingStep < steps.length - 1) {
-      setOnboardingStep(prev => prev + 1);
-    } else {
-      setShowOnboarding(false);
-      localStorage.setItem('nanoflow-onboarding-seen', 'true');
-    }
-  }, [onboardingStep, lang]);
-
-  const handleOnboardingSkip = useCallback(() => {
-    setShowOnboarding(false);
-    localStorage.setItem('nanoflow-onboarding-seen', 'true');
-  }, []);
-
-  const handleOnboardingClose = useCallback(() => {
-    setShowOnboarding(false);
-    localStorage.setItem('nanoflow-onboarding-seen', 'true');
-  }, []);
 
   const handleExecutionStateChange = useCallback(
     (updatedNodes: WorkflowNode[]) => {
