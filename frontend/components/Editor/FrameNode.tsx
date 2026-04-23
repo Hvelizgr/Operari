@@ -1,7 +1,7 @@
 // frontend/components/Editor/FrameNode.tsx
 'use client';
 
-import type { WorkflowNode } from '@cairn/shared';
+import type { FrameNodeConfig, WorkflowNode } from '@cairn/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface FrameNodeProps {
@@ -25,7 +25,12 @@ export default function FrameNode({
   zoom = 1,
   containedCount = 0,
 }: FrameNodeProps) {
-  const [title, setTitle] = useState((node.config as any)?.title || 'Frame');
+  // FrameNode is only rendered when node.type === 'custom.frame' (see
+  // NodesLayer), so treating the config as FrameNodeConfig is safe. The
+  // `as any` chains this replaces came from the older catch-all
+  // `Record<string, any>` typing of WorkflowNode.config.
+  const cfg = (node.config ?? {}) as FrameNodeConfig;
+  const [title, setTitle] = useState(cfg.title || 'Frame');
   const [isEditing, setIsEditing] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const resizeRef = useRef<{
@@ -38,14 +43,14 @@ export default function FrameNode({
   const frameRef = useRef<HTMLDivElement>(null);
 
   // Frame dimensions with defaults
-  const width = (node.config as any)?.width || 400;
-  const height = (node.config as any)?.height || 300;
-  const color = (node.config as any)?.color || '#3ecf8e';
+  const width = cfg.width || 400;
+  const height = cfg.height || 300;
+  const color = cfg.color || '#3ecf8e';
 
   // Sync title from config
   useEffect(() => {
-    setTitle((node.config as any)?.title || 'Frame');
-  }, [(node.config as any)?.title]);
+    setTitle(cfg.title || 'Frame');
+  }, [cfg.title]);
 
   const handleTitleBlur = () => {
     setIsEditing(false);
@@ -58,7 +63,7 @@ export default function FrameNode({
       handleTitleBlur();
     }
     if (e.key === 'Escape') {
-      setTitle((node.config as any)?.title || 'Frame');
+      setTitle(cfg.title || 'Frame');
       setIsEditing(false);
     }
   };

@@ -1,7 +1,7 @@
 // frontend/components/Editor/NoteNode.tsx
 'use client';
 
-import type { WorkflowNode } from '@cairn/shared';
+import type { NoteNodeConfig, WorkflowNode } from '@cairn/shared';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
@@ -12,12 +12,15 @@ interface NoteNodeProps {
 }
 
 export default function NoteNode({ node, isSelected, onUpdate }: NoteNodeProps) {
-  const [text, setText] = useState(node.config?.text || '');
+  // NoteNode is only rendered when node.type === 'custom.note' (see
+  // NodesLayer), so treating the config as NoteNodeConfig is safe.
+  const cfg = (node.config ?? {}) as NoteNodeConfig;
+  const [text, setText] = useState(cfg.text || '');
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    setText(node.config?.text || '');
-  }, [node.config?.text]);
+    setText(cfg.text || '');
+  }, [cfg.text]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
@@ -35,8 +38,8 @@ export default function NoteNode({ node, isSelected, onUpdate }: NoteNodeProps) 
       style={{
         left: node.position.x,
         top: node.position.y,
-        width: (node.config as any)?.width || 275,
-        height: (node.config as any)?.height || 200,
+        width: cfg.width || 275,
+        height: cfg.height || 200,
       }}
       onDoubleClick={() => setIsEditing(true)}
     >

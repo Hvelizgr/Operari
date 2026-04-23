@@ -111,9 +111,54 @@ export interface ScheduleNodeConfig {
 
 export interface NoteNodeConfig {
   text?: string;
+  /** Rendered width in canvas px. Optional — the Note component falls
+   *  back to a 275px default when unset. */
+  width?: number;
+  /** Rendered height in canvas px. Defaults to 200px. */
+  height?: number;
 }
 
-// Union type for all possible node configs
+export interface FrameNodeConfig {
+  /** Display label rendered in the frame's title bar. Defaults to
+   *  "Frame" when unset so the node is still clickable. */
+  title?: string;
+  /** Canvas-space width. The frame component enforces a sane minimum
+   *  at edit time; the type doesn't so that older runbooks with tiny
+   *  frames still load. */
+  width?: number;
+  height?: number;
+  /** Accent color as a CSS hex string. Drives the border + title-bar
+   *  tint. Defaults to the brand emerald `#3ecf8e`. */
+  color?: string;
+}
+
+/**
+ * Meta-keys stored inside every execution-capable node's config. The
+ * editor's PropertiesPanel writes these via the shared MetaPanel; the
+ * runbook YAML serializer promotes them to top-level retry/runIf/skipIf
+ * fields at the spec boundary. Listed here so a discriminated-union
+ * variant can intersect with `NodeExecutionMeta` to pick them up
+ * without repeating the three fields on every config type.
+ */
+export interface NodeExecutionMeta {
+  /** Retry policy. `count` is the maximum extra attempts on failure;
+   *  0 or missing means no retry. */
+  _retry?: { count?: number; backoff?: 'fixed' | 'exponential'; delayMs?: number };
+  /** CEL-lite expression evaluated before the node runs; falsy skips
+   *  execution and routes the run as if the node completed. */
+  _runIf?: string;
+  /** Same as `_runIf` but with inverted semantics — truthy skips. */
+  _skipIf?: string;
+}
+
+// Union type for all possible node configs.
+//
+// The final `Record<string, unknown>` branch is a deliberate escape
+// hatch: runtime node types registered via the SDK plugin system
+// aren't known at compile time, so their configs land here and get
+// narrowed by runtime dispatchers (NodeExecutorService) instead of
+// the TypeScript compiler. Every named variant above is preferable
+// when the node.type is known at the call site.
 export type NodeConfig =
   | HttpNodeConfig
   | EmailNodeConfig
@@ -125,4 +170,5 @@ export type NodeConfig =
   | WebhookNodeConfig
   | ScheduleNodeConfig
   | NoteNodeConfig
+  | FrameNodeConfig
   | Record<string, unknown>;
