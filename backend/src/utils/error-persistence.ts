@@ -1,7 +1,17 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { $Enums, Prisma, PrismaClient } from '@prisma/client';
 
 import { logger } from '../config/logger.config';
 import { CustomError } from '../errors/custom-error';
+
+/**
+ * Coerce a lower/mixed-case severity string (usually from the
+ * in-memory `ErrorSeverity` enum, whose values are lowercase) to the
+ * uppercase variant Prisma's `ErrorSeverity` enum demands. Keeps the
+ * inevitable string→enum cast in one place instead of scattering
+ * `as any` across every call site.
+ */
+export const toPrismaErrorSeverity = (severity: string): $Enums.ErrorSeverity =>
+  severity.toUpperCase() as $Enums.ErrorSeverity;
 
 /**
  * Persist an error to the database
@@ -21,7 +31,7 @@ export async function persistExecutionError(
           code: error.code,
           message: error.message,
           userMessage: error.userMessage,
-          severity: error.severity.toUpperCase() as any, // Convert to uppercase for Prisma enum
+          severity: toPrismaErrorSeverity(error.severity),
           isRetryable: error.isRetryable,
           retryCount: error.context.retryCount ?? 0,
           maxRetries: error.context.maxRetries ?? 0,
@@ -80,7 +90,7 @@ export async function getErrorsBySeverity(
   return prisma.executionError.findMany({
     where: {
       executionId,
-      severity: severity.toUpperCase() as any,
+      severity: toPrismaErrorSeverity(severity),
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -121,7 +131,7 @@ export async function markErrorsAsNotified(
   await prisma.executionError.updateMany({
     where: {
       executionId,
-      ...(severity && { severity: { in: severity.map(s => s.toUpperCase()) as any } }),
+      ...(severity && { severity: { in: severity.map(toPrismaErrorSeverity) } }),
     },
     data: { notifiedAt: new Date() },
   });

@@ -101,7 +101,11 @@ export class WorkflowValidatorService {
    */
   private checkConfigurations(nodes: WorkflowNode[], issues: ValidationIssue[]): void {
     nodes.forEach(node => {
-      const config = (node.config as any) || {};
+      // Cast to `Record<string, unknown>` rather than `any` so field
+      // access stays type-checked downstream. The switch below uses
+      // simple truthiness on individual keys (`!config.url`), which
+      // works on `unknown` without further narrowing.
+      const config = (node.config ?? {}) as Record<string, unknown>;
 
       switch (node.type) {
         case 'HTTP':

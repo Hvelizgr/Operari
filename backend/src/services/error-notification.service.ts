@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
 import { CustomError, ErrorSeverity } from '../errors/custom-error';
-import { markErrorAsNotified } from '../utils/error-persistence';
+import { markErrorAsNotified, toPrismaErrorSeverity } from '../utils/error-persistence';
 import { Logger } from './logger.service';
 
 /**
@@ -47,7 +47,7 @@ export class ErrorNotificationService {
   ): Promise<void> {
     try {
       // Convert error severity to Prisma enum format (uppercase)
-      const prismaErrorSeverity = error.severity.toUpperCase() as any;
+      const prismaErrorSeverity = toPrismaErrorSeverity(error.severity);
 
       // Get notification configurations for this tenant
       const configs = await this.prisma.errorNotificationConfig.findMany({
@@ -124,7 +124,9 @@ export class ErrorNotificationService {
       this.logger.warn('Failed to send notification', {
         error: error instanceof Error ? error : new Error(String(error)),
         metadata: {
-          configId: (config as any).id,
+          // config is already `Record<string, unknown>` (see method signature)
+          // so `config.id` is typed — no cast needed.
+          configId: config.id,
           type: config.type,
         },
       });
