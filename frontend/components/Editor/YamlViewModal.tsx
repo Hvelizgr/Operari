@@ -1,15 +1,17 @@
 'use client';
 
+import type { Connection, WorkflowNode } from '@cairn/shared';
+import { AlertCircle, Check, Copy, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { X, Copy, Check, Save, AlertCircle } from 'lucide-react';
-import type { WorkflowNode, Connection } from '@cairn/shared';
+
+import { COPY_FEEDBACK_MS } from '@/constants/timeouts';
 import {
   nodesToSpec,
+  RunbookHeader,
+  RunbookYamlError,
+  specToNodes,
   specToYaml,
   yamlToSpec,
-  specToNodes,
-  RunbookYamlError,
-  RunbookHeader,
 } from '@/utils/runbookYaml';
 
 interface YamlViewModalProps {
@@ -82,7 +84,7 @@ export default function YamlViewModal({
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
     } catch {
       // ignore
     }

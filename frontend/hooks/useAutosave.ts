@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import type { WorkflowNode, Connection } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@cairn/shared';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { AUTOSAVE_DEBOUNCE_MS } from '../constants/timeouts';
 import {
   nodesToSpec,
-  specToYaml,
-  RunbookYamlError,
   type RunbookHeader,
+  RunbookYamlError,
+  specToYaml,
 } from '../utils/runbookYaml';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -37,7 +39,7 @@ export function useAutosave({
   connections,
   workflowId,
   runbookHeader,
-  debounceMs = 2000,
+  debounceMs = AUTOSAVE_DEBOUNCE_MS,
 }: AutosaveOptions) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [enableAutosave, setEnableAutosave] = useState(true);
