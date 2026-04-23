@@ -110,7 +110,11 @@ export class AccountDeletionService {
         throw new AccountDeletionError('MFA code required', 'mfa_required');
       }
       const cipher = secretCipherFromEnv();
-      const secret = cipher.decrypt(user.mfaSecretCiphered, `mfa:${user.id}`);
+      const secret = cipher.decryptForTenant(
+        user.mfaSecretCiphered,
+        user.tenantId,
+        `mfa:${user.id}`
+      );
       const totpOk = /^\d{6}$/.test(input.totpCode) && verifyTotp(secret, input.totpCode);
       const backupOk = totpOk
         ? false

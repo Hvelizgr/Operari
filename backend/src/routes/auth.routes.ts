@@ -389,7 +389,13 @@ router.post('/login', async (req, res) => {
         return res.status(401).json({ error: 'MFA code required', mfaRequired: true });
       }
       const cipher = secretCipherFromEnv();
-      const secret = cipher.decrypt(user.mfaSecretCiphered, `mfa:${user.id}`);
+      // decryptForTenant accepts both v1 and v2 so pre-C3 users keep
+      // logging in while new enrolls land in v2.
+      const secret = cipher.decryptForTenant(
+        user.mfaSecretCiphered,
+        user.tenantId,
+        `mfa:${user.id}`
+      );
       // Try live TOTP first (6 digits); if that fails OR the
       // input doesn't look like a TOTP, treat it as a backup
       // code. Backup codes are single-use; consumeBackupCode
