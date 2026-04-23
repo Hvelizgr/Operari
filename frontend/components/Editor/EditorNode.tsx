@@ -4,7 +4,7 @@ import './WorkflowNode.css';
 
 import { WorkflowNode } from '@cairn/shared';
 import * as Icons from 'lucide-react';
-import { MouseEvent, useLayoutEffect, useRef } from 'react';
+import { memo, MouseEvent, useLayoutEffect, useRef } from 'react';
 
 import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
 import { NODE_TYPES, NodeType } from '../Node';
@@ -66,7 +66,7 @@ import {
   validateConfig,
 } from './nodes/helpers';
 
-export default function EditorNode({
+function EditorNode({
   node,
   typeDefinition,
   registry,
@@ -718,3 +718,11 @@ export default function EditorNode({
     </div>
   );
 }
+
+// Memoized: every pan/zoom/select tick re-renders the parent NodesLayer
+// (and with 500+ nodes that's 500+ EditorNode instances). All props are
+// primitives, stable callbacks from useEditorCanvas, or reference-stable
+// registry/typeDefinition objects, so the default shallow compare is
+// safe — a node's props only change when that specific node actually
+// changed.
+export default memo(EditorNode);

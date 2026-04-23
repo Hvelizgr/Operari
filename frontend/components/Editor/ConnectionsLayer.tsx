@@ -1,7 +1,7 @@
 'use client';
 
 import type { Connection, ConnectionCondition, WorkflowNode } from '@cairn/shared';
-import { useMemo, useRef } from 'react';
+import { memo, useMemo, useRef } from 'react';
 
 import { useCanvasRenderer } from '../../hooks/useCanvasRenderer';
 import type { CreatingConnectionState, ViewportState } from '../../types/editor.types';
@@ -23,7 +23,7 @@ interface ConnectionsLayerProps {
   onConditionChange?: (connectionId: string, condition: ConnectionCondition) => void;
 }
 
-export default function ConnectionsLayer({
+function ConnectionsLayer({
   connections,
   nodes,
   viewport,
@@ -95,3 +95,10 @@ export default function ConnectionsLayer({
     </>
   );
 }
+
+// Memoized for the same reason as NodesLayer — pan/zoom ticks walk up
+// to EditorCanvas, and without memoization every frame rebuilds the
+// edge set. The useCanvasRenderer rAF loop still drives the actual
+// canvas paint; memo only prevents the React side from re-rendering
+// when connections + nodes + viewport + status are reference-stable.
+export default memo(ConnectionsLayer);

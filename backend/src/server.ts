@@ -86,7 +86,25 @@ const PORT = env.PORT;
 import { socketService } from './editor/execution/socket.service';
 socketService.initialize(httpServer, env.FRONTEND_URL);
 
-app.use(helmet());
+// helmet defaults cover the obvious headers (X-Frame-Options,
+// X-Content-Type-Options, Strict-Transport-Security, Referrer-Policy,
+// …). We override contentSecurityPolicy explicitly so the API cannot
+// be iframed at all (clickjacking defense stronger than the default
+// frame-ancestors 'self'), while keeping the 'unsafe-inline' relaxations
+// swagger-ui at /api/docs needs to render.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        'frame-ancestors': ["'none'"],
+        'script-src': ["'self'", "'unsafe-inline'"],
+        'style-src': ["'self'", "'unsafe-inline'"],
+        'img-src': ["'self'", 'data:'],
+      },
+    },
+  })
+);
 app.use(
   cors({
     origin: env.FRONTEND_URL,
