@@ -20,11 +20,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function PricingPage({
-  params,
-}: {
-  params: Promise<{ lang: string }>;
-}) {
+export default async function PricingPage({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;
   const content = lang === 'es' ? contentEs : contentEn;
   return <PricingView content={content.pricing} lang={lang} />;

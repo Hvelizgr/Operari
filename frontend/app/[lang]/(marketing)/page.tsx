@@ -11,7 +11,7 @@ import Comparison from './components/Comparison';
 import CTA from './components/CTA';
 
 export async function generateStaticParams() {
-    return [{ lang: 'en' }, { lang: 'es' }];
+  return [{ lang: 'en' }, { lang: 'es' }];
 }
 
 /**
@@ -32,45 +32,41 @@ export async function generateStaticParams() {
  *   CTA           → docker compose snippet + README + "what does NOT
  *                   work yet" links
  */
-export default async function Page({
-    params,
-}: {
-    params: Promise<{ lang: string }>;
-}) {
-    const { lang } = await params;
-    const content = lang === 'es' ? contentEs : contentEn;
+export default async function Page({ params }: { params: Promise<{ lang: string }> }) {
+  const { lang } = await params;
+  const content = lang === 'es' ? contentEs : contentEn;
 
-    return (
-        <main className="flex-1 bg-background selection:bg-primary/20">
-            <Hero content={content.hero} />
+  return (
+    <main className="bg-background selection:bg-primary/20 flex-1">
+      <Hero content={content.hero} />
 
-            <TrustBar content={content.trust} />
+      <TrustBar content={content.trust} />
 
-            <MetricsBar content={content.metrics} />
+      <MetricsBar content={content.metrics} />
 
-            <div id="story">
-                <Story content={content.story} />
-            </div>
+      <div id="story">
+        <Story content={content.story} />
+      </div>
 
-            <div id="safety">
-                <SafetyRails content={content.safety} />
-            </div>
+      <div id="safety">
+        <SafetyRails content={content.safety} />
+      </div>
 
-            <div id="templates">
-                <Templates content={content.templates} />
-            </div>
+      <div id="templates">
+        <Templates content={content.templates} />
+      </div>
 
-            <div id="triggers">
-                <TriggerSources content={content.triggers} />
-            </div>
+      <div id="triggers">
+        <TriggerSources content={content.triggers} />
+      </div>
 
-            <div id="compare">
-                <Comparison content={content.comparison} />
-            </div>
+      <div id="compare">
+        <Comparison content={content.comparison} />
+      </div>
 
-            <div id="self-host">
-                <CTA content={content.cta} />
-            </div>
-        </main>
-    );
+      <div id="self-host">
+        <CTA content={content.cta} />
+      </div>
+    </main>
+  );
 }

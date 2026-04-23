@@ -29,11 +29,11 @@ services:
       POSTGRES_PASSWORD: nanorun
       POSTGRES_DB: nanorun
     ports:
-      - "5433:5432"
+      - '5433:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nanorun -d nanorun"]
+      test: ['CMD-SHELL', 'pg_isready -U nanorun -d nanorun']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -43,11 +43,11 @@ services:
     image: redis:7-alpine
     container_name: nanorun-redis
     ports:
-      - "6380:6379"
+      - '6380:6379'
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -69,7 +69,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: nanorun-migrate
-    user: "0:0"
+    user: '0:0'
     environment:
       DATABASE_URL: postgresql://nanorun:nanorun@postgres:5432/nanorun?schema=public
       HOME: /tmp
@@ -99,7 +99,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    restart: "no"
+    restart: 'no'
 
   backend:
     build:
@@ -136,7 +136,7 @@ services:
       NANORUN_RESUME_WORKER_ACT: ${NANORUN_RESUME_WORKER_ACT:-}
       # Tracing wired to the optional jaeger service. Enable with the
       # `traces` profile (`docker compose --profile traces up -d`).
-      ENABLE_TRACING: "false"
+      ENABLE_TRACING: 'false'
       OTEL_SERVICE_NAME: nanorun-backend
       JAEGER_ENDPOINT: http://jaeger:14268/api/traces
       # Marketing contact form → email. When RESEND_API_KEY is unset
@@ -167,7 +167,7 @@ services:
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:-}
     ports:
-      - "4000:4000"
+      - '4000:4000'
     depends_on:
       postgres:
         condition: service_healthy
@@ -186,6 +186,11 @@ services:
         # the docker service name (not localhost) so the Next server
         # reaches the backend container over the compose network.
         API_URL: ${API_URL:-http://backend:4000}
+        # Dev unlock: when "true" the frontend auth context seeds an
+        # anonymous session on mount so the login form is not in the
+        # way of a local stack that has no real users. Pairs with
+        # the backend's NANORUN_ANONYMOUS_MODE env.
+        NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE: ${NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE:-true}
     container_name: nanorun-frontend
     environment:
       NODE_ENV: production
@@ -208,7 +213,7 @@ services:
       NEXT_PUBLIC_OAUTH_GOOGLE: ${NEXT_PUBLIC_OAUTH_GOOGLE:-false}
       NEXT_PUBLIC_OAUTH_GITHUB: ${NEXT_PUBLIC_OAUTH_GITHUB:-false}
     ports:
-      - "3000:3000"
+      - '3000:3000'
     depends_on:
       - backend
     restart: unless-stopped
@@ -220,11 +225,11 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:latest
     container_name: nanorun-jaeger
-    profiles: ["traces"]
+    profiles: ['traces']
     ports:
-      - "16686:16686"   # UI
-      - "14268:14268"   # collector HTTP
-      - "6831:6831/udp" # legacy thrift compact
+      - '16686:16686' # UI
+      - '14268:14268' # collector HTTP
+      - '6831:6831/udp' # legacy thrift compact
     restart: unless-stopped
 
 volumes:

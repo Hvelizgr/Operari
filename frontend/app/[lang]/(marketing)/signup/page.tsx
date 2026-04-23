@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Terminal, Github, Mail } from 'lucide-react';
 import { repo } from '@/config/repo.config';
+import RunPreview from './RunPreview';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'es' }];
@@ -39,6 +40,7 @@ const STRINGS = {
     accountLine: 'Already using a self-hosted workspace?',
     loginCta: 'Sign in',
     registerCta: 'Create account',
+    previewCaption: 'This is what your runbook does the moment we open the API to you.',
   },
   es: {
     eyebrow: 'API hospedada · Alpha privada',
@@ -55,6 +57,7 @@ const STRINGS = {
     accountLine: '¿Ya usás un workspace self-hosted?',
     loginCta: 'Iniciar sesión',
     registerCta: 'Crear cuenta',
+    previewCaption: 'Esto hace tu runbook el segundo que te abrimos la API.',
   },
 } as const;
 
@@ -64,92 +67,95 @@ export default async function SignupPage({ params }: { params: Promise<{ lang: s
   const t = STRINGS[typedLang];
 
   return (
-    <main className="relative flex-1 bg-background selection:bg-primary/20 pt-28 sm:pt-32 pb-24">
-      <div className="container mx-auto px-4 sm:px-6">
-        <div className="max-w-2xl mx-auto">
-          <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
+    <main className="bg-background selection:bg-primary/20 relative min-h-[88vh] flex-1 pb-24 pt-28 sm:pt-32">
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="grid items-center gap-12 lg:grid-cols-[1fr,1.1fr] lg:gap-16">
+          {/* LEFT — copy + email + self-host */}
+          <div>
+            <span className="border-primary/30 bg-primary/10 text-primary inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+                <span className="bg-primary relative inline-flex h-1.5 w-1.5 rounded-full" />
+              </span>
+              {t.eyebrow}
             </span>
-            {t.eyebrow}
-          </span>
 
-          <h1 className="mt-6 text-4xl sm:text-5xl md:text-6xl font-bold tracking-[-0.03em] leading-[1.05] text-foreground">
-            {t.title}
-          </h1>
+            <h1 className="text-foreground mt-6 text-4xl font-bold leading-[1.05] tracking-[-0.03em] sm:text-5xl md:text-6xl">
+              {t.title}
+            </h1>
 
-          <p className="mt-5 text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl">
-            {t.subtitle}
-          </p>
+            <p className="text-muted-foreground mt-5 max-w-xl text-base leading-relaxed sm:text-lg">
+              {t.subtitle}
+            </p>
 
-          {/* Email capture — just a mailto link today. A real waitlist form
-              (Resend + list sync) goes here once we decide the wedge.
-              For now `mailto:` is honest: a pre-launch product asking its
-              first users to literally email the founder beats a fake form
-              that pretends there's a queue. */}
-          <div className="mt-10 rounded-2xl border border-border bg-card/60 backdrop-blur-md p-5 sm:p-6 shadow-xl shadow-black/20">
-            <div className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-3">
-              {t.emailLabel}
-            </div>
-            <a
-              href="mailto:hello@cairn.run?subject=Cairn%20API%20access&body=Hi%2C%20I%27d%20like%20an%20API%20key.%20One%20runbook%20I%27d%20trigger%3A%20"
-              className="group inline-flex items-center gap-3 rounded-xl bg-primary text-primary-foreground font-semibold px-5 py-3 shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/30 active:scale-[0.98] transition-all"
-            >
-              <Mail className="w-4 h-4" />
-              hello@cairn.run
-              <ArrowRight className="w-4 h-4 opacity-70 transition-transform group-hover:translate-x-0.5" />
-            </a>
-            <p className="mt-3 text-xs text-muted-foreground/80">{t.emailHint}</p>
-          </div>
-
-          {/* Self-host alternative — same content that used to own the hero
-              CTA. Lives here now as an honest plan B for anyone who can't
-              wait (and for the OSS crowd who was offended by the waitlist). */}
-          <div className="mt-10 border-t border-border/60 pt-8">
-            <p className="text-sm text-muted-foreground mb-4">{t.orLine}</p>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-              <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-card/50 px-3 py-2 font-mono text-xs text-foreground/80">
-                <Terminal className="w-3.5 h-3.5 text-primary" />
-                <span>{t.selfHostCommand}</span>
+            <div className="border-border bg-card/60 mt-10 rounded-2xl border p-5 shadow-xl shadow-black/20 backdrop-blur-md sm:p-6">
+              <div className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wider">
+                {t.emailLabel}
               </div>
-              <Link
-                href={repo.base}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-border hover:border-primary/40 px-3 py-2 text-xs text-foreground/80 hover:text-foreground transition-colors"
+              <a
+                href="mailto:hello@cairn.run?subject=Cairn%20API%20access&body=Hi%2C%20I%27d%20like%20an%20API%20key.%20One%20runbook%20I%27d%20trigger%3A%20"
+                className="bg-primary text-primary-foreground shadow-primary/20 hover:bg-primary/90 hover:shadow-primary/30 group inline-flex items-center gap-3 rounded-xl px-5 py-3 font-semibold shadow-lg transition-all hover:shadow-xl active:scale-[0.98]"
               >
-                <Github className="w-3.5 h-3.5" />
-                {t.githubCta}
+                <Mail className="h-4 w-4" />
+                hello@cairn.run
+                <ArrowRight className="h-4 w-4 opacity-70 transition-transform group-hover:translate-x-0.5" />
+              </a>
+              <p className="text-muted-foreground/80 mt-3 text-xs">{t.emailHint}</p>
+            </div>
+
+            <div className="border-border/60 mt-8 border-t pt-6">
+              <p className="text-muted-foreground mb-3 text-sm">{t.orLine}</p>
+              <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+                <div className="border-border bg-card/50 text-foreground/80 inline-flex items-center gap-2 rounded-lg border px-3 py-2 font-mono text-xs">
+                  <Terminal className="text-primary h-3.5 w-3.5" />
+                  <span>{t.selfHostCommand}</span>
+                </div>
+                <Link
+                  href={repo.base}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="border-border hover:border-primary/40 text-foreground/80 hover:text-foreground inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors"
+                >
+                  <Github className="h-3.5 w-3.5" />
+                  {t.githubCta}
+                </Link>
+              </div>
+              <p className="text-muted-foreground/70 mt-3 text-[11px]">{t.selfHostNote}</p>
+            </div>
+
+            <div className="border-border/60 text-muted-foreground mt-8 border-t pt-6 text-sm">
+              {t.accountLine}{' '}
+              <Link
+                href={`/${typedLang}/login`}
+                className="text-primary hover:text-primary/90 font-medium transition-colors"
+              >
+                {t.loginCta}
+              </Link>
+              {' · '}
+              <Link
+                href={`/${typedLang}/register`}
+                className="text-primary hover:text-primary/90 font-medium transition-colors"
+              >
+                {t.registerCta}
               </Link>
             </div>
-            <p className="mt-3 text-[11px] text-muted-foreground/70">{t.selfHostNote}</p>
+
+            <div className="mt-10">
+              <Link
+                href={`/${typedLang}`}
+                className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+              >
+                ← {t.back}
+              </Link>
+            </div>
           </div>
 
-          <div className="mt-10 border-t border-border/60 pt-8 text-sm text-muted-foreground">
-            {t.accountLine}{' '}
-            <Link
-              href={`/${typedLang}/login`}
-              className="text-primary hover:text-primary/90 font-medium transition-colors"
-            >
-              {t.loginCta}
-            </Link>
-            {' · '}
-            <Link
-              href={`/${typedLang}/register`}
-              className="text-primary hover:text-primary/90 font-medium transition-colors"
-            >
-              {t.registerCta}
-            </Link>
-          </div>
-
-          <div className="mt-12">
-            <Link
-              href={`/${typedLang}`}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              ← {t.back}
-            </Link>
+          {/* RIGHT — auto-running YAML preview */}
+          <div className="hidden lg:block">
+            <RunPreview lang={typedLang} />
+            <p className="text-muted-foreground mx-auto mt-4 max-w-md text-center font-mono text-[11px]">
+              {t.previewCaption}
+            </p>
           </div>
         </div>
       </div>

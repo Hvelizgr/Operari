@@ -33,17 +33,17 @@ assert result.intact
 
 ## API
 
-| Method | Description |
-|--------|-------------|
-| `list_runbooks()` | List all runbooks |
-| `trigger(slug, variables=)` | Trigger a runbook (async) |
-| `get_run(run_id)` | Get run with step logs |
-| `list_runs(status=, limit=)` | List recent runs |
-| `wait_for_completion(run_id)` | Poll until terminal state |
-| `run(slug, variables=)` | Trigger + wait (convenience) |
-| `grant_approval(id, comment=)` | Approve and resume |
-| `reject_approval(id, comment=)` | Reject and cancel |
-| `verify_audit()` | Verify hash chain integrity |
+| Method                          | Description                  |
+| ------------------------------- | ---------------------------- |
+| `list_runbooks()`               | List all runbooks            |
+| `trigger(slug, variables=)`     | Trigger a runbook (async)    |
+| `get_run(run_id)`               | Get run with step logs       |
+| `list_runs(status=, limit=)`    | List recent runs             |
+| `wait_for_completion(run_id)`   | Poll until terminal state    |
+| `run(slug, variables=)`         | Trigger + wait (convenience) |
+| `grant_approval(id, comment=)`  | Approve and resume           |
+| `reject_approval(id, comment=)` | Reject and cancel            |
+| `verify_audit()`                | Verify hash chain integrity  |
 
 ## License
 

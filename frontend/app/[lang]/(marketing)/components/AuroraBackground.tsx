@@ -59,7 +59,10 @@ interface AuroraBackgroundProps {
 
 export default function AuroraBackground({ orbs, grid = false }: AuroraBackgroundProps) {
   return (
-    <div className="absolute inset-0 overflow-hidden bg-background pointer-events-none" aria-hidden="true">
+    <div
+      className="bg-background pointer-events-none absolute inset-0 overflow-hidden"
+      aria-hidden="true"
+    >
       {orbs.map((orb, i) => (
         <Orb key={i} {...orb} />
       ))}
@@ -80,7 +83,7 @@ function Orb({
 }: OrbConfig) {
   return (
     <motion.div
-      className={`absolute rounded-full blur-[120px] mix-blend-screen ${ORB_COLOR_BG[color]}`}
+      className={`absolute rounded-full mix-blend-screen blur-[120px] ${ORB_COLOR_BG[color]}`}
       style={{
         width: size,
         height: size,

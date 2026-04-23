@@ -38,7 +38,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-nanorun}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-nanorun}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,7 +51,7 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -62,7 +62,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: nanorun-migrate
-    user: "0:0"
+    user: '0:0'
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nanorun}?schema=public
       HOME: /tmp
@@ -74,7 +74,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    restart: "no"
+    restart: 'no'
 
   backend:
     build:
@@ -92,9 +92,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:?required}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?required}
-      COOKIE_SECURE: "true"
+      COOKIE_SECURE: 'true'
       # Auth is REQUIRED in prod. Flip only for single-tenant self-host.
-      NANORUN_ANONYMOUS_MODE: "false"
+      NANORUN_ANONYMOUS_MODE: 'false'
       # Optional AI provider — without this the AI assist drawer 500s.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -153,7 +153,7 @@ services:
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health"]
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:4000/health']
       interval: 15s
       timeout: 5s
       retries: 5
@@ -172,7 +172,7 @@ services:
       NEXT_PUBLIC_API_URL: https://${PUBLIC_DOMAIN}
       NEXT_PUBLIC_SITE_URL: https://${PUBLIC_DOMAIN}
       API_URL: http://backend:4000
-      NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE: "false"
+      NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE: 'false'
       # Social login buttons show only when flipped on AND backend has creds.
       NEXT_PUBLIC_OAUTH_GOOGLE: ${NEXT_PUBLIC_OAUTH_GOOGLE:-false}
       NEXT_PUBLIC_OAUTH_GITHUB: ${NEXT_PUBLIC_OAUTH_GITHUB:-false}
@@ -185,9 +185,9 @@ services:
     container_name: nanorun-caddy
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
     environment:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:?required}
       CADDY_EMAIL: ${CADDY_EMAIL:?required}

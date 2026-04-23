@@ -1,6 +1,7 @@
 import { content as contentEn } from '../../content/en';
 import { content as contentEs } from '../../content/es';
 import type { Metadata } from 'next';
+import SubprocessorsMap from './SubprocessorsMap';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'es' }];
@@ -16,47 +17,45 @@ export async function generateMetadata({
   return { title: `${c.subprocessors.title} · NanoRun`, description: c.subprocessors.subtitle };
 }
 
-export default async function SubprocessorsPage({
-  params,
-}: {
-  params: Promise<{ lang: string }>;
-}) {
+export default async function SubprocessorsPage({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;
   const c = lang === 'es' ? contentEs : contentEn;
   const s = c.subprocessors;
 
   return (
-    <main className="relative bg-background">
-      <div className="container mx-auto px-4 sm:px-6 max-w-4xl pt-28 pb-24 sm:pt-32">
-        <header className="mb-10 sm:mb-14 pb-8 border-b border-border/50">
-          <p className="font-mono text-xs text-primary uppercase tracking-[0.2em] mb-4">
+    <main className="bg-background relative">
+      <div className="container mx-auto max-w-5xl px-4 pb-24 pt-28 sm:px-6 sm:pt-32">
+        <header className="mb-10 sm:mb-12">
+          <p className="text-primary mb-4 font-mono text-xs uppercase tracking-[0.2em]">
             {s.updated}
           </p>
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground mb-3 leading-[1.05]">
+          <h1 className="text-foreground mb-3 text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl">
             {s.title}
           </h1>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl">{s.subtitle}</p>
+          <p className="text-muted-foreground max-w-2xl text-base sm:text-lg">{s.subtitle}</p>
+          <p className="text-muted-foreground mt-6 max-w-2xl text-sm leading-relaxed">{s.intro}</p>
         </header>
 
-        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed mb-10">
-          {s.intro}
-        </p>
+        <SubprocessorsMap entries={s.entries} lang={lang} />
 
-        <div className="rounded-2xl border border-border/60 bg-card/40 overflow-hidden mb-8">
+        <h2 className="text-muted-foreground mb-4 mt-12 font-mono text-xs uppercase tracking-[0.2em]">
+          {lang === 'es' ? 'Lista detallada' : 'Detailed list'}
+        </h2>
+        <div className="border-border/60 bg-card/40 mb-8 overflow-hidden rounded-2xl border">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-background/60">
-                <tr className="border-b border-border/60 text-left">
-                  <th className="px-4 md:px-5 py-4 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+                <tr className="border-border/60 border-b text-left">
+                  <th className="text-muted-foreground px-4 py-4 text-[11px] font-semibold uppercase tracking-wider md:px-5">
                     {lang === 'es' ? 'Proveedor' : 'Provider'}
                   </th>
-                  <th className="px-4 md:px-5 py-4 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+                  <th className="text-muted-foreground px-4 py-4 text-[11px] font-semibold uppercase tracking-wider md:px-5">
                     {lang === 'es' ? 'Propósito' : 'Purpose'}
                   </th>
-                  <th className="px-4 md:px-5 py-4 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground hidden sm:table-cell">
+                  <th className="text-muted-foreground hidden px-4 py-4 text-[11px] font-semibold uppercase tracking-wider sm:table-cell md:px-5">
                     {lang === 'es' ? 'Región' : 'Region'}
                   </th>
-                  <th className="px-4 md:px-5 py-4 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground hidden md:table-cell">
+                  <th className="text-muted-foreground hidden px-4 py-4 text-[11px] font-semibold uppercase tracking-wider md:table-cell md:px-5">
                     {lang === 'es' ? 'Tipo de datos' : 'Data types'}
                   </th>
                 </tr>
@@ -65,14 +64,16 @@ export default async function SubprocessorsPage({
                 {s.entries.map((entry, i) => (
                   <tr
                     key={entry.name}
-                    className={`border-b border-border/30 last:border-0 ${i % 2 === 0 ? 'bg-background/[0.02]' : ''}`}
+                    className={`border-border/30 border-b last:border-0 ${i % 2 === 0 ? 'bg-background/[0.02]' : ''}`}
                   >
-                    <td className="px-4 md:px-5 py-4 font-semibold text-foreground">{entry.name}</td>
-                    <td className="px-4 md:px-5 py-4 text-muted-foreground">{entry.purpose}</td>
-                    <td className="px-4 md:px-5 py-4 font-mono text-xs text-muted-foreground hidden sm:table-cell">
+                    <td className="text-foreground px-4 py-4 font-semibold md:px-5">
+                      {entry.name}
+                    </td>
+                    <td className="text-muted-foreground px-4 py-4 md:px-5">{entry.purpose}</td>
+                    <td className="text-muted-foreground hidden px-4 py-4 font-mono text-xs sm:table-cell md:px-5">
                       {entry.region}
                     </td>
-                    <td className="px-4 md:px-5 py-4 text-xs text-muted-foreground hidden md:table-cell">
+                    <td className="text-muted-foreground hidden px-4 py-4 text-xs md:table-cell md:px-5">
                       {entry.dataTypes}
                     </td>
                   </tr>
@@ -82,8 +83,8 @@ export default async function SubprocessorsPage({
           </div>
         </div>
 
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm text-muted-foreground">
-          <span className="font-semibold text-primary mr-1">
+        <div className="border-primary/30 bg-primary/5 text-muted-foreground rounded-xl border p-4 text-sm">
+          <span className="text-primary mr-1 font-semibold">
             {lang === 'es' ? 'Aviso:' : 'Notice:'}
           </span>
           {s.notice}

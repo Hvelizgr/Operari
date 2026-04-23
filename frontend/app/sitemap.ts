@@ -10,7 +10,10 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     { path: '', changeFrequency: 'weekly' as const, priority: 1.0 },
+    { path: '/product', changeFrequency: 'monthly' as const, priority: 0.95 },
+    { path: '/triggers', changeFrequency: 'monthly' as const, priority: 0.9 },
     { path: '/pricing', changeFrequency: 'monthly' as const, priority: 0.9 },
+    { path: '/templates', changeFrequency: 'weekly' as const, priority: 0.85 },
     { path: '/changelog', changeFrequency: 'weekly' as const, priority: 0.8 },
     { path: '/security', changeFrequency: 'monthly' as const, priority: 0.7 },
     { path: '/privacy', changeFrequency: 'yearly' as const, priority: 0.5 },

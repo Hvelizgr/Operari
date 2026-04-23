@@ -17,11 +17,7 @@ export async function generateMetadata({
   return { title: `${c.changelog.title} · NanoRun`, description: c.changelog.subtitle };
 }
 
-export default async function ChangelogPage({
-  params,
-}: {
-  params: Promise<{ lang: string }>;
-}) {
+export default async function ChangelogPage({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;
   const c = lang === 'es' ? contentEs : contentEn;
   return <ChangelogView content={c.changelog} lang={lang} />;

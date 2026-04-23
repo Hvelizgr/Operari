@@ -14,6 +14,14 @@ ENV NEXT_TELEMETRY_DISABLED 1
 ARG API_URL=http://backend:4000
 ENV API_URL=$API_URL
 
+# Bakes into the client bundle because NEXT_PUBLIC_* inlines at
+# `next build`. When "true", the auth context seeds an anonymous
+# session on mount so self-host deployments reach the editor +
+# runs UI without wiring a real login. Off by default; override
+# via --build-arg for a single-tenant dev stack.
+ARG NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE=false
+ENV NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE=$NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE
+
 # Install dependencies including devDependencies for the build
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/

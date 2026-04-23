@@ -18,23 +18,40 @@ type StoryProps = {
  */
 export default function Story({ content }: StoryProps) {
   return (
-    <section className="relative py-24 sm:py-32 overflow-hidden">
+    <section className="relative overflow-hidden py-24 sm:py-32">
       <AuroraBackground
         orbs={[
-          { color: 'primary', size: 1000, x: '20%', y: '-10%', opacity: 0.06, duration: 18, drift: 60 },
-          { color: 'deep', size: 700, x: '70%', y: '60%', opacity: 0.05, duration: 22, delay: 3, drift: 50 },
+          {
+            color: 'primary',
+            size: 1000,
+            x: '20%',
+            y: '-10%',
+            opacity: 0.06,
+            duration: 18,
+            drift: 60,
+          },
+          {
+            color: 'deep',
+            size: 700,
+            x: '70%',
+            y: '60%',
+            opacity: 0.05,
+            duration: 22,
+            delay: 3,
+            drift: 50,
+          },
         ]}
       />
 
-      <div className="container relative z-10 px-4 sm:px-6 mx-auto max-w-6xl">
+      <div className="container relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
         {/* Section header */}
-        <div className="text-center mb-16 sm:mb-20 max-w-3xl mx-auto">
+        <div className="mx-auto mb-16 max-w-3xl text-center sm:mb-20">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.4 }}
-            className="text-xs uppercase tracking-widest font-semibold text-primary/80 mb-4"
+            className="text-primary/80 mb-4 text-xs font-semibold uppercase tracking-widest"
           >
             {content.eyebrow}
           </motion.div>
@@ -43,7 +60,7 @@ export default function Story({ content }: StoryProps) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground mb-4 sm:mb-6"
+            className="text-foreground mb-4 text-3xl font-bold tracking-tight sm:mb-6 sm:text-4xl md:text-5xl"
           >
             {content.title}
           </motion.h2>
@@ -52,7 +69,7 @@ export default function Story({ content }: StoryProps) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-base sm:text-lg text-muted-foreground leading-relaxed"
+            className="text-muted-foreground text-base leading-relaxed sm:text-lg"
           >
             {content.subtitle}
           </motion.p>
@@ -73,7 +90,7 @@ function StoryBlock({
   block,
   index,
 }: {
-  block: typeof content.story.blocks[number];
+  block: (typeof content.story.blocks)[number];
   index: number;
 }) {
   const reverse = index % 2 === 1;
@@ -83,19 +100,19 @@ function StoryBlock({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className={`grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-20 items-center ${reverse ? 'lg:[&>*:first-child]:order-2' : ''}`}
+      className={`grid items-center gap-8 sm:gap-10 lg:grid-cols-2 lg:gap-20 ${reverse ? 'lg:[&>*:first-child]:order-2' : ''}`}
     >
       {/* Copy side. min-w-0 prevents grid children from forcing horizontal
           overflow when the mockup beside them is wider than the column. */}
-      <div className="max-w-lg min-w-0">
-        <div className="text-sm font-mono text-primary/70 mb-3 sm:mb-4">{block.number}</div>
-        <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-4 sm:mb-5 leading-tight">
+      <div className="min-w-0 max-w-lg">
+        <div className="text-primary/70 mb-3 font-mono text-sm sm:mb-4">{block.number}</div>
+        <h3 className="text-foreground mb-4 text-2xl font-bold leading-tight tracking-tight sm:mb-5 sm:text-3xl md:text-4xl">
           {block.title}
         </h3>
-        <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed mb-5 sm:mb-6">
+        <p className="text-muted-foreground mb-5 text-sm leading-relaxed sm:mb-6 sm:text-base md:text-lg">
           {block.description}
         </p>
-        <div className="inline-flex items-start gap-2 text-xs sm:text-sm text-foreground/70 border-l-2 border-primary/40 pl-3 sm:pl-4 italic">
+        <div className="text-foreground/70 border-primary/40 inline-flex items-start gap-2 border-l-2 pl-3 text-xs italic sm:pl-4 sm:text-sm">
           {block.caption}
         </div>
       </div>
@@ -122,9 +139,9 @@ function StoryBlock({
  * ------------------------------------------------------------------ */
 function CanvasMockup() {
   return (
-    <div className="relative rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/30 p-4 sm:p-6 overflow-hidden">
+    <div className="border-border/60 bg-card/60 relative overflow-hidden rounded-2xl border p-4 shadow-2xl shadow-black/30 backdrop-blur-md sm:p-6">
       <MockHeader />
-      <div className="mt-4 h-56 sm:h-64 relative">
+      <div className="relative mt-4 h-56 sm:h-64">
         {/* Background grid — static */}
         <div
           className="absolute inset-0 opacity-[0.07]"
@@ -139,7 +156,7 @@ function CanvasMockup() {
             We rely on viewBox 0..100 (percent-equivalent) so the line
             geometry matches the node positions one-for-one. */}
         <motion.svg
-          className="absolute inset-0 w-full h-full"
+          className="absolute inset-0 h-full w-full"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           aria-hidden="true"
@@ -222,7 +239,7 @@ function AnimatedNode({
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true, margin: '-100px' }}
       transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={`absolute -translate-x-1/2 -translate-y-1/2 px-3 py-2 rounded-lg border backdrop-blur-sm font-mono text-[11px] ${nodeColor[color]}`}
+      className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-lg border px-3 py-2 font-mono text-[11px] backdrop-blur-sm ${nodeColor[color]}`}
       style={{ left, top }}
     >
       {label}
@@ -258,13 +275,13 @@ function YamlDiffMockup() {
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: '-100px' }}
-      className="relative rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/30 overflow-hidden"
+      className="border-border/60 bg-card/60 relative overflow-hidden rounded-2xl border shadow-2xl shadow-black/30 backdrop-blur-md"
     >
       <MockHeader filename="runbooks/rollback.yaml" />
       {/* overflow-x-auto so very narrow viewports (320px) can horizontally
           scroll the diff instead of breaking the layout. The diff lines
           are intentionally short enough that this rarely triggers. */}
-      <div className="px-4 sm:px-5 py-4 font-mono text-[11px] sm:text-xs leading-relaxed overflow-x-auto">
+      <div className="overflow-x-auto px-4 py-4 font-mono text-[11px] leading-relaxed sm:px-5 sm:text-xs">
         {lines.map((line, i) => (
           <motion.div
             key={i}
@@ -276,9 +293,9 @@ function YamlDiffMockup() {
                 transition: { duration: 0.32, delay: 0.15 + i * 0.085, ease: 'easeOut' },
               },
             }}
-            className={`flex gap-2 sm:gap-3 -mx-4 sm:-mx-5 px-4 sm:px-5 whitespace-nowrap ${line.sign === '+' ? 'bg-emerald-500/[0.06]' : line.sign === '-' ? 'bg-red-500/[0.06]' : ''}`}
+            className={`-mx-4 flex gap-2 whitespace-nowrap px-4 sm:-mx-5 sm:gap-3 sm:px-5 ${line.sign === '+' ? 'bg-emerald-500/[0.06]' : line.sign === '-' ? 'bg-red-500/[0.06]' : ''}`}
           >
-            <span className="text-foreground/40 select-none w-3">{line.sign}</span>
+            <span className="text-foreground/40 w-3 select-none">{line.sign}</span>
             <span className={line.cls}>{line.text}</span>
           </motion.div>
         ))}
@@ -310,10 +327,10 @@ function RunTimelineMockup() {
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: '-100px' }}
-      className="relative rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md shadow-2xl shadow-black/30 overflow-hidden"
+      className="border-border/60 bg-card/60 relative overflow-hidden rounded-2xl border shadow-2xl shadow-black/30 backdrop-blur-md"
     >
       <MockHeader filename="run/3f9c-b2e1" badge="resolved" />
-      <div className="px-4 sm:px-5 py-4 sm:py-5 space-y-2.5 sm:space-y-3">
+      <div className="space-y-2.5 px-4 py-4 sm:space-y-3 sm:px-5 sm:py-5">
         {steps.map((step, i) => (
           <TimelineRow key={step.label} step={step} index={i} />
         ))}
@@ -327,7 +344,7 @@ function RunTimelineMockup() {
             transition: { duration: 0.4, delay: 0.3 + steps.length * 0.22 },
           },
         }}
-        className="border-t border-border/50 bg-background/40 px-5 py-3 font-mono text-[11px] text-muted-foreground flex items-center justify-between"
+        className="border-border/50 bg-background/40 text-muted-foreground flex items-center justify-between border-t px-5 py-3 font-mono text-[11px]"
       >
         <span>audit-hash</span>
         <span className="text-foreground/70">3f9c…b2e1 ✓</span>
@@ -336,13 +353,7 @@ function RunTimelineMockup() {
   );
 }
 
-function TimelineRow({
-  step,
-  index,
-}: {
-  step: { label: string; ms: string };
-  index: number;
-}) {
+function TimelineRow({ step, index }: { step: { label: string; ms: string }; index: number }) {
   const rowDelay = 0.2 + index * 0.22;
   return (
     <motion.div
@@ -369,19 +380,30 @@ function TimelineRow({
             transition: { duration: 0.5, delay: rowDelay + 0.05 },
           },
         }}
-        className="h-5 w-5 rounded-full border border-emerald-500/40 flex items-center justify-center shrink-0"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-emerald-500/40"
       >
-        <svg className="w-3 h-3 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          className="h-3 w-3 text-emerald-400"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <polyline points="20 6 9 17 4 12" />
         </svg>
       </motion.div>
-      <div className="font-mono text-[11px] sm:text-xs text-foreground/85 flex-1 truncate">{step.label}</div>
+      <div className="text-foreground/85 flex-1 truncate font-mono text-[11px] sm:text-xs">
+        {step.label}
+      </div>
       <motion.div
         variants={{
           hidden: { opacity: 0 },
           visible: { opacity: 1, transition: { delay: rowDelay + 0.25, duration: 0.3 } },
         }}
-        className="font-mono text-[11px] text-muted-foreground tabular-nums"
+        className="text-muted-foreground font-mono text-[11px] tabular-nums"
       >
         {step.ms}
       </motion.div>
@@ -394,17 +416,17 @@ function TimelineRow({
  * ------------------------------------------------------------------ */
 function MockHeader({ filename, badge }: { filename?: string; badge?: string } = {}) {
   return (
-    <div className="flex items-center justify-between border-b border-border/50 px-5 py-3 bg-background/40">
+    <div className="border-border/50 bg-background/40 flex items-center justify-between border-b px-5 py-3">
       <div className="flex items-center gap-1.5">
         <div className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
         <div className="h-2.5 w-2.5 rounded-full bg-amber-500/60" />
         <div className="h-2.5 w-2.5 rounded-full bg-emerald-500/60" />
       </div>
       {filename && (
-        <div className="font-mono text-[11px] text-muted-foreground truncate">{filename}</div>
+        <div className="text-muted-foreground truncate font-mono text-[11px]">{filename}</div>
       )}
       {badge && (
-        <div className="text-[10px] uppercase tracking-wider font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-2 py-0.5">
+        <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
           {badge}
         </div>
       )}
@@ -417,4 +439,3 @@ const nodeColor: Record<string, string> = {
   primary: 'bg-primary/15 border-primary/40 text-primary',
   emerald: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300',
 };
-

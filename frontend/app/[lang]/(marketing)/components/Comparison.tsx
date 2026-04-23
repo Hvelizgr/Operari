@@ -42,23 +42,40 @@ export default function Comparison({ content }: ComparisonProps) {
     delay: 180,
   });
   return (
-    <section className="relative py-24 sm:py-32 overflow-hidden">
+    <section className="relative overflow-hidden py-24 sm:py-32">
       <AuroraBackground
         orbs={[
-          { color: 'foreground', size: 1100, x: '15%', y: '15%', opacity: 0.03, duration: 24, drift: 70 },
-          { color: 'primary', size: 600, x: '70%', y: '60%', opacity: 0.04, duration: 19, delay: 4, drift: 45 },
+          {
+            color: 'foreground',
+            size: 1100,
+            x: '15%',
+            y: '15%',
+            opacity: 0.03,
+            duration: 24,
+            drift: 70,
+          },
+          {
+            color: 'primary',
+            size: 600,
+            x: '70%',
+            y: '60%',
+            opacity: 0.04,
+            duration: 19,
+            delay: 4,
+            drift: 45,
+          },
         ]}
       />
 
-      <div className="container relative z-10 px-4 sm:px-6 mx-auto max-w-6xl">
+      <div className="container relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
         {/* Header */}
-        <div className="text-center mb-12 sm:mb-16 max-w-3xl mx-auto">
+        <div className="mx-auto mb-12 max-w-3xl text-center sm:mb-16">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.4 }}
-            className="text-xs uppercase tracking-widest font-semibold text-primary/80 mb-4"
+            className="text-primary/80 mb-4 text-xs font-semibold uppercase tracking-widest"
           >
             {content.eyebrow}
           </motion.div>
@@ -67,7 +84,7 @@ export default function Comparison({ content }: ComparisonProps) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground mb-4 sm:mb-6"
+            className="text-foreground mb-4 text-3xl font-bold tracking-tight sm:mb-6 sm:text-4xl md:text-5xl"
           >
             {content.title}
           </motion.h2>
@@ -76,7 +93,7 @@ export default function Comparison({ content }: ComparisonProps) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-base sm:text-lg text-muted-foreground leading-relaxed"
+            className="text-muted-foreground text-base leading-relaxed sm:text-lg"
           >
             {content.subtitle}
           </motion.p>
@@ -97,22 +114,17 @@ export default function Comparison({ content }: ComparisonProps) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.5 }}
-          className="hidden md:block rounded-2xl border border-border/60 bg-card/50 backdrop-blur-md overflow-hidden shadow-2xl shadow-black/20"
+          className="border-border/60 bg-card/50 hidden overflow-hidden rounded-2xl border shadow-2xl shadow-black/20 backdrop-blur-md md:block"
         >
           <div ref={tableRef} className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr
-                  data-cmp-row
-                  className="border-b border-border/60 bg-background/40"
-                >
+                <tr data-cmp-row className="border-border/60 bg-background/40 border-b">
                   {content.headers.map((header, idx) => (
                     <th
                       key={idx}
-                      className={`text-left px-4 md:px-5 py-4 text-xs uppercase tracking-wider font-semibold ${
-                        idx === 1
-                          ? 'text-primary'
-                          : 'text-muted-foreground'
+                      className={`px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider md:px-5 ${
+                        idx === 1 ? 'text-primary' : 'text-muted-foreground'
                       }`}
                     >
                       {header}
@@ -125,15 +137,15 @@ export default function Comparison({ content }: ComparisonProps) {
                   <tr
                     key={row.feature}
                     data-cmp-row
-                    className={`border-b border-border/30 last:border-0 ${rowIdx % 2 === 0 ? 'bg-background/[0.015]' : ''}`}
+                    className={`border-border/30 border-b last:border-0 ${rowIdx % 2 === 0 ? 'bg-background/[0.015]' : ''}`}
                   >
-                    <td className="px-4 md:px-5 py-4 text-sm text-foreground/90 font-medium">
+                    <td className="text-foreground/90 px-4 py-4 text-sm font-medium md:px-5">
                       {row.feature}
                     </td>
                     {row.cells.map((cell, cellIdx) => (
                       <td
                         key={cellIdx}
-                        className={`px-4 md:px-5 py-4 text-sm ${cellIdx === 0 ? 'bg-primary/[0.05]' : ''}`}
+                        className={`px-4 py-4 text-sm md:px-5 ${cellIdx === 0 ? 'bg-primary/[0.05]' : ''}`}
                       >
                         <Cell value={cell} highlighted={cellIdx === 0} />
                       </td>
@@ -153,7 +165,7 @@ export default function Comparison({ content }: ComparisonProps) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-sm text-muted-foreground text-center mt-6 sm:mt-8 max-w-3xl mx-auto leading-relaxed px-2"
+          className="text-muted-foreground mx-auto mt-6 max-w-3xl px-2 text-center text-sm leading-relaxed sm:mt-8"
         >
           {content.footnote}
         </motion.p>
@@ -163,14 +175,14 @@ export default function Comparison({ content }: ComparisonProps) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="flex justify-center mt-6 sm:mt-8"
+          className="mt-6 flex justify-center sm:mt-8"
         >
           <Link
             href="#self-host"
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/15 group"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/15 group inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold shadow-lg transition-all active:scale-[0.98]"
           >
             {content.cta}
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </Link>
         </motion.div>
       </div>
@@ -200,29 +212,26 @@ function MobileComparison({ content }: { content: ComparisonProps['content'] }) 
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 0.4, delay: colIdx * 0.05 }}
-            className={`rounded-2xl border bg-card/60 backdrop-blur-md overflow-hidden shadow-lg shadow-black/20 ${isUs ? 'border-primary/50 ring-1 ring-primary/30' : 'border-border/60'}`}
+            className={`bg-card/60 overflow-hidden rounded-2xl border shadow-lg shadow-black/20 backdrop-blur-md ${isUs ? 'border-primary/50 ring-primary/30 ring-1' : 'border-border/60'}`}
           >
             <div
-              className={`px-4 py-3 border-b border-border/40 flex items-center justify-between ${isUs ? 'bg-primary/[0.08]' : 'bg-background/40'}`}
+              className={`border-border/40 flex items-center justify-between border-b px-4 py-3 ${isUs ? 'bg-primary/[0.08]' : 'bg-background/40'}`}
             >
               <span
-                className={`font-semibold text-sm ${isUs ? 'text-primary' : 'text-foreground'}`}
+                className={`text-sm font-semibold ${isUs ? 'text-primary' : 'text-foreground'}`}
               >
                 {competitor}
               </span>
               {isUs && (
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-primary/80">
+                <span className="text-primary/80 text-[10px] font-semibold uppercase tracking-wider">
                   this is us
                 </span>
               )}
             </div>
-            <div className="divide-y divide-border/30">
-              {content.rows.map((row) => (
-                <div
-                  key={row.feature}
-                  className="px-4 py-3 flex items-start justify-between gap-3"
-                >
-                  <span className="text-xs text-muted-foreground flex-1 leading-snug">
+            <div className="divide-border/30 divide-y">
+              {content.rows.map(row => (
+                <div key={row.feature} className="flex items-start justify-between gap-3 px-4 py-3">
+                  <span className="text-muted-foreground flex-1 text-xs leading-snug">
                     {row.feature}
                   </span>
                   <div className="shrink-0">
@@ -252,23 +261,23 @@ function Cell({ value, highlighted }: { value: string; highlighted: boolean }) {
   if (v === 'yes' || v === 'sí') {
     return (
       <div
-        className={`inline-flex items-center justify-center h-6 w-6 rounded-full ${highlighted ? 'bg-emerald-500/20 border border-emerald-500/50' : 'bg-emerald-500/10 border border-emerald-500/30'}`}
+        className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${highlighted ? 'border border-emerald-500/50 bg-emerald-500/20' : 'border border-emerald-500/30 bg-emerald-500/10'}`}
       >
-        <Check className={`w-3.5 h-3.5 ${highlighted ? 'text-emerald-300' : 'text-emerald-400'}`} />
+        <Check className={`h-3.5 w-3.5 ${highlighted ? 'text-emerald-300' : 'text-emerald-400'}`} />
       </div>
     );
   }
   if (v === 'no') {
     return (
-      <div className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-red-500/10 border border-red-500/30">
-        <X className="w-3.5 h-3.5 text-red-400" />
+      <div className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-red-500/30 bg-red-500/10">
+        <X className="h-3.5 w-3.5 text-red-400" />
       </div>
     );
   }
   if (v === 'partial' || v === 'parcial') {
     return (
-      <div className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-500/10 border border-amber-500/30">
-        <Minus className="w-3.5 h-3.5 text-amber-400" />
+      <div className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10">
+        <Minus className="h-3.5 w-3.5 text-amber-400" />
       </div>
     );
   }

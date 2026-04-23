@@ -21,19 +21,19 @@ type TrustBarProps = {
  */
 export default function TrustBar({ content }: TrustBarProps) {
   return (
-    <section className="relative border-y border-border/40 bg-background/40 backdrop-blur-sm">
-      <div className="container mx-auto px-4 sm:px-6 py-10 sm:py-14 max-w-6xl">
+    <section className="border-border/40 bg-background/40 relative border-y backdrop-blur-sm">
+      <div className="container mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         <motion.p
           initial={{ opacity: 0, y: 8 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="text-center text-[11px] sm:text-xs uppercase tracking-[0.22em] font-medium text-muted-foreground mb-6 sm:mb-8"
+          className="text-muted-foreground mb-6 text-center text-[11px] font-medium uppercase tracking-[0.22em] sm:mb-8 sm:text-xs"
         >
           {content.eyebrow}
         </motion.p>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-10 sm:gap-x-14 gap-y-5 sm:gap-y-6">
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-5 sm:gap-x-14 sm:gap-y-6">
           {LOGOS.map((logo, i) => (
             <motion.div
               key={logo.name}
@@ -46,10 +46,10 @@ export default function TrustBar({ content }: TrustBarProps) {
                 ease: [0.22, 1, 0.36, 1],
               }}
               whileHover={{ opacity: 1 }}
-              className="flex items-center gap-2 text-foreground/80 transition-opacity"
+              className="text-foreground/80 flex items-center gap-2 transition-opacity"
             >
               <Logo name={logo.name} />
-              <span className="font-semibold text-sm sm:text-base tracking-tight">
+              <span className="text-sm font-semibold tracking-tight sm:text-base">
                 {logo.label}
               </span>
             </motion.div>
@@ -61,7 +61,7 @@ export default function TrustBar({ content }: TrustBarProps) {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: '-40px' }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          className="text-center text-xs text-muted-foreground/70 mt-6 sm:mt-8"
+          className="text-muted-foreground/70 mt-6 text-center text-xs sm:mt-8"
         >
           {content.line}
         </motion.p>

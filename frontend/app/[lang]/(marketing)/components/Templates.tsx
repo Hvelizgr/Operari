@@ -35,23 +35,32 @@ export default function Templates({ content }: TemplatesProps) {
     duration: 520,
   });
   return (
-    <section className="relative py-24 sm:py-32 overflow-hidden">
+    <section className="relative overflow-hidden py-24 sm:py-32">
       <AuroraBackground
         orbs={[
           { color: 'deep', size: 700, x: '-5%', y: '20%', opacity: 0.05, duration: 21, drift: 50 },
-          { color: 'primary', size: 600, x: '70%', y: '60%', opacity: 0.05, duration: 17, delay: 4, drift: 45 },
+          {
+            color: 'primary',
+            size: 600,
+            x: '70%',
+            y: '60%',
+            opacity: 0.05,
+            duration: 17,
+            delay: 4,
+            drift: 45,
+          },
         ]}
       />
 
-      <div className="container relative z-10 px-4 sm:px-6 mx-auto max-w-6xl">
+      <div className="container relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
         {/* Header */}
-        <div className="text-center mb-12 sm:mb-16 max-w-3xl mx-auto">
+        <div className="mx-auto mb-12 max-w-3xl text-center sm:mb-16">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.4 }}
-            className="text-xs uppercase tracking-widest font-semibold text-primary/80 mb-4"
+            className="text-primary/80 mb-4 text-xs font-semibold uppercase tracking-widest"
           >
             {content.eyebrow}
           </motion.div>
@@ -60,7 +69,7 @@ export default function Templates({ content }: TemplatesProps) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground mb-4 sm:mb-6"
+            className="text-foreground mb-4 text-3xl font-bold tracking-tight sm:mb-6 sm:text-4xl md:text-5xl"
           >
             {content.title}
           </motion.h2>
@@ -69,7 +78,7 @@ export default function Templates({ content }: TemplatesProps) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-base sm:text-lg text-muted-foreground leading-relaxed"
+            className="text-muted-foreground text-base leading-relaxed sm:text-lg"
           >
             {content.subtitle}
           </motion.p>
@@ -80,11 +89,8 @@ export default function Templates({ content }: TemplatesProps) {
             past readability. anime.js stagger on viewport (shared
             `useAnimeStaggerOnView` hook) so the cards enter with the
             same motion curve as the TriggerSources section. */}
-        <div
-          ref={gridRef}
-          className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5"
-        >
-          {content.items.map((tpl) => (
+        <div ref={gridRef} className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+          {content.items.map(tpl => (
             <TemplateCard key={tpl.slug} item={tpl} />
           ))}
         </div>
@@ -95,17 +101,17 @@ export default function Templates({ content }: TemplatesProps) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="flex justify-center mt-10"
+          className="mt-10 flex justify-center"
         >
           <a
             href={repo.templatesTree}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group"
+            className="text-muted-foreground hover:text-foreground group inline-flex items-center gap-2 text-sm font-medium transition-colors"
           >
-            <Github className="w-4 h-4" />
+            <Github className="h-4 w-4" />
             {content.cta}
-            <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
           </a>
         </motion.div>
       </div>
@@ -136,7 +142,7 @@ const accentClasses: Record<string, { ring: string; bg: string; text: string }> 
   },
 };
 
-function TemplateCard({ item }: { item: typeof content.templates.items[number] }) {
+function TemplateCard({ item }: { item: (typeof content.templates.items)[number] }) {
   const accent = accentClasses[item.accent] ?? accentClasses.primary;
   return (
     <a
@@ -144,23 +150,23 @@ function TemplateCard({ item }: { item: typeof content.templates.items[number] }
       target="_blank"
       rel="noopener noreferrer"
       data-template-card
-      className={`group relative block rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md p-5 sm:p-6 transition-all hover:-translate-y-0.5 ${accent.ring}`}
+      className={`border-border/60 bg-card/60 group relative block rounded-2xl border p-5 backdrop-blur-md transition-all hover:-translate-y-0.5 sm:p-6 ${accent.ring}`}
     >
-      <div className="flex items-start justify-between gap-3 mb-3 sm:mb-4">
+      <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4">
         <span
-          className={`text-[10px] uppercase tracking-wider font-semibold rounded-full px-2.5 py-1 border ${accent.bg} ${accent.text}`}
+          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${accent.bg} ${accent.text}`}
         >
           {item.category}
         </span>
-        <ArrowUpRight className="w-4 h-4 text-muted-foreground/60 group-hover:text-foreground group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all shrink-0" />
+        <ArrowUpRight className="text-muted-foreground/60 group-hover:text-foreground h-4 w-4 shrink-0 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </div>
-      <h3 className="text-base sm:text-lg font-semibold text-foreground mb-2 leading-snug">
+      <h3 className="text-foreground mb-2 text-base font-semibold leading-snug sm:text-lg">
         {item.title}
       </h3>
-      <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-4">
+      <p className="text-muted-foreground mb-4 text-xs leading-relaxed sm:text-sm">
         {item.description}
       </p>
-      <div className="font-mono text-[10px] sm:text-[11px] text-muted-foreground/70 truncate">
+      <div className="text-muted-foreground/70 truncate font-mono text-[10px] sm:text-[11px]">
         templates/{item.slug}.yaml
       </div>
     </a>

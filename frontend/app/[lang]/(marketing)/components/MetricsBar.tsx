@@ -22,9 +22,9 @@ type MetricsBarProps = {
  */
 export default function MetricsBar({ content }: MetricsBarProps) {
   return (
-    <section className="relative py-16 sm:py-20 border-b border-border/40">
-      <div className="container mx-auto px-4 sm:px-6 max-w-6xl">
-        <div className="text-center mb-10 sm:mb-12">
+    <section className="border-border/40 relative border-b py-16 sm:py-20">
+      <div className="container mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="mb-10 text-center sm:mb-12">
           <motion.p
             initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -39,13 +39,13 @@ export default function MetricsBar({ content }: MetricsBarProps) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-60px' }}
             transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-foreground"
+            className="text-foreground text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl"
           >
             {content.title}
           </motion.h2>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-xl overflow-hidden bg-border/40">
+        <div className="bg-border/40 grid grid-cols-2 gap-px overflow-hidden rounded-xl lg:grid-cols-4">
           {content.items.map((item, i) => (
             <MetricCell key={item.label} item={item} index={i} />
           ))}
@@ -70,13 +70,13 @@ function MetricCell({
     if (!ref.current) return;
     const el = ref.current;
     const io = new IntersectionObserver(
-      (entries) => {
+      entries => {
         if (entries[0]?.isIntersecting) {
           setVisible(true);
           io.disconnect();
         }
       },
-      { rootMargin: '-40px' },
+      { rootMargin: '-40px' }
     );
     io.observe(el);
     return () => io.disconnect();
@@ -114,33 +114,29 @@ function MetricCell({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-60px' }}
       transition={{ duration: 0.55, delay: 0.08 * index, ease: [0.22, 1, 0.36, 1] }}
-      className="relative bg-background/70 backdrop-blur-sm p-5 sm:p-7 flex flex-col justify-between gap-3 group hover:bg-background transition-colors"
+      className="bg-background/70 hover:bg-background group relative flex flex-col justify-between gap-3 p-5 backdrop-blur-sm transition-colors sm:p-7"
     >
       <div>
-        <div className="flex items-baseline gap-1 text-foreground">
+        <div className="text-foreground flex items-baseline gap-1">
           <span
             ref={numberRef}
-            className="font-bold tabular-nums text-3xl sm:text-4xl lg:text-5xl tracking-tight"
+            className="text-3xl font-bold tabular-nums tracking-tight sm:text-4xl lg:text-5xl"
           >
             0
           </span>
           {item.suffix && (
-            <span className="font-semibold text-lg sm:text-xl text-primary">
-              {item.suffix}
-            </span>
+            <span className="text-primary text-lg font-semibold sm:text-xl">{item.suffix}</span>
           )}
         </div>
-        <div className="mt-2 text-xs sm:text-sm font-medium text-foreground/80 leading-snug max-w-[22ch]">
+        <div className="text-foreground/80 mt-2 max-w-[22ch] text-xs font-medium leading-snug sm:text-sm">
           {item.label}
         </div>
       </div>
-      <div className="text-[11px] text-muted-foreground/80 leading-snug font-mono">
-        {item.hint}
-      </div>
+      <div className="text-muted-foreground/80 font-mono text-[11px] leading-snug">{item.hint}</div>
       {/* thin accent bar that slides in from the left once the cell is
           visible — pure CSS so it doesn't cost an animation frame */}
       <span
-        className={`absolute left-0 top-0 bottom-0 w-[2px] bg-primary/50 origin-top transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`bg-primary/50 absolute bottom-0 left-0 top-0 w-[2px] origin-top transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           visible ? 'scale-y-100' : 'scale-y-0'
         }`}
         style={{ transitionDelay: `${140 + index * 90}ms` }}
