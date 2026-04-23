@@ -1,0 +1,33 @@
+# Ignore generated + vendored content. Prettier already skips
+# .gitignore'd paths via --ignore-path default, but being explicit here
+# documents the intent so a CI that sets --ignore-path=false still
+# behaves reasonably.
+
+# Build outputs
+**/dist/
+**/build/
+**/.next/
+**/out/
+**/coverage/
+
+# Lockfiles — Prettier would rewrite them in the repo's style, but
+# npm manages the exact formatting. Format drift would cause pointless
+# churn on every `npm install`.
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Generated schemas
+**/prisma/migrations/
+
+# Editor junk
+.vscode/
+.idea/
+
+# Internal planning notes (gitignored anyway)
+IMPLEMENTACION_NANORUN.md
+INVESTIGACION_NANORUN_2026.md
+PENDIENTE.md
+
+# .claude tooling artifacts
+.claude/
