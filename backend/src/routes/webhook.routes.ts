@@ -7,6 +7,7 @@ import { GitHubStatusService } from '../runbook/services/github-status.service';
 import { WebhookService } from '../runbook/services/webhook.service';
 import { WebhookReceiptService } from '../runbook/services/webhook-receipt.service';
 import { prisma } from '../server';
+import { recordWebhookEvent, verifyWebhookTimestamp } from '../utils/webhook-dedup';
 
 const router = Router();
 
@@ -121,6 +122,70 @@ async function handleWebhook(req: Request, res: Response) {
         sourceIp,
       });
       return res.status(401).json({ error: 'Invalid webhook signature' });
+    }
+
+    // Replay protection. HMAC alone authenticates the payload but
+    // does not prove it is fresh — an attacker who captures a valid
+    // delivery off the wire can re-POST it forever. Senders that
+    // include a timestamp header opt into a 5-minute window; silent
+    // absence stays permissive so GitHub et al. (which don't send
+    // one) keep working.
+    const timestampHeader =
+      (req.headers['x-webhook-timestamp'] as string | undefined) ??
+      (req.headers['x-hub-timestamp'] as string | undefined);
+    const tsFail = verifyWebhookTimestamp({ header: timestampHeader });
+    if (tsFail) {
+      await receipts.record({
+        webhookId: webhook.id,
+        tenantId: webhook.tenantId,
+        status: 'rejected_signature',
+        statusCode: 401,
+        reason: `Timestamp replay guard: ${tsFail}`,
+        headers,
+        body,
+        sourceIp,
+      });
+      return res.status(401).json({ error: 'Invalid webhook timestamp' });
+    }
+  }
+
+  // Dedup. Providers that expose a delivery-scoped id header let us
+  // short-circuit retries: GitHub sends X-GitHub-Delivery (UUID per
+  // delivery attempt); generic senders can set X-Webhook-Delivery.
+  // When no header is present we skip dedup (the provider doesn't
+  // give us a stable id to key on) — HMAC + timestamp remain the
+  // replay defense there.
+  const deliveryId =
+    (req.headers['x-github-delivery'] as string | undefined) ??
+    (req.headers['x-webhook-delivery'] as string | undefined);
+  if (deliveryId) {
+    try {
+      const dedup = await recordWebhookEvent(prisma, {
+        source: webhook.source,
+        eventId: deliveryId,
+        tenantId: webhook.tenantId,
+      });
+      if (dedup.duplicate) {
+        await receipts.record({
+          webhookId: webhook.id,
+          tenantId: webhook.tenantId,
+          status: 'rejected_inactive',
+          statusCode: 200,
+          reason: 'Duplicate delivery short-circuited',
+          headers,
+          body,
+          sourceIp,
+        });
+        return res.status(200).json({ received: true, duplicate: true });
+      }
+    } catch (err) {
+      // Dedup write failed (DB transient). Log but continue — the
+      // alternative is rejecting a live delivery the sender will
+      // retry anyway. HMAC + timestamp remain in place.
+      logger.warn(
+        { err, webhookId: webhook.id, deliveryId },
+        'webhook dedup write failed, proceeding without dedup'
+      );
     }
   }
 

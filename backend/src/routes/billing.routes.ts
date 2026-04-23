@@ -12,6 +12,7 @@ import { StripeSignatureError, verifyStripeWebhook } from '../billing/stripe-web
 import { logger } from '../config/logger.config';
 import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
 import { prisma } from '../server';
+import { recordWebhookEvent } from '../utils/webhook-dedup';
 
 const router = Router();
 
@@ -222,9 +223,32 @@ router.post('/webhook', async (req: Request, res: Response) => {
   }
 
   const event = JSON.parse(rawBody.toString('utf8')) as {
+    id: string;
     type: string;
     data: { object: unknown };
   };
+
+  // Idempotency gate. Stripe retries delivery on any non-2xx and can
+  // also legitimately re-deliver in edge cases (network flaps, their
+  // own outage recovery). Without this, a replayed
+  // checkout.session.completed flips Tenant.planStatus twice. Write-
+  // first-wins via WebhookEvent.(source, eventId) UNIQUE.
+  try {
+    const dedup = await recordWebhookEvent(prisma, {
+      source: 'stripe',
+      eventId: event.id,
+    });
+    if (dedup.duplicate) {
+      logger.info({ eventId: event.id, type: event.type }, 'stripe webhook duplicate skipped');
+      return res.status(200).json({ received: true, duplicate: true });
+    }
+  } catch (err) {
+    // Dedup ledger write failed (DB down). Fail closed — return 5xx so
+    // Stripe retries rather than letting the handler mutate state
+    // without a dedup entry.
+    logger.error({ err, eventId: event.id }, 'stripe webhook dedup write failed');
+    return res.status(503).json({ error: 'Transient dedup failure; retry later' });
+  }
 
   try {
     switch (event.type) {
