@@ -7,9 +7,6 @@ export interface CairnConfig {
   fetch?: typeof fetch;
 }
 
-/** @deprecated use {@link CairnConfig} */
-export type NanoRunConfig = CairnConfig;
-
 export type RunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'PAUSED';
 
 export interface RunbookSummary {

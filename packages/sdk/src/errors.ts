@@ -30,12 +30,3 @@ export class CairnTimeoutError extends CairnError {
     this.name = 'CairnTimeoutError';
   }
 }
-
-/** @deprecated use {@link CairnError} */
-export const NanoRunError = CairnError;
-/** @deprecated use {@link CairnAuthError} */
-export const NanoRunAuthError = CairnAuthError;
-/** @deprecated use {@link CairnNotFoundError} */
-export const NanoRunNotFoundError = CairnNotFoundError;
-/** @deprecated use {@link CairnTimeoutError} */
-export const NanoRunTimeoutError = CairnTimeoutError;
