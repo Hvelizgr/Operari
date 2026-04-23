@@ -1,0 +1,143 @@
+name: CI
+
+# Runs on every push to main and every PR targeting main.
+# The README status table claims "backend tests passing / frontend tests
+# passing / type-check clean". Without this workflow those claims are
+# self-reported; a PR could break them silently. This file gates main
+# behind format, typecheck, lint, test and build so the claim stays
+# honest as the team grows.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel older in-flight runs of the same workflow on the same ref —
+# if you push twice in 30s, the first run doesn't waste a runner.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: Prettier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      # Only install the root devDeps — prettier lives there. Avoids
+      # pulling workspace deps we don't need for a format check.
+      - name: Install root devDeps
+        run: npm ci --ignore-scripts
+      - name: Check formatting
+        run: npx prettier --check .
+
+  frontend:
+    name: Frontend (lint + typecheck + test + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      - name: Install workspace deps
+        run: npm ci --ignore-scripts
+      - name: Lint
+        run: npm run lint -w frontend
+      - name: Typecheck
+        run: npx tsc --noEmit -p frontend/tsconfig.json
+      - name: Test
+        run: npm run test -w frontend
+      - name: Build
+        run: npm run build -w frontend
+        env:
+          # next build wants these at build time even when unused — they
+          # feed opengraph-image + sitemap generation. Dummy values are
+          # fine for CI; real prod uses the Fly.io / Caddy env.
+          NEXT_PUBLIC_SITE_URL: https://example.test
+          NEXT_PUBLIC_API_URL: https://example.test/api
+
+  backend:
+    name: Backend (typecheck + test)
+    runs-on: ubuntu-latest
+    # Postgres is spun up as a service for any integration test that
+    # moves off pure Prisma mocks. Today the suite is fully mocked so
+    # this is a no-op — but it's cheap to wire now and saves a round-trip
+    # later (see audit Fase F, testcontainers).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_USER: ci
+          POSTGRES_DB: nanorun_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      - name: Install workspace deps
+        run: npm ci --ignore-scripts
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=backend/src/prisma/schema.prisma
+      - name: Typecheck
+        run: npx tsc --noEmit -p backend/tsconfig.json
+      - name: Test
+        # `test:ci` forces `jest --runInBand` so the whole suite runs
+        # sequentially. ts-jest + supertest + socket.io on a 2-core
+        # GitHub runner OOMs workers under default parallelism; see
+        # jest.config.js for the full rationale.
+        run: npm run test:ci -w backend
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/nanorun_ci
+          JWT_SECRET: ci-jwt-secret-at-least-32-chars-long-xxxxxx
+          # ENCRYPTION_KEY must be 64 hex chars OR 44 base64 chars so
+          # SecretCipher.parseKey() accepts it. 64 zeros is valid hex.
+          # A non-hex/non-base64 value throws at cipher construction time,
+          # which (combined with an unhandled promise rejection in
+          # routes/sql.routes.ts — now fixed) hangs any test that hits
+          # that route.
+          ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+
+  shared-build:
+    name: Shared + SDK + CLI build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      - name: Install workspace deps
+        run: npm ci --ignore-scripts
+      # `@cairn/shared` has to build before the SDK and CLI pick up its
+      # dist — the workspace topological order would normally handle this,
+      # but running the builds explicitly makes a tsc failure easier to
+      # read in the logs.
+      - name: Build shared
+        run: npm run build -w @cairn/shared
+      - name: Build SDK
+        run: npm run build -w @cairn/sdk
+      - name: Build CLI
+        run: npm run build -w @cairn/cli
