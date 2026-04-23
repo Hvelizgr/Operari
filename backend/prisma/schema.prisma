@@ -228,6 +228,7 @@ model Tenant {
   executionErrors   ExecutionError[]
   webhookEvents     WebhookEvent[]
   runbookVersions   RunbookVersion[]
+  billingEvents     BillingEvent[]
 
   @@index([slug])
 }
@@ -1132,4 +1133,48 @@ model WebhookEvent {
   @@unique([source, eventId])
   @@index([receivedAt])
   @@index([tenantId, receivedAt])
+}
+
+/// Durable outbox for billing meter events.
+///
+/// The runtime (ExecutionService) writes a row here synchronously as
+/// part of the run lifecycle; a background worker picks PENDING rows
+/// up and ships them to Stripe (or the configured provider). A Stripe
+/// outage lengthens nextAttemptAt rather than losing the event, which
+/// closes the under-billing gap that fire-and-forget meter calls left.
+///
+/// Two layers of dedup against double-billing:
+///   1. idempotencyKey is UNIQUE here — a runtime retry collapses to
+///      one row via P2002.
+///   2. Stripe's meter_events endpoint takes the same key — a worker
+///      re-ship of an already-sent row collapses on Stripe's side.
+model BillingEvent {
+  id             String    @id @default(uuid())
+  tenantId       String?
+  /// Matches the BillableEventType union in billing-meter.types.ts
+  /// ('run.started', 'run.completed', 'runner.minute', 'storage.gb_hour').
+  /// Stored as plain TEXT so the union can evolve without an enum
+  /// migration; the worker rejects unknown types explicitly.
+  type           String
+  /// Billing-side customer id (`cus_...` for Stripe). May be null for
+  /// self-host or unconfigured-tenant rows — the worker skips those.
+  customerId     String?
+  value          Float
+  idempotencyKey String    @unique
+  metadata       Json?
+  /// PENDING → worker hasn't shipped yet (or last attempt failed and
+  /// the backoff window is still open).
+  /// SENT → acknowledged by the provider; terminal.
+  /// FAILED → exhausted max attempts; terminal, operator must inspect.
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  sentAt         DateTime?
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([tenantId, createdAt])
 }

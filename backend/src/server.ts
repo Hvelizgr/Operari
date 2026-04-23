@@ -371,6 +371,28 @@ async function main() {
     process.on('SIGTERM', () => clearInterval(monitorInterval));
     logger.info('Monitor watchdog started (1-minute interval)');
 
+    // A5: install the queued billing meter + start its dispatch
+    // worker when a real billing provider is configured. For noop /
+    // self-host we skip both — there's nothing to ship.
+    let billingDispatchInterval: NodeJS.Timeout | null = null;
+    if ((process.env.NANORUN_BILLING_PROVIDER ?? 'noop').toLowerCase() === 'stripe') {
+      const { installQueuedBillingMeter } = await import('./billing');
+      const dispatchWorker = installQueuedBillingMeter(prisma);
+      // 15s cadence. Tight enough that a transient Stripe outage
+      // recovers within a minute or two; loose enough that a healthy
+      // outbox doesn't hammer the DB. The row-level index on
+      // (status, nextAttemptAt) keeps the SELECT cheap.
+      billingDispatchInterval = setInterval(() => {
+        dispatchWorker.runOnce().catch(err => {
+          logger.error({ err }, 'Billing dispatch tick failed');
+        });
+      }, 15_000);
+      process.on('SIGTERM', () => {
+        if (billingDispatchInterval) clearInterval(billingDispatchInterval);
+      });
+      logger.info('Queued billing meter + dispatch worker started (15s interval)');
+    }
+
     // ADR 0003 phase 3 + 4: scan for runs that were in flight when the
     // previous backend instance died. Behind three flags:
     //   NANORUN_DURABLE_ENGINE=true    → engine is wired in general

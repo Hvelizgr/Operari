@@ -1,10 +1,20 @@
+import type { PrismaClient } from '@prisma/client';
+
+import { BillingDispatchWorker } from './billing-dispatch-worker';
 import type { BillingMeter } from './billing-meter.types';
 import { NoopBillingMeter } from './noop-billing-meter';
+import { QueuedBillingMeter } from './queued-billing-meter';
 import { StripeBillingMeter } from './stripe-billing-meter';
 import { buildStripeMeterEventSender } from './stripe-http-client';
 
+export { BillingDispatchWorker } from './billing-dispatch-worker';
+export type {
+  BillingDispatchReport,
+  BillingDispatchWorkerOptions,
+} from './billing-dispatch-worker';
 export type { BillableEvent, BillableEventType, BillingMeter } from './billing-meter.types';
 export { NoopBillingMeter } from './noop-billing-meter';
+export { QueuedBillingMeter } from './queued-billing-meter';
 export type { SendMeterEventFn, StripeBillingMeterOptions } from './stripe-billing-meter';
 export { StripeBillingMeter } from './stripe-billing-meter';
 export type { StripeHttpClientOptions } from './stripe-http-client';
@@ -61,4 +71,26 @@ export function setBillingMeterForTest(meter: BillingMeter): void {
 
 export function resetBillingMeterForTest(): void {
   meterSingleton = null;
+}
+
+/**
+ * Swap the process-wide meter to a QueuedBillingMeter that writes to
+ * the BillingEvent outbox, and hand back the worker that ships the
+ * outbox to Stripe. Call once at boot when Stripe is configured —
+ * the runtime's `getBillingMeter()` callers transparently start
+ * enqueueing instead of calling Stripe inline.
+ *
+ * Returns the worker so server.ts can start an interval that polls
+ * it; the worker owns the backing StripeBillingMeter and no other
+ * code should hold a reference to it (otherwise a direct-call path
+ * would bypass the durability guarantee).
+ *
+ * Safe to call multiple times — subsequent calls replace the
+ * singleton; the previous meter just becomes unreachable.
+ */
+export function installQueuedBillingMeter(prisma: PrismaClient): BillingDispatchWorker {
+  const backing = buildBillingMeter();
+  const queued = new QueuedBillingMeter({ prisma });
+  meterSingleton = queued;
+  return new BillingDispatchWorker({ prisma, meter: backing });
 }
