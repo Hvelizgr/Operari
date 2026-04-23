@@ -74,10 +74,10 @@ readinessProbe:
 
 Most of the time you want both:
 
-| Monitor                                   | URL          | Alert on |
-| ----------------------------------------- | ------------ | -------- |
-| "process up" — pages someone at 3am       | `/live`      | Non-200  |
-| "service healthy" — pages the on-call DBA | `/health`    | Non-200  |
+| Monitor                                   | URL       | Alert on |
+| ----------------------------------------- | --------- | -------- |
+| "process up" — pages someone at 3am       | `/live`   | Non-200  |
+| "service healthy" — pages the on-call DBA | `/health` | Non-200  |
 
 Rate-limited? Good news: `/live` and `/health` bypass the rate limiter, so a 30s check interval across multiple monitors won't consume your per-IP budget.
 

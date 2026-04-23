@@ -31,7 +31,7 @@ rotation, incident response, post-mortems — live in some combination of:
 - A Notion doc, three Slack threads, and one engineer's head
 
 Rundeck costs $125/user/month and is enterprise-heavy. StackStorm is
-abandonware. Backstage catalogs services but doesn't *execute* anything.
+abandonware. Backstage catalogs services but doesn't _execute_ anything.
 incident.io is post-incident, not pre. There is no dev-first, open-source,
 visual-and-executable runbook tool aimed at SREs at small-to-mid teams.
 
@@ -49,6 +49,7 @@ commit to git.
 This list is conservative and hand-verified against the test suite, not the roadmap.
 
 **Editing**
+
 - Visual canvas with drag/drop, undo/redo, autosave, command palette, keyboard shortcuts
 - YAML round-trip — view any runbook as canonical YAML, edit it, save back, never lose state
 - Per-step retry policy (count, fixed/exponential backoff, max delay)
@@ -58,6 +59,7 @@ This list is conservative and hand-verified against the test suite, not the road
 - Trigger config: webhook URLs and one-time secrets per runbook for GitHub / Sentry / Datadog / custom
 
 **Execution**
+
 - 9 step types with real executors today: `shell`, `nanorun.httpRequest`, `approval`, `notify`, `wait`, `nanorun.cron` (trigger), `nanorun.webhook` (trigger), plus `custom.frame` and `custom.note` for organization. Earlier drafts of this README listed 20 types — that was vapor inherited from the n8n-era. The other ones (`switch`, `loop`, `github`, `docker`, `awsS3`, `agent`, `postgres`, `set`) have no backend executor and have been removed from the editor palette to avoid promising what we cannot run.
 - Sandboxed runners with three backends: local process, Docker container, Fly.io machine
 - Real-time stdout / stderr streaming over Socket.IO + durable Redis stream backing
@@ -66,6 +68,7 @@ This list is conservative and hand-verified against the test suite, not the road
 - Run cancellation with propagation to the runner
 
 **Operating**
+
 - Approval inbox at `/inbox` with status filters and inline grant/reject
 - Run history at `/runs` with status filters, ETA from past runs, cursor pagination
 - Run detail timeline at `/runs/:id` with per-step output, error blocks, replay-from-step button
@@ -75,6 +78,7 @@ This list is conservative and hand-verified against the test suite, not the road
 - OpenTelemetry: every run is a trace, every step is a span
 
 **Auth + multi-tenancy**
+
 - Pluggable AuthProvider — JWT for self-host, WorkOS for cloud, single env flip to swap
 - Email/password register + login with bcrypt 12 rounds, generic error messages (no user enumeration), and a 5-req/min rate limit layered both per-IP and per-email so distributed credential stuffing also gets blocked
 - Social login via Google + GitHub OAuth 2. Account linking by verified email — one user can have password + Google + GitHub against the same inbox. Providers are fully optional; without creds the `/api/auth/{provider}` route returns 501 and the frontend hides the button
@@ -89,6 +93,7 @@ This list is conservative and hand-verified against the test suite, not the road
 - Encrypted-at-rest credentials via libsodium (`SecretCipher` + `SecretReader` + audit on every read)
 
 **API surface**
+
 - REST v1 at `/api/v1/{runbooks,runs,approvals,keys,webhooks,audit}` with API-key auth and per-key scopes
 - Auth endpoints at `/api/auth/{register,login,logout,refresh,me,forgot-password,reset-password,change-password,verify-email,send-verification}` plus `/api/auth/{google,github}` for social login and `/api/auth/mfa/{enroll,verify-enroll,disable}` for TOTP
 - Billing endpoints at `/api/billing/{summary,usage,checkout,portal,webhook}`
@@ -99,24 +104,29 @@ This list is conservative and hand-verified against the test suite, not the road
 - OpenAPI spec at `/api/openapi.json` and Swagger UI at `/api/docs`
 
 **Execution composition (new)**
+
 - `runbook` step type — invoke another runbook as a sub-run. Runtime enforces tenant isolation, cycle detection (walks the `parentExecutionId` chain), and a 5-level depth cap. Sync mode polls child status + surfaces errors; async mode fires and forgets
 - Error workflow trigger — each runbook declares `onErrorRunbookId`; a FAILED run auto-dispatches the handler with the error payload (`runId`, `runbookName`, `message`). Refuses to chain when the failed run was itself ERROR-triggered, so a buggy handler cannot loop
 
 **Plugins (custom step types)**
+
 - `@cairn/sdk/steps` exports `defineStep({ type, configSchema, execute })`. Plugin authors ship npm packages whose `package.json` declares `cairn.steps`; the runtime scans `NANORUN_PLUGINS_DIR` at boot and registers every declared entry
 - Type collisions with core step types (`shell`, `approval`, `nanorun.*`, `cairn.core.*`) are rejected; a broken plugin never crashes boot — the offending entry is skipped with a log line
 
 **Billing + quotas (new)**
+
 - Stripe Checkout + Billing Portal + webhook (`customer.subscription.*`) wired via a thin `fetch` client — no Stripe Node SDK dependency
 - Plan quotas: FREE tier caps at 3 active runbooks + 100 runs/month (env-overridable); TEAM/BUSINESS/ENTERPRISE get unlimited. `getTenantUsage()` drives a settings "Plan & billing" usage bar
 - `requirePlan('TEAM' | 'BUSINESS' | 'ENTERPRISE')` middleware returns 402 Payment Required with an `upgrade` hint
 - Pricing page CTAs route logged-in users straight into checkout; logged-out users go through register with the plan handoff preserved
 
 **Templates (new)**
+
 - Public, unauthenticated `/templates` gallery + `/templates/:slug` detail pages. Indexable for SEO. 6 curated YAMLs shipped today
 - "Use this runbook" button: logged-in users get a one-click import (YAML → canvas-native nodes via the existing serializer); logged-out users go through register with the template slug preserved
 
 **Tests**
+
 - 815 backend Jest tests (`cd backend && npm test`)
 - 53 frontend Jest tests (`cd frontend && npm test`)
 - Playwright e2e specs for Inbox / Runs / YAML view (require running app)
@@ -128,16 +138,16 @@ This list is conservative and hand-verified against the test suite, not the road
 
 This is the part Show HN will dig into anyway, so it's better up here than buried.
 
-| Area | State | Tracked in |
-|---|---|---|
-| **GitHub App OAuth + status checks** | Connected accounts model exists, OAuth dance not wired | P1 #9 in `IMPLEMENTACION_NANORUN.md` |
-| **Sentry / Datadog payload parsing** | Webhook receiver verifies HMAC and routes to runbooks; provider-specific parsing is stubbed | P1 #9 |
-| **AI agent tools** | The orchestrator streams responses; it does NOT yet have read access to past runs / step logs as tools. Today it only sees what the side-panel sends in the prompt | Backlog item, no eta |
-| **Database step** | Hardened to allow `migrate`/`health`/`backup` only, but still a passthrough stub. Real Prisma wiring is not in | Backlog |
-| **Public demo instance** | None. You have to self-host to try it | — |
-| **Loom / video walkthrough** | None | — |
-| **Verified domain + trademark** | The repo is at `Hvelizgr/NanoFlow`; the `NanoRun` mark and the `.dev/.io/.com` domains are not yet secured | Pre-launch checklist |
-| **Production design partners** | Zero | — |
+| Area                                 | State                                                                                                                                                              | Tracked in                           |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| **GitHub App OAuth + status checks** | Connected accounts model exists, OAuth dance not wired                                                                                                             | P1 #9 in `IMPLEMENTACION_NANORUN.md` |
+| **Sentry / Datadog payload parsing** | Webhook receiver verifies HMAC and routes to runbooks; provider-specific parsing is stubbed                                                                        | P1 #9                                |
+| **AI agent tools**                   | The orchestrator streams responses; it does NOT yet have read access to past runs / step logs as tools. Today it only sees what the side-panel sends in the prompt | Backlog item, no eta                 |
+| **Database step**                    | Hardened to allow `migrate`/`health`/`backup` only, but still a passthrough stub. Real Prisma wiring is not in                                                     | Backlog                              |
+| **Public demo instance**             | None. You have to self-host to try it                                                                                                                              | —                                    |
+| **Loom / video walkthrough**         | None                                                                                                                                                               | —                                    |
+| **Verified domain + trademark**      | The repo is at `Hvelizgr/NanoFlow`; the `NanoRun` mark and the `.dev/.io/.com` domains are not yet secured                                                         | Pre-launch checklist                 |
+| **Production design partners**       | Zero                                                                                                                                                               | —                                    |
 
 If any of these are deal-breakers for you, NanoRun is not yet the tool you
 need. Star the repo and check back in 4-6 weeks.
@@ -146,16 +156,16 @@ need. Star the repo and check back in 4-6 weeks.
 
 ## Status
 
-| | |
-|---|---|
-| Stage | pre-launch alpha |
-| Branch | `main` |
-| Backend tests | 815 / 815 passing |
-| Frontend tests | 53 / 53 passing |
-| Type-check (backend) | clean |
-| Type-check (frontend) | clean |
-| Self-hostable today | yes — `docker compose up -d` |
-| Cloud beta | not yet |
+|                       |                              |
+| --------------------- | ---------------------------- |
+| Stage                 | pre-launch alpha             |
+| Branch                | `main`                       |
+| Backend tests         | 815 / 815 passing            |
+| Frontend tests        | 53 / 53 passing              |
+| Type-check (backend)  | clean                        |
+| Type-check (frontend) | clean                        |
+| Self-hostable today   | yes — `docker compose up -d` |
+| Cloud beta            | not yet                      |
 
 ---
 
@@ -276,7 +286,7 @@ steps:
     type: approval
     name: Approve traffic shift
     config:
-      message: "Pods are healthy. Shift production traffic?"
+      message: 'Pods are healthy. Shift production traffic?'
     next: notify
 
   - id: notify
@@ -284,8 +294,8 @@ steps:
     name: Slack #releases
     config:
       channel: slack
-      webhookUrl: "{{vars.slack_webhook}}"
-      message: "Deploy of {{vars.image}} to {{vars.namespace}} complete."
+      webhookUrl: '{{vars.slack_webhook}}'
+      message: 'Deploy of {{vars.image}} to {{vars.namespace}} complete.'
 ```
 
 Trigger it from the CLI:
@@ -320,10 +330,7 @@ Add to your workspace `settings.json`:
 ```json
 {
   "yaml.schemas": {
-    "http://localhost:4000/runbook.schema.json": [
-      "**/*.runbook.yaml",
-      "templates/*.yaml"
-    ]
+    "http://localhost:4000/runbook.schema.json": ["**/*.runbook.yaml", "templates/*.yaml"]
   }
 }
 ```
@@ -348,25 +355,26 @@ against it. If the schema and the spec drift apart, the test goes red.
 Honest version. ✅ = built and tested. 🟡 = partial / stub. ❌ = not done.
 "Cost" is the public list price for the cheapest paid tier; free tiers vary.
 
-| | NanoRun | Rundeck (PD) | StackStorm | incident.io | Backstage |
-|---|---|---|---|---|---|
-| Visual canvas | ✅ | ❌ | ❌ | 🟡 | ❌ |
-| YAML source-of-truth | ✅ | 🟡 | ✅ | ❌ | 🟡 |
-| Sandboxed shell execution | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Per-step retry / runIf | ✅ | ✅ | 🟡 | ❌ | ❌ |
-| Human approval gates | ✅ | ✅ | 🟡 | ✅ | ❌ |
-| Replay from step | ✅ | 🟡 | ❌ | ❌ | ❌ |
-| AI agent on step failure | ✅ | ❌ | ❌ | ✅ | ❌ |
-| Webhook triggers | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| Audit log (immutable, hash-chained) | ✅ | ✅ | 🟡 | ✅ | 🟡 |
-| RBAC + multi-tenant | ✅ | ✅ | 🟡 | ✅ | 🟡 |
-| OSS license | AGPL | Apache (legacy) | Apache | ❌ | Apache |
-| Cheapest paid tier | n/a (alpha) | $125 / user / mo | free | ~$20-40 / user / mo | "free" + ~$150K eng cost |
-| Aimed at SRE / platform eng | ✅ | ✅ | ✅ | 🟡 (incident-side) | ✅ |
+|                                     | NanoRun     | Rundeck (PD)     | StackStorm | incident.io         | Backstage                |
+| ----------------------------------- | ----------- | ---------------- | ---------- | ------------------- | ------------------------ |
+| Visual canvas                       | ✅          | ❌               | ❌         | 🟡                  | ❌                       |
+| YAML source-of-truth                | ✅          | 🟡               | ✅         | ❌                  | 🟡                       |
+| Sandboxed shell execution           | ✅          | ✅               | ✅         | ❌                  | ❌                       |
+| Per-step retry / runIf              | ✅          | ✅               | 🟡         | ❌                  | ❌                       |
+| Human approval gates                | ✅          | ✅               | 🟡         | ✅                  | ❌                       |
+| Replay from step                    | ✅          | 🟡               | ❌         | ❌                  | ❌                       |
+| AI agent on step failure            | ✅          | ❌               | ❌         | ✅                  | ❌                       |
+| Webhook triggers                    | ✅          | ✅               | ✅         | ✅                  | 🟡                       |
+| Audit log (immutable, hash-chained) | ✅          | ✅               | 🟡         | ✅                  | 🟡                       |
+| RBAC + multi-tenant                 | ✅          | ✅               | 🟡         | ✅                  | 🟡                       |
+| OSS license                         | AGPL        | Apache (legacy)  | Apache     | ❌                  | Apache                   |
+| Cheapest paid tier                  | n/a (alpha) | $125 / user / mo | free       | ~$20-40 / user / mo | "free" + ~$150K eng cost |
+| Aimed at SRE / platform eng         | ✅          | ✅               | ✅         | 🟡 (incident-side)  | ✅                       |
 
 NanoRun is the only entry in the top-left quadrant of "proactive procedures
-+ dev-first + open source + visual + AI". The full reasoning is in
-[`INVESTIGACION_NANORUN_2026.md`](./docs/) (gitignored, internal).
+
+- dev-first + open source + visual + AI". The full reasoning is in
+  [`INVESTIGACION_NANORUN_2026.md`](./docs/) (gitignored, internal).
 
 ---
 
@@ -439,14 +447,14 @@ The split is intentional: AGPL on the server prevents cloud providers from
 SaaS-ing NanoRun without contributing back; MIT on the client tooling means
 you can integrate NanoRun into anything without restrictions.
 
-| Path | License |
-|---|---|
-| `backend/` | AGPL-3.0 |
-| `frontend/` | AGPL-3.0 |
-| `packages/sdk/` | MIT |
-| `packages/cli/` | MIT |
-| `templates/` | MIT |
-| `docs/` | CC-BY-4.0 |
+| Path            | License   |
+| --------------- | --------- |
+| `backend/`      | AGPL-3.0  |
+| `frontend/`     | AGPL-3.0  |
+| `packages/sdk/` | MIT       |
+| `packages/cli/` | MIT       |
+| `templates/`    | MIT       |
+| `docs/`         | CC-BY-4.0 |
 
 ---
 

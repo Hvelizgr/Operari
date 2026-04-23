@@ -12,28 +12,28 @@
 //   const schema = z.object({ name: z.string().min(1) });
 
 const schema = {
-    parse(input) {
-        if (!input || typeof input !== 'object') {
-            throw new Error('config must be an object');
-        }
-        if (typeof input.name !== 'string' || input.name.length === 0) {
-            throw new Error('config.name is required and must be a non-empty string');
-        }
-        return { name: input.name };
-    },
+  parse(input) {
+    if (!input || typeof input !== 'object') {
+      throw new Error('config must be an object');
+    }
+    if (typeof input.name !== 'string' || input.name.length === 0) {
+      throw new Error('config.name is required and must be a non-empty string');
+    }
+    return { name: input.name };
+  },
 };
 
 module.exports = {
-    type: 'example.hello-world',
-    configSchema: schema,
-    async execute(config, context) {
-        context.emit({
-            type: 'log',
-            text: `hello, ${config.name} — from run ${context.runId}`,
-        });
-        return {
-            success: true,
-            output: { greeted: config.name, at: new Date().toISOString() },
-        };
-    },
+  type: 'example.hello-world',
+  configSchema: schema,
+  async execute(config, context) {
+    context.emit({
+      type: 'log',
+      text: `hello, ${config.name} — from run ${context.runId}`,
+    });
+    return {
+      success: true,
+      output: { greeted: config.name, at: new Date().toISOString() },
+    };
+  },
 };

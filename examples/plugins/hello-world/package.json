@@ -5,7 +5,9 @@
   "private": true,
   "main": "index.js",
   "cairn": {
-    "steps": ["./index.js"]
+    "steps": [
+      "./index.js"
+    ]
   },
   "peerDependencies": {
     "@cairn/sdk": "^0.1.0",

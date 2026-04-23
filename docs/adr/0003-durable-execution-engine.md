@@ -129,7 +129,7 @@ Components:
   executors may have side effects on every call (e.g. SetMetadata
   reads then writes Execution.metadata, which is not idempotent
   under concurrent retries). Phase 2 must audit each executor.
-- Storage growth: every run emits ~2 + 2*nodeCount events. For a
+- Storage growth: every run emits ~2 + 2\*nodeCount events. For a
   100-step run, that's ~202 rows. At 1 million runs/month with the
   same shape, ~200M rows/month. Mitigated by partitioning
   ExecutionEvent on `createdAt` and TTL'ing partitions older than

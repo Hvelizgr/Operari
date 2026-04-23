@@ -19,15 +19,15 @@ interface defined in `editor/nodes/_shared.ts`:
 
 ```ts
 interface EditorNodeExecutor<TConfig, TResult extends NodeExecutionResult> {
-    readonly type: string;
-    readonly aliases?: readonly string[];
-    execute(
-        config: TConfig,
-        input: ExecutionInput,
-        errorContext: NodeErrorContext,
-        tenantId?: string,
-        executionId?: string,
-    ): Promise<TResult>;
+  readonly type: string;
+  readonly aliases?: readonly string[];
+  execute(
+    config: TConfig,
+    input: ExecutionInput,
+    errorContext: NodeErrorContext,
+    tenantId?: string,
+    executionId?: string
+  ): Promise<TResult>;
 }
 ```
 
@@ -36,27 +36,27 @@ defined in `runbook/types/executor.types.ts`:
 
 ```ts
 interface StepExecutor<TConfig = unknown> {
-    readonly type: string;
-    execute(config: TConfig, context: ExecutorContext): Promise<ExecutorResult>;
+  readonly type: string;
+  execute(config: TConfig, context: ExecutorContext): Promise<ExecutorResult>;
 }
 
 interface ExecutorContext {
-    runId: string;
-    stepId: string;
-    variables: Record<string, unknown>;
-    previousOutputs: Record<string, unknown>;
-    tenantId: string;
-    emit?: (event: ExecutorEvent) => void;
+  runId: string;
+  stepId: string;
+  variables: Record<string, unknown>;
+  previousOutputs: Record<string, unknown>;
+  tenantId: string;
+  emit?: (event: ExecutorEvent) => void;
 }
 ```
 
 The two interfaces differ in three meaningful ways:
 
-| | EditorNodeExecutor | StepExecutor |
-|---|---|---|
-| Input shape | flat `ExecutionInput` (just the previous step's output) | structured `ExecutorContext` (runId, stepId, variables, previousOutputs, tenantId, emit callback) |
-| Result shape | typed per-node `NodeExecutionResult` subtype | uniform `ExecutorResult` (`{ success, output?, error?, duration?, paused? }`) |
-| Error model | throws `NodeExecutionError` | returns `{ success: false, error }` |
+|              | EditorNodeExecutor                                      | StepExecutor                                                                                      |
+| ------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Input shape  | flat `ExecutionInput` (just the previous step's output) | structured `ExecutorContext` (runId, stepId, variables, previousOutputs, tenantId, emit callback) |
+| Result shape | typed per-node `NodeExecutionResult` subtype            | uniform `ExecutorResult` (`{ success, output?, error?, duration?, paused? }`)                     |
+| Error model  | throws `NodeExecutionError`                             | returns `{ success: false, error }`                                                               |
 
 The dispatcher in `editor/node-executor.service.ts` already bridges
 the two: `tryRunbookExecutor()` is called first, falls through to the
@@ -67,7 +67,7 @@ side has shrunk enough that the consolidation is finally cheap.
 ## Why this matters
 
 1. **One mental model.** Today, adding a new step type means deciding
-   *which* hierarchy it lives in, then writing the right interface.
+   _which_ hierarchy it lives in, then writing the right interface.
    That's a coin flip with no documented criteria.
 2. **The runbook engine ignores half the executors.** ADR 0003's
    durable engine talks `ExecutorContext`, so it can drive only the
@@ -109,8 +109,8 @@ post-pivot audit explicitly recommends deferring it.
 ## Decision
 
 **Do NOT consolidate in the current cleanup pass.** Park the work
-under a tracked task with an explicit precondition: *"unblocked once
-ADR 0003 phase 4 lands"*. When the time comes:
+under a tracked task with an explicit precondition: _"unblocked once
+ADR 0003 phase 4 lands"_. When the time comes:
 
 1. Pick `StepExecutor` + `ExecutorContext` as the survivor — it's the
    shape ADR 0003 already targets and the one runners know how to
@@ -120,15 +120,15 @@ ADR 0003 phase 4 lands"*. When the time comes:
    and translates the result. Three executors need real rewrites
    because their inputs don't map cleanly: `transform`, `condition`,
    `storeGet`/`storeSet`. The rest are mechanical.
-2. Move every adapted file from `editor/nodes/` to
+3. Move every adapted file from `editor/nodes/` to
    `runbook/executors/`, drop the `EditorNodeExecutor` interface and
    `_shared.ts`, and delete the dispatcher's `editorRegistry`.
-3. ExecutionService becomes the single caller — `tryRunbookExecutor`
+4. ExecutionService becomes the single caller — `tryRunbookExecutor`
    is no longer "try the runbook side first", it's the only path.
-4. Update `seed-nodes.ts` and `NodePalette.tsx` if any type strings
+5. Update `seed-nodes.ts` and `NodePalette.tsx` if any type strings
    change shape (they shouldn't — the rename to `nanorun.*` already
    landed in commit `<rename>`).
-5. Drop the `editor/` folder entirely — it stops existing as a
+6. Drop the `editor/` folder entirely — it stops existing as a
    meaningful boundary once the executors live elsewhere. The
    `editor/execution/` socket service moves to `runbook/realtime/`.
 

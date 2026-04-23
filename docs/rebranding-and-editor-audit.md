@@ -13,7 +13,7 @@ direction.
 
 ## 1. Positioning recap (from INVESTIGACION § 4 + § 14)
 
-**One-liner**: NanoRun is the *Sentry for operational procedures* —
+**One-liner**: NanoRun is the _Sentry for operational procedures_ —
 open source, dev-first, visual, AI-native, and actually executable.
 
 **Quadrant the product owns**:
@@ -46,37 +46,39 @@ priced at $125/seat and feels like 2014.
 - Buys bottom-up. Up to $500-2K/month without escalation.
 - Discovers via HN, GitHub trending, peer recommendations.
 
-**Promise**: NanoRun turns ops procedures from *anxious manual rituals*
-into *executable, versioned, audit-logged artifacts*.
+**Promise**: NanoRun turns ops procedures from _anxious manual rituals_
+into _executable, versioned, audit-logged artifacts_.
 
 ---
 
 ## 2. Vocabulary changes (find / replace)
 
-| Today (n8n heritage) | NanoRun | Why |
-|---|---|---|
-| `Workflow` (user-visible) | `Runbook` | The product pivot. INVESTIGACION uses "runbook" 80+ times. |
-| `Workflow editor` | `Runbook editor` or `Canvas` | "Canvas" implies composition, "editor" implies document |
-| `Node` (in UI copy) | `Step` | SREs think in "steps of a runbook" |
-| `Connection` / `edge` | `Sequence` or `dependency` | Connections are execution order, not data flow |
-| `Run` / `Execution` | `Run` (keep) — `Execution` stays in code | Run is the natural verb + noun |
-| `Variables` / `input` | `Inputs` / `runbook variables` | Match the schema YAML in INVESTIGACION § 15.3 |
-| `Workflow templates` | `Runbook library` | Library = curated org asset |
-| `Workflows` (sidebar) | `Runbooks` | — |
-| `NanoFlow` (any residual) | `NanoRun` | Brand pivot |
-| `"Build complex workflows"` | `"Visual runbooks for engineers"` | Match README, distance from Zapier |
-| `"Drag-and-drop workflow builder"` | `"Stop hiding ops in dead Confluence wikis"` | Persona-pain framing |
-| `"2000+ pre-built nodes"` | `"Shell-native, approval-gated, audit-logged"` | Real differentiators |
-| `"Save Workflow"` button | `"Save"` | Drop the noun |
-| `"Workflow Properties"` panel | `"Runbook Settings"` | Settings is more SRE; properties is ORM-flavored |
-| `"Untitled Workflow"` | `"Untitled runbook"` | — |
+| Today (n8n heritage)               | NanoRun                                        | Why                                                        |
+| ---------------------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
+| `Workflow` (user-visible)          | `Runbook`                                      | The product pivot. INVESTIGACION uses "runbook" 80+ times. |
+| `Workflow editor`                  | `Runbook editor` or `Canvas`                   | "Canvas" implies composition, "editor" implies document    |
+| `Node` (in UI copy)                | `Step`                                         | SREs think in "steps of a runbook"                         |
+| `Connection` / `edge`              | `Sequence` or `dependency`                     | Connections are execution order, not data flow             |
+| `Run` / `Execution`                | `Run` (keep) — `Execution` stays in code       | Run is the natural verb + noun                             |
+| `Variables` / `input`              | `Inputs` / `runbook variables`                 | Match the schema YAML in INVESTIGACION § 15.3              |
+| `Workflow templates`               | `Runbook library`                              | Library = curated org asset                                |
+| `Workflows` (sidebar)              | `Runbooks`                                     | —                                                          |
+| `NanoFlow` (any residual)          | `NanoRun`                                      | Brand pivot                                                |
+| `"Build complex workflows"`        | `"Visual runbooks for engineers"`              | Match README, distance from Zapier                         |
+| `"Drag-and-drop workflow builder"` | `"Stop hiding ops in dead Confluence wikis"`   | Persona-pain framing                                       |
+| `"2000+ pre-built nodes"`          | `"Shell-native, approval-gated, audit-logged"` | Real differentiators                                       |
+| `"Save Workflow"` button           | `"Save"`                                       | Drop the noun                                              |
+| `"Workflow Properties"` panel      | `"Runbook Settings"`                           | Settings is more SRE; properties is ORM-flavored           |
+| `"Untitled Workflow"`              | `"Untitled runbook"`                           | —                                                          |
 
 **Tagline candidates** (in priority order):
+
 1. **"Visual runbooks for engineers."** (already in README, hero)
 2. **"Stop running deploys from a Confluence page."** (subtitle / persona-pain)
 3. **"The Sentry for operational procedures."** (positioning, not hero)
 
 **Tone for copy** (per persona "tired SRE"):
+
 - **Direct, not cute.** Zero "magic", "delight", "easy". SREs hate that.
 - **Concrete.** No "powerful" or "robust" — use numbers and commands:
   "shell scripts that survive a backend restart", "approval gates with
@@ -89,6 +91,7 @@ into *executable, versioned, audit-logged artifacts*.
   buyer.
 
 **Visual language**:
+
 - Keep dark palette already in the editor — terminal/IDE vibe.
 - Mono fonts for identifiers (JetBrains Mono / Geist Mono / IBM Plex
   Mono — same as Vercel / Linear / Cursor).
@@ -99,16 +102,16 @@ into *executable, versioned, audit-logged artifacts*.
 
 ## 3. Naming decisions to lock in
 
-| Question | Recommendation |
-|---|---|
-| "Step" or "Node" in UI? | **Step** in user-visible copy, keep `Node` in code |
-| Editor name? | **Canvas** (matches INVESTIGACION § 4 "visual node-based canvas", matches Linear/Figma vibe) |
-| What's a single execution called? | **Run** in copy, **Execution** only in existing code. "Job" = Rundeck legacy, avoid. |
-| Step output? | **Output** for the value, **Logs** for stdout/stderr, **Artifact** only when we ship file storage |
-| "Approval gate" or "Approval"? | **Approval gate** — more SRE, matches CI/CD vocabulary |
-| "Runner" / "Executor" / "Worker"? | **Runner** — already consistent in code, matches GitHub Actions |
-| AI thing: "Agent" / "Copilot" / "Assistant"? | **Agent** — matches INVESTIGACION § 9.1. "Copilot" is too GitHub. |
-| Wedge | **Deploy runbooks for K8s startups** (per § 14.3) |
+| Question                                     | Recommendation                                                                                    |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| "Step" or "Node" in UI?                      | **Step** in user-visible copy, keep `Node` in code                                                |
+| Editor name?                                 | **Canvas** (matches INVESTIGACION § 4 "visual node-based canvas", matches Linear/Figma vibe)      |
+| What's a single execution called?            | **Run** in copy, **Execution** only in existing code. "Job" = Rundeck legacy, avoid.              |
+| Step output?                                 | **Output** for the value, **Logs** for stdout/stderr, **Artifact** only when we ship file storage |
+| "Approval gate" or "Approval"?               | **Approval gate** — more SRE, matches CI/CD vocabulary                                            |
+| "Runner" / "Executor" / "Worker"?            | **Runner** — already consistent in code, matches GitHub Actions                                   |
+| AI thing: "Agent" / "Copilot" / "Assistant"? | **Agent** — matches INVESTIGACION § 9.1. "Copilot" is too GitHub.                                 |
+| Wedge                                        | **Deploy runbooks for K8s startups** (per § 14.3)                                                 |
 
 ---
 
@@ -117,22 +120,23 @@ into *executable, versioned, audit-logged artifacts*.
 **~80-100 user-visible strings** spread across **12-15 files**.
 Estimated effort: **4-6 hours** find/replace + QA.
 
-| File | ~ count | Notes |
-|---|---|---|
-| `frontend/messages/en.json` | 8 | i18n strings |
-| `frontend/messages/es.json` | 8 | translations |
-| `frontend/app/[lang]/content/en.ts` | 20+ | marketing taglines, features, use cases |
-| `frontend/app/[lang]/content/es.ts` | 20+ | translations |
-| `frontend/components/Editor/TopBar.tsx` | 4 | "Run Workflow" button, title |
-| `frontend/components/Editor/EditorSidebar.tsx` | 2 | menu item |
-| `frontend/components/Editor/EditorCanvas.tsx` | 8 | aria-labels, default name, save/load |
-| `frontend/components/Editor/WorkflowPropertiesPanel.tsx` | 2 | panel title + filename |
-| `frontend/components/Node/NodePalette.tsx` | 14 | category names + descriptions |
-| `frontend/components/Common/Onboarding.tsx` | 2 | tutorial copy |
-| `frontend/components/Workflow/**` | 6 | RunDialog, TemplateGallery, etc. |
-| `README.md` | several | hero + features |
+| File                                                     | ~ count | Notes                                   |
+| -------------------------------------------------------- | ------- | --------------------------------------- |
+| `frontend/messages/en.json`                              | 8       | i18n strings                            |
+| `frontend/messages/es.json`                              | 8       | translations                            |
+| `frontend/app/[lang]/content/en.ts`                      | 20+     | marketing taglines, features, use cases |
+| `frontend/app/[lang]/content/es.ts`                      | 20+     | translations                            |
+| `frontend/components/Editor/TopBar.tsx`                  | 4       | "Run Workflow" button, title            |
+| `frontend/components/Editor/EditorSidebar.tsx`           | 2       | menu item                               |
+| `frontend/components/Editor/EditorCanvas.tsx`            | 8       | aria-labels, default name, save/load    |
+| `frontend/components/Editor/WorkflowPropertiesPanel.tsx` | 2       | panel title + filename                  |
+| `frontend/components/Node/NodePalette.tsx`               | 14      | category names + descriptions           |
+| `frontend/components/Common/Onboarding.tsx`              | 2       | tutorial copy                           |
+| `frontend/components/Workflow/**`                        | 6       | RunDialog, TemplateGallery, etc.        |
+| `README.md`                                              | several | hero + features                         |
 
 **What does NOT get renamed (deliberately)**:
+
 - `Workflow` Prisma model — breaking change for existing data, no value
 - `WorkflowNode`, `WorkflowConnection` types in TS — internal, backwards compat
 - `/api/workflows` legacy endpoint — coexists with `/api/v1/runbooks`,
@@ -151,90 +155,90 @@ way.
 
 **Categories to delete from `NodePalette.tsx`** — ~28 nodes total:
 
-| Category | Why | Nodes |
-|---|---|---|
-| **Social Media** | SREs don't tweet from runbooks | Twitter, LinkedIn, Facebook, Instagram, Discord (legacy), Reddit, TikTok, YouTube |
-| **Marketing & CRM** | Wrong wedge, wrong persona | HubSpot, Salesforce, Mailchimp, Pipedrive, ActiveCampaign, Klaviyo |
-| **E-commerce / Payments** | Same | Shopify, Stripe (as integration node), PayPal, Square |
-| **Productivity (non-dev)** | Same | Notion, Airtable, Trello, Google Sheets, Google Docs, Microsoft Excel |
-| **Storage (consumer)** | Keep S3 only (artifacts/logs) | Google Drive, Dropbox, OneDrive, Box |
+| Category                   | Why                            | Nodes                                                                             |
+| -------------------------- | ------------------------------ | --------------------------------------------------------------------------------- |
+| **Social Media**           | SREs don't tweet from runbooks | Twitter, LinkedIn, Facebook, Instagram, Discord (legacy), Reddit, TikTok, YouTube |
+| **Marketing & CRM**        | Wrong wedge, wrong persona     | HubSpot, Salesforce, Mailchimp, Pipedrive, ActiveCampaign, Klaviyo                |
+| **E-commerce / Payments**  | Same                           | Shopify, Stripe (as integration node), PayPal, Square                             |
+| **Productivity (non-dev)** | Same                           | Notion, Airtable, Trello, Google Sheets, Google Docs, Microsoft Excel             |
+| **Storage (consumer)**     | Keep S3 only (artifacts/logs)  | Google Drive, Dropbox, OneDrive, Box                                              |
 
 **Individual nodes to drop** even from kept categories:
 
-| Node | Why |
-|---|---|
-| `n8n-nodes-base.executeWorkflow` | Sub-runbooks add accidental complexity. Use HTTP call to trigger another runbook. |
-| `n8n-nodes-base.merge` | Data-flow concept. Runbooks don't fan-out / fan-in. |
-| `n8n-nodes-base.function` | Duplicate of `code` |
-| `n8n-nodes-base.code` | Conflicts with shell node. Backend has `isolated-vm` sandbox; runbooks should use bash. |
-| Data transforms (`Filter`, `JSON Parse`, `Item Lists`, `Split In Batches`, `Rename Keys`) | ETL primitives. Runbooks aren't ETL. Use `shell` + `jq`. |
-| `n8n-nodes-base.wait` (trigger-level) | Name conflict with `wait.executor.ts` |
-| `n8n-nodes-base.scheduleTrigger` + `cron` overlap | Keep one cron-style |
-| `n8n-nodes-base.manualTrigger` | "Run" button covers it |
-| `n8n-nodes-base.emailSend` | Notify covers alerting; email rare in incident ops |
-| `n8n-nodes-base.controller` (multiplex/split/join) | "Multiplex 100 branches" never appears in real runbooks |
-| AI provider nodes (OpenAI, Anthropic, HuggingFace, Stability, LangChain) | The agent is global, not per-step |
+| Node                                                                                      | Why                                                                                     |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `n8n-nodes-base.executeWorkflow`                                                          | Sub-runbooks add accidental complexity. Use HTTP call to trigger another runbook.       |
+| `n8n-nodes-base.merge`                                                                    | Data-flow concept. Runbooks don't fan-out / fan-in.                                     |
+| `n8n-nodes-base.function`                                                                 | Duplicate of `code`                                                                     |
+| `n8n-nodes-base.code`                                                                     | Conflicts with shell node. Backend has `isolated-vm` sandbox; runbooks should use bash. |
+| Data transforms (`Filter`, `JSON Parse`, `Item Lists`, `Split In Batches`, `Rename Keys`) | ETL primitives. Runbooks aren't ETL. Use `shell` + `jq`.                                |
+| `n8n-nodes-base.wait` (trigger-level)                                                     | Name conflict with `wait.executor.ts`                                                   |
+| `n8n-nodes-base.scheduleTrigger` + `cron` overlap                                         | Keep one cron-style                                                                     |
+| `n8n-nodes-base.manualTrigger`                                                            | "Run" button covers it                                                                  |
+| `n8n-nodes-base.emailSend`                                                                | Notify covers alerting; email rare in incident ops                                      |
+| `n8n-nodes-base.controller` (multiplex/split/join)                                        | "Multiplex 100 branches" never appears in real runbooks                                 |
+| AI provider nodes (OpenAI, Anthropic, HuggingFace, Stability, LangChain)                  | The agent is global, not per-step                                                       |
 
 **Result**: palette shrinks from **72 → ~20 nodes**. Massive noise reduction.
 
 ### 5.2 🔄 Repurpose (UI work, not drops)
 
-| Today | Becomes | Effort |
-|---|---|---|
-| **Notify** (generic webhook) | Native **Slack Notify** + **Discord Notify** + **Generic Webhook** with interactive buttons (approve/escalate/rollback) | Medium |
-| **HTTP Request** | HTTP Request **with auth templates** (GitHub Bearer, Datadog API key, Sentry DSN) | Low |
-| **Loop** | Split into **Retry** + **Iterate** | Low |
-| **Approval** | Rename to **Approval Gate**, build **Approval Inbox** UI (`/approvals`) | Medium |
-| **Postgres / MySQL / Redis** | Keep Postgres, drop the others | Low |
-| **GitHub** (generic) | **GitHub PR Merge**, **GitHub Status Check**, **GitHub Issue Create** (3 native nodes) | Medium |
-| **Code (JS sandbox)** | Drop as first-class, mark advanced-only | Zero (delete) |
-| **Frame node** | Keep, rename to "Section" in UI | Low |
-| **Snapshots** | Rename to "Versions", add publish-to-prod | Medium |
+| Today                        | Becomes                                                                                                                 | Effort        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------- |
+| **Notify** (generic webhook) | Native **Slack Notify** + **Discord Notify** + **Generic Webhook** with interactive buttons (approve/escalate/rollback) | Medium        |
+| **HTTP Request**             | HTTP Request **with auth templates** (GitHub Bearer, Datadog API key, Sentry DSN)                                       | Low           |
+| **Loop**                     | Split into **Retry** + **Iterate**                                                                                      | Low           |
+| **Approval**                 | Rename to **Approval Gate**, build **Approval Inbox** UI (`/approvals`)                                                 | Medium        |
+| **Postgres / MySQL / Redis** | Keep Postgres, drop the others                                                                                          | Low           |
+| **GitHub** (generic)         | **GitHub PR Merge**, **GitHub Status Check**, **GitHub Issue Create** (3 native nodes)                                  | Medium        |
+| **Code (JS sandbox)**        | Drop as first-class, mark advanced-only                                                                                 | Zero (delete) |
+| **Frame node**               | Keep, rename to "Section" in UI                                                                                         | Low           |
+| **Snapshots**                | Rename to "Versions", add publish-to-prod                                                                               | Medium        |
 
 ### 5.3 ✅ Amplify (already aligned, make them shine)
 
-| Feature | File | Action |
-|---|---|---|
+| Feature                                   | File                                                           | Action                                                                                                  |
+| ----------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | **Shell executor + LogTerminal xterm.js** | `Editor/terminal/LogTerminal.tsx`, backend `shell.executor.ts` | Move shell to top of palette. Add "Common Commands" quick-insert (kubectl, helm, aws, restart service). |
-| **Approval gate** | backend `approval.executor.ts`, route `v1/approvals.routes.ts` | Build Approval Inbox dashboard + Slack interactive buttons |
-| **AI agent** | `agent/orchestrator.ts` | Build side-panel that opens on step failure with the failure context |
-| **Webhook receiver with HMAC** | `routes/webhook.routes.ts` (HMAC bug fixed in commit 035f9d2) | UI to generate URLs + show "Triggered by: GitHub push from main, sha abc123" |
-| **Run history + audit chain** | backend has it; frontend missing | Build `/runs` with timeline filterable, link to logs, comparison |
-| **OTel run=trace, step=span** | `observability/run-tracer.ts` | Each step shows its trace span id, link to Grafana/Jaeger |
-| **Templates seed** | `templates/*.yaml` (6 already exist) | Build **Runbook Library** UI listing them as starting points |
-| **Snapshots / autosave** | `useSnapshots`, `useAutosave` | Rename to "Versions" + UI for diff between versions |
-| **Multi-select + chains** | `useEditorSelection.ts` | Keep — useful for 30-step runbooks |
-| **Cycle detection** | `useEditorCanvas.ts` | Rename error to "Step graph contains a cycle — runbooks must be acyclic" |
+| **Approval gate**                         | backend `approval.executor.ts`, route `v1/approvals.routes.ts` | Build Approval Inbox dashboard + Slack interactive buttons                                              |
+| **AI agent**                              | `agent/orchestrator.ts`                                        | Build side-panel that opens on step failure with the failure context                                    |
+| **Webhook receiver with HMAC**            | `routes/webhook.routes.ts` (HMAC bug fixed in commit 035f9d2)  | UI to generate URLs + show "Triggered by: GitHub push from main, sha abc123"                            |
+| **Run history + audit chain**             | backend has it; frontend missing                               | Build `/runs` with timeline filterable, link to logs, comparison                                        |
+| **OTel run=trace, step=span**             | `observability/run-tracer.ts`                                  | Each step shows its trace span id, link to Grafana/Jaeger                                               |
+| **Templates seed**                        | `templates/*.yaml` (6 already exist)                           | Build **Runbook Library** UI listing them as starting points                                            |
+| **Snapshots / autosave**                  | `useSnapshots`, `useAutosave`                                  | Rename to "Versions" + UI for diff between versions                                                     |
+| **Multi-select + chains**                 | `useEditorSelection.ts`                                        | Keep — useful for 30-step runbooks                                                                      |
+| **Cycle detection**                       | `useEditorCanvas.ts`                                           | Rename error to "Step graph contains a cycle — runbooks must be acyclic"                                |
 
 ### 5.4 🆕 Gaps (must build for the wedge)
 
-| Gap | Why blocking | Effort | Priority |
-|---|---|---|---|
-| **Approval Inbox** (`/[lang]/approvals`) | Backend already emits `approval.requested`; without UI, humans use CLI — friction for non-eng | ~1 day | **P0** |
-| **Run history timeline** (`/[lang]/runs/:id`) | Backend has `Execution`, `NodeLog`, audit — need UI page | ~1.5 days | **P0** |
-| **Step retry config UI** | Per-step "retry 3x with 5s backoff" | ~4h | **P0** |
-| **Secret picker** | Shell nodes need `$SLACK_TOKEN`; `ConnectedAccountService` exists but UI missing | ~6h | **P0** |
-| **Run from step X** | "Re-run from the approval I just signed" — backend has replay, UI doesn't expose | ~3h | **P0** |
-| **YAML preview/edit toggle** | SREs want git-versioned runbooks (Argo CD style) | ~1 day | **P1** |
-| **Pre/post conditions** ("Skip If" / "Run If") | Cleaner than separate IF nodes for guards | ~6h | **P1** |
-| **Schedule UI** (cron picker) | Visual cron picker reduces typos | ~4h | **P2** |
-| **Run trigger config UI** | Map "Sentry alert → run runbook X" | ~6h | **P2** |
-| **Estimated run time** | Show ETA from historical metrics | Low | **P3** |
+| Gap                                            | Why blocking                                                                                  | Effort    | Priority |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------- | --------- | -------- |
+| **Approval Inbox** (`/[lang]/approvals`)       | Backend already emits `approval.requested`; without UI, humans use CLI — friction for non-eng | ~1 day    | **P0**   |
+| **Run history timeline** (`/[lang]/runs/:id`)  | Backend has `Execution`, `NodeLog`, audit — need UI page                                      | ~1.5 days | **P0**   |
+| **Step retry config UI**                       | Per-step "retry 3x with 5s backoff"                                                           | ~4h       | **P0**   |
+| **Secret picker**                              | Shell nodes need `$SLACK_TOKEN`; `ConnectedAccountService` exists but UI missing              | ~6h       | **P0**   |
+| **Run from step X**                            | "Re-run from the approval I just signed" — backend has replay, UI doesn't expose              | ~3h       | **P0**   |
+| **YAML preview/edit toggle**                   | SREs want git-versioned runbooks (Argo CD style)                                              | ~1 day    | **P1**   |
+| **Pre/post conditions** ("Skip If" / "Run If") | Cleaner than separate IF nodes for guards                                                     | ~6h       | **P1**   |
+| **Schedule UI** (cron picker)                  | Visual cron picker reduces typos                                                              | ~4h       | **P2**   |
+| **Run trigger config UI**                      | Map "Sentry alert → run runbook X"                                                            | ~6h       | **P2**   |
+| **Estimated run time**                         | Show ETA from historical metrics                                                              | Low       | **P3**   |
 
 **Total realistic** to fix the 5 P0 gaps: **5-7 days of frontend**.
 
 ### 5.5 Proposed node palette (7 categories, ~20 nodes)
 
-| Category | Nodes | Backend status |
-|---|---|---|
-| **Triggers** (3) | Webhook, Cron, Manual (UI button) | webhook ✅ |
-| **Core** (5) | Shell, HTTP Request, Set Variable, IF/Condition, Switch | shell ✅, http ✅, condition ✅, transform ✅ |
-| **Flow Control** (3) | Loop / Retry, Error Handler, Wait/Delay | loop ✅, wait ✅, delay ✅ |
-| **Human in Loop** (2) | Approval Gate, Notify (Slack/Discord) | approval ✅, notify ✅ |
-| **DevOps Integrations** (4) | GitHub, Docker, Postgres, AWS S3 | http-based ⏳ |
-| **AI** (1) | Agent Step (Claude/GPT prompt) | mastra → AI SDK ✅ |
-| **Organization** (2) | Frame/Section, Note | frame ✅, note ✅ |
-| **TOTAL** | **~20 nodes** | from 72 today |
+| Category                    | Nodes                                                   | Backend status                                |
+| --------------------------- | ------------------------------------------------------- | --------------------------------------------- |
+| **Triggers** (3)            | Webhook, Cron, Manual (UI button)                       | webhook ✅                                    |
+| **Core** (5)                | Shell, HTTP Request, Set Variable, IF/Condition, Switch | shell ✅, http ✅, condition ✅, transform ✅ |
+| **Flow Control** (3)        | Loop / Retry, Error Handler, Wait/Delay                 | loop ✅, wait ✅, delay ✅                    |
+| **Human in Loop** (2)       | Approval Gate, Notify (Slack/Discord)                   | approval ✅, notify ✅                        |
+| **DevOps Integrations** (4) | GitHub, Docker, Postgres, AWS S3                        | http-based ⏳                                 |
+| **AI** (1)                  | Agent Step (Claude/GPT prompt)                          | mastra → AI SDK ✅                            |
+| **Organization** (2)        | Frame/Section, Note                                     | frame ✅, note ✅                             |
+| **TOTAL**                   | **~20 nodes**                                           | from 72 today                                 |
 
 ---
 
@@ -302,7 +306,7 @@ Branch: `feat/ai-assist-panel`
    as TODO before Show HN in INVESTIGACION § 14.
 3. **Confirm license**: AGPL server + MIT SDK (already in README ✅).
 4. **Discovery interviews**: 30 SRE / Platform engineer interviews
-   per § 18.2. Non-negotiable. Without these the wedge is *guessed*,
+   per § 18.2. Non-negotiable. Without these the wedge is _guessed_,
    not validated. Start in parallel with Fase R0/R1.
 
 ## 8. Risks
@@ -317,16 +321,19 @@ Branch: `feat/ai-assist-panel`
 ## 9. Tactical recommendation
 
 **This week**:
+
 1. Verify domains + trademark (blocking)
 2. Run first 5-10 discovery interviews (don't wait for all 30)
 3. In parallel: execute **Fase R0** (rebranding copy) + **Fase R1**
    (palette cleanup) — atomic, reversible
 
 **Next 2 weeks**:
+
 - Start Fase R2 (Approval Inbox + Run History)
 - Adjust wedge based on first interviews
 
 **Month 1-2**:
+
 - Fase R3 + R4
 - Brutal "Show HN: NanoRun" README
 - v0.1 launch on HN

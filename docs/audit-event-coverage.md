@@ -4,49 +4,50 @@
 **Source of truth for the union:** `backend/src/audit/audit.service.ts`
 **Required minimum:** `IMPLEMENTACION_NANORUN.md` P0 #2
 
-> *"Eventos mínimos: ejecución iniciada/completada, nodo ejecutado,
-> aprobación dada, secret accedido, runbook editado, API key usada."*
+> _"Eventos mínimos: ejecución iniciada/completada, nodo ejecutado,
+> aprobación dada, secret accedido, runbook editado, API key usada."_
 
 ## Coverage matrix
 
 Legend:
+
 - ✅ defined in the union **and** emitted from production code
 - 🟡 defined in the union, no producer yet (feature not built or wrapper missing)
 - ❌ required by the roadmap, not even defined
 
-| Required (P0 #2)        | Event type           | Producer                                                              | Status |
-| ----------------------- | -------------------- | --------------------------------------------------------------------- | :----: |
-| ejecución iniciada      | `run.started`        | `editor/execution/execution.service.ts:149`                           |   ✅   |
-| ejecución completada    | `run.completed`      | `editor/execution/execution.service.ts:669`                           |   ✅   |
-| ejecución completada    | `run.failed`         | `editor/execution/execution.service.ts:708`                           |   ✅   |
-| —                       | `run.paused`         | `editor/execution/execution.service.ts:512`                           |   ✅   |
-| —                       | `run.resumed`        | `editor/execution/execution.service.ts:297`                           |   ✅   |
-| —                       | `run.cancelled`      | `routes/execution.routes.ts:316`                                      |   ✅   |
-| nodo ejecutado          | `step.completed`     | `editor/execution/execution.service.ts:549`                           |   ✅   |
-| nodo ejecutado          | `step.failed`        | `editor/execution/execution.service.ts:602`                           |   ✅   |
-| —                       | `step.skipped`       | `editor/execution/execution.service.ts:415`                           |   ✅   |
-| aprobación dada         | `approval.requested` | `runbook/executors/approval.executor.ts:95`                           |   ✅   |
-| aprobación dada         | `approval.granted`   | `runbook/services/approval.service.ts:174`                            |   ✅   |
-| aprobación dada         | `approval.rejected`  | `runbook/services/approval.service.ts:174`                            |   ✅   |
-| runbook editado         | `runbook.created`    | `routes/workflow.routes.ts:371,488,700`                               |   ✅   |
-| runbook editado         | `runbook.updated`    | `routes/workflow.routes.ts:546`                                       |   ✅   |
-| runbook editado         | `runbook.deleted`    | `routes/workflow.routes.ts:631`                                       |   ✅   |
-| API key usada           | `apikey.created`     | `runbook/services/api-key.service.ts:78`                              |   ✅   |
-| API key usada           | `apikey.used`        | `runbook/services/api-key.service.ts:123`                             |   ✅   |
-| API key usada           | `apikey.revoked`     | `runbook/services/api-key.service.ts:176`                             |   ✅   |
-| —                       | `auth.login`         | `routes/auth.routes.ts` register/login/reset-password + `routes/oauth.routes.ts` callback |   ✅   |
-| —                       | `auth.logout`        | `routes/auth.routes.ts` logout handler                                |   ✅   |
-| **secret accedido**     | `secret.accessed`    | `security/secret-reader.ts` — emitted on every `read()`               |   ✅   |
-| —                       | `role.granted`       | `rbac/role-assignment.service.ts` — emitted on every `grant()`        |   ✅   |
-| —                       | `role.revoked`       | `rbac/role-assignment.service.ts` — emitted on every `revoke()`       |   ✅   |
-| —                       | `connectedaccount.linked`   | `security/connected-account.service.ts` — emitted on every `link()`   |   ✅   |
-| —                       | `connectedaccount.unlinked` | `security/connected-account.service.ts` — emitted on every `unlink()` |   ✅   |
-| —                       | `mfa.enabled`        | `routes/mfa.routes.ts` verify-enroll                                  |   ✅   |
-| —                       | `mfa.disabled`       | `routes/mfa.routes.ts` disable                                        |   ✅   |
-| —                       | `invite.created`     | `routes/invites.routes.ts` POST /                                     |   ✅   |
-| —                       | `invite.accepted`    | `routes/invites.routes.ts` POST /accept                               |   ✅   |
-| —                       | `invite.revoked`     | `routes/invites.routes.ts` DELETE /:id                                |   ✅   |
-| —                       | `quota.exceeded`     | `routes/runbook.routes.ts` POST / (fires from executions in a future pass) |   ✅   |
+| Required (P0 #2)     | Event type                  | Producer                                                                                  | Status |
+| -------------------- | --------------------------- | ----------------------------------------------------------------------------------------- | :----: |
+| ejecución iniciada   | `run.started`               | `editor/execution/execution.service.ts:149`                                               |   ✅   |
+| ejecución completada | `run.completed`             | `editor/execution/execution.service.ts:669`                                               |   ✅   |
+| ejecución completada | `run.failed`                | `editor/execution/execution.service.ts:708`                                               |   ✅   |
+| —                    | `run.paused`                | `editor/execution/execution.service.ts:512`                                               |   ✅   |
+| —                    | `run.resumed`               | `editor/execution/execution.service.ts:297`                                               |   ✅   |
+| —                    | `run.cancelled`             | `routes/execution.routes.ts:316`                                                          |   ✅   |
+| nodo ejecutado       | `step.completed`            | `editor/execution/execution.service.ts:549`                                               |   ✅   |
+| nodo ejecutado       | `step.failed`               | `editor/execution/execution.service.ts:602`                                               |   ✅   |
+| —                    | `step.skipped`              | `editor/execution/execution.service.ts:415`                                               |   ✅   |
+| aprobación dada      | `approval.requested`        | `runbook/executors/approval.executor.ts:95`                                               |   ✅   |
+| aprobación dada      | `approval.granted`          | `runbook/services/approval.service.ts:174`                                                |   ✅   |
+| aprobación dada      | `approval.rejected`         | `runbook/services/approval.service.ts:174`                                                |   ✅   |
+| runbook editado      | `runbook.created`           | `routes/workflow.routes.ts:371,488,700`                                                   |   ✅   |
+| runbook editado      | `runbook.updated`           | `routes/workflow.routes.ts:546`                                                           |   ✅   |
+| runbook editado      | `runbook.deleted`           | `routes/workflow.routes.ts:631`                                                           |   ✅   |
+| API key usada        | `apikey.created`            | `runbook/services/api-key.service.ts:78`                                                  |   ✅   |
+| API key usada        | `apikey.used`               | `runbook/services/api-key.service.ts:123`                                                 |   ✅   |
+| API key usada        | `apikey.revoked`            | `runbook/services/api-key.service.ts:176`                                                 |   ✅   |
+| —                    | `auth.login`                | `routes/auth.routes.ts` register/login/reset-password + `routes/oauth.routes.ts` callback |   ✅   |
+| —                    | `auth.logout`               | `routes/auth.routes.ts` logout handler                                                    |   ✅   |
+| **secret accedido**  | `secret.accessed`           | `security/secret-reader.ts` — emitted on every `read()`                                   |   ✅   |
+| —                    | `role.granted`              | `rbac/role-assignment.service.ts` — emitted on every `grant()`                            |   ✅   |
+| —                    | `role.revoked`              | `rbac/role-assignment.service.ts` — emitted on every `revoke()`                           |   ✅   |
+| —                    | `connectedaccount.linked`   | `security/connected-account.service.ts` — emitted on every `link()`                       |   ✅   |
+| —                    | `connectedaccount.unlinked` | `security/connected-account.service.ts` — emitted on every `unlink()`                     |   ✅   |
+| —                    | `mfa.enabled`               | `routes/mfa.routes.ts` verify-enroll                                                      |   ✅   |
+| —                    | `mfa.disabled`              | `routes/mfa.routes.ts` disable                                                            |   ✅   |
+| —                    | `invite.created`            | `routes/invites.routes.ts` POST /                                                         |   ✅   |
+| —                    | `invite.accepted`           | `routes/invites.routes.ts` POST /accept                                                   |   ✅   |
+| —                    | `invite.revoked`            | `routes/invites.routes.ts` DELETE /:id                                                    |   ✅   |
+| —                    | `quota.exceeded`            | `routes/runbook.routes.ts` POST / (fires from executions in a future pass)                |   ✅   |
 
 ## Gaps and decisions
 

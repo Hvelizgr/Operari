@@ -27,7 +27,7 @@
 - Custom error mapping
 
 It violates SRP, makes test isolation painful, and forces every node-type
-change through a single 1KLOC file. The file already shows the *correct*
+change through a single 1KLOC file. The file already shows the _correct_
 end-state: the seven logic nodes are **already** delegated to per-class
 executors (`./logic/*-node.executor.ts`), and the runbook executors live
 in `../runbook/executors/`. The legacy switch is the residue.

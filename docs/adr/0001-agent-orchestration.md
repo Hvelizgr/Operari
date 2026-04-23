@@ -25,9 +25,9 @@ that wires `instructions` + a model from `@ai-sdk/anthropic` /
 workflows are configured.** `@mastra/mcp` is imported by `package.json` but
 no source file imports it.
 
-The roadmap doc is explicit: *“Mastra agrega complejidad para un agent que
+The roadmap doc is explicit: _“Mastra agrega complejidad para un agent que
 es básicamente tool calling + RAG sobre logs. Si no usás features
-multi-agent → reemplazar con Vercel AI SDK + LiteLLM gateway.”*
+multi-agent → reemplazar con Vercel AI SDK + LiteLLM gateway.”_
 
 ## Decision
 
@@ -44,10 +44,10 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { openai } from '@ai-sdk/openai';
 
 export function streamOrchestratorReply(messages: ModelMessage[]) {
-    const provider = process.env.AI_MODEL_PROVIDER ?? 'anthropic';
-    const modelName = process.env.AI_MODEL_NAME ?? 'claude-sonnet-4-6';
-    const model = provider === 'openai' ? openai(modelName) : anthropic(modelName);
-    return streamText({ model, system: SYSTEM_PROMPT, messages });
+  const provider = process.env.AI_MODEL_PROVIDER ?? 'anthropic';
+  const modelName = process.env.AI_MODEL_NAME ?? 'claude-sonnet-4-6';
+  const model = provider === 'openai' ? openai(modelName) : anthropic(modelName);
+  return streamText({ model, system: SYSTEM_PROMPT, messages });
 }
 ```
 

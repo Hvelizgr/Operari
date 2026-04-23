@@ -25,7 +25,7 @@ weight:
 
 Rebrand to **Cairn**.
 
-A *cairn* is a pile of stones left by climbers to mark the safe path on a
+A _cairn_ is a pile of stones left by climbers to mark the safe path on a
 mountain. When you are lost in a whiteout at altitude, you follow the cairns.
 
 That is exactly what a runbook is: **a marker left by someone who walked this
@@ -69,20 +69,20 @@ Secondary benefits:
 Single source of truth. Every downstream theme token (light/dark/high-contrast)
 derives from this palette. Do not introduce new colors outside this list.
 
-| Role | Token | Hex | Notes |
-|---|---|---|---|
-| Primary | `--cairn-stone` | `#78716C` | Core brand color. Slate stone. |
-| Accent | `--cairn-moss` | `#65A30D` | Primary interactive. Deep moss. |
-| Secondary | `--cairn-sky` | `#0EA5E9` | Secondary links / info. Alpine sky. |
-| Background | `--cairn-granite` | `#0C0A09` | Default dark background. |
-| Surface | `--cairn-graphite` | `#1C1917` | Panels, cards, toolbars. |
-| Border | `--cairn-weathered` | `#44403C` | Borders, dividers. |
-| Text | `--cairn-snow` | `#FAFAF9` | Default text on dark. |
-| Text muted | `--cairn-fog` | `#A8A29E` | Secondary text. |
-| Success | `--cairn-lichen` | `#22C55E` | Run succeeded, healthy. |
-| Warning | `--cairn-gold` | `#F59E0B` | Paused, waiting, warning. |
-| Error | `--cairn-sunset` | `#DC2626` | Run failed, error. |
-| Info | `--cairn-ice` | `#38BDF8` | Pending, queued. |
+| Role       | Token               | Hex       | Notes                               |
+| ---------- | ------------------- | --------- | ----------------------------------- |
+| Primary    | `--cairn-stone`     | `#78716C` | Core brand color. Slate stone.      |
+| Accent     | `--cairn-moss`      | `#65A30D` | Primary interactive. Deep moss.     |
+| Secondary  | `--cairn-sky`       | `#0EA5E9` | Secondary links / info. Alpine sky. |
+| Background | `--cairn-granite`   | `#0C0A09` | Default dark background.            |
+| Surface    | `--cairn-graphite`  | `#1C1917` | Panels, cards, toolbars.            |
+| Border     | `--cairn-weathered` | `#44403C` | Borders, dividers.                  |
+| Text       | `--cairn-snow`      | `#FAFAF9` | Default text on dark.               |
+| Text muted | `--cairn-fog`       | `#A8A29E` | Secondary text.                     |
+| Success    | `--cairn-lichen`    | `#22C55E` | Run succeeded, healthy.             |
+| Warning    | `--cairn-gold`      | `#F59E0B` | Paused, waiting, warning.           |
+| Error      | `--cairn-sunset`    | `#DC2626` | Run failed, error.                  |
+| Info       | `--cairn-ice`       | `#38BDF8` | Pending, queued.                    |
 
 Light mode inverts background/surface/text but keeps the accent/status hues.
 
