@@ -45,6 +45,12 @@ export class WorkflowValidatorService {
     // 5. Connection validity
     this.checkConnections(workflow.nodes, workflow.connections, issues);
 
+    // 6. Cycle detection. The engine uses a greedy re-queue loop to
+    // satisfy multi-parent joins; a runbook with a real cycle (A→B→C→A)
+    // would re-queue forever and burn a worker. Catch it at save time
+    // so the cycle never reaches the runtime.
+    this.checkCycles(workflow.nodes, workflow.connections, issues);
+
     // Determine validity based on errors
     const hasErrors = issues.some(i => i.severity === ValidationSeverity.ERROR);
 
@@ -180,5 +186,76 @@ export class WorkflowValidatorService {
         });
       }
     });
+  }
+
+  /**
+   * Detect cycles in the DAG via three-color DFS.
+   *
+   * - WHITE  (0) : not yet visited
+   * - GRAY   (1) : on the current DFS path
+   * - BLACK  (2) : fully explored; no cycle reachable through this node
+   *
+   * Encountering a GRAY neighbor means we looped back to an ancestor —
+   * that's a cycle. We extract the stack slice from the ancestor to the
+   * current node to report the full chain so the user can click straight
+   * to the offending edge.
+   *
+   * Self-loops and connections to unknown nodes are handled elsewhere
+   * (checkConnections); this pass filters them out so the cycle reporter
+   * doesn't double-report.
+   */
+  private checkCycles(
+    nodes: WorkflowNode[],
+    connections: WorkflowConnection[],
+    issues: ValidationIssue[]
+  ): void {
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    const adj = new Map<string, string[]>();
+    for (const n of nodes) adj.set(n.id, []);
+    for (const c of connections) {
+      if (c.source === c.target) continue;
+      if (!adj.has(c.source) || !adj.has(c.target)) continue;
+      adj.get(c.source)!.push(c.target);
+    }
+
+    const WHITE = 0;
+    const GRAY = 1;
+    const BLACK = 2;
+    const color = new Map<string, number>();
+    for (const n of nodes) color.set(n.id, WHITE);
+
+    /** Canonical key for a cycle so we don't report the same loop twice
+     *  from two entry points (A→B→C→A and B→C→A→B are the same cycle). */
+    const reported = new Set<string>();
+
+    const dfs = (nodeId: string, stack: string[]): void => {
+      color.set(nodeId, GRAY);
+      stack.push(nodeId);
+      for (const next of adj.get(nodeId) ?? []) {
+        const c = color.get(next);
+        if (c === GRAY) {
+          const idx = stack.indexOf(next);
+          const cycle = stack.slice(idx).concat(next);
+          const key = [...cycle.slice(0, -1)].sort().join('|');
+          if (!reported.has(key)) {
+            reported.add(key);
+            const chain = cycle.map(id => nodeMap.get(id)?.title?.trim() || id).join(' → ');
+            issues.push({
+              severity: ValidationSeverity.ERROR,
+              message: `Cycle detected in runbook DAG: ${chain}`,
+              nodeId: next,
+            });
+          }
+        } else if (c === WHITE) {
+          dfs(next, stack);
+        }
+      }
+      stack.pop();
+      color.set(nodeId, BLACK);
+    };
+
+    for (const n of nodes) {
+      if (color.get(n.id) === WHITE) dfs(n.id, []);
+    }
   }
 }
