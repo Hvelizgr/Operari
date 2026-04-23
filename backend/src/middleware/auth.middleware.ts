@@ -75,6 +75,36 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 };
 
 /**
+ * Soft auth — sets req.user when a valid token is supplied, and silently
+ * continues without one otherwise. Intended for endpoints that serve
+ * both authenticated and anonymous callers with different payloads
+ * (e.g. /api/node-types returns globals-only to anonymous, globals +
+ * tenant-owned custom types to authenticated).
+ *
+ * Unlike `authenticate`, never emits 401 — that's the whole point. An
+ * invalid token is treated identically to no token: the request
+ * proceeds anonymous.
+ */
+export const attachUserIfPresent = async (req: AuthRequest, _res: Response, next: NextFunction) => {
+  const token = extractToken(req);
+  if (!token) return next();
+  try {
+    const user = await getAuthProvider(prisma).verifyToken(token);
+    if (user) {
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenantId,
+      };
+    }
+  } catch {
+    // Swallow: the caller may be exercising the anonymous path.
+  }
+  next();
+};
+
+/**
  * Anonymous fallback middleware — sets a default user when no auth is
  * present and NANORUN_ANONYMOUS_MODE=true. Used by self-host single-
  * tenant deployments that don't need login.
