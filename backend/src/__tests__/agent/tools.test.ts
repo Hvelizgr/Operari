@@ -9,14 +9,14 @@ import { buildOrchestratorTools } from '../../agent/tools';
 function fakePrisma(overrides: Record<string, any> = {}): PrismaClient {
   return {
     execution: {
-      findMany: jest.fn(async (args: any) => overrides.executions ?? []),
-      findFirst: jest.fn(async (args: any) => overrides.execution ?? null),
+      findMany: jest.fn(async (_args: any) => overrides.executions ?? []),
+      findFirst: jest.fn(async (_args: any) => overrides.execution ?? null),
     },
     nodeLog: {
-      findFirst: jest.fn(async (args: any) => overrides.nodeLog ?? null),
+      findFirst: jest.fn(async (_args: any) => overrides.nodeLog ?? null),
     },
     runbook: {
-      findMany: jest.fn(async (args: any) => overrides.workflows ?? []),
+      findMany: jest.fn(async (_args: any) => overrides.workflows ?? []),
     },
   } as unknown as PrismaClient;
 }

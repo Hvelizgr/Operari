@@ -2,7 +2,7 @@ import { Router } from 'express';
 
 import { AuditService } from '../audit/audit.service';
 import { ExecutionService } from '../editor/execution/execution.service';
-import { anonymousFallback, authenticate, AuthRequest } from '../middleware/auth.middleware';
+import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
 import { ExecutionEventStore } from '../runbook/engine/execution-event.store';
 import { getRunner } from '../runbook/runners';
 import { prisma } from '../server';

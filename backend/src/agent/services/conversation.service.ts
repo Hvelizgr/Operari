@@ -1,4 +1,4 @@
-import { ConversationStatus, MessageRole, PrismaClient } from '@prisma/client';
+import { MessageRole, PrismaClient } from '@prisma/client';
 
 import { logger } from '../../config/logger.config';
 

@@ -16,7 +16,6 @@ import { createHmac, timingSafeEqual } from 'crypto';
  * the webhook routes that need it, so this module consumes `Buffer`.
  */
 
-const SIGNATURE_HEADER = 'stripe-signature';
 const DEFAULT_TOLERANCE_SECONDS = 5 * 60; // 5 minutes
 
 export class StripeSignatureError extends Error {

@@ -1,4 +1,4 @@
-import { ExecutionStatus, PrismaClient, TriggerType } from '@prisma/client';
+import { PrismaClient, TriggerType } from '@prisma/client';
 
 import { ExecutionService } from '../editor/execution/execution.service';
 import { ErrorCode, WorkflowError } from '../errors/custom-error';

@@ -2,10 +2,6 @@ import type { ExecutionEvent, PrismaClient } from '@prisma/client';
 
 import { ExecutionEventStore } from '../../../runbook/engine/execution-event.store';
 
-interface FakeRow extends ExecutionEvent {
-  payload: never;
-}
-
 function buildPrisma(seed: ExecutionEvent[] = []) {
   const rows: ExecutionEvent[] = [...seed];
   let nextSeq = (seed.reduce((m, r) => (r.seq > m ? r.seq : m), 0n) ?? 0n) + 1n;

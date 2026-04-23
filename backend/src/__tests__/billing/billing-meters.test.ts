@@ -132,7 +132,7 @@ describe('StripeBillingMeter', () => {
       { type: 'storage.gb_hour', expected: 'nanorun_storage_gb_hours' },
     ];
 
-    for (const { type, expected } of types) {
+    for (const { type } of types) {
       await meter.record({ type, customerId: 'c', value: 1 });
     }
 

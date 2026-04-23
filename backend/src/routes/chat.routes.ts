@@ -240,7 +240,7 @@ router.get('/conversations/:id', async (req: AuthRequest, res: Response) => {
     }
 
     res.json(conversation);
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to get conversation' });
   }
 });
@@ -275,7 +275,7 @@ router.delete('/conversations/:id', async (req: AuthRequest, res: Response) => {
     }
 
     res.json({ message: 'Conversation archived', id: conversation.id });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to archive conversation' });
   }
 });

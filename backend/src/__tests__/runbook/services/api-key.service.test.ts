@@ -1,5 +1,4 @@
 import type { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
 
 import { AuditService } from '../../../audit/audit.service';
 import { ApiKeyService } from '../../../runbook/services/api-key.service';

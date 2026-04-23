@@ -1,7 +1,4 @@
-import {
-  SecretReferenceError,
-  SecretTemplateResolver,
-} from '../../../runbook/secrets/secret-template-resolver';
+import { SecretTemplateResolver } from '../../../runbook/secrets/secret-template-resolver';
 import { resolveTemplate } from '../../../runbook/types/executor.types';
 import {
   ConnectedAccountError,

@@ -1,11 +1,4 @@
-import {
-  ExecutionStatus,
-  NodeLogStatus,
-  Prisma,
-  PrismaClient,
-  Runbook,
-  TriggerType,
-} from '@prisma/client';
+import { Prisma, PrismaClient, Runbook, TriggerType } from '@prisma/client';
 
 import { ActorType, AuditEventType, AuditService } from '../../audit/audit.service';
 import type { BillingMeter } from '../../billing';
@@ -15,7 +8,6 @@ import {
   CustomError,
   ErrorCode,
   ErrorSeverity,
-  NodeExecutionError,
   WorkflowError,
   wrapError,
 } from '../../errors/custom-error';
@@ -25,7 +17,7 @@ import type { ExecutionEventPayload } from '../../runbook/engine/execution-event
 import { getRunner } from '../../runbook/runners';
 import { GitHubStatusService } from '../../runbook/services/github-status.service';
 import { ErrorNotificationService } from '../../services/error-notification.service';
-import { ContextLogger, Logger } from '../../services/logger.service';
+import { Logger } from '../../services/logger.service';
 import {
   ExecutionInput,
   ExecutionOutput,
@@ -1116,9 +1108,16 @@ export class ExecutionService {
               .map(c => nodes.find(n => n.id === c.target))
               .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
 
-            // Execute children once per iteration, passing item context
+            // Execute children once per iteration, passing item context.
+            // The inner `for (const _child of childNodes)` loop is
+            // intentionally present but unused: the loop body only writes
+            // to `nodeOutputs[currentNode.id]` (same key every iter),
+            // which means the per-child loop is a no-op today. Preserved
+            // because the planned shape is per-child output injection,
+            // currently tracked under the runner refactor (not in this
+            // scope). Prefix with `_` to silence the unused-var rule.
             for (let i = 0; i < items.length; i++) {
-              for (const child of childNodes) {
+              for (const _child of childNodes) {
                 // Inject loop iteration variables into the node's input
                 nodeOutputs[currentNode.id] = {
                   ...nodeOutput,

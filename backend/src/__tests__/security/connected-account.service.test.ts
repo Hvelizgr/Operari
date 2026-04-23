@@ -13,10 +13,6 @@ const HEX_KEY = randomBytes(32).toString('hex');
 const TENANT = 'tenant-1';
 const USER = 'user-1';
 
-interface FakeRow extends ConnectedAccount {
-  metadata: never;
-}
-
 function buildPrisma(seed: ConnectedAccount[] = []) {
   const rows: ConnectedAccount[] = [...seed];
   let nextId = rows.length + 1;

@@ -23,7 +23,6 @@ import { SplitNodeExecutor } from './logic/split-node.executor';
 import type { EditorNodeExecutor } from './nodes/_shared';
 import {
   getNestedValue as sharedGetNestedValue,
-  NodeErrorContext,
   resolveTemplate as sharedResolveTemplate,
 } from './nodes/_shared';
 import { ConditionNodeExecutor } from './nodes/condition.executor';
@@ -42,10 +41,6 @@ import { SuspendNodeExecutor } from './nodes/suspend.executor';
 import { SwitchNodeExecutor } from './nodes/switch.executor';
 import { TransformNodeExecutor } from './nodes/transform.executor';
 import { TriggerNodeExecutor } from './nodes/trigger.executor';
-
-// Local alias preserved so the existing call sites compile unchanged.
-// New code should import NodeErrorContext from ./nodes/_shared directly.
-type commonErrorContext = NodeErrorContext;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyEditorExecutor = EditorNodeExecutor<any, any>;

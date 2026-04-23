@@ -1,6 +1,5 @@
 import { NodeExecutor } from '../../editor/node-executor.service';
 import { ErrorCode } from '../../errors/custom-error';
-import { Logger } from '../../services/logger.service';
 import { ExecutionInput, WorkflowNode } from '../../types/workflow.types';
 
 // Mock dependencies

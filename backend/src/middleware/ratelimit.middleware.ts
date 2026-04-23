@@ -70,7 +70,7 @@ const getUserIdentifier = (req: Request): string => {
       if (decoded.tenantId) {
         return `tenant:${decoded.tenantId}`;
       }
-    } catch (error) {
+    } catch {
       // Token invalid or expired, fall through to IP-based limiting
     }
   }

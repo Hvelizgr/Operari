@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { AuditEventType, AuditService } from '../audit/audit.service';
 import { assertRunbookQuota, QuotaExceededError } from '../billing/quotas';
-import { authenticate, AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest } from '../middleware/auth.middleware';
 import {
   fromSpec,
   RunbookSerializerError,
@@ -13,11 +13,8 @@ import {
   yamlToSpec,
 } from '../runbook/yaml/runbook-serializer';
 import { prisma } from '../server';
-import { computeNextRunAt, SchedulerService } from '../services/scheduler.service';
-import {
-  ValidationSeverity,
-  WorkflowValidatorService,
-} from '../services/workflow-validator.service';
+import { computeNextRunAt } from '../services/scheduler.service';
+import { WorkflowValidatorService } from '../services/workflow-validator.service';
 import {
   runbookInputDefinitionSchema,
   WorkflowConnection,

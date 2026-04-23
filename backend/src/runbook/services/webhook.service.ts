@@ -107,7 +107,7 @@ export class WebhookService {
     secret: string,
     rawBody: Buffer | string | undefined,
     signatureHeader: string | undefined,
-    source: string
+    _source: string
   ): boolean {
     if (!signatureHeader) return false;
     if (rawBody === undefined || rawBody === null) return false;
