@@ -912,6 +912,38 @@ export class ExecutionService {
     });
   }
 
+  /**
+   * Resolve the children of a finished node that are now ready to
+   * execute — every one of their parents is already in executedNodes.
+   *
+   * Replaces the earlier "push every child, pop later, skip if not
+   * ready, re-queue" busy-spin pattern. Deferring the push until the
+   * join is satisfied means each node lands in the queue exactly
+   * once regardless of how many parents converged on it.
+   *
+   * Skipped nodes are treated as executed (the engine already adds
+   * them to `executedNodes`) so a Condition/Switch that bypasses one
+   * branch still unblocks downstream joins via the surviving branch.
+   */
+  private readyChildrenOf(
+    nodeId: string,
+    nodes: WorkflowNode[],
+    connections: WorkflowConnection[],
+    executedNodes: Set<string>
+  ): WorkflowNode[] {
+    const ready: WorkflowNode[] = [];
+    for (const conn of connections) {
+      if (conn.source !== nodeId) continue;
+      const child = nodes.find(n => n.id === conn.target);
+      if (!child) continue;
+      if (executedNodes.has(child.id)) continue;
+      const parents = connections.filter(c => c.target === child.id);
+      const allParentsDone = parents.every(p => executedNodes.has(p.source));
+      if (allParentsDone) ready.push(child);
+    }
+    return ready;
+  }
+
   private async runWorkflow(
     executionId: string,
     workflow: Runbook,
@@ -1008,31 +1040,20 @@ export class ExecutionService {
 
           executedNodes.add(currentNode.id); // Mark as "executed" to allow children to run
 
-          // Add children of the skipped node to the execution queue
-
-          const nextNodes = connections
-
-            .filter(c => c.source === currentNode.id)
-
-            .map(c => nodes.find(n => n.id === c.target))
-
-            .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
-
-          nodesToExecute.push(...nextNodes);
+          // Add children whose ALL parents are now executed. Children
+          // with still-pending parents stay out of the queue; the last
+          // parent to finish is the one that pushes them.
+          nodesToExecute.push(
+            ...this.readyChildrenOf(currentNode.id, nodes, connections, executedNodes)
+          );
 
           continue;
         }
 
-        // Check if all parents have been executed (Synchronization logic for Join/Advanced nodes)
-
-        const incomingConns = connections.filter(c => c.target === currentNode.id);
-        const allParentsExecuted = incomingConns.every(c => executedNodes.has(c.source));
-
-        if (incomingConns.length > 1 && !allParentsExecuted) {
-          // If the node has multiple inputs and not all are ready, we skip it for now.
-          // It will be re-queued when other parent nodes finish.
-          continue;
-        }
+        // Invariant: readyChildrenOf only pushes nodes whose parents
+        // are all in executedNodes, so by the time a node pops here
+        // every predecessor has already been evaluated. This replaces
+        // the old "if not all parents done, continue" busy-spin.
 
         const nodeInput = this.getNodeInput(currentNode.id, connections, nodeOutputs, input);
 
@@ -1275,11 +1296,12 @@ export class ExecutionService {
               nodesToExecute.push(...childNodes);
             }
           } else {
-            const nextNodes = outgoingConnections
-              .map(c => nodes.find(n => n.id === c.target))
-              .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
-
-            nodesToExecute.push(...nextNodes);
+            // Normal path: push only children whose every parent has
+            // finished. Multi-parent joins are unblocked by whichever
+            // parent lands last — no more busy-spin re-queue.
+            nodesToExecute.push(
+              ...this.readyChildrenOf(currentNode.id, nodes, connections, executedNodes)
+            );
           }
         } catch (error) {
           const wrappedError = wrapError(error, nodeContext);
