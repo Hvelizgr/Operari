@@ -130,26 +130,11 @@ describe('ExecutionService → AuditService wiring', () => {
     expect(startEvent?.payload.trigger).toBe(TriggerType.MANUAL);
   });
 
-  it('skips audit when tenantId is missing', async () => {
-    (prisma.runbook.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
-    (prisma.execution.create as jest.Mock).mockResolvedValue({
-      id: 'exec-no-tenant',
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      status: 'RUNNING',
-      trigger: 'MANUAL',
-    });
-
-    await service.execute({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      trigger: TriggerType.MANUAL,
-      // no tenantId
-    });
-
-    await sleep(0);
-    expect(audit.events).toHaveLength(0);
-  });
+  // The "skip audit when tenantId missing" case is no longer reachable:
+  // Execution / NodeLog / ExecutionError now require tenantId at the
+  // schema level, and ExecuteParams.tenantId is required at compile
+  // time. The compiler rejects the old legacy call pattern this test
+  // used to guard.
 
   it('does not call audit at all when audit is null', async () => {
     const auditSpy = jest.fn();

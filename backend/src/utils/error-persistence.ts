@@ -14,12 +14,17 @@ export const toPrismaErrorSeverity = (severity: string): $Enums.ErrorSeverity =>
   severity.toUpperCase() as $Enums.ErrorSeverity;
 
 /**
- * Persist an error to the database
+ * Persist an error to the database.
+ *
+ * `tenantId` is required so the row can be scoped without a join back
+ * through Execution — callers already have it in scope (it comes from
+ * the request context or the parent Runbook). Never look it up here.
  */
 export async function persistExecutionError(
   prisma: PrismaClient,
   error: CustomError | Error,
   executionId: string,
+  tenantId: string,
   nodeLogId?: string
 ): Promise<void> {
   try {
@@ -27,6 +32,7 @@ export async function persistExecutionError(
       await prisma.executionError.create({
         data: {
           executionId,
+          tenantId,
           nodeLogId,
           code: error.code,
           message: error.message,
@@ -51,6 +57,7 @@ export async function persistExecutionError(
       await prisma.executionError.create({
         data: {
           executionId,
+          tenantId,
           nodeLogId,
           code: 'ERR_1000', // UNKNOWN_ERROR
           message: error.message,

@@ -139,10 +139,11 @@ async function handleExecutionError(
   prisma: PrismaClient,
   error: CustomError,
   executionId: string,
+  tenantId: string,
   nodeLogId?: string
 ) {
   // Save error to database
-  await persistExecutionError(prisma, error, executionId, nodeLogId);
+  await persistExecutionError(prisma, error, executionId, tenantId, nodeLogId);
 
   // Get all critical errors for this execution
   const criticalErrors = await getCriticalErrors(prisma, executionId);

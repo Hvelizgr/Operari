@@ -34,7 +34,13 @@ interface ExecuteParams {
   userId: string;
   trigger: TriggerType;
   input?: ExecutionInput;
-  tenantId?: string;
+  /**
+   * Tenant that owns this run. Required — Execution / NodeLog /
+   * ExecutionError all denormalize it, and tenant-scope enforcement
+   * in the Prisma middleware would reject queries against these
+   * tables if we left it nullable here.
+   */
+  tenantId: string;
   startNodeId?: string;
   /**
    * When set, the new Execution is tagged as a child of this run.
@@ -498,6 +504,7 @@ export class ExecutionService {
       const execution = await this.prisma.execution.create({
         data: {
           workflowId,
+          tenantId,
           userId,
           trigger,
           status: 'RUNNING',
@@ -644,6 +651,7 @@ export class ExecutionService {
     const newExecution = await this.prisma.execution.create({
       data: {
         workflowId: originalExecution.workflowId,
+        tenantId,
         userId,
         trigger: originalExecution.trigger,
         status: 'RUNNING',
@@ -785,7 +793,7 @@ export class ExecutionService {
     workflow: Runbook,
     input: ExecutionInput,
     executionContext: Record<string, unknown>,
-    tenantId?: string,
+    tenantId: string,
     startNodeId?: string,
     initialState?: RunState,
     dryRun: boolean = false
@@ -833,6 +841,7 @@ export class ExecutionService {
           await this.prisma.nodeLog.create({
             data: {
               executionId,
+              tenantId,
 
               nodeId: currentNode.id,
 
@@ -906,6 +915,7 @@ export class ExecutionService {
         const nodeLog = await this.prisma.nodeLog.create({
           data: {
             executionId,
+            tenantId,
             nodeId: currentNode.id,
             nodeName: currentNode.title,
             nodeType: currentNode.type,
@@ -1152,7 +1162,7 @@ export class ExecutionService {
           const nodeDuration = Date.now() - nodeStartTime;
 
           // Persist error to database
-          await persistExecutionError(this.prisma, wrappedError, executionId, nodeLog.id);
+          await persistExecutionError(this.prisma, wrappedError, executionId, tenantId, nodeLog.id);
 
           // Update node log with error
           const errorMessage =
@@ -1328,7 +1338,7 @@ export class ExecutionService {
       const wrappedError = wrapError(error, executionContext);
 
       // Persist error to database
-      await persistExecutionError(this.prisma, wrappedError, executionId);
+      await persistExecutionError(this.prisma, wrappedError, executionId, tenantId);
 
       const errorMessage =
         wrappedError instanceof CustomError

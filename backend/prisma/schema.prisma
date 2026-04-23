@@ -222,6 +222,9 @@ model Tenant {
   eventAgents       EventAgent[]
   monitors          Monitor[]
   invites           TenantInvite[]
+  executions        Execution[]
+  nodeLogs          NodeLog[]
+  executionErrors   ExecutionError[]
   webhookEvents     WebhookEvent[]
 
   @@index([slug])
@@ -338,6 +341,12 @@ model RunbookConnection {
 model Execution {
   id          String          @id @default(uuid())
   workflowId  String
+  /// Denormalized tenant scope. Joined-through scoping via Runbook
+  /// was fragile — any query that forgot the join leaked data across
+  /// tenants. Always populated at create-time from the Runbook, and
+  /// a Prisma middleware rejects queries to this table that don't
+  /// filter by tenantId.
+  tenantId    String
   userId      String
   status      ExecutionStatus @default(PENDING)
   trigger     TriggerType
@@ -367,6 +376,7 @@ model Execution {
   children          Execution[] @relation("ExecutionHierarchy")
 
   workflow        Runbook          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user            User             @relation(fields: [userId], references: [id])
   nodeLogs        NodeLog[]
   executionErrors ExecutionError[]
@@ -376,11 +386,16 @@ model Execution {
   @@index([status])
   @@index([startedAt])
   @@index([parentExecutionId])
+  @@index([tenantId, status, startedAt(sort: Desc)])
 }
 
 model NodeLog {
   id          String        @id @default(uuid())
   executionId String
+  /// Denormalized from Execution. Lets per-tenant error dashboards
+  /// and agent tools scan step logs without joining to Execution on
+  /// every query.
+  tenantId    String
   nodeId      String
   nodeName    String
   nodeType    String
@@ -393,15 +408,21 @@ model NodeLog {
   duration    Int?
 
   execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([executionId])
   @@index([nodeId])
   @@index([status])
+  @@index([tenantId, executionId])
 }
 
 model ExecutionError {
   id          String        @id @default(uuid())
   executionId String
+  /// Denormalized from Execution. Per-tenant error dashboards filter
+  /// by tenant + severity + time — the composite index below covers
+  /// that path without a join.
+  tenantId    String
   nodeLogId   String?
   code        String
   message     String
@@ -418,11 +439,13 @@ model ExecutionError {
   notifiedAt  DateTime?
 
   execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([executionId])
   @@index([code])
   @@index([severity])
   @@index([createdAt])
+  @@index([tenantId, severity, createdAt(sort: Desc)])
 }
 
 model ErrorNotificationConfig {
