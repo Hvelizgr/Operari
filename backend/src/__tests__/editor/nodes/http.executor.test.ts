@@ -84,7 +84,12 @@ describe('HttpNodeExecutor', () => {
       fail('expected throw');
     } catch (err) {
       expect(err).toBeInstanceOf(HttpError);
-      expect((err as HttpError).statusCode).toBe(500);
+      // upstreamStatus captures the external service's failure code
+      // (the server we called returned 500). The HttpError's inherited
+      // statusCode getter is the client-facing HTTP status we'd surface,
+      // which for HTTP_REQUEST_FAILED maps to 502 — that's a separate
+      // concern from what the upstream server said.
+      expect((err as HttpError).upstreamStatus).toBe(500);
     }
   });
 

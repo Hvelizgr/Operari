@@ -49,7 +49,72 @@ export enum ErrorCode {
   // Condition errors (7xxx)
   CONDITION_EVALUATION_FAILED = 'ERR_7000',
   CONDITION_INVALID_SYNTAX = 'ERR_7001',
+
+  // User/tenant errors (8xxx) — surface as HTTP errors at the boundary
+  RESOURCE_NOT_FOUND = 'ERR_8000',
+  RESOURCE_CONFLICT = 'ERR_8001',
+  FORBIDDEN = 'ERR_8002',
+  UNAUTHORIZED = 'ERR_8003',
+  BAD_REQUEST = 'ERR_8004',
 }
+
+/**
+ * Maps every ErrorCode to the HTTP status clients should see.
+ *
+ * Keep every enum value in sync here — missing entries default to 500
+ * via the lookup in `CustomError.statusCode`, which is a correct-but-
+ * conservative fallback. When the TypeScript `Record<ErrorCode, number>`
+ * constraint flags a new code without a mapping, fix it here instead
+ * of relying on the fallback.
+ *
+ * The mapping is semantic, not literal: QUOTA_EXCEEDED is 402 (as the
+ * code's own JSDoc spells out at the enum declaration), HTTP_TIMEOUT
+ * → 504 so the upstream sees gateway-timeout semantics, etc.
+ */
+export const ERROR_CODE_TO_HTTP: Record<ErrorCode, number> = {
+  [ErrorCode.UNKNOWN_ERROR]: 500,
+  [ErrorCode.VALIDATION_ERROR]: 400,
+  [ErrorCode.CONFIGURATION_ERROR]: 500,
+  [ErrorCode.TIMEOUT_ERROR]: 504,
+
+  [ErrorCode.WORKFLOW_NOT_FOUND]: 404,
+  [ErrorCode.WORKFLOW_INVALID]: 422,
+  [ErrorCode.WORKFLOW_DISABLED]: 403,
+  [ErrorCode.EXECUTION_NOT_FOUND]: 404,
+  [ErrorCode.QUOTA_EXCEEDED]: 402,
+
+  [ErrorCode.NODE_EXECUTION_FAILED]: 500,
+  [ErrorCode.NODE_NOT_FOUND]: 422,
+  [ErrorCode.NODE_CONFIG_INVALID]: 422,
+  [ErrorCode.NODE_INPUT_INVALID]: 400,
+  [ErrorCode.NODE_OUTPUT_INVALID]: 500,
+  [ErrorCode.NODE_TIMEOUT]: 504,
+
+  [ErrorCode.HTTP_REQUEST_FAILED]: 502,
+  [ErrorCode.HTTP_TIMEOUT]: 504,
+  [ErrorCode.HTTP_CONNECTION_REFUSED]: 502,
+  [ErrorCode.HTTP_INVALID_URL]: 400,
+  [ErrorCode.HTTP_INVALID_RESPONSE]: 502,
+
+  [ErrorCode.EMAIL_SEND_FAILED]: 500,
+  [ErrorCode.EMAIL_NOT_CONFIGURED]: 500,
+  [ErrorCode.DATABASE_OPERATION_FAILED]: 500,
+  [ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE]: 503,
+
+  [ErrorCode.SANDBOX_EXECUTION_FAILED]: 500,
+  [ErrorCode.SANDBOX_TIMEOUT]: 504,
+  [ErrorCode.SANDBOX_MEMORY_EXCEEDED]: 500,
+  [ErrorCode.SANDBOX_FORBIDDEN_OPERATION]: 403,
+
+  [ErrorCode.CONDITION_EVALUATION_FAILED]: 422,
+  [ErrorCode.CONDITION_INVALID_SYNTAX]: 400,
+
+  [ErrorCode.RESOURCE_NOT_FOUND]: 404,
+  [ErrorCode.RESOURCE_CONFLICT]: 409,
+  [ErrorCode.FORBIDDEN]: 403,
+  [ErrorCode.UNAUTHORIZED]: 401,
+  [ErrorCode.BAD_REQUEST]: 400,
+};
 
 /**
  * Execution context for error tracing
@@ -158,8 +223,40 @@ export class CustomError extends Error {
 
       [ErrorCode.CONDITION_EVALUATION_FAILED]: 'Failed to evaluate the condition.',
       [ErrorCode.CONDITION_INVALID_SYNTAX]: 'The condition has invalid syntax.',
+
+      [ErrorCode.RESOURCE_NOT_FOUND]: 'The requested resource was not found.',
+      [ErrorCode.RESOURCE_CONFLICT]:
+        'The resource already exists or conflicts with an existing one.',
+      [ErrorCode.FORBIDDEN]: 'You do not have permission to perform this action.',
+      [ErrorCode.UNAUTHORIZED]: 'Authentication is required.',
+      [ErrorCode.BAD_REQUEST]: 'The request is invalid.',
     };
     return messages[code] || 'An error occurred.';
+  }
+
+  /**
+   * HTTP status code this error should surface as at the API boundary.
+   * Derived from the error code via ERROR_CODE_TO_HTTP; subclasses that
+   * need finer control (e.g. HttpError which preserves the upstream
+   * response status) override this getter.
+   */
+  get statusCode(): number {
+    return ERROR_CODE_TO_HTTP[this.code] ?? 500;
+  }
+
+  /**
+   * Shape used by the express error middleware to respond. Keeps the
+   * response body consistent across every route: a `code` clients can
+   * branch on, a `userMessage` safe to surface in the UI, and a
+   * `message` for developer-facing tools. Internal fields like `stack`
+   * and `context` stay in the log only — never on the wire.
+   */
+  toResponse(): { code: ErrorCode; message: string; userMessage: string } {
+    return {
+      code: this.code,
+      message: this.message,
+      userMessage: this.userMessage,
+    };
   }
 
   /**
@@ -221,24 +318,37 @@ export class NodeExecutionError extends CustomError {
 }
 
 /**
- * Error for HTTP/network operations
+ * Error for HTTP/network operations.
+ *
+ * `upstreamStatus` is the status code returned by the external service
+ * we called — NOT the status code we surface to our own API client.
+ * The client-facing status is produced by the inherited `statusCode`
+ * getter, which maps ErrorCode → HTTP (e.g. HTTP_REQUEST_FAILED → 502).
+ *
+ * Keeping the two separate avoids the bug pattern of forwarding an
+ * upstream 401 straight through to our client, which would imply they
+ * are unauthenticated when they're not — it's the third-party API
+ * that rejected our credentials.
  */
 export class HttpError extends CustomError {
-  public readonly statusCode?: number;
+  public readonly upstreamStatus?: number;
   public readonly url?: string;
 
   constructor(options: {
     message: string;
     code?: ErrorCode;
-    statusCode?: number;
+    /** HTTP status returned by the external service that failed. Used
+     *  to decide retryability (5xx / 429 → retry) and surfaces in logs,
+     *  but does NOT become the HTTP status our own API responds with. */
+    upstreamStatus?: number;
     url?: string;
     context?: ExecutionErrorContext;
     cause?: Error;
     userMessage?: string;
   }) {
     // HTTP errors are often retryable (network issues, timeouts, 5xx errors)
-    const isRetryable = options.statusCode
-      ? options.statusCode >= 500 || options.statusCode === 429
+    const isRetryable = options.upstreamStatus
+      ? options.upstreamStatus >= 500 || options.upstreamStatus === 429
       : true;
 
     super({
@@ -251,14 +361,14 @@ export class HttpError extends CustomError {
       userMessage: options.userMessage,
     });
 
-    this.statusCode = options.statusCode;
+    this.upstreamStatus = options.upstreamStatus;
     this.url = options.url;
   }
 
   toJSON(): Record<string, unknown> {
     return {
       ...super.toJSON(),
-      statusCode: this.statusCode,
+      upstreamStatus: this.upstreamStatus,
       url: this.url,
     };
   }

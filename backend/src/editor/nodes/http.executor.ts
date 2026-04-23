@@ -50,7 +50,7 @@ export class HttpNodeExecutor implements EditorNodeExecutor<HttpNodeConfig, Http
               ...errorContext,
               message: `HTTP ${response.status} ${response.statusText}`,
               code: HttpNodeExecutor.statusToErrorCode(response.status),
-              statusCode: response.status,
+              upstreamStatus: response.status,
               url: resolvedUrl,
             });
           }

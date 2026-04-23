@@ -106,7 +106,7 @@ async function makeHttpRequest(config: any, input: any) {
               response.status === 404
                 ? ErrorCode.HTTP_REQUEST_FAILED
                 : ErrorCode.HTTP_REQUEST_FAILED,
-            statusCode: response.status,
+            upstreamStatus: response.status,
             url: config.url,
           });
         }

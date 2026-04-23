@@ -3,6 +3,7 @@ import cronstrue from 'cronstrue';
 import cron from 'node-cron';
 
 import { ExecutionService } from '../editor/execution/execution.service';
+import { CustomError, ErrorCode } from '../errors/custom-error';
 import { computeNextRunAt, SchedulerService } from './scheduler.service';
 
 /**
@@ -97,22 +98,34 @@ export class ScheduleService {
 
   async create(tenantId: string, workflowId: string, cronExpr: string) {
     if (!cron.validate(cronExpr)) {
-      throw new Error(`Invalid cron expression: ${cronExpr}`);
+      throw new CustomError({
+        message: `Invalid cron expression: ${cronExpr}`,
+        code: ErrorCode.VALIDATION_ERROR,
+        userMessage: 'The cron expression is not valid.',
+      });
     }
     // Confirm the workflow belongs to the tenant.
     const workflow = await this.prisma.runbook.findFirst({
       where: { id: workflowId, tenantId },
     });
     if (!workflow) {
-      throw new Error('workflow_not_found_in_tenant');
+      throw new CustomError({
+        message: `Workflow ${workflowId} not found for tenant ${tenantId}`,
+        code: ErrorCode.WORKFLOW_NOT_FOUND,
+        userMessage: 'Runbook not found.',
+      });
     }
     // Schema enforces workflowId @unique, so a second create on the
-    // same runbook would 500. Convert to a clean error.
+    // same runbook would 500. Convert to a clean 409.
     const existing = await this.prisma.scheduledJob.findUnique({
       where: { workflowId },
     });
     if (existing) {
-      throw new Error('schedule_already_exists_for_runbook');
+      throw new CustomError({
+        message: 'schedule_already_exists_for_runbook',
+        code: ErrorCode.RESOURCE_CONFLICT,
+        userMessage: 'This runbook already has a schedule.',
+      });
     }
 
     const job = await this.prisma.scheduledJob.create({
@@ -134,7 +147,11 @@ export class ScheduleService {
     if (!existing) return null;
 
     if (patch.cronExpr !== undefined && !cron.validate(patch.cronExpr)) {
-      throw new Error(`Invalid cron expression: ${patch.cronExpr}`);
+      throw new CustomError({
+        message: `Invalid cron expression: ${patch.cronExpr}`,
+        code: ErrorCode.VALIDATION_ERROR,
+        userMessage: 'The cron expression is not valid.',
+      });
     }
 
     const nextCron = patch.cronExpr ?? existing.cronExpr;
