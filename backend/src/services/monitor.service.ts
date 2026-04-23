@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 
 import { logger } from '../config/logger.config';
+import { MonitorAlertService } from './monitor-alert.service';
 
 /**
  * MonitorService — periodic watchdog over runbook health.
@@ -32,7 +33,14 @@ export interface MonitorInput {
 }
 
 export class MonitorService {
-  constructor(private prisma: PrismaClient) {}
+  private readonly alertService: MonitorAlertService;
+
+  constructor(
+    private prisma: PrismaClient,
+    alertService?: MonitorAlertService
+  ) {
+    this.alertService = alertService ?? new MonitorAlertService();
+  }
 
   list(tenantId: string) {
     return this.prisma.monitor.findMany({
@@ -228,6 +236,25 @@ export class MonitorService {
               reason: result.reason,
             },
           });
+          // Only the OK → FIRING edge triggers a human-facing alert.
+          // A FIRING → OK flip writes the MonitorEvent (UI recovery
+          // banner) but we don't page the operator for a self-heal.
+          if (result.status === 'FIRING') {
+            void this.alertService
+              .fire({
+                monitor: {
+                  id: m.id,
+                  name: m.name,
+                  alertWebhookUrl: m.alertWebhookUrl,
+                  alertEmail: m.alertEmail,
+                  workflowId: m.workflowId,
+                },
+                reason: result.reason,
+              })
+              .catch(err => {
+                logger.error({ err, monitorId: m.id }, 'Monitor alert dispatch threw');
+              });
+          }
         }
       } catch (err) {
         logger.error({ err, monitorId: m.id }, 'Monitor evaluation failed');
