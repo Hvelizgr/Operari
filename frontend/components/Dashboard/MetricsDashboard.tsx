@@ -1,7 +1,7 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { BarChart3, X, Clock, CheckCircle, XCircle, TrendingUp } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { BarChart3, CheckCircle, Clock, TrendingUp, X, XCircle } from 'lucide-react';
 import { useState } from 'react';
 
 interface ExecutionMetric {

@@ -1,5 +1,5 @@
-import request from 'supertest';
 import express from 'express';
+import request from 'supertest';
 
 /**
  * Invite lifecycle tests with a fully mocked prisma + email service.
@@ -46,7 +46,6 @@ function buildApp(user: typeof ADMIN_USER | typeof MEMBER_USER | null) {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (req as any).log = {
       error: () => {
         /* noop */
@@ -59,7 +58,6 @@ function buildApp(user: typeof ADMIN_USER | typeof MEMBER_USER | null) {
       },
     };
     if (user) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (req as any).user = user;
     }
     next();

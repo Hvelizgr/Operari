@@ -1,10 +1,12 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { Map, Minimize2, Maximize2 } from 'lucide-react';
-import { useState, useCallback, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Map, Maximize2, Minimize2 } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
+
+import { type MinimapPosition, useVisualization } from '@/context/VisualizationContext';
+
 import { WorkflowNode } from '../Editor';
-import { useVisualization, type MinimapPosition } from '@/context/VisualizationContext';
 
 interface MiniMapProps {
   nodes: WorkflowNode[];

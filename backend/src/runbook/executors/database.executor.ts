@@ -1,9 +1,10 @@
 import { Client as PgClient } from 'pg';
+
 import {
-  StepExecutor,
   ExecutorContext,
   ExecutorResult,
   resolveTemplate,
+  StepExecutor,
 } from '../types/executor.types';
 import { createSSHTunnel, type TunnelResult } from './ssh-tunnel';
 

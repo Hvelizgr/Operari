@@ -9,6 +9,7 @@
 // position. Share one resolver so both surfaces always agree.
 
 import type { WorkflowNode } from '@cairn/shared';
+
 import { getNodePortInfo, type NodeWithDimensions, type PortInfo } from './nodePortUtils';
 
 export interface PortAnchorContext {

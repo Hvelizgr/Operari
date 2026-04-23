@@ -12,7 +12,7 @@
  * with line-aware messages, not just the catch-all "Step "x" → unknown
  * step" raised by the legacy semantic checker.
  */
-import Ajv, { type ValidateFunction, type ErrorObject } from 'ajv';
+import Ajv, { type ErrorObject, type ValidateFunction } from 'ajv';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 

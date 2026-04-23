@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { ArrowRight, FlaskConical, LayoutTemplate, Rocket, Workflow, X } from 'lucide-react';
 import Link from 'next/link';
-import { ArrowRight, LayoutTemplate, Workflow, FlaskConical, Rocket, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
 import { useAuth } from '@/lib/auth';
 
 const STORAGE_KEY = 'nanorun_tour_completed';

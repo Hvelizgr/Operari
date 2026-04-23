@@ -1,8 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
-
 import { Connection } from '@cairn/shared';
+import { motion } from 'framer-motion';
 
 // Removed local Connection interface
 

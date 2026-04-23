@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+
 import { content } from '@/app/[lang]/content/en';
 
 type TrustBarProps = {

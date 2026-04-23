@@ -4,7 +4,7 @@ import type {
   ExecutionInput,
 } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
-import { resolveTemplate, getNestedValue } from './_shared';
+import { getNestedValue, resolveTemplate } from './_shared';
 
 /**
  * Condition node — declarative `field operator value` evaluation.

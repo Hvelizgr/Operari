@@ -1,6 +1,6 @@
 import {
-  GitHubStatusService,
   type GitHubStatusParams,
+  GitHubStatusService,
 } from '../../../runbook/services/github-status.service';
 import { identityGitHubTokenDecryptor } from '../../../security/github-token-resolver';
 

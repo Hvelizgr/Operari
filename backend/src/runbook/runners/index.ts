@@ -1,12 +1,12 @@
-import { Runner, RunnerError } from './runner.types';
-import { LocalRunner } from './local.runner';
 import { DockerRunner, DockerRunnerOptions } from './docker.runner';
 import { FlyMachineRunner, FlyMachineRunnerOptions } from './fly-machine.runner';
+import { LocalRunner } from './local.runner';
+import { Runner, RunnerError } from './runner.types';
 
-export * from './runner.types';
-export { LocalRunner, localRunner } from './local.runner';
 export { DockerRunner } from './docker.runner';
 export { FlyMachineRunner } from './fly-machine.runner';
+export { LocalRunner, localRunner } from './local.runner';
+export * from './runner.types';
 
 export type RunnerType = 'local' | 'docker' | 'fly';
 

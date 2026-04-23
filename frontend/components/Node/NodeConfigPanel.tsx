@@ -1,13 +1,14 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, KeyRound, Copy, Check } from 'lucide-react';
-import { useState, useEffect } from 'react';
 import type { WorkflowNode } from '@cairn/shared';
-import { NODE_TYPES, NodeType } from './NodePalette';
-import DynamicNodeForm from './DynamicNodeForm';
-import RetryPolicyEditor from './RetryPolicyEditor';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Check, Copy, KeyRound, Settings, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
 import ConditionalEditor from './ConditionalEditor';
+import DynamicNodeForm from './DynamicNodeForm';
+import { NODE_TYPES, NodeType } from './NodePalette';
+import RetryPolicyEditor from './RetryPolicyEditor';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 

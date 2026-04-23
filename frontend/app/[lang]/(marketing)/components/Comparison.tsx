@@ -1,11 +1,13 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Check, X, Minus, ArrowRight } from 'lucide-react';
+import { ArrowRight, Check, Minus, X } from 'lucide-react';
 import Link from 'next/link';
+
 import { content } from '@/app/[lang]/content/en';
-import AuroraBackground from './AuroraBackground';
 import { useAnimeStaggerOnView } from '@/hooks/useAnimeStaggerOnView';
+
+import AuroraBackground from './AuroraBackground';
 
 type ComparisonProps = {
   content: typeof content.comparison;

@@ -1,6 +1,7 @@
 'use client';
 
-import { Check, ArrowRight } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
+
 import { STATUS_HEX_DEFAULTS, type StatusColors } from '@/context/VisualizationContext';
 
 /* ─────────────────────────────────────────────────────────────

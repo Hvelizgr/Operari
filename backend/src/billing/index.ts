@@ -5,10 +5,10 @@ import { buildStripeMeterEventSender } from './stripe-http-client';
 
 export type { BillableEvent, BillableEventType, BillingMeter } from './billing-meter.types';
 export { NoopBillingMeter } from './noop-billing-meter';
-export { StripeBillingMeter } from './stripe-billing-meter';
 export type { SendMeterEventFn, StripeBillingMeterOptions } from './stripe-billing-meter';
-export { buildStripeMeterEventSender } from './stripe-http-client';
+export { StripeBillingMeter } from './stripe-billing-meter';
 export type { StripeHttpClientOptions } from './stripe-http-client';
+export { buildStripeMeterEventSender } from './stripe-http-client';
 
 /**
  * Build the configured billing meter for this process.

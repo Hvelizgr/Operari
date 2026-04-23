@@ -1,7 +1,7 @@
 import { RunTracer } from './run-tracer';
 
-export { RunTracer } from './run-tracer';
 export type { StartRunInput, StartStepInput } from './run-tracer';
+export { RunTracer } from './run-tracer';
 
 /**
  * Process-wide singleton run tracer. Built lazily on first request so

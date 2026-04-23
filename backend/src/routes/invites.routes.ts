@@ -1,16 +1,17 @@
-import { Router, type Request, type Response } from 'express';
-import { z } from 'zod';
-import { randomBytes } from 'crypto';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import type { Role } from '@prisma/client';
-import { prisma } from '../server';
-import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
+import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
+import { type Request, type Response, Router } from 'express';
+import jwt from 'jsonwebtoken';
+import { z } from 'zod';
+
+import { type AuditEventType, AuditService } from '../audit/audit.service';
 import { generateInviteToken, hashInviteToken, INVITE_TOKEN_TTL_MS } from '../auth/invite-token';
 import { setSessionCookie } from '../auth/session-cookie';
+import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
+import { prisma } from '../server';
 import { sendEmail } from '../services/email.service';
 import { renderInviteEmail } from '../services/email-templates';
-import { AuditService, type AuditEventType } from '../audit/audit.service';
 
 const router = Router();
 

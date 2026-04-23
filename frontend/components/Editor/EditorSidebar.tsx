@@ -1,28 +1,29 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import {
-  LayoutDashboard,
-  CalendarClock,
-  Share2,
   Activity,
-  Zap,
-  Wrench,
-  ShieldCheck,
-  Inbox,
-  History,
-  LogOut,
-  User,
+  Bot,
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
-  Settings,
-  MessageSquare,
-  Bot,
+  History,
+  Inbox,
+  LayoutDashboard,
+  LogOut,
   Menu,
+  MessageSquare,
+  Settings,
+  Share2,
+  ShieldCheck,
+  User,
+  Wrench,
   X,
+  Zap,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
 import { useAuth } from '@/lib/auth';
 
 interface EditorSidebarProps {

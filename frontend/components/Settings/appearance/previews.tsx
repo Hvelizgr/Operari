@@ -1,11 +1,11 @@
 'use client';
 
 import type {
-  NodeStyle,
-  LineStyle,
-  FlowStyle,
-  EdgeDashPattern,
   BgPattern,
+  EdgeDashPattern,
+  FlowStyle,
+  LineStyle,
+  NodeStyle,
   VisualizationPrefs,
 } from '@/context/VisualizationContext';
 import { ACCENT_HEX } from '@/context/VisualizationContext';

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+
 import { AcceptInviteForm } from './AcceptInviteForm';
 
 export const dynamic = 'force-dynamic';

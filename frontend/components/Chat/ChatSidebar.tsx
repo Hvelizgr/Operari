@@ -1,8 +1,8 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
+import { ChevronLeft, ChevronRight, MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, MessageSquare, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 
 export interface ConversationSummary {
   id: string;

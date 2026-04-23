@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowRight, Loader2 } from 'lucide-react';
-import { useAuth, AuthError } from '@/lib/auth';
-import { yamlToSpec, specToNodes } from '@/utils/runbookYaml';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+
+import { AuthError, useAuth } from '@/lib/auth';
+import { specToNodes, yamlToSpec } from '@/utils/runbookYaml';
 
 interface UseTemplateButtonProps {
   slug: string;

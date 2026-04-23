@@ -1,5 +1,5 @@
-import request from 'supertest';
 import express from 'express';
+import request from 'supertest';
 
 /**
  * Thin unit tests around the /live endpoint. The route lives inside

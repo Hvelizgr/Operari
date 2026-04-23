@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
-import { AuditService, AuditEventType } from '../../audit/audit.service';
+
+import { AuditEventType, AuditService } from '../../audit/audit.service';
 
 describe('AuditService.computeHash', () => {
   it('is deterministic for the same payload and prevHash', () => {

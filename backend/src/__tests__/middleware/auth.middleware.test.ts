@@ -1,4 +1,4 @@
-import type { Response, NextFunction } from 'express';
+import type { NextFunction, Response } from 'express';
 
 // auth.middleware.ts imports `prisma` from ../server, which transitively
 // loads env.config and crashes on missing DATABASE_URL/JWT_SECRET. We
@@ -7,14 +7,14 @@ import type { Response, NextFunction } from 'express';
 // stub via setAuthProviderForTest below.
 jest.mock('../../server', () => ({ prisma: {} }));
 
-import { authenticate, requireRole, AuthRequest } from '../../middleware/auth.middleware';
 import {
-  AuthTransportError,
-  setAuthProviderForTest,
-  resetAuthProviderForTest,
-  type AuthProvider,
   type AuthenticatedUser,
+  type AuthProvider,
+  AuthTransportError,
+  resetAuthProviderForTest,
+  setAuthProviderForTest,
 } from '../../auth';
+import { authenticate, AuthRequest, requireRole } from '../../middleware/auth.middleware';
 
 /**
  * Unit tests for the bearer-auth middleware.

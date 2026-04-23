@@ -6,9 +6,10 @@
  * The canvas components now call this via the registry interface.
  */
 
-import type { NodeTypeRegistry, BadgeInfo, CategoryPalette } from './node-type-registry';
+import { CATEGORIES, NODE_TYPES } from '@/components/Node/NodePalette';
+
+import type { BadgeInfo, CategoryPalette, NodeTypeRegistry } from './node-type-registry';
 import { defaultRegistryMethods } from './node-type-registry';
-import { NODE_TYPES, CATEGORIES } from '@/components/Node/NodePalette';
 
 // ---- Category palette ----
 

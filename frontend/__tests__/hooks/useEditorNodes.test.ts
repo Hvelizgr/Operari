@@ -1,6 +1,7 @@
-import { renderHook, act } from '@testing-library/react';
-import { useEditorNodes } from '../../hooks/useEditorNodes';
+import { act, renderHook } from '@testing-library/react';
+
 import { INITIAL_NODES } from '../../constants/editor.constants';
+import { useEditorNodes } from '../../hooks/useEditorNodes';
 
 describe('useEditorNodes', () => {
   const mockExecuteCommand = jest.fn(cmd => cmd.execute());

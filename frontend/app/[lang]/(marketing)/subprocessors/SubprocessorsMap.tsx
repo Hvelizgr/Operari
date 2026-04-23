@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { MapPin } from 'lucide-react';
+import { useState } from 'react';
 
 type Entry = {
   name: string;

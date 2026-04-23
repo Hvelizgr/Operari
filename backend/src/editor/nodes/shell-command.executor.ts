@@ -1,12 +1,12 @@
+import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
+import type { ShellConfig } from '../../runbook/executors/shell.executor';
+import type { ExecutorContext, StepExecutor } from '../../runbook/types/executor.types';
 import type {
+  ExecutionInput,
   ShellCommandNodeConfig,
   ShellCommandResult,
-  ExecutionInput,
 } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_shared';
-import type { StepExecutor, ExecutorContext } from '../../runbook/types/executor.types';
-import type { ShellConfig } from '../../runbook/executors/shell.executor';
-import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
 
 /**
  * ShellCommand node — adapter that delegates to the runbook

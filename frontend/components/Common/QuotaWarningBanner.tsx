@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { AlertTriangle, X, Zap } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
 import { useAuth } from '@/lib/auth';
 
 const STRINGS = {

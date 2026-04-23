@@ -1,5 +1,6 @@
-import { render, fireEvent } from '@testing-library/react';
 import type { Connection } from '@cairn/shared';
+import { fireEvent, render } from '@testing-library/react';
+
 import EditorConnection from '@/components/Editor/EditorConnection';
 
 /**
@@ -59,8 +60,8 @@ describe('EditorConnection', () => {
     const { container } = renderInSvg();
     const paths = container.querySelectorAll('path');
     // The first path is the invisible click hitbox.
-    expect(paths[0].getAttribute('stroke')).toBe('transparent');
-    expect(paths[0].getAttribute('stroke-width')).toBe('20');
+    expect(paths[0]).toHaveAttribute('stroke', 'transparent');
+    expect(paths[0]).toHaveAttribute('stroke-width', '20');
   });
 
   it('paints the main line emerald when selected', () => {
@@ -68,7 +69,7 @@ describe('EditorConnection', () => {
     const paths = container.querySelectorAll('path');
     // The third path (index 2) is the main coloured line.
     // Selected colour is emerald #3ecf8e (post-Cairn rebrand accent).
-    expect(paths[2].getAttribute('stroke')).toBe('#3ecf8e');
+    expect(paths[2]).toHaveAttribute('stroke', '#3ecf8e');
   });
 
   it('fires onClick with the connection id when the group is clicked', () => {
@@ -82,8 +83,8 @@ describe('EditorConnection', () => {
     const { container } = renderInSvg();
     const circles = container.querySelectorAll('circle');
     expect(circles.length).toBeGreaterThanOrEqual(1);
-    expect(circles[0].getAttribute('cx')).toBe(String(targetPos.x));
-    expect(circles[0].getAttribute('cy')).toBe(String(targetPos.y));
+    expect(circles[0]).toHaveAttribute('cx', String(targetPos.x));
+    expect(circles[0]).toHaveAttribute('cy', String(targetPos.y));
   });
 
   it('renders extra animated circles in executing mode', () => {

@@ -3,7 +3,8 @@
  * Handles selection box state, drawing, and detecting nodes within the box
  */
 
-import { useState, useCallback, RefObject } from 'react';
+import { RefObject, useCallback, useState } from 'react';
+
 import { WorkflowNode } from '../components/Editor';
 import { EDITOR_CONFIG } from '../config/editor.config';
 import type { SelectionBoxState, ViewportState } from '../types/editor.types';

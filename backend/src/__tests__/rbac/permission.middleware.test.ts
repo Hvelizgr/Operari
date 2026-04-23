@@ -4,9 +4,9 @@ import request from 'supertest';
 jest.mock('../../server', () => ({ prisma: {} }));
 
 import {
-  requirePermission,
-  requireAnyPermission,
   __setPermissionServiceForTest,
+  requireAnyPermission,
+  requirePermission,
 } from '../../rbac/permission.middleware';
 import { PermissionService } from '../../rbac/permission.service';
 

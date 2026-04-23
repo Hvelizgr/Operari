@@ -1,6 +1,7 @@
-import { PrismaClient, ApiKey } from '@prisma/client';
+import { ApiKey, PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+
 import { AuditService } from '../../audit/audit.service';
 
 export interface ApiKeyContext {

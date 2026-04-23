@@ -19,9 +19,9 @@ jest.mock('../../server', () => ({
   },
 }));
 
+import { streamOrchestratorReply } from '../../agent/orchestrator';
 import runbookAssistRoutes from '../../routes/runbook-assist.routes';
 import { prisma as mockedPrisma } from '../../server';
-import { streamOrchestratorReply } from '../../agent/orchestrator';
 
 const findFirstMock = (
   mockedPrisma as unknown as {

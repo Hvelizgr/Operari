@@ -1,4 +1,4 @@
-import { WorkflowDefinition, WorkflowNode, WorkflowConnection } from '../types/workflow.types';
+import { WorkflowConnection, WorkflowDefinition, WorkflowNode } from '../types/workflow.types';
 
 export enum ValidationSeverity {
   INFO = 'info',

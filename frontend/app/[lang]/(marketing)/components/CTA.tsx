@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Copy, Check, ExternalLink } from 'lucide-react';
+import { Check, Copy, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import { useState } from 'react';
+
 import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
+
 import AuroraBackground from './AuroraBackground';
 
 type CTAProps = {

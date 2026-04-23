@@ -1,16 +1,17 @@
-import { Router, type Request, type Response } from 'express';
-import { z } from 'zod';
 import type { Plan } from '@prisma/client';
-import { prisma } from '../server';
-import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
+import { type Request, type Response, Router } from 'express';
+import { z } from 'zod';
+
+import { getTenantUsage } from '../billing/quotas';
 import {
   createCheckoutSession,
   createPortalSession,
   StripeHttpError,
 } from '../billing/stripe-checkout-client';
-import { verifyStripeWebhook, StripeSignatureError } from '../billing/stripe-webhook';
-import { getTenantUsage } from '../billing/quotas';
+import { StripeSignatureError, verifyStripeWebhook } from '../billing/stripe-webhook';
 import { logger } from '../config/logger.config';
+import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
+import { prisma } from '../server';
 
 const router = Router();
 

@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { prisma } from '../server';
-import { authenticate, AuthRequest, anonymousFallback } from '../middleware/auth.middleware';
-import { ExecutionService } from '../editor/execution/execution.service';
+
 import { AuditService } from '../audit/audit.service';
-import { getRunner } from '../runbook/runners';
+import { ExecutionService } from '../editor/execution/execution.service';
+import { anonymousFallback, authenticate, AuthRequest } from '../middleware/auth.middleware';
 import { ExecutionEventStore } from '../runbook/engine/execution-event.store';
+import { getRunner } from '../runbook/runners';
+import { prisma } from '../server';
 
 let auditService: AuditService | null = null;
 function getAudit(): AuditService {
@@ -290,7 +291,6 @@ router.get('/:id/logs', async (req: AuthRequest, res) => {
     if (!Number.isFinite(count) || count < 1) count = 1000;
     if (count > 10000) count = 10000;
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { getLogStream } = require('../observability/log-stream.service');
     const entries = await getLogStream().fetch(executionId, { fromId, count });
     const total = await getLogStream().length(executionId);

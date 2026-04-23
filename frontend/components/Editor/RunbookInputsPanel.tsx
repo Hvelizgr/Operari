@@ -1,7 +1,7 @@
 'use client';
 
+import { GripVertical, Plus, Terminal, Trash2 } from 'lucide-react';
 import { useCallback } from 'react';
-import { Plus, Trash2, GripVertical, Terminal } from 'lucide-react';
 
 export type RunbookInputType = 'text' | 'number' | 'boolean' | 'select';
 

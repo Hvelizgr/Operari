@@ -1,8 +1,8 @@
 // frontend/components/Editor/FrameNode.tsx
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
 import type { WorkflowNode } from '@cairn/shared';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface FrameNodeProps {
   node: WorkflowNode;

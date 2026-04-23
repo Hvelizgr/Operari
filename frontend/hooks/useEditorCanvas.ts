@@ -1,33 +1,33 @@
-import { useRef, useState, useCallback, useEffect, MouseEvent, DragEvent } from 'react';
-import { WorkflowNode, Connection } from '@cairn/shared';
+import { Connection, WorkflowNode } from '@cairn/shared';
+import { DragEvent, MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
+
 import { ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from '../components/Common';
-import { useAdvancedUndoRedo } from '../hooks/useAdvancedUndoRedo';
-import { NodeType } from '../components/Node';
-import { useAccessibility } from '../context/AccessibilityContext';
-import useWindowSize from '../hooks/useWindowSize';
-import { useNodeTypes } from '../hooks/useNodeTypes';
-import { useAutosave } from '../hooks/useAutosave';
-import { useEditorConnections } from '../hooks/useEditorConnections';
-import { EDITOR_CONFIG } from '../config/editor.config';
-import { useEditorViewport } from '../hooks/useEditorViewport';
-import { useEditorNodes } from '../hooks/useEditorNodes';
-import { useEditorSelection } from '../hooks/useEditorSelection';
-import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import {
-  createNewNode,
   createDroppedNode,
+  createNewNode,
   generateExecutionMetrics,
 } from '../components/Editor/EditorCanvas.utils';
-import { getAutoLayout } from '../utils/layoutUtils';
-
+import { NodeType } from '../components/Node';
+import { EDITOR_CONFIG } from '../config/editor.config';
+import { useAccessibility } from '../context/AccessibilityContext';
+import { useAdvancedUndoRedo } from '../hooks/useAdvancedUndoRedo';
+import { useAutosave } from '../hooks/useAutosave';
+import { useEditorConnections } from '../hooks/useEditorConnections';
+import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
+import { useEditorNodes } from '../hooks/useEditorNodes';
+import { useEditorSelection } from '../hooks/useEditorSelection';
+import { useEditorViewport } from '../hooks/useEditorViewport';
+import { useNodeTypes } from '../hooks/useNodeTypes';
+import useWindowSize from '../hooks/useWindowSize';
 // Editor-specific types
 import type {
+  ContextMenuState,
   DeleteConfirmState,
   DeleteConnectionConfirmState,
-  ContextMenuState,
   ExecutionMetric,
   ViewportState,
 } from '../types/editor.types';
+import { getAutoLayout } from '../utils/layoutUtils';
 
 // Helper: Get all descendant node IDs (handles nested frames)
 function getDescendantIds(parentId: string, nodes: WorkflowNode[]): Set<string> {

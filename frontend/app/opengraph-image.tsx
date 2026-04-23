@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+
 import { repo } from '@/config/repo.config';
 
 /**

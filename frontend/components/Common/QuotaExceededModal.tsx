@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { X, Zap } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 export interface QuotaExceededPayload {
   resource: string;

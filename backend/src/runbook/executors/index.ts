@@ -1,25 +1,26 @@
 import { PrismaClient } from '@prisma/client';
-import { StepExecutor } from '../types/executor.types';
-import { ShellExecutor } from './shell.executor';
-import { ApprovalExecutor } from './approval.executor';
-import { NotifyExecutor } from './notify.executor';
-import { WaitExecutor } from './wait.executor';
-import { SSHExecutor } from './ssh.executor';
-import { HttpExecutor } from './http.executor';
-import { DatabaseExecutor } from './database.executor';
-import { RunbookExecutor } from './runbook.executor';
-import { Runner } from '../runners/runner.types';
-import { getRunner } from '../runners';
-import { loadPluginsSync } from '../plugins/loader';
 
-export { ShellExecutor } from './shell.executor';
+import { loadPluginsSync } from '../plugins/loader';
+import { getRunner } from '../runners';
+import { Runner } from '../runners/runner.types';
+import { StepExecutor } from '../types/executor.types';
+import { ApprovalExecutor } from './approval.executor';
+import { DatabaseExecutor } from './database.executor';
+import { HttpExecutor } from './http.executor';
+import { NotifyExecutor } from './notify.executor';
+import { RunbookExecutor } from './runbook.executor';
+import { ShellExecutor } from './shell.executor';
+import { SSHExecutor } from './ssh.executor';
+import { WaitExecutor } from './wait.executor';
+
 export { ApprovalExecutor } from './approval.executor';
-export { NotifyExecutor } from './notify.executor';
-export { WaitExecutor } from './wait.executor';
-export { SSHExecutor } from './ssh.executor';
-export { HttpExecutor } from './http.executor';
 export { DatabaseExecutor } from './database.executor';
+export { HttpExecutor } from './http.executor';
+export { NotifyExecutor } from './notify.executor';
 export { RunbookExecutor } from './runbook.executor';
+export { ShellExecutor } from './shell.executor';
+export { SSHExecutor } from './ssh.executor';
+export { WaitExecutor } from './wait.executor';
 
 export interface ExecutorRegistryOptions {
   /**

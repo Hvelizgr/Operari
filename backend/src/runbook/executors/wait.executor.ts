@@ -1,4 +1,4 @@
-import { StepExecutor, ExecutorContext, ExecutorResult } from '../types/executor.types';
+import { ExecutorContext, ExecutorResult, StepExecutor } from '../types/executor.types';
 
 export interface WaitConfig {
   /** Wait duration in milliseconds */

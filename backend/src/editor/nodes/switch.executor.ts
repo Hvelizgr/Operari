@@ -1,6 +1,6 @@
-import type { SwitchNodeConfig, SwitchResult, ExecutionInput } from '../../types/workflow.types';
+import type { ExecutionInput, SwitchNodeConfig, SwitchResult } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
-import { resolveTemplate, getNestedValue } from './_shared';
+import { getNestedValue, resolveTemplate } from './_shared';
 
 /**
  * Switch node — multi-way conditional that matches a field value against

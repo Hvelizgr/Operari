@@ -1,6 +1,7 @@
-import { SSHExecutor, type SSHConfig } from '../../../runbook/executors/ssh.executor';
-import type { ExecutorContext, ExecutorEvent } from '../../../runbook/types/executor.types';
 import { EventEmitter } from 'events';
+
+import { type SSHConfig, SSHExecutor } from '../../../runbook/executors/ssh.executor';
+import type { ExecutorContext, ExecutorEvent } from '../../../runbook/types/executor.types';
 
 // ---------------------------------------------------------------------------
 // Fake ssh2.Client

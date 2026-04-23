@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, Fragment } from 'react';
-import { motion, AnimatePresence, useSpring, useTransform, useReducedMotion } from 'framer-motion';
-import { Check, X, Minus, Plus, ArrowRight, Loader2, Sparkles, Users, Zap } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion, useSpring, useTransform } from 'framer-motion';
+import { ArrowRight, Check, Loader2, Minus, Plus, Sparkles, Users, X, Zap } from 'lucide-react';
 import Link from 'next/link';
-import type { content as contentEn } from '../../content/en';
+import { Fragment, useEffect, useRef, useState } from 'react';
+
 import { useAuth } from '@/lib/auth';
+
+import type { content as contentEn } from '../../content/en';
 
 type Pricing = typeof contentEn.pricing;
 

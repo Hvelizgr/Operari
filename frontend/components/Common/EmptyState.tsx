@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { ArrowRight, type LucideIcon } from 'lucide-react';
+import Link from 'next/link';
 
 /**
  * Shared empty state with an optional primary CTA.

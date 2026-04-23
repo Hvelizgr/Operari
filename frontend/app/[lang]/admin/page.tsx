@@ -1,5 +1,5 @@
-import EditorSidebar from '@/components/Editor/EditorSidebar';
 import AdminPage from '@/components/Admin/AdminPage';
+import EditorSidebar from '@/components/Editor/EditorSidebar';
 
 export default async function Page({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;

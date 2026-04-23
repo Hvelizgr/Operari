@@ -1,9 +1,10 @@
-import { PrismaClient, MessageRole } from '@prisma/client';
+import { MessageRole, PrismaClient } from '@prisma/client';
 import type { ModelMessage } from 'ai';
+import type { Response } from 'express';
+
+import { logger } from '../../config/logger.config';
 import { streamOrchestratorReply } from '../orchestrator';
 import { ConversationService } from './conversation.service';
-import { logger } from '../../config/logger.config';
-import type { Response } from 'express';
 
 export class ChatStreamService {
   private prisma: PrismaClient;

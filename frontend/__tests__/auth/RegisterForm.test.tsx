@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+
 import { RegisterForm } from '@/app/[lang]/(auth)/register/RegisterForm';
 
 const mockRegister = jest.fn();
@@ -68,7 +69,7 @@ describe('RegisterForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe('Email already registered');
+    expect(alert).toHaveTextContent('Email already registered');
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });

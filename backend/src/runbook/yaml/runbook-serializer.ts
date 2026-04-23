@@ -1,5 +1,6 @@
 import yaml from 'js-yaml';
-import { RunbookSpec, RunbookStep, StepConnection, RetryPolicy } from './runbook-spec';
+
+import { RetryPolicy, RunbookSpec, RunbookStep, StepConnection } from './runbook-spec';
 
 /**
  * Storage convention: per-step retry policy lives on `node.config._retry`
@@ -391,6 +392,6 @@ function topoSort(steps: RunbookStep[]): RunbookStep[] {
 function randomUuid(): string {
   // Lazily import crypto.randomUUID — Node 16+ has this on the
   // crypto module without needing the webcrypto subset.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+
   return require('crypto').randomUUID();
 }

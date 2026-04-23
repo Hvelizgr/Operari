@@ -1,4 +1,4 @@
-import { NotifyExecutor, NotifyConfig } from '../../../runbook/executors/notify.executor';
+import { NotifyConfig, NotifyExecutor } from '../../../runbook/executors/notify.executor';
 import type { ExecutorContext } from '../../../runbook/types/executor.types';
 
 const execCtx = (overrides: Partial<ExecutorContext> = {}): ExecutorContext => ({

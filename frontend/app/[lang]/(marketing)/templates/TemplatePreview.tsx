@@ -1,7 +1,8 @@
 'use client';
 
+import type { Connection, WorkflowNode } from '@cairn/shared';
 import { useMemo } from 'react';
-import type { WorkflowNode, Connection } from '@cairn/shared';
+
 import { getAutoLayout } from '@/utils/layoutUtils';
 
 /**

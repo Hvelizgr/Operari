@@ -1,7 +1,7 @@
 'use client';
 
+import { AlertTriangle, CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, XCircle, Clock, AlertTriangle, Loader2 } from 'lucide-react';
 
 type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
 

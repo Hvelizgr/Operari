@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import Link from 'next/link';
 import { ArrowDown, ArrowRight, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+
 import type { content as contentEn } from '../../content/en';
 
 type Story = typeof contentEn.story;

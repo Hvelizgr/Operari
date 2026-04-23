@@ -1,7 +1,8 @@
-import type { Response, NextFunction } from 'express';
+import type { NextFunction, Response } from 'express';
+
 import type { AuthRequest } from '../middleware/auth.middleware';
-import { PermissionService } from './permission.service';
 import { prisma } from '../server';
+import { PermissionService } from './permission.service';
 
 let permissionService: PermissionService | null = null;
 

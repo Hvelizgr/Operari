@@ -8,14 +8,13 @@
  * `@/context/visualization` directly.
  */
 
-export { VisualizationProvider, useVisualization } from './visualization/VisualizationContext';
 export {
-  VISUALIZATION_DEFAULTS,
   ACCENT_HEX,
-  STATUS_HEX_DEFAULTS,
-  NODE_SHADOW_HEX,
   ANIMATION_SPEED_MULT,
   FLOW_SPEED_MULT,
+  NODE_SHADOW_HEX,
+  STATUS_HEX_DEFAULTS,
+  VISUALIZATION_DEFAULTS,
 } from './visualization/defaults';
 export type {
   AccentColor,
@@ -35,3 +34,4 @@ export type {
   StatusColors,
   VisualizationPrefs,
 } from './visualization/types';
+export { useVisualization, VisualizationProvider } from './visualization/VisualizationContext';

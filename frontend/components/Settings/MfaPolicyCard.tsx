@@ -1,7 +1,8 @@
 'use client';
 
+import { AlertTriangle, Loader2, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { ShieldCheck, Loader2, AlertTriangle } from 'lucide-react';
+
 import { useAuth } from '@/lib/auth';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';

@@ -1,16 +1,17 @@
 'use client';
 
-import { useMemo } from 'react';
-import { motion } from 'framer-motion';
 import type { WorkflowNode } from '@cairn/shared';
-import EditorNode from './EditorNode';
-import NoteNode from './NoteNode';
-import FrameNode from './FrameNode';
-import { NodeType } from '../Node';
-import type { ViewportState } from '../../types/editor.types';
+import { motion } from 'framer-motion';
 import type { MouseEvent } from 'react';
+import { useMemo } from 'react';
+
 import type { NodeMeta } from '../../hooks/useExecutionSocket';
 import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
+import type { ViewportState } from '../../types/editor.types';
+import { NodeType } from '../Node';
+import EditorNode from './EditorNode';
+import FrameNode from './FrameNode';
+import NoteNode from './NoteNode';
 
 interface NodesLayerProps {
   /** Pluggable domain registry. Forwarded to each EditorNode. */

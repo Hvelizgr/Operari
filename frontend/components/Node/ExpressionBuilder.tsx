@@ -1,21 +1,21 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { Connection, WorkflowNode } from '@cairn/shared';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  X,
-  Search,
-  Database,
-  ChevronRight,
-  ChevronDown,
-  Copy,
   Check,
-  Variable,
-  FunctionSquare,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Database,
   FileJson,
+  FunctionSquare,
   Play,
+  Search,
+  Variable,
+  X,
 } from 'lucide-react';
-import { useState, useMemo, useCallback } from 'react';
-import { WorkflowNode, Connection } from '@cairn/shared';
+import { useCallback, useMemo, useState } from 'react';
 
 // Extend WorkflowNode locally to avoid TS errors if shared type is incomplete
 interface ExtendedNode extends WorkflowNode {

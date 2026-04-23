@@ -1,7 +1,7 @@
 'use client';
 
+import { Ban, CheckCircle2, Loader2, Pause, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, XCircle, Pause, Ban, Loader2 } from 'lucide-react';
 import { List as VirtualList } from 'react-window';
 
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';

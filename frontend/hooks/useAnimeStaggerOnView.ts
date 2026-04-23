@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import anime from 'animejs';
+import { useEffect, useRef } from 'react';
 
 /**
  * IntersectionObserver + anime.js stagger, wired for the "reveal this

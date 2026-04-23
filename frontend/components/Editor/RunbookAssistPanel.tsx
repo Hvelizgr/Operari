@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { X, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import type { WorkflowNode } from '@cairn/shared';
+import { AlertCircle, Loader2, Sparkles, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 interface RunbookAssistPanelProps {
   open: boolean;

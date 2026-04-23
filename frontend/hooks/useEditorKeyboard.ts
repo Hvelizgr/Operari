@@ -3,7 +3,8 @@
  * Handles undo/redo, node navigation, selection, and deletion shortcuts
  */
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
 import { WorkflowNode } from '../components/Editor';
 import { EDITOR_CONFIG } from '../config/editor.config';
 import type { DeleteConfirmState, DeleteConnectionConfirmState } from '../types/editor.types';

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Shield, GitBranch, Zap, Puzzle } from 'lucide-react';
+import { GitBranch, Puzzle, Shield, Zap } from 'lucide-react';
 
 type SafetyContent = {
   eyebrow: string;

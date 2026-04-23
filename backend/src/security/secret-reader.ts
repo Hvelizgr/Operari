@@ -1,5 +1,5 @@
+import type { ActorType, AuditService } from '../audit/audit.service';
 import { SecretCipher, SecretCipherError } from './secret-cipher';
-import type { AuditService, ActorType } from '../audit/audit.service';
 
 /**
  * SecretReader — the only sanctioned way to read decrypted secrets in

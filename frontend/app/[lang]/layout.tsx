@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+
 import { content as contentEn } from './content/en';
 import { content as contentEs } from './content/es';
 

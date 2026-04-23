@@ -1,4 +1,5 @@
 import type { Redis } from 'ioredis';
+
 import { LogStreamService } from '../../observability/log-stream.service';
 
 /**

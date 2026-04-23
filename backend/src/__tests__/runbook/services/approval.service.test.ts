@@ -1,6 +1,7 @@
-import type { PrismaClient, ApprovalStatus } from '@prisma/client';
-import { ApprovalService, ApprovalServiceError } from '../../../runbook/services/approval.service';
+import type { ApprovalStatus, PrismaClient } from '@prisma/client';
+
 import { AuditService } from '../../../audit/audit.service';
+import { ApprovalService, ApprovalServiceError } from '../../../runbook/services/approval.service';
 
 class FakeAudit {
   public events: Array<{ type: string; payload: Record<string, unknown> }> = [];

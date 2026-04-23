@@ -1,12 +1,13 @@
 import express from 'express';
 import request from 'supertest';
+
 import {
-  setSessionCookie,
   clearSessionCookie,
-  setCsrfCookie,
-  generateCsrfToken,
   CSRF_COOKIE_NAME,
+  generateCsrfToken,
   SESSION_COOKIE_NAME,
+  setCsrfCookie,
+  setSessionCookie,
 } from '../../auth/session-cookie';
 
 function makeApp() {

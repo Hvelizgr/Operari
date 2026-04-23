@@ -1,7 +1,8 @@
 'use client';
 
-import { usePathname, useSearchParams } from 'next/navigation';
 import { Github } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
+
 import type { AuthLang } from '../strings';
 
 function GoogleIcon({ className }: { className?: string }) {

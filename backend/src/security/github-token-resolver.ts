@@ -1,8 +1,9 @@
 import type { PrismaClient } from '@prisma/client';
-import { SecretCipher } from './secret-cipher';
-import { SecretReader } from './secret-reader';
+
 import { AuditService } from '../audit/audit.service';
 import { logger } from '../config/logger.config';
+import { SecretCipher } from './secret-cipher';
+import { SecretReader } from './secret-reader';
 
 /**
  * Decrypt a ConnectedAccount.accessToken ciphertext into a plaintext

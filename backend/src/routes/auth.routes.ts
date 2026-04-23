@@ -1,23 +1,24 @@
-import { Router } from 'express';
-import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
+import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { prisma } from '../server';
-import { authenticate, AuthRequest } from '../middleware/auth.middleware';
-import { AuditService, AuditEventType } from '../audit/audit.service';
+
+import { AuditEventType, AuditService } from '../audit/audit.service';
+import { AccountDeletionError, AccountDeletionService } from '../auth/account-deletion.service';
 import { AccountLockoutService } from '../auth/account-lockout.service';
-import { AccountDeletionService, AccountDeletionError } from '../auth/account-deletion.service';
-import { setSessionCookie, clearSessionCookie } from '../auth/session-cookie';
-import { generateResetToken, hashResetToken, RESET_TOKEN_TTL_MS } from '../auth/password-reset';
 import { hashVerificationToken, issueVerificationEmail } from '../auth/email-verification';
-import { verifyTotp } from '../auth/totp';
 import { consumeBackupCode, unusedBackupCodeCount } from '../auth/mfa-backup-codes';
-import { secretCipherFromEnv } from '../security/secret-cipher';
 import { checkBreachedPassword } from '../auth/password-breach';
+import { generateResetToken, hashResetToken, RESET_TOKEN_TTL_MS } from '../auth/password-reset';
+import { clearSessionCookie, setSessionCookie } from '../auth/session-cookie';
+import { revokeJti } from '../auth/session-denylist';
+import { verifyTotp } from '../auth/totp';
+import { authenticate, AuthRequest } from '../middleware/auth.middleware';
+import { secretCipherFromEnv } from '../security/secret-cipher';
+import { prisma } from '../server';
 import { sendEmail } from '../services/email.service';
 import { renderPasswordResetEmail } from '../services/email-templates';
-import { revokeJti } from '../auth/session-denylist';
 
 /**
  * Build a signed session token with a fresh JTI so the JWT denylist

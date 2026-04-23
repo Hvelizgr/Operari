@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
+
 import { DockerRunner, SpawnFn } from '../../../runbook/runners/docker.runner';
-import { RunnerError, type RunnerContext } from '../../../runbook/runners/runner.types';
+import { type RunnerContext, RunnerError } from '../../../runbook/runners/runner.types';
 
 // ---------------------------------------------------------------------------
 // Fake spawn — emits scripted stdout/stderr/close events

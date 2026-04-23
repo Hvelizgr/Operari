@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 /**
  * Coverage for the YAML view modal (fase R3.1) and the topbar wiring

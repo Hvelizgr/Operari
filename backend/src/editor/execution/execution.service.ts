@@ -1,21 +1,16 @@
 import {
-  PrismaClient,
   ExecutionStatus,
   NodeLogStatus,
-  TriggerType,
-  Runbook,
   Prisma,
+  PrismaClient,
+  Runbook,
+  TriggerType,
 } from '@prisma/client';
-import { NodeExecutor } from '../node-executor.service';
-import { ErrorNotificationService } from '../../services/error-notification.service';
-import { Logger, ContextLogger } from '../../services/logger.service';
-import {
-  WorkflowNode,
-  WorkflowConnection,
-  ExecutionInput,
-  ExecutionOutput,
-  SuspendResult,
-} from '../../types/workflow.types';
+
+import { ActorType, AuditEventType, AuditService } from '../../audit/audit.service';
+import type { BillingMeter } from '../../billing';
+import { getBillingMeter } from '../../billing';
+import { assertRunsQuota, QuotaExceededError } from '../../billing/quotas';
 import {
   CustomError,
   ErrorCode,
@@ -24,17 +19,23 @@ import {
   WorkflowError,
   wrapError,
 } from '../../errors/custom-error';
-import { persistExecutionError } from '../../utils/error-persistence';
-import { assertRunsQuota, QuotaExceededError } from '../../billing/quotas';
-import { socketService } from './socket.service';
-import { AuditService, AuditEventType, ActorType } from '../../audit/audit.service';
-import { RunTracer, getRunTracer } from '../../observability';
-import { getRunner } from '../../runbook/runners';
+import { getRunTracer, RunTracer } from '../../observability';
 import { ExecutionEventStore } from '../../runbook/engine/execution-event.store';
 import type { ExecutionEventPayload } from '../../runbook/engine/execution-event.types';
-import type { BillingMeter } from '../../billing';
-import { getBillingMeter } from '../../billing';
+import { getRunner } from '../../runbook/runners';
 import { GitHubStatusService } from '../../runbook/services/github-status.service';
+import { ErrorNotificationService } from '../../services/error-notification.service';
+import { ContextLogger, Logger } from '../../services/logger.service';
+import {
+  ExecutionInput,
+  ExecutionOutput,
+  SuspendResult,
+  WorkflowConnection,
+  WorkflowNode,
+} from '../../types/workflow.types';
+import { persistExecutionError } from '../../utils/error-persistence';
+import { NodeExecutor } from '../node-executor.service';
+import { socketService } from './socket.service';
 
 interface ExecuteParams {
   workflowId: string;

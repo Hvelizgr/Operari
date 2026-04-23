@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
+
 import { CustomError, ErrorSeverity } from '../errors/custom-error';
-import { Logger } from './logger.service';
 import { markErrorAsNotified } from '../utils/error-persistence';
+import { Logger } from './logger.service';
 
 /**
  * Error notification payload

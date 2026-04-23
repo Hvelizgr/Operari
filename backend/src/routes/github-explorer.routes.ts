@@ -1,7 +1,8 @@
-import { Router, Response } from 'express';
-import { prisma } from '../server';
-import { AuthRequest, anonymousFallback } from '../middleware/auth.middleware';
+import { Response, Router } from 'express';
+
+import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
 import { GitHubBranchService } from '../runbook/services/github-branches.service';
+import { prisma } from '../server';
 
 const router = Router();
 

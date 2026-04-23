@@ -2,10 +2,12 @@
 
 import { motion } from 'framer-motion';
 import { ArrowUpRight, Github } from 'lucide-react';
+
 import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
-import AuroraBackground from './AuroraBackground';
 import { useAnimeStaggerOnView } from '@/hooks/useAnimeStaggerOnView';
+
+import AuroraBackground from './AuroraBackground';
 
 type TemplatesProps = {
   content: typeof content.templates;

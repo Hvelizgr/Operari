@@ -1,4 +1,4 @@
-import { CustomError, ExecutionErrorContext, ErrorSeverity } from '../errors/custom-error';
+import { CustomError, ErrorSeverity, ExecutionErrorContext } from '../errors/custom-error';
 
 /**
  * Log levels ordered by severity

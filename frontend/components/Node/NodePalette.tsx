@@ -1,29 +1,29 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
+  Bell,
   ChevronDown,
   ChevronRight,
-  Search,
-  X,
-  Globe,
   Clock,
-  Webhook,
+  Database,
   Folder,
-  Zap,
+  GitBranch,
+  Globe,
+  KeyRound,
   Play,
-  Bell,
+  Repeat,
+  Route,
+  Search,
   Square,
   StickyNote,
   Terminal,
   UserCheck,
-  KeyRound,
-  Database,
-  GitBranch,
-  Repeat,
-  Route,
+  Webhook,
+  X,
+  Zap,
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 export interface NodeType {
   type: string;
@@ -813,4 +813,4 @@ function NodeItem({
   );
 }
 
-export { NODE_TYPES, CATEGORIES };
+export { CATEGORIES, NODE_TYPES };

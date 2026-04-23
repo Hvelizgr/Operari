@@ -1,5 +1,5 @@
-import request from 'supertest';
 import express from 'express';
+import request from 'supertest';
 
 /**
  * Cookie-session admin download of the audit log. Mirrors the

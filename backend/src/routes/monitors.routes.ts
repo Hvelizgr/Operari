@@ -1,7 +1,8 @@
-import { Router, Response } from 'express';
+import { Response, Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../server';
+
 import { AuthRequest } from '../middleware/auth.middleware';
+import { prisma } from '../server';
 import { MonitorService } from '../services/monitor.service';
 
 const router = Router();

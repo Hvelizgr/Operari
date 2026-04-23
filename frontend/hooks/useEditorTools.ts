@@ -3,7 +3,7 @@
 // License: BSD 3-Clause (see xyOps LICENSE.md)
 // Adapted for NanoRun
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export type EditorTool = 'draw' | 'move';
 

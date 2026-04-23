@@ -1,8 +1,8 @@
 import {
   AccountLockoutService,
+  LOCK_DURATION_MS,
   MAX_FAILURES,
   WINDOW_MS,
-  LOCK_DURATION_MS,
 } from '../../auth/account-lockout.service';
 
 type MockUser = {

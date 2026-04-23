@@ -7,6 +7,7 @@
  */
 
 import { PrismaClient, TriggerType } from '@prisma/client';
+
 import { ExecutionService } from '../../editor/execution/execution.service';
 import type { ExecutionEventStore } from '../../runbook/engine/execution-event.store';
 import type { ExecutionEventPayload } from '../../runbook/engine/execution-event.types';

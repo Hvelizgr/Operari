@@ -1,6 +1,7 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-import { CustomError } from '../errors/custom-error';
+import { Prisma, PrismaClient } from '@prisma/client';
+
 import { logger } from '../config/logger.config';
+import { CustomError } from '../errors/custom-error';
 
 /**
  * Persist an error to the database

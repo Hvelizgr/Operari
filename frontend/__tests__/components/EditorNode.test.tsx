@@ -1,5 +1,6 @@
-import { render, fireEvent } from '@testing-library/react';
 import type { WorkflowNode } from '@cairn/shared';
+import { fireEvent, render } from '@testing-library/react';
+
 import EditorNode from '@/components/Editor/EditorNode';
 
 /**

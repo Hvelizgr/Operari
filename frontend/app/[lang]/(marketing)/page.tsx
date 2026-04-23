@@ -1,14 +1,14 @@
 import { content as contentEn } from '../content/en';
 import { content as contentEs } from '../content/es';
-import Hero from './components/Hero';
-import TrustBar from './components/TrustBar';
-import MetricsBar from './components/MetricsBar';
-import Story from './components/Story';
-import SafetyRails from './components/SafetyRails';
-import Templates from './components/Templates';
-import TriggerSources from './components/TriggerSources';
 import Comparison from './components/Comparison';
 import CTA from './components/CTA';
+import Hero from './components/Hero';
+import MetricsBar from './components/MetricsBar';
+import SafetyRails from './components/SafetyRails';
+import Story from './components/Story';
+import Templates from './components/Templates';
+import TriggerSources from './components/TriggerSources';
+import TrustBar from './components/TrustBar';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'es' }];

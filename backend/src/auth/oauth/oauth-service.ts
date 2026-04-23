@@ -1,5 +1,6 @@
-import { randomBytes } from 'crypto';
 import type { PrismaClient } from '@prisma/client';
+import { randomBytes } from 'crypto';
+
 import type { OAuthProfile, OAuthProviderConfig } from './providers';
 
 export interface OAuthExchangeDeps {

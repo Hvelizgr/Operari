@@ -1,39 +1,42 @@
 'use client';
 
+import dynamic from 'next/dynamic';
+
+import { useAccessibility } from '../../context/AccessibilityContext';
 import { useEditorCanvas } from '../../hooks/useEditorCanvas';
+import { useExecutionSocket } from '../../hooks/useExecutionSocket';
+import { useWorkflowExecution } from '../../hooks/useWorkflowExecution';
 import { getAutoLayout } from '../../utils/layoutUtils';
 import {
-  ConnectionsLayer,
   ConnectionBubblesLayer,
-  NodesLayer,
-  GridLayer,
+  ConnectionsLayer,
   EditorOverlays,
+  GridLayer,
+  NodesLayer,
 } from './';
-import { useAccessibility } from '../../context/AccessibilityContext';
-import { useWorkflowExecution } from '../../hooks/useWorkflowExecution';
-import { useExecutionSocket } from '../../hooks/useExecutionSocket';
-import dynamic from 'next/dynamic';
 const LogTerminal = dynamic(() => import('./terminal/LogTerminal'), { ssr: false });
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { Download, FileText, Terminal as TerminalIcon, Upload, X, Zap } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import { Terminal as TerminalIcon, X, Zap, Download, Upload, FileText } from 'lucide-react';
-import { yamlToSpec, specToNodes } from '@/utils/runbookYaml';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+import { specToNodes, yamlToSpec } from '@/utils/runbookYaml';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 // ... existing imports
-import SnapshotDialog from '../Workflow/SnapshotDialog';
-import { useSnapshots } from '../../hooks/useSnapshots';
-import { useEditorTools } from '../../hooks/useEditorTools';
-import RunDialog from '../Workflow/RunDialog';
-import CommandPalette, { CommandAction } from './CommandPalette';
-import TopBar from './TopBar';
-import YamlViewModal from './YamlViewModal';
-import RunbookAssistPanel from './RunbookAssistPanel';
-import GitHubBranchPanel from './GitHubBranchPanel';
-import EditorSidebar from './EditorSidebar';
-import { createNewNode } from './EditorCanvas.utils';
-import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertiesPanel';
 import './WorkflowNode.css';
+
+import { useEditorTools } from '../../hooks/useEditorTools';
+import { useSnapshots } from '../../hooks/useSnapshots';
+import RunDialog from '../Workflow/RunDialog';
+import SnapshotDialog from '../Workflow/SnapshotDialog';
+import CommandPalette, { CommandAction } from './CommandPalette';
+import { createNewNode } from './EditorCanvas.utils';
+import EditorSidebar from './EditorSidebar';
+import GitHubBranchPanel from './GitHubBranchPanel';
+import RunbookAssistPanel from './RunbookAssistPanel';
+import TopBar from './TopBar';
+import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertiesPanel';
+import YamlViewModal from './YamlViewModal';
 
 export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);

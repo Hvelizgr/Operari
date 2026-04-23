@@ -1,5 +1,5 @@
-import { AccessibilityProvider } from '@/context/AccessibilityContext';
 import SQLEditorCanvas from '@/components/SQLEditor/SQLEditorCanvas';
+import { AccessibilityProvider } from '@/context/AccessibilityContext';
 
 export const dynamic = 'force-dynamic';
 

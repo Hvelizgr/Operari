@@ -1,5 +1,6 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { JSONPath } from 'jsonpath-plus';
+
 import { logger } from '../../config/logger.config';
 
 /**

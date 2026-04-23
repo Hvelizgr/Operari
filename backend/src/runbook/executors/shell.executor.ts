@@ -1,10 +1,10 @@
+import { Runner, RunnerSpec } from '../runners/runner.types';
 import {
-  StepExecutor,
   ExecutorContext,
   ExecutorResult,
   resolveTemplate,
+  StepExecutor,
 } from '../types/executor.types';
-import { Runner, RunnerSpec } from '../runners/runner.types';
 
 export interface ShellConfig {
   /** Shell command to execute. Supports {{vars.x}} template substitution. */

@@ -1,8 +1,9 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
+import { readdirSync, readFileSync } from 'fs';
 import yaml from 'js-yaml';
-import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
+
 import runbookJsonSchema from '../../../runbook/yaml/runbook.schema.json';
 
 /**

@@ -1,8 +1,9 @@
 import { PrismaClient } from '@prisma/client';
+
 import { logger } from '../../config/logger.config';
 import {
-  type TokenDecryptor,
   createDefaultGitHubTokenDecryptor,
+  type TokenDecryptor,
 } from '../../security/github-token-resolver';
 
 export interface GitHubBranch {

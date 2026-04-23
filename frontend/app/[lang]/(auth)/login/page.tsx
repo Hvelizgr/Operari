@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+
+import { type AuthLang, authStrings } from '../strings';
 import { LoginForm } from './LoginForm';
-import { authStrings, type AuthLang } from '../strings';
 
 // Auth pages read search params (`?redirect=…`) and tie to per-request
 // session state, so they must render dynamically. Static prerender would

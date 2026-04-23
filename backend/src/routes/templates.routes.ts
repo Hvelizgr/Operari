@@ -1,7 +1,8 @@
-import { Router, Response, Request } from 'express';
+import { Request, Response, Router } from 'express';
 import { readdir, readFile } from 'fs/promises';
-import path from 'path';
 import yaml from 'js-yaml';
+import path from 'path';
+
 import { logger } from '../config/logger.config';
 
 /**

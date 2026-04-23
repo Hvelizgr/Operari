@@ -9,7 +9,7 @@ interface DefineStepOptions<T> {
 interface DefineStepFn {
   <T>(options: DefineStepOptions<T>): DefineStepOptions<T>;
 }
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 const { defineStep } = require('../../../../packages/sdk/dist/steps/define-step') as {
   defineStep: DefineStepFn;
 };

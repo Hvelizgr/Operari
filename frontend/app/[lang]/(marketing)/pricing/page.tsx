@@ -1,7 +1,8 @@
+import type { Metadata } from 'next';
+
 import { content as contentEn } from '../../content/en';
 import { content as contentEs } from '../../content/es';
 import PricingView from './PricingView';
-import type { Metadata } from 'next';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'es' }];

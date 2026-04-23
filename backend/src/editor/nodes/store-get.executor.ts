@@ -1,12 +1,13 @@
 import type { PrismaClient } from '@prisma/client';
+
+import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
 import type {
-  StoreGetNodeConfig,
   ExecutionInput,
   ExecutionOutput,
+  StoreGetNodeConfig,
 } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { resolveTemplate } from './_shared';
-import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
 
 /**
  * StoreGet node — reads a single key from a tenant-scoped StorageBucket

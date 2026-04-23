@@ -1,8 +1,9 @@
-import { Router, Response } from 'express';
+import { Response, Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../../server';
+
+import { ApiKeyRequest, requireApiKey } from '../../middleware/api-key.middleware';
 import { WebhookService } from '../../runbook/services/webhook.service';
-import { requireApiKey, ApiKeyRequest } from '../../middleware/api-key.middleware';
+import { prisma } from '../../server';
 
 const router = Router();
 

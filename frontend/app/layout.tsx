@@ -1,11 +1,13 @@
+import './globals.css';
+
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import './globals.css';
-import { ThemeProvider } from '@/context/ThemeContext';
-import { VisualizationProvider } from '@/context/VisualizationContext';
-import { themeBootstrapScript } from '@/context/visualization/bootstrap';
-import { AuthProvider } from '@/lib/auth';
+
 import { QuotaExceededModal, QuotaInterceptor } from '@/components/Common/QuotaExceededModal';
+import { ThemeProvider } from '@/context/ThemeContext';
+import { themeBootstrapScript } from '@/context/visualization/bootstrap';
+import { VisualizationProvider } from '@/context/VisualizationContext';
+import { AuthProvider } from '@/lib/auth';
 
 const inter = Inter({ subsets: ['latin'] });
 

@@ -1,4 +1,5 @@
-import { PrismaClient, ApprovalStatus } from '@prisma/client';
+import { ApprovalStatus, PrismaClient } from '@prisma/client';
+
 import { AuditService } from '../../audit/audit.service';
 
 export type ResolveAction = 'grant' | 'reject';

@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
+
+import { FitAddon } from '@xterm/addon-fit';
+import { Terminal } from '@xterm/xterm';
+import { useEffect, useRef } from 'react';
+
 import { LogEntry } from '../../../hooks/useExecutionSocket';
 
 interface LogTerminalProps {

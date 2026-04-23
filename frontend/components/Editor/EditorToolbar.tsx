@@ -1,16 +1,16 @@
 'use client';
 
 import {
-  Undo2,
-  Redo2,
+  Copy,
+  History as HistoryIcon,
+  Keyboard,
   MousePointer2,
   Move,
-  Copy,
-  Trash2,
   Power,
-  History as HistoryIcon,
+  Redo2,
+  Trash2,
+  Undo2,
   Unlink,
-  Keyboard,
 } from 'lucide-react';
 import { CSSProperties } from 'react';
 

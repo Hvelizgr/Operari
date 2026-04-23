@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+
 import { VISUALIZATION_DEFAULTS } from './defaults';
 import { applyToDocument } from './dom';
 import { readStored, writeStored } from './storage';

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
+
 import { useAccessibility } from '../../context/AccessibilityContext';
 
 interface ThemeToggleProps {

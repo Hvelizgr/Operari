@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from 'lucide-react';
+import { Maximize2, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface ZoomControlsProps {
   zoom: number;

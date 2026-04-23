@@ -1,12 +1,12 @@
 import {
-  SecretTemplateResolver,
   SecretReferenceError,
+  SecretTemplateResolver,
 } from '../../../runbook/secrets/secret-template-resolver';
+import { resolveTemplate } from '../../../runbook/types/executor.types';
 import {
   ConnectedAccountError,
   ConnectedAccountService,
 } from '../../../security/connected-account.service';
-import { resolveTemplate } from '../../../runbook/types/executor.types';
 
 /**
  * The resolver is the orchestrator-side glue that turns

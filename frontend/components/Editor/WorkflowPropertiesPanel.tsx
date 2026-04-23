@@ -1,11 +1,12 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, FileText, Clock, ToggleLeft, ToggleRight, Save, Tag } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Clock, FileText, Save, Tag, ToggleLeft, ToggleRight, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
 import CronPicker from './CronPicker';
-import TriggersPanel from './TriggersPanel';
 import RunbookInputsPanel, { RunbookInputDefinition } from './RunbookInputsPanel';
+import TriggersPanel from './TriggersPanel';
 
 export interface WorkflowProperties {
   id?: string;

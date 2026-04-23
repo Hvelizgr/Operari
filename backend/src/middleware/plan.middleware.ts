@@ -1,5 +1,6 @@
-import type { Response, NextFunction } from 'express';
 import type { Plan } from '@prisma/client';
+import type { NextFunction, Response } from 'express';
+
 import { prisma } from '../server';
 import type { AuthRequest } from './auth.middleware';
 

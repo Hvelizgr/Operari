@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
 import { MessageSquare } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+
 import ChatMessage, { ChatMessageData } from './ChatMessage';
 
 interface ChatMessageListProps {

@@ -1,8 +1,9 @@
+import { FileCode } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { FileCode } from 'lucide-react';
+
 import { fetchTemplates } from './fetch-templates';
-import { templateStrings, type TemplateLang } from './strings';
+import { type TemplateLang, templateStrings } from './strings';
 import TemplatesRegistry from './TemplatesRegistry';
 
 // The backend is not available at docker image build time, so a static

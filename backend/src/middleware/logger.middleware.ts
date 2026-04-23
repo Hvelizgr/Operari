@@ -1,7 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
-import pinoHttp from 'pino-http';
-import { logger } from '../config/logger.config';
 import { randomUUID } from 'crypto';
+import { NextFunction, Request, Response } from 'express';
+import pinoHttp from 'pino-http';
+
+import { logger } from '../config/logger.config';
 
 export const requestLogger = pinoHttp({
   logger,

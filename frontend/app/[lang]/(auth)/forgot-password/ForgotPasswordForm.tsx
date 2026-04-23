@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { AuthError, authClient } from '@/lib/auth';
+import { useState } from 'react';
+
+import { authClient, AuthError } from '@/lib/auth';
+
 import { AuthField } from '../_components/AuthField';
-import { resetStrings, type AuthLang } from '../strings';
+import { type AuthLang, resetStrings } from '../strings';
 
 export function ForgotPasswordForm({ lang }: { lang: AuthLang }) {
   const t = resetStrings[lang].forgot;

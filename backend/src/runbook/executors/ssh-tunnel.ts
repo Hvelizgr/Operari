@@ -1,5 +1,5 @@
-import { Client } from 'ssh2';
 import * as net from 'net';
+import { Client } from 'ssh2';
 
 export interface TunnelOptions {
   sshHost: string;

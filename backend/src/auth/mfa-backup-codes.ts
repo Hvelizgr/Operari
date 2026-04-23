@@ -1,5 +1,5 @@
-import { createHash, randomBytes } from 'crypto';
 import type { PrismaClient } from '@prisma/client';
+import { createHash, randomBytes } from 'crypto';
 
 /**
  * MFA backup codes — phone-lost recovery vector for TOTP users.

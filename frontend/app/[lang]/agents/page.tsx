@@ -1,5 +1,5 @@
-import EditorSidebar from '@/components/Editor/EditorSidebar';
 import AgentsPage from '@/components/Agents/AgentsPage';
+import EditorSidebar from '@/components/Editor/EditorSidebar';
 
 export default async function Page({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;

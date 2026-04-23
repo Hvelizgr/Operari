@@ -1,17 +1,19 @@
 'use client';
 
+import { Download, Eye, LayoutDashboard, RotateCcw, Save, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { LayoutDashboard, Save, Eye, Trash2, Download, Upload, RotateCcw } from 'lucide-react';
-import { useVisualization, ACCENT_HEX } from '@/context/VisualizationContext';
-import { Section, PresetCard } from '../primitives';
+
+import { ACCENT_HEX, useVisualization } from '@/context/VisualizationContext';
+
 import {
   BUILTIN_PRESETS,
-  MAX_CUSTOM_PRESETS,
+  type CustomPreset,
   extractPrefs,
   loadCustomPresets,
+  MAX_CUSTOM_PRESETS,
   saveCustomPresets,
-  type CustomPreset,
 } from '../presets';
+import { PresetCard, Section } from '../primitives';
 import type { Strings } from '../strings';
 
 export function PresetsTab({ t }: { t: Strings }) {

@@ -1,7 +1,7 @@
 'use client';
 
+import { ChevronDown, ChevronRight, Search, ShieldCheck, Zap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Zap, ShieldCheck, Search, ChevronDown, ChevronRight } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 

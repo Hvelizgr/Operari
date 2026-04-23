@@ -1,6 +1,6 @@
 import {
-  DatabaseExecutor,
   type DatabaseConfig,
+  DatabaseExecutor,
 } from '../../../runbook/executors/database.executor';
 import type { ExecutorContext, ExecutorEvent } from '../../../runbook/types/executor.types';
 

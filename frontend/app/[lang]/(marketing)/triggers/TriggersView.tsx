@@ -1,16 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Webhook,
-  ShieldCheck,
-  ArrowRight,
-  CheckCircle2,
   Activity,
   AlertOctagon,
+  ArrowRight,
+  CheckCircle2,
   Github as GithubIcon,
+  ShieldCheck,
+  Webhook,
 } from 'lucide-react';
+import { useState } from 'react';
+
 import type { content as contentEn } from '../../content/en';
 
 type Triggers = typeof contentEn.triggers;

@@ -1,19 +1,20 @@
-import { renderHook, act } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import React from 'react';
+
+import type { CustomPreset } from '@/components/Settings/appearance/presets';
 import {
-  VisualizationProvider,
-  useVisualization,
-  VISUALIZATION_DEFAULTS,
-} from '@/context/VisualizationContext';
-import type { VisualizationPrefs } from '@/context/VisualizationContext';
-import {
+  CUSTOM_PRESETS_KEY,
   extractPrefs,
   loadCustomPresets,
-  saveCustomPresets,
   MAX_CUSTOM_PRESETS,
-  CUSTOM_PRESETS_KEY,
+  saveCustomPresets,
 } from '@/components/Settings/appearance/presets';
-import type { CustomPreset } from '@/components/Settings/appearance/presets';
+import type { VisualizationPrefs } from '@/context/VisualizationContext';
+import {
+  useVisualization,
+  VISUALIZATION_DEFAULTS,
+  VisualizationProvider,
+} from '@/context/VisualizationContext';
 
 /* ─────────────────────────────────────────────────────────────
    Tests for the Appearance preferences plumbing.
@@ -94,10 +95,10 @@ describe('VisualizationContext defaults', () => {
     renderHook(() => useVisualization(), { wrapper });
 
     const html = document.documentElement;
-    expect(html.getAttribute('data-anim')).toBe('on');
-    expect(html.getAttribute('data-line-style')).toBe('bezier');
-    expect(html.getAttribute('data-flow-style')).toBe('orbs');
-    expect(html.getAttribute('data-bg-pattern')).toBe('dots');
+    expect(html).toHaveAttribute('data-anim', 'on');
+    expect(html).toHaveAttribute('data-line-style', 'bezier');
+    expect(html).toHaveAttribute('data-flow-style', 'orbs');
+    expect(html).toHaveAttribute('data-bg-pattern', 'dots');
     expect(html.style.getPropertyValue('--edge-thickness')).toBe('1.6');
   });
 });
@@ -202,7 +203,7 @@ describe('VisualizationContext setters', () => {
     act(() => result.current.setAnimationSpeed('off'));
     expect(result.current.animationSpeed).toBe('off');
     expect(result.current.animationsEnabled).toBe(false);
-    expect(document.documentElement.getAttribute('data-anim')).toBe('off');
+    expect(document.documentElement).toHaveAttribute('data-anim', 'off');
   });
 });
 

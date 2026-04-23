@@ -1,7 +1,8 @@
-import request from 'supertest';
-import express from 'express';
 import bcrypt from 'bcryptjs';
+import express from 'express';
 import jwt from 'jsonwebtoken';
+import request from 'supertest';
+
 import authRoutes from '../routes/auth.routes';
 import { prisma } from '../server';
 

@@ -1,11 +1,12 @@
 import { PrismaClient } from '@prisma/client';
+
+import { AuditService } from '../../audit/audit.service';
 import {
-  StepExecutor,
   ExecutorContext,
   ExecutorResult,
   resolveTemplate,
+  StepExecutor,
 } from '../types/executor.types';
-import { AuditService } from '../../audit/audit.service';
 
 export interface ApprovalConfig {
   /** Message shown to approvers (supports template substitution) */

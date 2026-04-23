@@ -1,29 +1,30 @@
 'use client';
 
 import {
+  AlertCircle,
+  BarChart3,
+  Bug,
+  CheckCircle2,
+  ChevronDown,
+  Code2,
   Download,
+  FileText,
+  GitBranch,
+  Grid3x3,
+  LayoutTemplate,
+  Loader2,
   Moon,
-  Sun,
   MoonStar,
   Plus,
-  Upload,
-  FileText,
-  Zap,
-  Bug,
-  Wand2,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  LayoutTemplate,
-  ChevronDown,
-  Wrench,
-  BarChart3,
-  Code2,
   Sparkles,
-  Grid3x3,
-  GitBranch,
+  Sun,
+  Upload,
+  Wand2,
+  Wrench,
+  Zap,
 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
 import { useAccessibility } from '../../context/AccessibilityContext';
 import { useTheme } from '../../context/ThemeContext';
 import type { SaveStatus } from '../../hooks/useAutosave';

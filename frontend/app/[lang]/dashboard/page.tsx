@@ -1,9 +1,9 @@
-import EditorSidebar from '@/components/Editor/EditorSidebar';
-import DashboardPage from '@/components/Dashboard/DashboardPage';
-import { EmailVerifyBanner } from '@/components/Common/EmailVerifyBanner';
-import { QuotaWarningBanner } from '@/components/Common/QuotaWarningBanner';
 import { DashboardToasts } from '@/components/Common/DashboardToasts';
+import { EmailVerifyBanner } from '@/components/Common/EmailVerifyBanner';
 import { OnboardingTour } from '@/components/Common/OnboardingTour';
+import { QuotaWarningBanner } from '@/components/Common/QuotaWarningBanner';
+import DashboardPage from '@/components/Dashboard/DashboardPage';
+import EditorSidebar from '@/components/Editor/EditorSidebar';
 
 export default async function Page({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;

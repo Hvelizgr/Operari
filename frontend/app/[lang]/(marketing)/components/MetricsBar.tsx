@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import anime from 'animejs';
 import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+
 import { content } from '@/app/[lang]/content/en';
 
 type MetricsBarProps = {

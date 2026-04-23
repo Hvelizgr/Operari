@@ -1,24 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
-  Settings as SettingsIcon,
-  Palette,
-  Save,
+  ArrowRight,
+  Check,
   Grid3x3,
   Languages,
-  User,
-  Check,
+  Palette,
+  Save,
+  Settings as SettingsIcon,
   Sparkles,
-  ArrowRight,
+  User,
 } from 'lucide-react';
-import { THEMES, useTheme, type Theme } from '@/context/ThemeContext';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
+import { type Theme, THEMES, useTheme } from '@/context/ThemeContext';
+
 import { BillingPanel } from './BillingPanel';
-import { UpgradeWelcomeModal } from './UpgradeWelcomeModal';
-import { TeamPanel } from './TeamPanel';
 import { DangerZone } from './DangerZone';
+import { TeamPanel } from './TeamPanel';
+import { UpgradeWelcomeModal } from './UpgradeWelcomeModal';
 
 const STRINGS = {
   en: {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // Default values used for SSR - must be consistent between server and client initial render
 const DEFAULT_WIDTH = 1920;

@@ -1,8 +1,8 @@
 import {
-  StepExecutor,
   ExecutorContext,
   ExecutorResult,
   resolveTemplate,
+  StepExecutor,
 } from '../types/executor.types';
 
 export interface NotifyConfig {

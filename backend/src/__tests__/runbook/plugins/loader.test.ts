@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+
 import { loadPluginsSync } from '../../../runbook/plugins/loader';
 
 /**

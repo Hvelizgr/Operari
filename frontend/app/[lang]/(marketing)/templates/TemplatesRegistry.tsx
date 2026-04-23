@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowUpRight, FileCode, Search, X } from 'lucide-react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, FileCode, X, ArrowUpRight } from 'lucide-react';
-import type { TemplateMeta, TemplateLang } from './strings';
+import { useMemo, useState } from 'react';
+
+import type { TemplateLang, TemplateMeta } from './strings';
 
 type Strings = {
   searchPlaceholder: string;

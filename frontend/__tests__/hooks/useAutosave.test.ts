@@ -1,4 +1,5 @@
-import { renderHook, act } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
+
 import { useAutosave } from '../../hooks/useAutosave';
 
 describe('useAutosave', () => {

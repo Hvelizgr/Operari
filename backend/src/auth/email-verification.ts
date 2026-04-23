@@ -1,8 +1,9 @@
-import { createHash, randomBytes } from 'crypto';
 import type { PrismaClient } from '@prisma/client';
+import { createHash, randomBytes } from 'crypto';
+
+import { logger } from '../config/logger.config';
 import { sendEmail } from '../services/email.service';
 import { renderVerificationEmail } from '../services/email-templates';
-import { logger } from '../config/logger.config';
 
 export const VERIFICATION_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 

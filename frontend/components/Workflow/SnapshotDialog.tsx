@@ -1,7 +1,8 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { History, X, RotateCcw, Trash2, Camera } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Camera, History, RotateCcw, Trash2, X } from 'lucide-react';
+
 import { Snapshot } from '../../hooks/useSnapshots';
 
 interface SnapshotDialogProps {

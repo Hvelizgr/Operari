@@ -1,19 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import {
-  ArrowLeft,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  Pause,
-  Ban,
-  RotateCcw,
   AlertCircle,
+  ArrowLeft,
+  Ban,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Loader2,
+  Pause,
+  RotateCcw,
+  XCircle,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 type StepStatus = RunStatus | string;

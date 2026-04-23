@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
-import type { AuditService, ActorType } from '../audit/audit.service';
+
+import type { ActorType, AuditService } from '../audit/audit.service';
 import type { PermissionService } from './permission.service';
 
 /**

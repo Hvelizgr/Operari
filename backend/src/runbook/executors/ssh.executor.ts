@@ -1,9 +1,10 @@
-import { Client, type ConnectConfig, type ClientChannel } from 'ssh2';
+import { Client, type ClientChannel, type ConnectConfig } from 'ssh2';
+
 import {
-  StepExecutor,
   ExecutorContext,
   ExecutorResult,
   resolveTemplate,
+  StepExecutor,
 } from '../types/executor.types';
 
 export interface SSHConfig {

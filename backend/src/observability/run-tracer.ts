@@ -1,4 +1,4 @@
-import { trace, Span, SpanStatusCode, Context, context as otelContext } from '@opentelemetry/api';
+import { Context, context as otelContext, Span, SpanStatusCode, trace } from '@opentelemetry/api';
 
 /**
  * RunTracer — maps NanoRun runs and steps onto OpenTelemetry traces.

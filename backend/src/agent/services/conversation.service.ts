@@ -1,4 +1,5 @@
-import { PrismaClient, ConversationStatus, MessageRole } from '@prisma/client';
+import { ConversationStatus, MessageRole, PrismaClient } from '@prisma/client';
+
 import { logger } from '../../config/logger.config';
 
 export class ConversationService {

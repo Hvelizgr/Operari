@@ -1,6 +1,6 @@
 import {
-  ConnectedAccountService,
   ConnectedAccountError,
+  ConnectedAccountService,
 } from '../../security/connected-account.service';
 
 /**

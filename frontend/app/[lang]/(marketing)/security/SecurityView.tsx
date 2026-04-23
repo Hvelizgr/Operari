@@ -2,20 +2,21 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import {
-  ShieldCheck,
-  Lock,
-  Box,
-  FileKey,
-  Globe2,
-  BadgeCheck,
-  Mail,
-  ArrowRight,
   Activity,
   AlertCircle,
+  ArrowRight,
+  BadgeCheck,
+  Box,
   Clock,
+  FileKey,
+  Globe2,
   KeyRound,
+  Lock,
+  Mail,
+  ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
+
 import type { content as contentEn } from '../../content/en';
 
 type Security = typeof contentEn.security;

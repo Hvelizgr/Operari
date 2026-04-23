@@ -1,14 +1,15 @@
 import type { PrismaClient } from '@prisma/client';
+
 import type { AuthProvider } from './auth-provider.types';
 import { JwtAuthProvider } from './jwt-auth-provider';
 import { WorkOSAuthProvider } from './workos-auth-provider';
 import { WorkOSJwksVerifier } from './workos-jwks-verifier';
 
-export type { AuthProvider, AuthenticatedUser } from './auth-provider.types';
+export type { AuthenticatedUser, AuthProvider } from './auth-provider.types';
 export { AuthTransportError } from './auth-provider.types';
 export { JwtAuthProvider } from './jwt-auth-provider';
+export type { VerifyJwksTokenFn, WorkOSClaims } from './workos-auth-provider';
 export { WorkOSAuthProvider } from './workos-auth-provider';
-export type { WorkOSClaims, VerifyJwksTokenFn } from './workos-auth-provider';
 export { WorkOSJwksVerifier } from './workos-jwks-verifier';
 
 /**

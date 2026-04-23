@@ -1,12 +1,13 @@
-import { Router, type Response } from 'express';
-import { z } from 'zod';
 import bcrypt from 'bcryptjs';
-import { prisma } from '../server';
-import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
-import { buildOtpauthUrl, generateTotpSecret, verifyTotp } from '../auth/totp';
-import { secretCipherFromEnv } from '../security/secret-cipher';
-import { AuditService, type AuditEventType } from '../audit/audit.service';
+import { type Response, Router } from 'express';
+import { z } from 'zod';
+
+import { type AuditEventType, AuditService } from '../audit/audit.service';
 import { issueBackupCodes } from '../auth/mfa-backup-codes';
+import { buildOtpauthUrl, generateTotpSecret, verifyTotp } from '../auth/totp';
+import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
+import { secretCipherFromEnv } from '../security/secret-cipher';
+import { prisma } from '../server';
 
 const router = Router();
 

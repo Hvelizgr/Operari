@@ -1,5 +1,5 @@
-import { ExecutionInput, RepeatResult, RepeatNodeConfig } from '../../types/workflow.types';
-import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
+import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
+import { ExecutionInput, RepeatNodeConfig, RepeatResult } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
 
 export class RepeatNodeExecutor implements EditorNodeExecutor<RepeatNodeConfig, RepeatResult> {

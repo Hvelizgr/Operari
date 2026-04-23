@@ -1,7 +1,7 @@
 import { content as contentEn } from '../content/en';
 import { content as contentEs } from '../content/es';
-import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import Navbar from './components/Navbar';
 
 export default async function MarketingLayout({
   children,

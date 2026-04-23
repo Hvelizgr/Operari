@@ -1,17 +1,19 @@
 'use client';
 
-import { Palette, Sparkles, Box as BoxIcon, Check } from 'lucide-react';
+import { Box as BoxIcon, Check, Palette, Sparkles } from 'lucide-react';
+
 import {
-  useVisualization,
   ACCENT_HEX,
-  type NodeDensity,
-  type NodeStyle,
-  type NodeShadowPreset,
-  type NodeIconSize,
   type AccentColor,
+  type NodeDensity,
+  type NodeIconSize,
+  type NodeShadowPreset,
+  type NodeStyle,
+  useVisualization,
 } from '@/context/VisualizationContext';
-import { Section, PillGroup, PreviewCard, SliderRow, StatusColorRow } from '../primitives';
+
 import { NodeStylePreview } from '../previews';
+import { PillGroup, PreviewCard, Section, SliderRow, StatusColorRow } from '../primitives';
 import type { Strings } from '../strings';
 
 export function NodesTab({ t }: { t: Strings }) {

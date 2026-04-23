@@ -1,5 +1,6 @@
-import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { Router } from 'express';
+
 import { logger } from '../config/logger.config';
 
 const router = Router();

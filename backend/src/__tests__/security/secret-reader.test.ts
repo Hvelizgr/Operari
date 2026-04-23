@@ -1,7 +1,8 @@
 import { randomBytes } from 'crypto';
+
+import type { AuditService } from '../../audit/audit.service';
 import { SecretCipher, SecretCipherError } from '../../security/secret-cipher';
 import { SecretReader } from '../../security/secret-reader';
-import type { AuditService } from '../../audit/audit.service';
 
 const HEX_KEY = randomBytes(32).toString('hex');
 

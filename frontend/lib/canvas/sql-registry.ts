@@ -9,21 +9,22 @@
  * registry the palette, previews, and validation are SQL-specific.
  */
 
-import React from 'react';
-import type { NodeTypeRegistry, BadgeInfo, CategoryPalette } from './node-type-registry';
-import { defaultRegistryMethods } from './node-type-registry';
 import {
-  Table2,
-  Filter,
-  GitMerge,
-  BarChart3,
   ArrowUpDown,
-  Hash,
-  Combine,
+  BarChart3,
   Columns3,
+  Combine,
   Eye,
   FileOutput,
+  Filter,
+  GitMerge,
+  Hash,
+  Table2,
 } from 'lucide-react';
+import React from 'react';
+
+import type { BadgeInfo, CategoryPalette, NodeTypeRegistry } from './node-type-registry';
+import { defaultRegistryMethods } from './node-type-registry';
 
 // ---- Categories ----
 

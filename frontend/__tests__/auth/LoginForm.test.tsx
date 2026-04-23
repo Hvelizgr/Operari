@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+
 import { LoginForm } from '@/app/[lang]/(auth)/login/LoginForm';
 
 const mockLogin = jest.fn();
@@ -64,7 +65,7 @@ describe('LoginForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe('Invalid credentials');
+    expect(alert).toHaveTextContent('Invalid credentials');
     expect(mockReplace).not.toHaveBeenCalled();
   });
 

@@ -1,5 +1,6 @@
 import type { PrismaClient, Role } from '@prisma/client';
-import type { AuthProvider, AuthenticatedUser } from './auth-provider.types';
+
+import type { AuthenticatedUser, AuthProvider } from './auth-provider.types';
 import { AuthTransportError } from './auth-provider.types';
 
 /**

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
+
+import { type AuthLang, authStrings } from '../strings';
 import { RegisterForm } from './RegisterForm';
-import { authStrings, type AuthLang } from '../strings';
 
 export const dynamic = 'force-dynamic';
 

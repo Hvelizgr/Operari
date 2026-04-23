@@ -1,27 +1,28 @@
 'use client';
 
 import { AlertCircle } from 'lucide-react';
+
+import type {
+  ContextMenuState,
+  DeleteConfirmState,
+  DeleteConnectionConfirmState,
+  ExecutionMetric,
+  ViewportState,
+} from '../../types/editor.types';
 import {
+  ConfirmDialog,
+  ContextMenu,
+  EmptyStateMessage,
   Onboarding,
   ONBOARDING_STEPS_EN,
   ONBOARDING_STEPS_ES,
-  EmptyStateMessage,
-  ConfirmDialog,
-  ContextMenu,
 } from '../Common';
-import { TemplateGallery } from '../Workflow';
-import PropertiesPanel from './PropertiesPanel';
-import { MiniMap, SearchBar, ZoomControls } from '../Navigation';
 import { MetricsDashboard } from '../Dashboard';
+import { MiniMap, SearchBar, ZoomControls } from '../Navigation';
 import type { NodeType } from '../Node';
-import type { WorkflowNode, Connection } from './';
-import type {
-  ViewportState,
-  DeleteConfirmState,
-  DeleteConnectionConfirmState,
-  ContextMenuState,
-  ExecutionMetric,
-} from '../../types/editor.types';
+import { TemplateGallery } from '../Workflow';
+import type { Connection, WorkflowNode } from './';
+import PropertiesPanel from './PropertiesPanel';
 
 interface EditorOverlaysProps {
   nodes: WorkflowNode[];

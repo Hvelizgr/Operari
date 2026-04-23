@@ -1,5 +1,6 @@
-import { memo, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { memo, useEffect, useState } from 'react';
+
 import type { ViewportState } from '../../types/editor.types';
 
 interface GridLayerProps {

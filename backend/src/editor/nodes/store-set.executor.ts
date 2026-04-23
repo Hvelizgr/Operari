@@ -1,8 +1,9 @@
-import type { PrismaClient, Prisma } from '@prisma/client';
-import type { StoreSetNodeConfig, StoreResult, ExecutionInput } from '../../types/workflow.types';
+import type { Prisma, PrismaClient } from '@prisma/client';
+
+import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
+import type { ExecutionInput, StoreResult, StoreSetNodeConfig } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { resolveTemplate } from './_shared';
-import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
 
 /**
  * StoreSet node — writes a key/value pair into a tenant-scoped

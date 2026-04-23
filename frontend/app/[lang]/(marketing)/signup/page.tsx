@@ -1,7 +1,9 @@
+import { ArrowRight, Github, Mail, Terminal } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Terminal, Github, Mail } from 'lucide-react';
+
 import { repo } from '@/config/repo.config';
+
 import RunPreview from './RunPreview';
 
 export async function generateStaticParams() {

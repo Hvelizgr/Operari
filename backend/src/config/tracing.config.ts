@@ -1,8 +1,9 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
 import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
-import { PrismaInstrumentation } from '@prisma/instrumentation';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { PrismaInstrumentation } from '@prisma/instrumentation';
+
 import { logger } from '../services/logger.service';
 
 // Enable tracing only if explicitly enabled in env

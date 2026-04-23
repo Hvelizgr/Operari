@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+
 import { PermissionService } from '../../rbac/permission.service';
 
 interface FakeUserRow {

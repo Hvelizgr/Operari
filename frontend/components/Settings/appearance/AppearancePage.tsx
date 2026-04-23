@@ -1,24 +1,26 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
 import {
-  Palette,
   Box as BoxIcon,
-  Spline,
-  Zap as ZapIcon,
+  ChevronLeft,
   Grid3x3,
   LayoutDashboard,
-  ChevronLeft,
+  Palette,
+  Spline,
+  Zap as ZapIcon,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
+
 import { useVisualization } from '@/context/VisualizationContext';
-import { STRINGS } from './strings';
-import { TabButton } from './primitives';
+
 import { LivePreview } from './previews';
-import { NodesTab } from './tabs/NodesTab';
+import { TabButton } from './primitives';
+import { STRINGS } from './strings';
+import { CanvasTab } from './tabs/CanvasTab';
 import { ConnectionsTab } from './tabs/ConnectionsTab';
 import { FlowTab } from './tabs/FlowTab';
-import { CanvasTab } from './tabs/CanvasTab';
+import { NodesTab } from './tabs/NodesTab';
 import { PresetsTab } from './tabs/PresetsTab';
 
 type TabId = 'nodes' | 'connections' | 'flow' | 'canvas' | 'presets';

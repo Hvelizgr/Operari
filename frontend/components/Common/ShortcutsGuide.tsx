@@ -1,8 +1,8 @@
 // frontend/components/Common/ShortcutsGuide.tsx
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Keyboard, MousePointerClick, Zap, GitBranch, Terminal } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { GitBranch, Keyboard, MousePointerClick, Terminal, X, Zap } from 'lucide-react';
 
 interface ShortcutsGuideProps {
   isOpen: boolean;

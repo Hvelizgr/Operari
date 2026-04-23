@@ -1,8 +1,8 @@
-import type { HttpNodeConfig, HttpResult, ExecutionInput } from '../../types/workflow.types';
+import { ErrorCode, HttpError } from '../../errors/custom-error';
+import type { ExecutionInput, HttpNodeConfig, HttpResult } from '../../types/workflow.types';
+import { withHttpRetry } from '../../utils/retry';
 import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_shared';
 import { resolveTemplate } from './_shared';
-import { HttpError, ErrorCode } from '../../errors/custom-error';
-import { withHttpRetry } from '../../utils/retry';
 
 /**
  * HTTP node — `fetch` the configured URL with retries.

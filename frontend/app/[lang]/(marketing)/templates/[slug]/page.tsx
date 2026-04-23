@@ -1,13 +1,15 @@
+import { ArrowLeft, FileCode, Tag } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, FileCode, Tag } from 'lucide-react';
+
+import { specToNodes, yamlToSpec } from '@/utils/runbookYaml';
+
 import { fetchTemplateBySlug, fetchTemplates } from '../fetch-templates';
-import { templateStrings, type TemplateLang } from '../strings';
-import { UseTemplateButton } from './UseTemplateButton';
-import { CopyYamlButton } from './CopyYamlButton';
+import { type TemplateLang, templateStrings } from '../strings';
 import TemplatePreview from '../TemplatePreview';
-import { yamlToSpec, specToNodes } from '@/utils/runbookYaml';
+import { CopyYamlButton } from './CopyYamlButton';
+import { UseTemplateButton } from './UseTemplateButton';
 
 export async function generateStaticParams() {
   const templates = await fetchTemplates();

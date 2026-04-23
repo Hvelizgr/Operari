@@ -1,7 +1,7 @@
-import { EmailNodeExecutor } from '../../../editor/nodes/email.executor';
-import { ExternalServiceError, ErrorCode } from '../../../errors/custom-error';
-import type { Logger } from '../../../services/logger.service';
 import type { EmailTransporterLike } from '../../../editor/nodes/_shared';
+import { EmailNodeExecutor } from '../../../editor/nodes/email.executor';
+import { ErrorCode, ExternalServiceError } from '../../../errors/custom-error';
+import type { Logger } from '../../../services/logger.service';
 
 const buildLogger = () => {
   const logger = {

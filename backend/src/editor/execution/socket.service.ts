@@ -1,5 +1,6 @@
-import { Server as SocketServer } from 'socket.io';
 import { Server as HttpServer } from 'http';
+import { Server as SocketServer } from 'socket.io';
+
 import { logger } from '../../config/logger.config';
 
 export class SocketService {
@@ -63,7 +64,6 @@ export class SocketService {
     // Lazy require to avoid a hard import dep that test environments
     // would have to mock.
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getLogStream } = require('../../observability/log-stream.service');
       void getLogStream().publish(executionId, log, metadata);
     } catch {

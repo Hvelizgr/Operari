@@ -1,11 +1,12 @@
 import type { PrismaClient } from '@prisma/client';
-import { TriggerNodeExecutor } from '../../../editor/nodes/trigger.executor';
+
 import { LoopNodeExecutor } from '../../../editor/nodes/loop.executor';
-import { SuspendNodeExecutor } from '../../../editor/nodes/suspend.executor';
-import { StoreSetNodeExecutor } from '../../../editor/nodes/store-set.executor';
-import { StoreGetNodeExecutor } from '../../../editor/nodes/store-get.executor';
 import { SetMetadataNodeExecutor } from '../../../editor/nodes/set-metadata.executor';
-import { NodeExecutionError, ErrorCode } from '../../../errors/custom-error';
+import { StoreGetNodeExecutor } from '../../../editor/nodes/store-get.executor';
+import { StoreSetNodeExecutor } from '../../../editor/nodes/store-set.executor';
+import { SuspendNodeExecutor } from '../../../editor/nodes/suspend.executor';
+import { TriggerNodeExecutor } from '../../../editor/nodes/trigger.executor';
+import { ErrorCode, NodeExecutionError } from '../../../errors/custom-error';
 
 const errCtx = (type = 'Test') => ({ nodeId: 'n', nodeName: type, nodeType: type });
 

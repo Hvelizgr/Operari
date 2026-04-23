@@ -1,7 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
+
 import { content } from '@/app/[lang]/content/en';
+
 import AuroraBackground from './AuroraBackground';
 
 type StoryProps = {

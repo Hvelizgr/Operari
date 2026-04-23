@@ -1,19 +1,19 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  X,
+  AlertCircle,
+  Check,
+  Copy,
   GitBranch,
   Loader2,
-  AlertCircle,
-  Copy,
-  Check,
-  Shield,
-  RefreshCw,
   Play,
+  RefreshCw,
+  Shield,
+  X,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useState } from 'react';
 
 // commit-graph uses browser APIs, so we load it client-only
 const CommitGraph = dynamic(

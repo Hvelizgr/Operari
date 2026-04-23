@@ -1,25 +1,25 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Copy,
-  Trash2,
-  ToggleRight,
-  Play,
-  Plus,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Undo2,
-  Redo2,
+  Eraser,
   History,
   Keyboard,
   Link2Off,
+  Maximize2,
   Move,
   Pencil,
-  Eraser,
+  Play,
+  Plus,
+  Redo2,
+  ToggleRight,
+  Trash2,
+  Undo2,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface ContextMenuProps {
   x: number;

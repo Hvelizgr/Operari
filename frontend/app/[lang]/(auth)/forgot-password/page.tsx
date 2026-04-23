@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
+
+import { type AuthLang, resetStrings } from '../strings';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
-import { resetStrings, type AuthLang } from '../strings';
 
 export const dynamic = 'force-dynamic';
 

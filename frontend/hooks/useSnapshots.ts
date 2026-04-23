@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { WorkflowNode, Connection } from '@cairn/shared';
+import { Connection, WorkflowNode } from '@cairn/shared';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface Snapshot {
   id: string;

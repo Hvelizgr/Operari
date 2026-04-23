@@ -1,5 +1,6 @@
-import { generateKeyPairSync, createSign, KeyObject } from 'crypto';
-import { WorkOSJwksVerifier, type JsonWebKeySet } from '../../auth/workos-jwks-verifier';
+import { createSign, generateKeyPairSync, KeyObject } from 'crypto';
+
+import { type JsonWebKeySet, WorkOSJwksVerifier } from '../../auth/workos-jwks-verifier';
 
 /**
  * End-to-end tests for the WorkOS JWKS verifier using a self-signed

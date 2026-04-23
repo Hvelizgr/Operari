@@ -1,7 +1,8 @@
 'use client';
 
+import { AlertCircle, Check, Copy, Loader2, Plus, Trash2, Webhook } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Webhook, Plus, Copy, Check, Trash2, Loader2, AlertCircle } from 'lucide-react';
+
 import WebhookReceiptsPanel from './WebhookReceiptsPanel';
 
 interface TriggerRecord {

@@ -1,14 +1,16 @@
 'use client';
 
 import { Spline } from 'lucide-react';
+
 import {
-  useVisualization,
   ACCENT_HEX,
-  type LineStyle,
   type EdgeDashPattern,
+  type LineStyle,
+  useVisualization,
 } from '@/context/VisualizationContext';
-import { Section, PreviewCard, SliderRow, ToggleRow } from '../primitives';
-import { LineStylePreview, DashPreview } from '../previews';
+
+import { DashPreview, LineStylePreview } from '../previews';
+import { PreviewCard, Section, SliderRow, ToggleRow } from '../primitives';
 import type { Strings } from '../strings';
 
 export function ConnectionsTab({ t }: { t: Strings }) {

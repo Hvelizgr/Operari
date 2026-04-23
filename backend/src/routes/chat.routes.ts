@@ -1,9 +1,10 @@
-import { Router, Response } from 'express';
+import { Response, Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../server';
-import { AuthRequest } from '../middleware/auth.middleware';
+
 import { ConversationService } from '../agent/services/conversation.service';
 import { logger } from '../config/logger.config';
+import { AuthRequest } from '../middleware/auth.middleware';
+import { prisma } from '../server';
 
 const router = Router();
 

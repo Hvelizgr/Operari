@@ -1,12 +1,13 @@
-import { randomBytes } from 'crypto';
 import type { ConnectedAccount, PrismaClient } from '@prisma/client';
+import { randomBytes } from 'crypto';
+
+import type { AuditService } from '../../audit/audit.service';
+import {
+  ConnectedAccountError,
+  ConnectedAccountService,
+} from '../../security/connected-account.service';
 import { SecretCipher } from '../../security/secret-cipher';
 import { SecretReader } from '../../security/secret-reader';
-import {
-  ConnectedAccountService,
-  ConnectedAccountError,
-} from '../../security/connected-account.service';
-import type { AuditService } from '../../audit/audit.service';
 
 const HEX_KEY = randomBytes(32).toString('hex');
 const TENANT = 'tenant-1';

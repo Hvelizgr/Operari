@@ -1,5 +1,6 @@
+import type { Prisma, PrismaClient } from '@prisma/client';
 import { createHash } from 'crypto';
-import type { PrismaClient, Prisma } from '@prisma/client';
+
 import { canonicalJson } from './canonical-json';
 
 /**
@@ -211,7 +212,6 @@ export class AuditService {
       expectedNextSeq = prior ? prior.seq + 1n : null;
     }
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const page = await this.prisma.auditEvent.findMany({
         where: {
@@ -295,7 +295,6 @@ export class AuditService {
     const pageSize = options.pageSize ?? 500;
     let cursorSeq: bigint | undefined = options.fromSeq;
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const page = await this.prisma.auditEvent.findMany({
         where: {

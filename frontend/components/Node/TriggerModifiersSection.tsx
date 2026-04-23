@@ -1,7 +1,7 @@
 'use client';
 
+import { ChevronDown, ChevronUp, Clock, Filter, Hash, Shield, Zap } from 'lucide-react';
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Shield, Clock, Filter, Hash, Zap } from 'lucide-react';
 
 export interface TriggerModifiers {
   // Rate Limiting

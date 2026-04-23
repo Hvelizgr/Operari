@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { AuthError, authClient, useAuth } from '@/lib/auth';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+
+import { authClient, AuthError, useAuth } from '@/lib/auth';
+
 import { AuthField } from '../_components/AuthField';
-import { resetStrings, type AuthLang } from '../strings';
+import { type AuthLang, resetStrings } from '../strings';
 
 export function ResetPasswordForm({ lang }: { lang: AuthLang }) {
   const t = resetStrings[lang].reset;

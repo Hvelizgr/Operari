@@ -1,6 +1,7 @@
-import { renderHook, act } from '@testing-library/react';
-import { useEditorConnections } from '../../hooks/useEditorConnections';
+import { act, renderHook } from '@testing-library/react';
+
 import { INITIAL_NODES } from '../../constants/editor.constants';
+import { useEditorConnections } from '../../hooks/useEditorConnections';
 
 // Mock dependencies
 const mockExecuteCommand = jest.fn(cmd => cmd.execute());

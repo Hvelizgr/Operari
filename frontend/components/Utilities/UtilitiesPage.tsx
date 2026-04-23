@@ -1,7 +1,7 @@
 'use client';
 
+import { Copy, Key, Link2, Plus, Trash2, Webhook as WebhookIcon, Wrench, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Wrench, Key, Webhook as WebhookIcon, Link2, Trash2, Plus, Copy, X } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 

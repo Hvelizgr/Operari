@@ -1,8 +1,8 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Command, ArrowRight, Zap, Info } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowRight, Command, Info, Search, Zap } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface CommandAction {
   id: string;

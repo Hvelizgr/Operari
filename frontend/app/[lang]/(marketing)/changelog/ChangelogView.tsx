@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Rss, Package, GitMerge, Sparkles, Wrench, Tag } from 'lucide-react';
+import { GitMerge, Package, Rss, Sparkles, Tag, Wrench } from 'lucide-react';
+import { useMemo, useState } from 'react';
+
 import type { content as contentEn } from '../../content/en';
 
 type Changelog = typeof contentEn.changelog;

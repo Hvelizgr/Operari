@@ -1,7 +1,8 @@
-import type { PrismaClient, ConnectedAccount, Prisma } from '@prisma/client';
+import type { ConnectedAccount, Prisma, PrismaClient } from '@prisma/client';
+
+import type { ActorType, AuditService } from '../audit/audit.service';
 import type { SecretCipher } from './secret-cipher';
 import type { SecretReader } from './secret-reader';
-import type { AuditService, ActorType } from '../audit/audit.service';
 
 /**
  * ConnectedAccountService — the only sanctioned path for creating,

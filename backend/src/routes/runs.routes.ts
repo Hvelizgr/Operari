@@ -1,6 +1,7 @@
-import { Router, Response } from 'express';
+import { Response, Router } from 'express';
+
+import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
 import { prisma } from '../server';
-import { AuthRequest, anonymousFallback } from '../middleware/auth.middleware';
 
 const router = Router();
 

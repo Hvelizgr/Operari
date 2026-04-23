@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 const SAMPLE_YAML = `name: rollback-last-deploy
 trigger: webhook.sentry

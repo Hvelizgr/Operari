@@ -1,9 +1,11 @@
 'use client';
 
 import { motion } from 'framer-motion';
+
 import { content } from '@/app/[lang]/content/en';
-import AuroraBackground from './AuroraBackground';
 import { useAnimeStaggerOnView } from '@/hooks/useAnimeStaggerOnView';
+
+import AuroraBackground from './AuroraBackground';
 
 type TriggerSourcesProps = {
   content: typeof content.triggers;

@@ -2,15 +2,16 @@
 
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
-import { AuthError, authClient, type LoginInput, type RegisterInput } from './auth-client';
+
+import { authClient, AuthError, type LoginInput, type RegisterInput } from './auth-client';
 import type { AuthSession } from './types';
 
 /**

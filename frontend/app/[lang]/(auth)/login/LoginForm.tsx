@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+
 import { AuthError, useAuth } from '@/lib/auth';
+
 import { AuthField } from '../_components/AuthField';
 import { SocialButtons } from '../_components/SocialButtons';
-import { authStrings, type AuthLang } from '../strings';
+import { type AuthLang, authStrings } from '../strings';
 
 const SAFE_REDIRECT = /^\/[a-z]{2}(\/[\w\-/]*)?$/i;
 

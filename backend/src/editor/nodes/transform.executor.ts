@@ -1,11 +1,11 @@
+import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
 import type {
-  TransformNodeConfig,
   ExecutionInput,
   ExecutionOutput,
+  TransformNodeConfig,
 } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_shared';
 import { resolveTemplate } from './_shared';
-import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
 
 /**
  * Transform node — applies a static key→template mapping against the
@@ -26,7 +26,7 @@ export class TransformNodeExecutor implements EditorNodeExecutor<
   readonly type = 'Transform';
 
   // Reserved for future logging needs (e.g. mapping diagnostics).
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   constructor(private readonly _deps: Pick<NodeExecutorDeps, 'logger'>) {}
 
   async execute(

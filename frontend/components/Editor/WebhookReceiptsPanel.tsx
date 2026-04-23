@@ -1,17 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import {
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
-  RefreshCw,
+  Clock,
+  Loader2,
   PlayCircle,
-  CheckCircle2,
+  RefreshCw,
   ShieldAlert,
   XCircle,
-  Loader2,
-  Clock,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 type ReceiptStatus = 'accepted' | 'rejected_inactive' | 'rejected_signature' | 'error';
 

@@ -1,10 +1,11 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, FileCode, FileText } from 'lucide-react';
+import type { Connection, WorkflowNode } from '@cairn/shared';
+import { AnimatePresence, motion } from 'framer-motion';
+import { FileCode, FileText, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { WorkflowNode, Connection } from '@cairn/shared';
-import { yamlToSpec, specToNodes } from '@/utils/runbookYaml';
+
+import { specToNodes, yamlToSpec } from '@/utils/runbookYaml';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 

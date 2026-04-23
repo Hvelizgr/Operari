@@ -1,4 +1,6 @@
+import { ErrorCode, ExternalServiceError } from '../../errors/custom-error';
 import type { EmailNodeConfig, EmailResult, ExecutionInput } from '../../types/workflow.types';
+import { withExternalServiceRetry } from '../../utils/retry';
 import type {
   EditorNodeExecutor,
   EmailTransporterLike,
@@ -6,8 +8,6 @@ import type {
   NodeExecutorDeps,
 } from './_shared';
 import { resolveTemplate } from './_shared';
-import { ExternalServiceError, ErrorCode } from '../../errors/custom-error';
-import { withExternalServiceRetry } from '../../utils/retry';
 
 /**
  * Email node — sends a message via the configured nodemailer transporter.

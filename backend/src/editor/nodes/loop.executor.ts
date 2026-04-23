@@ -1,4 +1,4 @@
-import type { LoopNodeConfig, LoopResult, ExecutionInput } from '../../types/workflow.types';
+import type { ExecutionInput, LoopNodeConfig, LoopResult } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { getNestedValue } from './_shared';
 

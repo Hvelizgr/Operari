@@ -1,9 +1,9 @@
 import {
-  permissionsMatch,
-  Permissions,
   ALL_PERMISSIONS,
-  SYSTEM_ROLES,
   legacyPermissions,
+  Permissions,
+  permissionsMatch,
+  SYSTEM_ROLES,
 } from '../../rbac/permissions';
 
 describe('permissionsMatch', () => {

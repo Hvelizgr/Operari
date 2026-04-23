@@ -1,5 +1,6 @@
-import type { Meta, StoryObj } from '@storybook/react';
 import type { WorkflowNode } from '@cairn/shared';
+import type { Meta, StoryObj } from '@storybook/react';
+
 import EditorNode from '../components/Editor/EditorNode';
 
 const mockNode: WorkflowNode = {

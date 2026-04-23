@@ -1,5 +1,5 @@
 import { HttpNodeExecutor } from '../../../editor/nodes/http.executor';
-import { HttpError, ErrorCode } from '../../../errors/custom-error';
+import { ErrorCode, HttpError } from '../../../errors/custom-error';
 import type { Logger } from '../../../services/logger.service';
 
 const buildLogger = () => {

@@ -1,8 +1,8 @@
 import {
+  renderContactForwardEmail,
+  renderInviteEmail,
   renderPasswordResetEmail,
   renderVerificationEmail,
-  renderInviteEmail,
-  renderContactForwardEmail,
 } from '../../services/email-templates';
 
 describe('email-templates', () => {
@@ -103,7 +103,6 @@ describe('email-templates', () => {
 
     it('neutralizes a javascript: CTA URL so the branded button never links to it', () => {
       const r = renderPasswordResetEmail({
-        // eslint-disable-next-line no-script-url
         resetUrl: 'javascript:alert(1)',
         userEmail: 'user@example.com',
       });

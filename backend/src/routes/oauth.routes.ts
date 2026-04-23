@@ -1,16 +1,17 @@
-import { Router, type CookieOptions, type Request, type Response } from 'express';
-import jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
-import { prisma } from '../server';
-import { setSessionCookie } from '../auth/session-cookie';
-import { PROVIDERS, isProviderConfigured, type OAuthProviderName } from '../auth/oauth/providers';
+import { type CookieOptions, type Request, type Response, Router } from 'express';
+import jwt from 'jsonwebtoken';
+
+import { AuditService } from '../audit/audit.service';
 import {
   buildAuthorizeUrl,
   exchangeCode,
   newState,
   resolveOAuthUser,
 } from '../auth/oauth/oauth-service';
-import { AuditService } from '../audit/audit.service';
+import { isProviderConfigured, type OAuthProviderName, PROVIDERS } from '../auth/oauth/providers';
+import { setSessionCookie } from '../auth/session-cookie';
+import { prisma } from '../server';
 
 const router = Router();
 

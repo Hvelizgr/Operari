@@ -1,5 +1,6 @@
-import { spawn as nodeSpawn, ChildProcessWithoutNullStreams } from 'child_process';
+import { ChildProcessWithoutNullStreams, spawn as nodeSpawn } from 'child_process';
 import { randomBytes } from 'crypto';
+
 import { Runner, RunnerContext, RunnerError, RunnerResult, RunnerSpec } from './runner.types';
 
 /**

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Send, ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Check, Send } from 'lucide-react';
+import { useState } from 'react';
+
 import { repo } from '@/config/repo.config';
+
 import type { content as contentEn } from '../../content/en';
 
 type Contact = typeof contentEn.contact;

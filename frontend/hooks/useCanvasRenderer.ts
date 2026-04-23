@@ -1,10 +1,11 @@
-import { useEffect, useCallback, useRef } from 'react';
-import type { WorkflowNode, Connection } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@cairn/shared';
+import { useCallback, useEffect, useRef } from 'react';
+
 import type { ViewportState } from '../types/editor.types';
-import { resolvePortAnchor } from '../utils/portAnchor';
-import { drawSmartBezier } from '../utils/canvas/drawing';
-import { readPrefs, readFlowSpeedMult, type UpstreamStatus } from '../utils/canvas/prefs';
 import { drawPortCrosshair } from '../utils/canvas/debug';
+import { drawSmartBezier } from '../utils/canvas/drawing';
+import { readFlowSpeedMult, readPrefs, type UpstreamStatus } from '../utils/canvas/prefs';
+import { resolvePortAnchor } from '../utils/portAnchor';
 
 /**
  * Canvas rendering loop for workflow connections.

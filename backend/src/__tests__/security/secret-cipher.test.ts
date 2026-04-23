@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto';
+
 import { SecretCipher, SecretCipherError, secretCipherFromEnv } from '../../security/secret-cipher';
 
 const HEX_KEY = randomBytes(32).toString('hex');

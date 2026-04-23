@@ -1,7 +1,7 @@
 'use client';
 
+import { AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { useMemo } from 'react';
-import { Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export interface SQLResult {
   rows: Record<string, unknown>[];

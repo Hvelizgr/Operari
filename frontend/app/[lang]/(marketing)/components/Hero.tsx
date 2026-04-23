@@ -1,13 +1,15 @@
 'use client';
 
-import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion';
-import { ArrowRight, Copy, Check, Terminal, Github } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import anime from 'animejs';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
+import { ArrowRight, Check, Copy, Github, Terminal } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import anime from 'animejs';
+import { useEffect, useRef, useState } from 'react';
+
 import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
+
 import AuroraBackground from './AuroraBackground';
 
 type HeroProps = {

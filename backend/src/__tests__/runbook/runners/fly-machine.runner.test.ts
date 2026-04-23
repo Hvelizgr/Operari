@@ -1,5 +1,5 @@
 import { FlyMachineRunner } from '../../../runbook/runners/fly-machine.runner';
-import { RunnerError, type RunnerContext } from '../../../runbook/runners/runner.types';
+import { type RunnerContext, RunnerError } from '../../../runbook/runners/runner.types';
 
 interface FetchCall {
   url: string;

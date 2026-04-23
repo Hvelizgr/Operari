@@ -1,9 +1,9 @@
 import {
   CustomError,
   ErrorCode,
-  HttpError,
-  ExternalServiceError,
   ErrorSeverity,
+  ExternalServiceError,
+  HttpError,
 } from '../errors/custom-error';
 import { Logger } from '../services/logger.service';
 

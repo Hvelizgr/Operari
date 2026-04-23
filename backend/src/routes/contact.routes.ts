@@ -1,5 +1,6 @@
-import { Router, type Request, type Response } from 'express';
+import { type Request, type Response, Router } from 'express';
 import { z } from 'zod';
+
 import { logger } from '../config/logger.config';
 import { sendEmail } from '../services/email.service';
 import { renderContactForwardEmail } from '../services/email-templates';

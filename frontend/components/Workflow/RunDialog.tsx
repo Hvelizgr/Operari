@@ -1,9 +1,10 @@
 // frontend/components/Workflow/RunDialog.tsx
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
+import { Bug, Play, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Play, X, Bug } from 'lucide-react';
+
 import type { RunbookInputDefinition } from '../Editor/RunbookInputsPanel';
 
 interface LogEntry {

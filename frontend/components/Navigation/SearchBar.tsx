@@ -1,42 +1,43 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Search,
-  X,
-  Plus,
+  AlertCircle,
+  Bell,
+  Calendar,
   ChevronDown,
   ChevronRight,
-  Globe,
-  Mail,
-  Database,
   Clock,
-  GitBranch,
-  Code,
-  MessageSquare,
-  FileText,
-  Calendar,
-  Webhook,
-  Send,
-  Key,
-  Zap,
-  Settings,
   Cloud,
-  Server,
-  Hash,
-  Play,
-  Pause,
-  RefreshCw,
+  Code,
+  Database,
+  FileText,
   Filter,
-  AlertCircle,
-  List,
+  GitBranch,
+  Globe,
   Grid,
+  Hash,
+  Key,
+  List,
+  Mail,
+  MessageSquare,
+  Pause,
+  Play,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  Server,
+  Settings,
   Shuffle,
-  Bell,
+  Webhook,
+  X,
+  Zap,
 } from 'lucide-react';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
 import { WorkflowNode } from '../Editor';
-import { NODE_TYPES, NodeType, CATEGORIES } from '../Node';
+import { CATEGORIES, NODE_TYPES, NodeType } from '../Node';
 
 interface SearchBarProps {
   nodes: WorkflowNode[];

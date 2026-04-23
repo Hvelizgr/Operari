@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
-import { SYSTEM_ROLES, legacyPermissions, permissionsMatch } from './permissions';
+
+import { legacyPermissions, permissionsMatch, SYSTEM_ROLES } from './permissions';
 
 export interface PermissionServiceOptions {
   /**

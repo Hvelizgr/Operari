@@ -1,4 +1,4 @@
-import type { Response, NextFunction } from 'express';
+import type { NextFunction, Response } from 'express';
 
 jest.mock('../../server', () => ({
   prisma: {
@@ -8,9 +8,9 @@ jest.mock('../../server', () => ({
   },
 }));
 
+import type { AuthRequest } from '../../middleware/auth.middleware';
 import { requirePlan } from '../../middleware/plan.middleware';
 import { prisma } from '../../server';
-import type { AuthRequest } from '../../middleware/auth.middleware';
 
 const findUnique = prisma.tenant.findUnique as jest.Mock;
 

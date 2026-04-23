@@ -1,7 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../server';
-import { getAuthProvider, AuthTransportError } from '../auth';
+import { NextFunction, Request, Response } from 'express';
+
+import { AuthTransportError, getAuthProvider } from '../auth';
 import { SESSION_COOKIE_NAME } from '../auth/session-cookie';
+import { prisma } from '../server';
 
 export interface AuthRequest extends Request {
   user?: {

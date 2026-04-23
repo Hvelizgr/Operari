@@ -1,7 +1,7 @@
-import { NoopBillingMeter } from '../../billing/noop-billing-meter';
-import { StripeBillingMeter } from '../../billing/stripe-billing-meter';
 import { buildBillingMeter } from '../../billing';
 import type { BillableEvent } from '../../billing/billing-meter.types';
+import { NoopBillingMeter } from '../../billing/noop-billing-meter';
+import { StripeBillingMeter } from '../../billing/stripe-billing-meter';
 
 describe('NoopBillingMeter', () => {
   const meter = new NoopBillingMeter();

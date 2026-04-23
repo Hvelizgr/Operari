@@ -1,7 +1,8 @@
-import bcrypt from 'bcryptjs';
 import type { PrismaClient } from '@prisma/client';
-import { ApiKeyService } from '../../../runbook/services/api-key.service';
+import bcrypt from 'bcryptjs';
+
 import { AuditService } from '../../../audit/audit.service';
+import { ApiKeyService } from '../../../runbook/services/api-key.service';
 
 class FakeAudit {
   public events: Array<{ type: string; tenantId: string; payload: Record<string, unknown> }> = [];

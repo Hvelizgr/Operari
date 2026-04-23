@@ -1,46 +1,47 @@
 import { PrismaClient } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
-import { WorkflowNode, NodeExecutionResult } from '../types/workflow.types';
-import { SplitNodeExecutor } from './logic/split-node.executor';
-import { JoinNodeExecutor } from './logic/join-node.executor';
-import { RepeatNodeExecutor } from './logic/repeat-node.executor';
-import { MultiplexNodeExecutor } from './logic/multiplex-node.executor';
-import { DelayNodeExecutor } from './nodes/delay.executor';
-import { TransformNodeExecutor } from './nodes/transform.executor';
-import { ConditionNodeExecutor } from './nodes/condition.executor';
-import { SwitchNodeExecutor } from './nodes/switch.executor';
-import { NoteNodeExecutor } from './nodes/note.executor';
-import { FrameNodeExecutor } from './nodes/frame.executor';
-import { HttpNodeExecutor } from './nodes/http.executor';
-import { EmailNodeExecutor } from './nodes/email.executor';
-import { DatabaseNodeExecutor } from './nodes/database.executor';
-import { TriggerNodeExecutor } from './nodes/trigger.executor';
-import { LoopNodeExecutor } from './nodes/loop.executor';
-import { SuspendNodeExecutor } from './nodes/suspend.executor';
-import { StoreSetNodeExecutor } from './nodes/store-set.executor';
-import { StoreGetNodeExecutor } from './nodes/store-get.executor';
-import { SetMetadataNodeExecutor } from './nodes/set-metadata.executor';
-import { ShellCommandNodeExecutor } from './nodes/shell-command.executor';
-import type { EditorNodeExecutor } from './nodes/_shared';
+
+import { AuditService } from '../audit/audit.service';
+import { ErrorCode, NodeExecutionError } from '../errors/custom-error';
 import { createExecutorRegistry } from '../runbook/executors';
-import type { StepExecutor, ExecutorContext } from '../runbook/types/executor.types';
 import {
-  SecretTemplateResolver,
   SecretReferenceError,
+  SecretTemplateResolver,
 } from '../runbook/secrets/secret-template-resolver';
+import type { ExecutorContext, StepExecutor } from '../runbook/types/executor.types';
 import { ConnectedAccountService } from '../security/connected-account.service';
 import { SecretCipher } from '../security/secret-cipher';
 import { SecretReader } from '../security/secret-reader';
-import { AuditService } from '../audit/audit.service';
-import { socketService } from './execution/socket.service';
-import { NodeExecutionError, ErrorCode } from '../errors/custom-error';
 import { Logger } from '../services/logger.service';
+import type { ExecutionInput } from '../types/workflow.types';
+import { NodeExecutionResult, WorkflowNode } from '../types/workflow.types';
+import { socketService } from './execution/socket.service';
+import { JoinNodeExecutor } from './logic/join-node.executor';
+import { MultiplexNodeExecutor } from './logic/multiplex-node.executor';
+import { RepeatNodeExecutor } from './logic/repeat-node.executor';
+import { SplitNodeExecutor } from './logic/split-node.executor';
+import type { EditorNodeExecutor } from './nodes/_shared';
 import {
+  getNestedValue as sharedGetNestedValue,
   NodeErrorContext,
   resolveTemplate as sharedResolveTemplate,
-  getNestedValue as sharedGetNestedValue,
 } from './nodes/_shared';
-import type { ExecutionInput } from '../types/workflow.types';
+import { ConditionNodeExecutor } from './nodes/condition.executor';
+import { DatabaseNodeExecutor } from './nodes/database.executor';
+import { DelayNodeExecutor } from './nodes/delay.executor';
+import { EmailNodeExecutor } from './nodes/email.executor';
+import { FrameNodeExecutor } from './nodes/frame.executor';
+import { HttpNodeExecutor } from './nodes/http.executor';
+import { LoopNodeExecutor } from './nodes/loop.executor';
+import { NoteNodeExecutor } from './nodes/note.executor';
+import { SetMetadataNodeExecutor } from './nodes/set-metadata.executor';
+import { ShellCommandNodeExecutor } from './nodes/shell-command.executor';
+import { StoreGetNodeExecutor } from './nodes/store-get.executor';
+import { StoreSetNodeExecutor } from './nodes/store-set.executor';
+import { SuspendNodeExecutor } from './nodes/suspend.executor';
+import { SwitchNodeExecutor } from './nodes/switch.executor';
+import { TransformNodeExecutor } from './nodes/transform.executor';
+import { TriggerNodeExecutor } from './nodes/trigger.executor';
 
 // Local alias preserved so the existing call sites compile unchanged.
 // New code should import NodeErrorContext from ./nodes/_shared directly.

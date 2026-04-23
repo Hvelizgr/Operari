@@ -1,11 +1,12 @@
 'use client';
 
-import { useRef, useMemo } from 'react';
-import type { WorkflowNode, Connection, ConnectionCondition } from '@cairn/shared';
+import type { Connection, ConnectionCondition, WorkflowNode } from '@cairn/shared';
+import { useMemo, useRef } from 'react';
+
 import { useCanvasRenderer } from '../../hooks/useCanvasRenderer';
 import type { CreatingConnectionState, ViewportState } from '../../types/editor.types';
-import ConnectionConditionBadge from './ConnectionConditionBadge';
 import { getNodePortInfo } from '../../utils/nodePortUtils';
+import ConnectionConditionBadge from './ConnectionConditionBadge';
 
 interface ConnectionsLayerProps {
   connections: Connection[];

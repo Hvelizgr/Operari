@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Check, Copy, Download, Loader2, Shield, ShieldCheck } from 'lucide-react';
 import QRCode from 'qrcode';
+import { useEffect, useState } from 'react';
+
 import { useAuth } from '@/lib/auth';
 
 /**

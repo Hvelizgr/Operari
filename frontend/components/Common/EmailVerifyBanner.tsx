@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import { MailCheck, X } from 'lucide-react';
-import { AuthError, authClient, useAuth } from '@/lib/auth';
+import { useState } from 'react';
+
+import { authClient, AuthError, useAuth } from '@/lib/auth';
 
 const STRINGS = {
   en: {

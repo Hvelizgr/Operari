@@ -1,6 +1,7 @@
-import jwt from 'jsonwebtoken';
 import type { PrismaClient } from '@prisma/client';
-import type { AuthProvider, AuthenticatedUser } from './auth-provider.types';
+import jwt from 'jsonwebtoken';
+
+import type { AuthenticatedUser, AuthProvider } from './auth-provider.types';
 import { isJtiRevoked } from './session-denylist';
 
 /**

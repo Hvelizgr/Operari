@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Check, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 const STRINGS = {
   en: {

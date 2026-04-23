@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
-import { AccountDeletionService, AccountDeletionError } from '../../auth/account-deletion.service';
+
+import { AccountDeletionError, AccountDeletionService } from '../../auth/account-deletion.service';
 
 // The service calls secretCipherFromEnv + verifyTotp in the MFA
 // branch; those paths are exercised by the MFA test suite, so here

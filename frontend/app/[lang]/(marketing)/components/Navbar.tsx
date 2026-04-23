@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Menu, X, Github, ArrowRight } from 'lucide-react';
-import LanguageSwitcher from './LanguageSwitcher';
+import { ArrowRight, Github, Menu, X } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
 import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
+
+import LanguageSwitcher from './LanguageSwitcher';
 
 type NavbarProps = {
   content: typeof content.navigation;

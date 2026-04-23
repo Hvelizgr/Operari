@@ -1,5 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import { ApiKeyService, ApiKeyContext } from '../runbook/services/api-key.service';
+import { NextFunction, Request, Response } from 'express';
+
+import { ApiKeyContext, ApiKeyService } from '../runbook/services/api-key.service';
 import { prisma } from '../server';
 
 let apiKeyService: ApiKeyService | null = null;

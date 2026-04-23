@@ -1,12 +1,13 @@
+import type { Connection, WorkflowNode } from '@cairn/shared';
+
 import {
   nodesToSpec,
+  RunbookHeader,
+  RunbookYamlError,
   specToNodes,
   specToYaml,
   yamlToSpec,
-  RunbookYamlError,
-  RunbookHeader,
 } from '@/utils/runbookYaml';
-import type { WorkflowNode, Connection } from '@cairn/shared';
 
 /**
  * The frontend serializer mirrors backend/src/runbook/yaml/runbook-serializer.

@@ -1,6 +1,7 @@
 import { PrismaClient, TriggerType } from '@prisma/client';
+
+import { AuditEventType, AuditService } from '../../audit/audit.service';
 import { ExecutionService } from '../../editor/execution/execution.service';
-import { AuditService, AuditEventType } from '../../audit/audit.service';
 
 jest.mock('../../editor/node-executor.service');
 jest.mock('../../services/error-notification.service');

@@ -1,8 +1,9 @@
-import { Router, Response } from 'express';
+import { Response, Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../../server';
-import { ApiKeyService } from '../../runbook/services/api-key.service';
+
 import { AuthRequest } from '../../middleware/auth.middleware';
+import { ApiKeyService } from '../../runbook/services/api-key.service';
+import { prisma } from '../../server';
 
 const router = Router();
 

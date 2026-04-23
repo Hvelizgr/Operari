@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+
+import { type AuthLang, resetStrings } from '../strings';
 import { ResetPasswordForm } from './ResetPasswordForm';
-import { resetStrings, type AuthLang } from '../strings';
 
 export const dynamic = 'force-dynamic';
 

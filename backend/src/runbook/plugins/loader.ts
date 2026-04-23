@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+
 import { logger } from '../../config/logger.config';
-import { StepExecutor, ExecutorContext, ExecutorResult } from '../types/executor.types';
+import { ExecutorContext, ExecutorResult, StepExecutor } from '../types/executor.types';
 
 /**
  * Plugin loader — turns user-authored `defineStep(...)` bundles on
@@ -124,7 +125,6 @@ function loadDescriptor(manifest: PluginManifest, entry: string): LoadedPlugin |
 
   let mod: unknown;
   try {
-    /* eslint-disable-next-line @typescript-eslint/no-require-imports */
     mod = require(resolved);
   } catch (err) {
     logger.error({

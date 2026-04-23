@@ -1,5 +1,6 @@
 import { createHmac } from 'crypto';
-import { verifyStripeWebhook, StripeSignatureError } from '../../billing/stripe-webhook';
+
+import { StripeSignatureError, verifyStripeWebhook } from '../../billing/stripe-webhook';
 
 /**
  * Stripe's webhook signing is a custom scheme (not plain HMAC of the

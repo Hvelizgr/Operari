@@ -1,17 +1,19 @@
 'use client';
 
 import { Sparkles, Zap as ZapIcon } from 'lucide-react';
+
 import {
-  useVisualization,
   ACCENT_HEX,
   type AnimationSpeed,
-  type FlowStyle,
-  type FlowSpeed,
-  type RunningPulseVariant,
   type CompletionFlashVariant,
+  type FlowSpeed,
+  type FlowStyle,
+  type RunningPulseVariant,
+  useVisualization,
 } from '@/context/VisualizationContext';
-import { Section, PillGroup, PreviewCard, SliderRow, ToggleRow } from '../primitives';
+
 import { FlowStylePreview } from '../previews';
+import { PillGroup, PreviewCard, Section, SliderRow, ToggleRow } from '../primitives';
 import type { Strings } from '../strings';
 
 export function FlowTab({ t }: { t: Strings }) {

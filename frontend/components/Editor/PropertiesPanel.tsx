@@ -1,16 +1,17 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, RotateCw, GitBranch, ChevronDown } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import type { WorkflowNode, Connection } from '@cairn/shared';
-import { NODE_TYPES, NodeType } from '../Node/NodePalette';
-import DynamicNodeForm from '../Node/DynamicNodeForm';
-import TriggerModifiersSection, {
-  TriggerModifiers,
-  DEFAULT_TRIGGER_MODIFIERS,
-} from '../Node/TriggerModifiersSection';
+import type { Connection, WorkflowNode } from '@cairn/shared';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ChevronDown, GitBranch, RotateCw, Settings, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
 import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
+import DynamicNodeForm from '../Node/DynamicNodeForm';
+import { NODE_TYPES, NodeType } from '../Node/NodePalette';
+import TriggerModifiersSection, {
+  DEFAULT_TRIGGER_MODIFIERS,
+  TriggerModifiers,
+} from '../Node/TriggerModifiersSection';
 
 // Default trigger/org type sets — used when no registry is provided.
 const DEFAULT_TRIGGER_TYPES = new Set([

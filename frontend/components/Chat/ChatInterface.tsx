@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import ChatSidebar, { ConversationSummary } from './ChatSidebar';
-import ChatMessageList from './ChatMessageList';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { useAgentChat } from '@/hooks/useAgentChat';
+
 import ChatInput from './ChatInput';
 import { ChatMessageData } from './ChatMessage';
-import { useAgentChat } from '@/hooks/useAgentChat';
+import ChatMessageList from './ChatMessageList';
+import ChatSidebar, { ConversationSummary } from './ChatSidebar';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 

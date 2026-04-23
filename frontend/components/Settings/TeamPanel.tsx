@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Loader2, Send, Trash2, UserPlus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
 import { useAuth } from '@/lib/auth';
-import { MfaPolicyCard } from './MfaPolicyCard';
+
 import { AuditExportCard } from './AuditExportCard';
+import { MfaPolicyCard } from './MfaPolicyCard';
 
 const STRINGS = {
   en: {

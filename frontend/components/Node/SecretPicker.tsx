@@ -1,7 +1,7 @@
 'use client';
 
+import { AlertCircle, KeyRound, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { KeyRound, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface ConnectedAccount {
   id: string;

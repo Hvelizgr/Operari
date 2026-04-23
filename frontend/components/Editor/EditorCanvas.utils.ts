@@ -1,6 +1,7 @@
-import { WorkflowNode, Connection } from '@cairn/shared';
-import { NodeType } from '../Node';
+import { Connection, WorkflowNode } from '@cairn/shared';
+
 import { ExecutionMetric, ViewportState } from '../../types/editor.types';
+import { NodeType } from '../Node';
 
 /**
  * Build the runtime shape of a freshly-instantiated node from its

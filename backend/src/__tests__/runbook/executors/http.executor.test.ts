@@ -1,4 +1,4 @@
-import { HttpExecutor, type HttpConfig } from '../../../runbook/executors/http.executor';
+import { type HttpConfig, HttpExecutor } from '../../../runbook/executors/http.executor';
 import type { ExecutorContext, ExecutorEvent } from '../../../runbook/types/executor.types';
 
 // ---------------------------------------------------------------------------

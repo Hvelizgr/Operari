@@ -5,8 +5,9 @@
  */
 
 import { PrismaClient, TriggerType } from '@prisma/client';
-import { ExecutionService } from '../../editor/execution/execution.service';
+
 import type { BillableEvent, BillingMeter } from '../../billing';
+import { ExecutionService } from '../../editor/execution/execution.service';
 
 // Mock NodeExecutor so its execute() returns an empty object instead
 // of undefined. The auto-mock returns undefined for every method,

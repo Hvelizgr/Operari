@@ -1,4 +1,4 @@
-import type { WorkflowNode, Connection } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@cairn/shared';
 
 export function hasCycle(
   nodes: WorkflowNode[],

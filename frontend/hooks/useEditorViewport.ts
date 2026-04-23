@@ -3,10 +3,11 @@
  * Handles zoom, pan, fit view, and viewport transformations
  */
 
-import { useState, useCallback, useEffect, useRef, RefObject } from 'react';
+import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
+
+import type { WorkflowNode } from '../components/Editor';
 import { EDITOR_CONFIG } from '../config/editor.config';
 import type { ViewportState } from '../types/editor.types';
-import type { WorkflowNode } from '../components/Editor';
 
 interface UseEditorViewportProps {
   nodes: WorkflowNode[];

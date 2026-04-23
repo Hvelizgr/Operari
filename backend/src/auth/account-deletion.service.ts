@@ -1,9 +1,10 @@
-import bcrypt from 'bcryptjs';
 import type { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
 import type { AuditService } from '../audit/audit.service';
-import { verifyTotp } from './totp';
-import { consumeBackupCode } from './mfa-backup-codes';
 import { secretCipherFromEnv } from '../security/secret-cipher';
+import { consumeBackupCode } from './mfa-backup-codes';
+import { verifyTotp } from './totp';
 
 export class AccountDeletionError extends Error {
   constructor(

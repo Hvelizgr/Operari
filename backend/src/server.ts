@@ -1,74 +1,75 @@
 import './config/tracing.config'; // Initialize tracing first
 import './config/env.config'; // Validate env vars first
+
 // Sentry MUST be initialized BEFORE express is imported by any code
 // that gets wrapped by the SDK. Tracing + env already ran above; we
 // init Sentry here so the http instrumentation hooks bind to fresh
 // require() calls.
 import {
+  flushSentry,
   initSentry,
   installExpressErrorHandler,
   installProcessHandlers,
-  flushSentry,
 } from './config/sentry.config';
 initSentry();
 installProcessHandlers();
-import express from 'express';
-import { createServer } from 'http';
-import cors from 'cors';
-import helmet from 'helmet';
-import cookieParser from 'cookie-parser';
 import { PrismaClient } from '@prisma/client';
-import { env } from './config/env.config';
-
-import authRoutes from './routes/auth.routes';
-import oauthRoutes from './routes/oauth.routes';
-import billingRoutes from './routes/billing.routes';
-import invitesRoutes from './routes/invites.routes';
-import tenantsRoutes from './routes/tenants.routes';
-import runbookRoutes from './routes/runbook.routes';
-import executionRoutes from './routes/execution.routes';
-import nodeTypesRoutes from './routes/node-types.routes'; // Added import
-import webhookRoutes from './routes/webhook.routes';
-import chatRoutes from './routes/chat.routes';
-import v1RunbookRoutes from './routes/v1/runbooks.routes';
-import v1RunRoutes from './routes/v1/runs.routes';
-import v1KeyRoutes from './routes/v1/keys.routes';
-import v1WebhookRoutes from './routes/v1/webhooks.routes';
-import v1AuditRoutes from './routes/v1/audit.routes';
-import v1ApprovalRoutes from './routes/v1/approvals.routes';
-import approvalRoutes from './routes/approvals.routes';
-import runRoutes from './routes/runs.routes';
-import connectedAccountRoutes from './routes/connected-accounts.routes';
-import runbookAssistRoutes from './routes/runbook-assist.routes';
-import webhooksAdminRoutes from './routes/webhooks-admin.routes';
-import dashboardRoutes from './routes/dashboard.routes';
-import eventAgentsRoutes from './routes/event-agents.routes';
-import schedulesRoutes from './routes/schedules.routes';
-import templatesRoutes from './routes/templates.routes';
-import monitorsRoutes from './routes/monitors.routes';
-import eventsRoutes from './routes/events.routes';
-import adminRoutes from './routes/admin.routes';
-import sqlRoutes from './routes/sql.routes';
-import githubExplorerRoutes from './routes/github-explorer.routes';
-import contactRoutes from './routes/contact.routes';
-import { MonitorService } from './services/monitor.service';
-import { errorHandler } from './middleware/error.middleware';
-import { SchedulerService } from './services/scheduler.service';
-import {
-  authRateLimiter,
-  executionRateLimiter,
-  standardRateLimiter,
-  webhookRateLimiter,
-  loginEmailRateLimiter,
-  cleanupRateLimiters,
-} from './middleware/ratelimit.middleware';
-import { requestLogger, addUserContext } from './middleware/logger.middleware';
-import { csrfProtection } from './middleware/csrf.middleware';
-import { logger } from './config/logger.config';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import express from 'express';
+import helmet from 'helmet';
+import { createServer } from 'http';
 // Swagger Documentation
 import swaggerUi from 'swagger-ui-express';
+
+import { env } from './config/env.config';
+import { logger } from './config/logger.config';
 import { swaggerSpec } from './config/swagger.config';
+import { csrfProtection } from './middleware/csrf.middleware';
+import { errorHandler } from './middleware/error.middleware';
+import { addUserContext, requestLogger } from './middleware/logger.middleware';
+import {
+  authRateLimiter,
+  cleanupRateLimiters,
+  executionRateLimiter,
+  loginEmailRateLimiter,
+  standardRateLimiter,
+  webhookRateLimiter,
+} from './middleware/ratelimit.middleware';
+import adminRoutes from './routes/admin.routes';
+import approvalRoutes from './routes/approvals.routes';
+import authRoutes from './routes/auth.routes';
+import billingRoutes from './routes/billing.routes';
+import chatRoutes from './routes/chat.routes';
+import connectedAccountRoutes from './routes/connected-accounts.routes';
+import contactRoutes from './routes/contact.routes';
+import dashboardRoutes from './routes/dashboard.routes';
+import eventAgentsRoutes from './routes/event-agents.routes';
+import eventsRoutes from './routes/events.routes';
+import executionRoutes from './routes/execution.routes';
+import githubExplorerRoutes from './routes/github-explorer.routes';
+import invitesRoutes from './routes/invites.routes';
+import monitorsRoutes from './routes/monitors.routes';
+import nodeTypesRoutes from './routes/node-types.routes'; // Added import
+import oauthRoutes from './routes/oauth.routes';
+import runbookRoutes from './routes/runbook.routes';
+import runbookAssistRoutes from './routes/runbook-assist.routes';
+import runRoutes from './routes/runs.routes';
+import schedulesRoutes from './routes/schedules.routes';
+import sqlRoutes from './routes/sql.routes';
+import templatesRoutes from './routes/templates.routes';
+import tenantsRoutes from './routes/tenants.routes';
+import v1ApprovalRoutes from './routes/v1/approvals.routes';
+import v1AuditRoutes from './routes/v1/audit.routes';
+import v1KeyRoutes from './routes/v1/keys.routes';
+import v1RunbookRoutes from './routes/v1/runbooks.routes';
+import v1RunRoutes from './routes/v1/runs.routes';
+import v1WebhookRoutes from './routes/v1/webhooks.routes';
+import webhookRoutes from './routes/webhook.routes';
+import webhooksAdminRoutes from './routes/webhooks-admin.routes';
 import runbookJsonSchema from './runbook/yaml/runbook.schema.json';
+import { MonitorService } from './services/monitor.service';
+import { SchedulerService } from './services/scheduler.service';
 
 const app = express();
 const httpServer = createServer(app);

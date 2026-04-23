@@ -1,10 +1,11 @@
-import { Router, Response } from 'express';
-import { z } from 'zod';
 import type { ModelMessage } from 'ai';
-import { prisma } from '../server';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { Response, Router } from 'express';
+import { z } from 'zod';
+
 import { streamOrchestratorReply } from '../agent/orchestrator';
 import { logger } from '../config/logger.config';
+import { AuthRequest } from '../middleware/auth.middleware';
+import { prisma } from '../server';
 
 const router = Router();
 

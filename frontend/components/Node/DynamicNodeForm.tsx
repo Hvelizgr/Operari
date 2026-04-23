@@ -1,6 +1,7 @@
-import React, { useState, lazy, Suspense } from 'react';
-import { HelpCircle, ChevronDown, Database } from 'lucide-react';
-import { WorkflowNode, Connection } from '@cairn/shared';
+import { Connection, WorkflowNode } from '@cairn/shared';
+import { ChevronDown, Database, HelpCircle } from 'lucide-react';
+import React, { lazy, Suspense, useState } from 'react';
+
 import ExpressionBuilder from './ExpressionBuilder';
 import SecretPicker from './SecretPicker';
 

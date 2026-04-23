@@ -1,4 +1,5 @@
-import type { PrismaClient, Prisma, ExecutionEvent } from '@prisma/client';
+import type { ExecutionEvent, Prisma, PrismaClient } from '@prisma/client';
+
 import type { ExecutionEventPayload, RunState } from './execution-event.types';
 import { reduceRunState, type ReplayableEvent } from './run-state.reducer';
 

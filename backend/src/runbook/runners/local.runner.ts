@@ -1,7 +1,8 @@
-import { spawn, ChildProcess } from 'child_process';
+import { ChildProcess, spawn } from 'child_process';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+
 import { Runner, RunnerContext, RunnerResult, RunnerSpec } from './runner.types';
 
 /**

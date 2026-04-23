@@ -1,6 +1,6 @@
-import { ResumeWorker } from '../../../runbook/engine/resume-worker';
 import type { ExecutionEventStore } from '../../../runbook/engine/execution-event.store';
 import type { RunState } from '../../../runbook/engine/execution-event.types';
+import { ResumeWorker } from '../../../runbook/engine/resume-worker';
 import type { Logger } from '../../../services/logger.service';
 
 const buildLogger = (): Logger =>

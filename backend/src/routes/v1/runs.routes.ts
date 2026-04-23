@@ -1,6 +1,7 @@
-import { Router, Response } from 'express';
+import { Response, Router } from 'express';
+
+import { ApiKeyRequest, requireApiKey } from '../../middleware/api-key.middleware';
 import { prisma } from '../../server';
-import { requireApiKey, ApiKeyRequest } from '../../middleware/api-key.middleware';
 
 const router = Router();
 

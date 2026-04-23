@@ -1,9 +1,10 @@
-import jwt from 'jsonwebtoken';
 import type { PrismaClient } from '@prisma/client';
+import jwt from 'jsonwebtoken';
+
+import { buildAuthProvider } from '../../auth';
+import { AuthTransportError } from '../../auth/auth-provider.types';
 import { JwtAuthProvider } from '../../auth/jwt-auth-provider';
 import { WorkOSAuthProvider, type WorkOSClaims } from '../../auth/workos-auth-provider';
-import { AuthTransportError } from '../../auth/auth-provider.types';
-import { buildAuthProvider } from '../../auth';
 
 const SECRET = 'test-secret';
 

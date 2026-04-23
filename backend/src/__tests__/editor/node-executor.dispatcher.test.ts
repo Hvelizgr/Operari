@@ -9,7 +9,7 @@
  */
 
 import { NodeExecutor } from '../../editor/node-executor.service';
-import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
+import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
 import { SecretTemplateResolver } from '../../runbook/secrets/secret-template-resolver';
 
 jest.mock('nodemailer');

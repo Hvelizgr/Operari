@@ -1,3 +1,4 @@
+import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
 import type {
   DatabaseNodeConfig,
   DatabaseResult,
@@ -5,7 +6,6 @@ import type {
 } from '../../types/workflow.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { resolveTemplate } from './_shared';
-import { NodeExecutionError, ErrorCode } from '../../errors/custom-error';
 
 /**
  * Database step — runbook-scoped passthrough stub.

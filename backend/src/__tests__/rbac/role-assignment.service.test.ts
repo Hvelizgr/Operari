@@ -1,7 +1,8 @@
 import type { PrismaClient } from '@prisma/client';
+
 import type { AuditService } from '../../audit/audit.service';
 import type { PermissionService } from '../../rbac/permission.service';
-import { RoleAssignmentService, RoleAssignmentError } from '../../rbac/role-assignment.service';
+import { RoleAssignmentError, RoleAssignmentService } from '../../rbac/role-assignment.service';
 
 interface FakeUser {
   id: string;

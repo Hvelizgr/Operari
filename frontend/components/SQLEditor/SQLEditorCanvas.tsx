@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
 import {
+  ChevronDown,
+  ChevronRight,
+  Columns3,
   Database,
   Play,
-  Table2,
-  ChevronRight,
-  ChevronDown,
   RefreshCw,
-  Columns3,
+  Table2,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+
 import SQLCodeEditor from './SQLCodeEditor';
-import SQLResultsTable, { type SQLResult, type SQLError } from './SQLResultsTable';
+import SQLResultsTable, { type SQLError, type SQLResult } from './SQLResultsTable';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 

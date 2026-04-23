@@ -1,8 +1,9 @@
 'use client';
 
+import { Github } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Github } from 'lucide-react';
+
 import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
 

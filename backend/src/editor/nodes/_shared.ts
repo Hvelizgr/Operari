@@ -12,8 +12,8 @@
  * (introduced in step 2).
  */
 
-import type { ExecutionInput, NodeExecutionResult } from '../../types/workflow.types';
 import type { Logger } from '../../services/logger.service';
+import type { ExecutionInput, NodeExecutionResult } from '../../types/workflow.types';
 
 /**
  * The minimal identification block that every NodeExecutionError carries.

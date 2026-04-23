@@ -1,9 +1,10 @@
 'use client';
 
+import type { Connection, WorkflowNode } from '@cairn/shared';
 import { motion } from 'framer-motion';
-import type { WorkflowNode, Connection } from '@cairn/shared';
-import type { ViewportState } from '../../types/editor.types';
 import * as Icons from 'lucide-react';
+
+import type { ViewportState } from '../../types/editor.types';
 import { resolvePortAnchor } from '../../utils/portAnchor';
 
 interface ConnectionBubblesLayerProps {

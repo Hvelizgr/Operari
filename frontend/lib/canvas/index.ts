@@ -1,10 +1,10 @@
 export type {
-  NodeTypeRegistry,
-  NodeTypeDefinition,
+  BadgeInfo,
   CategoryDefinition,
   CategoryPalette,
-  BadgeInfo,
+  NodeTypeDefinition,
+  NodeTypeRegistry,
 } from './node-type-registry';
 export { defaultRegistryMethods } from './node-type-registry';
 export { runbookRegistry } from './runbook-registry';
-export { sqlRegistry, generateSQL } from './sql-registry';
+export { generateSQL, sqlRegistry } from './sql-registry';

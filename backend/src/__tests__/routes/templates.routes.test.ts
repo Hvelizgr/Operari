@@ -1,5 +1,6 @@
-import request from 'supertest';
 import express from 'express';
+import request from 'supertest';
+
 import templatesRoutes from '../../routes/templates.routes';
 
 /**

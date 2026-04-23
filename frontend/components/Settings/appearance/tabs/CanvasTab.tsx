@@ -1,13 +1,15 @@
 'use client';
 
 import { Grid3x3, LayoutDashboard } from 'lucide-react';
+
 import {
-  useVisualization,
   type BgPattern,
   type MinimapPosition,
+  useVisualization,
 } from '@/context/VisualizationContext';
-import { Section, PillGroup, PreviewCard, SliderRow } from '../primitives';
+
 import { BgPatternPreview } from '../previews';
+import { PillGroup, PreviewCard, Section, SliderRow } from '../primitives';
 import type { Strings } from '../strings';
 
 export function CanvasTab({ t }: { t: Strings }) {

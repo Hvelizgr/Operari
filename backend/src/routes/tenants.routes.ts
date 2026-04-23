@@ -1,9 +1,10 @@
-import { Router, type Response } from 'express';
-import { z } from 'zod';
 import type { Role } from '@prisma/client';
-import { prisma } from '../server';
-import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
+import { type Response, Router } from 'express';
+import { z } from 'zod';
+
 import { AuditService } from '../audit/audit.service';
+import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
+import { prisma } from '../server';
 
 const router = Router();
 

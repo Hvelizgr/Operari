@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Check, X, AlertTriangle, Ban, Circle } from 'lucide-react';
 import type { ConnectionCondition } from '@cairn/shared';
+import { AlertTriangle, Ban, Check, Circle, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 interface ConnectionConditionBadgeProps {
   condition: ConnectionCondition;

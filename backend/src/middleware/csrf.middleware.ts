@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'crypto';
 import type { NextFunction, Request, Response } from 'express';
+
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, SESSION_COOKIE_NAME } from '../auth/session-cookie';
 
 /**

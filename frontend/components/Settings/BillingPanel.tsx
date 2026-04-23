@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { CreditCard, ExternalLink, Loader2, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
 import { useAuth } from '@/lib/auth';
 
 function UsageBar({

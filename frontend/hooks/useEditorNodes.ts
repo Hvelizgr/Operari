@@ -3,7 +3,8 @@
  * Handles node state, selection state, and related configuration
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
+
 import { WorkflowNode } from '../components/Editor';
 import { NodeType } from '../components/Node';
 import { INITIAL_NODES } from '../constants/editor.constants';

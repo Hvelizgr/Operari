@@ -1,6 +1,6 @@
-import { useState, useEffect, createElement } from 'react';
 import * as Icons from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
+import { createElement, useEffect, useState } from 'react';
 
 export interface NodeType {
   id?: string;

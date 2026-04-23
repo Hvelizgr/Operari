@@ -1,4 +1,5 @@
 import type { PrismaClient, User } from '@prisma/client';
+
 import type { AuditService } from '../audit/audit.service';
 
 /**

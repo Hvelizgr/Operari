@@ -1,4 +1,5 @@
 import { VISUALIZATION_DEFAULTS, type VisualizationPrefs } from '@/context/VisualizationContext';
+
 import type { Strings } from './strings';
 
 export interface BuiltinPreset {

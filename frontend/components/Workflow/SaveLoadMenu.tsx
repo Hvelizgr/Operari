@@ -1,9 +1,9 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { Save, FolderOpen, Download, Upload, X } from 'lucide-react';
-import { useState, useRef } from 'react';
-import type { WorkflowNode, Connection } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@cairn/shared';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Download, FolderOpen, Save, Upload, X } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 interface SaveLoadMenuProps {
   nodes: WorkflowNode[];

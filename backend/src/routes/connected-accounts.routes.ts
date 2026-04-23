@@ -1,11 +1,12 @@
-import { Router, Response } from 'express';
-import { prisma } from '../server';
-import { AuthRequest, anonymousFallback } from '../middleware/auth.middleware';
+import { Response, Router } from 'express';
+
+import { AuditService } from '../audit/audit.service';
+import { env } from '../config/env.config';
+import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
 import { ConnectedAccountService } from '../security/connected-account.service';
 import { SecretCipher } from '../security/secret-cipher';
 import { SecretReader } from '../security/secret-reader';
-import { AuditService } from '../audit/audit.service';
-import { env } from '../config/env.config';
+import { prisma } from '../server';
 
 const router = Router();
 

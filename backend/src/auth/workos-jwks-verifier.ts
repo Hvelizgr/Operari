@@ -1,5 +1,6 @@
 import { createPublicKey, createVerify, KeyObject } from 'crypto';
-import type { WorkOSClaims, VerifyJwksTokenFn } from './workos-auth-provider';
+
+import type { VerifyJwksTokenFn, WorkOSClaims } from './workos-auth-provider';
 
 /**
  * WorkOS JWKS verifier — produces a `verifyJwksToken` function the

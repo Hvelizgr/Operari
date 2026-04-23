@@ -1,17 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Activity,
+  AlertTriangle,
   CheckCircle2,
   Clock,
   Inbox as InboxIcon,
-  AlertTriangle,
   ShieldCheck,
-  Zap,
   Sparkles,
+  Zap,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
 import { EmptyState } from '../Common/EmptyState';
 
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';

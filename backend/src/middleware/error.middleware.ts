@@ -1,4 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
+
 import { logger } from '../config/logger.config';
 
 export class AppError extends Error {

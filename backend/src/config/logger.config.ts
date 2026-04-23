@@ -1,5 +1,5 @@
-import pino from 'pino';
 import { randomUUID } from 'crypto';
+import pino from 'pino';
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
