@@ -213,6 +213,10 @@ router.get('/', async (req: AuthRequest, res) => {
     const ids = workflows.map(w => w.id);
     let lastRunByWf = new Map<string, { startedAt: Date; status: string }>();
     let successRateByWf = new Map<string, number>();
+    // Up to 20 most recent statuses per workflow, oldest first, for a
+    // sparkline strip on the runbook card. Built from the same
+    // `recentRuns` read that feeds `lastRunStatus` so no extra DB hit.
+    const recentStatusesByWf = new Map<string, string[]>();
     if (ids.length > 0) {
       const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const [recentRuns, statusGroups] = await Promise.all([
@@ -230,6 +234,11 @@ router.get('/', async (req: AuthRequest, res) => {
           _count: { _all: true },
         }),
       ]);
+      // Collect last-20 per workflow inline so we walk `recentRuns`
+      // only once. Rows arrive newest-first, so we push then reverse
+      // the bucket at the end to hand the frontend a chronological
+      // (left→right) array.
+      const SPARK_SLOTS = 20;
       for (const r of recentRuns) {
         if (!lastRunByWf.has(r.workflowId)) {
           lastRunByWf.set(r.workflowId, {
@@ -237,6 +246,15 @@ router.get('/', async (req: AuthRequest, res) => {
             status: r.status,
           });
         }
+        const bucket = recentStatusesByWf.get(r.workflowId);
+        if (!bucket) {
+          recentStatusesByWf.set(r.workflowId, [r.status]);
+        } else if (bucket.length < SPARK_SLOTS) {
+          bucket.push(r.status);
+        }
+      }
+      for (const [wfId, bucket] of recentStatusesByWf) {
+        recentStatusesByWf.set(wfId, bucket.reverse());
       }
       const totalsByWf = new Map<string, number>();
       const successByWf = new Map<string, number>();
@@ -258,6 +276,7 @@ router.get('/', async (req: AuthRequest, res) => {
       lastRunAt: lastRunByWf.get(w.id)?.startedAt ?? null,
       lastRunStatus: lastRunByWf.get(w.id)?.status ?? null,
       successRate30d: successRateByWf.get(w.id) ?? null,
+      recentStatuses: recentStatusesByWf.get(w.id) ?? [],
     }));
 
     res.json({

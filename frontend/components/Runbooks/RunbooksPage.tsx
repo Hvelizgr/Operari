@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { EmptyState } from '../Common/EmptyState';
+import Sparkline from '../Common/Sparkline';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -32,6 +33,8 @@ interface Runbook {
   lastRunAt: string | null;
   lastRunStatus: string | null;
   successRate30d: number | null;
+  /** Up to 20 recent statuses, oldest first, for an inline sparkline. */
+  recentStatuses?: string[];
 }
 
 interface Template {
@@ -439,6 +442,11 @@ function RunbookCard({
           {rb.lastRunAt ? relativeTime(rb.lastRunAt, now) : t.never}
         </span>
       </div>
+      {rb.recentStatuses && rb.recentStatuses.length > 0 && (
+        <div className="mb-3">
+          <Sparkline statuses={rb.recentStatuses} tileHeight={12} />
+        </div>
+      )}
       <div className="mt-auto flex items-center gap-1">
         <button
           onClick={onRunNow}

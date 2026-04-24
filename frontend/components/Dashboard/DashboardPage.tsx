@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { EmptyState } from '../Common/EmptyState';
+import Sparkline from '../Common/Sparkline';
 
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 
@@ -632,48 +633,6 @@ function Section({
       {children}
     </div>
   );
-}
-
-// Inline health-at-a-glance strip — one tile per run, oldest first.
-// 20 tiles fits the "Top Runbooks" row without pushing the numeric
-// columns (runs / success rate / avg) offscreen on a laptop. Empty
-// slots render as low-contrast placeholders so the row width stays
-// stable regardless of history depth.
-function Sparkline({ statuses }: { statuses: string[] }) {
-  const SLOTS = 20;
-  const padded = [...Array(Math.max(0, SLOTS - statuses.length)).fill('EMPTY'), ...statuses];
-  // If history is longer than SLOTS, show the most recent SLOTS (the
-  // query already caps at 20, but guard anyway).
-  const visible = padded.slice(-SLOTS);
-  return (
-    <div className="flex h-4 items-center gap-[2px]" aria-hidden="true">
-      {visible.map((s, i) => (
-        <span
-          key={i}
-          className={`h-4 w-1 rounded-sm ${statusSparkColor(s)}`}
-          title={s !== 'EMPTY' ? s : undefined}
-        />
-      ))}
-    </div>
-  );
-}
-
-function statusSparkColor(status: string): string {
-  switch (status) {
-    case 'SUCCESS':
-      return 'bg-emerald-500/80';
-    case 'FAILED':
-      return 'bg-red-500/80';
-    case 'RUNNING':
-      return 'bg-sky-500/80';
-    case 'PAUSED':
-      return 'bg-amber-500/80';
-    case 'CANCELLED':
-      return 'bg-zinc-500/60';
-    case 'EMPTY':
-    default:
-      return 'bg-white/5';
-  }
 }
 
 function Trend7d({
