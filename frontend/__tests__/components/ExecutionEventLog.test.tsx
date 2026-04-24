@@ -1,12 +1,43 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import ExecutionEventLog, { type ExecutionEventRow } from '@/components/Runs/ExecutionEventLog';
 
 const fetchMock = jest.fn();
 
+// EventSource fake that captures the last-constructed instance so
+// tests can drive SSE messages from outside. Kept minimal — we only
+// need onmessage + onerror + close.
+class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+  url: string;
+  onmessage: ((ev: { data: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+  closed = false;
+  constructor(url: string) {
+    this.url = url;
+    FakeEventSource.instances.push(this);
+  }
+  close() {
+    this.closed = true;
+  }
+  emit(entry: ExecutionEventRow) {
+    this.onmessage?.({ data: JSON.stringify(entry) });
+  }
+  fail() {
+    this.onerror?.();
+  }
+}
+
 beforeEach(() => {
   (global as unknown as { fetch: unknown }).fetch = fetchMock;
   fetchMock.mockReset();
+  FakeEventSource.instances.length = 0;
+  (global as unknown as { EventSource: typeof FakeEventSource | undefined }).EventSource =
+    FakeEventSource;
+});
+
+afterEach(() => {
+  (global as unknown as { EventSource: unknown }).EventSource = undefined;
 });
 
 function respond(body: unknown) {
@@ -131,6 +162,81 @@ describe('ExecutionEventLog', () => {
     );
     render(<ExecutionEventLog runId="run-1" lang="en" />);
     expect(await screen.findByText('Validate · timeout after 30s')).toBeInTheDocument();
+  });
+
+  it('opens an EventSource in live mode and appends SSE messages in order', async () => {
+    fetchMock.mockResolvedValue(respond({ data: [], nextAfterSeq: null }));
+    render(<ExecutionEventLog runId="run-1" lang="en" live />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    // Exactly one stream connection opened at the expected URL.
+    expect(FakeEventSource.instances).toHaveLength(1);
+    const source = FakeEventSource.instances[0];
+    expect(source.url).toMatch(/\/api\/runs\/run-1\/events\/stream$/);
+
+    act(() => {
+      source.emit({
+        seq: '1',
+        type: 'run.started',
+        nodeId: null,
+        payload: {},
+        createdAt: '2026-04-24T00:00:00Z',
+      });
+      source.emit({
+        seq: '2',
+        type: 'step.completed',
+        nodeId: 'node-a',
+        payload: { nodeName: 'Fetch', durationMs: 1500 },
+        createdAt: '2026-04-24T00:00:02Z',
+      });
+    });
+
+    expect(await screen.findByText('run.started')).toBeInTheDocument();
+    expect(await screen.findByText('Fetch · 1.5s')).toBeInTheDocument();
+  });
+
+  it('closes SSE on unmount so we do not leak the connection', async () => {
+    fetchMock.mockResolvedValue(respond({ data: [], nextAfterSeq: null }));
+    const { unmount } = render(<ExecutionEventLog runId="run-1" lang="en" live />);
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+    const source = FakeEventSource.instances[0];
+    expect(source.closed).toBe(false);
+    unmount();
+    expect(source.closed).toBe(true);
+  });
+
+  it('honours the active preset when an SSE message arrives', async () => {
+    fetchMock.mockResolvedValue(respond({ data: [], nextAfterSeq: null }));
+    render(<ExecutionEventLog runId="run-1" lang="en" live />);
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+
+    // Switch the filter to "errors"; a new EventSource should open
+    // because the effect re-runs. We push a non-error event and
+    // expect it to be dropped client-side.
+    fireEvent.click(screen.getByRole('button', { name: 'Errors' }));
+    await waitFor(() => expect(FakeEventSource.instances.length).toBeGreaterThanOrEqual(2));
+    const source = FakeEventSource.instances[FakeEventSource.instances.length - 1];
+
+    act(() => {
+      source.emit({
+        seq: '10',
+        type: 'step.started',
+        nodeId: 'n',
+        payload: {},
+        createdAt: '2026-04-24T00:00:00Z',
+      });
+      source.emit({
+        seq: '11',
+        type: 'step.failed',
+        nodeId: 'n',
+        payload: { errorMessage: 'boom' },
+        createdAt: '2026-04-24T00:00:01Z',
+      });
+    });
+    // Only the failure row should be visible; step.started is below
+    // the "errors" filter threshold.
+    expect(await screen.findByText('step.failed')).toBeInTheDocument();
+    expect(screen.queryByText('step.started')).not.toBeInTheDocument();
   });
 
   it('shows the LIVE badge only when live is true', async () => {

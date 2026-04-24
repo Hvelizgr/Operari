@@ -187,16 +187,72 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
       }
     };
 
+    // Append a single event arriving via SSE. Only honours preset
+    // client-side so the "errors" filter doesn't include the stray
+    // step.started rows the server pushed to every subscriber.
+    const appendFromStream = (entry: ExecutionEventRow) => {
+      const types = filterFor(preset);
+      if (types && !types.includes(entry.type)) return;
+      setEvents(prev => {
+        // Drop duplicates when the backlog fetch and the SSE tail
+        // overlap (the initial fetch covers a superset of what the
+        // subscribe gives us after '$' + any race window).
+        if (prev.some(e => e.seq === entry.seq)) return prev;
+        return [...prev, entry];
+      });
+      afterSeqRef.current = entry.seq;
+    };
+
     load();
+
     if (!live) {
       return () => {
         cancelled = true;
       };
     }
-    const id = setInterval(load, 2000);
+
+    // Live mode: prefer SSE for sub-100ms latency, poll as fallback
+    // when EventSource is unavailable (jsdom in tests) or errors
+    // before the connection is established. Once SSE is open we stop
+    // polling; on SSE failure we hand the baton back to the poller.
+    let pollId: ReturnType<typeof setInterval> | null = null;
+    const startPolling = () => {
+      if (pollId !== null) return;
+      pollId = setInterval(load, 2000);
+    };
+
+    if (typeof EventSource === 'undefined') {
+      startPolling();
+    } else {
+      const url = `${apiBase}/api/runs/${runId}/events/stream`;
+      const source = new EventSource(url, { withCredentials: true });
+      source.onmessage = ev => {
+        if (cancelled) return;
+        try {
+          const entry = JSON.parse(ev.data) as ExecutionEventRow;
+          appendFromStream(entry);
+        } catch {
+          /* malformed frame — ignore, next one lands normally */
+        }
+      };
+      source.onerror = () => {
+        // SSE errors fire on transient disconnects too; close the
+        // socket and fall through to polling so the tail keeps
+        // moving even when the browser parks the tab or redis
+        // briefly stalls.
+        source.close();
+        if (!cancelled) startPolling();
+      };
+      return () => {
+        cancelled = true;
+        source.close();
+        if (pollId !== null) clearInterval(pollId);
+      };
+    }
+
     return () => {
       cancelled = true;
-      clearInterval(id);
+      if (pollId !== null) clearInterval(pollId);
     };
   }, [runId, preset, live]);
 
