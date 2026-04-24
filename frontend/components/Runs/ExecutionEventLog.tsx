@@ -3,12 +3,16 @@
 import {
   AlertTriangle,
   ArrowDown,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Filter,
   Loader2,
+  RotateCcw,
   Square,
+  X,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 export interface ExecutionEventRow {
@@ -128,6 +132,13 @@ const LABELS = {
     stopFailed: 'Could not cancel',
     stopConfirm: 'Stop this run?',
     jumpToLatest: 'Jump to latest',
+    retryStep: 'Retry from this step',
+    retrying: 'Starting retry…',
+    retryConfirm: 'Retry the run from this step? A new run will be created.',
+    retryBlockedLive: 'Wait for the run to finish before retrying.',
+    retrySuccess: 'New run started',
+    retryFailed: 'Retry failed',
+    viewNewRun: 'View new run →',
   },
   es: {
     title: 'Registro de eventos',
@@ -143,6 +154,13 @@ const LABELS = {
     stopFailed: 'No se pudo cancelar',
     stopConfirm: '¿Detener esta ejecución?',
     jumpToLatest: 'Ir al final',
+    retryStep: 'Reintentar desde este paso',
+    retrying: 'Iniciando reintento…',
+    retryConfirm: '¿Reintentar desde este paso? Se creará una nueva ejecución.',
+    retryBlockedLive: 'Esperá a que termine la ejecución para reintentar.',
+    retrySuccess: 'Nueva ejecución iniciada',
+    retryFailed: 'Reintento fallido',
+    viewNewRun: 'Ver nueva ejecución →',
   },
 } as const;
 
@@ -168,6 +186,39 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
   // main useEffect on runId/preset/live changes.
   const autoExpandedFailuresRef = useRef<Set<string>>(new Set());
   const [cancelState, setCancelState] = useState<'idle' | 'cancelling' | 'failed'>('idle');
+  // Retry flow: which failure row is mid-retry, and the new run id
+  // returned by the replay endpoint so the operator can jump to it.
+  // retryError is shown inline on the offending row when the POST
+  // fails — keeps the error close to the action for context.
+  const [retryingSeq, setRetryingSeq] = useState<string | null>(null);
+  const [retriedRunId, setRetriedRunId] = useState<string | null>(null);
+  const [retryErrorSeq, setRetryErrorSeq] = useState<string | null>(null);
+
+  const retryFromStep = async (eventSeq: string, nodeId: string) => {
+    // Live-run guard: replaying while the current run is still going
+    // would produce two concurrent executions from the same trigger,
+    // which the engine isn't meant to handle. The button UI also
+    // disables in live mode; this is defense-in-depth.
+    if (live) return;
+    if (!window.confirm(t.retryConfirm)) return;
+    setRetryingSeq(eventSeq);
+    setRetryErrorSeq(null);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiBase}/api/executions/${runId}/replay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeId }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = (await res.json()) as { id?: string };
+      if (body.id) setRetriedRunId(body.id);
+    } catch {
+      setRetryErrorSeq(eventSeq);
+    } finally {
+      setRetryingSeq(null);
+    }
+  };
   // Follow-tail: when live, new events auto-scroll the list to the
   // bottom. The operator can pause that by scrolling up — the onScroll
   // handler sets autoFollow=false when we're more than 48px above the
@@ -457,14 +508,70 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
                 })()}
               </button>
               {isOpen && (
-                <pre className="overflow-x-auto whitespace-pre-wrap px-8 pb-3 pt-1 text-[11px] text-zinc-400">
-                  {JSON.stringify(e.payload, null, 2)}
-                </pre>
+                <>
+                  <pre className="overflow-x-auto whitespace-pre-wrap px-8 pb-2 pt-1 text-[11px] text-zinc-400">
+                    {JSON.stringify(e.payload, null, 2)}
+                  </pre>
+                  {/* Inline retry action on step.failed rows. Uses the
+                      existing /replay endpoint with the failed nodeId
+                      so the runtime re-executes from that step forward.
+                      Disabled during live runs to avoid two concurrent
+                      executions from the same trigger. */}
+                  {e.type === 'step.failed' && e.nodeId && (
+                    <div className="flex items-center gap-3 px-8 pb-3">
+                      <button
+                        onClick={() => retryFromStep(e.seq, e.nodeId!)}
+                        disabled={live || retryingSeq !== null}
+                        title={live ? t.retryBlockedLive : t.retryStep}
+                        className="flex items-center gap-1.5 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {retryingSeq === e.seq ? (
+                          <>
+                            <Loader2 size={11} className="animate-spin" />
+                            {t.retrying}
+                          </>
+                        ) : (
+                          <>
+                            <RotateCcw size={11} />
+                            {t.retryStep}
+                          </>
+                        )}
+                      </button>
+                      {retryErrorSeq === e.seq && (
+                        <span className="text-[11px] text-red-400">{t.retryFailed}</span>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           );
         })}
       </div>
+
+      {/* Retry-success banner: renders above the list when a retry
+          lands, so the new run id is discoverable regardless of
+          which failure was clicked. Dismissible; auto-clears on the
+          next retry via setRetriedRunId(...) in retryFromStep. */}
+      {retriedRunId && (
+        <div className="absolute left-3 right-3 top-12 z-10 flex items-center gap-2 rounded border border-emerald-900/60 bg-emerald-950/80 px-3 py-2 text-[11px] text-emerald-200 backdrop-blur">
+          <CheckCircle2 size={12} className="shrink-0" />
+          <span className="flex-1">{t.retrySuccess}</span>
+          <Link
+            href={`/${lang}/runs/${retriedRunId}`}
+            className="shrink-0 font-medium underline-offset-2 hover:underline"
+          >
+            {t.viewNewRun}
+          </Link>
+          <button
+            onClick={() => setRetriedRunId(null)}
+            aria-label="Dismiss"
+            className="text-emerald-400/60 hover:text-emerald-200"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
 
       {/* Jump-to-latest pill — surfaces only when the operator has
           scrolled up (autoFollow=false) and there's at least one

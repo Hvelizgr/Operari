@@ -335,6 +335,84 @@ describe('ExecutionEventLog', () => {
     expect(screen.queryByRole('button', { name: /stop/i })).not.toBeInTheDocument();
   });
 
+  it('shows a retry button inline on step.failed rows and posts to /replay on confirm', async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes('/replay')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 'run-new' }),
+        };
+      }
+      return respond({
+        data: [
+          mkEvent({
+            seq: '9',
+            type: 'step.failed',
+            nodeId: 'node-a',
+            payload: { nodeName: 'Validate', errorMessage: 'oops' },
+          }),
+        ],
+        nextAfterSeq: null,
+      });
+    });
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<ExecutionEventLog runId="run-old" lang="en" />);
+
+    // Auto-expanded by the failure-expand effect — button is visible.
+    const retry = await screen.findByRole('button', { name: /retry from this step/i });
+    fireEvent.click(retry);
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(args =>
+        (args[0] as string).includes('/api/executions/run-old/replay')
+      );
+      expect(call).toBeDefined();
+      const [, init] = call as unknown as [string, { method: string; body: string }];
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(init.body)).toEqual({ nodeId: 'node-a' });
+    });
+
+    // Success banner surfaces with a "View new run →" link to the
+    // returned run id so the operator can hop to the new execution.
+    const link = await screen.findByRole('link', { name: /view new run/i });
+    expect(link.getAttribute('href')).toBe('/en/runs/run-new');
+    confirmSpy.mockRestore();
+  });
+
+  it('disables the retry button while the run is live', async () => {
+    fetchMock.mockResolvedValue(
+      respond({
+        data: [
+          mkEvent({
+            seq: '9',
+            type: 'step.failed',
+            nodeId: 'node-a',
+            payload: { errorMessage: 'oops' },
+          }),
+        ],
+        nextAfterSeq: null,
+      })
+    );
+    render(<ExecutionEventLog runId="run-1" lang="en" live />);
+    const retry = await screen.findByRole('button', { name: /retry from this step/i });
+    expect(retry).toBeDisabled();
+  });
+
+  it('does not render a retry button on non-failure events', async () => {
+    fetchMock.mockResolvedValue(
+      respond({
+        data: [mkEvent({ seq: '1', type: 'step.completed', nodeId: 'node-a', payload: {} })],
+        nextAfterSeq: null,
+      })
+    );
+    render(<ExecutionEventLog runId="run-1" lang="en" />);
+    // Force-expand the row so any retry UI underneath would be revealed.
+    fireEvent.click(await screen.findByText('step.completed'));
+    expect(screen.queryByRole('button', { name: /retry from this step/i })).not.toBeInTheDocument();
+  });
+
   it('reveals the "Jump to latest" pill when the user scrolls away from the tail', async () => {
     fetchMock.mockResolvedValue(
       respond({
