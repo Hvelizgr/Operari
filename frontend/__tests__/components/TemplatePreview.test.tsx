@@ -112,6 +112,6 @@ describe('TemplatePreview', () => {
       <TemplatePreview nodes={[mkNode('a', 'shell', 'A', 0, 0)]} connections={[]} />
     );
     const svg = getByRole('img');
-    expect(svg.getAttribute('aria-label')).toBe('Runbook graph preview');
+    expect(svg).toHaveAttribute('aria-label', 'Runbook graph preview');
   });
 });

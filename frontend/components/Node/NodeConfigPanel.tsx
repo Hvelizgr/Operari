@@ -1,9 +1,11 @@
 'use client';
 
-import type { WorkflowNode } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@cairn/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Copy, KeyRound, Settings, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+
+import type { RetryPolicy } from '@/utils/runbookYaml';
 
 import ConditionalEditor from './ConditionalEditor';
 import DynamicNodeForm from './DynamicNodeForm';
@@ -30,7 +32,7 @@ export default function NodeConfigPanel({
   nodes,
 }: NodeConfigPanelProps) {
   const [localTitle, setLocalTitle] = useState('');
-  const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
+  const [localConfig, setLocalConfig] = useState<Record<string, unknown>>({});
 
   // ... existing initialization ...
   const nodeTypeInfo = node ? NODE_TYPES.find(t => t.type === node.type) : null;
@@ -39,7 +41,7 @@ export default function NodeConfigPanel({
   useEffect(() => {
     if (node) {
       setLocalTitle(node.title);
-      setLocalConfig(node.config || {});
+      setLocalConfig((node.config as Record<string, unknown>) || {});
     }
   }, [node]);
 
@@ -83,7 +85,7 @@ export default function NodeConfigPanel({
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-          } as any
+          } as React.CSSProperties
         }
         onWheel={e => e.stopPropagation()}
         onMouseDown={e => e.stopPropagation()}
@@ -177,7 +179,7 @@ export default function NodeConfigPanel({
           <div className="mt-6 border-t border-[var(--border-color)] pt-6">
             <RetryPolicyEditor
               lang={lang}
-              value={localConfig._retry}
+              value={localConfig._retry as RetryPolicy | undefined}
               onChange={retry => {
                 const newConfig = { ...localConfig };
                 if (retry) {
@@ -195,8 +197,8 @@ export default function NodeConfigPanel({
           <div className="mt-6 border-t border-[var(--border-color)] pt-6">
             <ConditionalEditor
               lang={lang}
-              runIf={localConfig._runIf}
-              skipIf={localConfig._skipIf}
+              runIf={typeof localConfig._runIf === 'string' ? localConfig._runIf : undefined}
+              skipIf={typeof localConfig._skipIf === 'string' ? localConfig._skipIf : undefined}
               onChange={({ runIf, skipIf }) => {
                 const newConfig = { ...localConfig };
                 if (runIf) newConfig._runIf = runIf;
@@ -309,6 +311,17 @@ function SecretsReferencePanel({ lang }: { lang: 'en' | 'es' }) {
   );
 }
 
+interface SettingsResolverProps {
+  node: WorkflowNode | null;
+  localConfig: Record<string, unknown>;
+  setLocalConfig: React.Dispatch<React.SetStateAction<Record<string, unknown>>>;
+  onUpdate: (nodeId: string, updates: Partial<WorkflowNode>) => void;
+  nodeTypeDefinition?: NodeType;
+  lang: 'en' | 'es';
+  nodes: WorkflowNode[];
+  connections: Connection[];
+}
+
 // Helper to keep main component clean
 function SettingsResolver({
   node,
@@ -319,8 +332,8 @@ function SettingsResolver({
   lang,
   nodes,
   connections,
-}: any) {
-  const handleConfigChange = (key: string, value: any) => {
+}: SettingsResolverProps) {
+  const handleConfigChange = (key: string, value: unknown) => {
     const newConfig = { ...localConfig, [key]: value };
     setLocalConfig(newConfig);
     if (node) {
@@ -371,12 +384,14 @@ function SettingsResolver({
 
   // 2. Specific Fallbacks
   if (node?.type === 'nanorun.httpRequest') {
+    const urlValue = typeof localConfig.url === 'string' ? localConfig.url : '';
+    const methodValue = typeof localConfig.method === 'string' ? localConfig.method : 'GET';
     return (
       <div className="space-y-4">
         <ConfigField label="URL" description="Endpoint URL">
           <input
             type="text"
-            value={localConfig.url || ''}
+            value={urlValue}
             onChange={e => handleConfigChange('url', e.target.value)}
             className={inputClass}
             placeholder="https://..."
@@ -384,7 +399,7 @@ function SettingsResolver({
         </ConfigField>
         <ConfigField label="Method" description="HTTP Verb">
           <select
-            value={localConfig.method || 'GET'}
+            value={methodValue}
             onChange={e => handleConfigChange('method', e.target.value)}
             className={inputClass}
           >
@@ -406,7 +421,7 @@ function SettingsResolver({
           try {
             const parsed = JSON.parse(e.target.value);
             setLocalConfig(parsed);
-            onUpdate(node.id, { config: parsed });
+            if (node) onUpdate(node.id, { config: parsed });
           } catch {}
         }}
         rows={15}

@@ -8,7 +8,7 @@
 
 import { CATEGORIES, NODE_TYPES } from '@/components/Node/NodePalette';
 
-import type { BadgeInfo, CategoryPalette, NodeTypeRegistry } from './node-type-registry';
+import type { CategoryPalette, NodeTypeRegistry } from './node-type-registry';
 import { defaultRegistryMethods } from './node-type-registry';
 
 // ---- Category palette ----

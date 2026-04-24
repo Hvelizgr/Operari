@@ -294,7 +294,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
               '--sidebar-text-color': '#ccc',
               '--sidebar-active-background': '#3ecf8e',
               '--sidebar-active-text': '#fff',
-            } as any
+            } as React.CSSProperties
           }
         >
           {renderContents(true)}
@@ -315,7 +315,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           '--sidebar-text-color': '#ccc',
           '--sidebar-active-background': '#3b82f6',
           '--sidebar-active-text': '#fff',
-        } as any
+        } as React.CSSProperties
       }
     >
       {renderContents(false)}

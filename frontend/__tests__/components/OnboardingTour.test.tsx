@@ -100,7 +100,7 @@ describe('OnboardingTour', () => {
     // closes — test hits the footer link via visible text.
     fireEvent.click(screen.getByText('Skip tour'));
 
-    expect(screen.queryByText('Step 1 of 4')).toBeNull();
+    expect(screen.queryByText('Step 1 of 4')).not.toBeInTheDocument();
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe('1');
   });
 
@@ -113,7 +113,7 @@ describe('OnboardingTour', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('button', { name: "Let's go" }));
 
-    expect(screen.queryByText('Step 4 of 4')).toBeNull();
+    expect(screen.queryByText('Step 4 of 4')).not.toBeInTheDocument();
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe('1');
   });
 
@@ -134,9 +134,9 @@ describe('OnboardingTour', () => {
 
     expect(screen.getByText('Dry-run first')).toBeInTheDocument();
     // No "Open", "Browse", "Go to" CTA on this step.
-    expect(screen.queryByText('Open the editor')).toBeNull();
-    expect(screen.queryByText('Browse templates')).toBeNull();
-    expect(screen.queryByText('Go to dashboard')).toBeNull();
+    expect(screen.queryByText('Open the editor')).not.toBeInTheDocument();
+    expect(screen.queryByText('Browse templates')).not.toBeInTheDocument();
+    expect(screen.queryByText('Go to dashboard')).not.toBeInTheDocument();
   });
 
   it('renders the Spanish copy when lang=es', () => {

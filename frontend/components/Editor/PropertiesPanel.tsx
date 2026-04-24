@@ -10,7 +10,6 @@ import DynamicNodeForm from '../Node/DynamicNodeForm';
 import { NODE_TYPES, NodeType } from '../Node/NodePalette';
 import TriggerModifiersSection, {
   DEFAULT_TRIGGER_MODIFIERS,
-  TriggerModifiers,
 } from '../Node/TriggerModifiersSection';
 
 // Default trigger/org type sets — used when no registry is provided.
@@ -49,7 +48,7 @@ export default function PropertiesPanel({
   const triggerTypes = registry?.triggerTypes ?? DEFAULT_TRIGGER_TYPES;
   const orgTypes = registry?.organizationTypes ?? DEFAULT_ORG_TYPES;
   const [localTitle, setLocalTitle] = useState('');
-  const [localConfig, setLocalConfig] = useState<Record<string, any>>({});
+  const [localConfig, setLocalConfig] = useState<Record<string, unknown>>({});
 
   const nodeTypeInfo = node ? NODE_TYPES.find(t => t.type === node.type) : null;
   const nodeDescription = nodeTypeInfo?.description?.[lang];
@@ -57,7 +56,7 @@ export default function PropertiesPanel({
   useEffect(() => {
     if (node) {
       setLocalTitle(node.title);
-      setLocalConfig(node.config || {});
+      setLocalConfig((node.config as Record<string, unknown>) || {});
     }
   }, [node]);
 
@@ -175,7 +174,7 @@ export default function PropertiesPanel({
             <>
               <div className="my-4 h-px bg-slate-700" />
               <RetryPolicySection
-                retry={localConfig._retry}
+                retry={localConfig._retry as RetryPolicy | undefined}
                 onChange={retry => {
                   const newConfig = { ...localConfig, _retry: retry };
                   setLocalConfig(newConfig);
@@ -191,8 +190,8 @@ export default function PropertiesPanel({
             <>
               <div className="my-4 h-px bg-slate-700" />
               <ConditionalGatesSection
-                runIf={localConfig._runIf}
-                skipIf={localConfig._skipIf}
+                runIf={typeof localConfig._runIf === 'string' ? localConfig._runIf : undefined}
+                skipIf={typeof localConfig._skipIf === 'string' ? localConfig._skipIf : undefined}
                 onChange={(runIf, skipIf) => {
                   const newConfig = { ...localConfig, _runIf: runIf, _skipIf: skipIf };
                   setLocalConfig(newConfig);
@@ -208,7 +207,11 @@ export default function PropertiesPanel({
             <>
               <div className="my-4 h-px bg-slate-700" />
               <TriggerModifiersSection
-                modifiers={localConfig.triggerModifiers || DEFAULT_TRIGGER_MODIFIERS}
+                modifiers={
+                  (localConfig.triggerModifiers as
+                    | React.ComponentProps<typeof TriggerModifiersSection>['modifiers']
+                    | undefined) || DEFAULT_TRIGGER_MODIFIERS
+                }
                 onChange={modifiers => {
                   const newConfig = { ...localConfig, triggerModifiers: modifiers };
                   setLocalConfig(newConfig);
@@ -224,6 +227,17 @@ export default function PropertiesPanel({
   );
 }
 
+interface SettingsResolverProps {
+  node: WorkflowNode | null;
+  localConfig: Record<string, unknown>;
+  setLocalConfig: React.Dispatch<React.SetStateAction<Record<string, unknown>>>;
+  onUpdate: (nodeId: string, updates: Partial<WorkflowNode>) => void;
+  nodeTypeDefinition?: NodeType;
+  lang: 'en' | 'es';
+  nodes: WorkflowNode[];
+  connections: Connection[];
+}
+
 // Helper to keep main component clean
 function SettingsResolver({
   node,
@@ -234,8 +248,8 @@ function SettingsResolver({
   lang,
   nodes,
   connections,
-}: any) {
-  const handleConfigChange = (key: string, value: any) => {
+}: SettingsResolverProps) {
+  const handleConfigChange = (key: string, value: unknown) => {
     const newConfig = { ...localConfig, [key]: value };
     setLocalConfig(newConfig);
     if (node) {
@@ -286,12 +300,14 @@ function SettingsResolver({
 
   // 2. Specific Fallbacks
   if (node?.type === 'nanorun.httpRequest') {
+    const urlValue = typeof localConfig.url === 'string' ? localConfig.url : '';
+    const methodValue = typeof localConfig.method === 'string' ? localConfig.method : 'GET';
     return (
       <div className="space-y-4">
         <ConfigField label="URL" description="Endpoint URL">
           <input
             type="text"
-            value={localConfig.url || ''}
+            value={urlValue}
             onChange={e => handleConfigChange('url', e.target.value)}
             className={inputClass}
             placeholder="https://..."
@@ -299,7 +315,7 @@ function SettingsResolver({
         </ConfigField>
         <ConfigField label="Method" description="HTTP Verb">
           <select
-            value={localConfig.method || 'GET'}
+            value={methodValue}
             onChange={e => handleConfigChange('method', e.target.value)}
             className={inputClass}
           >
@@ -321,7 +337,7 @@ function SettingsResolver({
           try {
             const parsed = JSON.parse(e.target.value);
             setLocalConfig(parsed);
-            onUpdate(node.id, { config: parsed });
+            if (node) onUpdate(node.id, { config: parsed });
           } catch {}
         }}
         rows={15}

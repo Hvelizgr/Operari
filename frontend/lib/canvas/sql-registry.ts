@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import React from 'react';
 
-import type { BadgeInfo, CategoryPalette, NodeTypeRegistry } from './node-type-registry';
+import type { CategoryPalette, NodeTypeRegistry } from './node-type-registry';
 import { defaultRegistryMethods } from './node-type-registry';
 
 // ---- Categories ----
@@ -384,7 +384,7 @@ function previewRenderHint(type: string, config: Record<string, unknown> | undef
 // ---- Registry instance ----
 
 export const sqlRegistry: NodeTypeRegistry = {
-  nodeTypes: SQL_NODE_TYPES as any,
+  nodeTypes: SQL_NODE_TYPES as NodeTypeRegistry['nodeTypes'],
   categories: SQL_CATEGORIES,
   triggerTypes: new Set<string>(),
   organizationTypes: new Set<string>(),

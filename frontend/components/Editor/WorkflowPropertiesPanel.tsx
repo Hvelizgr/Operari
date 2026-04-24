@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { Clock, FileText, Save, Tag, ToggleLeft, ToggleRight, X } from 'lucide-react';
+import { FileText, Save, Tag, ToggleLeft, ToggleRight, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import CronPicker from './CronPicker';
@@ -46,7 +46,10 @@ export default function WorkflowPropertiesPanel({
     setLocalProps(properties);
   }, [properties]);
 
-  const handleChange = (key: keyof WorkflowProperties, value: any) => {
+  const handleChange = (
+    key: keyof WorkflowProperties,
+    value: WorkflowProperties[keyof WorkflowProperties]
+  ) => {
     const updated = { ...localProps, [key]: value };
     setLocalProps(updated);
     onUpdate({ [key]: value });

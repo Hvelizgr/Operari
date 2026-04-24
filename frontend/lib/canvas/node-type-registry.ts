@@ -33,6 +33,8 @@ export interface CategoryDefinition {
   color: string;
 }
 
+import type { Property } from '@/components/Node/DynamicNodeForm';
+
 export interface NodeTypeDefinition {
   type: string;
   icon: React.ReactNode;
@@ -42,7 +44,7 @@ export interface NodeTypeDefinition {
   description?: { en: string; es: string };
   inputs?: string[];
   outputs?: string[];
-  properties?: any[];
+  properties?: Property[];
 }
 
 /**

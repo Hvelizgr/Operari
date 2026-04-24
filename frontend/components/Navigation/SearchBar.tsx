@@ -1,39 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  AlertCircle,
-  Bell,
-  Calendar,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  Cloud,
-  Code,
-  Database,
-  FileText,
-  Filter,
-  GitBranch,
-  Globe,
-  Grid,
-  Hash,
-  Key,
-  List,
-  Mail,
-  MessageSquare,
-  Pause,
-  Play,
-  Plus,
-  RefreshCw,
-  Search,
-  Send,
-  Server,
-  Settings,
-  Shuffle,
-  Webhook,
-  X,
-  Zap,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { WorkflowNode } from '../Editor';
@@ -134,7 +102,7 @@ export default function SearchBar({
         t.type.toLowerCase().includes(term) ||
         (t.description?.[lang] || '').toLowerCase().includes(term)
     );
-  }, [searchTerm, lang]);
+  }, [searchTerm, lang, availableNodeTypes]);
 
   // Filter existing nodes on canvas
   const filteredCanvasNodes = useMemo(() => {
@@ -183,10 +151,6 @@ export default function SearchBar({
     setSearchTerm('');
     onHighlightNodes([]);
   };
-
-  const hasSearchResults =
-    searchTerm && (filteredAvailableNodes.length > 0 || filteredCanvasNodes.length > 0);
-  const showCategories = isOpen && !searchTerm;
 
   // Focus input when opened
   useEffect(() => {

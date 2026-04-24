@@ -2,7 +2,6 @@
 
 import dynamic from 'next/dynamic';
 
-import { useAccessibility } from '../../context/AccessibilityContext';
 import { useEditorCanvas } from '../../hooks/useEditorCanvas';
 import { useExecutionSocket } from '../../hooks/useExecutionSocket';
 import { useWorkflowExecution } from '../../hooks/useWorkflowExecution';
@@ -15,9 +14,10 @@ import {
   NodesLayer,
 } from './';
 const LogTerminal = dynamic(() => import('./terminal/LogTerminal'), { ssr: false });
-import { Download, FileText, Terminal as TerminalIcon, Upload, X, Zap } from 'lucide-react';
+import type { Connection, WorkflowNode } from '@cairn/shared';
+import { Terminal as TerminalIcon, X } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { specToNodes, yamlToSpec } from '@/utils/runbookYaml';
 
@@ -31,7 +31,6 @@ import RunDialog from '../Workflow/RunDialog';
 import ScheduleDialog from '../Workflow/ScheduleDialog';
 import SnapshotDialog from '../Workflow/SnapshotDialog';
 import CommandPalette, { CommandAction } from './CommandPalette';
-import { createNewNode } from './EditorCanvas.utils';
 import EditorSidebar from './EditorSidebar';
 import GitHubBranchPanel from './GitHubBranchPanel';
 import RunbookAssistPanel from './RunbookAssistPanel';
@@ -45,7 +44,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   const searchParams = useSearchParams();
   const urlRunbookId = searchParams?.get('id') ?? null;
   const loadedRunbookIdRef = useRef<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [, setLoadError] = useState<string | null>(null);
   // Workflow properties live up here (above useEditorCanvas) so the
   // header can be passed straight into the autosave hook for the
   // YAML-native save path.
@@ -70,8 +69,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     connections,
     viewport,
     saveStatus,
-    enableAutosave,
-    setEnableAutosave,
     showOnboarding,
     onboardingStep,
     contextMenu,
@@ -137,10 +134,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     handleOnboardingNext,
     handleOnboardingSkip,
     handleOnboardingClose,
-    handleExecutionStateChange,
     handleNodeAddFromSearch,
     handleViewportChangeAdapter,
-    createConnection,
 
     isRunDialogOpen,
     handleOpenRunDialog,
@@ -157,11 +152,12 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     },
   });
 
-  // Auto Layout Handler
-  const handleAutoLayout = () => {
+  // Auto Layout Handler. Wrapped in useCallback so the command-palette
+  // useMemo that captures it doesn't invalidate on every render.
+  const handleAutoLayout = useCallback(() => {
     const { nodes: layoutedNodes } = getAutoLayout(nodes, connections);
     setNodes(layoutedNodes);
-  };
+  }, [nodes, connections, setNodes]);
 
   const [showTerminal, setShowTerminal] = useState(false);
   const [runMode, setRunMode] = useState<'run' | 'debug' | 'dry-run'>('run'); // New State
@@ -195,8 +191,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         // to). Prefer that. If empty / missing, fall back to the
         // YAML round-trip endpoint so a runbook authored via
         // CLI is still loadable in the canvas.
-        let loadedNodes: any[] = [];
-        let loadedConnections: any[] = [];
+        let loadedNodes: WorkflowNode[] = [];
+        let loadedConnections: Connection[] = [];
         if (Array.isArray(wf.nodes) && wf.nodes.length > 0) {
           loadedNodes = wf.nodes;
           loadedConnections = Array.isArray(wf.connections) ? wf.connections : [];
@@ -285,21 +281,24 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   // toolbar, even though the soldering "draw" path was removed —
   // the move-mode bool is still consumed by NodesLayer for cursor
   // affordances).
-  const { tool, selectTool, isDrawMode, isMoveMode } = useEditorTools();
+  const { tool, selectTool } = useEditorTools();
 
-  const handleExecuteWithInput = async (input: object) => {
-    setShowTerminal(true);
-    const result = await executeWorkflow(input, runMode);
-    // Translate the hook's result shape (kind: ok/invalid_inputs/error)
-    // into the Run dialog's DialogRunResult so the form can render
-    // per-field server errors instead of swallowing them.
-    if (!result) return { status: 'ok' as const };
-    if (result.kind === 'ok') return { status: 'ok' as const };
-    if (result.kind === 'invalid_inputs') {
-      return { status: 'invalid_inputs' as const, issues: result.issues };
-    }
-    return { status: 'error' as const, message: result.message };
-  };
+  const handleExecuteWithInput = useCallback(
+    async (input: object) => {
+      setShowTerminal(true);
+      const result = await executeWorkflow(input, runMode);
+      // Translate the hook's result shape (kind: ok/invalid_inputs/error)
+      // into the Run dialog's DialogRunResult so the form can render
+      // per-field server errors instead of swallowing them.
+      if (!result) return { status: 'ok' as const };
+      if (result.kind === 'ok') return { status: 'ok' as const };
+      if (result.kind === 'invalid_inputs') {
+        return { status: 'invalid_inputs' as const, issues: result.issues };
+      }
+      return { status: 'error' as const, message: result.message };
+    },
+    [executeWorkflow, runMode]
+  );
 
   // Wrappers for Run/Debug
   const handleOpenRun = () => {
@@ -513,15 +512,18 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                       return;
                     }
                     // Validate that each node has the minimum required shape
-                    const valid = json.nodes.every(
-                      (n: any) =>
-                        n &&
-                        typeof n.id === 'string' &&
-                        typeof n.type === 'string' &&
-                        n.position &&
-                        typeof n.position.x === 'number' &&
-                        typeof n.position.y === 'number'
-                    );
+                    const valid = json.nodes.every((n: unknown): n is WorkflowNode => {
+                      if (!n || typeof n !== 'object') return false;
+                      const node = n as Record<string, unknown>;
+                      const pos = node.position as Record<string, unknown> | undefined;
+                      return (
+                        typeof node.id === 'string' &&
+                        typeof node.type === 'string' &&
+                        !!pos &&
+                        typeof pos.x === 'number' &&
+                        typeof pos.y === 'number'
+                      );
+                    });
                     if (!valid) {
                       alert(
                         lang === 'en'

@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Command, Info, Search, Zap } from 'lucide-react';
+import { ArrowRight, Command, Info, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 export interface CommandAction {

@@ -1,17 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  AlertCircle,
-  Check,
-  Copy,
-  GitBranch,
-  Loader2,
-  Play,
-  RefreshCw,
-  Shield,
-  X,
-} from 'lucide-react';
+import { AlertCircle, Check, Copy, GitBranch, Loader2, RefreshCw, Shield, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useState } from 'react';
 

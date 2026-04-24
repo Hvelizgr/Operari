@@ -65,7 +65,7 @@ describe('EmptyState', () => {
         // primaryHref intentionally omitted
       />
     );
-    expect(screen.queryByText('Browse templates')).toBeNull();
+    expect(screen.queryByText('Browse templates')).not.toBeInTheDocument();
   });
 
   it('omits the secondary CTA when label or href is missing', () => {
@@ -78,7 +78,7 @@ describe('EmptyState', () => {
         // secondaryLabel intentionally omitted
       />
     );
-    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
   it('renders with only a primary CTA (runs-history shape)', () => {

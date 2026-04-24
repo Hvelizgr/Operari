@@ -61,7 +61,7 @@ interface EditorOverlaysProps {
   onDeleteConnectionCancel: () => void;
 
   // Node Config
-  onConfigUpdate: (nodeId: string, config: any) => void;
+  onConfigUpdate: (nodeId: string, config: Partial<WorkflowNode>) => void;
   onConfigClose: () => void;
 
   // Context Menu
@@ -117,7 +117,7 @@ export default function EditorOverlays({
   onboardingStep,
   lang,
   selectedNodesCount,
-  onLoadWorkflow,
+  onLoadWorkflow: _onLoadWorkflow,
   onSelectTemplate,
   onViewportChange,
   onNodeAdd,
