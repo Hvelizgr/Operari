@@ -151,6 +151,12 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
   // afterSeq is NOT state: it's a mutable cursor used by the polling
   // closure. Making it state would re-fire the effect on every update.
   const afterSeqRef = useRef<string | null>(null);
+  // Track which failure seqs we've already auto-expanded. Without
+  // this, a later non-failure event arriving would trigger the
+  // auto-expand effect and re-open a row the user just collapsed
+  // — overriding their explicit action. Reset is handled by the
+  // main useEffect on runId/preset/live changes.
+  const autoExpandedFailuresRef = useRef<Set<string>>(new Set());
   const [cancelState, setCancelState] = useState<'idle' | 'cancelling' | 'failed'>('idle');
   // Follow-tail: when live, new events auto-scroll the list to the
   // bottom. The operator can pause that by scrolling up — the onScroll
@@ -179,6 +185,26 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
     // pinned without visual lag.
     el.scrollTop = el.scrollHeight;
   }, [events.length, autoFollow]);
+
+  // Auto-expand failure events so the error message is visible the
+  // moment it lands — no extra click required. Only fires for seqs
+  // we've never auto-expanded before, so a user who explicitly
+  // collapsed a failure won't see it pop back open on the next tick.
+  useEffect(() => {
+    const newFailureSeqs: string[] = [];
+    for (const e of events) {
+      if (e.type.endsWith('.failed') && !autoExpandedFailuresRef.current.has(e.seq)) {
+        autoExpandedFailuresRef.current.add(e.seq);
+        newFailureSeqs.push(e.seq);
+      }
+    }
+    if (newFailureSeqs.length === 0) return;
+    setExpanded(prev => {
+      const next = new Set(prev);
+      for (const s of newFailureSeqs) next.add(s);
+      return next;
+    });
+  }, [events]);
 
   const cancelRun = async () => {
     // One-shot confirm — aborting a run is a non-trivial action
@@ -209,6 +235,7 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
     let cancelled = false;
     // Reset cursor on filter/run change so we re-fetch from the start.
     afterSeqRef.current = null;
+    autoExpandedFailuresRef.current = new Set();
     setEvents([]);
     setExpanded(new Set());
     setError(null);

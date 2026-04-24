@@ -239,6 +239,61 @@ describe('ExecutionEventLog', () => {
     expect(screen.queryByText('step.started')).not.toBeInTheDocument();
   });
 
+  it('auto-expands .failed events so the error payload is visible immediately', async () => {
+    fetchMock.mockResolvedValue(
+      respond({
+        data: [
+          mkEvent({
+            seq: '5',
+            type: 'step.failed',
+            nodeId: 'node-a',
+            payload: { errorMessage: 'timeout after 30s', nodeName: 'Validate' },
+          }),
+        ],
+        nextAfterSeq: null,
+      })
+    );
+    render(<ExecutionEventLog runId="run-1" lang="en" />);
+    // No click needed — the failure's payload is already open.
+    expect(await screen.findByText(/"errorMessage": "timeout after 30s"/)).toBeInTheDocument();
+  });
+
+  it('does not re-expand a failure the user explicitly collapsed', async () => {
+    // First render populates the list and auto-expands the failure.
+    fetchMock.mockResolvedValue(
+      respond({
+        data: [
+          mkEvent({
+            seq: '5',
+            type: 'step.failed',
+            nodeId: 'node-a',
+            payload: { errorMessage: 'timeout after 30s', nodeName: 'Validate' },
+          }),
+          mkEvent({
+            seq: '6',
+            type: 'run.failed',
+            nodeId: null,
+            payload: { errorMessage: 'run aborted', durationMs: 30000 },
+          }),
+        ],
+        nextAfterSeq: null,
+      })
+    );
+    render(<ExecutionEventLog runId="run-1" lang="en" />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    // Both failures should be open initially.
+    expect(await screen.findByText(/"errorMessage": "timeout after 30s"/)).toBeInTheDocument();
+
+    // User collapses the step.failed row by clicking its header.
+    fireEvent.click(screen.getByText('step.failed'));
+    await waitFor(() =>
+      expect(screen.queryByText(/"errorMessage": "timeout after 30s"/)).not.toBeInTheDocument()
+    );
+    // The run.failed one stays open — other rows are untouched.
+    expect(screen.getByText(/"errorMessage": "run aborted"/)).toBeInTheDocument();
+  });
+
   it('exposes a Stop button in live mode that posts to /cancel', async () => {
     fetchMock.mockResolvedValue(respond({ data: [], nextAfterSeq: null }));
     // jsdom has no real window.confirm; force-accept so the cancel
