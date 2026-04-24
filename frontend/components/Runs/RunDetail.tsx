@@ -286,7 +286,18 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
           </button>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">{run.runbook.name}</h1>
+          <h1 className="text-2xl font-semibold">
+            {/* Link the runbook name back to its own page so the
+                operator can jump "up" the hierarchy (run → runbook)
+                after a failed run to review or edit the definition.
+                Hover underline mirrors the approval-inbox pattern. */}
+            <Link
+              href={`/${lang}/runbooks/${run.runbook.slug ?? run.runbook.id}`}
+              className="underline-offset-2 hover:underline"
+            >
+              {run.runbook.name}
+            </Link>
+          </h1>
           <button
             onClick={replayWholeRun}
             disabled={replayingId !== null || run.status === 'RUNNING'}
