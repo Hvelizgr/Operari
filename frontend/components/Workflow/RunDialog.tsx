@@ -3,6 +3,7 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bug, Play, X } from 'lucide-react';
+import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import type { RunbookInputDefinition } from '../Editor/RunbookInputsPanel';
@@ -10,13 +11,35 @@ import type { RunbookInputDefinition } from '../Editor/RunbookInputsPanel';
 interface LogEntry {
   timestamp: string;
   message: string;
-  metadata?: any;
+  metadata?: unknown;
 }
+
+/**
+ * Per-field validation issue from the backend's typed-input validator.
+ * When onRun resolves to a non-null DialogRunResult whose status is
+ * 'invalid_inputs', the dialog renders these under the offending
+ * fields instead of closing.
+ */
+export interface RunInputIssue {
+  field: string;
+  message: string;
+}
+
+export type DialogRunResult =
+  | { status: 'ok' }
+  | { status: 'invalid_inputs'; issues: RunInputIssue[] }
+  | { status: 'error'; message: string };
 
 interface RunDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onRun: (input: object) => void;
+  /**
+   * Dispatches the run. Returning `void` (the legacy signature) keeps
+   * the dialog's close-on-run behavior from before. Returning a
+   * DialogRunResult lets the dispatcher signal validation failures
+   * back so the dialog can highlight fields instead of closing.
+   */
+  onRun: (input: object) => void | Promise<DialogRunResult | void>;
   lang: 'en' | 'es';
   isExecuting?: boolean;
   logs?: LogEntry[];
@@ -57,6 +80,10 @@ export default function RunDialog({
   const [jsonInput, setJsonInput] = useState(`{\n  "key": "value"\n}`);
   const [formValues, setFormValues] = useState<Record<string, unknown>>(() => defaultsFor(inputs));
   const [error, setError] = useState<string | null>(null);
+  /** Per-field server-reported validation issues.
+   *  Map field name → human message. Populated when the dispatcher
+   *  surfaces an `invalid_inputs` result; cleared on every retry. */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [elapsed, setElapsed] = useState(0);
 
   // Re-seed form defaults when the declaration list changes identity
@@ -67,6 +94,7 @@ export default function RunDialog({
   );
   useEffect(() => {
     setFormValues(defaultsFor(inputs));
+    setFieldErrors({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputsFingerprint]);
 
@@ -83,7 +111,38 @@ export default function RunDialog({
     return () => clearInterval(interval);
   });
 
-  const handleRunClick = () => {
+  /**
+   * Consume whatever `onRun` returned. `void` preserves the legacy
+   * fire-and-forget behavior (dialog assumes success and closes
+   * via its parent). A DialogRunResult lets us render invalid_inputs
+   * issues without closing and show a top-level error for other
+   * failures.
+   */
+  const handleRunResult = (result: DialogRunResult | void) => {
+    if (!result || result.status === 'ok') {
+      setFieldErrors({});
+      setError(null);
+      return;
+    }
+    if (result.status === 'invalid_inputs') {
+      const next: Record<string, string> = {};
+      for (const issue of result.issues) {
+        next[issue.field] = issue.message;
+      }
+      setFieldErrors(next);
+      setError(
+        lang === 'en'
+          ? 'The server rejected these inputs. Fix the fields below.'
+          : 'El servidor rechazó estos inputs. Corregí los campos abajo.'
+      );
+      return;
+    }
+    // kind === 'error'
+    setFieldErrors({});
+    setError(result.message);
+  };
+
+  const handleRunClick = async () => {
     if (hasInputs) {
       for (const input of inputs) {
         const v = formValues[input.name];
@@ -109,13 +168,15 @@ export default function RunDialog({
           input.type === 'number' ? Number(raw) : input.type === 'boolean' ? !!raw : raw;
       }
       setError(null);
-      onRun(payload);
+      setFieldErrors({});
+      handleRunResult(await onRun(payload));
       return;
     }
     try {
       const parsedInput = JSON.parse(jsonInput);
       setError(null);
-      onRun(parsedInput);
+      setFieldErrors({});
+      handleRunResult(await onRun(parsedInput));
     } catch {
       setError(lang === 'en' ? 'Invalid JSON format.' : 'Formato JSON inválido.');
     }
@@ -182,7 +243,7 @@ export default function RunDialog({
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-              } as any
+              } as React.CSSProperties
             }
             onClick={e => e.stopPropagation()}
           >
@@ -244,8 +305,24 @@ export default function RunDialog({
                           input={input}
                           value={formValues[input.name]}
                           onChange={v => setFormValues(prev => ({ ...prev, [input.name]: v }))}
+                          fieldError={fieldErrors[input.name]}
                         />
                       ))}
+                      {/* Server-only field errors (unknown key: typo)
+                          have no matching declaration above. Surface
+                          them here so the operator sees "unknown
+                          input 'enivronment'" without it getting
+                          silently dropped. */}
+                      {Object.entries(fieldErrors)
+                        .filter(([name]) => !inputs.some(i => i.name === name))
+                        .map(([name, message]) => (
+                          <div
+                            key={name}
+                            className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400"
+                          >
+                            <code className="font-mono text-[10px]">{name}</code>: {message}
+                          </div>
+                        ))}
                     </div>
                   ) : (
                     <textarea
@@ -408,13 +485,22 @@ function InputField({
   input,
   value,
   onChange,
+  fieldError,
 }: {
   input: RunbookInputDefinition;
   value: unknown;
   onChange: (v: unknown) => void;
+  /** Server-reported validation message for this field. When set,
+   *  the control gets a red border, a red helper line, and (for
+   *  select) preserves the chosen value so the operator sees exactly
+   *  what the server rejected. */
+  fieldError?: string;
 }) {
-  const fieldCls =
-    'w-full bg-black/30 border border-[var(--border-color)] rounded px-3 py-2 text-sm text-[var(--body-text-color)] focus:outline-none focus:border-[var(--highlight-color)] transition-colors';
+  const baseFieldCls =
+    'w-full bg-black/30 border rounded px-3 py-2 text-sm text-[var(--body-text-color)] focus:outline-none focus:border-[var(--highlight-color)] transition-colors';
+  const fieldCls = `${baseFieldCls} ${
+    fieldError ? 'border-red-500/60' : 'border-[var(--border-color)]'
+  }`;
   const label = input.label || input.name;
 
   return (
@@ -457,9 +543,11 @@ function InputField({
           className={`${fieldCls} ${input.type === 'number' ? 'font-mono' : ''}`}
         />
       )}
-      {input.description && (
+      {fieldError ? (
+        <p className="mt-1 text-[10px] leading-snug text-red-400">{fieldError}</p>
+      ) : input.description ? (
         <p className="mt-1 text-[10px] leading-snug text-slate-500">{input.description}</p>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -287,7 +287,16 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
   const handleExecuteWithInput = async (input: object) => {
     setShowTerminal(true);
-    await executeWorkflow(input, runMode);
+    const result = await executeWorkflow(input, runMode);
+    // Translate the hook's result shape (kind: ok/invalid_inputs/error)
+    // into the Run dialog's DialogRunResult so the form can render
+    // per-field server errors instead of swallowing them.
+    if (!result) return { status: 'ok' as const };
+    if (result.kind === 'ok') return { status: 'ok' as const };
+    if (result.kind === 'invalid_inputs') {
+      return { status: 'invalid_inputs' as const, issues: result.issues };
+    }
+    return { status: 'error' as const, message: result.message };
   };
 
   // Wrappers for Run/Debug
