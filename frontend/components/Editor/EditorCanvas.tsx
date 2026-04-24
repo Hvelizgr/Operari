@@ -35,6 +35,7 @@ import CanvasRunStatus from './CanvasRunStatus';
 import CommandPalette, { CommandAction } from './CommandPalette';
 import EditorSidebar from './EditorSidebar';
 import GitHubBranchPanel from './GitHubBranchPanel';
+import OnboardingRunHint from './OnboardingRunHint';
 import RunbookAssistPanel from './RunbookAssistPanel';
 import TopBar from './TopBar';
 import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertiesPanel';
@@ -597,6 +598,13 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               executing={executing}
               hasFailedNode={nodes.some(n => n.executionState === 'error')}
               startedAt={runStartedAt}
+              lang={lang}
+            />
+
+            <OnboardingRunHint
+              nodeCount={nodes.length}
+              isExecuting={executing}
+              hasExecution={Boolean(currentExecutionId)}
               lang={lang}
             />
 
