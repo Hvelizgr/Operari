@@ -962,6 +962,9 @@ model WebhookReceipt {
   webhookId    String
   tenantId     String
   /// "accepted" | "rejected_signature" | "rejected_inactive" | "error"
+  /// | "error_exhausted"  (retry cap reached)
+  /// | "replayed_success" (WebhookRetryWorker picked it up and it
+  /// landed successfully on a subsequent attempt)
   status       String
   statusCode   Int
   /// Short reason for non-accepted statuses (e.g. "HMAC mismatch").
@@ -980,12 +983,19 @@ model WebhookReceipt {
   /// reached the executor. Enables "show me the run this webhook
   /// spawned" in the UI.
   executionId  String?
+  /// Background retry bookkeeping. WebhookRetryWorker polls rows
+  /// where status='error' + nextRetryAt<=now and calls execute()
+  /// again. retryAttempts caps at a hard ceiling after which the
+  /// row flips to 'error_exhausted' (terminal, operator-only).
+  retryAttempts Int       @default(0)
+  nextRetryAt   DateTime?
   receivedAt   DateTime @default(now())
 
   webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
 
   @@index([webhookId, receivedAt])
   @@index([tenantId])
+  @@index([status, nextRetryAt])
 }
 
 /// Human approval gates. When a runbook reaches an approval node, it pauses
