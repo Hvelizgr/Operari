@@ -41,9 +41,15 @@ function buildStubPrisma() {
 
 describe('tenantScopeGuard', () => {
   const prevNodeEnv = process.env.NODE_ENV;
+  const prevStrict = process.env.NANORUN_TENANT_GUARD_STRICT;
 
   afterEach(() => {
     process.env.NODE_ENV = prevNodeEnv;
+    if (prevStrict === undefined) {
+      delete process.env.NANORUN_TENANT_GUARD_STRICT;
+    } else {
+      process.env.NANORUN_TENANT_GUARD_STRICT = prevStrict;
+    }
   });
 
   it('throws in development when Execution.findMany has no tenant filter', async () => {
@@ -193,5 +199,35 @@ describe('tenantScopeGuard', () => {
         },
       })
     ).rejects.toBeInstanceOf(TenantScopeViolationError);
+  });
+
+  it('throws in production when NANORUN_TENANT_GUARD_STRICT=true', async () => {
+    // T.3: once the operator has observed a clean prod log for 2 weeks,
+    // flipping this flag promotes soft-fail to hard-throw without a
+    // code change.
+    process.env.NODE_ENV = 'production';
+    process.env.NANORUN_TENANT_GUARD_STRICT = 'true';
+    const { prisma, invoke } = buildStubPrisma();
+
+    installTenantScopeGuard(prisma as any);
+
+    await expect(
+      invoke({ model: 'Execution', action: 'findMany', args: { where: { status: 'RUNNING' } } })
+    ).rejects.toBeInstanceOf(TenantScopeViolationError);
+  });
+
+  it('still soft-fails in production when NANORUN_TENANT_GUARD_STRICT is unset', async () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.NANORUN_TENANT_GUARD_STRICT;
+    const { prisma, invoke } = buildStubPrisma();
+
+    installTenantScopeGuard(prisma as any);
+
+    const { called } = await invoke({
+      model: 'Execution',
+      action: 'findMany',
+      args: { where: { status: 'RUNNING' } },
+    });
+    expect(called).toBe(true);
   });
 });

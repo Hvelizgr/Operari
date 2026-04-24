@@ -152,6 +152,14 @@ const envSchema = z.object({
    *  undesirable; single-pod deploys can leave the default — the
    *  advisory lock is acquired instantly when there is no contention. */
   SCHEDULER_LEADER_DISABLE: z.enum(['true', 'false']).default('false'),
+  /** Force the tenant-scope guard to throw in production instead of
+   *  soft-logging violations. Default 'false' keeps the historical
+   *  log-only behavior so a safety-net false positive does not tank
+   *  live traffic. Flip to 'true' once prod logs show zero
+   *  `Tenant-scope guard violation` entries for two consecutive
+   *  weeks — that's the "T.3" validation step from the audit.
+   *  Dev/test always throws regardless of this flag. */
+  NANORUN_TENANT_GUARD_STRICT: z.enum(['true', 'false']).default('false'),
 
   // ─── Version display ───────────────────────────────────────────
   /** Self-host build tag shown in the /health endpoint + UI footer.
