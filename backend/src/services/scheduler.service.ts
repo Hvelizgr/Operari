@@ -4,8 +4,8 @@ import cron from 'node-cron';
 
 import { logger } from '../config/logger.config';
 import { ExecutionService } from '../editor/execution/execution.service';
+import { parseInputDefs } from '../runbook/inputs/parse-input-defs';
 import { validateRunInputs } from '../runbook/inputs/validate-run-inputs';
-import type { RunbookInputDefinition } from '../types/workflow.types';
 
 /**
  * Compute the next fire time of a cron expression. Returns null if the
@@ -100,7 +100,7 @@ export class SchedulerService {
         // or fails because a required input has no default — in which
         // case we skip the dispatch and log, rather than silently
         // running the graph against undefined variables.
-        const inputDefs = (workflow.inputs ?? []) as unknown as RunbookInputDefinition[];
+        const inputDefs = parseInputDefs(workflow.inputs);
         const validated = validateRunInputs(inputDefs, {});
         if (!validated.ok) {
           logger.error(
