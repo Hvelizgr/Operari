@@ -2,6 +2,7 @@ import type { Role } from '@prisma/client';
 import { type Response, Router } from 'express';
 import { z } from 'zod';
 
+import { buildDeletedActorSet, redactRow } from '../audit/audit-redaction';
 import { AuditService } from '../audit/audit.service';
 import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
 import { prisma } from '../server';
@@ -251,13 +252,22 @@ router.get('/audit/export', authenticate, async (req: AuthRequest, res: Response
   res.setHeader('Cache-Control', 'no-store');
   res.flushHeaders?.();
 
+  // GDPR: mask any reference to a deleted user before bytes leave
+  // the process. Mirrors the /api/v1/audit/export behavior so both
+  // surfaces produce equivalent redacted streams.
+  const deletedActors = await buildDeletedActorSet(getAudit(), tenantId);
+
   let count = 0;
   try {
     for await (const row of getAudit().streamEvents(tenantId, { fromSeq })) {
+      const redacted = redactRow(row, deletedActors);
       const serialized = {
-        ...row,
-        seq: row.seq.toString(),
-        createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+        ...redacted,
+        seq: redacted.seq.toString(),
+        createdAt:
+          redacted.createdAt instanceof Date
+            ? redacted.createdAt.toISOString()
+            : redacted.createdAt,
       };
       res.write(JSON.stringify(serialized));
       res.write('\n');
