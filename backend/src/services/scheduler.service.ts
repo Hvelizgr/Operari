@@ -4,6 +4,8 @@ import cron from 'node-cron';
 
 import { logger } from '../config/logger.config';
 import { ExecutionService } from '../editor/execution/execution.service';
+import { validateRunInputs } from '../runbook/inputs/validate-run-inputs';
+import type { RunbookInputDefinition } from '../types/workflow.types';
 
 /**
  * Compute the next fire time of a cron expression. Returns null if the
@@ -92,11 +94,38 @@ export class SchedulerService {
           return;
         }
 
+        // Resolve the runbook's declared typed inputs from their
+        // defaults. A schedule fire carries no user-supplied payload,
+        // so validateRunInputs({}) either returns a defaults-only map
+        // or fails because a required input has no default — in which
+        // case we skip the dispatch and log, rather than silently
+        // running the graph against undefined variables.
+        const inputDefs = (workflow.inputs ?? []) as unknown as RunbookInputDefinition[];
+        const validated = validateRunInputs(inputDefs, {});
+        if (!validated.ok) {
+          logger.error(
+            { workflowId, jobId, issues: validated.issues },
+            `Scheduled job ${jobId} skipped — required inputs missing and no defaults`
+          );
+          // Advance nextRunAt anyway so the UI doesn't stall on a
+          // stale timestamp while the operator fixes the runbook.
+          await this.prisma.scheduledJob
+            .update({
+              where: { id: jobId },
+              data: { nextRunAt: computeNextRunAt(cronExpr) },
+            })
+            .catch(() => {
+              /* ignore — job may have been deleted concurrently */
+            });
+          return;
+        }
+
         await this.executionService.execute({
           workflowId: workflow.id,
           userId: workflow.userId,
           tenantId: workflow.tenantId,
           trigger: 'SCHEDULED',
+          input: validated.values,
         });
 
         await this.prisma.scheduledJob.update({
