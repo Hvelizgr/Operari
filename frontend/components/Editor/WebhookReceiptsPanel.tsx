@@ -39,8 +39,11 @@ const STRINGS = {
     toggleClose: 'Hide receipts',
     refresh: 'Refresh',
     empty: 'No calls captured yet. Once this webhook receives a POST it shows up here.',
+    emptyFiltered: 'No receipts match this filter.',
     loading: 'Loading receipts...',
     loadFailed: 'Could not load receipts.',
+    loadMore: 'Load older',
+    loadingMore: 'Loading...',
     replay: 'Replay',
     replaying: 'Replaying...',
     replayOk: 'Replay fired',
@@ -54,14 +57,20 @@ const STRINGS = {
     rejectedSig: 'Bad signature',
     rejectedInactive: 'Inactive',
     error: 'Error',
+    filterAll: 'All',
+    filterFailed: 'Failed',
+    filterAccepted: 'Accepted',
   },
   es: {
     toggleOpen: 'Ver llamadas',
     toggleClose: 'Ocultar llamadas',
     refresh: 'Actualizar',
     empty: 'Aún no hay llamadas. Apenas este webhook reciba un POST aparece acá.',
+    emptyFiltered: 'Ninguna llamada coincide con este filtro.',
     loading: 'Cargando llamadas...',
     loadFailed: 'No se pudieron cargar las llamadas.',
+    loadMore: 'Cargar más antiguas',
+    loadingMore: 'Cargando...',
     replay: 'Reejecutar',
     replaying: 'Reejecutando...',
     replayOk: 'Reejecutado',
@@ -75,18 +84,35 @@ const STRINGS = {
     rejectedSig: 'Firma inválida',
     rejectedInactive: 'Inactivo',
     error: 'Error',
+    filterAll: 'Todas',
+    filterFailed: 'Fallidas',
+    filterAccepted: 'Aceptadas',
   },
 } as const;
 
 /**
- * Debugger panel for a single webhook. Shows the last 50 receipts
- * (accepted + rejected), lets the operator inspect the captured
- * headers + body, and replay any payload into the bound runbook.
+ * Client-side filter presets mapped to the backend `?status=` param.
+ * 'all' drops the filter entirely; 'failed' is the most useful one —
+ * operators debugging a misbehaving webhook jump here first.
+ */
+type FilterKey = 'all' | 'failed' | 'accepted';
+const FILTER_STATUS: Record<FilterKey, string | null> = {
+  all: null,
+  failed: 'rejected_signature,rejected_inactive,error',
+  accepted: 'accepted',
+};
+const PAGE_SIZE = 25;
+
+/**
+ * Debugger panel for a single webhook. Shows recent receipts (accepted
+ * + rejected), lets the operator filter by status, page older traffic,
+ * inspect captured headers + body, and replay any payload into the
+ * bound runbook.
  *
  * Collapsed by default — the TriggersPanel is already dense; we only
  * fetch receipts when the operator asks to see them. Each receipt is
  * lazily expanded (body/headers hidden until click) so a noisy
- * webhook doesn't dump 50 JSON blobs into the DOM at once.
+ * webhook doesn't dump 25 JSON blobs into the DOM at once.
  */
 export default function WebhookReceiptsPanel({ lang, webhookId }: WebhookReceiptsPanelProps) {
   const t = STRINGS[lang];
@@ -95,26 +121,68 @@ export default function WebhookReceiptsPanel({ lang, webhookId }: WebhookReceipt
   const [open, setOpen] = useState(false);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [replayingId, setReplayingId] = useState<string | null>(null);
   const [replayToast, setReplayToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+  const [filter, setFilter] = useState<FilterKey>('all');
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
 
+  /**
+   * Build the receipts URL. `cursor` is the server's nextCursor from
+   * the previous page (ISO-8601 receivedAt); omit it on the initial
+   * load. `status` is derived from the current filter preset.
+   */
+  const buildUrl = useCallback(
+    (cursor: string | null): string => {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      const status = FILTER_STATUS[filter];
+      if (status) params.set('status', status);
+      if (cursor) params.set('cursor', cursor);
+      return `${apiBase}/api/webhooks/${webhookId}/receipts?${params.toString()}`;
+    },
+    [apiBase, webhookId, filter]
+  );
+
+  /** Fetch the newest page. Clears whatever was already rendered. */
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBase}/api/webhooks/${webhookId}/receipts`);
+      const res = await fetch(buildUrl(null));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setReceipts(Array.isArray(json.data) ? json.data : []);
+      setNextCursor(typeof json.nextCursor === 'string' ? json.nextCursor : null);
     } catch {
       setError(t.loadFailed);
     } finally {
       setLoading(false);
     }
-  }, [apiBase, webhookId, t.loadFailed]);
+  }, [buildUrl, t.loadFailed]);
 
+  /** Append the next older page using the server-supplied cursor. */
+  const loadMore = useCallback(async () => {
+    if (!nextCursor) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const res = await fetch(buildUrl(nextCursor));
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const older: Receipt[] = Array.isArray(json.data) ? json.data : [];
+      setReceipts(prev => [...prev, ...older]);
+      setNextCursor(typeof json.nextCursor === 'string' ? json.nextCursor : null);
+    } catch {
+      setError(t.loadFailed);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [buildUrl, nextCursor, t.loadFailed]);
+
+  // Initial load + reload whenever the filter changes. Closing the
+  // panel clears nothing — reopening re-fetches from the newest page.
   useEffect(() => {
     if (!open) return;
     void load();
@@ -139,6 +207,12 @@ export default function WebhookReceiptsPanel({ lang, webhookId }: WebhookReceipt
     }
   };
 
+  const filterLabel: Record<FilterKey, string> = {
+    all: t.filterAll,
+    failed: t.filterFailed,
+    accepted: t.filterAccepted,
+  };
+
   return (
     <div className="mt-2 border-t border-slate-800 pt-2">
       <button
@@ -153,7 +227,34 @@ export default function WebhookReceiptsPanel({ lang, webhookId }: WebhookReceipt
 
       {open && (
         <div className="mt-2 space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center gap-1">
+            {(['all', 'failed', 'accepted'] as const).map(key => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                aria-pressed={filter === key}
+                className={`rounded border px-2 py-0.5 text-[10px] transition-colors ${
+                  filter === key
+                    ? 'border-primary/60 bg-primary/20 text-primary'
+                    : 'border-slate-700 bg-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {filterLabel[key]}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => void load()}
+              disabled={loading}
+              className="ml-auto inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-200 disabled:opacity-50"
+            >
+              {loading ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+              {t.refresh}
+            </button>
+          </div>
+
+          <div className="min-h-[14px]">
             {replayToast ? (
               <span
                 className={`text-[10px] ${
@@ -167,20 +268,11 @@ export default function WebhookReceiptsPanel({ lang, webhookId }: WebhookReceipt
                 {loading ? t.loading : (error ?? '')}
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => void load()}
-              disabled={loading}
-              className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-200 disabled:opacity-50"
-            >
-              {loading ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-              {t.refresh}
-            </button>
           </div>
 
           {!loading && receipts.length === 0 && !error && (
             <div className="rounded border border-dashed border-slate-700 bg-black/20 p-2 text-[10px] leading-snug text-slate-500">
-              {t.empty}
+              {filter === 'all' ? t.empty : t.emptyFiltered}
             </div>
           )}
 
@@ -197,6 +289,23 @@ export default function WebhookReceiptsPanel({ lang, webhookId }: WebhookReceipt
               />
             ))}
           </ul>
+
+          {nextCursor && (
+            <button
+              type="button"
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+              className="w-full rounded border border-slate-800 bg-black/30 py-1.5 text-[10px] text-slate-400 hover:text-slate-200 disabled:opacity-50"
+            >
+              {loadingMore ? (
+                <span className="inline-flex items-center gap-1">
+                  <Loader2 size={10} className="animate-spin" /> {t.loadingMore}
+                </span>
+              ) : (
+                t.loadMore
+              )}
+            </button>
+          )}
         </div>
       )}
     </div>
