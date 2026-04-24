@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import {
   ChevronDown,
   Copy,
@@ -15,6 +16,14 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import {
+  motionFor,
+  reducedStaggerChildVariants,
+  reducedStaggerContainerVariants,
+  staggerChildVariants,
+  staggerContainerVariants,
+} from '@/lib/motion';
 
 import { EmptyState } from '../Common/EmptyState';
 import Sparkline from '../Common/Sparkline';
@@ -361,20 +370,35 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
             secondaryHref={`/${lang}/editor`}
           />
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          // Grid staggers its cards on mount. With up to ~20 cards
+          // per page the 50 ms per-child stagger keeps the full
+          // sweep under ~1 s; the child animation itself is a short
+          // fade + 6 px slide. Container variants re-fire when
+          // `filter`/`search` causes `filtered` to change length —
+          // acceptable here because the list itself is rebuilt.
+          <motion.div
+            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+            variants={motionFor(staggerContainerVariants, reducedStaggerContainerVariants)}
+            initial="initial"
+            animate="animate"
+          >
             {filtered.map(rb => (
-              <RunbookCard
+              <motion.div
                 key={rb.id}
-                rb={rb}
-                t={t}
-                lang={lang}
-                now={now}
-                onRunNow={() => handleRunNow(rb)}
-                onDuplicate={() => handleDuplicate(rb)}
-                onDelete={() => handleDelete(rb)}
-              />
+                variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
+              >
+                <RunbookCard
+                  rb={rb}
+                  t={t}
+                  lang={lang}
+                  now={now}
+                  onRunNow={() => handleRunNow(rb)}
+                  onDuplicate={() => handleDuplicate(rb)}
+                  onDelete={() => handleDelete(rb)}
+                />
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
 
