@@ -75,6 +75,42 @@ export const listRowVariants: Variants = {
   exit: { opacity: 0, transition: exitFade },
 };
 
+/** Container that staggers its children on mount. Pair with
+ *  staggerChildVariants on each child. Default 50 ms between kids —
+ *  fast enough that a 4-card grid finishes inside 200 ms, slow
+ *  enough that the sweep is perceptible left-to-right. */
+export const staggerContainerVariants: Variants = {
+  initial: {},
+  animate: {
+    transition: {
+      staggerChildren: 0.05,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+/** Child of a staggerContainer. Fade + tiny upward slide. */
+export const staggerChildVariants: Variants = {
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.22, ease: 'easeOut' } },
+};
+
+/** Reduced-motion container: keep stagger short and opacity-only
+ *  children. Still staggers so the sweep direction reads, but
+ *  no translate + shorter duration. */
+export const reducedStaggerContainerVariants: Variants = {
+  initial: {},
+  animate: {
+    transition: {
+      staggerChildren: 0.02,
+    },
+  },
+};
+export const reducedStaggerChildVariants: Variants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.08 } },
+};
+
 /** Reduced-motion variants. Components using prefersReducedMotion()
  *  should substitute these when the media query matches — pure
  *  opacity, no transform, no spring. */

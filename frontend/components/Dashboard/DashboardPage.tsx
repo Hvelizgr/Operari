@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import {
   Activity,
   AlertTriangle,
@@ -15,6 +16,14 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth';
+import {
+  motionFor,
+  prefersReducedMotion,
+  reducedStaggerChildVariants,
+  reducedStaggerContainerVariants,
+  staggerChildVariants,
+  staggerContainerVariants,
+} from '@/lib/motion';
 
 import { EmptyState } from '../Common/EmptyState';
 import Sparkline from '../Common/Sparkline';
@@ -377,39 +386,53 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
             </div>
           )}
 
-        {/* (1) Pulse strip */}
-        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <PulseCard
-            icon={<Activity size={16} />}
-            label={t.pulseRuns24h}
-            value={data ? String(data.pulse.runs24h) : '—'}
-          />
-          <PulseCard
-            icon={<CheckCircle2 size={16} />}
-            label={t.pulseSuccess}
-            value={data ? formatPercent(data.pulse.successRate24h) : '—'}
-            tone={
-              data && data.pulse.successRate24h != null
-                ? data.pulse.successRate24h < 0.75
-                  ? 'danger'
-                  : data.pulse.successRate24h < 0.9
-                    ? 'warn'
-                    : 'ok'
-                : undefined
-            }
-          />
-          <PulseCard
-            icon={<Clock size={16} />}
-            label={t.pulseAvg}
-            value={data ? formatDuration(data.pulse.avgDurationMs24h) : '—'}
-          />
-          <PulseCard
-            icon={<InboxIcon size={16} />}
-            label={t.pulsePending}
-            value={data ? String(data.pulse.pendingApprovals) : '—'}
-            tone={data && data.pulse.pendingApprovals > 0 ? 'warn' : undefined}
-          />
-        </div>
+        {/* (1) Pulse strip — stagger entrance so the 4 KPIs sweep in
+            left→right on mount. Reduced-motion variant is a flat fade. */}
+        <motion.div
+          className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4"
+          variants={motionFor(staggerContainerVariants, reducedStaggerContainerVariants)}
+          initial="initial"
+          animate="animate"
+        >
+          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+            <PulseCard
+              icon={<Activity size={16} />}
+              label={t.pulseRuns24h}
+              value={data ? String(data.pulse.runs24h) : '—'}
+            />
+          </motion.div>
+          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+            <PulseCard
+              icon={<CheckCircle2 size={16} />}
+              label={t.pulseSuccess}
+              value={data ? formatPercent(data.pulse.successRate24h) : '—'}
+              tone={
+                data && data.pulse.successRate24h != null
+                  ? data.pulse.successRate24h < 0.75
+                    ? 'danger'
+                    : data.pulse.successRate24h < 0.9
+                      ? 'warn'
+                      : 'ok'
+                  : undefined
+              }
+            />
+          </motion.div>
+          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+            <PulseCard
+              icon={<Clock size={16} />}
+              label={t.pulseAvg}
+              value={data ? formatDuration(data.pulse.avgDurationMs24h) : '—'}
+            />
+          </motion.div>
+          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+            <PulseCard
+              icon={<InboxIcon size={16} />}
+              label={t.pulsePending}
+              value={data ? String(data.pulse.pendingApprovals) : '—'}
+              tone={data && data.pulse.pendingApprovals > 0 ? 'warn' : undefined}
+            />
+          </motion.div>
+        </motion.div>
 
         {/* (2) Needs attention. Each row is a button so an operator
             can jump straight to the surface that resolves it —
@@ -675,22 +698,35 @@ function Trend7d({
   data: Array<{ date: string; success: number; failed: number; cancelled: number }>;
 }) {
   const max = Math.max(1, ...data.map(d => d.success + d.failed + d.cancelled));
+  const reduced = prefersReducedMotion();
+  // Bars grow from 0 to their true height on mount. Each day is
+  // staggered by 40 ms so the 7 bars sweep left→right in ~280 ms —
+  // long enough to read as intentional, short enough not to delay
+  // the actual data. Reduced-motion skips the animation entirely
+  // and renders final heights immediately.
   return (
     <div className="flex h-24 items-end gap-2">
-      {data.map(d => {
+      {data.map((d, i) => {
         const total = d.success + d.failed + d.cancelled;
         const heightPct = (total / max) * 100;
         const successPct = total > 0 ? (d.success / total) * 100 : 0;
         const failedPct = total > 0 ? (d.failed / total) * 100 : 0;
         return (
           <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
-            <div
+            <motion.div
               className="w-full overflow-hidden rounded-t-sm bg-white/5"
-              style={{ height: `${heightPct}%`, minHeight: '4px' }}
+              initial={reduced ? false : { height: 0 }}
+              animate={{ height: `${heightPct}%` }}
+              transition={{
+                duration: reduced ? 0 : 0.34,
+                delay: reduced ? 0 : i * 0.04,
+                ease: 'easeOut',
+              }}
+              style={{ minHeight: '4px' }}
             >
               <div className="bg-emerald-500" style={{ height: `${successPct}%` }} />
               <div className="bg-red-500" style={{ height: `${failedPct}%` }} />
-            </div>
+            </motion.div>
             <span className="text-[10px] text-gray-500">
               {new Date(d.date).toLocaleDateString(undefined, {
                 weekday: 'short',
