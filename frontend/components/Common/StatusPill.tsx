@@ -1,9 +1,11 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, Inbox as InboxIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+
+import { motionFor, overlayPillVariants, reducedOverlayPillVariants } from '@/lib/motion';
 
 interface StatusPillProps {
   lang: 'en' | 'es';
@@ -73,55 +75,68 @@ export default function StatusPill({ lang }: StatusPillProps) {
     };
   }, []);
 
-  if (!data) return null;
-
-  const hasUrgent = data.failing > 0 || data.pendingApprovals > 0;
-  const hasRunning = data.running > 0;
-  // Idle: nothing active, nothing wrong — don't render.
-  if (!hasUrgent && !hasRunning) return null;
+  const hasUrgent = Boolean(data) && (data!.failing > 0 || data!.pendingApprovals > 0);
+  const hasRunning = Boolean(data) && data!.running > 0;
+  // Idle (or no data yet): nothing active, nothing wrong — don't
+  // render. AnimatePresence handles the exit transition when the
+  // state flips from active → idle so the pill fades out instead
+  // of popping.
+  const shouldShow = Boolean(data) && (hasUrgent || hasRunning);
+  const pillVariants = motionFor(overlayPillVariants, reducedOverlayPillVariants);
 
   return (
-    <button
-      onClick={() => router.push(`/${lang}/runs`)}
-      aria-label={t.jump}
-      className={`fixed right-4 top-4 z-[60] flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur-md transition-colors ${
-        hasUrgent
-          ? 'border-red-500/40 bg-red-950/70 text-red-100 hover:bg-red-900/70'
-          : 'border-white/10 bg-black/60 text-gray-200 hover:bg-zinc-900/80'
-      }`}
-    >
-      <motion.span
-        className={`inline-block h-2 w-2 rounded-full ${
-          hasUrgent ? 'bg-red-400' : 'bg-emerald-400'
-        }`}
-        animate={
-          hasRunning && !reducedMotion ? { opacity: [1, 0.4, 1], scale: [1, 1.25, 1] } : undefined
-        }
-        transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      {hasRunning && (
-        <span>
-          {data.running} {t.running}
-        </span>
+    <AnimatePresence>
+      {shouldShow && (
+        <motion.button
+          key="status-pill"
+          variants={pillVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          onClick={() => router.push(`/${lang}/runs`)}
+          aria-label={t.jump}
+          className={`fixed right-4 top-4 z-[60] flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur-md transition-colors ${
+            hasUrgent
+              ? 'border-red-500/40 bg-red-950/70 text-red-100 hover:bg-red-900/70'
+              : 'border-white/10 bg-black/60 text-gray-200 hover:bg-zinc-900/80'
+          }`}
+        >
+          <motion.span
+            className={`inline-block h-2 w-2 rounded-full ${
+              hasUrgent ? 'bg-red-400' : 'bg-emerald-400'
+            }`}
+            animate={
+              hasRunning && !reducedMotion
+                ? { opacity: [1, 0.4, 1], scale: [1, 1.25, 1] }
+                : undefined
+            }
+            transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          {hasRunning && data && (
+            <span>
+              {data.running} {t.running}
+            </span>
+          )}
+          {data && data.failing > 0 && (
+            <>
+              {hasRunning && <span className="opacity-40">·</span>}
+              <span className="flex items-center gap-1">
+                <AlertTriangle size={11} />
+                {data.failing} {t.failing}
+              </span>
+            </>
+          )}
+          {data && data.pendingApprovals > 0 && (
+            <>
+              {(hasRunning || data.failing > 0) && <span className="opacity-40">·</span>}
+              <span className="flex items-center gap-1">
+                <InboxIcon size={11} />
+                {data.pendingApprovals} {t.pending}
+              </span>
+            </>
+          )}
+        </motion.button>
       )}
-      {data.failing > 0 && (
-        <>
-          {hasRunning && <span className="opacity-40">·</span>}
-          <span className="flex items-center gap-1">
-            <AlertTriangle size={11} />
-            {data.failing} {t.failing}
-          </span>
-        </>
-      )}
-      {data.pendingApprovals > 0 && (
-        <>
-          {(hasRunning || data.failing > 0) && <span className="opacity-40">·</span>}
-          <span className="flex items-center gap-1">
-            <InboxIcon size={11} />
-            {data.pendingApprovals} {t.pending}
-          </span>
-        </>
-      )}
-    </button>
+    </AnimatePresence>
   );
 }

@@ -447,9 +447,13 @@ describe('ExecutionEventLog', () => {
     expect(await screen.findByText('Jump to latest')).toBeInTheDocument();
 
     // Clicking the pill re-pins to the bottom and hides itself.
+    // AnimatePresence now wraps the pill so the DOM element persists
+    // through the exit animation — use waitFor to observe removal.
     fireEvent.click(screen.getByRole('button', { name: /jump to latest/i }));
     expect(scrollEl.scrollTop).toBe(1000);
-    expect(screen.queryByText('Jump to latest')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('Jump to latest')).not.toBeInTheDocument();
+    });
   });
 
   it('shows the LIVE badge only when live is true', async () => {

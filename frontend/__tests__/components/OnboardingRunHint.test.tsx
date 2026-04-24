@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import OnboardingRunHint from '@/components/Editor/OnboardingRunHint';
 
@@ -35,10 +35,15 @@ describe('OnboardingRunHint', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('dismisses permanently when the user clicks the close icon', () => {
+  it('dismisses permanently when the user clicks the close icon', async () => {
     render(<OnboardingRunHint nodeCount={3} isExecuting={false} hasExecution={false} lang="en" />);
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
-    expect(screen.queryByText('to run')).not.toBeInTheDocument();
+    // The pill is wrapped in AnimatePresence, so the DOM element
+    // persists briefly during the exit animation. Wait for it to
+    // actually leave rather than asserting synchronously.
+    await waitFor(() => {
+      expect(screen.queryByText('to run')).not.toBeInTheDocument();
+    });
   });
 
   it('sets the persistent flag when a run is detected (hasExecution)', () => {

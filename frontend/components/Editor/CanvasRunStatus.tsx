@@ -1,7 +1,10 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+
+import { motionFor, overlayPillVariants, reducedOverlayPillVariants } from '@/lib/motion';
 
 /**
  * Canvas-level run status pill.
@@ -58,29 +61,38 @@ export default function CanvasRunStatus({
     return () => clearInterval(id);
   }, [executing]);
 
-  if (!executing) return null;
-
   const t = LABELS[lang];
-  const elapsed = startedAt ? formatElapsed(Date.now() - startedAt) : null;
+  const elapsed = executing && startedAt ? formatElapsed(Date.now() - startedAt) : null;
+  const variants = motionFor(overlayPillVariants, reducedOverlayPillVariants);
 
   return (
-    <div
-      className={`pointer-events-none absolute left-1/2 top-3 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-lg backdrop-blur-md ${
-        hasFailedNode
-          ? 'border-red-500/40 bg-red-950/70 text-red-100'
-          : 'border-sky-500/40 bg-sky-950/70 text-sky-100'
-      }`}
-      role="status"
-      aria-live="polite"
-    >
-      {hasFailedNode ? (
-        <AlertTriangle size={12} className="shrink-0" />
-      ) : (
-        <Loader2 size={12} className="shrink-0 animate-spin" />
+    <AnimatePresence>
+      {executing && (
+        <motion.div
+          key="canvas-run-status"
+          variants={variants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className={`pointer-events-none absolute left-1/2 top-3 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-lg backdrop-blur-md ${
+            hasFailedNode
+              ? 'border-red-500/40 bg-red-950/70 text-red-100'
+              : 'border-sky-500/40 bg-sky-950/70 text-sky-100'
+          }`}
+          style={{ x: '-50%' }}
+          role="status"
+          aria-live="polite"
+        >
+          {hasFailedNode ? (
+            <AlertTriangle size={12} className="shrink-0" />
+          ) : (
+            <Loader2 size={12} className="shrink-0 animate-spin" />
+          )}
+          <span>{t.running}</span>
+          {hasFailedNode && <span className="opacity-80">· {t.failed}</span>}
+          {elapsed && <span className="font-mono tabular-nums opacity-80">· {elapsed}</span>}
+        </motion.div>
       )}
-      <span>{t.running}</span>
-      {hasFailedNode && <span className="opacity-80">· {t.failed}</span>}
-      {elapsed && <span className="font-mono tabular-nums opacity-80">· {elapsed}</span>}
-    </div>
+    </AnimatePresence>
   );
 }

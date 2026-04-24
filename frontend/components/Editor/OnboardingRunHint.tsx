@@ -1,7 +1,10 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
 import { Play, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+
+import { motionFor, overlayPillVariants, reducedOverlayPillVariants } from '@/lib/motion';
 
 /**
  * First-run hint — canvas-level.
@@ -77,11 +80,12 @@ export default function OnboardingRunHint({
     }
   }, [hasExecution]);
 
-  if (!mounted) return null;
-  if (dismissed) return null;
-  if (isExecuting) return null;
-  if (nodeCount === 0) return null;
-  if (typeof window !== 'undefined' && window.localStorage.getItem(STORAGE_KEY)) return null;
+  const shouldShow =
+    mounted &&
+    !dismissed &&
+    !isExecuting &&
+    nodeCount > 0 &&
+    !(typeof window !== 'undefined' && window.localStorage.getItem(STORAGE_KEY));
 
   const t = LABELS[lang];
   // Browser-aware modifier label so Mac users see ⌘ and everyone
@@ -90,28 +94,39 @@ export default function OnboardingRunHint({
     typeof navigator !== 'undefined' &&
     /Mac|iPhone|iPod|iPad/i.test(navigator.platform || navigator.userAgent);
   const mod = isMac ? '⌘' : 'Ctrl';
+  const variants = motionFor(overlayPillVariants, reducedOverlayPillVariants);
 
   return (
-    <div
-      className="bg-primary/20 border-primary/40 pointer-events-auto absolute left-1/2 top-3 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur-md"
-      role="status"
-    >
-      <Play size={11} className="shrink-0" />
-      <kbd className="rounded border border-white/20 bg-black/30 px-1.5 py-0.5 font-mono text-[10px]">
-        {mod}
-      </kbd>
-      <span className="text-white/60">+</span>
-      <kbd className="rounded border border-white/20 bg-black/30 px-1.5 py-0.5 font-mono text-[10px]">
-        Enter
-      </kbd>
-      <span>{t.hint}</span>
-      <button
-        onClick={() => setDismissed(true)}
-        aria-label={t.dismiss}
-        className="ml-1 text-white/60 hover:text-white"
-      >
-        <X size={12} />
-      </button>
-    </div>
+    <AnimatePresence>
+      {shouldShow && (
+        <motion.div
+          key="onboarding-run-hint"
+          variants={variants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="bg-primary/20 border-primary/40 pointer-events-auto absolute left-1/2 top-3 z-40 flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur-md"
+          style={{ x: '-50%' }}
+          role="status"
+        >
+          <Play size={11} className="shrink-0" />
+          <kbd className="rounded border border-white/20 bg-black/30 px-1.5 py-0.5 font-mono text-[10px]">
+            {mod}
+          </kbd>
+          <span className="text-white/60">+</span>
+          <kbd className="rounded border border-white/20 bg-black/30 px-1.5 py-0.5 font-mono text-[10px]">
+            Enter
+          </kbd>
+          <span>{t.hint}</span>
+          <button
+            onClick={() => setDismissed(true)}
+            aria-label={t.dismiss}
+            className="ml-1 text-white/60 hover:text-white"
+          >
+            <X size={12} />
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

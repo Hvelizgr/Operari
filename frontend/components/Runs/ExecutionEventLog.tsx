@@ -1,5 +1,6 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
   ArrowDown,
@@ -14,6 +15,15 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+
+import {
+  bannerVariants,
+  listRowVariants,
+  motionFor,
+  overlayPillVariants,
+  reducedListRowVariants,
+  reducedOverlayPillVariants,
+} from '@/lib/motion';
 
 export interface ExecutionEventRow {
   seq: string;
@@ -479,120 +489,157 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
         {!loading && !error && events.length === 0 && (
           <div className="px-4 py-6 text-center text-zinc-500">{t.empty}</div>
         )}
-        {events.map(e => {
-          const isOpen = expanded.has(e.seq);
-          return (
-            <div key={e.seq} className="border-b border-white/5 last:border-0">
-              <button
-                onClick={() => toggle(e.seq)}
-                className="flex w-full items-center gap-2 px-4 py-1.5 text-left hover:bg-white/5"
+        {/* initial={false} suppresses entrance animation on the
+            first render, so a 200-event backlog doesn't cascade
+            fade in on mount. Only rows appended AFTER the initial
+            load (SSE tail) animate — which is exactly what reads
+            as "live" to the operator. */}
+        <AnimatePresence initial={false}>
+          {events.map(e => {
+            const isOpen = expanded.has(e.seq);
+            const rowVariants = motionFor(listRowVariants, reducedListRowVariants);
+            return (
+              <motion.div
+                key={e.seq}
+                variants={rowVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="border-b border-white/5 last:border-0"
               >
-                {isOpen ? (
-                  <ChevronDown size={12} className="shrink-0 text-zinc-500" />
-                ) : (
-                  <ChevronRight size={12} className="shrink-0 text-zinc-500" />
-                )}
-                <span className="w-10 shrink-0 text-zinc-600">#{e.seq}</span>
-                <span className="w-20 shrink-0 text-zinc-600">
-                  {new Date(e.createdAt).toLocaleTimeString(undefined, {
-                    hour12: false,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                  })}
-                </span>
-                <span className={`w-36 shrink-0 ${typeColor(e.type)}`}>{e.type}</span>
-                {(() => {
-                  const summary = summarize(e.type, e.payload, e.nodeId);
-                  return summary ? <span className="truncate text-zinc-400">{summary}</span> : null;
-                })()}
-              </button>
-              {isOpen && (
-                <>
-                  <pre className="overflow-x-auto whitespace-pre-wrap px-8 pb-2 pt-1 text-[11px] text-zinc-400">
-                    {JSON.stringify(e.payload, null, 2)}
-                  </pre>
-                  {/* Inline retry action on step.failed rows. Uses the
+                <button
+                  onClick={() => toggle(e.seq)}
+                  className="flex w-full items-center gap-2 px-4 py-1.5 text-left hover:bg-white/5"
+                >
+                  {isOpen ? (
+                    <ChevronDown size={12} className="shrink-0 text-zinc-500" />
+                  ) : (
+                    <ChevronRight size={12} className="shrink-0 text-zinc-500" />
+                  )}
+                  <span className="w-10 shrink-0 text-zinc-600">#{e.seq}</span>
+                  <span className="w-20 shrink-0 text-zinc-600">
+                    {new Date(e.createdAt).toLocaleTimeString(undefined, {
+                      hour12: false,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })}
+                  </span>
+                  <span className={`w-36 shrink-0 ${typeColor(e.type)}`}>{e.type}</span>
+                  {(() => {
+                    const summary = summarize(e.type, e.payload, e.nodeId);
+                    return summary ? (
+                      <span className="truncate text-zinc-400">{summary}</span>
+                    ) : null;
+                  })()}
+                </button>
+                {isOpen && (
+                  <>
+                    <pre className="overflow-x-auto whitespace-pre-wrap px-8 pb-2 pt-1 text-[11px] text-zinc-400">
+                      {JSON.stringify(e.payload, null, 2)}
+                    </pre>
+                    {/* Inline retry action on step.failed rows. Uses the
                       existing /replay endpoint with the failed nodeId
                       so the runtime re-executes from that step forward.
                       Disabled during live runs to avoid two concurrent
                       executions from the same trigger. */}
-                  {e.type === 'step.failed' && e.nodeId && (
-                    <div className="flex items-center gap-3 px-8 pb-3">
-                      <button
-                        onClick={() => retryFromStep(e.seq, e.nodeId!)}
-                        disabled={live || retryingSeq !== null}
-                        title={live ? t.retryBlockedLive : t.retryStep}
-                        className="flex items-center gap-1.5 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {retryingSeq === e.seq ? (
-                          <>
-                            <Loader2 size={11} className="animate-spin" />
-                            {t.retrying}
-                          </>
-                        ) : (
-                          <>
-                            <RotateCcw size={11} />
-                            {t.retryStep}
-                          </>
+                    {e.type === 'step.failed' && e.nodeId && (
+                      <div className="flex items-center gap-3 px-8 pb-3">
+                        <button
+                          onClick={() => retryFromStep(e.seq, e.nodeId!)}
+                          disabled={live || retryingSeq !== null}
+                          title={live ? t.retryBlockedLive : t.retryStep}
+                          className="flex items-center gap-1.5 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {retryingSeq === e.seq ? (
+                            <>
+                              <Loader2 size={11} className="animate-spin" />
+                              {t.retrying}
+                            </>
+                          ) : (
+                            <>
+                              <RotateCcw size={11} />
+                              {t.retryStep}
+                            </>
+                          )}
+                        </button>
+                        {retryErrorSeq === e.seq && (
+                          <span className="text-[11px] text-red-400">{t.retryFailed}</span>
                         )}
-                      </button>
-                      {retryErrorSeq === e.seq && (
-                        <span className="text-[11px] text-red-400">{t.retryFailed}</span>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
 
       {/* Retry-success banner: renders above the list when a retry
           lands, so the new run id is discoverable regardless of
           which failure was clicked. Dismissible; auto-clears on the
-          next retry via setRetriedRunId(...) in retryFromStep. */}
-      {retriedRunId && (
-        <div className="absolute left-3 right-3 top-12 z-10 flex items-center gap-2 rounded border border-emerald-900/60 bg-emerald-950/80 px-3 py-2 text-[11px] text-emerald-200 backdrop-blur">
-          <CheckCircle2 size={12} className="shrink-0" />
-          <span className="flex-1">{t.retrySuccess}</span>
-          <Link
-            href={`/${lang}/runs/${retriedRunId}`}
-            className="shrink-0 font-medium underline-offset-2 hover:underline"
+          next retry via setRetriedRunId(...) in retryFromStep.
+          Slides from top so the success registers as "something new
+          landed" rather than "this was always here". */}
+      <AnimatePresence>
+        {retriedRunId && (
+          <motion.div
+            key="retry-success"
+            variants={bannerVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="absolute left-3 right-3 top-12 z-10 flex items-center gap-2 rounded border border-emerald-900/60 bg-emerald-950/80 px-3 py-2 text-[11px] text-emerald-200 backdrop-blur"
           >
-            {t.viewNewRun}
-          </Link>
-          <button
-            onClick={() => setRetriedRunId(null)}
-            aria-label="Dismiss"
-            className="text-emerald-400/60 hover:text-emerald-200"
-          >
-            <X size={12} />
-          </button>
-        </div>
-      )}
+            <CheckCircle2 size={12} className="shrink-0" />
+            <span className="flex-1">{t.retrySuccess}</span>
+            <Link
+              href={`/${lang}/runs/${retriedRunId}`}
+              className="shrink-0 font-medium underline-offset-2 hover:underline"
+            >
+              {t.viewNewRun}
+            </Link>
+            <button
+              onClick={() => setRetriedRunId(null)}
+              aria-label="Dismiss"
+              className="text-emerald-400/60 hover:text-emerald-200"
+            >
+              <X size={12} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Jump-to-latest pill — surfaces only when the operator has
           scrolled up (autoFollow=false) and there's at least one
           event to scroll to. Clicking pins the view to the tail and
           flips autoFollow back on so new events keep following.
-          Positioned absolute-bottom-center over the list so it does
-          not displace content when it appears/disappears. */}
-      {!autoFollow && events.length > 0 && (
-        <button
-          onClick={() => {
-            const el = scrollRef.current;
-            if (!el) return;
-            el.scrollTop = el.scrollHeight;
-            setAutoFollow(true);
-          }}
-          className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/20 px-3 py-1 text-[11px] font-semibold text-sky-200 shadow-lg backdrop-blur-sm transition-colors hover:bg-sky-500/30"
-        >
-          <ArrowDown size={11} />
-          {t.jumpToLatest}
-        </button>
-      )}
+          Wrapped in AnimatePresence so the pill fades in/out instead
+          of popping on every scroll edge — prevents visual flicker
+          when the operator hovers the 48px threshold. */}
+      <AnimatePresence>
+        {!autoFollow && events.length > 0 && (
+          <motion.button
+            key="jump-to-latest"
+            variants={motionFor(overlayPillVariants, reducedOverlayPillVariants)}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            onClick={() => {
+              const el = scrollRef.current;
+              if (!el) return;
+              el.scrollTop = el.scrollHeight;
+              setAutoFollow(true);
+            }}
+            className="absolute bottom-3 left-1/2 flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/20 px-3 py-1 text-[11px] font-semibold text-sky-200 shadow-lg backdrop-blur-sm transition-colors hover:bg-sky-500/30"
+            style={{ x: '-50%' }}
+          >
+            <ArrowDown size={11} />
+            {t.jumpToLatest}
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
