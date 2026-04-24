@@ -32,13 +32,12 @@ const runbookRow = (overrides: Partial<Runbook> = {}): Runbook =>
     ...overrides,
   }) as Runbook;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildPrismaStub(
   existingVersions: Array<{ runbookId: string; version: number }> = [],
   runbookExists = true
 ): { prisma: any; created: Array<Record<string, unknown>> } {
   const created: Array<Record<string, unknown>> = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const prisma: any = {
     runbook: {
       findUnique: jest.fn(async () => (runbookExists ? runbookRow() : null)),
@@ -62,7 +61,6 @@ function buildPrismaStub(
     },
   };
   prisma.$transaction = async (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     fn: (tx: any) => Promise<unknown>,
     _opts?: unknown
   ): Promise<unknown> => fn(prisma);

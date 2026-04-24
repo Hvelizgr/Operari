@@ -50,7 +50,10 @@ export class StoreSetNodeExecutor implements EditorNodeExecutor<StoreSetNodeConf
 
     const resolvedBucketName = resolveTemplate(bucketName, input);
     const resolvedKey = resolveTemplate(key, input);
-    const resolvedValue = resolveTemplate(value, input);
+    // value can be any JSON-serializable blob. Only run the
+    // {{template}} resolver when it's a string — numbers, booleans,
+    // objects pass through as-is.
+    const resolvedValue = typeof value === 'string' ? resolveTemplate(value, input) : value;
 
     const bucket = await this.prisma.storageBucket.upsert({
       where: { tenantId_name: { tenantId, name: resolvedBucketName } },

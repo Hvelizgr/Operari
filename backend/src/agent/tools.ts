@@ -49,6 +49,7 @@ export function buildOrchestratorTools(
   prisma: PrismaClient,
   tenantId: string,
   options: OrchestratorToolsOptions = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Record<string, any> {
   const readTools = {
     list_recent_runs: tool({

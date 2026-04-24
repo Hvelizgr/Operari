@@ -702,7 +702,7 @@ export class ExecutionService {
       this.runWorkflow(
         newExecution.id,
         originalExecution.workflow,
-        log.input as any,
+        log.input as ExecutionInput,
         executionContext,
         tenantId,
         nodeId
@@ -775,14 +775,21 @@ export class ExecutionService {
       payload: { actorId: userId },
     });
 
-    const resumeState = execution.resumeState as any;
+    // The DB column is `Json` — typed as unknown here and narrowed per
+    // field below. A missing/malformed column collapses to the empty
+    // defaults so a pre-durable-engine checkpoint resumes cleanly.
+    const resumeState = (execution.resumeState ?? {}) as {
+      nodeOutputs?: Record<string, Record<string, unknown>>;
+      executedNodes?: string[];
+      nodesToExecute?: string[];
+    };
     const allNodes = execution.workflow.nodes as unknown as WorkflowNode[];
 
     // Restore state
     const initialState: RunState = {
-      nodeOutputs: resumeState.nodeOutputs || {},
-      executedNodes: new Set(resumeState.executedNodes || []),
-      nodesToExecute: (resumeState.nodesToExecute || [])
+      nodeOutputs: resumeState.nodeOutputs ?? {},
+      executedNodes: new Set(resumeState.executedNodes ?? []),
+      nodesToExecute: (resumeState.nodesToExecute ?? [])
         .map((nodeId: string) => allNodes.find((n: WorkflowNode) => n.id === nodeId))
         .filter((n: WorkflowNode | undefined): n is WorkflowNode => !!n),
     };
@@ -1007,7 +1014,7 @@ export class ExecutionService {
 
               status: 'SKIPPED',
 
-              input: {} as any,
+              input: {} as Prisma.InputJsonValue,
             },
           });
 
@@ -1128,7 +1135,7 @@ export class ExecutionService {
                   nodeOutputs,
                   executedNodes: Array.from(executedNodes),
                   nodesToExecute: nodesToExecute.map(n => n.id),
-                } as any,
+                } as unknown as Prisma.InputJsonValue,
               },
             });
             contextLogger.info('Runbook execution paused');

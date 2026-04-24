@@ -1,7 +1,7 @@
 import type { PrismaClient, WebhookReceipt } from '@prisma/client';
 
-import type { ExecutionService } from '../../editor/execution/execution.service';
 import { logger } from '../../config/logger.config';
+import type { ExecutionService } from '../../editor/execution/execution.service';
 import type { WebhookService } from './webhook.service';
 
 /**

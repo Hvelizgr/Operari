@@ -3,8 +3,8 @@ process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://x:y@localho
 
 import type { Monitor, TenantAlertChannel } from '@prisma/client';
 
-import { MonitorAlertService } from '../../services/monitor-alert.service';
 import { MonitorService } from '../../services/monitor.service';
+import { MonitorAlertService } from '../../services/monitor-alert.service';
 
 type MonitorRow = Pick<
   Monitor,
@@ -57,7 +57,7 @@ function buildPrismaStub(
       groupBy: jest.fn(async () => []),
     },
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   return prisma as any;
 }
 

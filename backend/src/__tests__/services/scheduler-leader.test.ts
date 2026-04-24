@@ -35,7 +35,7 @@ jest.mock('pg', () => ({
 }));
 
 // Import AFTER mock so the module picks up the mocked pg.Client.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 const { SchedulerLeader } =
   require('../../services/scheduler-leader') as typeof import('../../services/scheduler-leader');
 

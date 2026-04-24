@@ -41,7 +41,7 @@ function buildPrismaStub(rows: BillingEvent[]) {
       }),
     },
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   return { prisma: prisma as any, updates };
 }
 

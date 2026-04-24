@@ -17,11 +17,19 @@ function getConversationService() {
   return _conversationService;
 }
 
-let _chatStreamService: any = null;
-function getChatStreamService() {
+// Deferred import breaks a would-be cycle between the routes layer
+// and the agent services that depend on it. Typed via the import
+// specifier so the lazy `require` doesn't lose the ChatStreamService
+// surface to an `any`.
+type ChatStreamService = InstanceType<
+  typeof import('../agent/services/chat-stream.service').ChatStreamService
+>;
+let _chatStreamService: ChatStreamService | null = null;
+function getChatStreamService(): ChatStreamService {
   if (!_chatStreamService) {
-    const { ChatStreamService } = require('../agent/services/chat-stream.service');
-    _chatStreamService = new ChatStreamService(prisma);
+    const { ChatStreamService: Cls } =
+      require('../agent/services/chat-stream.service') as typeof import('../agent/services/chat-stream.service');
+    _chatStreamService = new Cls(prisma);
   }
   return _chatStreamService;
 }

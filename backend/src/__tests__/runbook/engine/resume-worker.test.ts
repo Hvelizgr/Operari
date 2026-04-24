@@ -262,7 +262,6 @@ describe('ResumeWorker.runOnce', () => {
       },
     };
     return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       deps: { prisma, executionService } as any,
       resumeCalls,
       executionService,

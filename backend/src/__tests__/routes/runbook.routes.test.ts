@@ -5,7 +5,7 @@ import request from 'supertest';
 // A1: RunbookVersionService is invoked fire-and-forget after every
 // save. We declare the mock prisma as a const first so the $transaction
 // stub can pass it back as the tx argument.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 const prismaMock: any = {
   runbook: {
     findMany: jest.fn(),
@@ -46,10 +46,7 @@ const prismaMock: any = {
     create: jest.fn().mockResolvedValue({ id: 'rv', version: 1 }),
   },
 };
-prismaMock.$transaction = jest.fn(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async (fn: (tx: any) => Promise<unknown>) => fn(prismaMock)
-);
+prismaMock.$transaction = jest.fn(async (fn: (tx: any) => Promise<unknown>) => fn(prismaMock));
 
 jest.mock('../../server', () => ({ prisma: prismaMock }));
 

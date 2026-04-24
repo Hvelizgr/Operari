@@ -46,7 +46,7 @@ export class SocketService {
     return this.io;
   }
 
-  emitLog(executionId: string, log: string, metadata?: any) {
+  emitLog(executionId: string, log: string, metadata?: Record<string, unknown>) {
     // Live UI delivery via socket.io.
     if (this.io) {
       this.io.to(`execution:${executionId}`).emit('log', {
@@ -72,7 +72,7 @@ export class SocketService {
     }
   }
 
-  emitNodeStatus(executionId: string, nodeId: string, status: string, result?: any) {
+  emitNodeStatus(executionId: string, nodeId: string, status: string, result?: unknown) {
     if (!this.io) return;
     this.io.to(`execution:${executionId}`).emit('node_status', {
       nodeId,

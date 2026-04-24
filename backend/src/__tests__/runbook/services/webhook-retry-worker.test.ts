@@ -64,7 +64,7 @@ function buildPrismaStub(rows: RowShape[]) {
       }),
     },
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   return { prisma: prisma as any, updates };
 }
 
