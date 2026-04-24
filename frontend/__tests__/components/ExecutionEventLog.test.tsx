@@ -239,6 +239,47 @@ describe('ExecutionEventLog', () => {
     expect(screen.queryByText('step.started')).not.toBeInTheDocument();
   });
 
+  it('exposes a Stop button in live mode that posts to /cancel', async () => {
+    fetchMock.mockResolvedValue(respond({ data: [], nextAfterSeq: null }));
+    // jsdom has no real window.confirm; force-accept so the cancel
+    // flow can proceed without a mouse click.
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<ExecutionEventLog runId="run-42" lang="en" live />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const stop = screen.getByRole('button', { name: /stop/i });
+    fireEvent.click(stop);
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(args =>
+        (args[0] as string).includes('/api/executions/run-42/cancel')
+      );
+      expect(call).toBeDefined();
+      expect((call as unknown as [string, { method: string }])[1].method).toBe('POST');
+    });
+    confirmSpy.mockRestore();
+  });
+
+  it('does nothing when Stop is declined in the confirm dialog', async () => {
+    fetchMock.mockResolvedValue(respond({ data: [], nextAfterSeq: null }));
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<ExecutionEventLog runId="run-42" lang="en" live />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: /stop/i }));
+    // No cancel call ever leaves the client when confirm is rejected
+    // — the only fetch we saw is the initial backlog.
+    expect(fetchMock.mock.calls.some(args => (args[0] as string).includes('/cancel'))).toBe(false);
+    confirmSpy.mockRestore();
+  });
+
+  it('hides the Stop button when the run is not live', async () => {
+    fetchMock.mockResolvedValue(respond({ data: [], nextAfterSeq: null }));
+    render(<ExecutionEventLog runId="run-42" lang="en" />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: /stop/i })).not.toBeInTheDocument();
+  });
+
   it('shows the LIVE badge only when live is true', async () => {
     fetchMock.mockResolvedValue(respond({ data: [], nextAfterSeq: null }));
     const { rerender } = render(<ExecutionEventLog runId="run-1" lang="en" />);

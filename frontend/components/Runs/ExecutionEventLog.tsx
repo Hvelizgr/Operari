@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, ChevronDown, ChevronRight, Filter } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronRight, Filter, Loader2, Square } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 export interface ExecutionEventRow {
@@ -115,6 +115,10 @@ const LABELS = {
     loading: 'Loading…',
     error: 'Failed to load events',
     live: 'LIVE',
+    stop: 'Stop',
+    stopping: 'Stopping…',
+    stopFailed: 'Could not cancel',
+    stopConfirm: 'Stop this run?',
   },
   es: {
     title: 'Registro de eventos',
@@ -125,6 +129,10 @@ const LABELS = {
     loading: 'Cargando…',
     error: 'Fallo al cargar eventos',
     live: 'EN VIVO',
+    stop: 'Detener',
+    stopping: 'Deteniendo…',
+    stopFailed: 'No se pudo cancelar',
+    stopConfirm: '¿Detener esta ejecución?',
   },
 } as const;
 
@@ -143,6 +151,31 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
   // afterSeq is NOT state: it's a mutable cursor used by the polling
   // closure. Making it state would re-fire the effect on every update.
   const afterSeqRef = useRef<string | null>(null);
+  const [cancelState, setCancelState] = useState<'idle' | 'cancelling' | 'failed'>('idle');
+
+  const cancelRun = async () => {
+    // One-shot confirm — aborting a run is a non-trivial action
+    // (partial side effects on downstream systems) so a single click
+    // is the wrong default. Browser native confirm is acceptable
+    // here; the component has no design system dialog dep.
+    if (!window.confirm(t.stopConfirm)) return;
+    setCancelState('cancelling');
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiBase}/api/executions/${runId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // The backend emits run.cancelled which flows back through the
+      // SSE / polling pipe, so the status badge and the panel will
+      // update naturally within a tick. We just clear the loading
+      // state; the parent re-renders when the run status transitions.
+      setCancelState('idle');
+    } catch {
+      setCancelState('failed');
+    }
+  };
 
   useEffect(() => {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -278,6 +311,21 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-400" />
               {t.live}
             </span>
+          )}
+          {live && (
+            <button
+              onClick={cancelRun}
+              disabled={cancelState === 'cancelling'}
+              className="flex items-center gap-1 rounded border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+              title={cancelState === 'failed' ? t.stopFailed : t.stop}
+            >
+              {cancelState === 'cancelling' ? (
+                <Loader2 size={10} className="animate-spin" />
+              ) : (
+                <Square size={10} fill="currentColor" />
+              )}
+              {cancelState === 'cancelling' ? t.stopping : t.stop}
+            </button>
           )}
         </div>
         <div className="flex items-center gap-1 text-[11px]">
