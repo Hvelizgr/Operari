@@ -27,6 +27,7 @@ import './WorkflowNode.css';
 
 import { useEditorTools } from '../../hooks/useEditorTools';
 import { useSnapshots } from '../../hooks/useSnapshots';
+import ExecutionEventLog from '../Runs/ExecutionEventLog';
 import RunDialog from '../Workflow/RunDialog';
 import ScheduleDialog from '../Workflow/ScheduleDialog';
 import SnapshotDialog from '../Workflow/SnapshotDialog';
@@ -168,6 +169,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   const [isYamlViewOpen, setIsYamlViewOpen] = useState(false);
   const [isAssistOpen, setIsAssistOpen] = useState(false);
   const [isGitHubOpen, setIsGitHubOpen] = useState(false);
+  const [isEventLogOpen, setIsEventLogOpen] = useState(false);
   // Load a runbook from /editor?id=<workflowId>. Until this effect
   // ran, the editor showed INITIAL_NODES — a single empty shell step
   // — regardless of what the user clicked from /runbooks. This is
@@ -478,6 +480,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               snapToGrid={snapToGrid}
               onToggleSnapToGrid={toggleSnapToGrid}
               onGitHub={() => setIsGitHubOpen(true)}
+              onEventLog={() => setIsEventLogOpen(true)}
+              hasExecution={Boolean(currentExecutionId)}
               onExport={() => {
                 const data = JSON.stringify({ nodes, connections }, null, 2);
                 const blob = new Blob([data], { type: 'application/json' });
@@ -721,6 +725,39 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               onClose={() => setIsWorkflowPropsOpen(false)}
               lang={lang}
             />
+
+            {/* Event log slide-over. Mounts the shared ExecutionEventLog
+                so authors see engine-emitted transitions (step start/
+                completed/failed, retry attempts, replay resets) for
+                the run they just fired without leaving the canvas.
+                Only renders when a run has been dispatched in this
+                session (the topbar button is also gated on that). */}
+            {isEventLogOpen && currentExecutionId && (
+              <div className="absolute inset-0 z-50 flex justify-end">
+                <button
+                  type="button"
+                  aria-label={lang === 'en' ? 'Close event log' : 'Cerrar registro'}
+                  className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
+                  onClick={() => setIsEventLogOpen(false)}
+                />
+                <div className="relative h-full w-[480px] max-w-[90vw] border-l border-slate-700 bg-slate-900 shadow-2xl">
+                  <div className="flex h-[50px] items-center justify-between border-b border-slate-700 bg-slate-950/50 px-4">
+                    <span className="text-sm font-semibold text-white">
+                      {lang === 'en' ? 'Event log' : 'Registro de eventos'}
+                    </span>
+                    <button
+                      onClick={() => setIsEventLogOpen(false)}
+                      className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="h-[calc(100%-50px)] overflow-hidden p-3">
+                    <ExecutionEventLog runId={currentExecutionId} lang={lang} live={executing} />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Floating Terminal Toggle */}
             <button

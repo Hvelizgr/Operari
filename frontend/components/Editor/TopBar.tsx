@@ -13,6 +13,7 @@ import {
   GitBranch,
   Grid3x3,
   LayoutTemplate,
+  ListOrdered,
   Loader2,
   Moon,
   MoonStar,
@@ -50,6 +51,12 @@ interface TopBarProps {
   snapToGrid?: boolean;
   onToggleSnapToGrid?: () => void;
   onGitHub?: () => void;
+  /** Opens the live execution event-log slide-over. The button only
+   *  surfaces when `hasExecution` is true (i.e. there has been at
+   *  least one run this session) so the topbar does not grow an
+   *  always-visible placeholder for runbooks that never ran. */
+  onEventLog?: () => void;
+  hasExecution?: boolean;
   /** Opens the Schedule dialog. When set, a clock icon button surfaces
    *  in the TopBar — matches the prominence of Run/Debug instead of
    *  being buried inside the Properties panel (UX-audit #18). */
@@ -81,6 +88,8 @@ export default function TopBar({
   snapToGrid,
   onToggleSnapToGrid,
   onGitHub,
+  onEventLog,
+  hasExecution,
   onSchedule,
   scheduleExpr,
 }: TopBarProps) {
@@ -305,6 +314,23 @@ export default function TopBar({
             title={lang === 'en' ? 'GitHub Branches' : 'Ramas de GitHub'}
           >
             <GitBranch size={18} />
+          </button>
+        )}
+
+        {/* Event log — live tail of the durable ExecutionEvent stream
+            for the current run. Surfaces only after a run has been
+            fired this session so we don't advertise it on a blank
+            canvas. Animated sky dot signals an in-flight stream. */}
+        {onEventLog && hasExecution && (
+          <button
+            onClick={onEventLog}
+            className="relative rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
+            title={lang === 'en' ? 'Event log' : 'Registro de eventos'}
+          >
+            <ListOrdered size={18} />
+            {isExecuting && (
+              <span className="absolute right-1 top-1 h-1.5 w-1.5 animate-pulse rounded-full bg-sky-400" />
+            )}
           </button>
         )}
 
