@@ -115,15 +115,44 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
 /**
  * GET /api/webhooks/:id/receipts
- * Debugger view: the last 50 calls this webhook received (accepted
- * and rejected). Ordered most-recent-first so the UI can render a
- * timeline without re-sorting. Tenant-scoped — a webhook id that
- * belongs to another tenant returns 404.
+ * Debugger view: recent calls this webhook received (accepted and
+ * rejected). Ordered most-recent-first so the UI can render a timeline
+ * without re-sorting. Tenant-scoped — a webhook id that belongs to
+ * another tenant returns 404.
+ *
+ * Query params (all optional):
+ *   - status: filter by receipt status. Accepts a single status or a
+ *     comma-separated list. Useful for debugging: `?status=rejected_signature`
+ *     surfaces only HMAC failures in a flood of accepted calls.
+ *   - limit: page size (default 50, max 200). Raised ceiling so an
+ *     operator debugging a chatty webhook can pull a fuller window in
+ *     one request.
+ *   - cursor: ISO-8601 receivedAt timestamp. Returns receipts strictly
+ *     older than the cursor. Combined with the descending order this
+ *     yields backwards paging. The previous page's last receivedAt is
+ *     the next cursor. Clients that don't pass cursor get the newest
+ *     page; those that ignore nextCursor continue to work with the
+ *     single-page behavior we had before.
  */
+const receiptsQuerySchema = z.object({
+  status: z.string().optional(),
+  limit: z
+    .string()
+    .optional()
+    .transform(v => (v ? parseInt(v, 10) : undefined))
+    .pipe(z.number().int().min(1).max(200).optional()),
+  cursor: z.string().datetime().optional(),
+});
+
 router.get('/:id/receipts', async (req: AuthRequest, res: Response) => {
   try {
     const tenantId = req.user!.tenantId;
     const id = String(req.params.id);
+
+    const parsed = receiptsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid query', details: parsed.error.issues });
+    }
 
     const webhook = await prisma.webhook.findFirst({
       where: { id, tenantId },
@@ -133,13 +162,31 @@ router.get('/:id/receipts', async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Webhook not found' });
     }
 
+    const limit = parsed.data.limit ?? 50;
+    const statusFilter = parsed.data.status
+      ? parsed.data.status
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s.length > 0)
+      : null;
+    const cursor = parsed.data.cursor ? new Date(parsed.data.cursor) : null;
+
     const receipts = await prisma.webhookReceipt.findMany({
-      where: { webhookId: id },
+      where: {
+        webhookId: id,
+        ...(statusFilter && statusFilter.length > 0 ? { status: { in: statusFilter } } : {}),
+        ...(cursor ? { receivedAt: { lt: cursor } } : {}),
+      },
       orderBy: { receivedAt: 'desc' },
-      take: 50,
+      take: limit,
     });
 
-    res.json({ data: receipts });
+    // nextCursor is the oldest receivedAt in the current page — iff
+    // we hit the page size. Returning null signals "no more pages".
+    const nextCursor =
+      receipts.length === limit ? receipts[receipts.length - 1]!.receivedAt.toISOString() : null;
+
+    res.json({ data: receipts, nextCursor });
   } catch (err) {
     req.log.error({ err }, 'List webhook receipts error');
     res.status(500).json({ error: 'Failed to list webhook receipts' });
