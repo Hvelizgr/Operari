@@ -4,6 +4,7 @@ import {
   AlertCircle,
   BarChart3,
   Bug,
+  CalendarClock,
   CheckCircle2,
   ChevronDown,
   Code2,
@@ -50,6 +51,14 @@ interface TopBarProps {
   snapToGrid?: boolean;
   onToggleSnapToGrid?: () => void;
   onGitHub?: () => void;
+  /** Opens the Schedule dialog. When set, a clock icon button surfaces
+   *  in the TopBar — matches the prominence of Run/Debug instead of
+   *  being buried inside the Properties panel (UX-audit #18). */
+  onSchedule?: () => void;
+  /** Current cron string (null/empty = unscheduled). When present,
+   *  the Schedule button renders a small green dot so the operator
+   *  sees at a glance that the runbook is on a timer. */
+  scheduleExpr?: string | null;
 }
 
 export default function TopBar({
@@ -73,6 +82,8 @@ export default function TopBar({
   snapToGrid,
   onToggleSnapToGrid,
   onGitHub,
+  onSchedule,
+  scheduleExpr,
 }: TopBarProps) {
   const { highContrast, toggleHighContrast } = useAccessibility();
   const { theme, cycleTheme } = useTheme();
@@ -307,6 +318,32 @@ export default function TopBar({
             title={lang === 'en' ? 'Metrics' : 'Métricas'}
           >
             <BarChart3 size={18} />
+          </button>
+        )}
+
+        {/* Schedule — promoted from the Properties panel so operators
+            see at a glance whether the runbook is on a cron. Green dot
+            badge when scheduleExpr is set. */}
+        {onSchedule && (
+          <button
+            onClick={onSchedule}
+            aria-label={lang === 'en' ? 'Schedule' : 'Programar'}
+            className="relative rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
+            title={
+              scheduleExpr
+                ? `${lang === 'en' ? 'Scheduled' : 'Programado'}: ${scheduleExpr}`
+                : lang === 'en'
+                  ? 'Schedule'
+                  : 'Programar'
+            }
+          >
+            <CalendarClock size={18} />
+            {scheduleExpr && (
+              <span
+                aria-hidden="true"
+                className="bg-primary border-background absolute right-1 top-1 h-2 w-2 rounded-full border"
+              />
+            )}
           </button>
         )}
 

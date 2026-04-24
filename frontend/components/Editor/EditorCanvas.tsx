@@ -28,6 +28,7 @@ import './WorkflowNode.css';
 import { useEditorTools } from '../../hooks/useEditorTools';
 import { useSnapshots } from '../../hooks/useSnapshots';
 import RunDialog from '../Workflow/RunDialog';
+import ScheduleDialog from '../Workflow/ScheduleDialog';
 import SnapshotDialog from '../Workflow/SnapshotDialog';
 import CommandPalette, { CommandAction } from './CommandPalette';
 import { createNewNode } from './EditorCanvas.utils';
@@ -165,6 +166,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   const [showTerminal, setShowTerminal] = useState(false);
   const [runMode, setRunMode] = useState<'run' | 'debug' | 'dry-run'>('run'); // New State
   const [isWorkflowPropsOpen, setIsWorkflowPropsOpen] = useState(false);
+  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [isTemplateGalleryOpen, setIsTemplateGalleryOpen] = useState(false);
   const [isMetricsDashboardOpen, setIsMetricsDashboardOpen] = useState(false);
   const [isYamlViewOpen, setIsYamlViewOpen] = useState(false);
@@ -464,6 +466,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               onDryRun={handleOpenDryRun}
               isExecuting={executing}
               onProperties={() => setIsWorkflowPropsOpen(true)}
+              onSchedule={() => setIsScheduleDialogOpen(true)}
+              scheduleExpr={workflowProperties.schedule}
               onAddNode={() => setSearchTrigger(Date.now())}
               onAutoLayout={handleAutoLayout}
               saveStatus={saveStatus}
@@ -688,6 +692,14 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               logs={logs}
               executionId={currentExecutionId}
               inputs={workflowProperties.inputs ?? []}
+            />
+
+            <ScheduleDialog
+              isOpen={isScheduleDialogOpen}
+              onClose={() => setIsScheduleDialogOpen(false)}
+              lang={lang}
+              value={workflowProperties.schedule}
+              onChange={next => setWorkflowProperties(prev => ({ ...prev, schedule: next }))}
             />
 
             <SnapshotDialog
