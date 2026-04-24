@@ -1,8 +1,17 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Loader2, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+
+import {
+  motionFor,
+  reducedStaggerChildVariants,
+  reducedStaggerContainerVariants,
+  staggerChildVariants,
+  staggerContainerVariants,
+} from '@/lib/motion';
 
 type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
 
@@ -245,13 +254,27 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
         </div>
       )}
 
-      <ul className="space-y-3">
+      {/* Approval cards stagger in on mount. Pending rows at the top
+          sweep in first so the operator's eye lands on actionable
+          items before paging back through resolved history. Variants
+          re-fire when filter changes, which reads as "new result set
+          arrived" — the right mental model for a filtered list. */}
+      <motion.ul
+        className="space-y-3"
+        variants={motionFor(staggerContainerVariants, reducedStaggerContainerVariants)}
+        initial="initial"
+        animate="animate"
+      >
         {approvals.map(a => {
           const meta = STATUS_STYLES[a.status];
           const Icon = meta.icon;
           const isPending = a.status === 'PENDING';
           return (
-            <li key={a.id} className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+            <motion.li
+              key={a.id}
+              variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
+              className="rounded-lg border border-zinc-800 bg-zinc-950 p-4"
+            >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -322,10 +345,10 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
                   </div>
                 </div>
               )}
-            </li>
+            </motion.li>
           );
         })}
-      </ul>
+      </motion.ul>
 
       {nextCursor && (
         <div className="mt-6 flex justify-center">
