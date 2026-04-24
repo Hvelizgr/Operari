@@ -70,6 +70,7 @@ import webhookRoutes from './routes/webhook.routes';
 import webhooksAdminRoutes from './routes/webhooks-admin.routes';
 import runbookJsonSchema from './runbook/yaml/runbook.schema.json';
 import { MonitorService } from './services/monitor.service';
+import { computeRoles } from './services/roles';
 import { SchedulerService } from './services/scheduler.service';
 import { SchedulerLeader } from './services/scheduler-leader';
 
@@ -264,6 +265,33 @@ app.get('/health', async (_req, res) => {
       redis: { status: redis, ...(redisError && { error: redisError }) },
     },
   });
+});
+
+/**
+ * Roles probe — surfaces which background responsibilities this pod
+ * is currently carrying. Critical with >1 backend replicas:
+ *
+ *   - `scheduler: 'leader'`   → this pod fires cron-scheduled runs
+ *   - `scheduler: 'follower'` → another pod is the leader; this one
+ *                                stands by until the current leader
+ *                                drops the advisory lock
+ *   - `scheduler: 'disabled'` → SCHEDULER_LEADER_DISABLE=true (dev /
+ *                                single-pod self-host)
+ *
+ *   - `billingDispatch: 'enabled'`  → this pod runs the 15s dispatch
+ *                                     loop that ships queued billing
+ *                                     events to stripe
+ *   - `billingDispatch: 'disabled'` → noop provider or self-host
+ *
+ * Used by operators debugging "where is cron running?" and by k8s
+ * dashboards to label the leader pod distinctly.
+ */
+app.get('/health/roles', (_req, res) => {
+  const snapshot = computeRoles({
+    schedulerLeader,
+    billingProvider: process.env.NANORUN_BILLING_PROVIDER,
+  });
+  res.status(200).json({ timestamp: new Date().toISOString(), ...snapshot });
 });
 
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
