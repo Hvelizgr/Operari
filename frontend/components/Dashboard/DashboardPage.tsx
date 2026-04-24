@@ -63,6 +63,8 @@ interface DashboardOverview {
     runs: number;
     successRate: number | null;
     avgDurationMs: number | null;
+    /** Up to 20 statuses, oldest first, for an inline sparkline. */
+    recentStatuses: string[];
   }>;
   health: {
     auditChainIntact: boolean | null;
@@ -521,6 +523,7 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
                   className="flex items-center gap-3 border-b border-white/5 py-2 last:border-0"
                 >
                   <span className="flex-1 truncate text-gray-300">{rb.name}</span>
+                  <Sparkline statuses={rb.recentStatuses} />
                   <span className="w-16 text-right text-xs text-gray-500">{rb.runs} runs</span>
                   <span className="w-16 text-right text-xs text-gray-500">
                     {formatPercent(rb.successRate)}
@@ -629,6 +632,48 @@ function Section({
       {children}
     </div>
   );
+}
+
+// Inline health-at-a-glance strip — one tile per run, oldest first.
+// 20 tiles fits the "Top Runbooks" row without pushing the numeric
+// columns (runs / success rate / avg) offscreen on a laptop. Empty
+// slots render as low-contrast placeholders so the row width stays
+// stable regardless of history depth.
+function Sparkline({ statuses }: { statuses: string[] }) {
+  const SLOTS = 20;
+  const padded = [...Array(Math.max(0, SLOTS - statuses.length)).fill('EMPTY'), ...statuses];
+  // If history is longer than SLOTS, show the most recent SLOTS (the
+  // query already caps at 20, but guard anyway).
+  const visible = padded.slice(-SLOTS);
+  return (
+    <div className="flex h-4 items-center gap-[2px]" aria-hidden="true">
+      {visible.map((s, i) => (
+        <span
+          key={i}
+          className={`h-4 w-1 rounded-sm ${statusSparkColor(s)}`}
+          title={s !== 'EMPTY' ? s : undefined}
+        />
+      ))}
+    </div>
+  );
+}
+
+function statusSparkColor(status: string): string {
+  switch (status) {
+    case 'SUCCESS':
+      return 'bg-emerald-500/80';
+    case 'FAILED':
+      return 'bg-red-500/80';
+    case 'RUNNING':
+      return 'bg-sky-500/80';
+    case 'PAUSED':
+      return 'bg-amber-500/80';
+    case 'CANCELLED':
+      return 'bg-zinc-500/60';
+    case 'EMPTY':
+    default:
+      return 'bg-white/5';
+  }
 }
 
 function Trend7d({

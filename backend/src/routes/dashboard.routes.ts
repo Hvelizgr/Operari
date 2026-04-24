@@ -172,9 +172,16 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     runs: number;
     successRate: number | null;
     avgDurationMs: number | null;
+    /**
+     * Last up to 20 executions for this runbook, chronological order
+     * (oldest first, newest last) so the UI can render a left-to-right
+     * sparkline. Not scoped to since7d like the aggregates above — a
+     * runbook that hasn't fired in 10 days still deserves a sparkline.
+     */
+    recentStatuses: string[];
   }> = [];
   if (topWorkflowIds.length > 0) {
-    const [workflows, perWorkflowExecs] = await Promise.all([
+    const [workflows, perWorkflowExecs, recentPerWorkflow] = await Promise.all([
       prisma.runbook.findMany({
         where: { id: { in: topWorkflowIds } },
         select: { id: true, slug: true, name: true },
@@ -186,8 +193,25 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
         },
         select: { workflowId: true, status: true, duration: true },
       }),
+      // Per-workflow last-20 fan-out. Prisma doesn't express "top N
+      // per group" so we issue one small query per workflow; topN is
+      // capped at ~10 upstream so the fan-out is bounded. Same pattern
+      // as computeEtas in runs.routes.ts.
+      Promise.all(
+        topWorkflowIds.map(async workflowId => {
+          const rows = await prisma.execution.findMany({
+            where: { workflowId },
+            orderBy: { startedAt: 'desc' },
+            take: 20,
+            select: { status: true },
+          });
+          // Reverse so oldest is first — sparklines read left→right.
+          return { workflowId, statuses: rows.map(r => r.status).reverse() };
+        })
+      ),
     ]);
     const byId = new Map(workflows.map(w => [w.id, w]));
+    const recentById = new Map(recentPerWorkflow.map(r => [r.workflowId, r.statuses]));
     for (const row of topRunbooksRaw) {
       const wf = byId.get(row.workflowId);
       if (!wf) continue;
@@ -203,6 +227,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
           finished.length > 0
             ? Math.round(finished.reduce((s, e) => s + (e.duration ?? 0), 0) / finished.length)
             : null,
+        recentStatuses: recentById.get(row.workflowId) ?? [],
       });
     }
   }
