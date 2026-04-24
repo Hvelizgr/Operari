@@ -31,6 +31,7 @@ import ExecutionEventLog from '../Runs/ExecutionEventLog';
 import RunDialog from '../Workflow/RunDialog';
 import ScheduleDialog from '../Workflow/ScheduleDialog';
 import SnapshotDialog from '../Workflow/SnapshotDialog';
+import CanvasRunStatus from './CanvasRunStatus';
 import CommandPalette, { CommandAction } from './CommandPalette';
 import EditorSidebar from './EditorSidebar';
 import GitHubBranchPanel from './GitHubBranchPanel';
@@ -170,6 +171,10 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   const [isAssistOpen, setIsAssistOpen] = useState(false);
   const [isGitHubOpen, setIsGitHubOpen] = useState(false);
   const [isEventLogOpen, setIsEventLogOpen] = useState(false);
+  // Wall-clock ms when the current run started. Lives up here as
+  // state but the effect that keys on `executing` is declared below
+  // where the execution hook result is in scope.
+  const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   // Load a runbook from /editor?id=<workflowId>. Until this effect
   // ran, the editor showed INITIAL_NODES — a single empty shell step
   // — regardless of what the user clicked from /runbooks. This is
@@ -260,6 +265,18 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   const { executeWorkflow, executeFromNode, executing, currentExecutionId } =
     useWorkflowExecution('current-workflow');
   const { logs, nodeStatuses, nodeMeta } = useExecutionSocket(currentExecutionId);
+
+  // Capture run start time on executing transition. Pairs with the
+  // runStartedAt state declared above the execution hook. Setting
+  // on true-edge gives the canvas status pill a fresh elapsed-time
+  // anchor; nulling on false-edge keeps the next run's clock at 0.
+  useEffect(() => {
+    if (executing) {
+      setRunStartedAt(Date.now());
+    } else {
+      setRunStartedAt(null);
+    }
+  }, [executing]);
 
   // --- SNAPSHOT SYSTEM ---
   const [isSnapshotDialogOpen, setIsSnapshotDialogOpen] = useState(false);
@@ -575,6 +592,13 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
             >
               {lang === 'en' ? 'Skip to workflow canvas' : 'Saltar al lienzo de flujo de trabajo'}
             </a>
+
+            <CanvasRunStatus
+              executing={executing}
+              hasFailedNode={nodes.some(n => n.executionState === 'error')}
+              startedAt={runStartedAt}
+              lang={lang}
+            />
 
             <div id="canvas-instructions" className="sr-only">
               {lang === 'en'
