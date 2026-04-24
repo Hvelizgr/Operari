@@ -34,6 +34,13 @@ export interface RecordReceiptParams {
   body: unknown;
   sourceIp?: string | null;
   executionId?: string | null;
+  /**
+   * When set on a status='error' receipt, WebhookRetryWorker will
+   * pick the row up at this time and call execute() again. Leave
+   * undefined (the default) for receipts that should never retry —
+   * rejected_signature, rejected_inactive, or accepted.
+   */
+  nextRetryAt?: Date | null;
 }
 
 /**
@@ -59,6 +66,7 @@ export class WebhookReceiptService {
           body: normalizeBody(params.body) as Prisma.InputJsonValue,
           sourceIp: params.sourceIp ?? null,
           executionId: params.executionId ?? null,
+          nextRetryAt: params.nextRetryAt ?? null,
         },
         select: { id: true },
       });

@@ -421,6 +421,27 @@ async function main() {
       logger.info('Queued billing meter + dispatch worker started (15s interval)');
     }
 
+    // G.3: local retry path for inbound webhooks whose execute() threw
+    // on the live route. WebhookReceipt rows with status='error' and
+    // nextRetryAt<=now get replayed through the same engine. 60s tick
+    // cadence; rows never touched when no errors are in flight.
+    const { WebhookRetryWorker } = await import('./runbook/services/webhook-retry-worker');
+    const { WebhookService } = await import('./runbook/services/webhook.service');
+    const { ExecutionService: ExecutionServiceCls } =
+      await import('./editor/execution/execution.service');
+    const webhookRetryWorker = new WebhookRetryWorker({
+      prisma,
+      webhookService: new WebhookService(prisma),
+      executionService: new ExecutionServiceCls(prisma),
+    });
+    const webhookRetryInterval = setInterval(() => {
+      webhookRetryWorker.runOnce().catch(err => {
+        logger.error({ err }, 'Webhook retry tick failed');
+      });
+    }, 60_000);
+    process.on('SIGTERM', () => clearInterval(webhookRetryInterval));
+    logger.info('Webhook retry worker started (60s interval)');
+
     // ADR 0003 phase 3 + 4: scan for runs that were in flight when the
     // previous backend instance died. Behind three flags:
     //   NANORUN_DURABLE_ENGINE=true    → engine is wired in general

@@ -207,6 +207,12 @@ async function handleWebhook(req: Request, res: Response) {
       tenantId: webhook.tenantId,
     });
   } catch (err) {
+    // Schedule a local retry 60s out. WebhookRetryWorker picks the
+    // row up on its next tick and calls execute() again; the 60s
+    // window lets a transient DB/runtime hiccup recover before we
+    // burn a retry slot. Sender-side retry stays live (we still
+    // throw below, which becomes a 500), A4's WebhookEvent dedup
+    // collapses any overlap.
     await receipts.record({
       webhookId: webhook.id,
       tenantId: webhook.tenantId,
@@ -216,6 +222,7 @@ async function handleWebhook(req: Request, res: Response) {
       headers,
       body,
       sourceIp,
+      nextRetryAt: new Date(Date.now() + 60_000),
     });
     throw err;
   }
