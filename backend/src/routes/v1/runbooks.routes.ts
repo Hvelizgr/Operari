@@ -4,9 +4,9 @@ import { z } from 'zod';
 import { logger } from '../../config/logger.config';
 import { ExecutionService } from '../../editor/execution/execution.service';
 import { ApiKeyRequest, requireApiKey } from '../../middleware/api-key.middleware';
+import { parseInputDefs } from '../../runbook/inputs/parse-input-defs';
 import { validateRunInputs } from '../../runbook/inputs/validate-run-inputs';
 import { prisma } from '../../server';
-import type { RunbookInputDefinition } from '../../types/workflow.types';
 
 const router = Router();
 
@@ -87,7 +87,7 @@ router.post(
       // UI's run endpoint: runbooks without declared inputs pass the
       // payload through untouched so existing SDK consumers that send
       // free-form variables stay compatible.
-      const inputDefs = (runbook.inputs ?? []) as unknown as RunbookInputDefinition[];
+      const inputDefs = parseInputDefs(runbook.inputs);
       const validated = validateRunInputs(inputDefs, variables);
       if (!validated.ok) {
         return res.status(400).json({

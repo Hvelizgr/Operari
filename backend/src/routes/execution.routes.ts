@@ -4,10 +4,10 @@ import { AuditService } from '../audit/audit.service';
 import { ExecutionService } from '../editor/execution/execution.service';
 import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
 import { ExecutionEventStore } from '../runbook/engine/execution-event.store';
+import { parseInputDefs } from '../runbook/inputs/parse-input-defs';
 import { validateRunInputs } from '../runbook/inputs/validate-run-inputs';
 import { getRunner } from '../runbook/runners';
 import { prisma } from '../server';
-import type { RunbookInputDefinition } from '../types/workflow.types';
 
 let auditService: AuditService | null = null;
 function getAudit(): AuditService {
@@ -388,7 +388,7 @@ router.post('/:workflowId/run', async (req: AuthRequest, res) => {
     // typed inputs. When the runbook has no declared inputs the
     // validator passes the payload through untouched, preserving
     // historical behavior for runbooks that never opted in.
-    const inputDefs = (workflow.inputs ?? []) as unknown as RunbookInputDefinition[];
+    const inputDefs = parseInputDefs(workflow.inputs);
     const validated = validateRunInputs(inputDefs, req.body.input);
     if (!validated.ok) {
       return res.status(400).json({
