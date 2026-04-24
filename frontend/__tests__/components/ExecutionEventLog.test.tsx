@@ -66,23 +66,71 @@ describe('ExecutionEventLog', () => {
         data: [
           mkEvent({
             seq: '42',
-            type: 'step.failed',
-            nodeId: 'node-a',
-            payload: { errorMessage: 'timeout after 30s' },
+            type: 'run.started',
+            nodeId: null,
+            // Use a field the summary formatter does not surface
+            // (startedAt is informational only) so the assertion
+            // that the payload is hidden before expansion still
+            // holds after the row-summary feature landed.
+            payload: { startedAt: '2026-04-24T12:34:56.000Z' },
           }),
         ],
         nextAfterSeq: null,
       })
     );
     render(<ExecutionEventLog runId="run-1" lang="en" />);
-    await waitFor(() => expect(screen.getByText('step.failed')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('run.started')).toBeInTheDocument());
 
     // Payload is hidden until the row is expanded.
-    expect(screen.queryByText(/timeout after 30s/)).not.toBeInTheDocument();
-    // The row button is the one that renders the event type; clicking
-    // toggles expansion.
-    fireEvent.click(screen.getByText('step.failed'));
-    expect(await screen.findByText(/timeout after 30s/)).toBeInTheDocument();
+    expect(screen.queryByText(/2026-04-24T12:34:56/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('run.started'));
+    expect(await screen.findByText(/2026-04-24T12:34:56/)).toBeInTheDocument();
+  });
+
+  it('renders a one-line summary with node name and duration', async () => {
+    fetchMock.mockResolvedValue(
+      respond({
+        data: [
+          mkEvent({
+            seq: '7',
+            type: 'step.completed',
+            nodeId: 'node-abc',
+            payload: { nodeName: 'Fetch API', nodeType: 'http', durationMs: 2140 },
+          }),
+        ],
+        nextAfterSeq: null,
+      })
+    );
+    render(<ExecutionEventLog runId="run-1" lang="en" />);
+    // Summary merges human-readable node name + formatted duration,
+    // not the uuid the event stores.
+    expect(await screen.findByText('Fetch API · 2.1s')).toBeInTheDocument();
+    // The raw nodeId must not leak into the row (only into the
+    // expanded payload JSON).
+    expect(screen.queryByText('node-abc')).not.toBeInTheDocument();
+  });
+
+  it('uses error message as summary for step.failed', async () => {
+    fetchMock.mockResolvedValue(
+      respond({
+        data: [
+          mkEvent({
+            seq: '9',
+            type: 'step.failed',
+            nodeId: 'node-a',
+            payload: {
+              nodeName: 'Validate',
+              nodeType: 'check',
+              durationMs: 30_000,
+              errorMessage: 'timeout after 30s',
+            },
+          }),
+        ],
+        nextAfterSeq: null,
+      })
+    );
+    render(<ExecutionEventLog runId="run-1" lang="en" />);
+    expect(await screen.findByText('Validate · timeout after 30s')).toBeInTheDocument();
   });
 
   it('shows the LIVE badge only when live is true', async () => {

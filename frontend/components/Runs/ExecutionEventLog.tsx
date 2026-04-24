@@ -42,6 +42,69 @@ function typeColor(type: string): string {
   return 'text-zinc-300';
 }
 
+function fmtDurationMs(ms: unknown): string {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return '';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.round(ms / 60_000)}m`;
+}
+
+function asString(v: unknown): string | undefined {
+  return typeof v === 'string' && v.length > 0 ? v : undefined;
+}
+
+// Produce a one-line summary for a row so the operator can skim the
+// log without clicking every event to see what happened. Reads only
+// fields we know exist on the discriminated ExecutionEventPayload
+// union defined in backend/src/runbook/engine/execution-event.types.ts.
+// Falls back to an empty string when the type is unknown or the
+// payload is missing — the row still shows type + nodeId in that case.
+function summarize(type: string, payload: unknown, nodeId: string | null): string {
+  const p = (payload ?? {}) as Record<string, unknown>;
+  const nodeName = asString(p.nodeName) ?? nodeId ?? '';
+  const nodeType = asString(p.nodeType);
+  switch (type) {
+    case 'run.created':
+      return asString(p.workflowName) ?? '';
+    case 'run.started':
+      return '';
+    case 'run.completed': {
+      const dur = fmtDurationMs(p.durationMs);
+      const n = typeof p.nodesExecuted === 'number' ? `${p.nodesExecuted} nodes` : '';
+      return [dur, n].filter(Boolean).join(' · ');
+    }
+    case 'run.failed': {
+      const msg = asString(p.errorMessage) ?? '';
+      const at = asString(p.failedAtNodeId);
+      return at ? `${msg} · at ${at}` : msg;
+    }
+    case 'run.cancelled':
+      return asString(p.cancelledByActorId) ?? '';
+    case 'run.paused':
+      return asString(p.pausedAtNodeId) ?? '';
+    case 'run.resumed':
+      return asString(p.resumedFromNodeId) ?? '';
+    case 'step.queued':
+    case 'step.started': {
+      return [nodeName, nodeType].filter(Boolean).join(' · ');
+    }
+    case 'step.completed': {
+      const dur = fmtDurationMs(p.durationMs);
+      return [nodeName, dur].filter(Boolean).join(' · ');
+    }
+    case 'step.failed': {
+      const msg = asString(p.errorMessage) ?? '';
+      return [nodeName, msg].filter(Boolean).join(' · ');
+    }
+    case 'step.skipped': {
+      const reason = asString(p.reason);
+      return reason ? `${nodeName} · ${reason}` : nodeName;
+    }
+    default:
+      return nodeName;
+  }
+}
+
 const LABELS = {
   en: {
     title: 'Event log',
@@ -216,7 +279,10 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
                   })}
                 </span>
                 <span className={`w-36 shrink-0 ${typeColor(e.type)}`}>{e.type}</span>
-                {e.nodeId && <span className="truncate text-zinc-400">{e.nodeId}</span>}
+                {(() => {
+                  const summary = summarize(e.type, e.payload, e.nodeId);
+                  return summary ? <span className="truncate text-zinc-400">{summary}</span> : null;
+                })()}
               </button>
               {isOpen && (
                 <pre className="overflow-x-auto whitespace-pre-wrap px-8 pb-3 pt-1 text-[11px] text-zinc-400">
