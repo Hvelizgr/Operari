@@ -80,13 +80,21 @@ jest.mock('../../server', () => ({
 }));
 
 // The routes file constructs WebhookService + ExecutionService lazily.
-// We only exercise the receipts list endpoint here, so stub them so
-// the module-load side effects stay minimal.
+// Replay uses mapPayloadToVariables + execute; the list endpoint
+// ignores these. Keep references to the mocks so individual tests
+// can override their behavior.
+const mapPayloadToVariablesMock = jest.fn((_source: string, _event: unknown, body: unknown) => ({
+  payload: body,
+}));
+const executeMock = jest.fn();
+
 jest.mock('../../runbook/services/webhook.service', () => ({
-  WebhookService: jest.fn().mockImplementation(() => ({})),
+  WebhookService: jest
+    .fn()
+    .mockImplementation(() => ({ mapPayloadToVariables: mapPayloadToVariablesMock })),
 }));
 jest.mock('../../editor/execution/execution.service', () => ({
-  ExecutionService: jest.fn().mockImplementation(() => ({})),
+  ExecutionService: jest.fn().mockImplementation(() => ({ execute: executeMock })),
 }));
 
 import webhooksAdminRoutes from '../../routes/webhooks-admin.routes';
@@ -259,5 +267,110 @@ describe('GET /api/webhooks/:id/receipts', () => {
     seedWebhook({ id: 'foreign', tenantId: 't-other' });
     const res = await request(makeApp(USER)).get('/api/webhooks/foreign/receipts');
     expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /api/webhooks/:id/receipts/:receiptId/replay', () => {
+  const mockedPrisma = require('../../server').prisma as {
+    webhookReceipt: { findFirst: jest.Mock; create: jest.Mock };
+  };
+
+  beforeEach(() => {
+    webhooks.length = 0;
+    receipts.length = 0;
+    mapPayloadToVariablesMock.mockClear();
+    executeMock.mockReset();
+    mockedPrisma.webhookReceipt.findFirst.mockReset();
+    mockedPrisma.webhookReceipt.create.mockReset();
+  });
+
+  function wireReceiptFindFirst() {
+    mockedPrisma.webhookReceipt.findFirst.mockImplementation(
+      async (args: { where: { id: string; webhookId: string } }) => {
+        return (
+          receipts.find(r => r.id === args.where.id && r.webhookId === args.where.webhookId) ?? null
+        );
+      }
+    );
+  }
+
+  it('replays the captured payload and records a fresh receipt with replay_of marker', async () => {
+    seedWebhook();
+    const captured = seedReceipt({
+      id: 'rcpt-live',
+      body: { foo: 'bar' },
+      headers: { 'x-one': '1' },
+    });
+    wireReceiptFindFirst();
+    executeMock.mockResolvedValue({ id: 'exec-1' });
+    mockedPrisma.webhookReceipt.create.mockResolvedValue({ id: 'rcpt-replay' });
+
+    const res = await request(makeApp(USER)).post(
+      `/api/webhooks/hook-1/receipts/${captured.id}/replay`
+    );
+
+    expect(res.status).toBe(202);
+    expect(res.body).toMatchObject({
+      runId: 'exec-1',
+      runbook: { id: 'wf-1', name: 'Runbook' },
+      replayedFrom: captured.id,
+    });
+
+    // Engine received the mapped variables (our mapper mock wraps the
+    // raw body under `payload`).
+    expect(executeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflowId: 'wf-1',
+        trigger: 'WEBHOOK',
+        tenantId: 't1',
+        input: { payload: { foo: 'bar' } },
+      })
+    );
+
+    // A replay-receipt row was inserted with the replay_of:<id> marker.
+    expect(mockedPrisma.webhookReceipt.create).toHaveBeenCalledTimes(1);
+    const writeArg = mockedPrisma.webhookReceipt.create.mock.calls[0][0].data;
+    expect(writeArg).toMatchObject({
+      webhookId: 'hook-1',
+      tenantId: 't1',
+      status: 'accepted',
+      statusCode: 202,
+      reason: `replay_of:${captured.id}`,
+      executionId: 'exec-1',
+    });
+    expect(writeArg.body).toEqual({ foo: 'bar' });
+    expect(writeArg.headers).toEqual({ 'x-one': '1' });
+  });
+
+  it('returns 404 when the webhook belongs to another tenant', async () => {
+    seedWebhook({ id: 'foreign', tenantId: 't-other' });
+    wireReceiptFindFirst();
+
+    const res = await request(makeApp(USER)).post('/api/webhooks/foreign/receipts/anything/replay');
+    expect(res.status).toBe(404);
+    expect(executeMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the receipt does not belong to the webhook', async () => {
+    seedWebhook();
+    seedReceipt({ id: 'rcpt-1', webhookId: 'other-hook' });
+    wireReceiptFindFirst();
+
+    const res = await request(makeApp(USER)).post('/api/webhooks/hook-1/receipts/rcpt-1/replay');
+    expect(res.status).toBe(404);
+    expect(executeMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 without writing a receipt when execute() throws', async () => {
+    seedWebhook();
+    const captured = seedReceipt({ id: 'rcpt-live' });
+    wireReceiptFindFirst();
+    executeMock.mockRejectedValue(new Error('engine exploded'));
+
+    const res = await request(makeApp(USER)).post(
+      `/api/webhooks/hook-1/receipts/${captured.id}/replay`
+    );
+    expect(res.status).toBe(500);
+    expect(mockedPrisma.webhookReceipt.create).not.toHaveBeenCalled();
   });
 });
