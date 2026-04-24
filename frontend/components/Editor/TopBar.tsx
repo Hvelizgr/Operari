@@ -320,16 +320,32 @@ export default function TopBar({
         {/* Event log — live tail of the durable ExecutionEvent stream
             for the current run. Surfaces only after a run has been
             fired this session so we don't advertise it on a blank
-            canvas. Animated sky dot signals an in-flight stream. */}
+            canvas. Badge encodes two live states so the colour alone
+            answers "is my run failing?" without opening the panel:
+              · sky pulse  = executing, no failures yet
+              · red pulse  = executing, at least one node failed
+              · no badge   = terminal (success/failed/cancelled) */}
         {onEventLog && hasExecution && (
           <button
             onClick={onEventLog}
             className="relative rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
-            title={lang === 'en' ? 'Event log' : 'Registro de eventos'}
+            title={
+              isExecuting && hasFailedNode
+                ? lang === 'en'
+                  ? 'Event log — a step has failed'
+                  : 'Registro — un paso falló'
+                : lang === 'en'
+                  ? 'Event log'
+                  : 'Registro de eventos'
+            }
           >
             <ListOrdered size={18} />
             {isExecuting && (
-              <span className="absolute right-1 top-1 h-1.5 w-1.5 animate-pulse rounded-full bg-sky-400" />
+              <span
+                className={`absolute right-1 top-1 h-1.5 w-1.5 animate-pulse rounded-full ${
+                  hasFailedNode ? 'bg-red-500' : 'bg-sky-400'
+                }`}
+              />
             )}
           </button>
         )}
