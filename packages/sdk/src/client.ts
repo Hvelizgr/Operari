@@ -9,6 +9,10 @@ import {
   AuditVerifyResult,
   ResolveApprovalOptions,
   ResolvedApproval,
+  LogEntry,
+  GetLogsOptions,
+  GetLogsResponse,
+  TailLogsOptions,
 } from './types';
 import { CairnError, CairnAuthError, CairnNotFoundError, CairnTimeoutError } from './errors';
 
@@ -164,6 +168,107 @@ export class Cairn {
    *
    * Requires an API key with scope `audit:read`.
    */
+  /**
+   * Fetch a bounded page of log entries for a run. Use the returned
+   * `nextFromId` as `options.fromId` on the next call to paginate
+   * through a finished run's full log; pass nothing to start from
+   * the beginning.
+   *
+   * For a LIVE tail that yields entries as the runtime emits them,
+   * use `tailLogs()` instead.
+   */
+  async getLogs(runId: string, options: GetLogsOptions = {}): Promise<GetLogsResponse> {
+    const params = new URLSearchParams();
+    if (options.fromId) params.set('fromId', options.fromId);
+    if (options.count !== undefined) params.set('count', String(options.count));
+    const qs = params.toString();
+    const path = `/api/executions/${encodeURIComponent(runId)}/logs${qs ? `?${qs}` : ''}`;
+    return this.request<GetLogsResponse>('GET', path);
+  }
+
+  /**
+   * Subscribe to a run's log stream as a live tail. Returns an
+   * AsyncIterable that yields every new entry as the runtime emits
+   * it. Consume it with `for await` and stop by aborting the signal
+   * (typically on Ctrl-C in a CLI or `res.on('close')` in a route).
+   *
+   * ```ts
+   * const controller = new AbortController();
+   * process.on('SIGINT', () => controller.abort());
+   * for await (const entry of client.tailLogs(runId, { signal: controller.signal })) {
+   *   console.log(entry.message);
+   * }
+   * ```
+   *
+   * Notes:
+   * - The server replays the backlog before switching to live tail,
+   *   so a fresh connection to an in-flight run sees everything from
+   *   the ring-buffer window (default 10k entries).
+   * - If the HTTP connection drops mid-stream, the iterable ends
+   *   without throwing. Reconnect by calling tailLogs() again with
+   *   `fromId` set to the last entry id you received.
+   */
+  async *tailLogs(runId: string, options: TailLogsOptions = {}): AsyncIterable<LogEntry> {
+    const params = new URLSearchParams({ follow: 'true' });
+    if (options.fromId) params.set('fromId', options.fromId);
+    const url = `${this.baseURL}/api/executions/${encodeURIComponent(runId)}/logs?${params.toString()}`;
+
+    const response = await this.fetchImpl(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        Accept: 'text/event-stream',
+        'User-Agent': '@cairn/sdk/0.1.0',
+      },
+      signal: options.signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      const message = text || `tailLogs failed: ${response.status}`;
+      if (response.status === 401) throw new CairnAuthError(message);
+      if (response.status === 404) throw new CairnNotFoundError(message);
+      throw new CairnError(message, response.status);
+    }
+    if (!response.body) {
+      // Implementations without streaming bodies (very old fetch
+      // polyfills) can't honor SSE — fail clearly rather than hang.
+      throw new CairnError('Response body is not a readable stream; SSE requires streaming fetch');
+    }
+
+    // Minimal SSE parser: concatenate chunks into a buffer, split on
+    // blank lines, pick the last `data:` line in each event, JSON-
+    // parse as a LogEntry. Ignores heartbeats (:comments) and
+    // unnamed events. Enough for the server format we emit.
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let sepIdx = buffer.indexOf('\n\n');
+        while (sepIdx !== -1) {
+          const rawEvent = buffer.slice(0, sepIdx);
+          buffer = buffer.slice(sepIdx + 2);
+          const entry = parseSseEvent(rawEvent);
+          if (entry) yield entry;
+          sepIdx = buffer.indexOf('\n\n');
+        }
+      }
+    } finally {
+      // Releasing the reader allows fetch/undici to close the
+      // underlying socket promptly on consumer abort.
+      try {
+        reader.releaseLock();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   async verifyAudit(options: AuditVerifyOptions = {}): Promise<AuditVerifyResult> {
     const params = new URLSearchParams();
     if (options.fromSeq !== undefined) {
@@ -209,5 +314,30 @@ export class Cairn {
     }
 
     return data as T;
+  }
+}
+
+/**
+ * Parse one SSE event text block (everything between two "\n\n"
+ * separators) into a LogEntry. Returns null when the block has no
+ * `data:` line (heartbeat, comment, unknown event) so the caller
+ * can skip it silently.
+ */
+function parseSseEvent(raw: string): LogEntry | null {
+  let dataLine: string | null = null;
+  for (const line of raw.split('\n')) {
+    if (line.startsWith(':')) continue; // SSE comment / heartbeat
+    if (line.startsWith('data:')) {
+      // SSE allows multiple `data:` lines per event — concat with \n.
+      // Our server writes one, but the parser is tolerant.
+      const piece = line.slice(5).replace(/^\s/, '');
+      dataLine = dataLine === null ? piece : `${dataLine}\n${piece}`;
+    }
+  }
+  if (dataLine === null) return null;
+  try {
+    return JSON.parse(dataLine) as LogEntry;
+  } catch {
+    return null;
   }
 }

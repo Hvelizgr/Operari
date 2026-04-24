@@ -106,3 +106,40 @@ export interface ResolvedApproval {
   /** True iff the execution was marked CANCELLED (reject only) */
   executionCancelled: boolean;
 }
+
+/** A single log line emitted by the runtime for a specific run. */
+export interface LogEntry {
+  /** Stream id, monotonic per-run. Use as the cursor for the next call. */
+  id: string;
+  /** Log text (stdout line, engine event, etc). */
+  message: string;
+  /** ISO-8601 timestamp written by the runtime at emission time. */
+  timestamp: string;
+  /** Optional structured fields (nodeId, nodeName, runner…). */
+  metadata?: Record<string, unknown>;
+}
+
+export interface GetLogsOptions {
+  /** Start cursor (inclusive). Omit to start at the beginning. */
+  fromId?: string;
+  /** Max entries per call. Default 1000, capped at 10000 server-side. */
+  count?: number;
+}
+
+export interface GetLogsResponse {
+  executionId: string;
+  entries: LogEntry[];
+  /** Count of entries in THIS response (not the total run log). */
+  count: number;
+  /** Approximate total entries in the run's stream. */
+  totalApprox: number | null;
+  /** Cursor to pass to the next call for pagination, or null when done. */
+  nextFromId: string | null;
+}
+
+export interface TailLogsOptions {
+  /** Start cursor. Defaults to '$' on the server (only NEW entries). */
+  fromId?: string;
+  /** Abort signal — consumer hangs up when this fires. */
+  signal?: AbortSignal;
+}

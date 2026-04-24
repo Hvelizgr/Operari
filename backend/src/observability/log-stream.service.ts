@@ -39,10 +39,12 @@ import type { Redis } from 'ioredis';
  *   publish(executionId, line, metadata?)  → XADD MAXLEN
  *   fetch(executionId, opts?)              → XRANGE replay
  *
- * Phase 2 (follow-up) — live tail
- *   subscribe(executionId, fromId='$')     → XREAD BLOCK loop
- * The tail loop needs careful cancellation semantics; deferred to
- * a focused commit.
+ * Phase 2 (G.2 sprint) — live tail
+ *   subscribe(executionId, fromId='$', signal) → XREAD BLOCK async iterable
+ * Yields every new entry as it lands, ends when the AbortSignal fires
+ * or the Redis call errors permanently. Safe to consume from an SSE
+ * handler (await-for and the HTTP write queue provide natural
+ * backpressure).
  */
 
 export interface LogStreamEntry {
@@ -135,6 +137,73 @@ export class LogStreamService {
       return rows.map(LogStreamService.parseEntry);
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Subscribe to new entries as they arrive. Returns an async
+   * generator that yields each entry in order; ends when the
+   * AbortSignal fires, when Redis is not configured (yields nothing),
+   * or when a Redis error terminates the loop.
+   *
+   * Contract notes
+   * - `fromId` is the starting cursor. Pass the last id from a prior
+   *   `fetch()` call to avoid gaps; pass '$' (default) to start at
+   *   "only entries newer than this call".
+   * - The XREAD BLOCK timeout caps each read at `blockMs` so the
+   *   loop periodically returns control to the event loop and can
+   *   react to signal abortion. Default 15s.
+   * - The caller is expected to consume via `for await` and stop by
+   *   aborting the signal (typically on `res.on('close')`). Throwing
+   *   out of the consumer also unwinds the loop via async iterator
+   *   protocol.
+   */
+  async *subscribe(
+    executionId: string,
+    opts: { fromId?: string; signal?: AbortSignal; blockMs?: number } = {}
+  ): AsyncGenerator<LogStreamEntry> {
+    if (!this.redis) return;
+    const key = LogStreamService.streamKey(executionId);
+    const blockMs = opts.blockMs ?? 15_000;
+    let cursor = opts.fromId ?? '$';
+
+    while (!opts.signal?.aborted) {
+      let result: Array<[string, Array<[string, string[]]>]> | null;
+      try {
+        // XREAD COUNT 500 BLOCK <ms> STREAMS <key> <id>
+        // ioredis typing returns a slightly tighter shape; cast at
+        // the boundary so this line is the one place that deals
+        // with ioredis's variadic command signature.
+        result = (await this.redis.xread(
+          'COUNT',
+          500,
+          'BLOCK',
+          blockMs,
+          'STREAMS',
+          key,
+          cursor
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        )) as any;
+      } catch {
+        // Permanent transport error — end the subscription. The
+        // consumer can retry by re-calling subscribe().
+        return;
+      }
+
+      if (!result || result.length === 0) {
+        // BLOCK timeout with no new entries. Loop around so we can
+        // observe the abort signal and resume waiting.
+        continue;
+      }
+
+      for (const [, rows] of result) {
+        for (const row of rows) {
+          const entry = LogStreamService.parseEntry(row);
+          cursor = entry.id;
+          yield entry;
+          if (opts.signal?.aborted) return;
+        }
+      }
     }
   }
 

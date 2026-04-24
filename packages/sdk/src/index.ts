@@ -13,4 +13,8 @@ export type {
   ApprovalStatus,
   ResolveApprovalOptions,
   ResolvedApproval,
+  LogEntry,
+  GetLogsOptions,
+  GetLogsResponse,
+  TailLogsOptions,
 } from './types';
