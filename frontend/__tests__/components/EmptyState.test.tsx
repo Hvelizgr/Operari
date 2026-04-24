@@ -111,4 +111,57 @@ describe('EmptyState', () => {
     fireEvent.click(screen.getByText('Go'));
     expect(screen.getByText('Go').closest('a')).toHaveAttribute('href', '/en/templates');
   });
+
+  it('renders a button + fires primaryAction when provided (dashboard CTA shape)', () => {
+    const action = jest.fn();
+    render(
+      <EmptyState
+        icon={LayoutTemplate}
+        title="x"
+        body="y"
+        primaryLabel="Create demo"
+        primaryAction={action}
+      />
+    );
+    const btn = screen.getByRole('button', { name: /create demo/i });
+    expect(btn).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(action).toHaveBeenCalledTimes(1);
+  });
+
+  it('primaryAction wins over primaryHref when both are present', () => {
+    const action = jest.fn();
+    render(
+      <EmptyState
+        icon={LayoutTemplate}
+        title="x"
+        body="y"
+        primaryLabel="Go"
+        primaryHref="/en/templates"
+        primaryAction={action}
+      />
+    );
+    // Action path takes precedence — renders a <button>, not an <a>.
+    expect(screen.getByRole('button', { name: /go/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /go/i })).not.toBeInTheDocument();
+  });
+
+  it('disables + spins the primary button while primaryLoading is true', () => {
+    const action = jest.fn();
+    render(
+      <EmptyState
+        icon={LayoutTemplate}
+        title="x"
+        body="y"
+        primaryLabel="Create demo"
+        primaryAction={action}
+        primaryLoading
+      />
+    );
+    const btn = screen.getByRole('button', { name: /create demo/i });
+    expect(btn).toBeDisabled();
+    // Click ignored while loading.
+    fireEvent.click(btn);
+    expect(action).not.toHaveBeenCalled();
+  });
 });

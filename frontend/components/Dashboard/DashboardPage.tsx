@@ -241,6 +241,44 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
     return () => clearInterval(id);
   }, []);
 
+  const [creatingDemo, setCreatingDemo] = useState(false);
+
+  // Dashboard empty-state CTA — creates a blank "demo" runbook via
+  // the existing POST /api/runbooks endpoint and drops the user into
+  // the editor. Pairs with OnboardingRunHint which will show the
+  // ⌘+Enter hint as soon as they add their first node. Research
+  // (PostHog / Supabase) ranks seeded-editor over "browse templates"
+  // for dev-tool activation, even when the seed is minimal.
+  const createDemoRunbook = async () => {
+    if (creatingDemo) return;
+    setCreatingDemo(true);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiBase}/api/runbooks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: lang === 'en' ? 'My first runbook' : 'Mi primer runbook',
+          description:
+            lang === 'en'
+              ? 'Demo runbook — add steps, press ⌘+Enter to run.'
+              : 'Runbook demo — agregá pasos, ⌘+Enter para ejecutar.',
+          nodes: [],
+          connections: [],
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const wf = await res.json();
+      router.push(`/${lang}/editor?id=${wf.id}&welcome=1`);
+    } catch {
+      // Fall back to the template gallery if the POST 4xx/5xxs — the
+      // operator still ends up somewhere productive.
+      router.push(`/${lang}/templates`);
+    } finally {
+      setCreatingDemo(false);
+    }
+  };
+
   const askAiAboutRun = async (runId: string) => {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     try {
@@ -378,10 +416,11 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
                     ? 'Start from a template to see a real runbook executing in 30 seconds. Dry-run against prod before firing anything real.'
                     : 'Arrancá desde un template para ver un runbook real ejecutándose en 30 segundos. Probá dry-run contra prod antes de disparar nada real.'
                 }
-                primaryLabel={lang === 'en' ? 'Browse templates' : 'Ver templates'}
-                primaryHref={`/${lang}/templates`}
-                secondaryLabel={lang === 'en' ? 'Open the editor' : 'Abrir editor'}
-                secondaryHref={`/${lang}/editor`}
+                primaryLabel={lang === 'en' ? 'Create my first runbook' : 'Crear mi primer runbook'}
+                primaryAction={createDemoRunbook}
+                primaryLoading={creatingDemo}
+                secondaryLabel={lang === 'en' ? 'Browse templates' : 'Ver templates'}
+                secondaryHref={`/${lang}/templates`}
               />
             </div>
           )}
