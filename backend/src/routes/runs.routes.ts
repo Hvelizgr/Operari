@@ -107,6 +107,88 @@ async function computeEtas(tenantId: string, workflowIds: string[]): Promise<Map
 }
 
 /**
+ * GET /api/runs/:id/events — durable execution event log for one run.
+ *
+ * Serves the rows the engine wrote to ExecutionEvent (seq-ordered,
+ * typed, with JSON payload). Consumers: the run-detail UI (Temporal-
+ * style numbered event list, expandable payload), debug replays, and
+ * future tooling that diffs two runs event-by-event.
+ *
+ * Query params:
+ *   type=<csv>     — filter by one or more event types (step.failed,
+ *                    run.completed, …). Omitted = all types.
+ *   afterSeq=<n>   — tail mode: return only events with seq > n,
+ *                    so the client can poll incrementally.
+ *   limit=<n>      — page size, max 1000, default 200.
+ *
+ * Route ordering note: this must be declared BEFORE `/:id` so Express
+ * doesn't route "/abc/events" into the detail handler as id="abc" and
+ * then hit an unknown path.
+ */
+router.get('/:id/events', async (req: AuthRequest, res: Response) => {
+  const tenantId = req.user!.tenantId;
+  const runId = String(req.params.id);
+
+  // Preserve 404 semantics by verifying the run is in-tenant before
+  // touching the event table. Event rows also carry tenantId so the
+  // actual read is double-scoped.
+  const run = await prisma.execution.findFirst({
+    where: { id: runId, workflow: { tenantId } },
+    select: { id: true },
+  });
+  if (!run) {
+    return res.status(404).json({ error: 'Run not found', code: 'run_not_found' });
+  }
+
+  const typeParam = req.query.type as string | undefined;
+  const typeFilter = typeParam
+    ? typeParam
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean)
+    : undefined;
+
+  const limitRaw = parseInt((req.query.limit as string) ?? '200', 10);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 1000) : 200;
+
+  const afterSeqRaw = req.query.afterSeq as string | undefined;
+  let afterSeq: bigint | undefined;
+  if (afterSeqRaw !== undefined && afterSeqRaw !== '') {
+    try {
+      afterSeq = BigInt(afterSeqRaw);
+    } catch {
+      return res
+        .status(400)
+        .json({ error: 'afterSeq must be a numeric string', code: 'invalid_after_seq' });
+    }
+  }
+
+  const events = await prisma.executionEvent.findMany({
+    where: {
+      executionId: runId,
+      tenantId,
+      ...(typeFilter && typeFilter.length > 0 ? { type: { in: typeFilter } } : {}),
+      ...(afterSeq !== undefined ? { seq: { gt: afterSeq } } : {}),
+    },
+    orderBy: { seq: 'asc' },
+    take: limit,
+  });
+
+  res.json({
+    data: events.map(e => ({
+      // BigInt doesn't round-trip through JSON.stringify, so stringify
+      // here. Clients compare as strings or BigInt, not numbers.
+      seq: e.seq.toString(),
+      type: e.type,
+      nodeId: e.nodeId,
+      payload: e.payload,
+      createdAt: e.createdAt,
+    })),
+    nextAfterSeq: events.length === limit ? events[events.length - 1].seq.toString() : null,
+  });
+});
+
+/**
  * GET /api/runs/:id — run detail with step logs.
  */
 router.get('/:id', async (req: AuthRequest, res: Response) => {
