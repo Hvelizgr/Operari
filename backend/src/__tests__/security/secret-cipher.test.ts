@@ -181,3 +181,114 @@ describe('SecretCipher v2 (per-tenant derived keys)', () => {
     expect(SecretCipher.versionOf('')).toBeNull();
   });
 });
+
+describe('SecretCipher dual-key (rotation window)', () => {
+  const PRIMARY = randomBytes(32).toString('hex');
+  const LEGACY = randomBytes(32).toString('hex');
+  const OLDER_LEGACY = randomBytes(32).toString('hex');
+
+  it('hasLegacyKeys reflects constructor input', () => {
+    expect(new SecretCipher(PRIMARY).hasLegacyKeys()).toBe(false);
+    expect(new SecretCipher(PRIMARY, []).hasLegacyKeys()).toBe(false);
+    expect(new SecretCipher(PRIMARY, [LEGACY]).hasLegacyKeys()).toBe(true);
+  });
+
+  it('v1 decrypt falls back to legacy key when primary fails', () => {
+    const oldCipher = new SecretCipher(LEGACY);
+    const blob = oldCipher.encrypt('legacy-payload');
+    const newCipher = new SecretCipher(PRIMARY, [LEGACY]);
+    expect(newCipher.decrypt(blob)).toBe('legacy-payload');
+  });
+
+  it('v2 decryptForTenant falls back to legacy master for tenant-derived keys', () => {
+    const oldCipher = new SecretCipher(LEGACY);
+    const blob = oldCipher.encryptForTenant('legacy-secret', 'tenant-a');
+    const newCipher = new SecretCipher(PRIMARY, [LEGACY]);
+    expect(newCipher.decryptForTenant(blob, 'tenant-a')).toBe('legacy-secret');
+  });
+
+  it('tries multiple legacy keys in order', () => {
+    const oldest = new SecretCipher(OLDER_LEGACY);
+    const blob = oldest.encryptForTenant('oldest', 'tenant-a');
+    const newCipher = new SecretCipher(PRIMARY, [LEGACY, OLDER_LEGACY]);
+    expect(newCipher.decryptForTenant(blob, 'tenant-a')).toBe('oldest');
+  });
+
+  it('throws when neither primary nor any legacy key decrypts', () => {
+    const unrelated = new SecretCipher(randomBytes(32).toString('hex'));
+    const blob = unrelated.encryptForTenant('x', 'tenant-a');
+    const newCipher = new SecretCipher(PRIMARY, [LEGACY]);
+    expect(() => newCipher.decryptForTenant(blob, 'tenant-a')).toThrow(SecretCipherError);
+  });
+
+  it('isCipheredUnderPrimary returns true for rows written under the current master', () => {
+    const newCipher = new SecretCipher(PRIMARY, [LEGACY]);
+    const blob = newCipher.encryptForTenant('fresh', 'tenant-a');
+    expect(newCipher.isCipheredUnderPrimary(blob, 'tenant-a')).toBe(true);
+  });
+
+  it('isCipheredUnderPrimary returns false for rows written under a legacy master', () => {
+    const oldCipher = new SecretCipher(LEGACY);
+    const legacyBlob = oldCipher.encryptForTenant('old', 'tenant-a');
+    const newCipher = new SecretCipher(PRIMARY, [LEGACY]);
+    expect(newCipher.isCipheredUnderPrimary(legacyBlob, 'tenant-a')).toBe(false);
+  });
+
+  it('isCipheredUnderPrimary handles v1 ciphertexts', () => {
+    const newCipher = new SecretCipher(PRIMARY, [LEGACY]);
+    const blob = newCipher.encrypt('fresh-v1');
+    expect(newCipher.isCipheredUnderPrimary(blob)).toBe(true);
+
+    const oldCipher = new SecretCipher(LEGACY);
+    const legacyBlob = oldCipher.encrypt('old-v1');
+    expect(newCipher.isCipheredUnderPrimary(legacyBlob)).toBe(false);
+  });
+
+  it('isCipheredUnderPrimary returns false for malformed ciphertexts instead of throwing', () => {
+    const newCipher = new SecretCipher(PRIMARY);
+    expect(newCipher.isCipheredUnderPrimary('garbage')).toBe(false);
+    expect(newCipher.isCipheredUnderPrimary('v2:a:b')).toBe(false);
+  });
+
+  it('isCipheredUnderPrimary returns false when v2 is passed without a tenantId', () => {
+    const newCipher = new SecretCipher(PRIMARY);
+    const blob = newCipher.encryptForTenant('x', 'tenant-a');
+    expect(newCipher.isCipheredUnderPrimary(blob)).toBe(false);
+  });
+
+  it('isCipheredUnderPrimary honors AAD binding', () => {
+    const newCipher = new SecretCipher(PRIMARY);
+    const blob = newCipher.encryptForTenant('x', 'tenant-a', 'aad');
+    expect(newCipher.isCipheredUnderPrimary(blob, 'tenant-a', 'aad')).toBe(true);
+    expect(newCipher.isCipheredUnderPrimary(blob, 'tenant-a', 'wrong')).toBe(false);
+  });
+
+  it('secretCipherFromEnv wires legacy keys from NANORUN_SECRET_KEY_LEGACY', () => {
+    const cipher = secretCipherFromEnv({
+      NANORUN_SECRET_KEY: PRIMARY,
+      NANORUN_SECRET_KEY_LEGACY: LEGACY,
+    });
+    expect(cipher.hasLegacyKeys()).toBe(true);
+    const oldCipher = new SecretCipher(LEGACY);
+    const blob = oldCipher.encryptForTenant('x', 'tenant-a');
+    expect(cipher.decryptForTenant(blob, 'tenant-a')).toBe('x');
+  });
+
+  it('secretCipherFromEnv parses comma-separated legacy list', () => {
+    const cipher = secretCipherFromEnv({
+      NANORUN_SECRET_KEY: PRIMARY,
+      NANORUN_SECRET_KEY_LEGACY: `${LEGACY} , ${OLDER_LEGACY}`,
+    });
+    const oldest = new SecretCipher(OLDER_LEGACY);
+    const blob = oldest.encryptForTenant('oldest', 'tenant-a');
+    expect(cipher.decryptForTenant(blob, 'tenant-a')).toBe('oldest');
+  });
+
+  it('secretCipherFromEnv treats empty NANORUN_SECRET_KEY_LEGACY as no legacy keys', () => {
+    const cipher = secretCipherFromEnv({
+      NANORUN_SECRET_KEY: PRIMARY,
+      NANORUN_SECRET_KEY_LEGACY: '',
+    });
+    expect(cipher.hasLegacyKeys()).toBe(false);
+  });
+});

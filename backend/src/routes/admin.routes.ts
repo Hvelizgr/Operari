@@ -1,6 +1,10 @@
 import { Response, Router } from 'express';
+import { z } from 'zod';
 
+import { AuditService } from '../audit/audit.service';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { KeyRotationError, KeyRotationService } from '../security/key-rotation.service';
+import { secretCipherFromEnv } from '../security/secret-cipher';
 import { prisma } from '../server';
 
 const router = Router();
@@ -90,6 +94,105 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       auditEvents: counts[7],
     },
   });
+});
+
+// ─── Key rotation (S3.4) ─────────────────────────────────────────
+
+let keyRotationServiceSingleton: KeyRotationService | null = null;
+function getKeyRotationService(): KeyRotationService {
+  if (!keyRotationServiceSingleton) {
+    keyRotationServiceSingleton = new KeyRotationService({
+      prisma,
+      cipher: secretCipherFromEnv(),
+      audit: new AuditService(prisma),
+    });
+  }
+  return keyRotationServiceSingleton;
+}
+
+/** Admin-only gate. Plain ADMIN role check; richer RBAC for this
+ *  surface can come later — rotation is rare and high-stakes, so
+ *  one-role-fits-all is fine for v0.1. */
+function requireAdmin(req: AuthRequest, res: Response): boolean {
+  if (req.user?.role !== 'ADMIN') {
+    res.status(403).json({ error: 'Only admins can manage key rotation' });
+    return false;
+  }
+  return true;
+}
+
+const startRotationSchema = z.object({
+  /** ISO-8601 datetime when the rotation should be complete. Used
+   *  for alerting if progress < 90% at deadline − 24h. */
+  deadline: z.string().datetime(),
+  dryRun: z.boolean().optional(),
+});
+
+/**
+ * POST /api/admin/key-rotation/start
+ * Body: { deadline: ISO-8601, dryRun?: boolean }
+ *
+ * Creates a KeyRotationJob row and returns it. The background worker
+ * (server.ts interval) picks it up on the next tick. Rejects when
+ * another rotation is active or when NANORUN_SECRET_KEY_LEGACY is
+ * unset (unless dryRun).
+ */
+router.post('/key-rotation/start', async (req: AuthRequest, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  const parsed = startRotationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid body', issues: parsed.error.issues });
+  }
+  try {
+    const job = await getKeyRotationService().startRotation({
+      deadline: new Date(parsed.data.deadline),
+      actorId: req.user!.id,
+      dryRun: parsed.data.dryRun,
+    });
+    return res.status(201).json({ data: job });
+  } catch (err) {
+    if (err instanceof KeyRotationError) {
+      const status = err.code === 'ACTIVE_JOB_EXISTS' ? 409 : 400;
+      return res.status(status).json({ error: err.message, code: err.code });
+    }
+    req.log?.error({ err }, 'key-rotation start failed');
+    return res.status(500).json({ error: 'Failed to start key rotation' });
+  }
+});
+
+/**
+ * GET /api/admin/key-rotation/status
+ * Returns the currently active job (PENDING/RUNNING) or the most
+ * recent terminal one. Dashboard polls this to render progress.
+ */
+router.get('/key-rotation/status', async (req: AuthRequest, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  const active = await getKeyRotationService().getActiveJob();
+  if (active) return res.json({ data: active, active: true });
+  const lastTerminal = await prisma.keyRotationJob.findFirst({
+    orderBy: { createdAt: 'desc' },
+  });
+  return res.json({ data: lastTerminal, active: false });
+});
+
+/**
+ * POST /api/admin/key-rotation/:jobId/cancel
+ * Flips an active rotation to CANCELLED. Already-rotated rows stay
+ * rotated; the operator can resume later by starting a fresh job.
+ */
+router.post('/key-rotation/:jobId/cancel', async (req: AuthRequest, res: Response) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const job = await getKeyRotationService().cancel(req.params.jobId as string);
+    return res.json({ data: job });
+  } catch (err) {
+    if (err instanceof KeyRotationError) {
+      const status = err.code === 'JOB_NOT_FOUND' ? 404 : 409;
+      return res.status(status).json({ error: err.message, code: err.code });
+    }
+    req.log?.error({ err }, 'key-rotation cancel failed');
+    return res.status(500).json({ error: 'Failed to cancel key rotation' });
+  }
 });
 
 export default router;

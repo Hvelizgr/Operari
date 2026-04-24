@@ -61,9 +61,19 @@ export class SecretCipher {
   private static readonly TENANT_KEK_SALT = Buffer.from('nanorun-tenant-kek-v1', 'utf8');
 
   private readonly key: Buffer;
+  /**
+   * Optional legacy master keys that decrypt-only accepts. Populated
+   * from `NANORUN_SECRET_KEY_LEGACY` when the operator is mid-rotation:
+   * during the window, new writes go out under the current key but
+   * old rows ciphered under the previous one still decrypt cleanly.
+   * Once the KeyRotationService has re-encrypted every row, the
+   * operator drops the env var on the next deploy.
+   */
+  private readonly legacyKeys: Buffer[];
 
-  constructor(rawKey: Buffer | string) {
+  constructor(rawKey: Buffer | string, legacyKeys: Array<Buffer | string> = []) {
     this.key = SecretCipher.parseKey(rawKey);
+    this.legacyKeys = legacyKeys.map(k => SecretCipher.parseKey(k));
   }
 
   /**
@@ -74,7 +84,7 @@ export class SecretCipher {
    * Exposed as a private helper so tests can assert both the encrypt
    * path and the derivation path against known vectors.
    */
-  private deriveTenantKey(tenantId: string): Buffer {
+  private deriveTenantKey(tenantId: string, master: Buffer = this.key): Buffer {
     if (!tenantId) {
       throw new SecretCipherError('tenantId is required for v2 encryption');
     }
@@ -82,12 +92,47 @@ export class SecretCipher {
     // hkdfSync returns an ArrayBuffer; wrap it so Buffer APIs work.
     const derived = hkdfSync(
       'sha256',
-      this.key,
+      master,
       SecretCipher.TENANT_KEK_SALT,
       info,
       SecretCipher.KEY_BYTES
     );
     return Buffer.from(derived);
+  }
+
+  /** True when this cipher was constructed with at least one legacy
+   *  key. The KeyRotationService uses this to decide whether any
+   *  rows still need re-encryption. */
+  hasLegacyKeys(): boolean {
+    return this.legacyKeys.length > 0;
+  }
+
+  /**
+   * Test whether a ciphertext decrypts under the PRIMARY master only
+   * (legacy keys not considered). Used by KeyRotationService to
+   * short-circuit no-op rewrites on resumed rotations: if a row is
+   * already primary-owned, skip the Prisma update.
+   *
+   * Swallows the cipher error — returns false for any failure,
+   * including the "wrong key" case this is designed to detect.
+   */
+  isCipheredUnderPrimary(payload: string, tenantId?: string, aad?: string): boolean {
+    try {
+      const parsed = SecretCipher.parseCiphertext(payload);
+      if (parsed.version === SecretCipher.VERSION_V1) {
+        SecretCipher.decryptBytes(this.key, parsed.nonce, parsed.ciphertext, parsed.tag, aad);
+        return true;
+      }
+      if (parsed.version === SecretCipher.VERSION_V2) {
+        if (!tenantId) return false;
+        const key = this.deriveTenantKey(tenantId, this.key);
+        SecretCipher.decryptBytes(key, parsed.nonce, parsed.ciphertext, parsed.tag, aad);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -138,7 +183,21 @@ export class SecretCipher {
           (version === SecretCipher.VERSION_V2 ? 'Use decryptForTenant() with a tenantId.' : '')
       );
     }
-    return SecretCipher.decryptBytes(this.key, nonce, ciphertext, tag, aad);
+    // Try current key first, then legacy keys (mid-rotation window).
+    // Swallowing per-key failures is intentional — the only signal
+    // the caller gets is "did ANY key decrypt it", same as before.
+    try {
+      return SecretCipher.decryptBytes(this.key, nonce, ciphertext, tag, aad);
+    } catch (err) {
+      for (const legacy of this.legacyKeys) {
+        try {
+          return SecretCipher.decryptBytes(legacy, nonce, ciphertext, tag, aad);
+        } catch {
+          /* try next */
+        }
+      }
+      throw err;
+    }
   }
 
   /**
@@ -150,11 +209,41 @@ export class SecretCipher {
   decryptForTenant(payload: string, tenantId: string, aad?: string): string {
     const { version, nonce, ciphertext, tag } = SecretCipher.parseCiphertext(payload);
     if (version === SecretCipher.VERSION_V1) {
-      return SecretCipher.decryptBytes(this.key, nonce, ciphertext, tag, aad);
+      // v1 uses the master key directly — same dual-key fallback as
+      // decrypt() above. Shared path would be nicer; kept inline so
+      // the legacy-key ordering stays visible at each call site.
+      try {
+        return SecretCipher.decryptBytes(this.key, nonce, ciphertext, tag, aad);
+      } catch (err) {
+        for (const legacy of this.legacyKeys) {
+          try {
+            return SecretCipher.decryptBytes(legacy, nonce, ciphertext, tag, aad);
+          } catch {
+            /* try next */
+          }
+        }
+        throw err;
+      }
     }
     if (version === SecretCipher.VERSION_V2) {
-      const key = this.deriveTenantKey(tenantId);
-      return SecretCipher.decryptBytes(key, nonce, ciphertext, tag, aad);
+      // v2 derives a per-tenant subkey from EACH master candidate.
+      // Rotating the master changes every derived key, so a row
+      // ciphered under the previous master derives under THAT master
+      // at decrypt time.
+      try {
+        const key = this.deriveTenantKey(tenantId, this.key);
+        return SecretCipher.decryptBytes(key, nonce, ciphertext, tag, aad);
+      } catch (err) {
+        for (const legacyMaster of this.legacyKeys) {
+          try {
+            const key = this.deriveTenantKey(tenantId, legacyMaster);
+            return SecretCipher.decryptBytes(key, nonce, ciphertext, tag, aad);
+          } catch {
+            /* try next */
+          }
+        }
+        throw err;
+      }
     }
     throw new SecretCipherError(`Unsupported ciphertext version: ${version}`);
   }
@@ -284,9 +373,15 @@ export class SecretCipherError extends Error {
 }
 
 /**
- * Build a SecretCipher from `process.env.NANORUN_SECRET_KEY`.
- * Throws at startup if the key is missing or malformed — fail loud, not
- * silently store plaintext.
+ * Build a SecretCipher from env. `NANORUN_SECRET_KEY` is the current
+ * master (used for every encrypt + decrypt attempt first).
+ * `NANORUN_SECRET_KEY_LEGACY` is optional; set it to the PREVIOUS
+ * master during a rotation window so rows ciphered under the old key
+ * still decrypt. Comma-separated to support chained rotations (newest
+ * legacy first).
+ *
+ * Throws at startup if the primary key is missing or malformed —
+ * fail loud, not silently store plaintext.
  */
 export function secretCipherFromEnv(env: NodeJS.ProcessEnv = process.env): SecretCipher {
   const key = env.NANORUN_SECRET_KEY;
@@ -296,5 +391,12 @@ export function secretCipherFromEnv(env: NodeJS.ProcessEnv = process.env): Secre
         "  node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
     );
   }
-  return new SecretCipher(key);
+  const legacyRaw = env.NANORUN_SECRET_KEY_LEGACY;
+  const legacyKeys = legacyRaw
+    ? legacyRaw
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 0)
+    : [];
+  return new SecretCipher(key, legacyKeys);
 }

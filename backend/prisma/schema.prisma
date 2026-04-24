@@ -56,6 +56,7 @@ model User {
   emailVerifications EmailVerificationToken[]
   mfaBackupCodes    MfaBackupCode[]
   runbookVersions   RunbookVersion[]
+  keyRotationJobs   KeyRotationJob[]
 
   @@index([tenantId])
   @@index([email])
@@ -1228,4 +1229,42 @@ model BillingEvent {
 
   @@index([status, nextAttemptAt])
   @@index([tenantId, createdAt])
+}
+
+/// Key rotation state machine. One row per rotation run — tracks the
+/// deadline the operator committed to, per-batch progress, and a
+/// resumable cursor so a crashed rotation continues from the next
+/// row on reboot instead of restarting at 0. createdByUserId is
+/// SetNull so a GDPR purge doesn't erase the compliance trail.
+model KeyRotationJob {
+  id              String    @id @default(uuid())
+  deadline        DateTime
+  /// PENDING → not yet picked up (just-created or between ticks)
+  /// RUNNING → worker is processing batches right now
+  /// COMPLETED → every row was re-encrypted under the current key
+  /// FAILED → row-level errors exhausted the retry budget; operator
+  ///          must inspect before retrying
+  /// CANCELLED → operator hit cancel
+  status          String    @default("PENDING")
+  /// When true, the worker counts rows but never writes. Used to
+  /// estimate "how long is this going to take" before the operator
+  /// commits to a real rotation.
+  dryRun          Boolean   @default(false)
+  rowsTotal       Int?
+  rowsCompleted   Int       @default(0)
+  rowsFailed      Int       @default(0)
+  /// Opaque resume cursor. Shape: { table: 'ConnectedAccount' |
+  /// 'User', lastId: string }. Worker persists after every batch so
+  /// a crash/restart picks up where it left off.
+  nextCursor      Json?
+  lastError       String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  createdBy User? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
 }
