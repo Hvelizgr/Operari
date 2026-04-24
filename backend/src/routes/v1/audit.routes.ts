@@ -1,5 +1,6 @@
 import { Response, Router } from 'express';
 
+import { buildDeletedActorSet, redactRow } from '../../audit/audit-redaction';
 import { AuditService } from '../../audit/audit.service';
 import { ApiKeyRequest, requireApiKey } from '../../middleware/api-key.middleware';
 import { prisma } from '../../server';
@@ -127,13 +128,22 @@ router.get('/export', requireApiKey('audit:read'), async (req: ApiKeyRequest, re
   // can show progress + filename immediately.
   res.flushHeaders?.();
 
+  // GDPR: mask any reference to a deleted user before bytes leave
+  // the process. Built once per export by a cheap tombstone-filtered
+  // scan; reused for every row.
+  const deletedActors = await buildDeletedActorSet(getService(), tenantId);
+
   let count = 0;
   try {
     for await (const row of getService().streamEvents(tenantId, { fromSeq })) {
+      const redacted = redactRow(row, deletedActors);
       const serialized = {
-        ...row,
-        seq: row.seq.toString(),
-        createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+        ...redacted,
+        seq: redacted.seq.toString(),
+        createdAt:
+          redacted.createdAt instanceof Date
+            ? redacted.createdAt.toISOString()
+            : redacted.createdAt,
       };
       res.write(JSON.stringify(serialized));
       res.write('\n');
