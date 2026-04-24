@@ -4,8 +4,10 @@ import { AuditService } from '../audit/audit.service';
 import { ExecutionService } from '../editor/execution/execution.service';
 import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
 import { ExecutionEventStore } from '../runbook/engine/execution-event.store';
+import { validateRunInputs } from '../runbook/inputs/validate-run-inputs';
 import { getRunner } from '../runbook/runners';
 import { prisma } from '../server';
+import type { RunbookInputDefinition } from '../types/workflow.types';
 
 let auditService: AuditService | null = null;
 function getAudit(): AuditService {
@@ -382,13 +384,27 @@ router.post('/:workflowId/run', async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Workflow not found' });
     }
 
+    // Validate the caller's `input` against the runbook's declared
+    // typed inputs. When the runbook has no declared inputs the
+    // validator passes the payload through untouched, preserving
+    // historical behavior for runbooks that never opted in.
+    const inputDefs = (workflow.inputs ?? []) as unknown as RunbookInputDefinition[];
+    const validated = validateRunInputs(inputDefs, req.body.input);
+    if (!validated.ok) {
+      return res.status(400).json({
+        error: 'Invalid run inputs',
+        code: 'invalid_run_inputs',
+        issues: validated.issues,
+      });
+    }
+
     const executionService = new ExecutionService(prisma);
     const execution = await executionService.execute({
       workflowId: workflow.id,
       userId: req.user!.id,
       tenantId: req.user!.tenantId,
       trigger: 'MANUAL',
-      input: req.body.input || {},
+      input: validated.values,
       // Dry-run is strictly opt-in per request. The body flag
       // must be literally `true` so there's no way to trigger
       // a dry run by accident from an incorrectly-typed form.
