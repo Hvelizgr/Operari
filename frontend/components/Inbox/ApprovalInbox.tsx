@@ -42,6 +42,9 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     when: 'Created',
     resolved: 'Resolved',
     actionFailed: 'Action failed',
+    grantedOk: 'Approval granted',
+    rejectedOk: 'Approval rejected',
+    viewRun: 'View run →',
   },
   es: {
     title: 'Bandeja de aprobaciones',
@@ -64,6 +67,9 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     when: 'Creada',
     resolved: 'Resuelta',
     actionFailed: 'Acción fallida',
+    grantedOk: 'Aprobación concedida',
+    rejectedOk: 'Aprobación rechazada',
+    viewRun: 'Ver ejecución →',
   },
 };
 
@@ -98,6 +104,14 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, string>>({});
+  // Success banner shown after a resolve lands. Includes the run id
+  // so the operator can jump straight to /runs/:id and watch the run
+  // resume — the action is mid-flow and the next thing they want is
+  // confirmation the engine picked it up.
+  const [success, setSuccess] = useState<{
+    action: 'grant' | 'reject';
+    executionId: string;
+  } | null>(null);
 
   const load = useCallback(
     async (mode: 'replace' | 'append') => {
@@ -130,6 +144,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
   const resolve = async (id: string, action: 'grant' | 'reject') => {
     setBusyId(id);
     setError(null);
+    setSuccess(null);
     try {
       const res = await fetch(`${apiBase}/api/approvals/${id}/${action}`, {
         method: 'POST',
@@ -141,6 +156,10 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
         throw new Error(body.error || `HTTP ${res.status}`);
       }
       const updated = await res.json();
+      // The approval row shows the one we just resolved with its new
+      // status, so we need its executionId to build the "view run"
+      // link — we take it from the row we already have in state.
+      const resolved = approvals.find(a => a.id === id);
       setApprovals(prev =>
         prev.map(a =>
           a.id === id
@@ -154,6 +173,9 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
             : a
         )
       );
+      if (resolved) {
+        setSuccess({ action, executionId: resolved.executionId });
+      }
     } catch (err) {
       setError(`${t.actionFailed}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -187,6 +209,26 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
       {error && (
         <div className="mb-4 rounded border border-red-900 bg-red-950/50 px-4 py-3 text-sm text-red-300">
           {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="mb-4 flex items-center gap-3 rounded border border-emerald-900/60 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">
+          <CheckCircle2 size={14} className="shrink-0" />
+          <span className="flex-1">{success.action === 'grant' ? t.grantedOk : t.rejectedOk}</span>
+          <Link
+            href={`/${lang}/runs/${success.executionId}`}
+            className="shrink-0 text-xs font-medium text-emerald-300 underline-offset-2 hover:underline"
+          >
+            {t.viewRun}
+          </Link>
+          <button
+            onClick={() => setSuccess(null)}
+            aria-label="Dismiss"
+            className="text-emerald-400/60 hover:text-emerald-200"
+          >
+            <XCircle size={14} />
+          </button>
         </div>
       )}
 
