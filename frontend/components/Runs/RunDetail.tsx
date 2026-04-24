@@ -15,6 +15,8 @@ import {
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
+import ExecutionEventLog from './ExecutionEventLog';
+
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 type StepStatus = RunStatus | string;
 
@@ -60,6 +62,7 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     started: 'Started',
     duration: 'Duration',
     steps: 'Steps',
+    events: 'Events',
     replay: 'Replay from this step',
     replaying: 'Starting replay...',
     replaySuccess: 'Replay started',
@@ -76,6 +79,7 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     started: 'Inicio',
     duration: 'Duración',
     steps: 'Pasos',
+    events: 'Eventos',
     replay: 'Re-ejecutar desde aquí',
     replaying: 'Iniciando replay...',
     replaySuccess: 'Replay iniciado',
@@ -395,6 +399,14 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
             );
           })}
         </ol>
+      </section>
+
+      {/* Durable event log — reads from the engine's ExecutionEvent
+          table. When the run is live, the component polls incre-
+          mentally via ?afterSeq so only new events are fetched. */}
+      <section className="mt-8">
+        <h2 className="mb-3 text-sm font-bold uppercase text-zinc-500">{t.events}</h2>
+        <ExecutionEventLog runId={run.id} lang={lang} live={run.status === 'RUNNING'} />
       </section>
     </div>
   );
