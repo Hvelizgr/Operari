@@ -77,6 +77,13 @@ const STRINGS = {
     greetingAfternoon: 'Good afternoon',
     greetingEvening: 'Good evening',
     today: 'Operational pulse · last 24h',
+    bannerFailures: 'failing',
+    bannerStuck: 'stuck',
+    bannerApprovals: 'pending approvals',
+    bannerJump: 'Review →',
+    lastUpdatePrefix: 'Last update',
+    lastUpdateJustNow: 'just now',
+    lastUpdateAgo: 'ago',
     pulseRuns24h: 'Runs · 24h',
     pulseSuccess: 'Success rate',
     pulseAvg: 'Avg duration',
@@ -107,6 +114,13 @@ const STRINGS = {
     greetingAfternoon: 'Buenas tardes',
     greetingEvening: 'Buenas noches',
     today: 'Pulso operativo · últimas 24h',
+    bannerFailures: 'fallando',
+    bannerStuck: 'atascados',
+    bannerApprovals: 'aprobaciones pendientes',
+    bannerJump: 'Revisar →',
+    lastUpdatePrefix: 'Última señal',
+    lastUpdateJustNow: 'ahora mismo',
+    lastUpdateAgo: 'atrás',
     pulseRuns24h: 'Ejecuciones · 24h',
     pulseSuccess: 'Tasa de éxito',
     pulseAvg: 'Duración media',
@@ -178,6 +192,14 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
   const router = useRouter();
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  // Re-render once per second so the "last update Xs ago" ticker stays
+  // honest. Cheap because the whole page is static between polls.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(x => x + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const askAiAboutRun = async (runId: string) => {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -206,6 +228,7 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
         if (!cancelled) {
           setData(json);
           setError(null);
+          setLastUpdatedAt(Date.now());
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'unknown');
@@ -225,13 +248,64 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
       data.attention.stuckRuns.length > 0 ||
       data.attention.recentFailures.length > 0);
 
+  // Supabase-style collapsing banner. When all is well, it does not
+  // render at all (zero vertical space). When something needs
+  // attention, it dominates the top of the page with tinted bg + counts
+  // + a jump CTA so a 3am operator sees the situation in one glance.
+  const banner = (() => {
+    if (!data || !hasAttention) return null;
+    const failing = data.attention.recentFailures.length;
+    const stuck = data.attention.stuckRuns.length;
+    const approvals = data.attention.pendingApprovals.length;
+    const tone = failing > 0 ? 'err' : 'warn';
+    const bg =
+      tone === 'err'
+        ? 'border-red-500/40 bg-red-950/40 text-red-100'
+        : 'border-amber-500/40 bg-amber-950/30 text-amber-100';
+    const dot = tone === 'err' ? 'bg-red-400' : 'bg-amber-400';
+    const parts: string[] = [];
+    if (failing > 0) parts.push(`${failing} ${t.bannerFailures}`);
+    if (stuck > 0) parts.push(`${stuck} ${t.bannerStuck}`);
+    if (approvals > 0) parts.push(`${approvals} ${t.bannerApprovals}`);
+    return (
+      <div className={`mb-6 flex items-center gap-3 rounded-md border px-4 py-3 text-sm ${bg}`}>
+        <span className={`h-2 w-2 flex-shrink-0 animate-pulse rounded-full ${dot}`} />
+        <span className="flex-1">{parts.join(' · ')}</span>
+        <button
+          onClick={() => router.push(`/${lang}/runs`)}
+          className="rounded px-2 py-1 text-xs font-medium underline-offset-2 hover:underline"
+        >
+          {t.bannerJump}
+        </button>
+      </div>
+    );
+  })();
+
+  // "Last update Xs ago" ticker. Reassures the operator the pipeline
+  // is live even when the page shows zeros — a common concern with
+  // polled dashboards (Grafana OnCall pattern).
+  const lastUpdateText = (() => {
+    if (lastUpdatedAt == null) return null;
+    const sec = Math.max(0, Math.floor((Date.now() - lastUpdatedAt) / 1000));
+    if (sec < 3) return `${t.lastUpdatePrefix} · ${t.lastUpdateJustNow}`;
+    if (sec < 60) return `${t.lastUpdatePrefix} · ${sec}s ${t.lastUpdateAgo}`;
+    const min = Math.floor(sec / 60);
+    return `${t.lastUpdatePrefix} · ${min}m ${t.lastUpdateAgo}`;
+  })();
+
   return (
     <div className="flex-1 overflow-y-auto bg-[#0f1218] text-gray-200">
       <div className="mx-auto max-w-6xl px-6 py-8">
+        {banner}
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-white">{greeting(t)}</h1>
-          <p className="mt-1 text-sm text-gray-500">{t.today}</p>
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-white">{greeting(t)}</h1>
+            <p className="mt-1 text-sm text-gray-500">{t.today}</p>
+          </div>
+          {lastUpdateText && (
+            <div className="whitespace-nowrap pt-2 text-[11px] text-gray-600">{lastUpdateText}</div>
+          )}
         </div>
 
         {error && (

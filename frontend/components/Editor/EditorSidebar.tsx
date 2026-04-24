@@ -7,10 +7,12 @@ import {
   CalendarClock,
   ChevronLeft,
   ChevronRight,
+  Database,
   History,
   Inbox,
   LayoutDashboard,
   LogOut,
+  type LucideIcon,
   Menu,
   MessageSquare,
   Settings,
@@ -24,10 +26,25 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import GlobalCommandPalette from '@/components/Common/GlobalCommandPalette';
+import StatusPill from '@/components/Common/StatusPill';
 import { useAuth } from '@/lib/auth';
 
 interface EditorSidebarProps {
   lang: 'en' | 'es';
+}
+
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  href: string;
+}
+
+interface MenuGroup {
+  id: string;
+  label: string;
+  items: MenuItem[];
 }
 
 export default function EditorSidebar({ lang }: EditorSidebarProps) {
@@ -81,72 +98,106 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
     setDrawerOpen(false);
   }, [pathname]);
 
-  const menuItems = [
+  // Grouped navigation. OPERATE = what a user hits first during an
+  // incident. EXPLORE = investigative tools (SQL + dev surfaces).
+  // LIBRARY = configuration-time stuff. ADMIN sits at the bottom by
+  // gravity, separate from operational flow.
+  const menuGroups: MenuGroup[] = [
     {
-      id: 'dashboard',
-      label: lang === 'en' ? 'Dashboard' : 'Panel',
-      icon: LayoutDashboard,
-      href: `/${lang}/dashboard`,
+      id: 'operate',
+      label: lang === 'en' ? 'Operate' : 'Operar',
+      items: [
+        {
+          id: 'dashboard',
+          label: lang === 'en' ? 'Dashboard' : 'Panel',
+          icon: LayoutDashboard,
+          href: `/${lang}/dashboard`,
+        },
+        {
+          id: 'runbooks',
+          label: 'Runbooks',
+          icon: Share2,
+          href: `/${lang}/runbooks`,
+        },
+        {
+          id: 'runs',
+          label: lang === 'en' ? 'Run history' : 'Historial',
+          icon: History,
+          href: `/${lang}/runs`,
+        },
+        {
+          id: 'inbox',
+          label: lang === 'en' ? 'Inbox' : 'Bandeja',
+          icon: Inbox,
+          href: `/${lang}/inbox`,
+        },
+        {
+          id: 'monitors',
+          label: lang === 'en' ? 'Monitors' : 'Monitores',
+          icon: Activity,
+          href: `/${lang}/monitors`,
+        },
+        {
+          id: 'events',
+          label: lang === 'en' ? 'Events' : 'Eventos',
+          icon: Zap,
+          href: `/${lang}/events`,
+        },
+      ],
     },
     {
-      id: 'chat',
-      label: lang === 'en' ? 'AI Assistant' : 'Asistente IA',
-      icon: MessageSquare,
-      href: `/${lang}/chat`,
+      id: 'explore',
+      label: lang === 'en' ? 'Explore' : 'Explorar',
+      items: [
+        {
+          id: 'sql',
+          label: lang === 'en' ? 'SQL Editor' : 'SQL Editor',
+          icon: Database,
+          href: `/${lang}/sql-editor`,
+        },
+        {
+          id: 'agents',
+          label: lang === 'en' ? 'Agents' : 'Agentes',
+          icon: Bot,
+          href: `/${lang}/agents`,
+        },
+        {
+          id: 'chat',
+          label: lang === 'en' ? 'AI Assistant' : 'Asistente IA',
+          icon: MessageSquare,
+          href: `/${lang}/chat`,
+        },
+      ],
     },
     {
-      id: 'agents',
-      label: lang === 'en' ? 'Agents' : 'Agentes',
-      icon: Bot,
-      href: `/${lang}/agents`,
-    },
-    {
-      id: 'schedules',
-      label: lang === 'en' ? 'Schedules' : 'Horarios',
-      icon: CalendarClock,
-      href: `/${lang}/schedules`,
-    },
-    {
-      id: 'runbooks',
-      label: lang === 'en' ? 'Runbooks' : 'Runbooks',
-      icon: Share2,
-      href: `/${lang}/runbooks`,
-    },
-    {
-      id: 'inbox',
-      label: lang === 'en' ? 'Inbox' : 'Bandeja',
-      icon: Inbox,
-      href: `/${lang}/inbox`,
-    },
-    {
-      id: 'runs',
-      label: lang === 'en' ? 'Run history' : 'Historial',
-      icon: History,
-      href: `/${lang}/runs`,
-    },
-    {
-      id: 'monitors',
-      label: lang === 'en' ? 'Monitors' : 'Monitores',
-      icon: Activity,
-      href: `/${lang}/monitors`,
-    },
-    {
-      id: 'events',
-      label: lang === 'en' ? 'Events' : 'Eventos',
-      icon: Zap,
-      href: `/${lang}/events`,
-    },
-    {
-      id: 'tools',
-      label: lang === 'en' ? 'Utilities' : 'Utilidades',
-      icon: Wrench,
-      href: `/${lang}/utilities`,
+      id: 'library',
+      label: lang === 'en' ? 'Library' : 'Biblioteca',
+      items: [
+        {
+          id: 'schedules',
+          label: lang === 'en' ? 'Schedules' : 'Horarios',
+          icon: CalendarClock,
+          href: `/${lang}/schedules`,
+        },
+        {
+          id: 'tools',
+          label: lang === 'en' ? 'Utilities' : 'Utilidades',
+          icon: Wrench,
+          href: `/${lang}/utilities`,
+        },
+      ],
     },
     {
       id: 'admin',
       label: lang === 'en' ? 'Admin' : 'Admin',
-      icon: ShieldCheck,
-      href: `/${lang}/admin`,
+      items: [
+        {
+          id: 'admin',
+          label: lang === 'en' ? 'Admin' : 'Admin',
+          icon: ShieldCheck,
+          href: `/${lang}/admin`,
+        },
+      ],
     },
   ];
 
@@ -187,40 +238,52 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           )}
         </div>
 
-        {/* Menu Items */}
+        {/* Menu Groups */}
         <div className="flex-1 overflow-y-auto py-2">
-          {menuItems.map(item => {
-            const href = 'href' in item ? item.href : undefined;
-            const isActive = href ? pathname.startsWith(href) : false;
-            const Icon = item.icon;
-            return (
-              <div
-                key={item.id}
-                onClick={() => {
-                  if (href) router.push(href);
-                }}
-                className={`mx-2 my-1 flex cursor-pointer items-center rounded-md px-3 py-2 transition-all duration-200 ${
-                  isActive
-                    ? 'bg-primary text-white shadow-md'
-                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                }`}
-                title={!showLabels ? item.label : ''}
-              >
-                <div className="flex min-w-[20px] justify-center">
-                  <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+          {menuGroups.map((group, groupIdx) => (
+            <div key={group.id}>
+              {/* Separator line between groups. When collapsed, a
+                  plain hairline stands in for the label so the
+                  grouping is still visible. */}
+              {groupIdx > 0 && (
+                <div className="mx-3 my-2 border-t border-white/5" aria-hidden="true" />
+              )}
+              {showLabels && (
+                <div className="mb-1 mt-1 px-4 text-[10px] font-semibold uppercase tracking-wider text-gray-600">
+                  {group.label}
                 </div>
-                {showLabels && (
-                  <motion.span
-                    className="ml-3 truncate text-sm font-medium"
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
+              )}
+              {group.items.map(item => {
+                const isActive = pathname.startsWith(item.href);
+                const Icon = item.icon;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => router.push(item.href)}
+                    className={`mx-2 my-0.5 flex cursor-pointer items-center rounded-md px-3 py-2 transition-all duration-200 ${
+                      isActive
+                        ? 'bg-primary text-white shadow-md'
+                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                    }`}
+                    title={!showLabels ? item.label : ''}
                   >
-                    {item.label}
-                  </motion.span>
-                )}
-              </div>
-            );
-          })}
+                    <div className="flex min-w-[20px] justify-center">
+                      <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                    </div>
+                    {showLabels && (
+                      <motion.span
+                        className="ml-3 truncate text-sm font-medium"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                      >
+                        {item.label}
+                      </motion.span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
 
         {/* Footer / User */}
@@ -273,6 +336,8 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
   if (isMobile) {
     return (
       <>
+        <StatusPill lang={lang} />
+        <GlobalCommandPalette lang={lang} />
         <button
           onClick={() => setDrawerOpen(true)}
           className="fixed left-3 top-3 z-[60] rounded-md border border-white/10 bg-[#2a2f3a] p-2 text-white shadow-lg"
@@ -304,21 +369,25 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
   }
 
   return (
-    <motion.div
-      className="relative z-50 flex h-screen flex-shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--sidebar-background-color)] text-[var(--sidebar-text-color)]"
-      initial={{ width: 220 }}
-      animate={{ width: collapsed ? 50 : 220 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      style={
-        {
-          '--sidebar-background-color': '#2a2f3a',
-          '--sidebar-text-color': '#ccc',
-          '--sidebar-active-background': '#3b82f6',
-          '--sidebar-active-text': '#fff',
-        } as React.CSSProperties
-      }
-    >
-      {renderContents(false)}
-    </motion.div>
+    <>
+      <StatusPill lang={lang} />
+      <GlobalCommandPalette lang={lang} />
+      <motion.div
+        className="relative z-50 flex h-screen flex-shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--sidebar-background-color)] text-[var(--sidebar-text-color)]"
+        initial={{ width: 220 }}
+        animate={{ width: collapsed ? 50 : 220 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        style={
+          {
+            '--sidebar-background-color': '#2a2f3a',
+            '--sidebar-text-color': '#ccc',
+            '--sidebar-active-background': '#3b82f6',
+            '--sidebar-active-text': '#fff',
+          } as React.CSSProperties
+        }
+      >
+        {renderContents(false)}
+      </motion.div>
+    </>
   );
 }
