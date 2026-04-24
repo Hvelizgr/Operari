@@ -152,6 +152,33 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
   // closure. Making it state would re-fire the effect on every update.
   const afterSeqRef = useRef<string | null>(null);
   const [cancelState, setCancelState] = useState<'idle' | 'cancelling' | 'failed'>('idle');
+  // Follow-tail: when live, new events auto-scroll the list to the
+  // bottom. The operator can pause that by scrolling up — the onScroll
+  // handler sets autoFollow=false when we're more than 48px above the
+  // bottom, and flips back to true when they scroll back down.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [autoFollow, setAutoFollow] = useState(true);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
+    // 48 px threshold: small enough that clicking a row doesn't
+    // register as "scrolling away", big enough to forgive the
+    // fractional pixels some browsers emit on wheel events.
+    setAutoFollow(distanceFromBottom < 48);
+  };
+
+  useEffect(() => {
+    if (!autoFollow) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    // Jump, not smooth-scroll: a streaming run can drop 5 events per
+    // second and `behavior: 'smooth'` queues animations that fight
+    // each other and look jittery. Instant scroll keeps the tail
+    // pinned without visual lag.
+    el.scrollTop = el.scrollHeight;
+  }, [events.length, autoFollow]);
 
   const cancelRun = async () => {
     // One-shot confirm — aborting a run is a non-trivial action
@@ -345,7 +372,11 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
         </div>
       </div>
 
-      <div className="max-h-[560px] overflow-y-auto font-mono text-[12px]">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="max-h-[560px] overflow-y-auto font-mono text-[12px]"
+      >
         {loading && events.length === 0 && (
           <div className="px-4 py-6 text-center text-zinc-500">{t.loading}</div>
         )}
