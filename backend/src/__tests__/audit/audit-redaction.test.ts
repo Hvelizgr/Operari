@@ -1,6 +1,7 @@
 process.env.JWT_SECRET = 'test-secret-key-at-least-32-chars-long-123';
 process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://x:y@localhost:5432/z';
 
+import type { AuditService } from '../../audit/audit.service';
 import {
   AuditExportRow,
   buildDeletedActorSet,
@@ -8,7 +9,6 @@ import {
   redactPayload,
   redactRow,
 } from '../../audit/audit-redaction';
-import type { AuditService } from '../../audit/audit.service';
 
 const row = (overrides: Partial<AuditExportRow> = {}): AuditExportRow => ({
   id: 'evt-1',
@@ -153,7 +153,6 @@ describe('redactRow', () => {
 describe('buildDeletedActorSet', () => {
   function fakeAudit(rows: AuditExportRow[]): AuditService {
     return {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       streamEvents: async function* (_tenantId: string, opts: any) {
         for (const r of rows) {
           if (opts?.types && !opts.types.includes(r.type)) continue;

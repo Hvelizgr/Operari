@@ -61,7 +61,6 @@ describe('recordWebhookEvent', () => {
   const buildPrisma = (createImpl: jest.Mock) =>
     ({
       webhookEvent: { create: createImpl },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }) as any;
 
   it('returns { duplicate: false } on successful insert', async () => {

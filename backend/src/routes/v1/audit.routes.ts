@@ -1,7 +1,7 @@
 import { Response, Router } from 'express';
 
-import { buildDeletedActorSet, redactRow } from '../../audit/audit-redaction';
 import { AuditService } from '../../audit/audit.service';
+import { buildDeletedActorSet, redactRow } from '../../audit/audit-redaction';
 import { ApiKeyRequest, requireApiKey } from '../../middleware/api-key.middleware';
 import { prisma } from '../../server';
 

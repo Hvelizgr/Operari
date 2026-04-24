@@ -3,11 +3,10 @@ process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://x:y@localho
 
 import { MonitorAlertService } from '../../services/monitor-alert.service';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 jest.mock('../../services/email.service', () => ({
   sendEmail: jest.fn(),
 }));
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 const { sendEmail } = require('../../services/email.service') as {
   sendEmail: jest.Mock;
 };

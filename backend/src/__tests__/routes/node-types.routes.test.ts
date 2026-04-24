@@ -10,14 +10,13 @@ import request from 'supertest';
 // Intercept PrismaClient's constructor because the route instantiates
 // its own client. A per-test capture of the findMany args lets us
 // assert the tenant-scope filter without standing up a real DB.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 let lastFindManyArgs: any = null;
 let findManyRows: Array<{ type: string; tenantId: string | null }> = [];
 jest.mock('@prisma/client', () => {
   return {
     PrismaClient: jest.fn().mockImplementation(() => ({
       nodeType: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         findMany: jest.fn(async (args: any) => {
           lastFindManyArgs = args;
           return findManyRows;
@@ -29,17 +28,15 @@ jest.mock('@prisma/client', () => {
 
 // Stub the soft-auth middleware BEFORE importing the route so we can
 // control whether req.user is attached per-test.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 let authInjectsUser: { id: string; email: string; role: string; tenantId: string } | null = null;
 jest.mock('../../middleware/auth.middleware', () => ({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   attachUserIfPresent: (req: any, _res: any, next: any) => {
     if (authInjectsUser) req.user = authInjectsUser;
     next();
   },
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const router = require('../../routes/node-types.routes').default as express.Router;
 
 function buildApp(): express.Application {

@@ -8,7 +8,6 @@ import { Prisma } from '@prisma/client';
 
 import { QueuedBillingMeter } from '../../billing/queued-billing-meter';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildPrismaStub(createImpl: jest.Mock): any {
   return { billingEvent: { create: createImpl } };
 }

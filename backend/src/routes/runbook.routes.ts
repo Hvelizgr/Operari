@@ -53,7 +53,7 @@ async function safeCreateVersion(runbookId: string, actorId: string): Promise<vo
     await getVersioner().createVersion({ runbookId, actorId });
   } catch (err) {
     // intentional: log-level only; callers must not know about this.
-    // eslint-disable-next-line no-console
+
     console.warn('runbook-version: createVersion failed', { runbookId, err });
   }
 }

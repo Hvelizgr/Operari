@@ -7,11 +7,11 @@ import { QueuedBillingMeter } from './queued-billing-meter';
 import { StripeBillingMeter } from './stripe-billing-meter';
 import { buildStripeMeterEventSender } from './stripe-http-client';
 
-export { BillingDispatchWorker } from './billing-dispatch-worker';
 export type {
   BillingDispatchReport,
   BillingDispatchWorkerOptions,
 } from './billing-dispatch-worker';
+export { BillingDispatchWorker } from './billing-dispatch-worker';
 export type { BillableEvent, BillableEventType, BillingMeter } from './billing-meter.types';
 export { NoopBillingMeter } from './noop-billing-meter';
 export { QueuedBillingMeter } from './queued-billing-meter';

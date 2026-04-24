@@ -2,8 +2,8 @@ import type { Role } from '@prisma/client';
 import { type Response, Router } from 'express';
 import { z } from 'zod';
 
-import { buildDeletedActorSet, redactRow } from '../audit/audit-redaction';
 import { AuditService } from '../audit/audit.service';
+import { buildDeletedActorSet, redactRow } from '../audit/audit-redaction';
 import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
 import { prisma } from '../server';
 
