@@ -229,4 +229,126 @@ describe('LogStreamService', () => {
       expect(entry.metadata).toBeUndefined();
     });
   });
+
+  // ─── G.2 — subscribe() async iterable ─────────────────────────────
+
+  describe('subscribe', () => {
+    /**
+     * Build a fake ioredis whose xread() is scripted — test supplies
+     * a queue of responses and each xread() call shifts one off. Null
+     * means "BLOCK timeout, no entries" (the generator should loop).
+     */
+    function buildScriptedRedis(
+      script: Array<Array<[string, Array<[string, string[]]>]> | null>
+    ): Redis {
+      const xread = jest.fn(async () => {
+        const next = script.shift();
+        // When the script runs out, emulate Redis continuing to block.
+        // Resolve immediately with no entries so the generator loop
+        // checks the abort signal promptly rather than hanging.
+        return next === undefined ? null : next;
+      });
+      return { xread } as unknown as Redis;
+    }
+
+    const mkRow = (id: string, message: string): [string, string[]] => [
+      id,
+      ['message', message, 'timestamp', '2026-04-07T00:00:00Z'],
+    ];
+
+    it('yields entries from a single xread batch in order', async () => {
+      const redis = buildScriptedRedis([
+        [['runs:exec-1:logs', [mkRow('1-0', 'a'), mkRow('1-1', 'b')]]],
+      ]);
+      const svc = new LogStreamService(redis);
+
+      const controller = new AbortController();
+      const seen: string[] = [];
+      (async () => {
+        for await (const entry of svc.subscribe('exec-1', { signal: controller.signal })) {
+          seen.push(entry.message);
+          if (seen.length === 2) controller.abort();
+        }
+      })();
+      // Drain microtasks so the generator runs. Two read cycles are
+      // enough for the batch + abort check.
+      await new Promise(r => setImmediate(r));
+      await new Promise(r => setImmediate(r));
+      await new Promise(r => setImmediate(r));
+
+      expect(seen).toEqual(['a', 'b']);
+    });
+
+    it('keeps looping through BLOCK timeouts (null result) until aborted', async () => {
+      const redis = buildScriptedRedis([
+        null, // first xread: BLOCK timeout, no entries
+        null, // second: same
+        [['runs:exec-1:logs', [mkRow('1-0', 'late')]]], // third: finally a row
+      ]);
+      const svc = new LogStreamService(redis);
+
+      const controller = new AbortController();
+      const seen: string[] = [];
+      (async () => {
+        for await (const entry of svc.subscribe('exec-1', { signal: controller.signal })) {
+          seen.push(entry.message);
+          controller.abort();
+        }
+      })();
+      for (let i = 0; i < 10; i++) await new Promise(r => setImmediate(r));
+
+      expect(seen).toEqual(['late']);
+    });
+
+    it('yields nothing when redis is not configured', async () => {
+      const svc = new LogStreamService(null);
+      const seen: string[] = [];
+      for await (const entry of svc.subscribe('exec-1')) {
+        seen.push(entry.message);
+      }
+      expect(seen).toEqual([]);
+    });
+
+    it('advances the cursor to the last yielded id so the next xread skips earlier entries', async () => {
+      const xread = jest.fn(async (...args: unknown[]) => {
+        // args = ['COUNT', 500, 'BLOCK', blockMs, 'STREAMS', key, cursor]
+        const cursor = args[args.length - 1];
+        if (cursor === '$') {
+          return [['runs:exec-1:logs', [mkRow('5-0', 'first')]]];
+        }
+        if (cursor === '5-0') {
+          return [['runs:exec-1:logs', [mkRow('6-0', 'second')]]];
+        }
+        // Anything else: BLOCK timeout forever (abort handles exit).
+        return null;
+      });
+      const redis = { xread } as unknown as Redis;
+      const svc = new LogStreamService(redis);
+
+      const controller = new AbortController();
+      const seen: string[] = [];
+      (async () => {
+        for await (const entry of svc.subscribe('exec-1', { signal: controller.signal })) {
+          seen.push(entry.message);
+          if (seen.length === 2) controller.abort();
+        }
+      })();
+      for (let i = 0; i < 10; i++) await new Promise(r => setImmediate(r));
+
+      expect(seen).toEqual(['first', 'second']);
+    });
+
+    it('ends the loop on redis xread error (no throw to consumer)', async () => {
+      const redis = {
+        xread: jest.fn().mockRejectedValue(new Error('connection lost')),
+      } as unknown as Redis;
+      const svc = new LogStreamService(redis);
+
+      const seen: string[] = [];
+      for await (const entry of svc.subscribe('exec-1')) {
+        seen.push(entry.message);
+      }
+      expect(seen).toEqual([]);
+    });
+  });
 });

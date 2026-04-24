@@ -286,22 +286,82 @@ router.get('/:id/logs', async (req: AuthRequest, res) => {
     }
 
     const fromId = (req.query.fromId as string | undefined) ?? '-';
+    const followParam = req.query.follow as string | undefined;
+    const follow = followParam === 'true' || followParam === '1';
     const countParam = req.query.count as string | undefined;
     let count = countParam ? parseInt(countParam, 10) : 1000;
     if (!Number.isFinite(count) || count < 1) count = 1000;
     if (count > 10000) count = 10000;
 
     const { getLogStream } = require('../observability/log-stream.service');
-    const entries = await getLogStream().fetch(executionId, { fromId, count });
-    const total = await getLogStream().length(executionId);
+    const logStream = getLogStream();
 
-    return res.json({
-      executionId,
-      entries,
-      count: entries.length,
-      totalApprox: total,
-      nextFromId: entries.length > 0 ? entries[entries.length - 1].id : null,
-    });
+    if (!follow) {
+      // Snapshot mode — the original behavior. Returns a bounded
+      // page and the cursor the client should pass on a follow-up
+      // call to paginate.
+      const entries = await logStream.fetch(executionId, { fromId, count });
+      const total = await logStream.length(executionId);
+      return res.json({
+        executionId,
+        entries,
+        count: entries.length,
+        totalApprox: total,
+        nextFromId: entries.length > 0 ? entries[entries.length - 1].id : null,
+      });
+    }
+
+    // Follow mode — Server-Sent Events. The client opens a single
+    // long-lived connection and receives every new log line until it
+    // closes the connection or this handler cancels.
+    //
+    // Protocol:
+    //   data: {"id":"1712...","message":"...","timestamp":"..."}\n\n
+    //
+    // We send a backlog prefix so a reconnect picks up where the
+    // previous call left off: fetch(start..end) then subscribe from
+    // the last id. If the backlog is empty we subscribe from '$' so
+    // we don't replay the entire history on every tail.
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // nginx: don't buffer SSE
+    res.flushHeaders?.();
+
+    // AbortController wired to the HTTP close event so the subscribe
+    // generator unwinds cleanly when the client disconnects or the
+    // server cancels the response.
+    const controller = new AbortController();
+    res.on('close', () => controller.abort());
+
+    try {
+      // 1. Backlog from the requested cursor. Cap at 10k so a giant
+      //    stream doesn't dominate a single response.
+      const backlog = await logStream.fetch(executionId, { fromId, count: 10_000 });
+      for (const entry of backlog) {
+        if (controller.signal.aborted) break;
+        res.write(`id: ${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`);
+      }
+      // 2. Then tail from whichever id comes next. '$' means "only
+      //    entries NEWER than this call" — the right default when the
+      //    backlog was empty so we don't replay history.
+      const tailCursor = backlog.length > 0 ? backlog[backlog.length - 1].id : '$';
+
+      for await (const entry of logStream.subscribe(executionId, {
+        fromId: tailCursor,
+        signal: controller.signal,
+      })) {
+        if (controller.signal.aborted) break;
+        res.write(`id: ${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`);
+      }
+    } catch (err) {
+      // Stream broke mid-flight. Headers are already sent so we can't
+      // switch to a 500 — just log and close. The client sees a dropped
+      // connection and can reconnect with the last-seen id.
+      req.log.error({ err, executionId }, 'SSE logs stream failed');
+    }
+    res.end();
+    return;
   } catch (error) {
     req.log.error({ error }, 'Fetch logs error');
     return res.status(500).json({ error: 'Failed to fetch logs' });

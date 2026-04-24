@@ -5,6 +5,7 @@ import { whoamiCommand } from './commands/whoami';
 import { listCommand } from './commands/list';
 import { runCommand } from './commands/run';
 import { statusCommand } from './commands/status';
+import { logsCommand } from './commands/logs';
 import { auditVerifyCommand } from './commands/audit/verify';
 import { approvalGrantCommand } from './commands/approval/grant';
 import { approvalRejectCommand } from './commands/approval/reject';
@@ -41,6 +42,14 @@ program
   .action(runCommand);
 
 program.command('status <runId>').description('Get the status of a run').action(statusCommand);
+
+program
+  .command('logs <runId>')
+  .description("Print a run's log stream (snapshot or live tail)")
+  .option('-f, --follow', 'Tail live via SSE; prints entries as the runtime emits them')
+  .option('--from-id <id>', 'Resume cursor (redis stream id) — useful after a dropped tail')
+  .option('--count <n>', 'Max entries per snapshot (1-10000, default 1000)')
+  .action(logsCommand);
 
 const audit = program.command('audit').description('Tamper-evident audit log operations');
 
