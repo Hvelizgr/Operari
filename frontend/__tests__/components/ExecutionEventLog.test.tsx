@@ -335,6 +335,45 @@ describe('ExecutionEventLog', () => {
     expect(screen.queryByRole('button', { name: /stop/i })).not.toBeInTheDocument();
   });
 
+  it('reveals the "Jump to latest" pill when the user scrolls away from the tail', async () => {
+    fetchMock.mockResolvedValue(
+      respond({
+        data: [
+          mkEvent({ seq: '1', type: 'step.started', nodeId: 'n', payload: {} }),
+          mkEvent({ seq: '2', type: 'step.started', nodeId: 'n2', payload: {} }),
+        ],
+        nextAfterSeq: null,
+      })
+    );
+    const { container } = render(<ExecutionEventLog runId="run-1" lang="en" />);
+    await waitFor(() => expect(screen.getAllByText('step.started').length).toBeGreaterThan(0));
+
+    // Not visible before the user scrolls — autoFollow starts true.
+    expect(screen.queryByText('Jump to latest')).not.toBeInTheDocument();
+
+    // jsdom doesn't derive scroll geometry; stub the values that the
+    // onScroll handler reads (scrollHeight - clientHeight - scrollTop).
+    // 1000-200-100 = 700, well above the 48 px threshold, so the
+    // handler should flip autoFollow off.
+    const scrollEl = container.querySelector('.max-h-\\[560px\\]') as HTMLDivElement;
+    expect(scrollEl).toBeTruthy();
+    Object.defineProperty(scrollEl, 'scrollHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(scrollEl, 'clientHeight', { configurable: true, value: 200 });
+    Object.defineProperty(scrollEl, 'scrollTop', {
+      configurable: true,
+      value: 100,
+      writable: true,
+    });
+    fireEvent.scroll(scrollEl);
+
+    expect(await screen.findByText('Jump to latest')).toBeInTheDocument();
+
+    // Clicking the pill re-pins to the bottom and hides itself.
+    fireEvent.click(screen.getByRole('button', { name: /jump to latest/i }));
+    expect(scrollEl.scrollTop).toBe(1000);
+    expect(screen.queryByText('Jump to latest')).not.toBeInTheDocument();
+  });
+
   it('shows the LIVE badge only when live is true', async () => {
     fetchMock.mockResolvedValue(respond({ data: [], nextAfterSeq: null }));
     const { rerender } = render(<ExecutionEventLog runId="run-1" lang="en" />);

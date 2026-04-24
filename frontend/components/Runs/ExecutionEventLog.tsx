@@ -1,6 +1,14 @@
 'use client';
 
-import { AlertTriangle, ChevronDown, ChevronRight, Filter, Loader2, Square } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowDown,
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  Loader2,
+  Square,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 export interface ExecutionEventRow {
@@ -119,6 +127,7 @@ const LABELS = {
     stopping: 'Stopping…',
     stopFailed: 'Could not cancel',
     stopConfirm: 'Stop this run?',
+    jumpToLatest: 'Jump to latest',
   },
   es: {
     title: 'Registro de eventos',
@@ -133,6 +142,7 @@ const LABELS = {
     stopping: 'Deteniendo…',
     stopFailed: 'No se pudo cancelar',
     stopConfirm: '¿Detener esta ejecución?',
+    jumpToLatest: 'Ir al final',
   },
 } as const;
 
@@ -353,7 +363,7 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
   };
 
   return (
-    <div className="flex flex-col rounded-md border border-zinc-800 bg-zinc-950">
+    <div className="relative flex flex-col rounded-md border border-zinc-800 bg-zinc-950">
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-2">
         <div className="flex items-center gap-2">
           <Filter size={14} className="text-zinc-500" />
@@ -455,6 +465,27 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
           );
         })}
       </div>
+
+      {/* Jump-to-latest pill — surfaces only when the operator has
+          scrolled up (autoFollow=false) and there's at least one
+          event to scroll to. Clicking pins the view to the tail and
+          flips autoFollow back on so new events keep following.
+          Positioned absolute-bottom-center over the list so it does
+          not displace content when it appears/disappears. */}
+      {!autoFollow && events.length > 0 && (
+        <button
+          onClick={() => {
+            const el = scrollRef.current;
+            if (!el) return;
+            el.scrollTop = el.scrollHeight;
+            setAutoFollow(true);
+          }}
+          className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/20 px-3 py-1 text-[11px] font-semibold text-sky-200 shadow-lg backdrop-blur-sm transition-colors hover:bg-sky-500/30"
+        >
+          <ArrowDown size={11} />
+          {t.jumpToLatest}
+        </button>
+      )}
     </div>
   );
 }
