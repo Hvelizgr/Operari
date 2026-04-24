@@ -177,6 +177,21 @@ function formatDuration(ms: number | null): string {
   return `${(ms / 3_600_000).toFixed(1)}h`;
 }
 
+// Elapsed-time formatter for live counters. Different from
+// formatDuration because a ticking live counter reads more naturally
+// as "0:42 → 0:43 → 0:44" than "42.0s → 43.0s → 44.0s" (human stable
+// rhythm + tabular layout). Falls back to hh:mm:ss past the hour.
+function formatElapsed(sinceIso: string, now: number): string {
+  const ms = Math.max(0, now - new Date(sinceIso).getTime());
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const mm = m.toString().padStart(2, '0');
+  const ss = s.toString().padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+}
+
 function formatPercent(rate: number | null): string {
   if (rate == null) return '—';
   return `${(rate * 100).toFixed(1)}%`;
@@ -474,6 +489,12 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
                   >
                     <span className="bg-primary h-2 w-2 animate-pulse rounded-full" />
                     <span className="flex-1 text-gray-300">{r.runbookName}</span>
+                    {/* Elapsed time off startedAt. Reads live via the
+                        1 s tick state already running for the "last
+                        update" ticker, so no extra timer needed. */}
+                    <span className="font-mono text-xs tabular-nums text-gray-400">
+                      {formatElapsed(r.startedAt, Date.now())}
+                    </span>
                     <span className="text-xs text-gray-500">{r.trigger ?? 'manual'}</span>
                   </button>
                 </li>
