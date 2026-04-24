@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { logger } from '../../config/logger.config';
 import { ExecutionService } from '../../editor/execution/execution.service';
 import { ApiKeyRequest, requireApiKey } from '../../middleware/api-key.middleware';
+import { validateRunInputs } from '../../runbook/inputs/validate-run-inputs';
 import { prisma } from '../../server';
+import type { RunbookInputDefinition } from '../../types/workflow.types';
 
 const router = Router();
 
@@ -81,12 +83,26 @@ router.post(
         });
       }
 
+      // Validate against declared typed inputs. Same behavior as the
+      // UI's run endpoint: runbooks without declared inputs pass the
+      // payload through untouched so existing SDK consumers that send
+      // free-form variables stay compatible.
+      const inputDefs = (runbook.inputs ?? []) as unknown as RunbookInputDefinition[];
+      const validated = validateRunInputs(inputDefs, variables);
+      if (!validated.ok) {
+        return res.status(400).json({
+          error: 'Invalid run inputs',
+          code: 'invalid_run_inputs',
+          issues: validated.issues,
+        });
+      }
+
       // Trigger via the existing ExecutionService — same engine the UI uses
       const execution = await getExecutionService().execute({
         workflowId: runbook.id,
         userId: runbook.userId,
         trigger: 'API',
-        input: variables ?? {},
+        input: validated.values,
         tenantId,
         dryRun,
       });
