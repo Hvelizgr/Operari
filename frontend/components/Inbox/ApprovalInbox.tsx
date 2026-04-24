@@ -1,6 +1,7 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Loader2, XCircle } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
@@ -227,9 +228,16 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
                     <span>
                       {t.runbook}: <span className="text-zinc-200">{a.workflow.name}</span>
                     </span>
-                    <span>
+                    <span className="inline-flex items-center gap-1">
                       {t.run}:{' '}
-                      <span className="font-mono text-zinc-300">{a.executionId.slice(0, 8)}</span>
+                      <Link
+                        href={`/${lang}/runs/${a.executionId}`}
+                        className="inline-flex items-center gap-1 font-mono text-zinc-300 underline-offset-2 hover:text-white hover:underline"
+                        title={lang === 'en' ? 'Open run detail' : 'Abrir detalle'}
+                      >
+                        {a.executionId.slice(0, 8)}
+                        <ExternalLink size={10} />
+                      </Link>
                     </span>
                     {a.requestedBy && (
                       <span>

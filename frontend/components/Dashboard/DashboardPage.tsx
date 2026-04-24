@@ -380,33 +380,57 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
           />
         </div>
 
-        {/* (2) Needs attention */}
+        {/* (2) Needs attention. Each row is a button so an operator
+            can jump straight to the surface that resolves it —
+            approvals to /inbox, stuck runs and failures to the run
+            detail where the event log + step replay live. */}
         <Section title={t.attentionTitle} icon={<AlertTriangle size={16} />}>
           {data && !hasAttention ? (
             <div className="text-sm text-emerald-400">{t.attentionAllClear}</div>
           ) : data ? (
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-1 text-sm">
               {data.attention.pendingApprovals.slice(0, 5).map(a => (
-                <li key={a.id} className="flex items-center gap-2 text-amber-300">
-                  <InboxIcon size={14} />
-                  <span className="text-gray-300">{a.runbookName}</span>
-                  <span className="text-gray-500">· {a.requestedBy ?? '—'}</span>
+                <li key={a.id}>
+                  <button
+                    onClick={() => router.push(`/${lang}/inbox`)}
+                    className="flex w-full items-center gap-2 rounded py-1 text-left text-amber-300 transition-colors hover:bg-white/5"
+                  >
+                    <InboxIcon size={14} />
+                    <span className="text-gray-300">{a.runbookName}</span>
+                    <span className="text-gray-500">· {a.requestedBy ?? '—'}</span>
+                  </button>
                 </li>
               ))}
               {data.attention.stuckRuns.slice(0, 5).map(r => (
-                <li key={r.id} className="flex items-center gap-2 text-amber-300">
-                  <Activity size={14} />
-                  <span className="text-gray-300">{r.runbookName}</span>
+                <li key={r.id}>
+                  <button
+                    onClick={() => router.push(`/${lang}/runs/${r.id}`)}
+                    className="flex w-full items-center gap-2 rounded py-1 text-left text-amber-300 transition-colors hover:bg-white/5"
+                  >
+                    <Activity size={14} />
+                    <span className="text-gray-300">{r.runbookName}</span>
+                  </button>
                 </li>
               ))}
               {data.attention.recentFailures.slice(0, 5).map(f => (
-                <li key={f.id} className="flex items-center gap-2 text-red-400">
-                  <AlertTriangle size={14} />
-                  <span className="text-gray-300">{f.runbookName}</span>
-                  {f.error && <span className="flex-1 truncate text-gray-500">· {f.error}</span>}
+                <li
+                  key={f.id}
+                  className="flex items-center gap-2 rounded text-red-400 hover:bg-white/5"
+                >
                   <button
-                    onClick={() => askAiAboutRun(f.id)}
-                    className="text-primary/40 hover:bg-primary/10 ml-auto flex flex-shrink-0 items-center gap-1 rounded px-2 py-1 text-xs transition-colors"
+                    onClick={() => router.push(`/${lang}/runs/${f.id}`)}
+                    className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
+                  >
+                    <AlertTriangle size={14} />
+                    <span className="text-gray-300">{f.runbookName}</span>
+                    {f.error && <span className="flex-1 truncate text-gray-500">· {f.error}</span>}
+                  </button>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      askAiAboutRun(f.id);
+                    }}
+                    className="text-primary/40 hover:bg-primary/10 mr-1 flex flex-shrink-0 items-center gap-1 rounded px-2 py-1 text-xs transition-colors"
                     title={t.askAi}
                   >
                     <Sparkles size={12} />
