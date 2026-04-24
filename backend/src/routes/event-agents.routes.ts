@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { Response, Router } from 'express';
 import { z } from 'zod';
 
@@ -78,8 +79,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     const body = createSchema.parse(req.body);
     const agent = await getService().create(req.user!.tenantId, {
       ...body,
-      matcherConfig: body.matcherConfig as any,
-      varMapping: body.varMapping as any,
+      matcherConfig: body.matcherConfig as Prisma.InputJsonValue,
+      varMapping: body.varMapping as Prisma.InputJsonValue,
     });
     res.status(201).json(agent);
   } catch (err) {
@@ -97,8 +98,8 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
     const body = updateSchema.parse(req.body);
     const agent = await getService().update(req.user!.tenantId, String(req.params.id), {
       ...body,
-      matcherConfig: body.matcherConfig as any,
-      varMapping: body.varMapping as any,
+      matcherConfig: body.matcherConfig as Prisma.InputJsonValue,
+      varMapping: body.varMapping as Prisma.InputJsonValue,
     });
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
     res.json(agent);

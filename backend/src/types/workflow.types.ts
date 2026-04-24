@@ -127,7 +127,7 @@ export interface ShellCommandNodeConfig {
 export interface StoreSetNodeConfig {
   bucketName?: string;
   key?: string;
-  value?: any;
+  value?: unknown;
 }
 
 export interface StoreGetNodeConfig {
@@ -451,7 +451,7 @@ export interface ShellCommandResult extends ExecutionOutput {
 export interface StoreResult extends ExecutionOutput {
   success: boolean;
   key?: string;
-  value?: any;
+  value?: unknown;
 }
 
 export interface SuspendResult extends ExecutionOutput {

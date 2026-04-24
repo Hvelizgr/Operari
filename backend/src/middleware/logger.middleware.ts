@@ -49,11 +49,16 @@ export const requestLogger = pinoHttp({
 });
 
 export const addUserContext = (req: Request, res: Response, next: NextFunction) => {
-  if ((req as any).user) {
-    const user = (req as any).user;
+  // authenticate() decorates req with `user`; at this middleware layer
+  // we type it structurally so we don't drag the full AuthRequest
+  // interface through an import cycle with auth.middleware.
+  const authed = req as Request & {
+    user?: { id: string; tenantId: string };
+  };
+  if (authed.user) {
     req.log = req.log.child({
-      userId: user.id,
-      tenantId: user.tenantId,
+      userId: authed.user.id,
+      tenantId: authed.user.tenantId,
     });
   }
   next();

@@ -160,9 +160,15 @@ export interface OrchestratorContext {
   prisma?: PrismaClient;
 }
 
+// The AI SDK types StreamTextResult with a deeply-generic ToolSet
+// parameter; narrowing it to anything less than `any` collapses the
+// ContentPart<T> union and breaks the consumer's narrowing of
+// tool-result parts. Boundary case — keep the escape hatch scoped to
+// this signature instead of leaking inferred `any`s into callers.
 export function streamOrchestratorReply(
   messages: ModelMessage[],
   context: OrchestratorContext = {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): StreamTextResult<any, any> {
   const { tenantId, prisma } = context;
   const tools = tenantId && prisma ? buildOrchestratorTools(prisma, tenantId) : undefined;

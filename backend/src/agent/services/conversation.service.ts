@@ -1,4 +1,4 @@
-import { MessageRole, PrismaClient } from '@prisma/client';
+import { MessageRole, Prisma, PrismaClient } from '@prisma/client';
 
 import { logger } from '../../config/logger.config';
 
@@ -106,8 +106,8 @@ export class ConversationService {
         conversationId,
         role,
         content,
-        toolCalls: toolCalls ? (toolCalls as any) : undefined,
-        metadata: metadata ? (metadata as any) : undefined,
+        toolCalls: toolCalls ? (toolCalls as Prisma.InputJsonValue) : undefined,
+        metadata: metadata ? (metadata as Prisma.InputJsonValue) : undefined,
       },
     });
 

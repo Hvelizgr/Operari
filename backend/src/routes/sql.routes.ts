@@ -96,7 +96,7 @@ router.post('/query', async (req: AuthRequest, res: Response) => {
     res.json({
       rows: result.rows,
       rowCount: result.rowCount,
-      fields: result.fields?.map((f: any) => ({
+      fields: result.fields?.map((f: { name: string; dataTypeID: number }) => ({
         name: f.name,
         dataTypeID: f.dataTypeID,
       })),
@@ -170,12 +170,19 @@ router.post('/schema', async (req: AuthRequest, res: Response) => {
       tables.push({
         schema: row.table_schema,
         name: row.table_name,
-        columns: colsResult.rows.map((c: any) => ({
-          name: c.column_name,
-          type: c.data_type,
-          nullable: c.is_nullable === 'YES',
-          default: c.column_default,
-        })),
+        columns: colsResult.rows.map(
+          (c: {
+            column_name: string;
+            data_type: string;
+            is_nullable: string;
+            column_default: string | null;
+          }) => ({
+            name: c.column_name,
+            type: c.data_type,
+            nullable: c.is_nullable === 'YES',
+            default: c.column_default,
+          })
+        ),
       });
     }
 

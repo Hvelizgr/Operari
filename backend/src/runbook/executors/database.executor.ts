@@ -243,12 +243,19 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
         [schema, tableName]
       );
 
-      const columns: ColumnInfo[] = colsResult.rows.map((c: any) => ({
-        name: c.column_name,
-        type: c.data_type,
-        nullable: c.is_nullable === 'YES',
-        defaultValue: c.column_default,
-      }));
+      const columns: ColumnInfo[] = colsResult.rows.map(
+        (c: {
+          column_name: string;
+          data_type: string;
+          is_nullable: string;
+          column_default: string | null;
+        }) => ({
+          name: c.column_name,
+          type: c.data_type,
+          nullable: c.is_nullable === 'YES',
+          defaultValue: c.column_default,
+        })
+      );
 
       // 3. Primary key
       const pkResult = await client.query(
@@ -266,7 +273,7 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
         [schema, tableName]
       );
 
-      const primaryKey = pkResult.rows.map((r: any) => r.column_name);
+      const primaryKey = pkResult.rows.map((r: { column_name: string }) => r.column_name);
 
       // 4. Foreign keys
       const fkResult = await client.query(
@@ -288,11 +295,13 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
         [schema, tableName]
       );
 
-      const foreignKeys: ForeignKeyInfo[] = fkResult.rows.map((r: any) => ({
-        column: r.column_name,
-        referencesTable: r.references_table,
-        referencesColumn: r.references_column,
-      }));
+      const foreignKeys: ForeignKeyInfo[] = fkResult.rows.map(
+        (r: { column_name: string; references_table: string; references_column: string }) => ({
+          column: r.column_name,
+          referencesTable: r.references_table,
+          referencesColumn: r.references_column,
+        })
+      );
 
       // 5. Indexes
       const idxResult = await client.query(
@@ -313,11 +322,13 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
         [schema, tableName]
       );
 
-      const indexes: IndexInfo[] = idxResult.rows.map((r: any) => ({
-        name: r.index_name,
-        columns: r.columns,
-        unique: r.is_unique,
-      }));
+      const indexes: IndexInfo[] = idxResult.rows.map(
+        (r: { index_name: string; columns: string[]; is_unique: boolean }) => ({
+          name: r.index_name,
+          columns: r.columns,
+          unique: r.is_unique,
+        })
+      );
 
       tables.push({ name: tableName, schema, columns, primaryKey, foreignKeys, indexes });
     }
@@ -345,7 +356,7 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
       return {
         rows: result.rows,
         rowCount: result.rowCount,
-        fields: result.fields?.map((f: any) => ({
+        fields: result.fields?.map((f: { name: string; dataTypeID: number }) => ({
           name: f.name,
           dataTypeID: f.dataTypeID,
         })),

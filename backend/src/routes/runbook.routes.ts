@@ -842,8 +842,22 @@ router.put('/:id', async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Workflow not found' });
     }
 
-    // Build update data object, only including fields that were provided
-    const updateData: any = {
+    // Build update data object, only including fields that were provided.
+    // Prisma.RunbookUpdateInput nests JSON columns and scalars behind
+    // field-update operator unions that don't line up with the plain
+    // reads we do below (updateData.name, .nodes, …). Keep this as a
+    // narrow structural type so the reads stay simple while staying
+    // away from `any`.
+    const updateData: {
+      nodes: Prisma.InputJsonValue;
+      connections: Prisma.InputJsonValue;
+      name?: string;
+      description?: string;
+      isActive?: boolean;
+      schedule?: string | null;
+      inputs?: Prisma.InputJsonValue;
+      onErrorRunbookId?: string | null;
+    } = {
       nodes: data.nodes as unknown as Prisma.InputJsonValue,
       connections: data.connections as unknown as Prisma.InputJsonValue,
     };
@@ -883,14 +897,18 @@ router.put('/:id', async (req: AuthRequest, res) => {
       }
     }
 
-    // Construct full workflow object for validation
+    // Construct full workflow object for validation.
+    // existing.{description,schedule} are nullable (Prisma `String?`),
+    // but WorkflowDefinition only permits string | undefined — coerce
+    // nulls to undefined at the boundary.
     const fullWorkflowForValidation: WorkflowDefinition = {
       name: updateData.name || existing.name,
-      description: updateData.description || existing.description,
-      nodes: (updateData.nodes || existing.nodes) as WorkflowNode[],
-      connections: (updateData.connections || existing.connections) as WorkflowConnection[],
+      description: updateData.description ?? existing.description ?? undefined,
+      nodes: (updateData.nodes || existing.nodes) as unknown as WorkflowNode[],
+      connections: (updateData.connections ||
+        existing.connections) as unknown as WorkflowConnection[],
       isActive: updateData.isActive ?? existing.isActive,
-      schedule: updateData.schedule ?? existing.schedule,
+      schedule: updateData.schedule ?? existing.schedule ?? undefined,
     };
 
     const validator = new WorkflowValidatorService();

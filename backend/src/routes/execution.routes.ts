@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { Router } from 'express';
 
 import { AuditService } from '../audit/audit.service';
@@ -94,7 +95,7 @@ router.get('/', async (req: AuthRequest, res) => {
     const where = {
       workflow: { tenantId: req.user!.tenantId },
       ...(workflowId && { workflowId: workflowId as string }),
-      ...(status && { status: status as any }),
+      ...(status && { status: status as Prisma.ExecutionWhereInput['status'] }),
     };
 
     const [executions, total] = await Promise.all([
@@ -575,9 +576,10 @@ router.post('/:id/replay', async (req: AuthRequest, res) => {
     });
 
     res.status(202).json(newExecution);
-  } catch (error: any) {
+  } catch (error: unknown) {
     req.log.error({ error }, 'Replay execution error');
-    res.status(error.status || 500).json({ error: error.message || 'Failed to replay execution' });
+    const { status, message } = normalizeHttpError(error, 'Failed to replay execution');
+    res.status(status).json({ error: message });
   }
 });
 
@@ -624,10 +626,28 @@ router.post('/:id/resume', async (req: AuthRequest, res) => {
     });
 
     res.status(200).json(execution);
-  } catch (error: any) {
+  } catch (error: unknown) {
     req.log.error({ error }, 'Resume execution error');
-    res.status(error.status || 500).json({ error: error.message || 'Failed to resume execution' });
+    const { status, message } = normalizeHttpError(error, 'Failed to resume execution');
+    res.status(status).json({ error: message });
   }
 });
+
+/** Narrow an unknown caught error into an (http status, message)
+ *  pair. Keeps the legacy behavior where a thrown object carrying
+ *  `status` + `message` is forwarded directly, while plain `Error`
+ *  instances still land as 500 with a readable message. */
+function normalizeHttpError(
+  err: unknown,
+  fallbackMessage: string
+): { status: number; message: string } {
+  if (err && typeof err === 'object') {
+    const rec = err as { status?: unknown; message?: unknown };
+    const status = typeof rec.status === 'number' ? rec.status : 500;
+    const message = typeof rec.message === 'string' ? rec.message : fallbackMessage;
+    return { status, message };
+  }
+  return { status: 500, message: fallbackMessage };
+}
 
 export default router;

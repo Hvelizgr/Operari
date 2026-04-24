@@ -46,10 +46,10 @@ export class SplitNodeExecutor implements EditorNodeExecutor<SplitNodeConfig, No
     };
   }
 
-  private getNestedValue(obj: any, path: string): any {
-    return path.split('.').reduce((current, key) => {
+  private getNestedValue(obj: unknown, path: string): unknown {
+    return path.split('.').reduce<unknown>((current, key) => {
       if (current && typeof current === 'object' && key in current) {
-        return current[key];
+        return (current as Record<string, unknown>)[key];
       }
       return undefined;
     }, obj);
