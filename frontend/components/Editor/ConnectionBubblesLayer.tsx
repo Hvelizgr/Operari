@@ -112,8 +112,8 @@ export default function ConnectionBubblesLayer({
                 e.stopPropagation();
                 if (onBubbleClick) {
                   onBubbleClick(conn.id);
-                } else {
-                  onConnectionClick && onConnectionClick(conn.id);
+                } else if (onConnectionClick) {
+                  onConnectionClick(conn.id);
                 }
               }}
             >

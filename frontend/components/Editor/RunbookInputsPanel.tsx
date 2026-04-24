@@ -172,7 +172,7 @@ type InputsStrings = (typeof STRINGS)['en'] | (typeof STRINGS)['es'];
 
 function InputCard({
   input,
-  idx,
+  idx: _idx,
   t,
   onChange,
   onRemove,

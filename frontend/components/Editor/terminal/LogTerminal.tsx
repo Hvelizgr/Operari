@@ -13,7 +13,7 @@ interface LogTerminalProps {
   isActive?: boolean;
 }
 
-export default function LogTerminal({ logs = [], isActive = false }: LogTerminalProps) {
+export default function LogTerminal({ logs = [], isActive: _isActive = false }: LogTerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);

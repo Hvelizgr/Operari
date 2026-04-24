@@ -51,7 +51,10 @@ export default function TriggerModifiersSection({
 }: TriggerModifiersSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const handleChange = (key: keyof TriggerModifiers, value: any) => {
+  const handleChange = (
+    key: keyof TriggerModifiers,
+    value: TriggerModifiers[keyof TriggerModifiers]
+  ) => {
     onChange({ ...modifiers, [key]: value });
   };
 

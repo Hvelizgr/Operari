@@ -273,12 +273,12 @@ function RunsVirtualTable({
         <div className="w-24 px-4 py-3">{t.duration}</div>
         <div className="w-24 px-4 py-3">ID</div>
       </div>
-      <VirtualList
+      <VirtualList<RunRowExtra>
         style={{ height: listHeight }}
         rowCount={runs.length}
         rowHeight={ROW_HEIGHT}
-        rowComponent={RunRow as any}
-        rowProps={{ runs, lang } as any}
+        rowComponent={RunRow}
+        rowProps={{ runs, lang }}
       />
     </div>
   );

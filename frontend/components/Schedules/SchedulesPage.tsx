@@ -1,17 +1,6 @@
 'use client';
 
-import {
-  CalendarClock,
-  CheckCircle2,
-  Clock,
-  Pause,
-  Play,
-  PlayCircle,
-  Plus,
-  Trash2,
-  X,
-  XCircle,
-} from 'lucide-react';
+import { CalendarClock, Clock, Pause, Play, PlayCircle, Plus, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';

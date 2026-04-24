@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import type { Property } from './DynamicNodeForm';
+
 export interface NodeType {
   type: string;
   icon: React.ReactNode;
@@ -34,7 +36,7 @@ export interface NodeType {
   description?: { en: string; es: string };
   inputs?: string[]; // e.g. ['main', 'ai_tool', 'ai_memory']
   outputs?: string[]; // e.g. ['main', 'main']
-  properties?: any[]; // Dynamic form schema
+  properties?: Property[]; // Dynamic form schema
 }
 
 // NanoRun runbook step categories — only categories that have at least
@@ -568,7 +570,12 @@ interface NodePaletteProps {
   /** Override the default runbook node types. Used by the SQL editor. */
   nodeTypes?: NodeType[];
   /** Override the default categories. */
-  categories?: { id: string; label: { en: string; es: string }; icon?: any; color: string }[];
+  categories?: {
+    id: string;
+    label: { en: string; es: string };
+    icon?: React.ComponentType<{ size?: number; className?: string }>;
+    color: string;
+  }[];
 }
 
 export default function NodePalette({

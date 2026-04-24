@@ -21,7 +21,7 @@ import { useCallback, useMemo, useState } from 'react';
 interface ExtendedNode extends WorkflowNode {
   data: {
     label?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -796,7 +796,7 @@ function RecursiveObjectRenderer({
   onCopy,
   copiedItem,
 }: {
-  data: any;
+  data: unknown;
   path: string[];
   onSelect: (path: string[]) => void;
   onCopy: (text: string) => void;

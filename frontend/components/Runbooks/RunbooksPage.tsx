@@ -142,6 +142,11 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
   const [category, setCategory] = useState<string>('');
   const [showNewMenu, setShowNewMenu] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  // Intentional: recapture `now` on every list refresh so every row's
+  // relativeTime() sees the same moment. The memo body doesn't read
+  // `runbooks` but the list changing is the signal we want — lint
+  // can't see that.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const now = useMemo(() => new Date(), [runbooks]);
 
   const load = useCallback(async () => {

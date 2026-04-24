@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-import RunDialog, { type DialogRunResult } from '@/components/Workflow/RunDialog';
 import type { RunbookInputDefinition } from '@/components/Editor/RunbookInputsPanel';
+import RunDialog, { type DialogRunResult } from '@/components/Workflow/RunDialog';
 
 /**
  * The dialog's form-generation path is already exercised through
@@ -62,9 +62,7 @@ describe('RunDialog server-error rendering', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'prod' } });
     fireEvent.click(screen.getByRole('button', { name: 'Run runbook' }));
 
-    await waitFor(() =>
-      expect(screen.getByText(/unknown input "enivronment"/)).toBeInTheDocument()
-    );
+    expect(await screen.findByText(/unknown input "enivronment"/)).toBeInTheDocument();
   });
 
   it('shows a generic banner on status=error without field-level messages', async () => {
@@ -78,7 +76,7 @@ describe('RunDialog server-error rendering', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'prod' } });
     fireEvent.click(screen.getByRole('button', { name: 'Run runbook' }));
 
-    await waitFor(() => expect(screen.getByText('Service unavailable')).toBeInTheDocument());
+    expect(await screen.findByText('Service unavailable')).toBeInTheDocument();
   });
 
   it('clears previous field errors on a subsequent successful run', async () => {
@@ -94,12 +92,12 @@ describe('RunDialog server-error rendering', () => {
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'prod' } });
     fireEvent.click(screen.getByRole('button', { name: 'Run runbook' }));
-    await waitFor(() =>
-      expect(screen.getByText('env must be one of: dev, prod')).toBeInTheDocument()
-    );
+    expect(await screen.findByText('env must be one of: dev, prod')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Run runbook' }));
-    await waitFor(() => expect(screen.queryByText('env must be one of: dev, prod')).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByText('env must be one of: dev, prod')).not.toBeInTheDocument()
+    );
   });
 
   it('keeps the dialog open when onRun returns an invalid_inputs result', async () => {

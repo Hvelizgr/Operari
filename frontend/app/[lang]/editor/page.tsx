@@ -1,5 +1,4 @@
 import { EditorCanvas } from '@/components/Editor';
-import EditorSidebar from '@/components/Editor/EditorSidebar';
 import { AccessibilityProvider } from '@/context/AccessibilityContext';
 
 // useSearchParams() in EditorCanvas (for the ?id= deep-link loader)

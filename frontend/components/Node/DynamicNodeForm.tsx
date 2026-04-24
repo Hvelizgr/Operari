@@ -7,11 +7,11 @@ import SecretPicker from './SecretPicker';
 
 const SQLCodeEditor = lazy(() => import('../SQLEditor/SQLCodeEditor'));
 
-interface Property {
+export interface Property {
   name: string;
   displayName: string;
-  type: 'string' | 'boolean' | 'options' | 'number' | 'secret' | 'sql';
-  default?: any;
+  type: 'string' | 'boolean' | 'options' | 'number' | 'secret' | 'sql' | 'color';
+  default?: unknown;
   description?: string;
   options?: { name: string; value: string }[];
   typeOptions?: { rows?: number; expression?: boolean; provider?: string };
@@ -19,8 +19,8 @@ interface Property {
 
 interface DynamicNodeFormProps {
   properties: Property[];
-  values: Record<string, any>;
-  onChange: (key: string, value: any) => void;
+  values: Record<string, unknown>;
+  onChange: (key: string, value: unknown) => void;
   nodes: WorkflowNode[];
   connections: Connection[];
   lang?: 'en' | 'es'; // Make optional to avoid breaking existing calls immediately
@@ -64,7 +64,10 @@ export default function DynamicNodeForm({
   return (
     <div className="space-y-4">
       {properties.map(prop => {
-        const value = values[prop.name] !== undefined ? values[prop.name] : prop.default;
+        const rawValue = values[prop.name] !== undefined ? values[prop.name] : prop.default;
+        const stringValue = typeof rawValue === 'string' ? rawValue : '';
+        const numberValue = typeof rawValue === 'number' ? rawValue : Number(stringValue) || 0;
+        const booleanValue = typeof rawValue === 'boolean' ? rawValue : false;
 
         return (
           <div key={prop.name} className="group">
@@ -85,7 +88,7 @@ export default function DynamicNodeForm({
               (prop.typeOptions?.rows ? (
                 <div className="relative">
                   <textarea
-                    value={value || ''}
+                    value={stringValue}
                     onChange={e => onChange(prop.name, e.target.value)}
                     className={`${inputClass} font-mono`}
                     rows={prop.typeOptions.rows}
@@ -104,7 +107,7 @@ export default function DynamicNodeForm({
                 <div className="relative">
                   <input
                     type="text"
-                    value={value || ''}
+                    value={stringValue}
                     onChange={e => onChange(prop.name, e.target.value)}
                     className={`${inputClass} ${prop.typeOptions?.expression ? 'pr-8' : ''}`}
                   />
@@ -123,7 +126,7 @@ export default function DynamicNodeForm({
             {prop.type === 'secret' && (
               <SecretPicker
                 lang={lang}
-                value={value || ''}
+                value={stringValue}
                 onChange={next => onChange(prop.name, next)}
                 provider={prop.typeOptions?.provider}
                 label={prop.displayName}
@@ -134,7 +137,7 @@ export default function DynamicNodeForm({
               <Suspense
                 fallback={
                   <textarea
-                    value={value || ''}
+                    value={stringValue}
                     onChange={e => onChange(prop.name, e.target.value)}
                     className={`${inputClass} font-mono`}
                     rows={prop.typeOptions?.rows ?? 4}
@@ -143,7 +146,7 @@ export default function DynamicNodeForm({
                 }
               >
                 <SQLCodeEditor
-                  value={value || ''}
+                  value={stringValue}
                   onChange={v => onChange(prop.name, v)}
                   minHeight={`${(prop.typeOptions?.rows ?? 4) * 24}px`}
                   placeholder="SELECT * FROM ..."
@@ -154,7 +157,7 @@ export default function DynamicNodeForm({
             {prop.type === 'number' && (
               <input
                 type="number"
-                value={value}
+                value={numberValue}
                 onChange={e => onChange(prop.name, Number(e.target.value))}
                 className={inputClass}
               />
@@ -163,7 +166,7 @@ export default function DynamicNodeForm({
             {prop.type === 'options' && (
               <div className="relative">
                 <select
-                  value={value || ''}
+                  value={stringValue}
                   onChange={e => onChange(prop.name, e.target.value)}
                   className={`${inputClass} appearance-none pr-8`}
                 >
@@ -190,18 +193,18 @@ export default function DynamicNodeForm({
                   <input
                     type="checkbox"
                     className="sr-only"
-                    checked={!!value}
+                    checked={booleanValue}
                     onChange={e => onChange(prop.name, e.target.checked)}
                   />
                   <div
-                    className={`h-5 w-9 rounded-full shadow-inner transition-colors ${value ? 'bg-[var(--theme-color)]' : 'bg-[rgba(0,0,0,0.3)]'}`}
+                    className={`h-5 w-9 rounded-full shadow-inner transition-colors ${booleanValue ? 'bg-[var(--theme-color)]' : 'bg-[rgba(0,0,0,0.3)]'}`}
                   ></div>
                   <div
-                    className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${value ? 'translate-x-4' : 'translate-x-0'}`}
+                    className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${booleanValue ? 'translate-x-4' : 'translate-x-0'}`}
                   ></div>
                 </div>
                 <span className="select-none text-xs text-[var(--body-text-color)]">
-                  {value ? 'Active' : 'Inactive'}
+                  {booleanValue ? 'Active' : 'Inactive'}
                 </span>
               </label>
             )}

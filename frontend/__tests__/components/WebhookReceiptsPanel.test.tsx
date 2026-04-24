@@ -75,7 +75,7 @@ describe('WebhookReceiptsPanel', () => {
     fireEvent.click(screen.getByText('Show receipts'));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(screen.queryByText('Load older')).toBeNull();
+    expect(screen.queryByText('Load older')).not.toBeInTheDocument();
   });
 
   it('appends older receipts on "Load older" and sends the cursor', async () => {
@@ -89,7 +89,7 @@ describe('WebhookReceiptsPanel', () => {
     render(<WebhookReceiptsPanel lang="en" webhookId="wh-1" />);
     fireEvent.click(screen.getByText('Show receipts'));
 
-    await waitFor(() => expect(screen.getByText('Load older')).toBeInTheDocument());
+    expect(await screen.findByText('Load older')).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByText('Load older'));
@@ -100,7 +100,7 @@ describe('WebhookReceiptsPanel', () => {
     const params = new URLSearchParams(secondUrl.split('?')[1]);
     expect(params.get('cursor')).toBe(firstCursor);
     // Load-more button hidden once the server stops returning a cursor.
-    await waitFor(() => expect(screen.queryByText('Load older')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Load older')).not.toBeInTheDocument());
   });
 
   it('shows the empty-filtered message when the filter returns no rows', async () => {
@@ -126,6 +126,6 @@ describe('WebhookReceiptsPanel', () => {
     render(<WebhookReceiptsPanel lang="en" webhookId="wh-1" />);
     fireEvent.click(screen.getByText('Show receipts'));
 
-    await waitFor(() => expect(screen.getByText('Could not load receipts.')).toBeInTheDocument());
+    expect(await screen.findByText('Could not load receipts.')).toBeInTheDocument();
   });
 });

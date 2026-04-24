@@ -26,7 +26,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { useAccessibility } from '../../context/AccessibilityContext';
 import { useTheme } from '../../context/ThemeContext';
 import type { SaveStatus } from '../../hooks/useAutosave';
 
@@ -85,7 +84,6 @@ export default function TopBar({
   onSchedule,
   scheduleExpr,
 }: TopBarProps) {
-  const { highContrast, toggleHighContrast } = useAccessibility();
   const { theme, cycleTheme } = useTheme();
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
   const toolsMenuRef = useRef<HTMLDivElement>(null);

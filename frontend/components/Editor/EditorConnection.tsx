@@ -25,7 +25,6 @@ export default function EditorConnection({
   onClick,
 }: EditorConnectionProps) {
   const dx = targetPos.x - sourcePos.x;
-  const dy = targetPos.y - sourcePos.y;
 
   const controlPointOffset = Math.min(Math.abs(dx) * 0.5, 200);
 

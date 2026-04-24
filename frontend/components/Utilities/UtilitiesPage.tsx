@@ -41,6 +41,12 @@ interface Runbook {
   name: string;
 }
 
+interface WebhookCreatePayload {
+  source: string;
+  workflowId: string;
+  secret?: string;
+}
+
 const STRINGS = {
   en: {
     title: 'Utilities',
@@ -309,7 +315,7 @@ function WebhooksTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
       .catch(() => {});
   }, [load]);
 
-  const handleCreate = async (body: any) => {
+  const handleCreate = async (body: WebhookCreatePayload) => {
     const res = await fetch(`${API_BASE}/api/webhooks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -485,7 +491,7 @@ function WebhookForm({
   t,
 }: {
   runbooks: Runbook[];
-  onSubmit: (body: any) => void;
+  onSubmit: (body: WebhookCreatePayload) => void;
   onClose: () => void;
   t: (typeof STRINGS)[keyof typeof STRINGS];
 }) {

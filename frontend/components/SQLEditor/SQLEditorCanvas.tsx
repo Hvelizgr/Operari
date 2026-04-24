@@ -67,7 +67,10 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
           editor: 'Editor',
         };
 
-  // Load credentials
+  // Load credentials — fires once on mount. Reading `credentialId`
+  // inside is only to avoid clobbering an already-selected one
+  // if the fetch races with a user click; re-running on
+  // credentialId changes would re-fetch the whole list for nothing.
   useEffect(() => {
     fetch(`${API_BASE}/api/connected-accounts?provider=postgres`)
       .then(r => (r.ok ? r.json() : []))
@@ -79,6 +82,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         }
       })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load schema when credential changes

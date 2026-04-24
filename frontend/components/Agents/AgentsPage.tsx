@@ -1,16 +1,6 @@
 'use client';
 
-import {
-  AlertCircle,
-  Bot,
-  CheckCircle2,
-  PlayCircle,
-  Plus,
-  Power,
-  Trash2,
-  Webhook as WebhookIcon,
-  X,
-} from 'lucide-react';
+import { AlertCircle, Bot, CheckCircle2, PlayCircle, Plus, Power, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -24,7 +14,7 @@ interface Agent {
   source: string;
   webhookId: string | null;
   matcherType: MatcherType;
-  matcherConfig: any;
+  matcherConfig: Record<string, unknown>;
   targetRunbookId: string;
   varMapping: Record<string, string>;
   isEnabled: boolean;

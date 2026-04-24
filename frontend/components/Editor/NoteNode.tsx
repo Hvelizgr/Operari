@@ -2,7 +2,6 @@
 'use client';
 
 import type { NoteNodeConfig, WorkflowNode } from '@cairn/shared';
-import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
 interface NoteNodeProps {

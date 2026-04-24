@@ -45,7 +45,7 @@ describe('UpgradeWelcomeModal', () => {
     render(<UpgradeWelcomeModal lang="en" />);
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
 
-    expect(screen.queryByText('Welcome to the paid club.')).toBeNull();
+    expect(screen.queryByText('Welcome to the paid club.')).not.toBeInTheDocument();
     expect(window.location.search).toBe('');
   });
 
@@ -54,7 +54,7 @@ describe('UpgradeWelcomeModal', () => {
     render(<UpgradeWelcomeModal lang="en" />);
     fireEvent.click(screen.getByRole('button', { name: 'Start building' }));
 
-    expect(screen.queryByText('Welcome to the paid club.')).toBeNull();
+    expect(screen.queryByText('Welcome to the paid club.')).not.toBeInTheDocument();
     expect(window.location.search).toBe('');
   });
 

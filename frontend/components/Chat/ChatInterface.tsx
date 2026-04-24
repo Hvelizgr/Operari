@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAgentChat } from '@/hooks/useAgentChat';
 
-import ChatInput from './ChatInput';
 import { ChatMessageData } from './ChatMessage';
 import ChatMessageList from './ChatMessageList';
 import ChatSidebar, { ConversationSummary } from './ChatSidebar';
@@ -41,9 +40,6 @@ export default function ChatInterface({ lang }: ChatInterfaceProps) {
   const deepLinkId = searchParams?.get('id') ?? null;
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(deepLinkId);
-  // unused but kept to preserve original message-bootstrap surface for future deep-link prefill
-  const [, setInitialMessages] = useState<ChatMessageData[]>([]);
-
   // Streaming chat hook
   const {
     messages: streamMessages,
@@ -82,8 +78,8 @@ export default function ChatInterface({ lang }: ChatInterfaceProps) {
   const displayMessages: ChatMessageData[] = streamMessages.map(msg => {
     const text =
       msg.parts
-        ?.filter((p: any) => p.type === 'text')
-        .map((p: any) => p.text)
+        ?.filter((p: { type: string }) => p.type === 'text')
+        .map((p: { type: string; text?: string }) => p.text ?? '')
         .join('') || '';
     return {
       id: msg.id,
@@ -100,12 +96,19 @@ export default function ChatInterface({ lang }: ChatInterfaceProps) {
       if (res.ok) {
         const data = await res.json();
         setConversations(
-          data.conversations.map((c: any) => ({
-            id: c.id,
-            title: c.title,
-            updatedAt: c.updatedAt,
-            lastMessage: c.messages?.[0]?.content,
-          }))
+          data.conversations.map(
+            (c: {
+              id: string;
+              title: string;
+              updatedAt: string;
+              messages?: Array<{ content: string }>;
+            }) => ({
+              id: c.id,
+              title: c.title,
+              updatedAt: c.updatedAt,
+              lastMessage: c.messages?.[0]?.content,
+            })
+          )
         );
       }
     } catch {
@@ -121,11 +124,17 @@ export default function ChatInterface({ lang }: ChatInterfaceProps) {
         if (res.ok) {
           const data = await res.json();
           // Load existing messages into the AI SDK chat state (v6 format with parts)
-          const existingMessages = data.messages.map((m: any) => ({
-            id: m.id,
-            role: m.role === 'USER' ? 'user' : 'assistant',
-            parts: [{ type: 'text', text: m.content }],
-          }));
+          const existingMessages = data.messages.map(
+            (m: { id: string; role: string; content: string }) => ({
+              id: m.id,
+              role: m.role === 'USER' ? 'user' : 'assistant',
+              parts: [{ type: 'text', text: m.content }],
+            })
+          );
+          // AI SDK v6 UIMessage is heavily generic (tool/data variants); the
+          // concrete UIMessage type isn't exported stably, and a real type
+          // here would require re-importing its private generic params.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           setMessages(existingMessages as any);
         }
       } catch {

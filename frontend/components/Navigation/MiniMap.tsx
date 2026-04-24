@@ -39,7 +39,6 @@ export default function MiniMap({
 
   const MINIMAP_WIDTH = 240;
   const MINIMAP_HEIGHT = 180;
-  const SCALE = 0.1;
 
   const content = {
     en: {
@@ -95,10 +94,13 @@ export default function MiniMap({
     y: (y - bounds.minY) * scale,
   });
 
-  const fromMiniMapCoords = (x: number, y: number) => ({
-    x: x / scale + bounds.minX,
-    y: y / scale + bounds.minY,
-  });
+  const fromMiniMapCoords = useCallback(
+    (x: number, y: number) => ({
+      x: x / scale + bounds.minX,
+      y: y / scale + bounds.minY,
+    }),
+    [scale, bounds.minX, bounds.minY]
+  );
 
   const viewportInWorld = {
     x: -viewport.x / viewport.zoom,
@@ -129,7 +131,7 @@ export default function MiniMap({
 
       onViewportChange(newX, newY);
     },
-    [bounds, scale, viewport.zoom, canvasSize, onViewportChange]
+    [fromMiniMapCoords, viewport.zoom, canvasSize, onViewportChange]
   );
 
   const handleViewportDragStart = useCallback((e: React.MouseEvent) => {
@@ -152,7 +154,7 @@ export default function MiniMap({
 
       onViewportChange(newX, newY);
     },
-    [isDragging, bounds, scale, viewport.zoom, canvasSize, onViewportChange]
+    [isDragging, fromMiniMapCoords, viewport.zoom, canvasSize, onViewportChange]
   );
 
   const handleViewportDragEnd = useCallback(() => {

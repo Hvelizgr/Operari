@@ -1,4 +1,4 @@
-import { Connection, WorkflowNode } from '@cairn/shared';
+import { WorkflowNode } from '@cairn/shared';
 
 import { ExecutionMetric, ViewportState } from '../../types/editor.types';
 import { NodeType } from '../Node';

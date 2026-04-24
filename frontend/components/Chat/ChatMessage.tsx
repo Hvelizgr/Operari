@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Bot, User } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 export interface ChatMessageData {
@@ -53,49 +53,62 @@ export default function ChatMessage({ message }: ChatMessageProps) {
           <div className="markdown-body">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
-              components={{
-                code({ inline, className, children, ...props }: any) {
-                  if (inline) {
+              components={
+                {
+                  code({
+                    inline,
+                    className,
+                    children,
+                    ...props
+                  }: {
+                    inline?: boolean;
+                    className?: string;
+                    children?: React.ReactNode;
+                  }) {
+                    if (inline) {
+                      return (
+                        <code
+                          className="rounded bg-black/40 px-1 py-0.5 font-mono text-[12px] text-amber-300"
+                          {...props}
+                        >
+                          {children}
+                        </code>
+                      );
+                    }
                     return (
-                      <code
-                        className="rounded bg-black/40 px-1 py-0.5 font-mono text-[12px] text-amber-300"
+                      <pre className="my-2 overflow-x-auto rounded-md border border-white/10 bg-black/50 p-3 font-mono text-[12px] text-gray-100">
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      </pre>
+                    );
+                  },
+                  a({ children, href, ...props }: { children?: React.ReactNode; href?: string }) {
+                    return (
+                      <a
+                        href={href}
+                        className="text-primary/70 hover:text-primary/40 underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         {...props}
                       >
                         {children}
-                      </code>
+                      </a>
                     );
-                  }
-                  return (
-                    <pre className="my-2 overflow-x-auto rounded-md border border-white/10 bg-black/50 p-3 font-mono text-[12px] text-gray-100">
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    </pre>
-                  );
-                },
-                a({ children, href, ...props }: any) {
-                  return (
-                    <a
-                      href={href}
-                      className="text-primary/70 hover:text-primary/40 underline"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      {...props}
-                    >
-                      {children}
-                    </a>
-                  );
-                },
-                ul({ children }: any) {
-                  return <ul className="my-1 list-inside list-disc space-y-0.5">{children}</ul>;
-                },
-                ol({ children }: any) {
-                  return <ol className="my-1 list-inside list-decimal space-y-0.5">{children}</ol>;
-                },
-                p({ children }: any) {
-                  return <p className="my-1 leading-relaxed">{children}</p>;
-                },
-              }}
+                  },
+                  ul({ children }: { children?: React.ReactNode }) {
+                    return <ul className="my-1 list-inside list-disc space-y-0.5">{children}</ul>;
+                  },
+                  ol({ children }: { children?: React.ReactNode }) {
+                    return (
+                      <ol className="my-1 list-inside list-decimal space-y-0.5">{children}</ol>
+                    );
+                  },
+                  p({ children }: { children?: React.ReactNode }) {
+                    return <p className="my-1 leading-relaxed">{children}</p>;
+                  },
+                } as Components
+              }
             >
               {message.content}
             </ReactMarkdown>

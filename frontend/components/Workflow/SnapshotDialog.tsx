@@ -66,7 +66,7 @@ export default function SnapshotDialog({
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
-              } as any
+              } as React.CSSProperties
             }
             onClick={e => e.stopPropagation()}
           >

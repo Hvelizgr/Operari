@@ -73,7 +73,7 @@ function EditorNode({
   onDragStart,
   isDragging,
   isSelected,
-  isHighlighted,
+  isHighlighted: _isHighlighted,
   onClick,
   onContextMenu,
   editorMode = 'move',
@@ -129,13 +129,18 @@ function EditorNode({
 
     resizeObserver.observe(nodeRef.current);
     return () => resizeObserver.disconnect();
-  }, [node.id, onUpdate, (node as Partial<{ dimensions: { height: number } }>).dimensions?.height]);
+    // dimensions lives under node.*; react-hooks can't statically
+    // analyze the nested chained access, so we capture the full node
+    // reference in the dep array (safe — node changes at the same
+    // cadence as its dimensions).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.id, onUpdate, node]);
 
-  const renderIcon = (icon: any, size = 16) => {
+  const renderIcon = (icon: unknown, size = 16) => {
     if (!icon) return <Icons.Box size={size} />;
-    if (typeof icon === 'object' && icon !== null) return icon;
+    if (typeof icon === 'object' && icon !== null) return icon as React.ReactNode;
     if (typeof icon === 'function') {
-      const I = icon;
+      const I = icon as React.ComponentType<{ size?: number }>;
       return <I size={size} />;
     }
     return <Icons.Box size={size} />;
@@ -310,9 +315,11 @@ function EditorNode({
     },
     onDoubleClick: (e: MouseEvent) => {
       e.stopPropagation();
-      onNodeDoubleClick && onNodeDoubleClick(node.id);
+      if (onNodeDoubleClick) onNodeDoubleClick(node.id);
     },
-    onContextMenu: (e: MouseEvent) => onContextMenu && onContextMenu(e, node.id),
+    onContextMenu: (e: MouseEvent) => {
+      if (onContextMenu) onContextMenu(e, node.id);
+    },
   } as const;
 
   // --- CONTROLLER (Pill) ---

@@ -65,7 +65,7 @@ describe('DashboardToasts', () => {
       jest.advanceTimersByTime(3000 + 200);
     });
 
-    await waitFor(() => expect(screen.queryByText(/Email verified/)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(/Email verified/)).not.toBeInTheDocument());
   });
 
   it('ignores ?verified=false (only `true` triggers)', () => {
