@@ -57,6 +57,13 @@ const envSchema = z.object({
   NANORUN_PASSWORD_BREACH_CHECK: z.enum(['true', 'false']).default('true'),
   NANORUN_PASSWORD_BREACH_THRESHOLD: intFromString(1),
   NANORUN_SECRET_KEY: z.string().optional(),
+  /** Legacy master keys accepted during a KeyRotationJob window.
+   *  Comma-separated, newest legacy first. The runtime decrypts rows
+   *  ciphered under any of these (tried in order after the primary
+   *  NANORUN_SECRET_KEY fails) and re-encrypts them under the primary
+   *  key. Once the rotation completes, drop this env var on the next
+   *  deploy. */
+  NANORUN_SECRET_KEY_LEGACY: z.string().optional(),
   ENCRYPTION_KEY: z.string().min(32).optional(),
 
   // ─── Frontend linkage ──────────────────────────────────────────

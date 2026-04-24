@@ -442,6 +442,40 @@ async function main() {
     process.on('SIGTERM', () => clearInterval(webhookRetryInterval));
     logger.info('Webhook retry worker started (60s interval)');
 
+    // S3.4: KeyRotationService tick. Most of the time this is a
+    // cheap SELECT (no active job, no work). Only when an admin
+    // calls POST /api/admin/key-rotation/start does the tick actually
+    // process batches. Tight 5s cadence so a 10k-row rotation
+    // finishes in minutes instead of hours.
+    try {
+      const { KeyRotationService } = await import('./security/key-rotation.service');
+      const { secretCipherFromEnv } = await import('./security/secret-cipher');
+      const { AuditService } = await import('./audit/audit.service');
+      // Lazily construct cipher — if NANORUN_SECRET_KEY is unset the
+      // call throws, which we catch so server boot isn't blocked
+      // just because self-host didn't set the master key.
+      const rotationService = new KeyRotationService({
+        prisma,
+        cipher: secretCipherFromEnv(),
+        audit: new AuditService(prisma),
+      });
+      const keyRotationInterval = setInterval(() => {
+        rotationService
+          .getActiveJob()
+          .then(job => {
+            if (!job) return;
+            return rotationService.rotateNextBatch(job.id);
+          })
+          .catch(err => {
+            logger.error({ err }, 'Key rotation tick failed');
+          });
+      }, 5_000);
+      process.on('SIGTERM', () => clearInterval(keyRotationInterval));
+      logger.info('Key rotation worker started (5s interval)');
+    } catch (err) {
+      logger.warn({ err }, 'Key rotation worker not started (NANORUN_SECRET_KEY missing?)');
+    }
+
     // ADR 0003 phase 3 + 4: scan for runs that were in flight when the
     // previous backend instance died. Behind three flags:
     //   NANORUN_DURABLE_ENGINE=true    → engine is wired in general
