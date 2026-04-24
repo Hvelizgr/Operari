@@ -101,11 +101,14 @@ function hasTenantFilter(where: unknown): boolean {
 
 function reportViolation(model: string, action: string): void {
   const err = new TenantScopeViolationError(model, action);
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production' && process.env.NANORUN_TENANT_GUARD_STRICT !== 'true') {
     // Don't tank live traffic on a safety-net violation — log loudly
     // so Sentry picks it up, then let the underlying query run. The
     // Execution / NodeLog / ExecutionError rows still carry tenantId
     // at the DB level, so a reviewer can trace the leak via logs.
+    //
+    // Flip NANORUN_TENANT_GUARD_STRICT=true once prod logs show zero
+    // violations for ≥2 weeks — the audit's "T.3" validation step.
     logger.error({ err, model, action }, 'Tenant-scope guard violation (prod soft-fail)');
     return;
   }
