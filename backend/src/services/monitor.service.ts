@@ -212,6 +212,13 @@ export class MonitorService {
     const monitors = await this.prisma.monitor.findMany({
       where: { isEnabled: true },
     });
+
+    // Prefetch tenant-default alert channels for every tenant that
+    // owns a firing-eligible monitor in this batch. One findMany keeps
+    // the tick O(tenants) instead of O(monitors) — a tenant with 50
+    // monitors still only triggers one lookup.
+    const tenantDefaults = await this.resolveTenantAlertDefaults(monitors);
+
     for (const m of monitors) {
       try {
         const result = await this.evaluate(m);
@@ -240,13 +247,20 @@ export class MonitorService {
           // A FIRING → OK flip writes the MonitorEvent (UI recovery
           // banner) but we don't page the operator for a self-heal.
           if (result.status === 'FIRING') {
+            // Coalesce per-monitor overrides with tenant-wide defaults.
+            // Per-monitor wins; absent per-monitor → tenant default; no
+            // tenant default → null, MonitorAlertService no-ops that
+            // channel cleanly.
+            const fallback = tenantDefaults.get(m.tenantId);
+            const effectiveWebhook = m.alertWebhookUrl ?? fallback?.webhookUrl ?? null;
+            const effectiveEmail = m.alertEmail ?? fallback?.email ?? null;
             void this.alertService
               .fire({
                 monitor: {
                   id: m.id,
                   name: m.name,
-                  alertWebhookUrl: m.alertWebhookUrl,
-                  alertEmail: m.alertEmail,
+                  alertWebhookUrl: effectiveWebhook,
+                  alertEmail: effectiveEmail,
                   workflowId: m.workflowId,
                 },
                 reason: result.reason,
@@ -260,5 +274,38 @@ export class MonitorService {
         logger.error({ err, monitorId: m.id }, 'Monitor evaluation failed');
       }
     }
+  }
+
+  /**
+   * Prefetch one active TenantAlertChannel row per tenant that owns
+   * a monitor in this tick. The tick is short-lived so we don't cache
+   * across calls — configuration changes land on the next tick.
+   *
+   * Returns a Map keyed by tenantId; tenants without any active
+   * channel are absent (caller uses `?? null` fallback on each
+   * channel field).
+   */
+  private async resolveTenantAlertDefaults(
+    monitors: Array<{ tenantId: string }>
+  ): Promise<Map<string, { webhookUrl: string | null; email: string | null }>> {
+    const tenantIds = Array.from(new Set(monitors.map(m => m.tenantId)));
+    if (tenantIds.length === 0) return new Map();
+
+    const rows = await this.prisma.tenantAlertChannel.findMany({
+      where: { tenantId: { in: tenantIds }, isActive: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Keep the oldest active row per tenant — that's the "stable
+    // default". An admin staging a replacement creates a new row and
+    // flips isActive on the old one when ready, so "oldest active"
+    // means "the one the operator chose to keep live".
+    const out = new Map<string, { webhookUrl: string | null; email: string | null }>();
+    for (const row of rows) {
+      if (!out.has(row.tenantId)) {
+        out.set(row.tenantId, { webhookUrl: row.webhookUrl, email: row.email });
+      }
+    }
+    return out;
   }
 }

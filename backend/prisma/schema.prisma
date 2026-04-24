@@ -230,8 +230,28 @@ model Tenant {
   runbookVersions   RunbookVersion[]
   billingEvents     BillingEvent[]
   nodeTypes         NodeType[]
+  alertChannels     TenantAlertChannel[]
 
   @@index([slug])
+}
+
+/// Tenant-wide alert channel defaults for monitors. When a Monitor
+/// has no per-row alertWebhookUrl / alertEmail, the resolver falls
+/// back to the tenant's first active TenantAlertChannel row. Multiple
+/// rows per tenant are allowed so admins can stage a replacement
+/// (isActive=false) before flipping it live.
+model TenantAlertChannel {
+  id         String   @id @default(uuid())
+  tenantId   String
+  webhookUrl String?
+  email      String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive])
 }
 
 model StorageBucket {
