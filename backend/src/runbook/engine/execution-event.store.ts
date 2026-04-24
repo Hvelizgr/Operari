@@ -1,5 +1,6 @@
 import type { ExecutionEvent, Prisma, PrismaClient } from '@prisma/client';
 
+import { getEventStream } from '../../observability/event-stream.service';
 import type { ExecutionEventPayload, RunState } from './execution-event.types';
 import { reduceRunState, type ReplayableEvent } from './run-state.reducer';
 
@@ -51,7 +52,7 @@ export class ExecutionEventStore {
     tenantId: string,
     event: ExecutionEventPayload
   ): Promise<ExecutionEvent> {
-    return this.prisma.executionEvent.create({
+    const row = await this.prisma.executionEvent.create({
       data: {
         executionId,
         tenantId,
@@ -60,6 +61,23 @@ export class ExecutionEventStore {
         payload: (event.payload ?? {}) as unknown as Prisma.InputJsonValue,
       },
     });
+    // Dual-write to Redis for live SSE consumers. Best-effort: the
+    // durable record is the Prisma row above, the stream is an
+    // optional live-tail mirror that degrades to polling when Redis
+    // is unconfigured or publish fails. Mirrors the G.2 log-stream
+    // contract — observability must never break the caller.
+    getEventStream()
+      .publish(executionId, {
+        seq: row.seq.toString(),
+        type: row.type,
+        nodeId: row.nodeId,
+        payload: event.payload ?? null,
+        createdAt: row.createdAt.toISOString(),
+      })
+      .catch(() => {
+        /* swallowed — publish is fire-and-forget */
+      });
+    return row;
   }
 
   /**
