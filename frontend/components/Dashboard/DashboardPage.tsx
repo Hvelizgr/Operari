@@ -10,8 +10,11 @@ import {
   Sparkles,
   Zap,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+
+import { useAuth } from '@/lib/auth';
 
 import { EmptyState } from '../Common/EmptyState';
 import Sparkline from '../Common/Sparkline';
@@ -151,11 +154,19 @@ const STRINGS = {
   },
 } as const;
 
-function greeting(t: (typeof STRINGS)[keyof typeof STRINGS]): string {
+function greeting(t: (typeof STRINGS)[keyof typeof STRINGS], name: string | undefined): string {
   const h = new Date().getHours();
-  if (h < 12) return t.greetingMorning;
-  if (h < 19) return t.greetingAfternoon;
-  return t.greetingEvening;
+  const base = h < 12 ? t.greetingMorning : h < 19 ? t.greetingAfternoon : t.greetingEvening;
+  // Personalise with the user's first token so the dashboard reads
+  // like linear/vercel instead of a generic "good morning". Skip
+  // for the anonymous fallback user — "Good morning, Anonymous"
+  // adds noise without value.
+  const trimmed = name?.trim();
+  if (!trimmed || trimmed.toLowerCase() === 'anonymous' || trimmed.toLowerCase() === 'anónimo') {
+    return base;
+  }
+  const first = trimmed.split(/\s+/)[0];
+  return `${base}, ${first}`;
 }
 
 function formatDuration(ms: number | null): string {
@@ -193,6 +204,8 @@ interface DashboardPageProps {
 export default function DashboardPage({ lang }: DashboardPageProps) {
   const t = STRINGS[lang];
   const router = useRouter();
+  const { session } = useAuth();
+  const userName = session?.user.name ?? session?.user.email?.split('@')[0];
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
@@ -303,7 +316,7 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
         {/* Header */}
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-white">{greeting(t)}</h1>
+            <h1 className="text-2xl font-semibold text-white">{greeting(t, userName)}</h1>
             <p className="mt-1 text-sm text-gray-500">{t.today}</p>
           </div>
           {lastUpdateText && (
@@ -476,9 +489,9 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
           title={t.recentTitle}
           icon={<Clock size={16} />}
           action={
-            <a href={`/${lang}/runs`} className="text-primary/70 hover:text-primary/40 text-xs">
+            <Link href={`/${lang}/runs`} className="text-primary/70 hover:text-primary/40 text-xs">
               {t.viewAll}
-            </a>
+            </Link>
           }
         >
           {data && data.recentRuns.length === 0 ? (

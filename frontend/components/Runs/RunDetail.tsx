@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Copy,
   Loader2,
   Pause,
   RotateCcw,
@@ -117,6 +118,20 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [replayingId, setReplayingId] = useState<string | null>(null);
   const [replayInfo, setReplayInfo] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyRunId = async () => {
+    if (!run) return;
+    try {
+      await navigator.clipboard.writeText(run.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard API can reject in insecure contexts or when the
+      // tab is not focused — the ID is still selectable, so silently
+      // give up rather than surface a scary error.
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -257,7 +272,18 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
               Dry run
             </span>
           )}
-          <span className="font-mono text-xs text-zinc-500">{run.id}</span>
+          <button
+            onClick={copyRunId}
+            className="group inline-flex items-center gap-1.5 rounded font-mono text-xs text-zinc-500 hover:text-zinc-300"
+            title={lang === 'en' ? 'Copy run ID' : 'Copiar ID'}
+          >
+            <span>{run.id}</span>
+            {copied ? (
+              <CheckCircle2 size={12} className="text-emerald-400" />
+            ) : (
+              <Copy size={12} className="opacity-50 group-hover:opacity-100" />
+            )}
+          </button>
         </div>
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold">{run.runbook.name}</h1>
