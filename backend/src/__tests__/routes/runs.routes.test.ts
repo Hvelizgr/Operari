@@ -16,6 +16,19 @@ jest.mock('../../server', () => ({
   },
 }));
 
+// The SSE route calls getEventStream() — stub it with a no-op service
+// so the test doesn't pull in the Redis config singleton. The gate
+// test (404) short-circuits before this is touched, but importing
+// the route requires the module graph to resolve cleanly.
+jest.mock('../../observability/event-stream.service', () => ({
+  getEventStream: () => ({
+    fetch: jest.fn(async () => []),
+    subscribe: async function* () {
+      /* empty iterator — the gate path never enters this */
+    },
+  }),
+}));
+
 import runsRouter from '../../routes/runs.routes';
 import { prisma as mockedPrisma } from '../../server';
 
@@ -134,5 +147,29 @@ describe('GET /api/runs/:id/events', () => {
     await request(buildApp()).get('/api/runs/run-1/events?limit=9999');
     const args = m.executionEvent.findMany.mock.calls[0][0];
     expect(args.take).toBe(1000);
+  });
+});
+
+describe('GET /api/runs/:id/events/stream (tenant gate)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // The SSE body is an async xread-block loop we don't exercise here
+  // — it's covered by EventStreamService tests directly. This suite
+  // locks the tenant-scoped 404 so a route-order regression (e.g.
+  // /:id accidentally matching /:id/events/stream) or a missing
+  // tenant gate is caught by the unit suite before landing in prod.
+  it('returns 404 when the run is not in the caller tenant', async () => {
+    m.execution.findFirst.mockResolvedValue(null);
+    const res = await request(buildApp()).get('/api/runs/run-x/events/stream');
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('run_not_found');
+    // The tenant check is scoped via workflow.tenantId — same pattern
+    // as the detail and polling endpoints. Pins the invariant so a
+    // refactor that swaps it for a loose id-only lookup breaks here.
+    const args = m.execution.findFirst.mock.calls[0][0];
+    expect(args.where.workflow.tenantId).toBe('tenant-1');
+    expect(args.where.id).toBe('run-x');
   });
 });
