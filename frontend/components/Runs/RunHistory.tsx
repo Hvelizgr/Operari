@@ -1,6 +1,7 @@
 'use client';
 
 import { Ban, CheckCircle2, Loader2, Pause, XCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { List as VirtualList } from 'react-window';
 
@@ -88,6 +89,7 @@ function formatDuration(ms: number | null): string {
 export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
   const t = STRINGS[lang] ?? STRINGS.en;
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  const router = useRouter();
 
   const [filter, setFilter] = useState<RunStatus | 'all'>('all');
   const [runs, setRuns] = useState<Run[]>([]);
@@ -165,7 +167,14 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
         </div>
       )}
 
-      {runs.length > 0 && <RunsVirtualTable runs={runs} lang={lang} t={t} />}
+      {runs.length > 0 && (
+        <RunsVirtualTable
+          runs={runs}
+          lang={lang}
+          t={t}
+          onOpen={id => router.push(`/${lang}/runs/${id}`)}
+        />
+      )}
 
       {nextCursor && (
         <div className="mt-6 flex justify-center">
@@ -201,6 +210,10 @@ const ROW_HEIGHT = 44;
 interface RunRowExtra {
   runs: Run[];
   lang: 'en' | 'es';
+  /** SPA navigator — keyed off next/navigation router so the row
+   *  click doesn't trigger a full-page reload (which would lose
+   *  the event-log tail and re-mount the whole sidebar). */
+  onOpen: (runId: string) => void;
 }
 
 function RunRow({
@@ -208,6 +221,7 @@ function RunRow({
   style,
   runs,
   lang,
+  onOpen,
 }: { index: number; style: React.CSSProperties } & RunRowExtra) {
   const r = runs[index];
   const meta = STATUS_STYLES[r.status];
@@ -216,9 +230,7 @@ function RunRow({
     <div
       style={style}
       className="flex cursor-pointer items-center border-b border-zinc-900 bg-black px-0 hover:bg-zinc-950"
-      onClick={() => {
-        window.location.href = `/${lang}/runs/${r.id}`;
-      }}
+      onClick={() => onOpen(r.id)}
     >
       <div className="flex w-44 items-center gap-2 px-4">
         <Icon className={`h-4 w-4 ${meta.cls} ${r.status === 'RUNNING' ? 'animate-spin' : ''}`} />
@@ -251,10 +263,12 @@ function RunsVirtualTable({
   runs,
   lang,
   t,
+  onOpen,
 }: {
   runs: Run[];
   lang: 'en' | 'es';
   t: Record<string, string>;
+  onOpen: (runId: string) => void;
 }) {
   // Cap the visible viewport so the list does not push the rest of
   // the page off-screen on tall viewports. 12 rows is a comfortable
@@ -278,7 +292,7 @@ function RunsVirtualTable({
         rowCount={runs.length}
         rowHeight={ROW_HEIGHT}
         rowComponent={RunRow}
-        rowProps={{ runs, lang }}
+        rowProps={{ runs, lang, onOpen }}
       />
     </div>
   );

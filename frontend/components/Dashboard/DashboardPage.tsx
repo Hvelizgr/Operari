@@ -427,13 +427,15 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
           ) : data ? (
             <ul className="space-y-1 text-sm">
               {data.liveRuns.map(r => (
-                <li
-                  key={r.id}
-                  className="flex items-center gap-3 border-b border-white/5 py-1 last:border-0"
-                >
-                  <span className="bg-primary h-2 w-2 animate-pulse rounded-full" />
-                  <span className="flex-1 text-gray-300">{r.runbookName}</span>
-                  <span className="text-xs text-gray-500">{r.trigger ?? 'manual'}</span>
+                <li key={r.id} className="border-b border-white/5 last:border-0">
+                  <button
+                    onClick={() => router.push(`/${lang}/runs/${r.id}`)}
+                    className="flex w-full items-center gap-3 rounded py-1 text-left transition-colors hover:bg-white/5"
+                  >
+                    <span className="bg-primary h-2 w-2 animate-pulse rounded-full" />
+                    <span className="flex-1 text-gray-300">{r.runbookName}</span>
+                    <span className="text-xs text-gray-500">{r.trigger ?? 'manual'}</span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -457,13 +459,15 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
           ) : data ? (
             <ul className="text-sm">
               {data.recentRuns.map(r => (
-                <li
-                  key={r.id}
-                  className="flex items-center gap-3 border-b border-white/5 py-2 last:border-0"
-                >
-                  <span className={`h-2 w-2 rounded-full ${statusDot(r.status)}`} />
-                  <span className="flex-1 truncate text-gray-300">{r.runbookName}</span>
-                  <span className="text-xs text-gray-500">{formatDuration(r.duration)}</span>
+                <li key={r.id} className="border-b border-white/5 last:border-0">
+                  <button
+                    onClick={() => router.push(`/${lang}/runs/${r.id}`)}
+                    className="flex w-full items-center gap-3 rounded py-2 text-left transition-colors hover:bg-white/5"
+                  >
+                    <span className={`h-2 w-2 rounded-full ${statusDot(r.status)}`} />
+                    <span className="flex-1 truncate text-gray-300">{r.runbookName}</span>
+                    <span className="text-xs text-gray-500">{formatDuration(r.duration)}</span>
+                  </button>
                 </li>
               ))}
             </ul>
