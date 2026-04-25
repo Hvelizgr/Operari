@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import {
   Activity,
   AlertCircle,
@@ -10,7 +11,17 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+
+import { HelixSpinner } from '@/components/Brand/HelixSpinner';
+import {
+  motionFor,
+  reducedStaggerChildVariants,
+  reducedStaggerContainerVariants,
+  staggerChildVariants,
+  staggerContainerVariants,
+} from '@/lib/motion';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -45,11 +56,17 @@ const STRINGS = {
     subtitle:
       'Watchdogs over your runbooks. Each monitor evaluates a health check every minute and flips between OK and FIRING.',
     newMonitor: 'New monitor',
+    nameRequired: 'Name is required.',
+    runbookRequired: 'Pick a runbook to watch.',
+    windowInvalid: 'Window must be 1–10080 minutes.',
+    thresholdInvalid: 'Threshold must be between 0 and 1.',
+    saving: 'Saving…',
     empty: 'No monitors yet.',
     emptyHint: 'Create one to alert when a runbook stops succeeding.',
     active: 'Active',
     paused: 'Paused',
-    confirmDelete: 'Delete this monitor? Its event history will be removed.',
+    confirmDelete: 'Delete this monitor?',
+    confirmDeleteYes: 'Yes, delete',
     loading: 'Loading…',
     loadError: 'Failed to load monitors.',
     formName: 'Name',
@@ -79,11 +96,17 @@ const STRINGS = {
     subtitle:
       'Watchdogs sobre tus runbooks. Cada monitor evalúa un check cada minuto y alterna entre OK y FIRING.',
     newMonitor: 'Nuevo monitor',
+    nameRequired: 'El nombre es obligatorio.',
+    runbookRequired: 'Elegí un runbook para vigilar.',
+    windowInvalid: 'La ventana debe ser 1–10080 minutos.',
+    thresholdInvalid: 'El umbral debe estar entre 0 y 1.',
+    saving: 'Guardando…',
     empty: 'Aún no hay monitores.',
     emptyHint: 'Creá uno para alertar cuando un runbook deje de tener éxito.',
     active: 'Activo',
     paused: 'Pausado',
-    confirmDelete: '¿Borrar este monitor? Su historial se eliminará.',
+    confirmDelete: '¿Borrar este monitor?',
+    confirmDeleteYes: 'Sí, borrar',
     loading: 'Cargando…',
     loadError: 'Error cargando monitores.',
     formName: 'Nombre',
@@ -158,6 +181,12 @@ export default function MonitorsPage({ lang }: MonitorsPageProps) {
   const [editing, setEditing] = useState<Monitor | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [now, setNow] = useState(new Date());
+  // In-place delete confirm replaces the native `confirm()` dialog —
+  // inline confirmation keeps the user in context, works on mobile
+  // (native dialogs render awkwardly in iOS Safari), and is
+  // dismissible by clicking Cancel instead of forcing a keyboard
+  // dismiss. Keyed by monitor id; null when no row is confirming.
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -204,15 +233,15 @@ export default function MonitorsPage({ lang }: MonitorsPageProps) {
   };
 
   const handleDelete = async (m: Monitor) => {
-    if (!confirm(t.confirmDelete)) return;
     await fetch(`${API_BASE}/api/monitors/${m.id}`, { method: 'DELETE' });
+    setConfirmingDeleteId(null);
     load();
   };
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#0f1218] text-gray-200">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-6 flex items-start justify-between">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-semibold text-white">
               <Activity size={22} className="text-amber-400" />
@@ -225,7 +254,7 @@ export default function MonitorsPage({ lang }: MonitorsPageProps) {
               setEditing(null);
               setShowForm(true);
             }}
-            className="bg-primary hover:bg-primary flex items-center gap-2 rounded-md px-3 py-2 text-sm text-white"
+            className="bg-primary hover:bg-primary flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50"
           >
             <Plus size={16} />
             {t.newMonitor}
@@ -247,65 +276,102 @@ export default function MonitorsPage({ lang }: MonitorsPageProps) {
             <div className="text-xs text-gray-600">{t.emptyHint}</div>
           </div>
         ) : (
-          <div className="space-y-3">
-            {monitors.map(m => (
-              <div
-                key={m.id}
-                className="flex items-center gap-3 rounded-md border border-white/10 bg-[#1a1f2a] px-4 py-3"
-              >
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    m.isEnabled ? 'bg-emerald-500' : 'bg-gray-600'
-                  }`}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-sm font-medium text-white">
-                    {m.name}
-                    {statusBadge(m.status, t)}
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500">
-                    {m.workflow.name} · {m.checkType.replace(/_/g, ' ')}{' '}
-                    {m.checkConfig.windowMinutes}m
-                    {m.checkConfig.threshold !== undefined &&
-                      ` · threshold ${m.checkConfig.threshold}`}
-                  </div>
-                  <div className="mt-0.5 text-xs text-gray-600">
-                    {t.lastChecked}: {relativeTime(m.lastCheckAt, now, t)}
-                    {m.lastFiredAt && (
-                      <>
-                        {' '}
-                        · {t.lastFired}: {relativeTime(m.lastFiredAt, now, t)}
-                      </>
-                    )}
-                    {m.lastReason && <> · {m.lastReason}</>}
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleToggle(m)}
-                  className="rounded p-1.5 text-gray-500 hover:bg-white/5 hover:text-white"
-                  title={m.isEnabled ? t.paused : t.active}
+          <motion.ul
+            className="space-y-3"
+            variants={motionFor(staggerContainerVariants, reducedStaggerContainerVariants)}
+            initial="initial"
+            animate="animate"
+          >
+            {monitors.map(m => {
+              const runbookHref = `/${lang}/runbooks/${m.workflow.slug ?? m.workflow.id}`;
+              const isConfirming = confirmingDeleteId === m.id;
+              return (
+                <motion.li
+                  key={m.id}
+                  variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-white/10 bg-[#1a1f2a] px-4 py-3"
                 >
-                  <Power size={14} />
-                </button>
-                <button
-                  onClick={() => {
-                    setEditing(m);
-                    setShowForm(true);
-                  }}
-                  className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-white/5 hover:text-white"
-                >
-                  {t.edit}
-                </button>
-                <button
-                  onClick={() => handleDelete(m)}
-                  className="rounded p-1.5 text-gray-500 hover:bg-red-500/10 hover:text-red-400"
-                  title={t.delete}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${
+                      m.isEnabled ? 'bg-emerald-500' : 'bg-gray-600'
+                    }`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-white">
+                      <span className="min-w-0 truncate">{m.name}</span>
+                      {statusBadge(m.status, t)}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      <Link
+                        href={runbookHref}
+                        className="underline-offset-2 hover:text-gray-300 hover:underline"
+                      >
+                        {m.workflow.name}
+                      </Link>{' '}
+                      · {m.checkType.replace(/_/g, ' ')} {m.checkConfig.windowMinutes}m
+                      {m.checkConfig.threshold !== undefined &&
+                        ` · threshold ${m.checkConfig.threshold}`}
+                    </div>
+                    <div className="mt-0.5 text-xs text-gray-600">
+                      {t.lastChecked}: {relativeTime(m.lastCheckAt, now, t)}
+                      {m.lastFiredAt && (
+                        <>
+                          {' '}
+                          · {t.lastFired}: {relativeTime(m.lastFiredAt, now, t)}
+                        </>
+                      )}
+                      {m.lastReason && <> · {m.lastReason}</>}
+                    </div>
+                  </div>
+                  {isConfirming ? (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-red-300">{t.confirmDelete}</span>
+                      <button
+                        onClick={() => handleDelete(m)}
+                        className="rounded bg-red-500/20 px-2 py-1 font-medium text-red-300 hover:bg-red-500/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-red-400"
+                      >
+                        {t.confirmDeleteYes}
+                      </button>
+                      <button
+                        onClick={() => setConfirmingDeleteId(null)}
+                        className="rounded px-2 py-1 text-gray-400 hover:bg-white/5 hover:text-white"
+                      >
+                        {t.cancel}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleToggle(m)}
+                        className="rounded p-1.5 text-gray-500 hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white/40"
+                        title={m.isEnabled ? t.paused : t.active}
+                        aria-label={m.isEnabled ? t.paused : t.active}
+                      >
+                        <Power size={14} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditing(m);
+                          setShowForm(true);
+                        }}
+                        className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white/40"
+                      >
+                        {t.edit}
+                      </button>
+                      <button
+                        onClick={() => setConfirmingDeleteId(m.id)}
+                        className="rounded p-1.5 text-gray-500 hover:bg-red-500/10 hover:text-red-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-red-400/60"
+                        title={t.delete}
+                        aria-label={t.delete}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
+                </motion.li>
+              );
+            })}
+          </motion.ul>
         )}
       </div>
 
@@ -349,9 +415,38 @@ function MonitorForm({
   const [isEnabled, setIsEnabled] = useState(initial?.isEnabled ?? true);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Touched tracks which fields the user has interacted with so we
+  // don't flash errors the moment the form opens. Each field flips
+  // to true on blur (or on submit attempt below).
+  const [touched, setTouched] = useState<{
+    name?: boolean;
+    workflowId?: boolean;
+    windowMinutes?: boolean;
+    threshold?: boolean;
+  }>({});
+
+  // Live per-field validation. Null = valid, string = error message.
+  const fieldErrors = {
+    name: name.trim().length === 0 ? t.nameRequired : null,
+    workflowId: !initial && workflowId.trim().length === 0 ? t.runbookRequired : null,
+    windowMinutes:
+      !Number.isFinite(windowMinutes) || windowMinutes < 1 || windowMinutes > 10080
+        ? t.windowInvalid
+        : null,
+    threshold:
+      checkType === 'failure_rate_above' &&
+      (threshold < 0 || threshold > 1 || !Number.isFinite(threshold))
+        ? t.thresholdInvalid
+        : null,
+  };
+  const formInvalid = Object.values(fieldErrors).some(Boolean);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // On submit, reveal every error regardless of touched so a user
+    // clicking Save on an empty form gets the full punch list.
+    setTouched({ name: true, workflowId: true, windowMinutes: true, threshold: true });
+    if (formInvalid) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -394,7 +489,7 @@ function MonitorForm({
             <X size={16} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4 text-sm">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4 px-5 py-4 text-sm">
           <div>
             <label className="mb-1 block text-[11px] uppercase tracking-wider text-gray-500">
               {t.formName}
@@ -402,10 +497,16 @@ function MonitorForm({
             <input
               value={name}
               onChange={e => setName(e.target.value)}
-              required
+              onBlur={() => setTouched(p => ({ ...p, name: true }))}
               maxLength={120}
-              className="focus:border-primary w-full rounded border border-white/10 bg-[#0f1218] px-3 py-2 text-gray-200 focus:outline-none"
+              aria-invalid={touched.name && !!fieldErrors.name}
+              className={`focus:border-primary w-full rounded border bg-[#0f1218] px-3 py-2 text-gray-200 focus:outline-none ${
+                touched.name && fieldErrors.name ? 'border-red-500/60' : 'border-white/10'
+              }`}
             />
+            {touched.name && fieldErrors.name && (
+              <p className="mt-1 text-[11px] text-red-400">{fieldErrors.name}</p>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-[11px] uppercase tracking-wider text-gray-500">
@@ -425,9 +526,14 @@ function MonitorForm({
             <select
               value={workflowId}
               onChange={e => setWorkflowId(e.target.value)}
+              onBlur={() => setTouched(p => ({ ...p, workflowId: true }))}
               disabled={!!initial}
-              required
-              className="focus:border-primary w-full rounded border border-white/10 bg-[#0f1218] px-3 py-2 text-gray-200 focus:outline-none disabled:opacity-50"
+              aria-invalid={touched.workflowId && !!fieldErrors.workflowId}
+              className={`focus:border-primary w-full rounded border bg-[#0f1218] px-3 py-2 text-gray-200 focus:outline-none disabled:opacity-50 ${
+                touched.workflowId && fieldErrors.workflowId
+                  ? 'border-red-500/60'
+                  : 'border-white/10'
+              }`}
             >
               <option value="">— select —</option>
               {runbooks.map(rb => (
@@ -436,6 +542,9 @@ function MonitorForm({
                 </option>
               ))}
             </select>
+            {touched.workflowId && fieldErrors.workflowId && (
+              <p className="mt-1 text-[11px] text-red-400">{fieldErrors.workflowId}</p>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-[11px] uppercase tracking-wider text-gray-500">
@@ -461,9 +570,17 @@ function MonitorForm({
               max={10080}
               value={windowMinutes}
               onChange={e => setWindowMinutes(parseInt(e.target.value, 10))}
-              required
-              className="focus:border-primary w-full rounded border border-white/10 bg-[#0f1218] px-3 py-2 text-gray-200 focus:outline-none"
+              onBlur={() => setTouched(p => ({ ...p, windowMinutes: true }))}
+              aria-invalid={touched.windowMinutes && !!fieldErrors.windowMinutes}
+              className={`focus:border-primary w-full rounded border bg-[#0f1218] px-3 py-2 text-gray-200 focus:outline-none ${
+                touched.windowMinutes && fieldErrors.windowMinutes
+                  ? 'border-red-500/60'
+                  : 'border-white/10'
+              }`}
             />
+            {touched.windowMinutes && fieldErrors.windowMinutes && (
+              <p className="mt-1 text-[11px] text-red-400">{fieldErrors.windowMinutes}</p>
+            )}
           </div>
           {checkType === 'failure_rate_above' && (
             <div>
@@ -477,8 +594,17 @@ function MonitorForm({
                 step={0.05}
                 value={threshold}
                 onChange={e => setThreshold(parseFloat(e.target.value))}
-                className="focus:border-primary w-full rounded border border-white/10 bg-[#0f1218] px-3 py-2 text-gray-200 focus:outline-none"
+                onBlur={() => setTouched(p => ({ ...p, threshold: true }))}
+                aria-invalid={touched.threshold && !!fieldErrors.threshold}
+                className={`focus:border-primary w-full rounded border bg-[#0f1218] px-3 py-2 text-gray-200 focus:outline-none ${
+                  touched.threshold && fieldErrors.threshold
+                    ? 'border-red-500/60'
+                    : 'border-white/10'
+                }`}
               />
+              {touched.threshold && fieldErrors.threshold && (
+                <p className="mt-1 text-[11px] text-red-400">{fieldErrors.threshold}</p>
+              )}
             </div>
           )}
           <label className="flex cursor-pointer items-center gap-2">
@@ -504,10 +630,11 @@ function MonitorForm({
             </button>
             <button
               type="submit"
-              disabled={submitting}
-              className="bg-primary hover:bg-primary rounded px-4 py-2 text-sm text-white disabled:opacity-50"
+              disabled={submitting || formInvalid}
+              className="bg-primary hover:bg-primary inline-flex items-center gap-2 rounded px-4 py-2 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50 disabled:opacity-50"
             >
-              {submitting ? '…' : t.save}
+              {submitting && <HelixSpinner size={14} />}
+              {submitting ? t.saving : t.save}
             </button>
           </div>
         </form>

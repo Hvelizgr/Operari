@@ -1,5 +1,7 @@
-import { Connection, WorkflowNode } from '@cairn/shared';
+import { Connection, WorkflowNode } from '@nanorun/shared';
 import { useCallback, useEffect, useState } from 'react';
+
+import { storageRead, storageWrite } from '../lib/storage-compat';
 
 export interface Snapshot {
   id: string;
@@ -11,7 +13,7 @@ export interface Snapshot {
 }
 
 const MAX_SNAPSHOTS = 20;
-const STORAGE_KEY_PREFIX = 'nanoflow-snapshot-';
+const STORAGE_KEY_PREFIX = 'nanorun-snapshot-';
 
 export function useSnapshots(workflowId: string = 'global') {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
@@ -19,7 +21,7 @@ export function useSnapshots(workflowId: string = 'global') {
   // Load snapshots from local storage on mount
   useEffect(() => {
     const key = `${STORAGE_KEY_PREFIX}${workflowId}`;
-    const stored = localStorage.getItem(key);
+    const stored = storageRead(key);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -33,7 +35,7 @@ export function useSnapshots(workflowId: string = 'global') {
   // Save snapshots to local storage whenever they change
   useEffect(() => {
     const key = `${STORAGE_KEY_PREFIX}${workflowId}`;
-    localStorage.setItem(key, JSON.stringify(snapshots));
+    storageWrite(key, JSON.stringify(snapshots));
   }, [snapshots, workflowId]);
 
   const createSnapshot = useCallback(

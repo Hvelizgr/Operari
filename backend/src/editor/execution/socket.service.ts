@@ -1,3 +1,4 @@
+import { createAdapter } from '@socket.io/redis-adapter';
 import { Server as HttpServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
 
@@ -24,6 +25,36 @@ export class SocketService {
         credentials: true,
       },
     });
+
+    // Multi-instance fanout: when Redis is configured, attach the
+    // official Redis adapter so `io.to(room).emit(...)` on node A is
+    // received by clients connected to node B. Without the adapter,
+    // node_status + execution_status events only reached clients on
+    // the same node that produced them — a silent fail for any horizontal
+    // deploy. Duplicating the client is required by the adapter: one
+    // for PUBLISH, one for SUBSCRIBE, since ioredis rejects commands on
+    // a subscribed connection.
+    //
+    // Lazy-require so the module load of socket.service doesn't pull
+    // in Redis initialization side-effects in unit tests that never
+    // call initialize() (several of them mock logger differently and
+    // would trigger the connect handler against the undefined mock).
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { redisConfig } = require('../../config/redis.config');
+      const pub = redisConfig.getClient();
+      if (pub && redisConfig.isReady()) {
+        const sub = pub.duplicate();
+        this.io.adapter(createAdapter(pub, sub));
+        logger.info('Socket.io Redis adapter wired for multi-instance fanout');
+      } else {
+        logger.warn(
+          'Socket.io running without Redis adapter — multi-instance emits will not fan out'
+        );
+      }
+    } catch (err) {
+      logger.error({ err }, 'Failed to wire Socket.io Redis adapter; continuing without fanout');
+    }
 
     this.io.on('connection', socket => {
       logger.info({ socketId: socket.id }, 'Client connected to Socket.io');

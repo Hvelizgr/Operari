@@ -16,19 +16,23 @@ jest.mock('../../server', () => ({
   },
 }));
 
-// The SSE route calls getEventStream() — stub it with a no-op service
-// so the test doesn't pull in the Redis config singleton. The gate
-// test (404) short-circuits before this is touched, but importing
-// the route requires the module graph to resolve cleanly.
+// The SSE route calls getEventStream() — stub fetch + subscribe via
+// hoisting-safe `mock`-prefixed vars so individual tests can swap
+// behaviour (backlog entries, tail shape, abort semantics). Jest
+// permits `mockX` names inside factory scope.
+var mockEventStreamFetch = jest.fn();
+var mockEventStreamSubscribe = jest.fn();
 jest.mock('../../observability/event-stream.service', () => ({
   getEventStream: () => ({
-    fetch: jest.fn(async () => []),
-    subscribe: async function* () {
-      /* empty iterator — the gate path never enters this */
-    },
+    fetch: mockEventStreamFetch,
+    subscribe: mockEventStreamSubscribe,
   }),
 }));
 
+import {
+  __resetSseConcurrencyForTests,
+  sseConcurrencyGuard,
+} from '../../middleware/ratelimit.middleware';
 import runsRouter from '../../routes/runs.routes';
 import { prisma as mockedPrisma } from '../../server';
 
@@ -153,6 +157,9 @@ describe('GET /api/runs/:id/events', () => {
 describe('GET /api/runs/:id/events/stream (tenant gate)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockEventStreamFetch.mockReset();
+    mockEventStreamSubscribe.mockReset();
+    __resetSseConcurrencyForTests();
   });
 
   // The SSE body is an async xread-block loop we don't exercise here
@@ -171,5 +178,214 @@ describe('GET /api/runs/:id/events/stream (tenant gate)', () => {
     const args = m.execution.findFirst.mock.calls[0][0];
     expect(args.where.workflow.tenantId).toBe('tenant-1');
     expect(args.where.id).toBe('run-x');
+  });
+});
+
+describe('GET /api/runs/:id/events/stream (backlog-then-tail)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEventStreamFetch.mockReset();
+    mockEventStreamSubscribe.mockReset();
+    __resetSseConcurrencyForTests();
+    // In-tenant by default for this suite.
+    m.execution.findFirst.mockResolvedValue({ id: 'run-1' });
+  });
+
+  const mkEntry = (over: Partial<Record<string, unknown>> = {}) => ({
+    id: '1712515200000-0',
+    seq: '1',
+    type: 'step.started',
+    nodeId: 'node-a',
+    payload: { nodeName: 'Fetch' },
+    createdAt: '2026-04-07T00:00:01.000Z',
+    ...over,
+  });
+
+  /** Build an async iterable that yields the given entries and then
+   *  returns. The route's `for await` exits on return, which triggers
+   *  res.end() and lets supertest resolve. */
+  const asyncIter = (entries: unknown[]) => ({
+    async *[Symbol.asyncIterator]() {
+      for (const e of entries) yield e;
+    },
+  });
+
+  it('replays backlog from Last-Event-ID header, then subscribes from the last backlog id', async () => {
+    const backlog = [
+      mkEntry({ id: '1000-0', seq: '1', type: 'run.started' }),
+      mkEntry({ id: '1001-0', seq: '2', type: 'step.started', nodeId: 'a' }),
+    ];
+    const tail = [mkEntry({ id: '1002-0', seq: '3', type: 'step.succeeded', nodeId: 'a' })];
+    mockEventStreamFetch.mockResolvedValue(backlog);
+    mockEventStreamSubscribe.mockReturnValue(asyncIter(tail));
+
+    const res = await request(buildApp())
+      .get('/api/runs/run-1/events/stream')
+      .set('Last-Event-ID', '999-0');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/event-stream/);
+
+    // fetch was called with the resume cursor.
+    expect(mockEventStreamFetch).toHaveBeenCalledWith('run-1', {
+      fromId: '999-0',
+      count: 10_000,
+    });
+    // subscribe resumed from the last backlog id (not the original
+    // cursor) — otherwise we'd double-emit the last backlog row.
+    expect(mockEventStreamSubscribe).toHaveBeenCalledWith('run-1', {
+      fromId: '1001-0',
+      signal: expect.any(Object),
+    });
+
+    // All three rows flushed in order, in SSE framing (id: … data: …).
+    const frames = res.text.split('\n\n').filter(Boolean);
+    expect(frames).toHaveLength(3);
+    expect(frames[0]).toContain('id: 1000-0');
+    expect(frames[0]).toContain('"seq":"1"');
+    expect(frames[0]).toContain('"type":"run.started"');
+    expect(frames[2]).toContain('id: 1002-0');
+    expect(frames[2]).toContain('"type":"step.succeeded"');
+  });
+
+  it('falls back to fromId query param when Last-Event-ID header is absent', async () => {
+    mockEventStreamFetch.mockResolvedValue([]);
+    mockEventStreamSubscribe.mockReturnValue(asyncIter([]));
+
+    await request(buildApp()).get('/api/runs/run-1/events/stream?fromId=abc-0');
+    expect(mockEventStreamFetch).toHaveBeenCalledWith('run-1', {
+      fromId: 'abc-0',
+      count: 10_000,
+    });
+    // Empty backlog → subscribe resumes from the same cursor
+    // the client passed in.
+    expect(mockEventStreamSubscribe).toHaveBeenCalledWith('run-1', {
+      fromId: 'abc-0',
+      signal: expect.any(Object),
+    });
+  });
+
+  it('without cursor, skips replay and subscribes from the live edge "$"', async () => {
+    mockEventStreamSubscribe.mockReturnValue(asyncIter([]));
+
+    await request(buildApp()).get('/api/runs/run-1/events/stream');
+
+    expect(mockEventStreamFetch).not.toHaveBeenCalled();
+    expect(mockEventStreamSubscribe).toHaveBeenCalledWith('run-1', {
+      fromId: '$',
+      signal: expect.any(Object),
+    });
+  });
+
+  it('sets SSE-appropriate headers for proxy buffering + keep-alive', async () => {
+    mockEventStreamSubscribe.mockReturnValue(asyncIter([]));
+    const res = await request(buildApp()).get('/api/runs/run-1/events/stream');
+    expect(res.headers['cache-control']).toMatch(/no-cache/);
+    // nginx hint: response must NOT be buffered or the client gets
+    // events batched instead of in real-time.
+    expect(res.headers['x-accel-buffering']).toBe('no');
+  });
+
+  it('frames every entry as id:<streamId> + data:<json> + blank line', async () => {
+    mockEventStreamSubscribe.mockReturnValue(
+      asyncIter([mkEntry({ id: 'z-1', seq: '42', type: 'run.completed', nodeId: null })])
+    );
+    const res = await request(buildApp()).get('/api/runs/run-1/events/stream');
+    // Exact framing — regression would catch if someone swaps to a
+    // different separator or drops the id line (breaks reconnect).
+    expect(res.text).toBe(
+      'id: z-1\n' +
+        'data: {"id":"z-1","seq":"42","type":"run.completed","nodeId":null,"payload":{"nodeName":"Fetch"},"createdAt":"2026-04-07T00:00:01.000Z"}\n' +
+        '\n'
+    );
+  });
+});
+
+describe('sseConcurrencyGuard (unit)', () => {
+  beforeEach(() => {
+    __resetSseConcurrencyForTests();
+  });
+
+  /** Build the minimum req/res shape the guard actually reads. IP
+   *  drives the identifier fallback; headers.authorization is absent
+   *  so the guard keys on ip:<ip>. */
+  const mkReqRes = (ip = '10.0.0.1') => {
+    const resCloseCallbacks: Array<() => void> = [];
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+      on: jest.fn((event: string, cb: () => void) => {
+        if (event === 'close') resCloseCallbacks.push(cb);
+      }),
+    };
+    const req = {
+      ip,
+      socket: { remoteAddress: ip },
+      headers: {},
+    };
+    return {
+      req: req as unknown as Parameters<typeof sseConcurrencyGuard>[0],
+      res: res as unknown as Parameters<typeof sseConcurrencyGuard>[1],
+      fireClose: () => resCloseCallbacks.forEach(cb => cb()),
+    };
+  };
+
+  it('allows up to 10 concurrent streams per identifier', () => {
+    for (let i = 0; i < 10; i++) {
+      const { req, res } = mkReqRes();
+      const next = jest.fn();
+      sseConcurrencyGuard(req, res, next);
+      // First 10 opens all succeed → next() is called, no 429.
+      expect(next).toHaveBeenCalledTimes(1);
+      expect((res as unknown as { status: jest.Mock }).status).not.toHaveBeenCalledWith(429);
+    }
+  });
+
+  it('rejects the 11th concurrent open with 429 + sse_concurrency_exceeded', () => {
+    for (let i = 0; i < 10; i++) {
+      const { req, res } = mkReqRes();
+      sseConcurrencyGuard(req, res, jest.fn());
+    }
+    const { req, res } = mkReqRes();
+    const next = jest.fn();
+    sseConcurrencyGuard(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    const resMock = res as unknown as { status: jest.Mock; json: jest.Mock; set: jest.Mock };
+    expect(resMock.status).toHaveBeenCalledWith(429);
+    expect(resMock.set).toHaveBeenCalledWith('Retry-After', '30');
+    const body = resMock.json.mock.calls[0][0];
+    expect(body.code).toBe('sse_concurrency_exceeded');
+    expect(body.cap).toBe(10);
+  });
+
+  it('decrements on res close and lets new opens through again', () => {
+    const handles: Array<ReturnType<typeof mkReqRes>> = [];
+    for (let i = 0; i < 10; i++) {
+      const h = mkReqRes();
+      sseConcurrencyGuard(h.req, h.res, jest.fn());
+      handles.push(h);
+    }
+    // Release one — its close handler must decrement the counter so a
+    // new open is admitted. Without this, a legitimate browser that
+    // navigates away and reconnects would get stuck at the cap.
+    handles[0].fireClose();
+
+    const { req, res } = mkReqRes();
+    const next = jest.fn();
+    sseConcurrencyGuard(req, res, next);
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps counters per identifier, not global (tenant isolation)', () => {
+    // Fill the cap for IP A, then confirm IP B can still open.
+    for (let i = 0; i < 10; i++) {
+      const { req, res } = mkReqRes('10.0.0.1');
+      sseConcurrencyGuard(req, res, jest.fn());
+    }
+    const { req, res } = mkReqRes('10.0.0.2');
+    const next = jest.fn();
+    sseConcurrencyGuard(req, res, next);
+    expect(next).toHaveBeenCalledTimes(1);
   });
 });

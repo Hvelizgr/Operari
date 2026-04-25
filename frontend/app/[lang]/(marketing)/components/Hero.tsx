@@ -61,7 +61,7 @@ export default function Hero({ content }: HeroProps) {
 
   const copyEndpoint = () => {
     void navigator.clipboard
-      .writeText('curl -X POST https://api.cairn.run/v1/runs/trigger')
+      .writeText('curl -X POST https://api.nanorun.dev/v1/runs/trigger')
       .then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 1800);
@@ -202,7 +202,7 @@ export default function Hero({ content }: HeroProps) {
             >
               <Terminal className="text-primary h-3.5 w-3.5" />
               <span className="truncate">
-                POST <span className="text-primary">api.cairn.run</span>/v1/runs/trigger
+                POST <span className="text-primary">api.nanorun.dev</span>/v1/runs/trigger
               </span>
               {copied ? (
                 <Check className="h-3.5 w-3.5 text-emerald-400" />

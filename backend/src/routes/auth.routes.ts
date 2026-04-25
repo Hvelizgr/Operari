@@ -19,6 +19,7 @@ import { secretCipherFromEnv } from '../security/secret-cipher';
 import { prisma } from '../server';
 import { sendEmail } from '../services/email.service';
 import { renderPasswordResetEmail } from '../services/email-templates';
+import { seedDemoRunbook } from '../services/tenant-seed.service';
 
 /**
  * Build a signed session token with a fresh JTI so the JWT denylist
@@ -257,6 +258,13 @@ router.post('/register', async (req, res) => {
     // user is not blocked on our provider going down.
     issueVerificationEmail(prisma, user.id).catch(err => {
       req.log.warn({ err, userId: user.id }, 'verification email failed to issue');
+    });
+
+    // Drop a demo runbook into the new tenant so /runbooks shows
+    // something to click on the very first visit — same fire-and-
+    // forget posture as the verification email.
+    seedDemoRunbook(prisma, { tenantId: tenant.id, userId: user.id }).catch(err => {
+      req.log.warn({ err, tenantId: tenant.id }, 'demo runbook seed failed');
     });
 
     setSessionCookie(req, res, token);

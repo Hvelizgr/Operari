@@ -1,7 +1,20 @@
 'use client';
 
-import { CalendarClock, Clock, Pause, Play, PlayCircle, Plus, Trash2, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  CalendarClock,
+  CheckCircle2,
+  Clock,
+  Pause,
+  Play,
+  PlayCircle,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { bannerVariants } from '@/lib/motion';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -160,6 +173,12 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
   const [editing, setEditing] = useState<Schedule | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [now, setNow] = useState(new Date());
+  // Inline toast + confirm replace native `alert()` / `confirm()`.
+  // Native dialogs block the page thread, look foreign on iOS Safari,
+  // and can't be styled to match the app. The toast auto-dismisses
+  // after 2.5s; the confirm stays until the user picks yes or cancel.
+  const [toast, setToast] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -216,30 +235,54 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
   };
 
   const handleDelete = async (s: Schedule) => {
-    if (!confirm(t.confirmDelete)) return;
     await fetch(`${API_BASE}/api/schedules/${s.id}`, { method: 'DELETE' });
+    setConfirmingDeleteId(null);
     load();
   };
 
   const handleRunNow = async (s: Schedule) => {
     const res = await fetch(`${API_BASE}/api/schedules/${s.id}/run`, { method: 'POST' });
     if (res.ok) {
-      // light feedback — a real toast lib is overkill here
-      // eslint-disable-next-line no-alert
-      alert(t.runTriggered);
+      setToast(t.runTriggered);
       load();
     }
   };
 
+  // Auto-dismiss the toast. Short enough that a quick "run now" →
+  // "run now on another row" sequence doesn't stack messages; the
+  // newest setToast replaces the previous one.
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
   return (
     <div className="flex-1 overflow-y-auto bg-[#0f1218] text-gray-200">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-6 flex items-start justify-between">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              key={toast}
+              variants={bannerVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              role="status"
+              aria-live="polite"
+              className="mb-4 inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300"
+            >
+              <CheckCircle2 size={14} />
+              {toast}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="flex items-center gap-2 text-2xl font-semibold text-white">
+            <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold text-white">
               <CalendarClock size={22} className="text-primary/70" />
               {t.title}
-              <span className="ml-2 text-xs font-normal text-gray-500">
+              <span className="text-xs font-normal text-gray-500">
                 {counts.active} {t.active.toLowerCase()} · {counts.paused} {t.paused.toLowerCase()}
               </span>
             </h1>
@@ -250,7 +293,7 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
               setEditing(null);
               setShowForm(true);
             }}
-            className="bg-primary hover:bg-primary flex items-center gap-2 rounded-md px-3 py-2 text-sm text-white"
+            className="bg-primary hover:bg-primary flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50"
           >
             <Plus size={16} />
             {t.newSchedule}
@@ -306,8 +349,8 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
             <div className="text-xs text-gray-600">{t.emptyHint}</div>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-md border border-white/10 bg-[#1a1f2a]">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-md border border-white/10 bg-[#1a1f2a]">
+            <table className="w-full min-w-[560px] text-sm">
               <thead className="bg-black/20 text-[10px] uppercase tracking-wider text-gray-500">
                 <tr>
                   <th className="w-6 px-4 py-2 text-left font-normal"></th>
@@ -352,38 +395,59 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
                       {s.isActive ? relativeTime(s.nextRunAt, now, t) : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          onClick={() => handleRunNow(s)}
-                          className="rounded p-1.5 text-gray-400 hover:bg-emerald-500/10 hover:text-emerald-400"
-                          title={t.runNow}
-                        >
-                          <PlayCircle size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleToggle(s)}
-                          className="rounded p-1.5 text-gray-400 hover:bg-white/5 hover:text-white"
-                          title={s.isActive ? t.paused : t.active}
-                        >
-                          {s.isActive ? <Pause size={14} /> : <Play size={14} />}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditing(s);
-                            setShowForm(true);
-                          }}
-                          className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-white/5 hover:text-white"
-                        >
-                          {t.edit}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(s)}
-                          className="rounded p-1.5 text-gray-400 hover:bg-red-500/10 hover:text-red-400"
-                          title={t.delete}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                      {confirmingDeleteId === s.id ? (
+                        <div className="inline-flex items-center gap-2 text-xs">
+                          <span className="text-red-300">{t.confirmDelete}</span>
+                          <button
+                            onClick={() => handleDelete(s)}
+                            className="rounded bg-red-500/20 px-2 py-1 font-medium text-red-300 hover:bg-red-500/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-red-400"
+                          >
+                            {t.delete}
+                          </button>
+                          <button
+                            onClick={() => setConfirmingDeleteId(null)}
+                            className="rounded px-2 py-1 text-gray-400 hover:bg-white/5 hover:text-white"
+                          >
+                            {t.cancel}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => handleRunNow(s)}
+                            className="rounded p-1.5 text-gray-400 hover:bg-emerald-500/10 hover:text-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-emerald-400/60"
+                            title={t.runNow}
+                            aria-label={t.runNow}
+                          >
+                            <PlayCircle size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleToggle(s)}
+                            className="rounded p-1.5 text-gray-400 hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white/40"
+                            title={s.isActive ? t.paused : t.active}
+                            aria-label={s.isActive ? t.paused : t.active}
+                          >
+                            {s.isActive ? <Pause size={14} /> : <Play size={14} />}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditing(s);
+                              setShowForm(true);
+                            }}
+                            className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white/40"
+                          >
+                            {t.edit}
+                          </button>
+                          <button
+                            onClick={() => setConfirmingDeleteId(s.id)}
+                            className="rounded p-1.5 text-gray-400 hover:bg-red-500/10 hover:text-red-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-red-400/60"
+                            title={t.delete}
+                            aria-label={t.delete}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -521,10 +585,10 @@ function ScheduleForm({
                   key={p.key}
                   type="button"
                   onClick={() => setCronExpr(p.expr)}
-                  className={`rounded border px-2 py-1 text-xs transition-colors ${
+                  className={`rounded border px-2 py-1 text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white/40 ${
                     cronExpr === p.expr
-                      ? 'border-primary bg-primary/20 text-primary/40'
-                      : 'border-white/10 text-gray-400 hover:text-white'
+                      ? 'border-primary bg-primary/20 text-primary'
+                      : 'border-white/10 text-gray-400 hover:border-white/25 hover:text-white'
                   }`}
                 >
                   {lang === 'es' ? p.label_es : p.label_en}

@@ -1,6 +1,8 @@
 import type { PrismaClient } from '@prisma/client';
 import { randomBytes } from 'crypto';
 
+import { seedDemoRunbook } from '../../services/tenant-seed.service';
+
 import type { OAuthProfile, OAuthProviderConfig } from './providers';
 
 export interface OAuthExchangeDeps {
@@ -175,6 +177,10 @@ export async function resolveOAuthUser(
       },
     },
   });
+  // Seed the new tenant's /runbooks with a demo row so the operator
+  // has something to click on their first visit. Fire-and-forget —
+  // a seed failure must not block the OAuth callback.
+  seedDemoRunbook(prisma, { tenantId: tenant.id, userId: user.id }).catch(() => {});
   return {
     userId: user.id,
     tenantId: tenant.id,

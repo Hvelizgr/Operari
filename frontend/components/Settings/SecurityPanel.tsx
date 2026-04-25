@@ -1,8 +1,9 @@
 'use client';
 
 import { Check, Copy, Download, Loader2, Shield, ShieldCheck } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import QRCode from 'qrcode';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth';
 
@@ -183,12 +184,19 @@ type Step = 'idle' | 'enrolling' | 'awaiting-code' | 'verifying' | 'disabling';
 export function SecurityPanel({ lang }: { lang: 'en' | 'es' }) {
   const t = STRINGS[lang];
   const { session, refresh } = useAuth();
+  const searchParams = useSearchParams();
 
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [step, setStep] = useState<Step>('idle');
   const [secret, setSecret] = useState<string | null>(null);
   const [otpauth, setOtpauth] = useState<string | null>(null);
   const qrDataUrl = useOtpauthQr(otpauth);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // Guard so the auto-enroll flow fires exactly once, even if the
+  // auth /me fetch takes a second and the effect re-runs as `enabled`
+  // flips from null → false. Without this, a user who clicks Start
+  // enrollment manually before the flag settles would be clobbered.
+  const autoEnrollFiredRef = useRef(false);
   const [code, setCode] = useState('');
   const [disablePw, setDisablePw] = useState('');
   const [disableCode, setDisableCode] = useState('');
@@ -211,6 +219,22 @@ export function SecurityPanel({ lang }: { lang: 'en' | 'es' }) {
       })
       .catch(() => setEnabled(false));
   }, [session]);
+
+  // Deep-link flow: the login form redirects users who are required
+  // to enroll MFA to /settings?mfa=enroll. Land on the panel, scroll
+  // it into view, and kick off the enrollment POST automatically so
+  // the user doesn't have to hunt for the button. Guarded so we only
+  // fire once per mount even if `enabled` re-settles.
+  useEffect(() => {
+    if (autoEnrollFiredRef.current) return;
+    if (searchParams?.get('mfa') !== 'enroll') return;
+    if (enabled !== false) return; // Wait for the /me fetch; skip when already on.
+    if (step !== 'idle') return;
+    autoEnrollFiredRef.current = true;
+    rootRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    startEnroll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, enabled, step]);
 
   async function startEnroll() {
     setError(null);
@@ -301,7 +325,7 @@ export function SecurityPanel({ lang }: { lang: 'en' | 'es' }) {
   if (!session || session.user.id === 'anonymous') return null;
 
   return (
-    <div className="space-y-4">
+    <div ref={rootRef} className="space-y-4">
       <p className="text-xs text-[var(--text-muted)]">{t.hint}</p>
 
       {toast && (

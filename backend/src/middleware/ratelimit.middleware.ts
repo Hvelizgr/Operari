@@ -14,6 +14,7 @@ export enum RateLimitTier {
   EXECUTION = 'execution', // Workflow execution: 20 req/min
   STANDARD = 'standard', // CRUD operations: 100 req/min
   WEBHOOK = 'webhook', // Public webhooks: 1000 req/min
+  SSE_STREAM = 'sse_stream', // SSE open rate: 30 req/min
 }
 
 interface RateLimitConfig {
@@ -41,6 +42,17 @@ const RATE_LIMIT_CONFIGS: Record<RateLimitTier, RateLimitConfig> = {
   [RateLimitTier.WEBHOOK]: {
     windowMs: 1 * 60 * 1000, // 1 minute
     max: 1000, // 1000 requests per minute
+  },
+  // SSE opens are long-lived: each connection holds an XREAD BLOCK on
+  // Redis until the client disconnects. 30/min/identifier is tight
+  // enough to stop a hostile loop from draining the connection pool,
+  // but loose enough for a browser tab that reconnects every ~15s
+  // when proxies kill idle TCP. Concurrent-connection cap is enforced
+  // separately via `sseConcurrencyGuard` so sustained damage is also
+  // bounded beyond just the open-rate.
+  [RateLimitTier.SSE_STREAM]: {
+    windowMs: 1 * 60 * 1000,
+    max: 30,
   },
 };
 
@@ -153,6 +165,55 @@ export const authRateLimiter = createRateLimiter(RateLimitTier.AUTH);
 export const executionRateLimiter = createRateLimiter(RateLimitTier.EXECUTION);
 export const standardRateLimiter = createRateLimiter(RateLimitTier.STANDARD);
 export const webhookRateLimiter = createRateLimiter(RateLimitTier.WEBHOOK);
+export const sseStreamRateLimiter = createRateLimiter(RateLimitTier.SSE_STREAM);
+
+/**
+ * Concurrent connection guard for long-lived SSE endpoints.
+ *
+ * The rate limiter above bounds how fast clients can *open* streams.
+ * That alone doesn't help if a client opens 30 streams and keeps them
+ * open — each one holds a Redis XREAD BLOCK socket. This middleware
+ * caps concurrent open streams per identifier (user > tenant > IP),
+ * and decrements when the response closes.
+ *
+ * The counter is in-process and therefore scoped to this node. For
+ * multi-instance deploys the concurrency budget is per-node, which
+ * is a reasonable conservative posture (a hostile client would still
+ * have to distribute opens across nodes to exceed N*cap). A true
+ * cluster-wide cap needs Redis and is called out as follow-up work.
+ */
+const sseOpenCounts = new Map<string, number>();
+const SSE_CONCURRENCY_CAP = 10;
+
+export const sseConcurrencyGuard = (req: Request, res: Response, next: () => void) => {
+  const identifier = getUserIdentifier(req);
+  const current = sseOpenCounts.get(identifier) ?? 0;
+  if (current >= SSE_CONCURRENCY_CAP) {
+    res
+      .status(429)
+      .set('Retry-After', '30')
+      .json({
+        error: 'Too many open streams',
+        message: `Concurrent stream cap reached (${SSE_CONCURRENCY_CAP}). Close an existing stream or wait for one to time out.`,
+        code: 'sse_concurrency_exceeded',
+        cap: SSE_CONCURRENCY_CAP,
+      });
+    return;
+  }
+  sseOpenCounts.set(identifier, current + 1);
+  res.on('close', () => {
+    const now = sseOpenCounts.get(identifier) ?? 1;
+    if (now <= 1) sseOpenCounts.delete(identifier);
+    else sseOpenCounts.set(identifier, now - 1);
+  });
+  next();
+};
+
+/** Exposed only for tests — lets suites reset the process-local
+ *  concurrency counter between runs. Not part of the runtime API. */
+export const __resetSseConcurrencyForTests = () => {
+  sseOpenCounts.clear();
+};
 
 /**
  * Login-specific rate limit keyed on the *email* the caller tried, not

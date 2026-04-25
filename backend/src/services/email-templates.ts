@@ -54,6 +54,19 @@ export interface ContactForwardParams {
   locale?: EmailLocale;
 }
 
+export interface MonitorAlertParams {
+  monitorName: string;
+  reason: string;
+  /** Optional extra context (tenant/runbook name) surfaced directly
+   *  in the body so the on-call engineer knows *which* runbook is
+   *  misbehaving without opening the dashboard. */
+  contextLine?: string;
+  /** Link to the monitor detail page in the app. Omitted renders an
+   *  alert email with no CTA button — still deliverable. */
+  monitorUrl?: string;
+  locale?: EmailLocale;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Public renderers — one per call site.
 // ─────────────────────────────────────────────────────────────
@@ -111,6 +124,45 @@ export function renderInviteEmail(p: InviteParams): RenderedEmail {
   };
 }
 
+export function renderMonitorAlertEmail(p: MonitorAlertParams): RenderedEmail {
+  const t = STRINGS[p.locale ?? 'en'].monitorAlert;
+  const heading = fill(t.heading, { monitorName: p.monitorName });
+  const metaRows: Array<[string, string]> = [
+    [t.monitorLabel, p.monitorName],
+    [t.reasonLabel, p.reason],
+  ];
+  if (p.contextLine) metaRows.push([t.contextLabel, p.contextLine]);
+
+  const textLines = [
+    heading,
+    '',
+    `${t.monitorLabel}: ${p.monitorName}`,
+    `${t.reasonLabel}: ${p.reason}`,
+    ...(p.contextLine ? [`${t.contextLabel}: ${p.contextLine}`] : []),
+    '',
+    ...(p.monitorUrl ? [p.monitorUrl, ''] : []),
+    t.footerLine,
+  ];
+
+  return {
+    subject: fill(t.subject, { monitorName: p.monitorName }),
+    text: textLines.join('\n'),
+    html: renderShell({
+      locale: p.locale ?? 'en',
+      preheader: fill(t.preheader, { monitorName: p.monitorName }),
+      heading,
+      metaRows,
+      ...(p.monitorUrl
+        ? {
+            ctaLabel: t.cta,
+            ctaUrl: p.monitorUrl,
+          }
+        : {}),
+      metaLines: [t.footerLine],
+    }),
+  };
+}
+
 export function renderContactForwardEmail(p: ContactForwardParams): RenderedEmail {
   const t = STRINGS[p.locale ?? 'en'].contact;
   const heading = fill(t.heading, { name: p.name });
@@ -156,7 +208,7 @@ interface ShellParams {
  * globals.css is not reachable.
  */
 const BRAND = {
-  name: 'Cairn',
+  name: 'NanoRun',
   emerald: '#3ecf8e',
   ink: '#0a0a0a',
   text: '#1e293b',
@@ -264,8 +316,7 @@ ${escapeHtml(p.messageBlock)}
               ${escapeHtml(footer.tagline)}
             </p>
             <p style="margin:8px 0 0;font:400 12px/1.5 ${BRAND.sans};color:${BRAND.subtext};">
-              <a href="https://cairn.run" style="color:${BRAND.subtext};text-decoration:underline;">cairn.run</a>
-              · <a href="https://github.com/cairn-run" style="color:${BRAND.subtext};text-decoration:underline;">GitHub</a>
+              <a href="https://nanorun.dev" style="color:${BRAND.subtext};text-decoration:underline;">nanorun.dev</a>
             </p>
           </td>
         </tr>
@@ -279,15 +330,26 @@ ${escapeHtml(p.messageBlock)}
 
 function renderLogoLockup(): string {
   // Inline SVG mark + wordmark. Inline so no external asset load —
-  // email clients block remote images by default (privacy mode),
-  // and a wordmark that doesn't render leaves the email looking
-  // broken.
+  // email clients block remote images by default (privacy mode), and
+  // a wordmark that doesn't render leaves the email looking broken.
+  //
+  // The mark is the same DNA-helix used in-app (DNAMark.tsx):
+  //   - two strands crossing at top, middle, bottom
+  //   - circles at the crossings = runbook steps
+  // Reproduced as a static string here because the backend has no JSX
+  // pipeline; any update to the in-app SVG should be mirrored here.
   return `<table role="presentation" cellspacing="0" cellpadding="0" border="0">
   <tr>
     <td style="padding-right:10px;vertical-align:middle;">
-      <div style="width:32px;height:32px;background:${BRAND.emerald};border-radius:8px;text-align:center;line-height:32px;">
+      <div style="width:32px;height:32px;border:1px solid ${BRAND.emerald}55;background:${BRAND.emerald}1f;border-radius:8px;text-align:center;line-height:32px;">
         <span style="display:inline-block;transform:translateY(2px);">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${BRAND.ink}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18 L12 6 L20 18 Z" /><path d="M8 14 L16 14" /></svg>
+          <svg width="20" height="20" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <path d="M 16 2 C 8 6, 8 12, 16 16 C 24 20, 24 26, 16 30" stroke="${BRAND.emerald}" stroke-width="2" stroke-linecap="round" fill="none" />
+            <path d="M 16 2 C 24 6, 24 12, 16 16 C 8 20, 8 26, 16 30" stroke="${BRAND.ink}" stroke-width="2" stroke-linecap="round" fill="none" />
+            <circle cx="16" cy="2" r="1.6" fill="${BRAND.emerald}" />
+            <circle cx="16" cy="16" r="1.8" fill="${BRAND.emerald}" />
+            <circle cx="16" cy="30" r="1.6" fill="${BRAND.emerald}" />
+          </svg>
         </span>
       </div>
     </td>
@@ -305,24 +367,24 @@ function renderLogoLockup(): string {
 const STRINGS = {
   en: {
     passwordReset: {
-      subject: 'Reset your Cairn password',
+      subject: 'Reset your NanoRun password',
       preheader: 'Open the link inside — valid for 30 minutes.',
       heading: 'Reset your password',
-      body: 'Someone (hopefully you) asked to reset the password on your Cairn account. Click the button below to pick a new one.',
+      body: 'Someone (hopefully you) asked to reset the password on your NanoRun account. Click the button below to pick a new one.',
       cta: 'Reset password',
       expiry: 'This link expires in 30 minutes.',
       ignoreLine: "Didn't request this? You can ignore this email — your password hasn't changed.",
     },
     verification: {
-      subject: 'Verify your Cairn email',
+      subject: 'Verify your NanoRun email',
       preheader: 'One click to finish setting up your workspace.',
       heading: 'Verify your email',
-      body: 'Confirm this is your inbox so you can receive invites, alerts, and audit exports from Cairn.',
+      body: 'Confirm this is your inbox so you can receive invites, alerts, and audit exports from NanoRun.',
       cta: 'Verify email',
       expiry: 'This link is valid for 7 days.',
     },
     invite: {
-      subject: "You're invited to {tenantName} on Cairn",
+      subject: "You're invited to {tenantName} on NanoRun",
       preheader: '{tenantName} added you as a teammate.',
       heading: 'Join {tenantName}',
       body: '{inviterEmail} invited you to collaborate on runbooks in the {tenantName} workspace.',
@@ -331,35 +393,45 @@ const STRINGS = {
     },
     contact: {
       subject: '[contact] {name}',
-      preheader: 'New message from the Cairn contact form.',
+      preheader: 'New message from the NanoRun contact form.',
       heading: 'New message from {name}',
       fromLabel: 'From',
       companyLabel: 'Company',
     },
+    monitorAlert: {
+      subject: '[NanoRun] Monitor "{monitorName}" is FIRING',
+      preheader: 'Monitor {monitorName} just transitioned to FIRING.',
+      heading: 'Monitor "{monitorName}" is FIRING',
+      monitorLabel: 'Monitor',
+      reasonLabel: 'Reason',
+      contextLabel: 'Context',
+      cta: 'Open monitor',
+      footerLine: 'Open NanoRun to acknowledge or silence this alert.',
+    },
     footer: {
-      tagline: 'Cairn · runbook automation for on-call engineers.',
+      tagline: 'NanoRun · runbook automation for on-call engineers.',
     },
   },
   es: {
     passwordReset: {
-      subject: 'Restablecé tu contraseña de Cairn',
+      subject: 'Restablecé tu contraseña de NanoRun',
       preheader: 'Abrí el link adentro — válido 30 minutos.',
       heading: 'Restablecé tu contraseña',
-      body: 'Alguien (esperamos que vos) pidió restablecer la contraseña de tu cuenta Cairn. Hacé clic en el botón para elegir una nueva.',
+      body: 'Alguien (esperamos que vos) pidió restablecer la contraseña de tu cuenta NanoRun. Hacé clic en el botón para elegir una nueva.',
       cta: 'Restablecer contraseña',
       expiry: 'Este link vence en 30 minutos.',
       ignoreLine: '¿No lo pediste? Podés ignorar este email — tu contraseña no cambió.',
     },
     verification: {
-      subject: 'Verificá tu email de Cairn',
+      subject: 'Verificá tu email de NanoRun',
       preheader: 'Un clic para terminar de configurar tu workspace.',
       heading: 'Verificá tu email',
-      body: 'Confirmá que este es tu inbox para recibir invitaciones, alertas y exports de auditoría desde Cairn.',
+      body: 'Confirmá que este es tu inbox para recibir invitaciones, alertas y exports de auditoría desde NanoRun.',
       cta: 'Verificar email',
       expiry: 'Este link es válido por 7 días.',
     },
     invite: {
-      subject: 'Te invitaron a {tenantName} en Cairn',
+      subject: 'Te invitaron a {tenantName} en NanoRun',
       preheader: '{tenantName} te sumó como compañero/a.',
       heading: 'Unite a {tenantName}',
       body: '{inviterEmail} te invitó a colaborar con runbooks en el workspace {tenantName}.',
@@ -368,13 +440,23 @@ const STRINGS = {
     },
     contact: {
       subject: '[contacto] {name}',
-      preheader: 'Nuevo mensaje desde el form de contacto de Cairn.',
+      preheader: 'Nuevo mensaje desde el form de contacto de NanoRun.',
       heading: 'Nuevo mensaje de {name}',
       fromLabel: 'De',
       companyLabel: 'Empresa',
     },
+    monitorAlert: {
+      subject: '[NanoRun] El monitor "{monitorName}" está FIRING',
+      preheader: 'El monitor {monitorName} acaba de transicionar a FIRING.',
+      heading: 'El monitor "{monitorName}" está FIRING',
+      monitorLabel: 'Monitor',
+      reasonLabel: 'Razón',
+      contextLabel: 'Contexto',
+      cta: 'Abrir monitor',
+      footerLine: 'Abrí NanoRun para reconocer o silenciar esta alerta.',
+    },
     footer: {
-      tagline: 'Cairn · automatización de runbooks para on-call.',
+      tagline: 'NanoRun · automatización de runbooks para on-call.',
     },
   },
 } as const;

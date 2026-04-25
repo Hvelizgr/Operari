@@ -6,7 +6,7 @@ Visual, executable, dev-first. Stop maintaining deploy procedures in Confluence.
 [![License: AGPL v3](https://img.shields.io/badge/server-AGPL_v3-blue.svg)](./LICENSE)
 [![SDK: MIT](https://img.shields.io/badge/sdk_+_cli-MIT-green.svg)](./packages/sdk/LICENSE)
 [![TypeScript](https://img.shields.io/badge/typescript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![Tests: 887 passing](https://img.shields.io/badge/tests-887_passing-brightgreen.svg)](#status)
+[![Tests: 1375 passing](https://img.shields.io/badge/tests-1375_passing-brightgreen.svg)](#status)
 [![Status: pre-launch alpha](https://img.shields.io/badge/status-pre--launch_alpha-orange.svg)](#status)
 
 > NanoRun is in **pre-launch alpha**. The status section below tells you exactly
@@ -73,7 +73,7 @@ This list is conservative and hand-verified against the test suite, not the road
 - Run history at `/runs` with status filters, ETA from past runs, cursor pagination
 - Run detail timeline at `/runs/:id` with per-step output, error blocks, replay-from-step button
 - AI assist side-panel that takes the failed step's stdout/stderr/exit-code as prompt context and streams a diagnosis. It does NOT yet have tool access to run history or other step logs — see "What does NOT work yet" below
-- Hash-chained immutable audit log (SHA-256) with a CLI to verify the chain (`cairn audit verify`)
+- Hash-chained immutable audit log (SHA-256) with a CLI to verify the chain (`nanorun audit verify`)
 - RBAC with custom roles, role assignments, and audit events on grant/revoke
 - OpenTelemetry: every run is a trace, every step is a span
 
@@ -110,8 +110,8 @@ This list is conservative and hand-verified against the test suite, not the road
 
 **Plugins (custom step types)**
 
-- `@cairn/sdk/steps` exports `defineStep({ type, configSchema, execute })`. Plugin authors ship npm packages whose `package.json` declares `cairn.steps`; the runtime scans `NANORUN_PLUGINS_DIR` at boot and registers every declared entry
-- Type collisions with core step types (`shell`, `approval`, `nanorun.*`, `cairn.core.*`) are rejected; a broken plugin never crashes boot — the offending entry is skipped with a log line
+- `@nanorun/sdk/steps` exports `defineStep({ type, configSchema, execute })`. Plugin authors ship npm packages whose `package.json` declares `nanorun.steps`; the runtime scans `NANORUN_PLUGINS_DIR` at boot and registers every declared entry
+- Type collisions with core step types (`shell`, `approval`, `nanorun.*`) are rejected; a broken plugin never crashes boot — the offending entry is skipped with a log line
 
 **Billing + quotas (new)**
 
@@ -125,10 +125,21 @@ This list is conservative and hand-verified against the test suite, not the road
 - Public, unauthenticated `/templates` gallery + `/templates/:slug` detail pages. Indexable for SEO. 6 curated YAMLs shipped today
 - "Use this runbook" button: logged-in users get a one-click import (YAML → canvas-native nodes via the existing serializer); logged-out users go through register with the template slug preserved
 
+**Operator experience (new)**
+
+- Temporal-style live execution event log at `/runs/:id` — typed rows, filterable by event type, server-sent-events tail, follow-tail with auto-pause on manual scroll + jump-to-latest pill, auto-expand on failed steps, inline retry-from-step. Reads from a durable `ExecutionEvent` table and a mirror Redis Stream for multi-instance delivery
+- Operator dashboard at `/dashboard` with pulse KPIs, live runs, attention banner (failing/stuck/pending), 7-day trend bars, top runbooks with 20-cell status sparklines, a "what changed in 24h" delta card (new runbooks + runs-vs-prior delta + monitors fired + new approvals), health summary, and a last-update ticker that keeps the page honest about staleness
+- `⌘K` global command palette + G-prefix navigation (G H dashboard, G R runbooks, G I inbox, G S SQL) + `?` shortcut cheat sheet modal
+- Activation chain: empty-state CTA on dashboard creates a demo runbook, editor opens with `?welcome=1`, `⌘+Enter` onboarding hint surfaces until first run, one-shot confetti burst on first successful completion, localStorage-gated so seasoned users never see it again
+- Email templates are real HTML with inline-styled table layout (password reset, verify email, invite, monitor alert, contact forward) — bilingual EN/ES, URL-sanitised CTAs, HTML-escaped user content
+- Motion pass: framer-motion + anime.js on overlays, banners, lists; `prefers-reduced-motion` honored across every site
+- Mobile responsive at 390px (on-call-phone default) for `/approvals` and `/runs/:id`
+- Multi-instance fanout: Socket.IO Redis adapter for room-scoped emits across nodes; SSE event stream is inherently multi-instance safe via Redis Streams
+
 **Tests**
 
-- 815 backend Jest tests (`cd backend && npm test`)
-- 53 frontend Jest tests (`cd frontend && npm test`)
+- 1168 backend Jest tests (`cd backend && npm test`)
+- 207 frontend Jest tests (`cd frontend && npm test`)
 - Playwright e2e specs for Inbox / Runs / YAML view (require running app)
 - 5 ADRs documenting non-trivial design decisions in `docs/adr/`
 
@@ -160,8 +171,8 @@ need. Star the repo and check back in 4-6 weeks.
 | --------------------- | ---------------------------- |
 | Stage                 | pre-launch alpha             |
 | Branch                | `main`                       |
-| Backend tests         | 815 / 815 passing            |
-| Frontend tests        | 53 / 53 passing              |
+| Backend tests         | 1168 / 1168 passing          |
+| Frontend tests        | 207 / 207 passing            |
 | Type-check (backend)  | clean                        |
 | Type-check (frontend) | clean                        |
 | Self-hostable today   | yes — `docker compose up -d` |
@@ -422,8 +433,9 @@ nanorun/
 │   └── utils/runbookYaml.ts     ← in-browser mirror of the backend serializer
 │
 ├── packages/
-│   ├── sdk/                     ← @cairn/sdk (npm, MIT)
-│   └── cli/                     ← @cairn/cli (npm, MIT)
+│   ├── shared/                  ← @nanorun/shared (types shared by frontend + backend)
+│   ├── sdk/                     ← @nanorun/sdk (npm, MIT)
+│   └── cli/                     ← @nanorun/cli (npm, MIT)
 │
 ├── templates/                   ← 5 production-shaped runbooks
 └── docs/

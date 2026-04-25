@@ -1,4 +1,5 @@
 import { logger } from '../config/logger.config';
+import { renderMonitorAlertEmail } from './email-templates';
 import { sendEmail } from './email.service';
 
 /**
@@ -108,14 +109,18 @@ export class MonitorAlertService {
 
   private async sendEmail(input: MonitorAlertInput): Promise<boolean> {
     try {
+      const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+      const tpl = renderMonitorAlertEmail({
+        monitorName: input.monitor.name,
+        reason: input.reason,
+        contextLine: input.contextLine,
+        monitorUrl: `${frontendUrl}/en/monitors/${encodeURIComponent(input.monitor.id)}`,
+      });
       const result = await sendEmail({
         to: input.monitor.alertEmail!,
-        subject: `[NanoRun] Monitor "${input.monitor.name}" is FIRING`,
-        text:
-          `Monitor: ${input.monitor.name}\n` +
-          `Reason: ${input.reason}\n` +
-          (input.contextLine ? `\n${input.contextLine}\n` : '') +
-          `\nOpen in NanoRun to acknowledge or silence.`,
+        subject: tpl.subject,
+        text: tpl.text,
+        html: tpl.html,
       });
       // `loggedOnly` means no provider was configured — the body was
       // written to stdout. Treat as delivered: the operator still gets

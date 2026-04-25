@@ -30,7 +30,7 @@ export const content = {
       requestUrl: '/api/v1/runs/trigger',
       requestLabel: 'Request',
       requestLines: [
-        'curl -X POST https://api.cairn.run/v1/runs/trigger \\',
+        'curl -X POST https://api.nanorun.dev/v1/runs/trigger \\',
         '  -H "Authorization: Bearer sk_live_…" \\',
         '  -H "Content-Type: application/json" \\',
         '  -d \'{"runbook": "rollback-last-deploy",',
@@ -44,7 +44,7 @@ export const content = {
         '  "status": "running",',
         '  "steps": 4,',
         '  "audit_hash": "3f9c…b2e1",',
-        '  "stream": "wss://api.cairn.run/v1/runs/run_3f9c2b7a/stream"',
+        '  "stream": "wss://api.nanorun.dev/v1/runs/run_3f9c2b7a/stream"',
         '}',
       ],
       streamLabel: 'Stream',
@@ -54,7 +54,8 @@ export const content = {
         '▸ publicar status en #incidents',
         '▸ abrir ticket en Linear',
       ],
-      streamFooter: 'run completado · 4/4 steps · cadena de auditoría verificada',
+      streamFooter:
+        'run completado · 4/4 steps · cadena de auditoría verificada · stream SSE en vivo',
     },
   },
   trust: {
@@ -84,10 +85,10 @@ export const content = {
         hint: 'self-host o hosted — el mismo binario',
       },
       {
-        value: 0,
-        suffix: '',
-        label: 'credenciales salen de tu VPC en dry-run',
-        hint: 'los runs quedan en tu infra por defecto',
+        value: 10,
+        suffix: 'ms',
+        label: 'latencia del event tail en vivo',
+        hint: 'stream SSE desde el engine a cada UI que mira',
       },
     ],
   },
@@ -102,7 +103,7 @@ export const content = {
         description:
           'Flag y listo: cada step loguea lo que HARÍA — sin subprocess, sin HTTP, sin pause de approval, sin notificación. Corrés contra credenciales de prod antes del rollback real, ves el payload exacto, dormís tranquilo.',
         example:
-          'curl -X POST https://api.cairn.run/v1/runs/trigger \\\n  -d \'{"runbook":"rollback","dryRun":true}\'',
+          'curl -X POST https://api.nanorun.dev/v1/runs/trigger \\\n  -d \'{"runbook":"rollback","dryRun":true}\'',
       },
       {
         title: 'Los errores disparan el siguiente runbook automáticamente.',
@@ -120,9 +121,9 @@ export const content = {
       {
         title: 'Tus propios step types, shippeados como npm packages.',
         description:
-          '@cairn/sdk exporta defineStep({type, configSchema, execute}). Lo escribís en TypeScript, shippeás el build, lo dropeás en NANORUN_PLUGINS_DIR. El runtime valida config con tu zod schema antes del execute. Los types reservados no se pueden override.',
+          '@nanorun/sdk exporta defineStep({type, configSchema, execute}). Lo escribís en TypeScript, shippeás el build, lo dropeás en NANORUN_PLUGINS_DIR. El runtime valida config con tu zod schema antes del execute. Los types reservados no se pueden override.',
         example:
-          "import { defineStep } from '@cairn/sdk/steps';\nexport default defineStep({\n  type: 'myorg.slack-notify',\n  configSchema: z.object({ webhook: z.string().url() }),\n  async execute(config, ctx) { /* ... */ },\n});",
+          "import { defineStep } from '@nanorun/sdk/steps';\nexport default defineStep({\n  type: 'myorg.slack-notify',\n  configSchema: z.object({ webhook: z.string().url() }),\n  async execute(config, ctx) { /* ... */ },\n});",
       },
     ],
   },
@@ -150,7 +151,7 @@ export const content = {
         number: '03',
         title: 'La alerta dispara → corre → la cadena de auditoría lo prueba.',
         description:
-          'Webhook entra, runbook sale. Cada step corre en un runner sandboxeado con retries, gates condicionales y aprobación humana donde la quieras. Toda acción cae en una cadena hash SHA-256 verificable con `nanorun audit verify`.',
+          'Webhook entra, runbook sale. Cada step corre en un runner sandboxeado con retries, gates condicionales y aprobación humana donde la quieras. El operador ve el run en vivo en un event log estilo Temporal (tail SSE, jump-to-latest, retry-desde-step) mientras las mismas transiciones caen en una cadena hash SHA-256 verificable con `nanorun audit verify`.',
         caption: 'De la alerta a la evidencia, en una sola herramienta.',
       },
     ],
@@ -534,11 +535,11 @@ export const content = {
         body: 'Tablas de DB, modelos Prisma y superficie de API migraron de workflow_* a runbook_*. Shim de compat eliminado; migrá con el script incluido.',
       },
       {
-        date: '2026-03-28',
-        version: 'v0.5.1',
+        date: '2026-04-24',
+        version: 'v0.6.0',
         tag: 'sdk',
-        title: 'SDK público renombrado: NanoRun → Cairn',
-        body: 'Los SDKs de Python y TypeScript ahora exportan clases Cairn. NanoRun sigue siendo el nombre del producto; Cairn es el namespace del library.',
+        title: 'SDK público consolidado bajo @nanorun/*',
+        body: 'El SDK de TypeScript, el CLI y los tipos compartidos ahora se publican como @nanorun/sdk, @nanorun/cli y @nanorun/shared. El namespace intermedio Cairn fue retirado para mantener el branding consistente en el binario CLI, los nombres de paquetes, los templates de email y el copy in-app.',
       },
       {
         date: '2026-03-14',
@@ -654,7 +655,7 @@ export const content = {
       },
       {
         heading: 'Tus derechos',
-        body: 'Podés acceder, corregir, exportar o eliminar cada campo asociado a tu cuenta desde la página de Settings. Para derechos que requieren gestión manual (restricción, oposición, portabilidad en bulk), escribinos a privacy@cairn.run y respondemos en 30 días. Residentes en la UE/EEE y UK pueden también hacer reclamos ante su autoridad de protección de datos local.',
+        body: 'Podés acceder, corregir, exportar o eliminar cada campo asociado a tu cuenta desde la página de Settings. Para derechos que requieren gestión manual (restricción, oposición, portabilidad en bulk), escribinos a privacy@nanorun.dev y respondemos en 30 días. Residentes en la UE/EEE y UK pueden también hacer reclamos ante su autoridad de protección de datos local.',
       },
       {
         heading: 'Retención',
@@ -678,11 +679,11 @@ export const content = {
       },
       {
         heading: 'Datos de menores',
-        body: 'El servicio no está dirigido a menores de 16 años. No recolectamos conscientemente datos de menores; si creés que los datos de un menor llegaron a nosotros, escribinos a privacy@cairn.run y los eliminamos.',
+        body: 'El servicio no está dirigido a menores de 16 años. No recolectamos conscientemente datos de menores; si creés que los datos de un menor llegaron a nosotros, escribinos a privacy@nanorun.dev y los eliminamos.',
       },
       {
         heading: 'Contacto',
-        body: 'Consultas de privacidad o pedidos de derechos: privacy@cairn.run. Divulgaciones de seguridad: security@cairn.run (PGP bajo pedido). Para asuntos GDPR de la UE mantendremos un Representante EEA una vez que la facturación en la región supere el umbral de EU Rep.',
+        body: 'Consultas de privacidad o pedidos de derechos: privacy@nanorun.dev. Divulgaciones de seguridad: security@nanorun.dev (PGP bajo pedido). Para asuntos GDPR de la UE mantendremos un Representante EEA una vez que la facturación en la región supere el umbral de EU Rep.',
       },
     ],
   },
@@ -693,7 +694,7 @@ export const content = {
     sections: [
       {
         heading: 'Partes',
-        body: 'Estos términos forman un acuerdo entre vos ("Cliente") y Cairn ("nosotros"). Al registrarte en el servicio hosted o al correr la distribución self-host en producción, aceptás estos términos.',
+        body: 'Estos términos forman un acuerdo entre vos ("Cliente") y NanoRun ("nosotros"). Al registrarte en el servicio hosted o al correr la distribución self-host en producción, aceptás estos términos.',
       },
       {
         heading: 'Licencia self-host',

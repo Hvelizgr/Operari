@@ -1,9 +1,11 @@
 'use client';
 
-import type { Connection, WorkflowNode } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@nanorun/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Download, FolderOpen, Save, Upload, X } from 'lucide-react';
 import { useRef, useState } from 'react';
+
+import { storageRead, storageWrite } from '../../lib/storage-compat';
 
 interface SaveLoadMenuProps {
   nodes: WorkflowNode[];
@@ -51,11 +53,11 @@ export default function SaveLoadMenu({ nodes, connections, onLoad, lang }: SaveL
       version: '1.0',
       timestamp: Date.now(),
     };
-    localStorage.setItem('nanoflow-workflow', JSON.stringify(workflow));
+    storageWrite('nanorun-workflow', JSON.stringify(workflow));
   };
 
   const handleLoad = () => {
-    const saved = localStorage.getItem('nanoflow-workflow');
+    const saved = storageRead('nanorun-workflow');
     if (saved) {
       try {
         const workflow = JSON.parse(saved);

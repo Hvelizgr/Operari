@@ -1,7 +1,8 @@
-import type { Connection, WorkflowNode } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@nanorun/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AUTOSAVE_DEBOUNCE_MS } from '../constants/timeouts';
+import { storageRead, storageWrite } from '../lib/storage-compat';
 import {
   nodesToSpec,
   type RunbookHeader,
@@ -50,11 +51,8 @@ export function useAutosave({
   const saveToLocalStorage = useCallback(
     (data: WorkflowData) => {
       try {
-        localStorage.setItem(`nanoflow-workflow-${workflowId}`, JSON.stringify(data));
-        localStorage.setItem(
-          `nanoflow-workflow-${workflowId}-timestamp`,
-          data.timestamp.toString()
-        );
+        storageWrite(`nanorun-workflow-${workflowId}`, JSON.stringify(data));
+        storageWrite(`nanorun-workflow-${workflowId}-timestamp`, data.timestamp.toString());
       } catch (error) {
         console.error('Failed to save to localStorage:', error);
       }
@@ -246,14 +244,14 @@ export function useAutosave({
   }, [enableAutosave, saveStatus, performSave]);
 
   useEffect(() => {
-    const savedPreference = localStorage.getItem('nanoflow-autosave-enabled');
+    const savedPreference = storageRead('nanorun-autosave-enabled');
     if (savedPreference !== null) {
       setEnableAutosave(savedPreference === 'true');
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('nanoflow-autosave-enabled', enableAutosave.toString());
+    storageWrite('nanorun-autosave-enabled', enableAutosave.toString());
   }, [enableAutosave]);
 
   /**

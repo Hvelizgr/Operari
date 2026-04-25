@@ -7,6 +7,7 @@ import {
   Database,
   History,
   Inbox,
+  Keyboard,
   LayoutDashboard,
   MessageSquare,
   Settings,
@@ -19,6 +20,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import CommandPalette, { type CommandAction } from '@/components/Editor/CommandPalette';
+
+import ShortcutHelpModal from './ShortcutHelpModal';
 
 interface GlobalCommandPaletteProps {
   lang: 'en' | 'es';
@@ -40,6 +43,8 @@ const LABELS = {
     admin: 'Admin',
     settings: 'Settings',
     navigate: 'Navigate',
+    help: 'Keyboard shortcuts',
+    helpSub: 'Show cheat sheet',
   },
   es: {
     dashboard: 'Panel',
@@ -56,6 +61,8 @@ const LABELS = {
     admin: 'Admin',
     settings: 'Configuración',
     navigate: 'Navegar',
+    help: 'Atajos de teclado',
+    helpSub: 'Ver atajos',
   },
 } as const;
 
@@ -65,18 +72,35 @@ const LABELS = {
 export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const t = LABELS[lang];
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const isK = e.key === 'k' || e.key === 'K';
-      if (!isK) return;
-      if (!(e.metaKey || e.ctrlKey)) return;
-      // Respect any nested palette scope (e.g. the editor's own ⌘K).
       const target = e.target as HTMLElement | null;
-      if (target?.closest('[data-cmdk-scope]')) return;
-      e.preventDefault();
-      setOpen(o => !o);
+
+      // ⌘K / Ctrl-K — toggle the command palette. Respect nested
+      // scopes (editor's own ⌘K) so they don't double-fire.
+      if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
+        if (target?.closest('[data-cmdk-scope]')) return;
+        e.preventDefault();
+        setOpen(o => !o);
+        return;
+      }
+
+      // `?` (Shift+/) — open the keyboard cheat sheet. Skip when the
+      // user is typing in a form field so the `?` character still
+      // lands where expected.
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (
+          target &&
+          (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+        ) {
+          return;
+        }
+        e.preventDefault();
+        setHelpOpen(true);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -180,9 +204,20 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
       icon: <Settings size={16} />,
       action: go(`/${lang}/settings`),
     },
+    {
+      id: 'help:shortcuts',
+      label: t.help,
+      subLabel: t.helpSub,
+      icon: <Keyboard size={16} />,
+      shortcut: ['?'],
+      action: () => setHelpOpen(true),
+    },
   ];
 
   return (
-    <CommandPalette isOpen={open} onClose={() => setOpen(false)} actions={actions} lang={lang} />
+    <>
+      <CommandPalette isOpen={open} onClose={() => setOpen(false)} actions={actions} lang={lang} />
+      <ShortcutHelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} lang={lang} />
+    </>
   );
 }

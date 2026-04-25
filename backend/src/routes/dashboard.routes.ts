@@ -35,6 +35,10 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
   const since7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const stuckThreshold = new Date(now.getTime() - 5 * 60 * 1000);
   const since2h = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+  // Delta window for the "what changed in 24h" card. Prior-24h is
+  // the slice between 48h ago and 24h ago so we can compute a
+  // this-period-vs-previous-period comparison.
+  const since48h = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
   // Execution now carries tenantId directly (post-C4), so filter
   // against the denormalized column — eliminates the join to Runbook
@@ -55,6 +59,12 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     runs7d,
     topRunbooksRaw,
     webhookStats,
+    // "What changed in 24h" aggregates. Each is a single count — the
+    // card shows absolute numbers + a delta against the prior window.
+    newRunbooks24h,
+    priorRuns24h,
+    newApprovals24h,
+    firedMonitors24h,
   ] = await Promise.all([
     prisma.execution.count({
       where: { ...tenantWorkflowFilter, startedAt: { gte: since24h } },
@@ -131,6 +141,21 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       where: { tenantId, isActive: true },
       _count: { _all: true },
       _max: { lastTriggeredAt: true },
+    }),
+    prisma.runbook.count({
+      where: { tenantId, createdAt: { gte: since24h } },
+    }),
+    prisma.execution.count({
+      where: {
+        ...tenantWorkflowFilter,
+        startedAt: { gte: since48h, lt: since24h },
+      },
+    }),
+    prisma.approval.count({
+      where: { workflow: { tenantId }, createdAt: { gte: since24h } },
+    }),
+    prisma.monitor.count({
+      where: { tenantId, lastFiredAt: { gte: since24h } },
     }),
   ]);
 
@@ -273,6 +298,18 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     })),
     trend7d,
     topRunbooks,
+    changes24h: {
+      newRunbooks: newRunbooks24h,
+      newApprovals: newApprovals24h,
+      newlyFiredMonitors: firedMonitors24h,
+      runsDelta: {
+        current: runs24hCount,
+        prior: priorRuns24h,
+        // Signed delta — positive = more runs this window, negative
+        // = fewer. Clients render a +/− prefix accordingly.
+        change: runs24hCount - priorRuns24h,
+      },
+    },
     health: {
       // Audit chain verification is intentionally NOT run here — it can
       // be expensive on large logs. The dashboard surfaces "unknown"

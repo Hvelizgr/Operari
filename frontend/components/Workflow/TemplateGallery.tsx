@@ -1,11 +1,39 @@
 'use client';
 
-import type { Connection, WorkflowNode } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@nanorun/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FileCode, FileText, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import TemplatePreview from '@/app/[lang]/(marketing)/templates/TemplatePreview';
 import { specToNodes, yamlToSpec } from '@/utils/runbookYaml';
+
+/** Thin bridge: template gallery holds YAML strings, the shared
+ *  TemplatePreview renders from parsed node/connection arrays. This
+ *  wrapper does the one-shot parse per template card with useMemo
+ *  so the 20+ cards don't re-parse on every gallery re-render. A
+ *  parse failure falls back to nothing — the card's metadata still
+ *  tells the operator what the template does. */
+function TemplatePreviewFromYaml({ yaml }: { yaml: string }) {
+  const parsed = useMemo(() => {
+    try {
+      const spec = yamlToSpec(yaml);
+      return specToNodes(spec);
+    } catch {
+      return null;
+    }
+  }, [yaml]);
+  if (!parsed || parsed.nodes.length === 0) return null;
+  return (
+    <div className="rounded border border-slate-700/40 bg-slate-900/40 p-1">
+      <TemplatePreview
+        nodes={parsed.nodes as WorkflowNode[]}
+        connections={parsed.connections as Connection[]}
+        height={110}
+      />
+    </div>
+  );
+}
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -14,13 +42,10 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
  * curated YAML runbook templates from the repo's `templates/` directory
  * and drop it into the canvas.
  *
- * History note: this component used to ship with 6 hardcoded NanoFlow
- * templates (Email Notification, Data Sync, etc) using node types that
- * had no backend executor in NanoRun. The cleanup pass replaced that
- * with a live fetch from `/api/templates`, which serves the real YAML
- * templates the project commits to git. The yaml→canvas conversion
- * goes through the same `specToNodes()` the YAML modal uses, so the
- * dropped runbook is byte-identical to one imported via the YAML view.
+ * Templates are loaded live from `/api/templates` (real YAML files
+ * committed to git). yaml→canvas conversion goes through the same
+ * `specToNodes()` the YAML import modal uses, so the dropped runbook
+ * is byte-identical to one imported via the YAML view.
  */
 
 interface RemoteTemplate {
@@ -177,23 +202,27 @@ export default function TemplateGallery({
                       <button
                         key={tpl.file}
                         onClick={() => handleSelect(tpl)}
-                        className="hover:border-primary hover:bg-primary/5 rounded-md border border-slate-700 p-3 text-left transition-colors"
+                        className="hover:border-primary hover:bg-primary/5 group flex flex-col gap-2 rounded-md border border-slate-700 p-3 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-emerald-400/60"
                       >
-                        <div className="mb-1 flex items-center gap-2">
-                          <FileCode size={14} className="text-primary/70" />
+                        <div className="flex items-center gap-2">
+                          <FileCode size={14} className="text-primary/70 shrink-0" />
                           <span className="truncate text-sm font-medium text-slate-100">
                             {tpl.name}
                           </span>
                         </div>
+                        {/* Mini-canvas preview of the runbook shape. The
+                            operator recognises "this one branches" at a
+                            glance instead of reading step counts. */}
+                        <TemplatePreviewFromYaml yaml={tpl.yaml} />
                         {tpl.category && (
-                          <span className="mb-2 inline-block rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-emerald-300">
+                          <span className="inline-block self-start rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-emerald-300">
                             {tpl.category}
                           </span>
                         )}
                         {tpl.description && (
                           <p className="line-clamp-2 text-xs text-slate-400">{tpl.description}</p>
                         )}
-                        <div className="mt-2 text-[10px] text-slate-500">
+                        <div className="text-[10px] text-slate-500">
                           {tpl.stepCount} {t.steps}
                         </div>
                       </button>

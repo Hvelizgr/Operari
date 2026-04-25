@@ -1,6 +1,7 @@
 import { Response, Router } from 'express';
 
 import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
+import { sseConcurrencyGuard, sseStreamRateLimiter } from '../middleware/ratelimit.middleware';
 import { getEventStream } from '../observability/event-stream.service';
 import { prisma } from '../server';
 
@@ -216,71 +217,76 @@ router.get('/:id/events', async (req: AuthRequest, res: Response) => {
  * Route ordering note: declared before /:id so express does not route
  * "abc/events/stream" into the detail handler.
  */
-router.get('/:id/events/stream', async (req: AuthRequest, res: Response) => {
-  const tenantId = req.user!.tenantId;
-  const runId = String(req.params.id);
+router.get(
+  '/:id/events/stream',
+  sseStreamRateLimiter,
+  sseConcurrencyGuard,
+  async (req: AuthRequest, res: Response) => {
+    const tenantId = req.user!.tenantId;
+    const runId = String(req.params.id);
 
-  // Same tenant gate as the polling endpoint — preserve 404 vs 403
-  // semantics regardless of how the client is consuming events.
-  const run = await prisma.execution.findFirst({
-    where: { id: runId, workflow: { tenantId } },
-    select: { id: true },
-  });
-  if (!run) {
-    return res.status(404).json({ error: 'Run not found', code: 'run_not_found' });
-  }
-
-  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no'); // nginx: don't buffer SSE
-  res.flushHeaders?.();
-
-  const controller = new AbortController();
-  res.on('close', () => controller.abort());
-
-  // Last-Event-ID header is the SSE-spec way clients signal a resume
-  // cursor on reconnect. Fall back to a query param for clients that
-  // can't set it (e.g. EventSource in some browsers doesn't expose it
-  // before the first event).
-  const fromId =
-    (req.headers['last-event-id'] as string | undefined) ??
-    (req.query.fromId as string | undefined);
-
-  const eventStream = getEventStream();
-
-  try {
-    // Replay from the cursor (if any) then tail. When fromId is
-    // omitted we start the subscribe at the live edge — the history
-    // route already covers backfill.
-    if (fromId) {
-      const backlog = await eventStream.fetch(runId, { fromId, count: 10_000 });
-      for (const entry of backlog) {
-        if (controller.signal.aborted) break;
-        res.write(`id: ${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`);
-      }
-      const tailCursor = backlog.length > 0 ? backlog[backlog.length - 1].id : fromId;
-      for await (const entry of eventStream.subscribe(runId, {
-        fromId: tailCursor,
-        signal: controller.signal,
-      })) {
-        if (controller.signal.aborted) break;
-        res.write(`id: ${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`);
-      }
-    } else {
-      for await (const entry of eventStream.subscribe(runId, {
-        fromId: '$',
-        signal: controller.signal,
-      })) {
-        if (controller.signal.aborted) break;
-        res.write(`id: ${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`);
-      }
+    // Same tenant gate as the polling endpoint — preserve 404 vs 403
+    // semantics regardless of how the client is consuming events.
+    const run = await prisma.execution.findFirst({
+      where: { id: runId, workflow: { tenantId } },
+      select: { id: true },
+    });
+    if (!run) {
+      return res.status(404).json({ error: 'Run not found', code: 'run_not_found' });
     }
-  } catch (err) {
-    req.log.error({ err, runId }, 'SSE events stream failed');
+
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // nginx: don't buffer SSE
+    res.flushHeaders?.();
+
+    const controller = new AbortController();
+    res.on('close', () => controller.abort());
+
+    // Last-Event-ID header is the SSE-spec way clients signal a resume
+    // cursor on reconnect. Fall back to a query param for clients that
+    // can't set it (e.g. EventSource in some browsers doesn't expose it
+    // before the first event).
+    const fromId =
+      (req.headers['last-event-id'] as string | undefined) ??
+      (req.query.fromId as string | undefined);
+
+    const eventStream = getEventStream();
+
+    try {
+      // Replay from the cursor (if any) then tail. When fromId is
+      // omitted we start the subscribe at the live edge — the history
+      // route already covers backfill.
+      if (fromId) {
+        const backlog = await eventStream.fetch(runId, { fromId, count: 10_000 });
+        for (const entry of backlog) {
+          if (controller.signal.aborted) break;
+          res.write(`id: ${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`);
+        }
+        const tailCursor = backlog.length > 0 ? backlog[backlog.length - 1].id : fromId;
+        for await (const entry of eventStream.subscribe(runId, {
+          fromId: tailCursor,
+          signal: controller.signal,
+        })) {
+          if (controller.signal.aborted) break;
+          res.write(`id: ${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`);
+        }
+      } else {
+        for await (const entry of eventStream.subscribe(runId, {
+          fromId: '$',
+          signal: controller.signal,
+        })) {
+          if (controller.signal.aborted) break;
+          res.write(`id: ${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`);
+        }
+      }
+    } catch (err) {
+      req.log.error({ err, runId }, 'SSE events stream failed');
+    }
+    res.end();
   }
-  res.end();
-});
+);
 
 /**
  * GET /api/runs/:id — run detail with step logs.

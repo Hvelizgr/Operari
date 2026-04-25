@@ -29,6 +29,15 @@ import type { Redis } from 'ioredis';
  * Read path contract — same as LogStreamService
  *   fetch    → XRANGE replay with optional cursor
  *   subscribe→ XREAD BLOCK async iterable, aborts via AbortSignal
+ *
+ * Multi-instance fanout
+ *   Redis Streams are inherently shared state. When two backend nodes
+ *   both point at the same Redis, XADD from node A is immediately
+ *   visible to XREAD on node B — the stream IS the broadcast channel.
+ *   No additional pub/sub plumbing is required for SSE clients across
+ *   nodes. The Socket.IO side (node_status, execution_status) is NOT
+ *   stream-backed and uses the Redis adapter for fanout instead (see
+ *   socket.service.ts).
  */
 
 export interface EventStreamEntry {

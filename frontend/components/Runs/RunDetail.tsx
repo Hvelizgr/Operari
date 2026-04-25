@@ -217,7 +217,7 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-10">
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="flex items-center gap-2 text-sm text-zinc-400">
           <Loader2 className="h-4 w-4 animate-spin" />
           {t.loading}
@@ -228,7 +228,7 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
 
   if (!run) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-10">
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         <Link
           href={`/${lang}/runs`}
           className="mb-4 inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-white"
@@ -254,10 +254,10 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
         <ArrowLeft size={14} /> {t.back}
       </Link>
 
-      <header className="mb-8 rounded-lg border border-zinc-800 bg-zinc-950 p-5">
-        <div className="mb-2 flex items-center gap-2">
+      <header className="mb-6 rounded-lg border border-zinc-800 bg-zinc-950 p-4 sm:mb-8 sm:p-5">
+        <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           <Icon
-            className={`h-5 w-5 ${meta.cls} ${run.status === 'RUNNING' ? 'animate-spin' : ''}`}
+            className={`h-5 w-5 shrink-0 ${meta.cls} ${run.status === 'RUNNING' ? 'animate-spin' : ''}`}
           />
           <span className={`text-sm font-semibold ${meta.cls}`}>{run.status}</span>
           {run.dryRun && (
@@ -274,19 +274,19 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
           )}
           <button
             onClick={copyRunId}
-            className="group inline-flex items-center gap-1.5 rounded font-mono text-xs text-zinc-500 hover:text-zinc-300"
+            className="group inline-flex min-w-0 items-center gap-1.5 rounded font-mono text-xs text-zinc-500 hover:text-zinc-300"
             title={lang === 'en' ? 'Copy run ID' : 'Copiar ID'}
           >
-            <span>{run.id}</span>
+            <span className="truncate">{run.id}</span>
             {copied ? (
-              <CheckCircle2 size={12} className="text-emerald-400" />
+              <CheckCircle2 size={12} className="shrink-0 text-emerald-400" />
             ) : (
-              <Copy size={12} className="opacity-50 group-hover:opacity-100" />
+              <Copy size={12} className="shrink-0 opacity-50 group-hover:opacity-100" />
             )}
           </button>
         </div>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="min-w-0 break-words text-2xl font-semibold">
             {/* Link the runbook name back to its own page so the
                 operator can jump "up" the hierarchy (run → runbook)
                 after a failed run to review or edit the definition.
@@ -301,7 +301,7 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
           <button
             onClick={replayWholeRun}
             disabled={replayingId !== null || run.status === 'RUNNING'}
-            className="bg-primary hover:bg-primary flex items-center gap-2 rounded-md px-3 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            className="bg-primary hover:bg-primary flex w-full shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             title={
               lang === 'en'
                 ? 'Re-run this runbook from the start with the same trigger'

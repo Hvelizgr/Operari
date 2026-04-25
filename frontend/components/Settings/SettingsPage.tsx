@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { type Theme, THEMES, useTheme } from '@/context/ThemeContext';
+import { storageRead, storageWrite } from '@/lib/storage-compat';
 
 import { BillingPanel } from './BillingPanel';
 import { DangerZone } from './DangerZone';
@@ -90,7 +91,7 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
 
   useEffect(() => {
     try {
-      setAutosave(localStorage.getItem('nanoflow-autosave-enabled') !== 'false');
+      setAutosave(storageRead('nanorun-autosave-enabled') !== 'false');
       setSnap(localStorage.getItem('nanorun-editor-snap-to-grid') === '1');
     } catch {
       /* noop */
@@ -100,7 +101,7 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
   const handleAutosave = (next: boolean) => {
     setAutosave(next);
     try {
-      localStorage.setItem('nanoflow-autosave-enabled', next ? 'true' : 'false');
+      storageWrite('nanorun-autosave-enabled', next ? 'true' : 'false');
     } catch {
       /* noop */
     }

@@ -1,15 +1,16 @@
-import type { WorkflowNode } from '@cairn/shared';
+import type { WorkflowNode } from '@nanorun/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { ONBOARDING_STEPS_EN, ONBOARDING_STEPS_ES } from '../components/Common';
+import { storageRead, storageWrite } from '../lib/storage-compat';
 
-const STORAGE_KEY = 'nanoflow-onboarding-seen';
+const STORAGE_KEY = 'nanorun-onboarding-seen';
 
 /**
  * First-run onboarding flow for the editor.
  *
  * Shows the step-through overlay when the user lands on a workflow
- * that has nodes AND the `nanoflow-onboarding-seen` localStorage flag
+ * that has nodes AND the `nanorun-onboarding-seen` localStorage flag
  * is not set. Once the user finishes, skips, or closes the overlay,
  * the flag is set so the flow never triggers again on this device.
  *
@@ -27,7 +28,7 @@ export function useEditorOnboarding(nodes: WorkflowNode[], lang: 'en' | 'es') {
   // `nodes.length > 0` avoids the flash on an empty canvas where
   // the user clearly knows to drag a node in.
   useEffect(() => {
-    const hasSeenOnboarding = localStorage.getItem(STORAGE_KEY);
+    const hasSeenOnboarding = storageRead(STORAGE_KEY);
     if (!hasSeenOnboarding && nodes.length > 0) {
       setShowOnboarding(true);
     }
@@ -36,7 +37,7 @@ export function useEditorOnboarding(nodes: WorkflowNode[], lang: 'en' | 'es') {
   const dismiss = useCallback(() => {
     setShowOnboarding(false);
     try {
-      localStorage.setItem(STORAGE_KEY, 'true');
+      storageWrite(STORAGE_KEY, 'true');
     } catch {
       /* noop — localStorage blocked */
     }

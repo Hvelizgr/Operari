@@ -19,9 +19,21 @@ interface SQLResultsTableProps {
   error: SQLError | null;
   isLoading: boolean;
   lang: 'en' | 'es';
+  /** Optional retry hook. When provided, the error panel shows a
+   *  "Retry" button wired to this callback so the operator can kick
+   *  off the same query again without re-clicking Run in the top bar.
+   *  Omitted when the editor is mounted somewhere that doesn't own
+   *  the run handler (e.g. read-only previews). */
+  onRetry?: () => void;
 }
 
-export default function SQLResultsTable({ result, error, isLoading, lang }: SQLResultsTableProps) {
+export default function SQLResultsTable({
+  result,
+  error,
+  isLoading,
+  lang,
+  onRetry,
+}: SQLResultsTableProps) {
   const t =
     lang === 'es'
       ? {
@@ -29,12 +41,14 @@ export default function SQLResultsTable({ result, error, isLoading, lang }: SQLR
           rows: 'filas',
           running: 'Ejecutando...',
           error: 'Error',
+          retry: 'Reintentar',
         }
       : {
           noResults: 'Run a query to see results',
           rows: 'rows',
           running: 'Running...',
           error: 'Error',
+          retry: 'Retry',
         };
 
   // Format cell values for display
@@ -58,17 +72,27 @@ export default function SQLResultsTable({ result, error, isLoading, lang }: SQLR
     return (
       <div className="flex items-start gap-2 p-4 text-sm">
         <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-400" />
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="font-medium text-red-300">{t.error}</div>
           <pre className="mt-1 whitespace-pre-wrap font-mono text-xs text-red-400/80">
             {error.error}
           </pre>
-          {error.durationMs != null && (
-            <div className="mt-2 flex items-center gap-1 text-xs text-zinc-500">
-              <Clock size={10} />
-              {error.durationMs}ms
-            </div>
-          )}
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            {error.durationMs != null && (
+              <span className="flex items-center gap-1 text-xs text-zinc-500">
+                <Clock size={10} />
+                {error.durationMs}ms
+              </span>
+            )}
+            {onRetry && (
+              <button
+                onClick={onRetry}
+                className="inline-flex items-center gap-1 rounded border border-red-500/30 bg-red-500/10 px-2 py-1 text-xs text-red-200 transition-colors hover:bg-red-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-red-400/60"
+              >
+                {t.retry}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

@@ -1,10 +1,11 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Loader2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, ExternalLink, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
+import { HelixSpinner } from '@/components/Brand/HelixSpinner';
 import {
   motionFor,
   reducedStaggerChildVariants,
@@ -193,9 +194,9 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10">
-      <header className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">{t.title}</h1>
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
+      <header className="mb-6 sm:mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t.title}</h1>
         <p className="mt-1 text-sm text-zinc-400">{t.subtitle}</p>
       </header>
 
@@ -222,9 +223,11 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
       )}
 
       {success && (
-        <div className="mb-4 flex items-center gap-3 rounded border border-emerald-900/60 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-emerald-900/60 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">
           <CheckCircle2 size={14} className="shrink-0" />
-          <span className="flex-1">{success.action === 'grant' ? t.grantedOk : t.rejectedOk}</span>
+          <span className="min-w-0 flex-1">
+            {success.action === 'grant' ? t.grantedOk : t.rejectedOk}
+          </span>
           <Link
             href={`/${lang}/runs/${success.executionId}`}
             className="shrink-0 text-xs font-medium text-emerald-300 underline-offset-2 hover:underline"
@@ -234,7 +237,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
           <button
             onClick={() => setSuccess(null)}
             aria-label="Dismiss"
-            className="text-emerald-400/60 hover:text-emerald-200"
+            className="shrink-0 text-emerald-400/60 hover:text-emerald-200"
           >
             <XCircle size={14} />
           </button>
@@ -243,7 +246,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
 
       {loading && approvals.length === 0 && (
         <div className="flex items-center gap-2 text-sm text-zinc-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <HelixSpinner size={16} />
           {t.loading}
         </div>
       )}
@@ -277,8 +280,8 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Icon className={`h-4 w-4 ${meta.cls}`} />
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <Icon className={`h-4 w-4 shrink-0 ${meta.cls}`} />
                     <span className={`text-xs font-semibold uppercase ${meta.cls}`}>
                       {a.status}
                     </span>

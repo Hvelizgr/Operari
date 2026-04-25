@@ -2,6 +2,8 @@ import * as Icons from 'lucide-react';
 import { LucideIcon } from 'lucide-react';
 import { createElement, useEffect, useState } from 'react';
 
+import { storageRead, storageWrite } from '../lib/storage-compat';
+
 export interface NodeType {
   id?: string;
   type: string;
@@ -21,7 +23,7 @@ export function useNodeTypes() {
   useEffect(() => {
     const fetchNodes = async () => {
       // Try to load from localStorage first
-      const cached = localStorage.getItem('nanoflow-node-types');
+      const cached = storageRead('nanorun-node-types');
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
@@ -45,7 +47,7 @@ export function useNodeTypes() {
         const data = await res.json();
 
         // Cache the raw data (without React elements)
-        localStorage.setItem('nanoflow-node-types', JSON.stringify(data));
+        storageWrite('nanorun-node-types', JSON.stringify(data));
 
         const mappedNodes = data.map((node: any) => {
           // Resolve icon from string name

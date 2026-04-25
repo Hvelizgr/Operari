@@ -5,9 +5,11 @@ import {
   ChevronRight,
   Columns3,
   Database,
+  PanelLeft,
   Play,
   RefreshCw,
   Table2,
+  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -39,6 +41,11 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   const [error, setError] = useState<SQLError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSchemaLoading, setIsSchemaLoading] = useState(false);
+  // Schema drawer is open by default on desktop (tailwind lg:flex
+  // takes over), and closed on mobile until the user taps the toggle.
+  // A 256px sidebar stealing ~65% of a 390px viewport is why this
+  // whole page was unusable on phones.
+  const [schemaOpenMobile, setSchemaOpenMobile] = useState(false);
 
   const t =
     lang === 'es'
@@ -51,6 +58,8 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
           noCredentials: 'No hay conexiones PostgreSQL configuradas',
           selectCredential: 'Selecciona una conexión',
           loadSchema: 'Cargar schema',
+          loadingSchema: 'Cargando schema…',
+          noTables: 'No se encontraron tablas',
           results: 'Resultados',
           editor: 'Editor',
         }
@@ -63,6 +72,8 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
           noCredentials: 'No PostgreSQL connections configured',
           selectCredential: 'Select a connection',
           loadSchema: 'Load schema',
+          loadingSchema: 'Loading schema…',
+          noTables: 'No tables found',
           results: 'Results',
           editor: 'Editor',
         };
@@ -149,25 +160,60 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
   return (
     <div className="flex h-screen w-full bg-zinc-950 text-zinc-200">
-      {/* Schema Sidebar */}
-      <div className="flex w-64 shrink-0 flex-col border-r border-zinc-800">
+      {/* Mobile schema drawer backdrop. Dismisses the drawer when the
+          user taps outside — the drawer itself stops propagation. */}
+      {schemaOpenMobile && (
+        <button
+          type="button"
+          aria-label="Close schema"
+          onClick={() => setSchemaOpenMobile(false)}
+          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+        />
+      )}
+      {/* Schema Sidebar — static column on desktop, slide-in drawer on mobile. */}
+      <div
+        className={`fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] flex-col border-r border-zinc-800 bg-zinc-950 transition-transform lg:static lg:w-64 lg:max-w-none lg:translate-x-0 ${
+          schemaOpenMobile ? 'flex translate-x-0' : 'hidden -translate-x-full lg:flex'
+        }`}
+      >
         <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/50 px-3 py-2.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-zinc-300">
             {t.schema}
           </span>
-          <button
-            onClick={loadSchema}
-            disabled={isSchemaLoading}
-            className="p-1 text-zinc-500 transition-colors hover:text-white disabled:opacity-30"
-            title={t.loadSchema}
-          >
-            <RefreshCw size={13} className={isSchemaLoading ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={loadSchema}
+              disabled={isSchemaLoading}
+              className="p-1 text-zinc-500 transition-colors hover:text-white disabled:opacity-30"
+              title={t.loadSchema}
+              aria-label={t.loadSchema}
+            >
+              <RefreshCw size={13} className={isSchemaLoading ? 'animate-spin' : ''} />
+            </button>
+            <button
+              onClick={() => setSchemaOpenMobile(false)}
+              className="p-1 text-zinc-500 transition-colors hover:text-white lg:hidden"
+              aria-label="Close schema"
+            >
+              <X size={14} />
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-auto text-xs">
           {schema.length === 0 ? (
-            <div className="p-4 text-center text-zinc-600">
-              {credentialId ? (isSchemaLoading ? '...' : 'No tables found') : t.selectCredential}
+            <div className="flex items-center justify-center gap-2 p-4 text-center text-zinc-600">
+              {credentialId ? (
+                isSchemaLoading ? (
+                  <>
+                    <RefreshCw size={12} className="animate-spin text-zinc-500" />
+                    <span>{t.loadingSchema}</span>
+                  </>
+                ) : (
+                  t.noTables
+                )
+              ) : (
+                t.selectCredential
+              )}
             </div>
           ) : (
             schema.map(table => {
@@ -212,17 +258,24 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
       {/* Main Area */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top Bar */}
-        <div className="flex h-11 shrink-0 items-center gap-3 border-b border-zinc-800 bg-zinc-900/50 px-4">
-          <Database size={16} className="text-primary/70" />
+        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900/50 px-3 sm:gap-3 sm:px-4">
+          <button
+            onClick={() => setSchemaOpenMobile(true)}
+            className="p-1 text-zinc-400 transition-colors hover:text-white lg:hidden"
+            aria-label="Open schema"
+          >
+            <PanelLeft size={16} />
+          </button>
+          <Database size={16} className="text-primary/70 hidden sm:block" />
           <span className="text-sm font-semibold text-white">{t.title}</span>
 
-          <div className="mx-1 h-5 w-px bg-zinc-700" />
+          <div className="mx-1 hidden h-5 w-px bg-zinc-700 sm:block" />
 
           {/* Credential selector */}
           <select
             value={credentialId}
             onChange={e => setCredentialId(e.target.value)}
-            className="focus:border-primary max-w-xs rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-zinc-200 focus:outline-none"
+            className="focus:border-primary min-w-0 max-w-[140px] rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-zinc-200 focus:outline-none sm:max-w-xs"
           >
             {credentials.length === 0 && <option value="">{t.noCredentials}</option>}
             {credentials.map(c => (
@@ -267,7 +320,13 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               {t.results}
             </div>
             <div className="flex-1 overflow-auto">
-              <SQLResultsTable result={result} error={error} isLoading={isLoading} lang={lang} />
+              <SQLResultsTable
+                result={result}
+                error={error}
+                isLoading={isLoading}
+                lang={lang}
+                onRetry={runQuery}
+              />
             </div>
           </div>
         </div>

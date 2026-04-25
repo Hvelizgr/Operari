@@ -1,4 +1,4 @@
-import { Connection, FrameNodeConfig, WorkflowNode } from '@cairn/shared';
+import { Connection, FrameNodeConfig, WorkflowNode } from '@nanorun/shared';
 import { DragEvent, MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import {

@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
   AlertTriangle,
@@ -12,11 +12,12 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth';
 import {
+  bannerVariants,
   motionFor,
   prefersReducedMotion,
   reducedStaggerChildVariants,
@@ -70,6 +71,14 @@ interface DashboardOverview {
     duration: number | null;
   }>;
   trend7d: Array<{ date: string; success: number; failed: number; cancelled: number }>;
+  /** "What changed in 24h" aggregates — drives the delta card.
+   *  Absent on pre-B.5 backends; the card renders nothing in that case. */
+  changes24h?: {
+    newRunbooks: number;
+    newApprovals: number;
+    newlyFiredMonitors: number;
+    runsDelta: { current: number; prior: number; change: number };
+  };
   topRunbooks: Array<{
     slug: string | null;
     name: string;
@@ -123,6 +132,13 @@ const STRINGS = {
     loading: 'Loading dashboard…',
     loadError: 'Failed to load dashboard.',
     askAi: 'Ask AI',
+    emailVerified: 'Email verified',
+    changesTitle: 'What changed · last 24h',
+    changesNewRunbooks: 'New runbooks',
+    changesNewApprovals: 'New approvals',
+    changesFiredMonitors: 'Monitors fired',
+    changesRunsDelta: 'Runs vs prior 24h',
+    changesNoPriorData: 'No prior data',
   },
   es: {
     greetingMorning: 'Buenos días',
@@ -160,6 +176,13 @@ const STRINGS = {
     loading: 'Cargando dashboard…',
     loadError: 'Fallo al cargar el dashboard.',
     askAi: 'Preguntar a la IA',
+    emailVerified: 'Email verificado',
+    changesTitle: 'Qué cambió · últimas 24h',
+    changesNewRunbooks: 'Runbooks nuevos',
+    changesNewApprovals: 'Aprobaciones nuevas',
+    changesFiredMonitors: 'Monitores disparados',
+    changesRunsDelta: 'Runs vs 24h previas',
+    changesNoPriorData: 'Sin datos previos',
   },
 } as const;
 
@@ -228,7 +251,29 @@ interface DashboardPageProps {
 export default function DashboardPage({ lang }: DashboardPageProps) {
   const t = STRINGS[lang];
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { session } = useAuth();
+
+  // Email-verification toast: the backend 302s to /dashboard?verified=true
+  // after consuming the verify token. Show a confirmation so the user
+  // knows the click worked — without this the dashboard just appears
+  // and the user wonders if the link was valid.
+  const [verifiedToast, setVerifiedToast] = useState(false);
+  useEffect(() => {
+    if (searchParams?.get('verified') === 'true') {
+      setVerifiedToast(true);
+      // Strip the flag from the URL so a back-forward nav doesn't
+      // replay the toast. replaceState keeps the dashboard history
+      // entry clean.
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('verified');
+        window.history.replaceState({}, '', url.toString());
+      }
+      const timer = setTimeout(() => setVerifiedToast(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
   const userName = session?.user.name ?? session?.user.email?.split('@')[0];
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -374,6 +419,22 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
   return (
     <div className="flex-1 overflow-y-auto bg-[#0f1218] text-gray-200">
       <div className="mx-auto max-w-6xl px-6 py-8">
+        <AnimatePresence>
+          {verifiedToast && (
+            <motion.div
+              variants={bannerVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              role="status"
+              aria-live="polite"
+              className="mb-4 inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300"
+            >
+              <CheckCircle2 size={14} />
+              {t.emailVerified}
+            </motion.div>
+          )}
+        </AnimatePresence>
         {banner}
         {/* Header */}
         <div className="mb-8 flex items-start justify-between gap-4">
@@ -608,6 +669,13 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
           )}
         </Section>
 
+        {/* (5b) What changed · last 24h */}
+        {data?.changes24h && (
+          <Section title={t.changesTitle} icon={<Activity size={16} />}>
+            <Changes24h data={data.changes24h} t={t} />
+          </Section>
+        )}
+
         {/* (6) Top runbooks */}
         <Section title={t.topTitle} icon={<CheckCircle2 size={16} />}>
           {data && data.topRunbooks.length === 0 ? (
@@ -727,6 +795,66 @@ function Section({
         {action}
       </div>
       {children}
+    </div>
+  );
+}
+
+function Changes24h({
+  data,
+  t,
+}: {
+  data: NonNullable<DashboardOverview['changes24h']>;
+  t: (typeof STRINGS)[keyof typeof STRINGS];
+}) {
+  const { runsDelta } = data;
+  // Sign + color for the runs-delta chip. Zero is treated as neutral
+  // gray — a flat line between periods isn't informative enough to
+  // deserve the positive emerald cue.
+  const deltaSign = runsDelta.change > 0 ? '+' : runsDelta.change < 0 ? '−' : '·';
+  const deltaAbs = Math.abs(runsDelta.change);
+  const deltaColor =
+    runsDelta.change > 0
+      ? 'text-emerald-400'
+      : runsDelta.change < 0
+        ? 'text-red-400'
+        : 'text-gray-500';
+  const noPrior = runsDelta.prior === 0 && runsDelta.current === 0;
+  return (
+    <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+      <div className="rounded-md border border-white/5 bg-white/[0.02] px-3 py-2">
+        <div className="text-[10px] uppercase tracking-wider text-gray-500">
+          {t.changesNewRunbooks}
+        </div>
+        <div className="mt-1 text-lg font-semibold text-white">{data.newRunbooks}</div>
+      </div>
+      <div className="rounded-md border border-white/5 bg-white/[0.02] px-3 py-2">
+        <div className="text-[10px] uppercase tracking-wider text-gray-500">
+          {t.changesNewApprovals}
+        </div>
+        <div className="mt-1 text-lg font-semibold text-white">{data.newApprovals}</div>
+      </div>
+      <div className="rounded-md border border-white/5 bg-white/[0.02] px-3 py-2">
+        <div className="text-[10px] uppercase tracking-wider text-gray-500">
+          {t.changesFiredMonitors}
+        </div>
+        <div className="mt-1 text-lg font-semibold text-white">{data.newlyFiredMonitors}</div>
+      </div>
+      <div className="rounded-md border border-white/5 bg-white/[0.02] px-3 py-2">
+        <div className="text-[10px] uppercase tracking-wider text-gray-500">
+          {t.changesRunsDelta}
+        </div>
+        {noPrior ? (
+          <div className="mt-1 text-xs italic text-gray-500">{t.changesNoPriorData}</div>
+        ) : (
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-lg font-semibold text-white">{runsDelta.current}</span>
+            <span className={`font-mono text-xs ${deltaColor}`}>
+              {deltaSign}
+              {deltaAbs}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

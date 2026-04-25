@@ -14,7 +14,7 @@ import {
   NodesLayer,
 } from './';
 const LogTerminal = dynamic(() => import('./terminal/LogTerminal'), { ssr: false });
-import type { Connection, WorkflowNode } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@nanorun/shared';
 import { Terminal as TerminalIcon, X } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,6 +32,7 @@ import RunDialog from '../Workflow/RunDialog';
 import ScheduleDialog from '../Workflow/ScheduleDialog';
 import SnapshotDialog from '../Workflow/SnapshotDialog';
 import CanvasRunStatus from './CanvasRunStatus';
+import FirstRunConfetti from './FirstRunConfetti';
 import CommandPalette, { CommandAction } from './CommandPalette';
 import EditorSidebar from './EditorSidebar';
 import GitHubBranchPanel from './GitHubBranchPanel';
@@ -278,6 +279,29 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
       setRunStartedAt(null);
     }
   }, [executing]);
+
+  // Fire the one-shot first-run confetti on a successful completion.
+  // Edge detection: true→false on `executing` with zero error nodes
+  // = the run finished clean. The confetti component owns the
+  // per-browser gate via localStorage, so re-renders after the flag
+  // is set are no-ops.
+  const [runJustCompleted, setRunJustCompleted] = useState(false);
+  const prevExecutingRef = useRef(executing);
+  useEffect(() => {
+    const prev = prevExecutingRef.current;
+    prevExecutingRef.current = executing;
+    if (prev && !executing) {
+      const anyFailed = nodes.some(n => n.executionState === 'error');
+      if (!anyFailed) {
+        setRunJustCompleted(true);
+        // Flip back on the next tick so the confetti's false→true
+        // edge detector catches the transition every time (in the
+        // rare case the flag somehow clears).
+        const timer = setTimeout(() => setRunJustCompleted(false), 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [executing, nodes]);
 
   // --- SNAPSHOT SYSTEM ---
   const [isSnapshotDialogOpen, setIsSnapshotDialogOpen] = useState(false);
@@ -607,6 +631,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               hasExecution={Boolean(currentExecutionId)}
               lang={lang}
             />
+
+            <FirstRunConfetti runCompleted={runJustCompleted} />
 
             <div id="canvas-instructions" className="sr-only">
               {lang === 'en'

@@ -2,6 +2,8 @@
 
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
+import { storageRead, storageWrite } from '../lib/storage-compat';
+
 interface AccessibilityContextType {
   highContrast: boolean;
   toggleHighContrast: () => void;
@@ -22,7 +24,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     setHasMounted(true);
 
     // Load preference from localStorage
-    const saved = localStorage.getItem('nanoflow-high-contrast');
+    const saved = storageRead('nanorun-high-contrast');
     if (saved) {
       setHighContrast(saved === 'true');
     } else {
@@ -37,7 +39,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
   const toggleHighContrast = () => {
     setHighContrast(prev => {
       const newValue = !prev;
-      localStorage.setItem('nanoflow-high-contrast', String(newValue));
+      storageWrite('nanorun-high-contrast', String(newValue));
       return newValue;
     });
     announceMessage(highContrast ? 'Normal contrast mode enabled' : 'High contrast mode enabled');
