@@ -1,9 +1,10 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { HelixSpinner } from '@/components/Brand/HelixSpinner';
 import { motionFor, overlayPillVariants, reducedOverlayPillVariants } from '@/lib/motion';
 
 /**
@@ -86,7 +87,7 @@ export default function CanvasRunStatus({
           {hasFailedNode ? (
             <AlertTriangle size={12} className="shrink-0" />
           ) : (
-            <Loader2 size={12} className="shrink-0 animate-spin" />
+            <HelixSpinner size={12} className="shrink-0" />
           )}
           <span>{t.running}</span>
           {hasFailedNode && <span className="opacity-80">· {t.failed}</span>}

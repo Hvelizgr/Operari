@@ -26,6 +26,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { DNAMark } from '@/components/Brand/DNAMark';
 import GlobalCommandPalette from '@/components/Common/GlobalCommandPalette';
 import StatusPill from '@/components/Common/StatusPill';
 import { useAuth } from '@/lib/auth';
@@ -214,9 +215,17 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-lg font-bold tracking-wider text-white"
+              className="flex items-center gap-2"
             >
-              NanoRun
+              <DNAMark size={22} />
+              <span className="text-lg font-bold tracking-wider text-white">NanoRun</span>
+            </motion.div>
+          )}
+          {/* Collapsed sidebar still shows the mark so the brand never
+              disappears when the user collapses the rail. */}
+          {!showLabels && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <DNAMark size={22} />
             </motion.div>
           )}
           {!isMobile && (

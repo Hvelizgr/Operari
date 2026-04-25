@@ -4,6 +4,7 @@ import Comparison from './components/Comparison';
 import CTA from './components/CTA';
 import Hero from './components/Hero';
 import MetricsBar from './components/MetricsBar';
+import RunbookTraceSection from './components/RunbookTraceSection';
 import SafetyRails from './components/SafetyRails';
 import Story from './components/Story';
 import Templates from './components/Templates';
@@ -46,6 +47,10 @@ export default async function Page({ params }: { params: Promise<{ lang: string 
 
       <div id="story">
         <Story content={content.story} />
+      </div>
+
+      <div id="trace">
+        <RunbookTraceSection />
       </div>
 
       <div id="safety">

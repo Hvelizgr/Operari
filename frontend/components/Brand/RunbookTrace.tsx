@@ -1,0 +1,624 @@
+'use client';
+
+import anime from 'animejs';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Globe,
+  type LucideIcon,
+  MessageSquare,
+  ShieldCheck,
+  TerminalSquare,
+} from 'lucide-react';
+import { useEffect, useRef } from 'react';
+
+import { prefersReducedMotion } from '@/lib/motion';
+
+/**
+ * Animated horizontal trace of a runbook execution.
+ *
+ * The hero/landing showpiece. Communicates "NanoRun runs a sequence
+ * of typed steps with state transitions" at a glance — without
+ * forcing the visitor to read the request/response code panel.
+ *
+ * Per-beat lifecycle:
+ *   1. Edge from previous node draws in (~280ms)
+ *   2. Travelling pulse dot rides the edge during the draw
+ *   3. Current node flips pending → running (CSS transitions
+ *      colour + scale up subtly + the pulse-ring fades in)
+ *   4. 720ms running pause (the "work happens here" beat)
+ *   5. Node flips running → success — duration badge + output chip
+ *      fade in
+ *   6. 250ms hold before the next beat
+ *
+ * Layout:
+ *   - md+ viewports: horizontal trace (left-to-right reading order)
+ *   - <md viewports:  vertical stack — landing research is unanimous
+ *     that horizontal scroll on mobile loses downstream steps.
+ *
+ * Reduced-motion: render the final state (every node green, every
+ * output chip + duration badge visible, audit hash chip up). Don't
+ * slow the loop down — disable. The end-state still tells the story.
+ */
+
+type StepStatus = 'pending' | 'running' | 'success';
+
+type AccentTone = 'emerald' | 'sky' | 'amber' | 'violet' | 'rose';
+
+interface Step {
+  id: string;
+  /** Short label shown below the node. Keep ≤14 chars to avoid wrap
+   *  on tablet widths in the horizontal layout. */
+  label: string;
+  /** Sub-label / type annotation in monospace. */
+  type: string;
+  /** Lucide icon component — already a React element factory, gives
+   *  us crisp 24-stroke icons without re-implementing the path. */
+  icon: LucideIcon;
+  /** Plausible output preview that pops in once the step succeeds.
+   *  Picks the dimension the operator cares about (status code,
+   *  rows scanned, replicaset name) so the trace reads like a real
+   *  run, not a cartoon. */
+  output: string;
+  /** Synthetic duration label — keeps the cadence believable
+   *  (sub-second for HTTP, multi-second for shell-out, instant for
+   *  notify). Mono so digits align across nodes. */
+  duration: string;
+  /** Status-bar accent for this step type. Pending stays neutral
+   *  regardless; running + success use this tone. */
+  tone: AccentTone;
+}
+
+const TONE_CLASSES: Record<AccentTone, { running: string; success: string; chip: string }> = {
+  emerald: {
+    running:
+      'group-data-[status=running]:border-emerald-500/50 group-data-[status=running]:bg-emerald-500/10 group-data-[status=running]:text-emerald-300',
+    success:
+      'group-data-[status=success]:border-emerald-500/60 group-data-[status=success]:bg-emerald-500/15 group-data-[status=success]:text-emerald-200',
+    chip: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
+  },
+  sky: {
+    running:
+      'group-data-[status=running]:border-sky-500/50 group-data-[status=running]:bg-sky-500/10 group-data-[status=running]:text-sky-300',
+    success:
+      'group-data-[status=success]:border-sky-500/60 group-data-[status=success]:bg-sky-500/15 group-data-[status=success]:text-sky-200',
+    chip: 'border-sky-500/30 bg-sky-500/10 text-sky-200',
+  },
+  amber: {
+    running:
+      'group-data-[status=running]:border-amber-500/50 group-data-[status=running]:bg-amber-500/10 group-data-[status=running]:text-amber-300',
+    success:
+      'group-data-[status=success]:border-amber-500/60 group-data-[status=success]:bg-amber-500/15 group-data-[status=success]:text-amber-200',
+    chip: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
+  },
+  violet: {
+    running:
+      'group-data-[status=running]:border-violet-500/50 group-data-[status=running]:bg-violet-500/10 group-data-[status=running]:text-violet-300',
+    success:
+      'group-data-[status=success]:border-violet-500/60 group-data-[status=success]:bg-violet-500/15 group-data-[status=success]:text-violet-200',
+    chip: 'border-violet-500/30 bg-violet-500/10 text-violet-200',
+  },
+  rose: {
+    running:
+      'group-data-[status=running]:border-rose-500/50 group-data-[status=running]:bg-rose-500/10 group-data-[status=running]:text-rose-300',
+    success:
+      'group-data-[status=success]:border-rose-500/60 group-data-[status=success]:bg-rose-500/15 group-data-[status=success]:text-rose-200',
+    chip: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
+  },
+};
+
+const STEPS_EN: Step[] = [
+  {
+    id: 'trigger',
+    label: 'Alert fires',
+    type: 'sentry.webhook',
+    icon: AlertTriangle,
+    output: 'PaymentTimeout',
+    duration: '0ms',
+    tone: 'rose',
+  },
+  {
+    id: 'shell',
+    label: 'Fetch logs',
+    type: 'shell',
+    icon: TerminalSquare,
+    output: '47 lines',
+    duration: '1.2s',
+    tone: 'emerald',
+  },
+  {
+    id: 'http',
+    label: 'Helm rollback',
+    type: 'http',
+    icon: Globe,
+    output: '200 OK',
+    duration: '4.1s',
+    tone: 'sky',
+  },
+  {
+    id: 'approve',
+    label: 'On-call grant',
+    type: 'approval',
+    icon: ShieldCheck,
+    output: 'pager@ops',
+    duration: '11s',
+    tone: 'amber',
+  },
+  {
+    id: 'notify',
+    label: '#incidents',
+    type: 'notify.slack',
+    icon: MessageSquare,
+    output: 'ts:1714…',
+    duration: '180ms',
+    tone: 'violet',
+  },
+];
+
+const STEPS_ES: Step[] = [
+  { ...STEPS_EN[0], label: 'Alerta' },
+  { ...STEPS_EN[1], label: 'Traer logs' },
+  { ...STEPS_EN[2], label: 'Helm rollback' },
+  { ...STEPS_EN[3], label: 'On-call OK' },
+  { ...STEPS_EN[4], label: '#incidentes' },
+];
+
+interface RunbookTraceProps {
+  lang?: 'en' | 'es';
+}
+
+export function RunbookTrace({ lang = 'en' }: RunbookTraceProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const steps = lang === 'es' ? STEPS_ES : STEPS_EN;
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    // Both layouts (horizontal + vertical) are mounted in the DOM at
+    // once — Tailwind's `hidden md:block` toggles visibility, not
+    // presence. Querying without scoping would grab 2× the nodes and
+    // 2× the edges across layouts and the index math (edges[i-1])
+    // would over-run on the second layout. Scope each query to its
+    // layout wrapper so the timeline can drive both in lockstep.
+    const layouts = ['h', 'v'] as const;
+    const nodesByLayout = layouts.map(l =>
+      Array.from(root.querySelectorAll<HTMLElement>(`[data-trace-layout="${l}"] [data-trace-node]`))
+    );
+    const edgesByLayout = layouts.map(l =>
+      Array.from(
+        root.querySelectorAll<SVGPathElement>(`[data-trace-layout="${l}"] [data-trace-edge]`)
+      )
+    );
+    const pulsesByLayout = layouts.map(l =>
+      Array.from(
+        root.querySelectorAll<SVGCircleElement>(`[data-trace-layout="${l}"] [data-trace-pulse]`)
+      )
+    );
+    const auditHashes = Array.from(root.querySelectorAll<HTMLElement>('[data-trace-audit]'));
+    // Flat aggregates for state-resets that target every layout at
+    // once (the per-beat animation iterates per-layout below).
+    const allNodes = nodesByLayout.flat();
+    const allEdges = edgesByLayout.flat();
+    const allPulses = pulsesByLayout.flat();
+    if (allNodes.length === 0) return;
+    // The two layouts are guaranteed to render the same number of
+    // nodes/edges (the parent component passes the same `steps` array
+    // to both); guard anyway so a future divergence doesn't crash.
+    const stepCount = nodesByLayout[0].length;
+
+    const reduced = prefersReducedMotion();
+    if (reduced) {
+      // Reduced-motion fallback: still show the sequence, but with
+      // opacity transitions only — no transforms, no scale, no
+      // pulse rings, no traveling dots. The data-status flips drive
+      // colour-only state changes via CSS. Loops at a slower cadence
+      // (12s) so users with reduced-motion preferences aren't bombarded
+      // with looping motion. Edges render in their final (drawn) state.
+      allEdges.forEach(e => {
+        e.style.strokeDasharray = 'none';
+        e.style.strokeDashoffset = '0';
+      });
+      allPulses.forEach(p => (p.style.opacity = '0'));
+
+      const runReducedLoop = () => {
+        allNodes.forEach(n => n.setAttribute('data-status', 'pending'));
+        auditHashes.forEach(a => a.setAttribute('data-visible', 'false'));
+        const tl = anime.timeline({ autoplay: true });
+        tl.add({ duration: 800 });
+        for (let i = 0; i < stepCount; i++) {
+          const beatNodes = nodesByLayout
+            .map(layoutNodes => layoutNodes[i])
+            .filter((n): n is HTMLElement => Boolean(n));
+          tl.add({
+            duration: 0,
+            changeBegin: () => beatNodes.forEach(n => n.setAttribute('data-status', 'success')),
+          });
+          tl.add({ duration: 600 });
+        }
+        tl.add({
+          duration: 0,
+          changeBegin: () => auditHashes.forEach(a => a.setAttribute('data-visible', 'true')),
+        });
+        tl.add({ duration: 6000 });
+        tl.finished.then(runReducedLoop);
+      };
+      runReducedLoop();
+      return;
+    }
+
+    // Edge prep — strokeDashoffset to full length so each edge can
+    // be drawn in via the timeline. Pulse dots start hidden.
+    allEdges.forEach(e => {
+      const len = e.getTotalLength();
+      e.style.strokeDasharray = `${len}`;
+      e.style.strokeDashoffset = `${len}`;
+    });
+    allPulses.forEach(p => (p.style.opacity = '0'));
+
+    /**
+     * Per-step beat. Drives both layouts (horizontal + vertical) in
+     * lockstep — anime targets are arrays of [horizontal, vertical]
+     * for the same conceptual step. The first node has no inbound
+     * edge (it's the trigger), so we skip the edge step on i=0.
+     */
+    const nodeBeat = (i: number, t: anime.AnimeTimelineInstance) => {
+      if (i > 0) {
+        const edges = edgesByLayout
+          .map(layoutEdges => layoutEdges[i - 1])
+          .filter((e): e is SVGPathElement => Boolean(e));
+        const pulses = pulsesByLayout
+          .map(layoutPulses => layoutPulses[i - 1])
+          .filter((p): p is SVGCircleElement => Boolean(p));
+        if (edges.length > 0) {
+          // Edges draw in across both layouts simultaneously.
+          t.add(
+            {
+              targets: edges,
+              strokeDashoffset: 0,
+              duration: 320,
+              easing: 'easeOutCubic',
+            },
+            '+=120'
+          );
+          // Pulses ride each edge in parallel. Anime's `path()`
+          // follower needs the path element it's following, so each
+          // pulse gets its own animation tied to its own edge —
+          // we can't combine them into one `targets:` call.
+          edges.forEach((edge, idx) => {
+            const follower = anime.path(edge);
+            t.add(
+              {
+                targets: pulses[idx],
+                translateX: follower('x'),
+                translateY: follower('y'),
+                opacity: [
+                  { value: 1, duration: 60 },
+                  { value: 0, duration: 240, delay: 80 },
+                ],
+                duration: 320,
+                easing: 'linear',
+              },
+              // Stack each pulse animation on top of the edge-draw
+              // (same start time) — the first call uses '-=320' to
+              // back up under the edge animation, subsequent ones
+              // use `0` offset which means "start where the previous
+              // one started", since they're already siblings of it.
+              idx === 0 ? '-=320' : 0
+            );
+          });
+        }
+      }
+      const beatNodes = nodesByLayout
+        .map(layoutNodes => layoutNodes[i])
+        .filter((n): n is HTMLElement => Boolean(n));
+      // Flip to running across both layouts.
+      t.add(
+        {
+          duration: 0,
+          changeBegin: () => beatNodes.forEach(n => n.setAttribute('data-status', 'running')),
+        },
+        '+=80'
+      );
+      t.add({ duration: 720 });
+      // Flip to success.
+      t.add({
+        duration: 0,
+        changeBegin: () => beatNodes.forEach(n => n.setAttribute('data-status', 'success')),
+      });
+      t.add({ duration: 250 });
+    };
+
+    const runOnce = () => {
+      // Reset state for the next loop iteration.
+      allNodes.forEach(n => n.setAttribute('data-status', 'pending'));
+      allEdges.forEach(e => {
+        const len = e.getTotalLength();
+        e.style.strokeDasharray = `${len}`;
+        e.style.strokeDashoffset = `${len}`;
+      });
+      allPulses.forEach(p => (p.style.opacity = '0'));
+      auditHashes.forEach(a => a.setAttribute('data-visible', 'false'));
+
+      const tl = anime.timeline({ autoplay: true });
+      // 600ms warm-up so the visitor's eye lands before the first
+      // node fires — without it the trigger flip happens off-screen
+      // and reads as broken on a fast first paint.
+      tl.add({ duration: 600 });
+      for (let i = 0; i < stepCount; i++) nodeBeat(i, tl);
+      // Audit hash chip pops in across both layouts once the last
+      // node lands.
+      tl.add({
+        duration: 0,
+        changeBegin: () => auditHashes.forEach(a => a.setAttribute('data-visible', 'true')),
+      });
+      // 1.6s rest beat — long enough that the visitor reads "this
+      // finished" before the trace resets and starts the next loop.
+      tl.add({ duration: 1600 });
+      tl.finished.then(runOnce);
+    };
+
+    runOnce();
+  }, [steps]);
+
+  return (
+    <div
+      ref={rootRef}
+      className="relative w-full"
+      role="img"
+      aria-label="Runbook execution trace — alert fires, logs fetched, helm rollback applied, on-call grant received, Slack notification sent, audit chain verified"
+    >
+      <div data-trace-layout="h" className="hidden md:block">
+        <TraceHorizontal steps={steps} />
+      </div>
+      <div data-trace-layout="v" className="md:hidden">
+        <TraceVertical steps={steps} />
+      </div>
+    </div>
+  );
+}
+
+function TraceHorizontal({ steps }: { steps: Step[] }) {
+  // Node + label width 132px, gap 40px → 5 nodes ≈ 820px.
+  const nodeW = 132;
+  const gap = 40;
+  const totalW = steps.length * nodeW + (steps.length - 1) * gap;
+  const centers = steps.map((_, i) => i * (nodeW + gap) + nodeW / 2);
+  const nodeBodyHalf = 32; // half the circle width — edge starts past the body
+
+  return (
+    <div className="relative mx-auto" style={{ maxWidth: totalW }}>
+      {/* Edge layer. The svg overlays the row; edges + pulses land
+          at y=42 so they pass through the centre of the 64px circles. */}
+      <svg
+        viewBox={`0 0 ${totalW} 84`}
+        className="pointer-events-none absolute left-0 top-0 h-[84px] w-full overflow-visible"
+        aria-hidden="true"
+      >
+        <defs>
+          {/* Gradient mask so each edge fades at its endpoints — the
+              line shouldn't terminate sharp against the circle. */}
+          <linearGradient id="trace-edge-gradient" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="rgb(63 207 142)" stopOpacity="0" />
+            <stop offset="15%" stopColor="rgb(63 207 142)" stopOpacity="0.7" />
+            <stop offset="85%" stopColor="rgb(63 207 142)" stopOpacity="0.7" />
+            <stop offset="100%" stopColor="rgb(63 207 142)" stopOpacity="0" />
+          </linearGradient>
+          {/* Subtle filter on the pulse so it reads as light, not
+              just a green dot. Stays cheap — single Gaussian blur. */}
+          <filter id="trace-pulse-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2" />
+          </filter>
+        </defs>
+        {steps.slice(1).map((_, i) => {
+          const x1 = centers[i] + nodeBodyHalf;
+          const x2 = centers[i + 1] - nodeBodyHalf;
+          const pulseId = `pulse-${i}`;
+          return (
+            <g key={i}>
+              <path
+                data-trace-edge
+                d={`M ${x1} 42 L ${x2} 42`}
+                stroke="url(#trace-edge-gradient)"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                fill="none"
+              />
+              {/* Travelling pulse — one per edge, anime.path drives
+                  its translation along the parent edge during the
+                  edge-draw beat. */}
+              <circle
+                data-trace-pulse
+                id={pulseId}
+                cx={x1}
+                cy={42}
+                r={3}
+                fill="rgb(63 207 142)"
+                filter="url(#trace-pulse-glow)"
+                style={{ opacity: 0 }}
+              />
+            </g>
+          );
+        })}
+      </svg>
+      {/* Node layer */}
+      <div className="relative flex items-start" style={{ gap }}>
+        {steps.map(step => (
+          <TraceNode key={step.id} step={step} />
+        ))}
+      </div>
+      {/* Audit hash chip */}
+      <AuditHashChip />
+    </div>
+  );
+}
+
+function TraceVertical({ steps }: { steps: Step[] }) {
+  return (
+    <div className="relative mx-auto max-w-sm">
+      <div className="flex flex-col items-stretch gap-3">
+        {steps.map((step, i) => (
+          <div key={step.id} className="relative">
+            <TraceNodeRow step={step} />
+            {i < steps.length - 1 && (
+              <div className="ml-[31px] flex h-6 w-px items-center">
+                <svg viewBox="0 0 4 24" className="h-6 w-1 overflow-visible" aria-hidden="true">
+                  <path
+                    data-trace-edge
+                    d="M 2 0 L 2 24"
+                    stroke="rgb(63 207 142)"
+                    strokeOpacity={0.7}
+                    strokeWidth={1.5}
+                    strokeLinecap="round"
+                    fill="none"
+                  />
+                  <circle
+                    data-trace-pulse
+                    cx={2}
+                    cy={0}
+                    r={2.5}
+                    fill="rgb(63 207 142)"
+                    style={{ opacity: 0 }}
+                  />
+                </svg>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-5">
+        <AuditHashChip />
+      </div>
+    </div>
+  );
+}
+
+/** Horizontal-layout node: circle + icon on top, label + type below,
+ *  with duration + output chip stacked under the type and fading in
+ *  only once the step's status flips to success.
+ *
+ *  The `group` pattern lets the chip + check badge listen to
+ *  the wrapper's `data-status` without contorted arbitrary CSS:
+ *  `group-data-[status=success]:opacity-100` is the Tailwind-
+ *  native way to say "show this when our group is done". */
+function TraceNode({ step }: { step: Step }) {
+  const Icon = step.icon;
+  const tone = TONE_CLASSES[step.tone];
+  return (
+    <div
+      data-trace-node
+      data-status="pending"
+      className="group flex flex-col items-center gap-3"
+      style={{ width: 132 }}
+    >
+      <div
+        className={[
+          'relative flex h-16 w-16 items-center justify-center rounded-2xl border transition-[colors,transform,box-shadow] duration-200',
+          // Pending — neutral
+          'group-data-[status=pending]:border-white/10 group-data-[status=pending]:bg-white/[0.03] group-data-[status=pending]:text-zinc-600',
+          // Running — type-toned, scale up, soft glow
+          'group-data-[status=running]:scale-[1.06] group-data-[status=running]:shadow-[0_0_28px_-4px_rgba(63,207,142,0.35)]',
+          // Type-toned running + success classes (defined as
+          // group-data variants in TONE_CLASSES)
+          tone.running,
+          tone.success,
+        ].join(' ')}
+      >
+        <Icon size={22} strokeWidth={2} />
+        {/* Running pulse-ring */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-2xl border border-current opacity-0 group-data-[status=running]:animate-ping group-data-[status=running]:opacity-60"
+        />
+        {/* Success check badge */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-1 -top-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-500/50 bg-emerald-500/20 opacity-0 transition-opacity duration-200 group-data-[status=success]:opacity-100"
+        >
+          <CheckCircle2 size={12} className="text-emerald-300" />
+        </span>
+      </div>
+      <div className="text-center">
+        <div className="text-[13px] font-medium text-zinc-200">{step.label}</div>
+        <div className="font-mono text-[10px] text-zinc-500">{step.type}</div>
+        <div className="mt-2 flex flex-col items-center gap-1 opacity-0 transition-opacity duration-300 group-data-[status=success]:opacity-100">
+          <span
+            className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] ${tone.chip}`}
+          >
+            {step.output}
+          </span>
+          <span className="font-mono text-[10px] tabular-nums text-zinc-500">{step.duration}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Vertical-layout node row used on <md viewports. Same status-driven
+ * styling as the horizontal node, just laid out left-to-right with
+ * the chip on the right rather than below. The anime timeline drives
+ * both via the shared `data-trace-node` selector.
+ */
+function TraceNodeRow({ step }: { step: Step }) {
+  const Icon = step.icon;
+  const tone = TONE_CLASSES[step.tone];
+  return (
+    <div data-trace-node data-status="pending" className="group flex items-center gap-3">
+      <div
+        className={[
+          'relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border transition-colors duration-200',
+          'group-data-[status=pending]:border-white/10 group-data-[status=pending]:bg-white/[0.03] group-data-[status=pending]:text-zinc-600',
+          tone.running,
+          tone.success,
+        ].join(' ')}
+      >
+        <Icon size={20} strokeWidth={2} />
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-1 -top-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-500/50 bg-emerald-500/20 opacity-0 transition-opacity duration-200 group-data-[status=success]:opacity-100"
+        >
+          <CheckCircle2 size={12} className="text-emerald-300" />
+        </span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium text-zinc-200">{step.label}</div>
+        <div className="font-mono text-[10px] text-zinc-500">{step.type}</div>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+        <span
+          className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] opacity-0 transition-opacity duration-300 group-data-[status=success]:opacity-100 ${tone.chip}`}
+        >
+          {step.output}
+        </span>
+        <span className="font-mono text-[10px] tabular-nums text-zinc-500 opacity-0 transition-opacity duration-300 group-data-[status=success]:opacity-100">
+          {step.duration}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Audit hash receipt that pops in at the end of the trace. The
+ * receipt-style framing (mono hash + verified label) makes the
+ * "every step lands in a tamper-evident chain" claim concrete
+ * without needing extra body copy.
+ */
+function AuditHashChip() {
+  return (
+    <div className="mt-7 flex justify-center">
+      <span
+        data-trace-audit
+        data-visible="false"
+        className="group inline-flex items-center gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 font-mono text-[11px] text-emerald-200 transition-all duration-300 data-[visible=false]:translate-y-1 data-[visible=true]:translate-y-0 data-[visible=false]:opacity-0 data-[visible=true]:opacity-100"
+      >
+        <ShieldCheck size={12} className="text-emerald-300" />
+        <span className="text-zinc-400">audit_hash</span>
+        <span className="text-emerald-200">3f9c…b2e1</span>
+        <span className="hidden text-zinc-500 sm:inline">·</span>
+        <span className="hidden text-emerald-300/80 sm:inline">verified</span>
+      </span>
+    </div>
+  );
+}
