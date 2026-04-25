@@ -161,7 +161,7 @@ async function resolveContext(body: DiagnoseInput, tenantId: string): Promise<Re
 
 function buildPrompt(context: ResolvedContext, question?: string): ModelMessage[] {
   const lines: string[] = [
-    'A Cairn runbook step has failed. Diagnose the most likely cause and suggest a concrete fix.',
+    'A NanoRun runbook step has failed. Diagnose the most likely cause and suggest a concrete fix.',
     '',
     `Step: ${context.stepName}`,
     `Type: ${context.stepType}`,

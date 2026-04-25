@@ -4,7 +4,7 @@ import type { DefineStepOptions, PluginContext, PluginResult, PluginStep } from 
  * Author a custom step executor loaded by NanoRun at boot.
  *
  * Usage:
- *   import { defineStep } from '@cairn/sdk/steps';
+ *   import { defineStep } from '@nanorun/sdk/steps';
  *   import { z } from 'zod';
  *
  *   export default defineStep({

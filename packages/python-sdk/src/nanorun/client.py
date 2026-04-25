@@ -1,10 +1,10 @@
-"""Official Python client for the Cairn API.
+"""Official Python client for the NanoRun API.
 
 Quick start::
 
-    from cairn import Cairn
+    from cairn import NanoRun
 
-    client = Cairn(api_key="nrk_...")
+    client = NanoRun(api_key="nrk_...")
 
     # Trigger a runbook and wait for completion
     run = client.run("deploy-frontend", variables={"env": "production"})
@@ -45,8 +45,8 @@ DEFAULT_BASE_URL = "https://api.nanorun.dev"
 TERMINAL_STATUSES = {RunStatus.SUCCESS, RunStatus.FAILED, RunStatus.CANCELLED}
 
 
-class Cairn:
-    """Cairn API client.
+class NanoRun:
+    """NanoRun API client.
 
     Args:
         api_key: API key with the required scopes.
@@ -78,7 +78,7 @@ class Cairn:
         """Close the underlying HTTP client."""
         self._client.close()
 
-    def __enter__(self) -> Cairn:
+    def __enter__(self) -> NanoRun:
         return self
 
     def __exit__(self, *_: Any) -> None:

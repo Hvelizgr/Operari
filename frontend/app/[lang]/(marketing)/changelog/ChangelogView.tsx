@@ -300,7 +300,7 @@ function ReleaseStrip({ entry, lang }: { entry: Entry; lang: string }) {
     return (
       <div className="border-border/40 bg-background/40 flex items-center gap-3 border-t px-4 py-3 font-mono text-[11px] sm:px-5">
         <Package className="h-3.5 w-3.5 text-emerald-300" />
-        <span className="text-emerald-300">@cairn/sdk</span>
+        <span className="text-emerald-300">@nanorun/sdk</span>
         <span className="text-muted-foreground">→ npm</span>
         <span className="ml-auto text-emerald-300">{entry.version}</span>
       </div>

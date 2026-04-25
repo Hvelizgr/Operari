@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "cairn"
+name = "nanorun"
 version = "0.1.0"
-description = "Official Python SDK for the Cairn runbook automation API"
+description = "Official Python SDK for the NanoRun runbook automation API"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-authors = [{ name = "Cairn" }]
-keywords = ["cairn", "runbook", "automation", "sre", "devops"]
+authors = [{ name = "NanoRun" }]
+keywords = ["nanorun", "runbook", "automation", "sre", "devops"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -31,4 +31,4 @@ Documentation = "https://github.com/hvelizg/NanoFlow/tree/main/packages/python-s
 Repository = "https://github.com/hvelizg/NanoFlow"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/cairn"]
+packages = ["src/nanorun"]

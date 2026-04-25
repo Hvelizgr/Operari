@@ -1,6 +1,6 @@
-# Operating Cairn in production
+# Operating NanoRun in production
 
-Production-day-1 checklist for operating the Cairn/NanoRun backend. Covers uptime monitoring, log aggregation, error tracking, and the endpoints you will want to point every one of those tools at.
+Production-day-1 checklist for operating the NanoRun backend. Covers uptime monitoring, log aggregation, error tracking, and the endpoints you will want to point every one of those tools at.
 
 The backend is a plain Node + Express process. Nothing here assumes Kubernetes — anything that runs a Docker container works.
 
@@ -51,7 +51,7 @@ Returns `503` when postgres is unreachable (status becomes `degraded`).
 **Use this for:**
 
 - Kubernetes `readinessProbe` (a failure removes the pod from the Service load-balancer but does NOT restart it — the right behavior during a DB failover)
-- Deep monitors that should alert when Cairn can't serve traffic, not just when the process is wedged
+- Deep monitors that should alert when NanoRun can't serve traffic, not just when the process is wedged
 
 ### Suggested Kubernetes probes
 

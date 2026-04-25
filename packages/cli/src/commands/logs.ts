@@ -1,4 +1,4 @@
-import { Cairn } from '@cairn/sdk';
+import { NanoRun } from '@nanorun/sdk';
 import { requireConfig } from '../config';
 import { colors, symbols } from '../colors';
 
@@ -26,7 +26,7 @@ export interface LogsCommandOptions {
  */
 export async function logsCommand(runId: string, options: LogsCommandOptions = {}): Promise<void> {
   const config = requireConfig();
-  const client = new Cairn(config);
+  const client = new NanoRun(config);
 
   try {
     if (options.follow) {

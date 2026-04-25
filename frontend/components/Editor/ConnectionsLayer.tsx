@@ -1,6 +1,6 @@
 'use client';
 
-import type { Connection, ConnectionCondition, WorkflowNode } from '@cairn/shared';
+import type { Connection, ConnectionCondition, WorkflowNode } from '@nanorun/shared';
 import { memo, useMemo, useRef } from 'react';
 
 import { useCanvasRenderer } from '../../hooks/useCanvasRenderer';

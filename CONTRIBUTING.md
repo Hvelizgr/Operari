@@ -81,7 +81,7 @@ npm run test --workspace backend
 npm run test --workspace frontend
 
 # SDK
-npm run test --workspace @cairn/sdk
+npm run test --workspace @nanorun/sdk
 ```
 
 A PR that touches code without an accompanying test is unlikely to be merged unless the change is purely cosmetic.

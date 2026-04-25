@@ -1,4 +1,4 @@
-export class CairnError extends Error {
+export class NanoRunError extends Error {
   constructor(
     message: string,
     public readonly statusCode?: number,
@@ -6,27 +6,27 @@ export class CairnError extends Error {
     public readonly details?: unknown
   ) {
     super(message);
-    this.name = 'CairnError';
+    this.name = 'NanoRunError';
   }
 }
 
-export class CairnAuthError extends CairnError {
+export class NanoRunAuthError extends NanoRunError {
   constructor(message = 'Invalid or missing API key') {
     super(message, 401, 'unauthorized');
-    this.name = 'CairnAuthError';
+    this.name = 'NanoRunAuthError';
   }
 }
 
-export class CairnNotFoundError extends CairnError {
+export class NanoRunNotFoundError extends NanoRunError {
   constructor(resource: string) {
     super(`${resource} not found`, 404, 'not_found');
-    this.name = 'CairnNotFoundError';
+    this.name = 'NanoRunNotFoundError';
   }
 }
 
-export class CairnTimeoutError extends CairnError {
+export class NanoRunTimeoutError extends NanoRunError {
   constructor(message = 'Operation timed out') {
     super(message, 408, 'timeout');
-    this.name = 'CairnTimeoutError';
+    this.name = 'NanoRunTimeoutError';
   }
 }

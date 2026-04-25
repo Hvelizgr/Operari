@@ -1,4 +1,4 @@
-import { Cairn } from '@cairn/sdk';
+import { NanoRun } from '@nanorun/sdk';
 import { requireConfig } from '../config';
 import { colors, symbols, statusColor } from '../colors';
 
@@ -11,7 +11,7 @@ function formatDuration(ms: number | null): string {
 
 export async function statusCommand(runId: string) {
   const config = requireConfig();
-  const client = new Cairn(config);
+  const client = new NanoRun(config);
 
   try {
     const run = await client.getRun(runId);

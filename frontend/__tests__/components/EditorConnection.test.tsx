@@ -1,4 +1,4 @@
-import type { Connection } from '@cairn/shared';
+import type { Connection } from '@nanorun/shared';
 import { fireEvent, render } from '@testing-library/react';
 
 import EditorConnection from '@/components/Editor/EditorConnection';

@@ -1,19 +1,19 @@
-# cairn
+# nanorun
 
-Official Python SDK for the Cairn runbook automation API.
+Official Python SDK for the NanoRun runbook automation API.
 
 ## Install
 
 ```bash
-pip install cairn
+pip install nanorun
 ```
 
 ## Quick start
 
 ```python
-from cairn import Cairn
+from nanorun import NanoRun
 
-client = Cairn(api_key="nrk_...")
+client = NanoRun(api_key="nrk_...")
 
 # Trigger and wait
 run = client.run("deploy-frontend", variables={"env": "production"})

@@ -1,4 +1,4 @@
-# Cairn on Railway
+# NanoRun on Railway
 
 Two services + Postgres + Redis add-ons. Each service is a separate
 Railway "service" wired to this repo's two Dockerfiles.

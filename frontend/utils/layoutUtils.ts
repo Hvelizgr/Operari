@@ -1,4 +1,4 @@
-import { Connection, WorkflowNode } from '@cairn/shared';
+import { Connection, WorkflowNode } from '@nanorun/shared';
 import dagre from 'dagre';
 
 // Configuration for layout

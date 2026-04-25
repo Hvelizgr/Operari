@@ -3,7 +3,7 @@
  * These provide default workflow examples for new users
  */
 
-import type { Connection, WorkflowNode } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@nanorun/shared';
 
 /**
  * Default nodes shown when the editor first loads. A single `shell`

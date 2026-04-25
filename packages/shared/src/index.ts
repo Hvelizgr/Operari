@@ -1,5 +1,5 @@
 /**
- * @cairn/shared
+ * @nanorun/shared
  * Shared types and utilities between frontend and backend
  */
 

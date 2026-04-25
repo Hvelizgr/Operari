@@ -1,7 +1,7 @@
 {
-  "name": "@cairn/sdk",
+  "name": "@nanorun/sdk",
   "version": "0.1.0",
-  "description": "Official Node.js SDK for Cairn — visual runbooks for engineers",
+  "description": "Official Node.js SDK for NanoRun — visual runbooks for engineers",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,7 +25,7 @@
     "test": "echo 'no tests yet'"
   },
   "keywords": [
-    "cairn",
+    "nanorun",
     "runbook",
     "devops",
     "automation",

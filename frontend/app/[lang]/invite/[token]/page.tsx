@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { DNAMark } from '@/components/Brand/DNAMark';
+
 import { AcceptInviteForm } from './AcceptInviteForm';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +14,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { lang } = await params;
   return {
-    title: lang === 'es' ? 'Aceptar invitación · Cairn' : 'Accept invite · Cairn',
+    title: lang === 'es' ? 'Aceptar invitación · NanoRun' : 'Accept invite · NanoRun',
     robots: { index: false, follow: false },
   };
 }
@@ -29,23 +31,10 @@ export default async function InvitePage({
       <header className="relative z-10 px-4 py-5 sm:px-6">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <Link href={`/${typedLang}`} className="group flex items-center gap-2.5">
-            <div className="bg-primary text-primary-foreground shadow-primary/30 flex h-8 w-8 items-center justify-center rounded-md shadow-lg">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M4 18 L12 6 L20 18 Z" />
-                <path d="M8 14 L16 14" />
-              </svg>
+            <div className="flex h-8 w-8 items-center justify-center rounded-md border border-emerald-500/30 bg-emerald-500/10 shadow-lg shadow-emerald-500/10">
+              <DNAMark size={20} />
             </div>
-            <span className="text-foreground text-lg font-bold tracking-tight">Cairn</span>
+            <span className="text-foreground text-lg font-bold tracking-tight">NanoRun</span>
           </Link>
         </div>
       </header>

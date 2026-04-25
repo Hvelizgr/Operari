@@ -1,4 +1,4 @@
-import { Cairn, AuditVerifyOptions } from '@cairn/sdk';
+import { NanoRun, AuditVerifyOptions } from '@nanorun/sdk';
 import { requireConfig } from '../../config';
 import { colors, symbols } from '../../colors';
 
@@ -10,7 +10,7 @@ export interface AuditVerifyFlags {
 
 export async function auditVerifyCommand(opts: AuditVerifyFlags = {}) {
   const config = requireConfig();
-  const client = new Cairn(config);
+  const client = new NanoRun(config);
 
   const requestOptions: AuditVerifyOptions = {};
   if (opts.fromSeq !== undefined) {
@@ -39,7 +39,7 @@ export async function auditVerifyCommand(opts: AuditVerifyFlags = {}) {
       process.exit(result.intact ? 0 : 1);
     }
 
-    console.log(colors.bold('Cairn audit chain'));
+    console.log(colors.bold('NanoRun audit chain'));
     console.log(`  ${colors.dim('Tenant:')}      ${result.tenantId}`);
     console.log(`  ${colors.dim('Events:')}      ${result.eventCount}`);
     console.log(`  ${colors.dim('Verified at:')} ${new Date(result.verifiedAt).toLocaleString()}`);

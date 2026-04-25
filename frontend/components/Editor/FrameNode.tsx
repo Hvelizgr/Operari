@@ -1,7 +1,7 @@
 // frontend/components/Editor/FrameNode.tsx
 'use client';
 
-import type { FrameNodeConfig, WorkflowNode } from '@cairn/shared';
+import type { FrameNodeConfig, WorkflowNode } from '@nanorun/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface FrameNodeProps {

@@ -1,4 +1,4 @@
-# Fly.io app spec for the Cairn/NanoRun backend.
+# Fly.io app spec for the NanoRun backend.
 #
 # Create a Fly app first:
 #   fly apps create cairn-backend --org personal

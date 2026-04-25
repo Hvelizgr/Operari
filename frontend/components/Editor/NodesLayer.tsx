@@ -1,6 +1,6 @@
 'use client';
 
-import type { WorkflowNode } from '@cairn/shared';
+import type { WorkflowNode } from '@nanorun/shared';
 import { motion } from 'framer-motion';
 import type { MouseEvent } from 'react';
 import { memo, useMemo } from 'react';

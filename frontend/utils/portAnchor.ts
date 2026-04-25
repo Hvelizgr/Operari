@@ -8,7 +8,7 @@
 // line as soon as any shape-specific CSS offset sneaked into the pole
 // position. Share one resolver so both surfaces always agree.
 
-import type { WorkflowNode } from '@cairn/shared';
+import type { WorkflowNode } from '@nanorun/shared';
 
 import { getNodePortInfo, type NodeWithDimensions, type PortInfo } from './nodePortUtils';
 

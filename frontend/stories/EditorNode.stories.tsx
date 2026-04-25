@@ -1,4 +1,4 @@
-import type { WorkflowNode } from '@cairn/shared';
+import type { WorkflowNode } from '@nanorun/shared';
 import type { Meta, StoryObj } from '@storybook/react';
 
 import EditorNode from '../components/Editor/EditorNode';

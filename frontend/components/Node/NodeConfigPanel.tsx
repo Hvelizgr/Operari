@@ -1,6 +1,6 @@
 'use client';
 
-import type { Connection, WorkflowNode } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@nanorun/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Copy, KeyRound, Settings, X } from 'lucide-react';
 import { useEffect, useState } from 'react';

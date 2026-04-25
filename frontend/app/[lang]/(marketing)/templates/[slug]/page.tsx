@@ -35,7 +35,7 @@ export async function generateMetadata({
       title: templateStrings[typedLang].detail.notFoundTitle,
     };
   }
-  const title = `${template.name} · Cairn`;
+  const title = `${template.name} · NanoRun`;
   const description =
     template.description ?? `${template.stepCount} ${templateStrings[typedLang].detail.stepsLabel}`;
   return {

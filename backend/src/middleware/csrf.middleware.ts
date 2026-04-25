@@ -7,7 +7,7 @@ import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, SESSION_COOKIE_NAME } from '../auth
  * Double-submit cookie CSRF protection.
  *
  * Threat model: an attacker who controls a foreign origin wants to
- * make the authed browser POST to api.cairn.run with the user's
+ * make the authed browser POST to api.nanorun.dev with the user's
  * session cookie attached. `SameSite=Lax` already blocks most of
  * this, but we layer the double-submit on top so:
  *   - a sub-domain takeover can't bypass SameSite

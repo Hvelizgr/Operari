@@ -1,16 +1,16 @@
 {
-  "name": "@example/cairn-hello-world",
+  "name": "@example/nanorun-hello-world",
   "version": "0.1.0",
-  "description": "Minimal Cairn plugin — shows the defineStep() contract end-to-end",
+  "description": "Minimal NanoRun plugin — shows the defineStep() contract end-to-end",
   "private": true,
   "main": "index.js",
-  "cairn": {
+  "nanorun": {
     "steps": [
       "./index.js"
     ]
   },
   "peerDependencies": {
-    "@cairn/sdk": "^0.1.0",
+    "@nanorun/sdk": "^0.1.0",
     "zod": "^3.24.0"
   }
 }

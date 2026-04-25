@@ -25,7 +25,7 @@ export interface OrchestratorToolsOptions {
 }
 
 /**
- * Tools for the Cairn orchestrator.
+ * Tools for the NanoRun orchestrator.
  *
  * READ tools (always on) give the assistant *eyes* into the tenant's
  * runs and runbooks. Every tool is bound to a single tenantId at

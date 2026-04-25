@@ -1,11 +1,11 @@
-# example/cairn-hello-world
+# example/nanorun-hello-world
 
-Minimal plugin that shows the `defineStep()` contract Cairn uses to
+Minimal plugin that shows the `defineStep()` contract NanoRun uses to
 load user-authored step executors at boot.
 
 ## How it works
 
-1. `package.json` declares a `cairn.steps` field pointing to the
+1. `package.json` declares a `nanorun.steps` field pointing to the
    compiled entry files. The loader reads this on startup, so
    TypeScript plugins must ship their built output in the package.
 2. Each entry file's default export is a descriptor with
@@ -15,7 +15,7 @@ load user-authored step executors at boot.
    the engine.
 3. `example.hello-world` is namespaced — core step types
    (`shell`, `approval`, `notify`, `wait`, `ssh`, `runbook`,
-   `nanorun.*`, `cairn.core.*`) are reserved and will be rejected.
+   `nanorun.*`) are reserved and will be rejected.
 
 ## Try it
 
@@ -32,14 +32,14 @@ Then create a runbook with a step:
 - id: say_hi
   type: example.hello-world
   config:
-    name: Cairn
+    name: NanoRun
 ```
 
 ## Authoring a real plugin
 
 ```ts
 // src/index.ts
-import { defineStep } from '@cairn/sdk/steps';
+import { defineStep } from '@nanorun/sdk/steps';
 import { z } from 'zod';
 
 export default defineStep({
@@ -58,5 +58,5 @@ export default defineStep({
 });
 ```
 
-Compile with `tsc`, ship the package with `cairn.steps` pointing at
+Compile with `tsc`, ship the package with `nanorun.steps` pointing at
 `dist/index.js`, drop the built folder into `NANORUN_PLUGINS_DIR`.

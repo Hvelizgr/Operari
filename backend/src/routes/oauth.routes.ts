@@ -44,7 +44,7 @@ function safeReturnPath(value: unknown): string | null {
 }
 
 function callbackUrl(req: Request, provider: OAuthProviderName): string {
-  // Prefer an explicit configured base (e.g. https://api.cairn.run) so
+  // Prefer an explicit configured base (e.g. https://api.nanorun.dev) so
   // callbacks work behind a TLS terminator. Fall back to the frontend
   // URL since the Next.js dev server rewrites /api/* to us — which
   // means the provider redirects the *browser* to the frontend, and

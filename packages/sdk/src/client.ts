@@ -1,5 +1,5 @@
 import {
-  CairnConfig,
+  NanoRunConfig,
   RunbookSummary,
   TriggerOptions,
   TriggerResponse,
@@ -14,19 +14,24 @@ import {
   GetLogsResponse,
   TailLogsOptions,
 } from './types';
-import { CairnError, CairnAuthError, CairnNotFoundError, CairnTimeoutError } from './errors';
+import {
+  NanoRunError,
+  NanoRunAuthError,
+  NanoRunNotFoundError,
+  NanoRunTimeoutError,
+} from './errors';
 
 const DEFAULT_BASE_URL = 'https://api.nanorun.dev';
 
 /**
- * Official Node.js client for the Cairn API.
+ * Official Node.js client for the NanoRun API.
  *
  * Quick start:
  *
  * ```ts
- * import { Cairn } from '@cairn/sdk';
+ * import { NanoRun } from '@nanorun/sdk';
  *
- * const client = new Cairn({ apiKey: process.env.CAIRN_API_KEY! });
+ * const client = new NanoRun({ apiKey: process.env.NANORUN_API_KEY! });
  *
  * // Trigger a runbook
  * const run = await client.trigger('deploy-frontend', {
@@ -38,14 +43,14 @@ const DEFAULT_BASE_URL = 'https://api.nanorun.dev';
  * console.log(finalRun.status); // SUCCESS
  * ```
  */
-export class Cairn {
+export class NanoRun {
   private readonly apiKey: string;
   private readonly baseURL: string;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(config: CairnConfig) {
+  constructor(config: NanoRunConfig) {
     if (!config.apiKey) {
-      throw new CairnError('apiKey is required');
+      throw new NanoRunError('apiKey is required');
     }
     this.apiKey = config.apiKey;
     this.baseURL = (config.baseURL || DEFAULT_BASE_URL).replace(/\/$/, '');
@@ -99,7 +104,7 @@ export class Cairn {
       }
       await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
     }
-    throw new CairnTimeoutError(`Run ${runId} did not complete within ${timeoutMs}ms`);
+    throw new NanoRunTimeoutError(`Run ${runId} did not complete within ${timeoutMs}ms`);
   }
 
   /**
@@ -113,7 +118,7 @@ export class Cairn {
     const triggered = await this.trigger(runbookSlugOrId, options);
     const final = await this.waitForCompletion(triggered.id, { timeoutMs: options.timeoutMs });
     if (final.status === 'FAILED') {
-      throw new CairnError(
+      throw new NanoRunError(
         `Run failed: ${final.error || 'unknown error'}`,
         500,
         'run_failed',
@@ -127,7 +132,7 @@ export class Cairn {
    * Grant a pending approval and resume its paused execution.
    *
    * Requires API key scope `approvals:resolve`. Throws
-   * `CairnNotFoundError` if the approval id does not exist (also used
+   * `NanoRunNotFoundError` if the approval id does not exist (also used
    * when it belongs to another tenant — by design).
    */
   async grantApproval(
@@ -159,7 +164,7 @@ export class Cairn {
   /**
    * Verify the audit chain for the tenant owning this API key.
    *
-   * Cairn stores tamper-evident audit events in a hash chain. This
+   * NanoRun stores tamper-evident audit events in a hash chain. This
    * method walks the chain and reports whether every hash recomputes
    * correctly and whether the seq column is contiguous. Use it from
    * compliance automation, or directly from the CLI:
@@ -218,7 +223,7 @@ export class Cairn {
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         Accept: 'text/event-stream',
-        'User-Agent': '@cairn/sdk/0.1.0',
+        'User-Agent': '@nanorun/sdk/0.1.0',
       },
       signal: options.signal,
     });
@@ -226,14 +231,16 @@ export class Cairn {
     if (!response.ok) {
       const text = await response.text().catch(() => '');
       const message = text || `tailLogs failed: ${response.status}`;
-      if (response.status === 401) throw new CairnAuthError(message);
-      if (response.status === 404) throw new CairnNotFoundError(message);
-      throw new CairnError(message, response.status);
+      if (response.status === 401) throw new NanoRunAuthError(message);
+      if (response.status === 404) throw new NanoRunNotFoundError(message);
+      throw new NanoRunError(message, response.status);
     }
     if (!response.body) {
       // Implementations without streaming bodies (very old fetch
       // polyfills) can't honor SSE — fail clearly rather than hang.
-      throw new CairnError('Response body is not a readable stream; SSE requires streaming fetch');
+      throw new NanoRunError(
+        'Response body is not a readable stream; SSE requires streaming fetch'
+      );
     }
 
     // Minimal SSE parser: concatenate chunks into a buffer, split on
@@ -287,7 +294,7 @@ export class Cairn {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json',
-      'User-Agent': '@cairn/sdk/0.1.0',
+      'User-Agent': '@nanorun/sdk/0.1.0',
     };
 
     const response = await this.fetchImpl(url, {
@@ -308,9 +315,9 @@ export class Cairn {
       const errPayload = (data as { error?: string; code?: string; details?: unknown }) || {};
       const message = errPayload.error || `Request failed: ${response.status}`;
 
-      if (response.status === 401) throw new CairnAuthError(message);
-      if (response.status === 404) throw new CairnNotFoundError(message);
-      throw new CairnError(message, response.status, errPayload.code, errPayload.details);
+      if (response.status === 401) throw new NanoRunAuthError(message);
+      if (response.status === 404) throw new NanoRunNotFoundError(message);
+      throw new NanoRunError(message, response.status, errPayload.code, errPayload.details);
     }
 
     return data as T;

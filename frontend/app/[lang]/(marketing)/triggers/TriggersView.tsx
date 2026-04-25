@@ -99,7 +99,7 @@ const SOURCE_DETAIL: Record<SourceKey, Omit<Source, 'name' | 'description' | 'st
     key: 'webhook',
     icon: Webhook,
     accent: 'text-primary border-primary/40 bg-primary/10',
-    hmac: 'X-Cairn-Signature: t=…,v1=<hmac-sha256>',
+    hmac: 'X-NanoRun-Signature: t=…,v1=<hmac-sha256>',
     payload: `{
   "service": "checkout",
   "incident_id": "INC-2026-0042",

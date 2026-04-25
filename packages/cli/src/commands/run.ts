@@ -1,4 +1,4 @@
-import { Cairn, Run } from '@cairn/sdk';
+import { NanoRun, Run } from '@nanorun/sdk';
 import { requireConfig } from '../config';
 import { colors, symbols, statusColor } from '../colors';
 
@@ -27,7 +27,7 @@ function formatDuration(ms: number | null): string {
 
 export async function runCommand(slug: string, options: RunOptions = {}) {
   const config = requireConfig();
-  const client = new Cairn(config);
+  const client = new NanoRun(config);
   const variables = parseVars(options.var);
 
   console.log(`${colors.bold(symbols.dot + ' Running runbook:')} ${colors.cyan(slug)}`);

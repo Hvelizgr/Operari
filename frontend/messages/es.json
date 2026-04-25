@@ -70,10 +70,10 @@
   },
   "marketing": {
     "seo": {
-      "title": "Cairn — Runbooks visuales para ingenieros",
+      "title": "NanoRun — Runbooks visuales para ingenieros",
       "description": "Automatización open source de runbooks para equipos SRE y de plataforma. Shell-native, con gates de aprobación, audit-logged. Dejá de esconder deploys en páginas muertas de Confluence.",
       "openGraph": {
-        "title": "Cairn — Runbooks visuales para ingenieros",
+        "title": "NanoRun — Runbooks visuales para ingenieros",
         "description": "El Sentry de los procedimientos operativos. Open source, dev-first, AI-native."
       }
     },
@@ -163,7 +163,7 @@
       "title": "Lo que dicen los design partners",
       "items": {
         "0": {
-          "quote": "Reemplazamos nuestra página de deploy en Confluence con un runbook Cairn en una tarde. El gate de aprobación por Slack es el killer feature.",
+          "quote": "Reemplazamos nuestra página de deploy en Confluence con un runbook NanoRun en una tarde. El gate de aprobación por Slack es el killer feature.",
           "author": "Sarah Jenkins",
           "role": "Staff SRE @ TechFlow"
         },
@@ -182,7 +182,7 @@
     "cta": {
       "title": "Dejá de correr deploys desde una página de Confluence.",
       "subtitle": "Self-host con `docker compose up`. Gratis para siempre. Open source.",
-      "button": "Bajar Cairn"
+      "button": "Bajar NanoRun"
     },
     "modal": {
       "title": "Sumate al cloud beta",

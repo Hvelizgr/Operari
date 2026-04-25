@@ -2,7 +2,7 @@
 
 import './WorkflowNode.css';
 
-import { WorkflowNode } from '@cairn/shared';
+import { WorkflowNode } from '@nanorun/shared';
 import * as Icons from 'lucide-react';
 import { memo, MouseEvent, useLayoutEffect, useRef } from 'react';
 

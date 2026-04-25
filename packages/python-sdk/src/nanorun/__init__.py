@@ -1,16 +1,17 @@
-"""Cairn Python SDK — official client for the Cairn API."""
+"""NanoRun Python SDK — official client for the NanoRun API."""
 
-from .client import Cairn
+from .client import NanoRun
 from .errors import (
-    CairnError,
-    CairnAuthError,
-    CairnNotFoundError,
-    CairnTimeoutError,
-    # deprecated aliases — use Cairn* instead
     NanoRunError,
     NanoRunAuthError,
     NanoRunNotFoundError,
     NanoRunTimeoutError,
+    # deprecated aliases — use NanoRun* instead. Kept for one release
+    # cycle so the intermediate Cairn-era consumers keep working.
+    CairnError,
+    CairnAuthError,
+    CairnNotFoundError,
+    CairnTimeoutError,
 )
 from .types import (
     RunbookSummary,
@@ -22,20 +23,20 @@ from .types import (
     AuditVerifyResult,
 )
 
-# Deprecated alias — use Cairn instead.
-NanoRun = Cairn
+# Deprecated alias — use NanoRun instead.
+Cairn = NanoRun
 
 __all__ = [
-    "Cairn",
-    "CairnError",
-    "CairnAuthError",
-    "CairnNotFoundError",
-    "CairnTimeoutError",
     "NanoRun",
     "NanoRunError",
     "NanoRunAuthError",
     "NanoRunNotFoundError",
     "NanoRunTimeoutError",
+    "Cairn",
+    "CairnError",
+    "CairnAuthError",
+    "CairnNotFoundError",
+    "CairnTimeoutError",
     "RunbookSummary",
     "TriggerResponse",
     "StepLog",

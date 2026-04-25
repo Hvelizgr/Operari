@@ -1,5 +1,5 @@
 {
-  "name": "cairn",
+  "name": "nanorun",
   "private": true,
   "workspaces": [
     "frontend",

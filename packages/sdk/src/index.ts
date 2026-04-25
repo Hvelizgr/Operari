@@ -1,7 +1,12 @@
-export { Cairn } from './client';
-export { CairnError, CairnAuthError, CairnNotFoundError, CairnTimeoutError } from './errors';
+export { NanoRun } from './client';
+export {
+  NanoRunError,
+  NanoRunAuthError,
+  NanoRunNotFoundError,
+  NanoRunTimeoutError,
+} from './errors';
 export type {
-  CairnConfig,
+  NanoRunConfig,
   RunbookSummary,
   TriggerOptions,
   TriggerResponse,

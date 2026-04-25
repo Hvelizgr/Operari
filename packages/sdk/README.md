@@ -1,20 +1,20 @@
-# @cairn/sdk
+# @nanorun/sdk
 
-Official Node.js SDK for Cairn — visual runbooks for engineers.
+Official Node.js SDK for NanoRun — visual runbooks for engineers.
 
 ## Install
 
 ```bash
-npm install @cairn/sdk
+npm install @nanorun/sdk
 ```
 
 ## Quick start
 
 ```ts
-import { Cairn } from '@cairn/sdk';
+import { NanoRun } from '@nanorun/sdk';
 
-const client = new Cairn({
-  apiKey: process.env.CAIRN_API_KEY!,
+const client = new NanoRun({
+  apiKey: process.env.NANORUN_API_KEY!,
   baseURL: 'http://localhost:4000', // omit for production
 });
 
@@ -38,7 +38,7 @@ const result = await client.run('deploy-frontend', {
 
 ## API
 
-### `new Cairn(config)`
+### `new NanoRun(config)`
 
 - `config.apiKey` (required) — your API key starting with `nr_live_` or `nr_test_`
 - `config.baseURL` (optional) — defaults to `https://api.nanorun.dev`

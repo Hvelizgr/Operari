@@ -1,7 +1,7 @@
 // frontend/components/Editor/NoteNode.tsx
 'use client';
 
-import type { NoteNodeConfig, WorkflowNode } from '@cairn/shared';
+import type { NoteNodeConfig, WorkflowNode } from '@nanorun/shared';
 import { useEffect, useState } from 'react';
 
 interface NoteNodeProps {

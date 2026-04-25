@@ -1,4 +1,4 @@
-import type { Connection, WorkflowNode } from '@cairn/shared';
+import type { Connection, WorkflowNode } from '@nanorun/shared';
 
 import {
   nodesToSpec,

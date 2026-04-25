@@ -14,7 +14,7 @@ export async function generateMetadata({
   const { lang } = await params;
   const typedLang: AuthLang = lang === 'es' ? 'es' : 'en';
   return {
-    title: `${resetStrings[typedLang].reset.eyebrow} · Cairn`,
+    title: `${resetStrings[typedLang].reset.eyebrow} · NanoRun`,
     description: resetStrings[typedLang].reset.subtitle,
   };
 }

@@ -195,10 +195,10 @@ describe('plugin loader', () => {
     expect(result.executors).toHaveLength(0);
   });
 
-  it('still accepts a plugin using the legacy `nanorun.steps` manifest key', () => {
-    // Back-compat: earlier docs referenced `nanorun.steps`; the
-    // rebrand to Cairn made `cairn.steps` the preferred form.
-    // Both should work so in-flight plugins don't break on upgrade.
+  it('accepts a plugin using the `nanorun.steps` manifest key', () => {
+    // Both `nanorun.steps` (canonical, current) and `cairn.steps`
+    // (legacy, from the intermediate rebrand era) are accepted so
+    // in-flight plugins don't break on upgrade.
     const pluginsDir = makePlugin('case-legacy/legacy-key', {
       'package.json': JSON.stringify({
         name: 'legacy',

@@ -1,4 +1,4 @@
-import { Cairn } from '@cairn/sdk';
+import { NanoRun } from '@nanorun/sdk';
 import { requireConfig } from '../../config';
 import { colors, symbols, statusColor } from '../../colors';
 
@@ -9,7 +9,7 @@ export interface RejectFlags {
 
 export async function approvalRejectCommand(approvalId: string, opts: RejectFlags = {}) {
   const config = requireConfig();
-  const client = new Cairn(config);
+  const client = new NanoRun(config);
 
   try {
     const result = await client.rejectApproval(approvalId, { comment: opts.comment });

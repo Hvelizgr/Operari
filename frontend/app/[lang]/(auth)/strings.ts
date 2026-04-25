@@ -85,7 +85,7 @@ export const authStrings = {
     },
     register: {
       eyebrow: 'Create account',
-      title: 'Start with Cairn.',
+      title: 'Start with NanoRun.',
       subtitle: 'Self-host for free. Spin up a workspace in 30 seconds.',
       name: 'Your name (optional)',
       tenantName: 'Workspace name',
@@ -129,7 +129,7 @@ export const authStrings = {
     },
     register: {
       eyebrow: 'Crear cuenta',
-      title: 'Empezá con Cairn.',
+      title: 'Empezá con NanoRun.',
       subtitle: 'Self-host gratis. Levantá un workspace en 30 segundos.',
       name: 'Tu nombre (opcional)',
       tenantName: 'Nombre del workspace',

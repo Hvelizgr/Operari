@@ -12,7 +12,7 @@ import { ExecutorContext, ExecutorResult, StepExecutor } from '../types/executor
  *
  *   <dir>/
  *     some-plugin/
- *       package.json        { "name": "some-plugin", "cairn": { "steps": ["./index.js"] } }
+ *       package.json        { "name": "some-plugin", "nanorun": { "steps": ["./index.js"] } }
  *       index.js            (CommonJS or ESM; default export is the defineStep() descriptor)
  *     another-plugin/
  *       package.json
@@ -21,9 +21,9 @@ import { ExecutorContext, ExecutorResult, StepExecutor } from '../types/executor
  * Behavior:
  *   - No dir / empty dir → return [] silently. Self-host users with
  *     no plugins installed should see no log noise.
- *   - Missing `cairn.steps` in package.json → skip the directory with
- *     a warning. A sibling directory being a leftover npm dep (no
- *     manifest) is not an error, just a no-op.
+ *   - Missing `nanorun.steps` (or legacy `cairn.steps`) in package.json
+ *     → skip the directory with a warning. A sibling directory being
+ *     a leftover npm dep (no manifest) is not an error, just a no-op.
  *   - Plugin fails to load (throw at require, default export missing,
  *     wrong shape, or type collision with a built-in) → skip that one
  *     plugin with an error log and continue. Never crash boot on a
@@ -46,7 +46,7 @@ const RESERVED_EXACT = new Set([
   'custom.note',
 ]);
 
-const RESERVED_PREFIXES = ['nanorun.', 'cairn.core.'];
+const RESERVED_PREFIXES = ['nanorun.'];
 
 function isReservedType(type: string): boolean {
   if (RESERVED_EXACT.has(type)) return true;

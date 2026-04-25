@@ -1,4 +1,4 @@
-# Fly.io app spec for the Cairn/NanoRun frontend.
+# Fly.io app spec for the NanoRun frontend.
 #
 #   fly apps create cairn-frontend --org personal
 #   fly deploy --config deploy/fly/frontend.fly.toml --dockerfile frontend/Dockerfile

@@ -22,7 +22,7 @@ export async function generateMetadata({
   const typedLang: TemplateLang = lang === 'es' ? 'es' : 'en';
   const t = templateStrings[typedLang].list;
   return {
-    title: `${t.title} · Cairn`,
+    title: `${t.title} · NanoRun`,
     description: t.subtitle,
     openGraph: {
       title: t.title,

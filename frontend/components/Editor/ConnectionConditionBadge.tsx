@@ -1,6 +1,6 @@
 'use client';
 
-import type { ConnectionCondition } from '@cairn/shared';
+import type { ConnectionCondition } from '@nanorun/shared';
 import { AlertTriangle, Ban, Check, Circle, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 

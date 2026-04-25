@@ -1,6 +1,6 @@
 'use client';
 
-import { Connection, WorkflowNode } from '@cairn/shared';
+import { Connection, WorkflowNode } from '@nanorun/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Check,
