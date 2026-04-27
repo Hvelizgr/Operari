@@ -32,14 +32,23 @@ interface AuthContextValue {
   register: (input: RegisterInput) => Promise<AuthSession>;
   logout: () => Promise<void>;
   refresh: () => Promise<AuthSession | null>;
+  /**
+   * Local-development shortcut: hits POST /api/auth/dev-login and seeds
+   * a real session (backend cookie + JWT) for a fixed dev user. The
+   * backend route is gated by OPERARI_DEV_LOGIN_ENABLED — when off, the
+   * 404 surfaces here as `null` and the UI keeps the dev button hidden.
+   * Resolves to the seeded AuthSession, or null when dev-login is
+   * unavailable (production deployment, network error, etc.).
+   */
+  continueAsDev: () => Promise<AuthSession | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function anonymousSessionIfEnabled(): AuthSession | null {
-  if (process.env.NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE !== 'true') return null;
+  if (process.env.NEXT_PUBLIC_OPERARI_ANONYMOUS_MODE !== 'true') return null;
   return {
-    user: { id: 'anonymous', email: 'anonymous@nanorun.local', name: 'Anonymous', role: 'USER' },
+    user: { id: 'anonymous', email: 'anonymous@operari.local', name: 'Anonymous', role: 'USER' },
     tenant: { id: 'default-tenant', name: 'Default' },
   };
 }
@@ -104,9 +113,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (mounted.current) setSession(anonymousSessionIfEnabled());
   }, []);
 
+  const continueAsDev = useCallback(async (): Promise<AuthSession | null> => {
+    try {
+      const result = await authClient.devLogin();
+      const next: AuthSession = { user: result.user, tenant: result.tenant };
+      if (mounted.current) setSession(next);
+      return next;
+    } catch {
+      // Endpoint disabled (404 in prod) or network error — both render
+      // the same way: dev login is unavailable, button stays hidden.
+      return null;
+    }
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ session, loading, login, register, logout, refresh }),
-    [session, loading, login, register, logout, refresh]
+    () => ({ session, loading, login, register, logout, refresh, continueAsDev }),
+    [session, loading, login, register, logout, refresh, continueAsDev]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

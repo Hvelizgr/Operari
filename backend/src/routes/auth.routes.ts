@@ -590,7 +590,7 @@ router.post('/refresh', authenticate, async (req: AuthRequest, res) => {
  *     security:
  *       - bearerAuth: []
  *     description: |
- *       JWT auth in NanoRun is stateless, so the server cannot truly
+ *       JWT auth in Operari is stateless, so the server cannot truly
  *       invalidate a token mid-flight. Calling this endpoint records an
  *       `auth.logout` audit event tied to the caller's identity, which is
  *       what compliance dashboards and incident timelines actually need.
@@ -608,7 +608,7 @@ router.post('/logout', authenticate, async (req: AuthRequest, res) => {
   const authHeader = req.headers.authorization;
   const bearer = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
   const cookieToken = (req as AuthRequest & { cookies?: Record<string, string> }).cookies
-    ?.nanorun_session;
+    ?.operari_session;
   const rawToken = bearer ?? cookieToken;
   if (rawToken) {
     try {
@@ -673,7 +673,7 @@ router.delete('/account', authenticate, async (req: AuthRequest, res) => {
     const authHeader = req.headers.authorization;
     const bearer = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
     const cookieToken = (req as AuthRequest & { cookies?: Record<string, string> }).cookies
-      ?.nanorun_session;
+      ?.operari_session;
     const rawToken = bearer ?? cookieToken;
     if (rawToken) {
       try {
@@ -974,6 +974,86 @@ router.post('/send-verification', authenticate, async (req: AuthRequest, res) =>
   }
   await issueVerificationEmail(prisma, user.id);
   return res.status(204).end();
+});
+
+/**
+ * POST /api/auth/dev-login
+ *
+ * Local-development shortcut: mints a real session for a fixed dev
+ * user without password / OAuth / MFA. The endpoint is gated by
+ * OPERARI_DEV_LOGIN_ENABLED=true. When the flag is anything else,
+ * the route returns 404 — same shape as a missing route, so it does
+ * not advertise its existence in production.
+ *
+ * On first call the dev user (`dev@operari.local`) and a "Dev workspace"
+ * tenant are auto-created with role=ADMIN and emailVerified=true. On
+ * subsequent calls the existing user is reused. The response shape
+ * matches POST /login so the frontend AuthContext can consume it
+ * without a special branch.
+ *
+ * Security: this is an unauthenticated endpoint that grants ADMIN-level
+ * access to a tenant. It is DESIGNED to be off in production. Never
+ * couple this to anything tenant-isolated outside the dev user itself.
+ */
+router.post('/dev-login', async (req, res) => {
+  if (process.env.OPERARI_DEV_LOGIN_ENABLED !== 'true') {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  const DEV_EMAIL = 'dev@operari.local';
+  const DEV_TENANT_NAME = 'Dev workspace';
+
+  try {
+    let user = await prisma.user.findUnique({
+      where: { email: DEV_EMAIL },
+      include: { tenant: true },
+    });
+
+    if (!user) {
+      const tenant = await prisma.tenant.create({
+        data: { name: DEV_TENANT_NAME, slug: 'dev-workspace', plan: 'FREE' },
+      });
+      user = await prisma.user.create({
+        data: {
+          email: DEV_EMAIL,
+          name: 'Dev User',
+          // No passwordHash — this account is reachable only through
+          // the dev-login route. Email/password login fails by design.
+          passwordHash: null,
+          role: 'ADMIN',
+          tenantId: tenant.id,
+          emailVerified: true,
+        },
+        include: { tenant: true },
+      });
+    }
+
+    const token = signSessionToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenantId,
+    });
+
+    setSessionCookie(req, res, token);
+
+    return res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+      tenant: {
+        id: user.tenant.id,
+        name: user.tenant.name,
+      },
+      token,
+    });
+  } catch (error) {
+    req.log.error({ error }, 'Dev login error');
+    return res.status(500).json({ error: 'Dev login failed' });
+  }
 });
 
 export default router;

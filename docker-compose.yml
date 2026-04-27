@@ -1,8 +1,8 @@
-name: nanorun
+name: operari
 
-# NanoRun self-host docker compose
+# Operari self-host docker compose
 #
-# One-command local NanoRun stack: postgres + redis + backend + frontend.
+# One-command local Operari stack: postgres + redis + backend + frontend.
 # Optional jaeger for OpenTelemetry traces (enable via the `traces` profile).
 #
 #   docker compose up -d              # core stack
@@ -23,17 +23,17 @@ name: nanorun
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: nanorun-postgres
+    container_name: operari-postgres
     environment:
-      POSTGRES_USER: nanorun
-      POSTGRES_PASSWORD: nanorun
-      POSTGRES_DB: nanorun
+      POSTGRES_USER: operari
+      POSTGRES_PASSWORD: operari
+      POSTGRES_DB: operari
     ports:
       - '5433:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nanorun -d nanorun']
+      test: ['CMD-SHELL', 'pg_isready -U operari -d operari']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -41,7 +41,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: nanorun-redis
+    container_name: operari-redis
     ports:
       - '6380:6379'
     volumes:
@@ -68,10 +68,10 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: nanorun-migrate
+    container_name: operari-migrate
     user: '0:0'
     environment:
-      DATABASE_URL: postgresql://nanorun:nanorun@postgres:5432/nanorun?schema=public
+      DATABASE_URL: postgresql://operari:operari@postgres:5432/operari?schema=public
       HOME: /tmp
     # node_modules is hoisted to /app/node_modules in the monorepo
     # build, so the prisma .bin shim lives one level up from /app/backend.
@@ -105,11 +105,11 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: nanorun-backend
+    container_name: operari-backend
     environment:
       NODE_ENV: production
       PORT: 4000
-      DATABASE_URL: postgresql://nanorun:nanorun@postgres:5432/nanorun?schema=public
+      DATABASE_URL: postgresql://operari:operari@postgres:5432/operari?schema=public
       REDIS_URL: redis://redis:6379
       FRONTEND_URL: http://localhost:3000
       # Required: 32+ character random secret. The default below is a dev
@@ -128,28 +128,36 @@ services:
       # Runner backend. Inside docker-compose `local` is the only sane
       # default — `docker` would need docker-in-docker, `fly` needs the
       # FLY_API_TOKEN. Override only if you know what you are doing.
-      NANORUN_RUNNER: local
+      OPERARI_RUNNER: local
       # ADR 0003: durable execution engine. Enables ExecutionEventStore
       # appends in ExecutionService and the resume worker scan at boot.
-      # Resume worker stays in dryRun until NANORUN_RESUME_WORKER_ACT=true.
-      NANORUN_DURABLE_ENGINE: ${NANORUN_DURABLE_ENGINE:-true}
-      NANORUN_RESUME_WORKER_ACT: ${NANORUN_RESUME_WORKER_ACT:-}
+      # Resume worker stays in dryRun until OPERARI_RESUME_WORKER_ACT=true.
+      OPERARI_DURABLE_ENGINE: ${OPERARI_DURABLE_ENGINE:-true}
+      OPERARI_RESUME_WORKER_ACT: ${OPERARI_RESUME_WORKER_ACT:-false}
       # Tracing wired to the optional jaeger service. Enable with the
       # `traces` profile (`docker compose --profile traces up -d`).
       ENABLE_TRACING: 'false'
-      OTEL_SERVICE_NAME: nanorun-backend
+      OTEL_SERVICE_NAME: operari-backend
       JAEGER_ENDPOINT: http://jaeger:14268/api/traces
       # Marketing contact form → email. When RESEND_API_KEY is unset
       # the route logs submissions to pino instead of sending; both
       # paths return 202 to the visitor.
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL:-hello@nanorun.dev}
-      CONTACT_FROM_EMAIL: ${CONTACT_FROM_EMAIL:-contact@nanorun.dev}
-      # Self-host docker-compose defaults to anonymous mode so the
-      # editor + runs surface work out of the box without wiring a
-      # JWT/WorkOS provider. Override to "false" for any multi-tenant
-      # or networked deployment.
-      NANORUN_ANONYMOUS_MODE: ${NANORUN_ANONYMOUS_MODE:-true}
+      CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL:-hello@operari.dev}
+      CONTACT_FROM_EMAIL: ${CONTACT_FROM_EMAIL:-contact@operari.dev}
+      # Self-host docker-compose defaults to anonymous mode OFF so
+      # the auth gate is real. Pair with OPERARI_DEV_LOGIN_ENABLED=true
+      # below to keep a one-click dev shortcut without leaving the gate
+      # disabled. Override to "true" for any setup that wants every
+      # request treated as anonymous (less common; was the previous
+      # default and remains supported for true single-user local).
+      OPERARI_ANONYMOUS_MODE: ${OPERARI_ANONYMOUS_MODE:-false}
+      # Enables POST /api/auth/dev-login — a backend route that mints
+      # a real session for a fixed dev@operari.local user (auto-created
+      # on first call). Pairs with the frontend's NEXT_PUBLIC_DEV_LOGIN_ENABLED
+      # so the login page surfaces a "Continue as dev" button. NEVER
+      # set to true in any deployment that handles real tenants.
+      OPERARI_DEV_LOGIN_ENABLED: ${OPERARI_DEV_LOGIN_ENABLED:-true}
       # Social login. Both providers are fully optional. When the
       # *_CLIENT_ID / *_CLIENT_SECRET pair is missing the
       # /api/auth/{provider} route returns 501 and the frontend hides
@@ -189,9 +197,13 @@ services:
         # Dev unlock: when "true" the frontend auth context seeds an
         # anonymous session on mount so the login form is not in the
         # way of a local stack that has no real users. Pairs with
-        # the backend's NANORUN_ANONYMOUS_MODE env.
-        NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE: ${NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE:-true}
-    container_name: nanorun-frontend
+        # the backend's OPERARI_ANONYMOUS_MODE env.
+        NEXT_PUBLIC_OPERARI_ANONYMOUS_MODE: ${NEXT_PUBLIC_OPERARI_ANONYMOUS_MODE:-false}
+        # When "true" the login page shows a "Continue as dev" button
+        # that hits POST /api/auth/dev-login (gated server-side by
+        # OPERARI_DEV_LOGIN_ENABLED). Local-development convenience.
+        NEXT_PUBLIC_DEV_LOGIN_ENABLED: ${NEXT_PUBLIC_DEV_LOGIN_ENABLED:-true}
+    container_name: operari-frontend
     environment:
       NODE_ENV: production
       # The R2/R3/R4 hooks build URLs as `${NEXT_PUBLIC_API_URL}/api/...`,
@@ -220,11 +232,11 @@ services:
 
   # Optional: jaeger UI for OpenTelemetry traces. Enable with:
   #   docker compose --profile traces up -d
-  # Then open http://localhost:16686 and pick service `nanorun-backend`.
+  # Then open http://localhost:16686 and pick service `operari-backend`.
   # Backend tracing also has to be turned on with ENABLE_TRACING=true.
   jaeger:
     image: jaegertracing/all-in-one:latest
-    container_name: nanorun-jaeger
+    container_name: operari-jaeger
     profiles: ['traces']
     ports:
       - '16686:16686' # UI

@@ -19,8 +19,15 @@ ENV API_URL=$API_URL
 # session on mount so self-host deployments reach the editor +
 # runs UI without wiring a real login. Off by default; override
 # via --build-arg for a single-tenant dev stack.
-ARG NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE=false
-ENV NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE=$NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE
+ARG NEXT_PUBLIC_OPERARI_ANONYMOUS_MODE=false
+ENV NEXT_PUBLIC_OPERARI_ANONYMOUS_MODE=$NEXT_PUBLIC_OPERARI_ANONYMOUS_MODE
+
+# Bakes into the client bundle. When "true", the login page renders a
+# "Continue as dev" button that hits /api/auth/dev-login (a backend
+# route gated by OPERARI_DEV_LOGIN_ENABLED=true). Off by default —
+# override only for local single-tenant dev stacks.
+ARG NEXT_PUBLIC_DEV_LOGIN_ENABLED=false
+ENV NEXT_PUBLIC_DEV_LOGIN_ENABLED=$NEXT_PUBLIC_DEV_LOGIN_ENABLED
 
 # Install dependencies including devDependencies for the build
 COPY package.json package-lock.json ./

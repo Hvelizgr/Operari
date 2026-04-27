@@ -52,18 +52,26 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
   COOKIE_SECURE: z.enum(['true', 'false']).optional(),
   CSRF_ENFORCE: z.enum(['true', 'false']).optional(),
-  NANORUN_ANONYMOUS_MODE: z.enum(['true', 'false']).default('false'),
-  NANORUN_AUTH_PROVIDER: z.enum(['jwt', 'workos']).default('jwt'),
-  NANORUN_PASSWORD_BREACH_CHECK: z.enum(['true', 'false']).default('true'),
-  NANORUN_PASSWORD_BREACH_THRESHOLD: intFromString(1),
-  NANORUN_SECRET_KEY: z.string().optional(),
+  OPERARI_ANONYMOUS_MODE: z.enum(['true', 'false']).default('false'),
+  /**
+   * Enables POST /api/auth/dev-login — an unauthenticated endpoint that
+   * mints a real session for a fixed dev user (auto-created on first
+   * call). Use ONLY for local development. The endpoint returns 404
+   * when this flag is anything other than "true". Must NEVER be true
+   * in any deployment that handles real tenants.
+   */
+  OPERARI_DEV_LOGIN_ENABLED: z.enum(['true', 'false']).default('false'),
+  OPERARI_AUTH_PROVIDER: z.enum(['jwt', 'workos']).default('jwt'),
+  OPERARI_PASSWORD_BREACH_CHECK: z.enum(['true', 'false']).default('true'),
+  OPERARI_PASSWORD_BREACH_THRESHOLD: intFromString(1),
+  OPERARI_SECRET_KEY: z.string().optional(),
   /** Legacy master keys accepted during a KeyRotationJob window.
    *  Comma-separated, newest legacy first. The runtime decrypts rows
    *  ciphered under any of these (tried in order after the primary
-   *  NANORUN_SECRET_KEY fails) and re-encrypts them under the primary
+   *  OPERARI_SECRET_KEY fails) and re-encrypts them under the primary
    *  key. Once the rotation completes, drop this env var on the next
    *  deploy. */
-  NANORUN_SECRET_KEY_LEGACY: z.string().optional(),
+  OPERARI_SECRET_KEY_LEGACY: z.string().optional(),
   ENCRYPTION_KEY: z.string().min(32).optional(),
 
   // ─── Frontend linkage ──────────────────────────────────────────
@@ -78,7 +86,7 @@ const envSchema = z.object({
   /** Feature flag that enables write-capable agent tools (create/update
    *  runbook, dispatch runs, modify RBAC). Off by default — the audit
    *  surface for write tools is still being shaped. */
-  CAIRN_AGENT_WRITE_TOOLS: z.enum(['true', 'false']).default('false'),
+  OPERARI_AGENT_WRITE_TOOLS: z.enum(['true', 'false']).default('false'),
 
   // ─── Social login providers ────────────────────────────────────
   // All optional — when a pair is unset, /api/auth/{provider} returns
@@ -98,11 +106,11 @@ const envSchema = z.object({
   WORKOS_JWKS_URL: z.string().optional(),
 
   // ─── Billing (Stripe) ──────────────────────────────────────────
-  NANORUN_BILLING_PROVIDER: z.enum(['stripe', 'none']).default('none'),
+  OPERARI_BILLING_PROVIDER: z.enum(['stripe', 'none']).default('none'),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
-  NANORUN_QUOTA_FREE_RUNS: intFromString(100),
-  NANORUN_QUOTA_FREE_RUNBOOKS: intFromString(3),
+  OPERARI_QUOTA_FREE_RUNS: intFromString(100),
+  OPERARI_QUOTA_FREE_RUNBOOKS: intFromString(3),
 
   // ─── Email (SMTP + Resend) ─────────────────────────────────────
   // Two providers supported — SMTP for self-host, Resend for cloud.
@@ -131,21 +139,21 @@ const envSchema = z.object({
   /** Toggles the durable (Redis-backed) runbook event store. When
    *  off, executions use the in-memory store — lost on process
    *  restart, fine for dev + single-tenant self-host. */
-  NANORUN_DURABLE_ENGINE: z.enum(['true', 'false']).default('false'),
+  OPERARI_DURABLE_ENGINE: z.enum(['true', 'false']).default('false'),
   /** Cap on live log-stream entries per step kept in memory. */
-  NANORUN_LOG_STREAM_MAX_ENTRIES: intFromString(1000),
+  OPERARI_LOG_STREAM_MAX_ENTRIES: intFromString(1000),
   /** Resume-worker active-action guard — prevents double-resume when
    *  two workers race on the same suspended run. Defaults on. */
-  NANORUN_RESUME_WORKER_ACT: z.enum(['true', 'false']).default('true'),
+  OPERARI_RESUME_WORKER_ACT: z.enum(['true', 'false']).default('true'),
   /** ADR 0003 phase 4. When 'true', the resume worker REPLAYS a
    *  crashed run whose event log shows no step actively executing at
    *  crash time (inFlightSteps empty). Off by default so the phase-3
    *  "abandon interrupted runs" behavior stays in force until an
    *  operator validates their event log is stable. */
-  NANORUN_RESUME_WORKER_REPLAY: z.enum(['true', 'false']).default('false'),
+  OPERARI_RESUME_WORKER_REPLAY: z.enum(['true', 'false']).default('false'),
   /** Directory the plugin loader scans at boot for third-party step
    *  types (see packages/sdk/src/steps). */
-  NANORUN_PLUGINS_DIR: z.string().optional(),
+  OPERARI_PLUGINS_DIR: z.string().optional(),
   /** Opt-out for cron scheduler leader election. On by default so
    *  multi-pod deploys do not double-fire scheduled runs. Set to 'true'
    *  only for dev or tests where the dedicated pg connection is
@@ -159,12 +167,12 @@ const envSchema = z.object({
    *  `Tenant-scope guard violation` entries for two consecutive
    *  weeks — that's the "T.3" validation step from the audit.
    *  Dev/test always throws regardless of this flag. */
-  NANORUN_TENANT_GUARD_STRICT: z.enum(['true', 'false']).default('false'),
+  OPERARI_TENANT_GUARD_STRICT: z.enum(['true', 'false']).default('false'),
 
   // ─── Version display ───────────────────────────────────────────
   /** Self-host build tag shown in the /health endpoint + UI footer.
    *  Separate from APP_VERSION which goes to Sentry release. */
-  NANORUN_VERSION: z.string().optional(),
+  OPERARI_VERSION: z.string().optional(),
 });
 
 /** Silence validation in test runs so CI (or a bare `jest` call)

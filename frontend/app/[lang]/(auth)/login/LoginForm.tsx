@@ -14,12 +14,13 @@ const SAFE_REDIRECT = /^\/[a-z]{2}(\/[\w\-/]*)?$/i;
 
 const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GOOGLE === 'true';
 const GITHUB_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GITHUB === 'true';
+const DEV_MODE_ENABLED = process.env.NEXT_PUBLIC_DEV_LOGIN_ENABLED === 'true';
 
 export function LoginForm({ lang }: { lang: AuthLang }) {
   const t = authStrings[lang].login;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, continueAsDev } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,6 +32,18 @@ export function LoginForm({ lang }: { lang: AuthLang }) {
     if (qerr && qerr.startsWith('oauth_')) return t.oauthError;
     return null;
   });
+
+  async function onContinueAsDev() {
+    setError(null);
+    const session = await continueAsDev();
+    if (!session) {
+      setError(t.networkError);
+      return;
+    }
+    const redirect = searchParams.get('redirect');
+    const target = redirect && SAFE_REDIRECT.test(redirect) ? redirect : `/${lang}/dashboard`;
+    router.replace(target);
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -85,6 +98,22 @@ export function LoginForm({ lang }: { lang: AuthLang }) {
 
       <h1 className="text-foreground text-3xl font-bold leading-tight tracking-tight">{t.title}</h1>
       <p className="text-muted-foreground mt-2 text-sm">{t.subtitle}</p>
+
+      {DEV_MODE_ENABLED && (
+        <button
+          type="button"
+          onClick={onContinueAsDev}
+          className="mt-6 flex w-full items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-left transition-colors hover:border-amber-500/60 hover:bg-amber-500/10"
+        >
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-amber-200">{t.devButton}</span>
+            <span className="text-muted-foreground text-xs">{t.devHint}</span>
+          </div>
+          <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-300">
+            {t.devBadge}
+          </span>
+        </button>
+      )}
 
       <SocialButtons
         lang={lang}

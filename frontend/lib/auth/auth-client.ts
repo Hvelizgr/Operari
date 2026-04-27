@@ -2,14 +2,14 @@ import type { AuthErrorBody, AuthSession } from './types';
 
 /**
  * Read the double-submit CSRF cookie minted by the backend alongside
- * `nanorun_session`. The cookie is NOT HttpOnly on purpose — the
+ * `operari_session`. The cookie is NOT HttpOnly on purpose — the
  * whole point of the pattern is that JavaScript echoes the value
  * into a header that an off-origin attacker can't forge. Returns
  * `null` during SSR (no document) or before the user has logged in.
  */
 export function csrfToken(): string | null {
   if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(/(?:^|;\s*)nanorun_csrf=([^;]+)/);
+  const match = document.cookie.match(/(?:^|;\s*)operari_csrf=([^;]+)/);
   return match ? decodeURIComponent(match[1]!) : null;
 }
 
@@ -121,6 +121,17 @@ export const authClient = {
     return request<AuthSuccessResponse>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(input),
+    });
+  },
+  /**
+   * Local-development shortcut. Returns the same shape as login() but
+   * the backend route is gated by OPERARI_DEV_LOGIN_ENABLED=true; in
+   * production it 404s and AuthError is thrown.
+   */
+  devLogin(): Promise<AuthSuccessResponse> {
+    return request<AuthSuccessResponse>('/api/auth/dev-login', {
+      method: 'POST',
+      body: JSON.stringify({}),
     });
   },
   logout(): Promise<{ message: string }> {
