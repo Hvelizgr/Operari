@@ -8,12 +8,12 @@ import { AuthTransportError } from './auth-provider.types';
  *
  * What this ships
  *   - The right interface so routes can opt into WorkOS via
- *     `NANORUN_AUTH_PROVIDER=workos` without rewriting auth call sites
- *   - Tenant resolution: WorkOS organizations map 1:1 to NanoRun
+ *     `OPERARI_AUTH_PROVIDER=workos` without rewriting auth call sites
+ *   - Tenant resolution: WorkOS organizations map 1:1 to Operari
  *     tenants via `Tenant.workosOrganizationId` (added by the
  *     `add_tenant_external_ids` migration)
  *   - Local user upsert: on a successful WorkOS verify, create the
- *     User row if missing. WorkOS owns identity; NanoRun owns
+ *     User row if missing. WorkOS owns identity; Operari owns
  *     authorization (RBAC + per-tenant resources).
  *
  * Pluggable verification: the constructor takes a `verifyJwksToken`
@@ -25,7 +25,7 @@ import { AuthTransportError } from './auth-provider.types';
  *
  * What this DOES NOT cover (out of scope for this file)
  *   - Webhook handling for user.updated / user.deleted events from
- *     WorkOS. The inverse direction — WorkOS telling NanoRun a user
+ *     WorkOS. The inverse direction — WorkOS telling Operari a user
  *     changed — lives in a future webhooks/workos.routes.ts.
  *   - SSO / SAML flow initiation. WorkOS owns the hosted UI; the
  *     backend only sees the resulting bearer token at request time.
@@ -39,7 +39,7 @@ import { AuthTransportError } from './auth-provider.types';
 export interface WorkOSClaims {
   sub: string;
   email: string;
-  /** WorkOS organization id — maps to NanoRun tenant */
+  /** WorkOS organization id — maps to Operari tenant */
   organization_id: string;
   /** WorkOS-side role string. Defaults to 'member'. */
   role?: string;
@@ -62,7 +62,7 @@ export interface WorkOSAuthProviderOptions {
   verifyJwksToken: VerifyJwksTokenFn;
 
   /**
-   * Map a WorkOS role string to a NanoRun role. Defaults to
+   * Map a WorkOS role string to a Operari role. Defaults to
    * `(role) => role ?? 'USER'`. Override for tenants that use
    * custom WorkOS roles.
    */
@@ -98,7 +98,7 @@ export class WorkOSAuthProvider implements AuthProvider {
     }
     if (!claims) return null;
 
-    // Resolve the NanoRun tenant from the WorkOS organization id.
+    // Resolve the Operari tenant from the WorkOS organization id.
     // The tenants table has a workosOrganizationId column added by
     // the cloud beta migration; until that lands, this lookup
     // returns null and the request fails closed.
@@ -134,7 +134,7 @@ export class WorkOSAuthProvider implements AuthProvider {
   }
 
   /**
-   * Look up the NanoRun tenant by WorkOS organization id. Returns
+   * Look up the Operari tenant by WorkOS organization id. Returns
    * null when no tenant is linked to the org — verifyToken turns
    * that into a 401, which is the fail-closed default for "WorkOS
    * knows the user but the user belongs to an org we don't host".

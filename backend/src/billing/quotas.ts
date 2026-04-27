@@ -40,13 +40,13 @@ export function quotasFor(plan: Plan): PlanQuotas {
   switch (plan) {
     case 'FREE':
       return {
-        activeRunbooks: envLimit('NANORUN_QUOTA_FREE_RUNBOOKS', 3),
-        runsPerMonth: envLimit('NANORUN_QUOTA_FREE_RUNS', 100),
+        activeRunbooks: envLimit('OPERARI_QUOTA_FREE_RUNBOOKS', 3),
+        runsPerMonth: envLimit('OPERARI_QUOTA_FREE_RUNS', 100),
       };
     case 'TEAM':
       return {
-        activeRunbooks: envLimit('NANORUN_QUOTA_TEAM_RUNBOOKS', UNLIMITED),
-        runsPerMonth: envLimit('NANORUN_QUOTA_TEAM_RUNS', UNLIMITED),
+        activeRunbooks: envLimit('OPERARI_QUOTA_TEAM_RUNBOOKS', UNLIMITED),
+        runsPerMonth: envLimit('OPERARI_QUOTA_TEAM_RUNS', UNLIMITED),
       };
     case 'BUSINESS':
     case 'ENTERPRISE':
@@ -75,7 +75,7 @@ interface QuotaCheckOptions {
 }
 
 function isAnonymous(options: QuotaCheckOptions): boolean {
-  return options.anonymousMode ?? process.env.NANORUN_ANONYMOUS_MODE === 'true';
+  return options.anonymousMode ?? process.env.OPERARI_ANONYMOUS_MODE === 'true';
 }
 
 /**

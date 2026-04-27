@@ -28,7 +28,7 @@ import { authenticate, AuthRequest, requireRole } from '../../middleware/auth.mi
 
 const FAKE_USER: AuthenticatedUser = {
   id: 'user-1',
-  email: 'op@nanorun.test',
+  email: 'op@operari.test',
   role: 'ADMIN',
   tenantId: 'tenant-1',
   provider: 'stub',
@@ -116,7 +116,7 @@ describe('authenticate middleware', () => {
     expect(next).toHaveBeenCalledTimes(1);
     expect(req.user).toEqual({
       id: 'user-1',
-      email: 'op@nanorun.test',
+      email: 'op@operari.test',
       role: 'ADMIN',
       tenantId: 'tenant-1',
     });
@@ -126,12 +126,12 @@ describe('authenticate middleware', () => {
     expect((req.user as Record<string, unknown>).provider).toBeUndefined();
   });
 
-  it('falls back to the nanorun_session cookie when no Bearer header is set', async () => {
+  it('falls back to the operari_session cookie when no Bearer header is set', async () => {
     const provider = stubProvider({ kind: 'ok' });
     setAuthProviderForTest(provider);
     const { res, status } = buildRes();
     const next = jest.fn() as unknown as NextFunction;
-    const req = buildReq({}, { nanorun_session: 'cookie-token' });
+    const req = buildReq({}, { operari_session: 'cookie-token' });
 
     await authenticate(req, res, next);
 
@@ -148,7 +148,7 @@ describe('authenticate middleware', () => {
     const next = jest.fn() as unknown as NextFunction;
     const req = buildReq(
       { authorization: 'Bearer header-wins' },
-      { nanorun_session: 'cookie-loses' }
+      { operari_session: 'cookie-loses' }
     );
 
     await authenticate(req, res, next);

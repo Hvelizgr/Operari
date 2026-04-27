@@ -31,7 +31,7 @@ export interface ShellOutput {
 }
 
 /**
- * Shell command executor — the heart of NanoRun.
+ * Shell command executor — the heart of Operari.
  *
  * Delegates actual execution to a {@link Runner}, which decides where the
  * command runs (host process, ephemeral container, Firecracker microVM, …).
@@ -41,7 +41,7 @@ export interface ShellOutput {
  *   - Mapping RunnerResult → ExecutorResult
  *   - Streaming output via context.emit (the Runner already does this)
  *
- * Choice of Runner is configured at startup via NANORUN_RUNNER (see
+ * Choice of Runner is configured at startup via OPERARI_RUNNER (see
  * runners/index.ts). Default is LocalRunner for backwards compatibility
  * with existing self-host deployments.
  */

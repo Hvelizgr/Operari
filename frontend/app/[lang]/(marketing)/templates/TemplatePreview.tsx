@@ -1,6 +1,6 @@
 'use client';
 
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 import { useMemo } from 'react';
 
 import { getAutoLayout } from '@/utils/layoutUtils';

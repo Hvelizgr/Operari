@@ -13,7 +13,7 @@ import { loadPluginsSync } from '../../../runbook/plugins/loader';
  * plugin doesn't poison the next case through the require cache.
  */
 
-const RUN_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'cairn-plugins-'));
+const RUN_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'operari-plugins-'));
 
 function makePlugin(name: string, files: Record<string, string>): string {
   const dir = path.join(RUN_ROOT, name);
@@ -48,7 +48,7 @@ describe('plugin loader', () => {
     const pluginsDir = makePlugin('case-valid/valid-plugin', {
       'package.json': JSON.stringify({
         name: 'valid-plugin',
-        cairn: { steps: ['./index.js'] },
+        operari: { steps: ['./index.js'] },
       }),
       'index.js': `
                 module.exports = {
@@ -69,7 +69,7 @@ describe('plugin loader', () => {
     const pluginsDir = makePlugin('case-esm/esm-plugin', {
       'package.json': JSON.stringify({
         name: 'esm-plugin',
-        cairn: { steps: ['./index.js'] },
+        operari: { steps: ['./index.js'] },
       }),
       'index.js': `
                 exports.default = {
@@ -89,7 +89,7 @@ describe('plugin loader', () => {
     const pluginsDir = makePlugin('case-mixed/good-plugin', {
       'package.json': JSON.stringify({
         name: 'good',
-        cairn: { steps: ['./index.js'] },
+        operari: { steps: ['./index.js'] },
       }),
       'index.js': `
                 module.exports = {
@@ -112,7 +112,7 @@ describe('plugin loader', () => {
     const pluginsDir = makePlugin('case-reserved/evil-plugin', {
       'package.json': JSON.stringify({
         name: 'evil',
-        cairn: { steps: ['./index.js'] },
+        operari: { steps: ['./index.js'] },
       }),
       'index.js': `
                 module.exports = {
@@ -128,15 +128,15 @@ describe('plugin loader', () => {
     expect(result.skipped.length).toBeGreaterThan(0);
   });
 
-  it('rejects a plugin that claims a nanorun.* prefix', () => {
+  it('rejects a plugin that claims a operari.* prefix', () => {
     const pluginsDir = makePlugin('case-prefix/prefix-plugin', {
       'package.json': JSON.stringify({
         name: 'sneaky',
-        cairn: { steps: ['./index.js'] },
+        operari: { steps: ['./index.js'] },
       }),
       'index.js': `
                 module.exports = {
-                    type: 'nanorun.fakeStep',
+                    type: 'operari.fakeStep',
                     configSchema: { parse: (x) => x },
                     execute: async () => ({ success: true }),
                 };
@@ -151,7 +151,7 @@ describe('plugin loader', () => {
     const pluginsDir = makePlugin('case-bad-shape/bad-shape', {
       'package.json': JSON.stringify({
         name: 'bad-shape',
-        cairn: { steps: ['./index.js'] },
+        operari: { steps: ['./index.js'] },
       }),
       'index.js': `module.exports = { type: 'example.broken' };`, // missing configSchema, execute
     });
@@ -164,7 +164,7 @@ describe('plugin loader', () => {
     const pluginsDir = makePlugin('case-throw/throws-plugin', {
       'package.json': JSON.stringify({
         name: 'throws',
-        cairn: { steps: ['./index.js'] },
+        operari: { steps: ['./index.js'] },
       }),
       'index.js': `throw new Error('boom at load time');`,
     });
@@ -177,7 +177,7 @@ describe('plugin loader', () => {
     const pluginsDir = makePlugin('case-collision/collide-plugin', {
       'package.json': JSON.stringify({
         name: 'collide',
-        cairn: { steps: ['./index.js'] },
+        operari: { steps: ['./index.js'] },
       }),
       'index.js': `
                 module.exports = {
@@ -195,14 +195,14 @@ describe('plugin loader', () => {
     expect(result.executors).toHaveLength(0);
   });
 
-  it('accepts a plugin using the `nanorun.steps` manifest key', () => {
-    // Both `nanorun.steps` (canonical, current) and `cairn.steps`
+  it('accepts a plugin using the `operari.steps` manifest key', () => {
+    // Both `operari.steps` (canonical, current) and `operari.steps`
     // (legacy, from the intermediate rebrand era) are accepted so
     // in-flight plugins don't break on upgrade.
     const pluginsDir = makePlugin('case-legacy/legacy-key', {
       'package.json': JSON.stringify({
         name: 'legacy',
-        nanorun: { steps: ['./index.js'] },
+        operari: { steps: ['./index.js'] },
       }),
       'index.js': `
                 module.exports = {
@@ -221,7 +221,7 @@ describe('plugin loader', () => {
     const pluginsDir = makePlugin('case-execute/runtime-plugin', {
       'package.json': JSON.stringify({
         name: 'runtime',
-        cairn: { steps: ['./index.js'] },
+        operari: { steps: ['./index.js'] },
       }),
       'index.js': `
                 module.exports = {

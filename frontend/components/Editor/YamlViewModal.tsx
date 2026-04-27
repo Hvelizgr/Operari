@@ -1,6 +1,6 @@
 'use client';
 
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 import { AlertCircle, Check, Copy, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 

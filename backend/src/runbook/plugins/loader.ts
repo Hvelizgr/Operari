@@ -8,11 +8,11 @@ import { ExecutorContext, ExecutorResult, StepExecutor } from '../types/executor
  * Plugin loader — turns user-authored `defineStep(...)` bundles on
  * disk into `StepExecutor` instances the runbook engine can call.
  *
- * Shape of the directory NANORUN_PLUGINS_DIR points at:
+ * Shape of the directory OPERARI_PLUGINS_DIR points at:
  *
  *   <dir>/
  *     some-plugin/
- *       package.json        { "name": "some-plugin", "nanorun": { "steps": ["./index.js"] } }
+ *       package.json        { "name": "some-plugin", "operari": { "steps": ["./index.js"] } }
  *       index.js            (CommonJS or ESM; default export is the defineStep() descriptor)
  *     another-plugin/
  *       package.json
@@ -21,7 +21,7 @@ import { ExecutorContext, ExecutorResult, StepExecutor } from '../types/executor
  * Behavior:
  *   - No dir / empty dir → return [] silently. Self-host users with
  *     no plugins installed should see no log noise.
- *   - Missing `nanorun.steps` (or legacy `cairn.steps`) in package.json
+ *   - Missing `operari.steps` (or legacy `operari.steps`) in package.json
  *     → skip the directory with a warning. A sibling directory being
  *     a leftover npm dep (no manifest) is not an error, just a no-op.
  *   - Plugin fails to load (throw at require, default export missing,
@@ -33,7 +33,7 @@ import { ExecutorContext, ExecutorResult, StepExecutor } from '../types/executor
 
 /**
  * Reserved type prefixes or exact names that plugins may NOT override.
- * A plugin that tries to claim `shell` or `nanorun.*` gets skipped.
+ * A plugin that tries to claim `shell` or `operari.*` gets skipped.
  */
 const RESERVED_EXACT = new Set([
   'shell',
@@ -46,7 +46,7 @@ const RESERVED_EXACT = new Set([
   'custom.note',
 ]);
 
-const RESERVED_PREFIXES = ['nanorun.'];
+const RESERVED_PREFIXES = ['operari.'];
 
 function isReservedType(type: string): boolean {
   if (RESERVED_EXACT.has(type)) return true;
@@ -90,10 +90,9 @@ function readManifest(pluginDir: string): PluginManifest | null {
     const raw = fs.readFileSync(manifestPath, 'utf8');
     const json = JSON.parse(raw) as {
       name?: string;
-      cairn?: { steps?: unknown };
-      nanorun?: { steps?: unknown };
+      operari?: { steps?: unknown };
     };
-    const stepsField = json.cairn?.steps ?? json.nanorun?.steps;
+    const stepsField = json.operari?.steps;
     if (!Array.isArray(stepsField)) return null;
     const entries = stepsField.filter((e): e is string => typeof e === 'string');
     if (entries.length === 0) return null;
@@ -232,7 +231,7 @@ function adaptToExecutor(plugin: LoadedPlugin): StepExecutor {
 }
 
 export interface LoadPluginsOptions {
-  /** Override the plugins directory (defaults to NANORUN_PLUGINS_DIR). */
+  /** Override the plugins directory (defaults to OPERARI_PLUGINS_DIR). */
   pluginsDir?: string;
   /**
    * Types already registered by the core. Used to reject plugin
@@ -249,7 +248,7 @@ export interface LoadPluginsResult {
 }
 
 export function loadPluginsSync(options: LoadPluginsOptions = {}): LoadPluginsResult {
-  const dir = options.pluginsDir ?? process.env.NANORUN_PLUGINS_DIR;
+  const dir = options.pluginsDir ?? process.env.OPERARI_PLUGINS_DIR;
   const result: LoadPluginsResult = { executors: [], loaded: [], skipped: [] };
 
   if (!dir) return result;
@@ -260,7 +259,7 @@ export function loadPluginsSync(options: LoadPluginsOptions = {}): LoadPluginsRe
 
   const stat = fs.statSync(dir);
   if (!stat.isDirectory()) {
-    logger.warn({ pluginsDir: dir, msg: 'plugin_loader: NANORUN_PLUGINS_DIR is not a directory' });
+    logger.warn({ pluginsDir: dir, msg: 'plugin_loader: OPERARI_PLUGINS_DIR is not a directory' });
     return result;
   }
 

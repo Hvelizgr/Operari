@@ -14,7 +14,7 @@ The consequences:
 - A backend restart kills every in-flight runbook. There is no way to
   resume; the only option is to create a new run from the start.
 - Long-running runbooks (deploys, migrations, incident response) are
-  the entire reason NanoRun exists, but they are exactly the runs most
+  the entire reason Operari exists, but they are exactly the runs most
   exposed to a restart.
 - The `Execution` table holds the final status (RUNNING / SUCCESS /
   FAILED / PAUSED / CANCELLED) but not the granular state needed to
@@ -123,7 +123,7 @@ Components:
 **Negative / risks**
 
 - The integration step is the dangerous one. Phase 2 must land
-  behind a feature flag (e.g. `NANORUN_DURABLE_ENGINE`) so we can
+  behind a feature flag (e.g. `OPERARI_DURABLE_ENGINE`) so we can
   toggle it off if a regression hits production.
 - Step idempotency becomes a hard contract. Today some legacy node
   executors may have side effects on every call (e.g. SetMetadata
@@ -151,7 +151,7 @@ Components:
    progress needed to resume mid-runbook.
 5. **Event store + Kafka** — Kafka adds the same operational tax as
    Temporal for self-host. Postgres is the one dependency every
-   NanoRun deployment already has.
+   Operari deployment already has.
 
 ## Verification
 

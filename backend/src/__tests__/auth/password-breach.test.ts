@@ -19,8 +19,8 @@ function sha1Upper(password: string): string {
 
 describe('checkBreachedPassword', () => {
   beforeEach(() => {
-    delete process.env.NANORUN_PASSWORD_BREACH_CHECK;
-    delete process.env.NANORUN_PASSWORD_BREACH_THRESHOLD;
+    delete process.env.OPERARI_PASSWORD_BREACH_CHECK;
+    delete process.env.OPERARI_PASSWORD_BREACH_THRESHOLD;
   });
 
   it('flags a password whose suffix is in the HIBP response', async () => {
@@ -86,8 +86,8 @@ describe('checkBreachedPassword', () => {
     expect(result.breached).toBe(false);
   });
 
-  it('respects NANORUN_PASSWORD_BREACH_CHECK=false and skips the call entirely', async () => {
-    process.env.NANORUN_PASSWORD_BREACH_CHECK = 'false';
+  it('respects OPERARI_PASSWORD_BREACH_CHECK=false and skips the call entirely', async () => {
+    process.env.OPERARI_PASSWORD_BREACH_CHECK = 'false';
     const fetchImpl = jest.fn() as unknown as typeof fetch;
     const mock = fetchImpl as unknown as jest.Mock;
     const result = await checkBreachedPassword('anything', { fetchImpl });
@@ -95,8 +95,8 @@ describe('checkBreachedPassword', () => {
     expect(mock).not.toHaveBeenCalled();
   });
 
-  it('respects NANORUN_PASSWORD_BREACH_THRESHOLD — a rare breach passes', async () => {
-    process.env.NANORUN_PASSWORD_BREACH_THRESHOLD = '100';
+  it('respects OPERARI_PASSWORD_BREACH_THRESHOLD — a rare breach passes', async () => {
+    process.env.OPERARI_PASSWORD_BREACH_THRESHOLD = '100';
     const password = 'medium-rare';
     const suffix = sha1Upper(password).slice(5);
     const fetchImpl = jest.fn(async () => ({

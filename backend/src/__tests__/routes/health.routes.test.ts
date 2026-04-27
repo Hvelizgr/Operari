@@ -16,7 +16,7 @@ describe('GET /live', () => {
     res.status(200).json({
       status: 'ok',
       timestamp: new Date().toISOString(),
-      version: process.env.APP_VERSION ?? process.env.NANORUN_VERSION ?? '0.1.0-dev',
+      version: process.env.APP_VERSION ?? process.env.OPERARI_VERSION ?? '0.1.0-dev',
       uptimeSeconds: Math.round(process.uptime()),
     });
   });
@@ -30,19 +30,19 @@ describe('GET /live', () => {
     expect(res.body.uptimeSeconds).toBeGreaterThanOrEqual(0);
   });
 
-  it('prefers APP_VERSION over NANORUN_VERSION when both are set', async () => {
+  it('prefers APP_VERSION over OPERARI_VERSION when both are set', async () => {
     const prevApp = process.env.APP_VERSION;
-    const prevNano = process.env.NANORUN_VERSION;
+    const prevNano = process.env.OPERARI_VERSION;
     process.env.APP_VERSION = 'git-abc123';
-    process.env.NANORUN_VERSION = '0.2.0';
+    process.env.OPERARI_VERSION = '0.2.0';
     try {
       const res = await request(app).get('/live');
       expect(res.body.version).toBe('git-abc123');
     } finally {
       if (prevApp === undefined) delete process.env.APP_VERSION;
       else process.env.APP_VERSION = prevApp;
-      if (prevNano === undefined) delete process.env.NANORUN_VERSION;
-      else process.env.NANORUN_VERSION = prevNano;
+      if (prevNano === undefined) delete process.env.OPERARI_VERSION;
+      else process.env.OPERARI_VERSION = prevNano;
     }
   });
 });

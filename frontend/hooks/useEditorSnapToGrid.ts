@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-const STORAGE_KEY = 'nanorun-editor-snap-to-grid';
+const STORAGE_KEY = 'operari-editor-snap-to-grid';
 
 /** Grid size in canvas-space pixels. The existing runbooks were
  *  authored with loose positions; 20px is the smallest snap that

@@ -3,7 +3,7 @@
 //
 // What this does, in order:
 //   1. Inserts `version: 1` at the top of the doc if missing.
-//   2. Renames per-step `title:` → `name:` (legacy NanoFlow field name).
+//   2. Renames per-step `title:` → `name:` (legacy Operari field name).
 //   3. Converts the legacy `connections: [{ source, target }]` root
 //      block into per-step `next:` fields.
 //   4. Drops the `connections:` block.

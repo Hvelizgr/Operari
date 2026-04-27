@@ -131,7 +131,7 @@ describe('buildOrchestratorTools', () => {
             {
               nodeId: 'step-2',
               nodeName: 'migrate',
-              nodeType: 'nanorun.database',
+              nodeType: 'operari.database',
               status: 'FAILED',
               duration: 59500,
               output: null,
@@ -271,7 +271,7 @@ describe('buildOrchestratorTools', () => {
         nodeLog: {
           nodeId: 'step-1',
           nodeName: 'http',
-          nodeType: 'nanorun.httpRequest',
+          nodeType: 'operari.httpRequest',
           status: 'SUCCESS',
           duration: 300,
           output: { status: 200, body: { ok: true } },

@@ -15,18 +15,18 @@ const inter = Inter({ subsets: ['latin'] });
 // domain yet, so the dev fallback is localhost — any production deploy
 // MUST set NEXT_PUBLIC_SITE_URL to its real origin (otherwise OG image
 // URLs and social previews will resolve against localhost and break).
-// Hardcoding nanorun.dev would be a lie that bites us at deploy time.
+// Hardcoding operari.dev would be a lie that bites us at deploy time.
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'NanoRun — The action layer for your alerts',
-    template: '%s · NanoRun',
+    default: 'Operari — The action layer for your alerts',
+    template: '%s · Operari',
   },
   description:
-    'Your alert fires at 3am. NanoRun runs the fix. Open-source visual runbooks triggered by Datadog, Sentry, GitHub, PagerDuty, Grafana, or any webhook. Self-host with one command.',
-  applicationName: 'NanoRun',
+    'Your alert fires at 3am. Operari runs the fix. Open-source visual runbooks triggered by Datadog, Sentry, GitHub, PagerDuty, Grafana, or any webhook. Self-host with one command.',
+  applicationName: 'Operari',
   authors: [{ name: 'Héctor Eduardo Véliz Girón' }],
   keywords: [
     'runbook',
@@ -41,8 +41,8 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     type: 'website',
-    siteName: 'NanoRun',
-    title: 'NanoRun — Your alert fires. NanoRun runs the fix.',
+    siteName: 'Operari',
+    title: 'Operari — Your alert fires. Operari runs the fix.',
     description:
       'Open-source visual runbooks that respond to your alerts. Visual to author, YAML to commit, sandboxed to execute, audited to prove.',
     locale: 'en_US',
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'NanoRun — Your alert fires. NanoRun runs the fix.',
+    title: 'Operari — Your alert fires. Operari runs the fix.',
     description:
       'Open-source visual runbooks that respond to your alerts. Self-host with one command.',
   },

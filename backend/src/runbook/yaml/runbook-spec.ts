@@ -1,5 +1,5 @@
 /**
- * RunbookSpec — canonical YAML schema for a NanoRun runbook.
+ * RunbookSpec — canonical YAML schema for a Operari runbook.
  *
  * This is the source-of-truth representation that the editor, the YAML
  * view, the CLI, and Git-based workflows all share. It is intentionally
@@ -12,7 +12,7 @@
  *     map). Most runbooks are mostly linear; explicit graphs are an
  *     editor concern, not something humans want to read in YAML.
  *   - Step ids must be human-friendly slugs unique within a runbook —
- *     they appear in logs, retries, and the CLI ("nanorun resume <id>
+ *     they appear in logs, retries, and the CLI ("operari resume <id>
  *     --from deploy-canary").
  *   - `position` is editor metadata. Round-tripping preserves it but
  *     YAML authors should never have to write it.

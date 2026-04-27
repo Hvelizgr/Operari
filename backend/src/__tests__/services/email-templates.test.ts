@@ -10,13 +10,13 @@ describe('email-templates', () => {
   describe('renderVerificationEmail', () => {
     it('returns english subject, text, and html when no locale given', () => {
       const r = renderVerificationEmail({
-        verifyUrl: 'https://app.nanorun.dev/verify?token=abc',
+        verifyUrl: 'https://app.operari.dev/verify?token=abc',
         userEmail: 'user@example.com',
       });
-      expect(r.subject).toBe('Verify your NanoRun email');
-      expect(r.text).toContain('https://app.nanorun.dev/verify?token=abc');
+      expect(r.subject).toBe('Verify your Operari email');
+      expect(r.text).toContain('https://app.operari.dev/verify?token=abc');
       expect(r.html).toContain('Verify your email');
-      expect(r.html).toContain('https://app.nanorun.dev/verify?token=abc');
+      expect(r.html).toContain('https://app.operari.dev/verify?token=abc');
       // `<!DOCTYPE` is lower-cased by our renderer — check the declaration exists
       expect(r.html.startsWith('<!DOCTYPE html>')).toBe(true);
       // lang attribute reflects the locale
@@ -25,11 +25,11 @@ describe('email-templates', () => {
 
     it('renders the spanish shell when locale=es', () => {
       const r = renderVerificationEmail({
-        verifyUrl: 'https://app.nanorun.dev/verify?token=abc',
+        verifyUrl: 'https://app.operari.dev/verify?token=abc',
         userEmail: 'user@example.com',
         locale: 'es',
       });
-      expect(r.subject).toBe('Verificá tu email de NanoRun');
+      expect(r.subject).toBe('Verificá tu email de Operari');
       expect(r.html).toContain('<html lang="es">');
       expect(r.html).toContain('Verificá tu email');
     });
@@ -38,7 +38,7 @@ describe('email-templates', () => {
   describe('renderPasswordResetEmail', () => {
     it('includes the expiry copy in both text and html', () => {
       const r = renderPasswordResetEmail({
-        resetUrl: 'https://app.nanorun.dev/reset?token=xyz',
+        resetUrl: 'https://app.operari.dev/reset?token=xyz',
         userEmail: 'user@example.com',
       });
       expect(r.text).toContain('30 minutes');
@@ -50,7 +50,7 @@ describe('email-templates', () => {
   describe('renderInviteEmail', () => {
     it('interpolates tenant and inviter', () => {
       const r = renderInviteEmail({
-        inviteUrl: 'https://app.nanorun.dev/invite/tok',
+        inviteUrl: 'https://app.operari.dev/invite/tok',
         inviterEmail: 'alice@ex.com',
         tenantName: 'Acme SRE',
       });
@@ -66,14 +66,14 @@ describe('email-templates', () => {
         monitorName: 'Payments-API 5xx rate',
         reason: '5xx rate 12% (threshold 5%)',
         contextLine: 'Runbook: payments-sre',
-        monitorUrl: 'https://app.nanorun.dev/en/monitors/mon-123',
+        monitorUrl: 'https://app.operari.dev/en/monitors/mon-123',
       });
-      expect(r.subject).toBe('[NanoRun] Monitor "Payments-API 5xx rate" is FIRING');
+      expect(r.subject).toBe('[Operari] Monitor "Payments-API 5xx rate" is FIRING');
       expect(r.html).toContain('Payments-API 5xx rate');
       expect(r.html).toContain('5xx rate 12% (threshold 5%)');
       expect(r.html).toContain('Runbook: payments-sre');
       // CTA wired through sanitiser so the monitor URL lands intact.
-      expect(r.html).toContain('https://app.nanorun.dev/en/monitors/mon-123');
+      expect(r.html).toContain('https://app.operari.dev/en/monitors/mon-123');
       expect(r.html).toContain('Open monitor');
     });
 
@@ -95,7 +95,7 @@ describe('email-templates', () => {
         reason: 'tasa 5xx supera umbral',
         locale: 'es',
       });
-      expect(r.subject).toBe('[NanoRun] El monitor "Pagos-API" está FIRING');
+      expect(r.subject).toBe('[Operari] El monitor "Pagos-API" está FIRING');
       expect(r.html).toContain('Razón');
       expect(r.html).toContain('tasa 5xx supera umbral');
     });

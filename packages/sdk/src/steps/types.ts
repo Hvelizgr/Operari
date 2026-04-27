@@ -3,7 +3,7 @@
  *
  * These are intentionally shallow mirrors of the backend's
  * `ExecutorContext` / `ExecutorResult` types — they cross the trust
- * boundary from NanoRun core into user-authored code, so they expose
+ * boundary from Operari core into user-authored code, so they expose
  * only what a plugin legitimately needs. In particular we do NOT
  * expose Prisma, Express req/res, or the internal audit service.
  */
@@ -74,7 +74,7 @@ export interface DefineStepOptions<TConfig> {
    * collisions with built-in steps or other plugins:
    *   `myorg.slack-notify`, `acme.aws-rds-snapshot`.
    * Reserving the unprefixed `shell` / `approval` / `notify` /
-   * `wait` / `ssh` / `runbook` / `nanorun.*` prefixes for the core.
+   * `wait` / `ssh` / `runbook` / `operari.*` prefixes for the core.
    */
   type: string;
   /**

@@ -3,13 +3,13 @@
  * These provide default workflow examples for new users
  */
 
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 
 /**
  * Default nodes shown when the editor first loads. A single `shell`
  * step — the most common starting point for a runbook. The previous
  * default was a 4-node n8n-style demo (webhook → script → request →
- * database) using node types that have NO backend executor in NanoRun;
+ * database) using node types that have NO backend executor in Operari;
  * any operator who hit Run on the default got "Unknown node type".
  *
  * Keeping this minimal also matches the runbook spec model: every real

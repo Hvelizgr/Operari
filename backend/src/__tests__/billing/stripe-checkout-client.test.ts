@@ -53,7 +53,7 @@ describe('createCheckoutSession', () => {
     expect(form.get('mode')).toBe('subscription');
     expect(form.get('line_items[0][price]')).toBe('price_team_monthly');
     expect(form.get('customer_email')).toBe('sre@acme.io');
-    expect(form.get('subscription_data[metadata][nanorun_tenant]')).toBe('tenant-1');
+    expect(form.get('subscription_data[metadata][operari_tenant]')).toBe('tenant-1');
     expect(form.get('metadata[plan]')).toBe('TEAM');
   });
 

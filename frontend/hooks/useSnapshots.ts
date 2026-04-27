@@ -1,4 +1,4 @@
-import { Connection, WorkflowNode } from '@nanorun/shared';
+import { Connection, WorkflowNode } from '@operari/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { storageRead, storageWrite } from '../lib/storage-compat';
@@ -13,7 +13,7 @@ export interface Snapshot {
 }
 
 const MAX_SNAPSHOTS = 20;
-const STORAGE_KEY_PREFIX = 'nanorun-snapshot-';
+const STORAGE_KEY_PREFIX = 'operari-snapshot-';
 
 export function useSnapshots(workflowId: string = 'global') {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);

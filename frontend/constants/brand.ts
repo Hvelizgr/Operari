@@ -1,8 +1,8 @@
 /**
- * Brand color hex tokens mirrored from `app/globals.css` (`--cairn-*`).
+ * Brand color hex tokens mirrored from `app/globals.css` (`--op-*`).
  *
  * CSS variables cover 99% of color needs — components consume them via
- * `var(--cairn-moss)` directly. These constants exist for the narrow
+ * `var(--op-moss)` directly. These constants exist for the narrow
  * cases where CSS variables don't reach:
  *
  *   - `og-image` routes (rendered in an isolated JSX runtime that
@@ -13,7 +13,7 @@
  *   - Third-party integrations configured by object literal (e.g.
  *     xterm.js theme in `components/Editor/terminal/LogTerminal.tsx`)
  *
- * If you're writing a regular component, prefer `var(--cairn-*)` or
+ * If you're writing a regular component, prefer `var(--op-*)` or
  * `var(--accent-color)` — those flow through the theme system. Only
  * reach for these when CSS vars genuinely cannot resolve.
  *

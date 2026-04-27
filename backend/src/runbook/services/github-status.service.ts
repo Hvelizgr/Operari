@@ -22,9 +22,9 @@ export interface GitHubStatusParams {
   state: GitHubStatusState;
   /** Short description shown in the PR checks list */
   description: string;
-  /** URL linking back to the NanoRun run detail page */
+  /** URL linking back to the Operari run detail page */
   targetUrl?: string;
-  /** Context string — the "check name" shown on GitHub (default: "nanorun") */
+  /** Context string — the "check name" shown on GitHub (default: "operari") */
   context?: string;
 }
 
@@ -91,7 +91,7 @@ export class GitHubStatusService {
       state: params.state,
       description: truncate(params.description, 140),
       target_url: params.targetUrl,
-      context: params.context ?? 'nanorun',
+      context: params.context ?? 'operari',
     });
 
     try {
@@ -148,7 +148,7 @@ export class GitHubStatusService {
       state: 'pending',
       description: `Running: ${meta.runbookName}`,
       targetUrl: `${appUrl}/runs/${meta.runId}`,
-      context: `nanorun/${meta.runbookName}`,
+      context: `operari/${meta.runbookName}`,
     });
   }
 
@@ -176,7 +176,7 @@ export class GitHubStatusService {
         ? `Passed in ${durationSec}s`
         : truncate(meta.error ?? 'Run failed', 140),
       targetUrl: `${appUrl}/runs/${meta.runId}`,
-      context: `nanorun/${meta.runbookName}`,
+      context: `operari/${meta.runbookName}`,
     });
   }
 }

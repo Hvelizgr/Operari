@@ -18,11 +18,11 @@ export async function generateMetadata({
   const { lang } = await params;
   const title = lang === 'es' ? 'Obtener API key' : 'Get API key';
   return {
-    title: `${title} · NanoRun`,
+    title: `${title} · Operari`,
     description:
       lang === 'es'
-        ? 'La API hospedada de NanoRun está en alpha privada. Dejá tu email o self-host mientras tanto.'
-        : 'The hosted NanoRun API is in private alpha. Leave your email or self-host in the meantime.',
+        ? 'La API hospedada de Operari está en alpha privada. Dejá tu email o self-host mientras tanto.'
+        : 'The hosted Operari API is in private alpha. Leave your email or self-host in the meantime.',
   };
 }
 
@@ -31,9 +31,9 @@ const STRINGS = {
     eyebrow: 'Hosted API · Private alpha',
     title: 'Get an API key.',
     subtitle:
-      'The hosted NanoRun API is in private alpha while we sign early design partners. Tell us what you want to automate and we will get back within 48 hours.',
+      'The hosted Operari API is in private alpha while we sign early design partners. Tell us what you want to automate and we will get back within 48 hours.',
     emailLabel: 'Email us',
-    emailHint: 'hello@nanorun.dev — tell us one runbook you want to trigger from the API.',
+    emailHint: 'hello@operari.dev — tell us one runbook you want to trigger from the API.',
     orLine: 'Or skip the waitlist and self-host today:',
     selfHostCommand: 'docker compose up',
     selfHostNote: 'AGPL-3.0 · no telemetry · no sign-up',
@@ -48,9 +48,9 @@ const STRINGS = {
     eyebrow: 'API hospedada · Alpha privada',
     title: 'Obtené una API key.',
     subtitle:
-      'La API hospedada de NanoRun está en alpha privada mientras cerramos design partners. Contanos qué querés automatizar y te escribimos en 48 horas.',
+      'La API hospedada de Operari está en alpha privada mientras cerramos design partners. Contanos qué querés automatizar y te escribimos en 48 horas.',
     emailLabel: 'Escribinos',
-    emailHint: 'hello@nanorun.dev — contanos un runbook que quieras disparar por API.',
+    emailHint: 'hello@operari.dev — contanos un runbook que quieras disparar por API.',
     orLine: 'O saltate la lista de espera y self-hosteá hoy:',
     selfHostCommand: 'docker compose up',
     selfHostNote: 'AGPL-3.0 · sin telemetría · sin signup',
@@ -95,11 +95,11 @@ export default async function SignupPage({ params }: { params: Promise<{ lang: s
                 {t.emailLabel}
               </div>
               <a
-                href="mailto:hello@nanorun.dev?subject=NanoRun%20API%20access&body=Hi%2C%20I%27d%20like%20an%20API%20key.%20One%20runbook%20I%27d%20trigger%3A%20"
+                href="mailto:hello@operari.dev?subject=Operari%20API%20access&body=Hi%2C%20I%27d%20like%20an%20API%20key.%20One%20runbook%20I%27d%20trigger%3A%20"
                 className="bg-primary text-primary-foreground shadow-primary/20 hover:bg-primary/90 hover:shadow-primary/30 group inline-flex items-center gap-3 rounded-xl px-5 py-3 font-semibold shadow-lg transition-all hover:shadow-xl active:scale-[0.98]"
               >
                 <Mail className="h-4 w-4" />
-                hello@nanorun.dev
+                hello@operari.dev
                 <ArrowRight className="h-4 w-4 opacity-70 transition-transform group-hover:translate-x-0.5" />
               </a>
               <p className="text-muted-foreground/80 mt-3 text-xs">{t.emailHint}</p>

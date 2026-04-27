@@ -26,7 +26,7 @@ const PROTECTED_SEGMENTS = new Set([
   'utilities',
 ]);
 
-const SESSION_COOKIE = 'nanorun_session';
+const SESSION_COOKIE = 'operari_session';
 
 const intlMiddleware = createIntlMiddleware({
   locales: [...LOCALES],
@@ -44,7 +44,7 @@ function isProtectedPath(pathname: string): boolean {
 export default function middleware(request: NextRequest) {
   // Anonymous mode short-circuits every guard — matches backend
   // anonymousFallback so self-host keeps working without login.
-  const anonymousMode = process.env.NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE === 'true';
+  const anonymousMode = process.env.NEXT_PUBLIC_OPERARI_ANONYMOUS_MODE === 'true';
 
   if (!anonymousMode && isProtectedPath(request.nextUrl.pathname)) {
     const token = request.cookies.get(SESSION_COOKIE)?.value;

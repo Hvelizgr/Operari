@@ -17,7 +17,7 @@ function getService(): AuditService {
  * GET /api/v1/audit/verify
  *
  * Walks the caller tenant's audit chain and reports whether the hash
- * sequence is intact. Used by `nanorun audit verify` and by compliance
+ * sequence is intact. Used by `operari audit verify` and by compliance
  * automation that needs to prove tamper-evidence to an auditor.
  *
  * Query params:
@@ -120,7 +120,7 @@ router.get('/export', requireApiKey('audit:read'), async (req: ApiKeyRequest, re
     }
   }
 
-  const filename = `cairn-audit-${tenantId}-${new Date().toISOString().slice(0, 19).replace(/:/g, '')}.ndjson`;
+  const filename = `operari-audit-${tenantId}-${new Date().toISOString().slice(0, 19).replace(/:/g, '')}.ndjson`;
   res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.setHeader('Cache-Control', 'no-store');

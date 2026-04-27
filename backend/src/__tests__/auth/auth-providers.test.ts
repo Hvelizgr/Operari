@@ -152,7 +152,7 @@ describe('WorkOSAuthProvider', () => {
     await expect(provider.verifyToken('any')).rejects.toBeInstanceOf(AuthTransportError);
   });
 
-  it('returns null when no NanoRun tenant is linked to the WorkOS organization (fail closed)', async () => {
+  it('returns null when no Operari tenant is linked to the WorkOS organization (fail closed)', async () => {
     // The tenant table has no row with workosOrganizationId='org-1',
     // so findUnique returns null and verifyToken refuses the
     // session. Pins the fail-closed contract: WorkOS knows the
@@ -205,7 +205,7 @@ describe('WorkOSAuthProvider', () => {
     expect(second!.id).toBe(first!.id);
   });
 
-  it('honors the mapRole option for custom WorkOS → NanoRun role mapping', async () => {
+  it('honors the mapRole option for custom WorkOS → Operari role mapping', async () => {
     const prisma = buildPrisma({
       tenants: [{ id: 'tenant-cloud-1', workosOrganizationId: 'org-1' }],
     });
@@ -219,26 +219,26 @@ describe('WorkOSAuthProvider', () => {
 });
 
 describe('buildAuthProvider', () => {
-  const ORIGINAL_ENV = process.env.NANORUN_AUTH_PROVIDER;
+  const ORIGINAL_ENV = process.env.OPERARI_AUTH_PROVIDER;
 
   afterEach(() => {
-    process.env.NANORUN_AUTH_PROVIDER = ORIGINAL_ENV;
+    process.env.OPERARI_AUTH_PROVIDER = ORIGINAL_ENV;
   });
 
   it('defaults to JwtAuthProvider', () => {
-    delete process.env.NANORUN_AUTH_PROVIDER;
+    delete process.env.OPERARI_AUTH_PROVIDER;
     const provider = buildAuthProvider(buildPrisma());
     expect(provider.name).toBe('jwt');
   });
 
-  it('returns WorkOSAuthProvider when NANORUN_AUTH_PROVIDER=workos', () => {
-    process.env.NANORUN_AUTH_PROVIDER = 'workos';
+  it('returns WorkOSAuthProvider when OPERARI_AUTH_PROVIDER=workos', () => {
+    process.env.OPERARI_AUTH_PROVIDER = 'workos';
     const provider = buildAuthProvider(buildPrisma());
     expect(provider.name).toBe('workos');
   });
 
   it('falls back to JWT for unknown provider names', () => {
-    process.env.NANORUN_AUTH_PROVIDER = 'auth0-eventually';
+    process.env.OPERARI_AUTH_PROVIDER = 'auth0-eventually';
     const provider = buildAuthProvider(buildPrisma());
     expect(provider.name).toBe('jwt');
   });

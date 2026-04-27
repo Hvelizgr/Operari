@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth';
 
-const STORAGE_KEY = 'nanorun_tour_completed';
+const STORAGE_KEY = 'operari_tour_completed';
 
 const STRINGS = {
   en: {

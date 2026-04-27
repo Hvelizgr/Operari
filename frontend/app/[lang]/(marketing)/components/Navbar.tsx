@@ -51,7 +51,7 @@ export default function Navbar({ content, lang }: NavbarProps) {
           <div className="flex h-8 w-8 items-center justify-center rounded-md border border-emerald-500/30 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-[-4deg] group-hover:scale-[1.04]">
             <DNAMark size={20} />
           </div>
-          NanoRun
+          Operari
         </Link>
 
         {/* Desktop nav — dedicated routes for Product/Triggers,

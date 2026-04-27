@@ -18,7 +18,7 @@ export async function generateMetadata({
   const typedLang: AuthLang = lang === 'es' ? 'es' : 'en';
   const title = authStrings[typedLang].login.eyebrow;
   return {
-    title: `${title} · NanoRun`,
+    title: `${title} · Operari`,
     description: authStrings[typedLang].login.subtitle,
   };
 }

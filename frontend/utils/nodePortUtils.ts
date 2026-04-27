@@ -2,7 +2,7 @@
 // Utility functions for calculating node port positions
 // Used by both EditorNode.tsx and useCanvasRenderer.ts
 
-import type { WorkflowNode } from '@nanorun/shared';
+import type { WorkflowNode } from '@operari/shared';
 
 export type PortDirection = 'left' | 'right' | 'top' | 'bottom';
 
@@ -51,14 +51,14 @@ export const getNodePortInfo = (
 
   // Controller: Input (Left), Output (Right) - 128x64 pill shape
   // CSS: .wf_ent_controller is 128x64
-  // Matches: Condition, Switch, If, nanorun.if, nanorun.switch
+  // Matches: Condition, Switch, If, operari.if, operari.switch
   if (
     type.includes('controller') ||
     type === 'condition' ||
     type === 'switch' ||
-    type === 'nanorun.switch' ||
+    type === 'operari.switch' ||
     type === 'if' ||
-    type === 'nanorun.if'
+    type === 'operari.if'
   ) {
     const { width } = NODE_DIMENSIONS.controller;
     const outputs = (node as any).outputs as Array<unknown> | undefined;
@@ -100,8 +100,8 @@ export const getNodePortInfo = (
 
   // Limit: Input (Top), Output (Bottom) - 64x64 diamond rotated 45deg
   // CSS: .wf_ent_limit is 64x64 with transform: rotate(45deg) scale(0.7)
-  // Matches: Loop, Iterator, nanorun.loop, and any *limit* type
-  if (type.includes('limit') || type === 'loop' || type === 'iterator' || type === 'nanorun.loop') {
+  // Matches: Loop, Iterator, operari.loop, and any *limit* type
+  if (type.includes('limit') || type === 'loop' || type === 'iterator' || type === 'operari.loop') {
     const { width, height } = NODE_DIMENSIONS.entity;
     if (portType === 'input') {
       // Input at top center

@@ -19,7 +19,7 @@ import { resolveTemplate } from './_shared';
  */
 export class HttpNodeExecutor implements EditorNodeExecutor<HttpNodeConfig, HttpResult> {
   readonly type = 'HTTP';
-  readonly aliases = ['Api', 'nanorun.httpRequest'] as const;
+  readonly aliases = ['Api', 'operari.httpRequest'] as const;
 
   constructor(private readonly deps: Pick<NodeExecutorDeps, 'logger'>) {}
 

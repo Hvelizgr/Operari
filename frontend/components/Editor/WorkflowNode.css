@@ -299,14 +299,14 @@ See the LICENSE.md file in this repository. */
   top: 50%;
   /* Poles follow the user-selected accent from VisualizationContext.
        --accent-override is set by applyToDocument; falls back to
-       cairn-moss (emerald) when missing. */
-  background: var(--accent-override, var(--cairn-moss, #3ecf8e));
+       operari-moss (emerald) when missing. */
+  background: var(--accent-override, var(--op-moss, #3ecf8e));
 }
 
 .wf_output_pole {
   left: calc(100% + 1px);
   top: 50%;
-  background: var(--accent-override, var(--cairn-moss, #3ecf8e));
+  background: var(--accent-override, var(--op-moss, #3ecf8e));
 }
 
 .wf_down_pole {
@@ -372,7 +372,7 @@ See the LICENSE.md file in this repository. */
 
 .wf_ent_trigger {
   border-radius: 999em 0px 0px 999em;
-  color: var(--cairn-moss, #3ecf8e);
+  color: var(--op-moss, #3ecf8e);
 }
 
 .wf_ent_action {
@@ -438,7 +438,7 @@ See the LICENSE.md file in this repository. */
 
 .wf_ent_trigger > .wf_output_pole {
   left: calc(100% + 1px);
-  background: var(--cairn-moss, #3ecf8e);
+  background: var(--op-moss, #3ecf8e);
 }
 
 .wf_ent_action > .wf_input_pole {
@@ -499,7 +499,7 @@ body.dark .wf_condition {
 }
 
 .wf_condition.complete {
-  background: var(--cairn-moss, #3ecf8e);
+  background: var(--op-moss, #3ecf8e);
 }
 
 .wf_condition.continue {
@@ -787,11 +787,11 @@ body.dark .wf_condition {
 /* Active Jobs */
 
 .wf_event {
-  --active-color: var(--cairn-moss, #3ecf8e);
+  --active-color: var(--op-moss, #3ecf8e);
 }
 
 .wf_ent_trigger {
-  --active-color: var(--cairn-moss, #3ecf8e);
+  --active-color: var(--op-moss, #3ecf8e);
 }
 
 .wf_ent_limit {

@@ -1,6 +1,6 @@
-# NanoRun Templates
+# Operari Templates
 
-Production-ready runbook templates you can import into NanoRun and adapt to your stack.
+Production-ready runbook templates you can import into Operari and adapt to your stack.
 
 ## Available templates
 
@@ -14,7 +14,7 @@ Production-ready runbook templates you can import into NanoRun and adapt to your
 
 ## How to use
 
-1. Open NanoRun: `http://localhost:3000/en/editor`
+1. Open Operari: `http://localhost:3000/en/editor`
 2. Click "Import Template" (coming soon — for now, copy the YAML content into a new runbook manually)
 3. Set the required variables
 4. Hit Run
@@ -22,7 +22,7 @@ Production-ready runbook templates you can import into NanoRun and adapt to your
 Or via the CLI:
 
 ```bash
-cairn run deploy-nextjs-vercel \
+operari run deploy-nextjs-vercel \
   -v vercel_token=$VERCEL_TOKEN \
   -v slack_webhook_url=$SLACK_WEBHOOK \
   -v production_url=https://myapp.com
@@ -30,7 +30,7 @@ cairn run deploy-nextjs-vercel \
 
 ## Template format
 
-NanoRun templates are YAML files with three top-level keys:
+Operari templates are YAML files with three top-level keys:
 
 ```yaml
 name: Human readable name
@@ -63,7 +63,7 @@ Reference variables in any string config field with `{{vars.name}}`:
 
 Variables are passed when triggering the runbook:
 
-- CLI: `cairn run my-runbook -v environment=production`
+- CLI: `operari run my-runbook -v environment=production`
 - SDK: `client.trigger('my-runbook', { variables: { environment: 'production' } })`
 - Webhook: extracted from the incoming payload
 

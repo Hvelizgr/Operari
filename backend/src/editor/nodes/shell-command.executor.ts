@@ -11,7 +11,7 @@ import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_
 /**
  * ShellCommand node — adapter that delegates to the runbook
  * `ShellExecutor` so the editor flow goes through the configured
- * `Runner` (local / docker / fly), enforcing `NANORUN_RUNNER`.
+ * `Runner` (local / docker / fly), enforcing `OPERARI_RUNNER`.
  *
  * This adapter exists because:
  *   1. The editor uses the node type "ShellCommand" while the runbook

@@ -13,11 +13,11 @@ import { rundeckImportCommand } from './commands/import/rundeck';
 
 const program = new Command();
 
-program.name('nanorun').description('Run NanoRun runbooks from your terminal').version('0.1.0');
+program.name('operari').description('Run Operari runbooks from your terminal').version('0.1.0');
 
 program
   .command('login')
-  .description('Authenticate with NanoRun')
+  .description('Authenticate with Operari')
   .option('--api-key <key>', 'API key (skip the prompt)')
   .option('--base-url <url>', 'Server URL (skip the prompt)')
   .action(loginCommand);
@@ -83,7 +83,7 @@ const importCmd = program
 
 importCmd
   .command('rundeck <file>')
-  .description('Convert a Rundeck jobs.yaml export to NanoRun runbooks (stub)')
+  .description('Convert a Rundeck jobs.yaml export to Operari runbooks (stub)')
   .option('-o, --output <dir>', 'Output directory for generated runbooks', './runbooks')
   .option('--json', 'Print machine-readable JSON instead of pretty output')
   .action(rundeckImportCommand);

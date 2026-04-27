@@ -1,12 +1,12 @@
-export { NanoRun } from './client';
+export { Operari } from './client';
 export {
-  NanoRunError,
-  NanoRunAuthError,
-  NanoRunNotFoundError,
-  NanoRunTimeoutError,
+  OperariError,
+  OperariAuthError,
+  OperariNotFoundError,
+  OperariTimeoutError,
 } from './errors';
 export type {
-  NanoRunConfig,
+  OperariConfig,
   RunbookSummary,
   TriggerOptions,
   TriggerResponse,

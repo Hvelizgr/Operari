@@ -44,7 +44,7 @@ export default function LogTerminal({ logs = [], isActive: _isActive = false }: 
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    term.writeln('\x1b[1;36m[*] NanoRun Terminal Ready\x1b[0m');
+    term.writeln('\x1b[1;36m[*] Operari Terminal Ready\x1b[0m');
 
     return () => {
       // Only dispose if actually initialized

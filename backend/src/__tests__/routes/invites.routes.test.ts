@@ -320,7 +320,7 @@ describe('invite routes', () => {
       );
       const cookies = res.headers['set-cookie'];
       const cookiesArray = Array.isArray(cookies) ? cookies : cookies ? [cookies] : [];
-      expect(cookiesArray.some((c: string) => c.startsWith('nanorun_session='))).toBe(true);
+      expect(cookiesArray.some((c: string) => c.startsWith('operari_session='))).toBe(true);
     });
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 import { motion } from 'framer-motion';
 import * as Icons from 'lucide-react';
 

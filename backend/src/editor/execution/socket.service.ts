@@ -40,7 +40,6 @@ export class SocketService {
     // call initialize() (several of them mock logger differently and
     // would trigger the connect handler against the undefined mock).
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { redisConfig } = require('../../config/redis.config');
       const pub = redisConfig.getClient();
       if (pub && redisConfig.isReady()) {

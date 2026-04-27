@@ -25,7 +25,7 @@ describe('HttpNodeExecutor', () => {
   it('exposes type=HTTP and Api alias', () => {
     const exec = new HttpNodeExecutor(buildLogger());
     expect(exec.type).toBe('HTTP');
-    expect(exec.aliases).toEqual(['Api', 'nanorun.httpRequest']);
+    expect(exec.aliases).toEqual(['Api', 'operari.httpRequest']);
   });
 
   it('GETs the resolved URL and returns parsed JSON', async () => {

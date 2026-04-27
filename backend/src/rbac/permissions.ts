@@ -1,5 +1,5 @@
 /**
- * Catalog of permission strings used by NanoRun.
+ * Catalog of permission strings used by Operari.
  *
  * Format: `<resource>:<verb>`. Wildcards work at the resource level
  * (`runbook:*`) and globally (`*`). Always use one of the constants

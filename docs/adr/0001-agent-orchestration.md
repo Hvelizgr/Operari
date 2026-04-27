@@ -2,7 +2,7 @@
 
 - **Status:** accepted
 - **Date:** 2026-04-07
-- **Context links:** `IMPLEMENTACION_NANORUN.md` P0 #6, `INVESTIGACION_NANORUN_2026.md`
+- **Context links:** `IMPLEMENTACION_NANORUN.md` P0 #6, `INVESTIGACION_OPERARI_2026.md`
 
 ## Context
 

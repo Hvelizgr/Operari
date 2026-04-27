@@ -1,4 +1,4 @@
-import { NanoRun } from '@nanorun/sdk';
+import { Operari } from '@operari/sdk';
 import { requireConfig } from '../config';
 import { colors, symbols } from '../colors';
 
@@ -12,7 +12,7 @@ export interface LogsCommandOptions {
 }
 
 /**
- * `nanorun logs <runId>` — dump a run's log stream.
+ * `operari logs <runId>` — dump a run's log stream.
  *
  * Two modes:
  *   - snapshot (default): prints the current log buffer and exits. Pass
@@ -26,7 +26,7 @@ export interface LogsCommandOptions {
  */
 export async function logsCommand(runId: string, options: LogsCommandOptions = {}): Promise<void> {
   const config = requireConfig();
-  const client = new NanoRun(config);
+  const client = new Operari(config);
 
   try {
     if (options.follow) {
@@ -77,6 +77,6 @@ export async function logsCommand(runId: string, options: LogsCommandOptions = {
 
 function formatLine(entry: { timestamp: string; message: string }): string {
   // Keep the terminal output shell-friendly: one line per entry, no
-  // ANSI noise so `nanorun logs … | grep` still works.
+  // ANSI noise so `operari logs … | grep` still works.
   return `[${entry.timestamp}] ${entry.message}\n`;
 }

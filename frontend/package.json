@@ -1,5 +1,5 @@
 {
-  "name": "nanorun-web",
+  "name": "operari-web",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.151",
-    "@nanorun/shared": "^1.0.0",
+    "@operari/shared": "^1.0.0",
     "@types/dagre": "^0.7.54",
     "@types/js-yaml": "^4.0.9",
     "@types/qrcode": "^1.5.6",

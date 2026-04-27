@@ -83,7 +83,7 @@ interface SchemaInfo {
  * SSH executor).
  */
 export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
-  readonly type = 'nanorun.database';
+  readonly type = 'operari.database';
 
   /** Injectable for tests. */
   private readonly createPgClient: (connectionString: string) => PgClient;

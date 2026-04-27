@@ -1,4 +1,4 @@
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 
 export function hasCycle(
   nodes: WorkflowNode[],

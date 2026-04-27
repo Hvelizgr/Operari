@@ -1,6 +1,6 @@
 'use client';
 
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FileCode, FileText, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';

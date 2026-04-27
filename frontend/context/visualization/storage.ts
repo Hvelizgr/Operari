@@ -4,7 +4,7 @@ import type { VisualizationPrefs } from './types';
 /** localStorage key used to persist the Appearance preferences across
  *  reloads. Also referenced verbatim by the first-paint bootstrap
  *  script in [app/layout.tsx] — update that script if you rename this. */
-export const STORAGE_KEY = 'nanorun-visualization';
+export const STORAGE_KEY = 'operari-visualization';
 
 /**
  * Load the user's saved visualization preferences, merging with

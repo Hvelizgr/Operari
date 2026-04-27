@@ -29,11 +29,11 @@ function makeReq(tenantId = 't-1'): AuthRequest {
 describe('requirePlan', () => {
   beforeEach(() => {
     findUnique.mockReset();
-    delete process.env.NANORUN_ANONYMOUS_MODE;
+    delete process.env.OPERARI_ANONYMOUS_MODE;
   });
 
   it('bypasses the gate entirely in anonymous mode', async () => {
-    process.env.NANORUN_ANONYMOUS_MODE = 'true';
+    process.env.OPERARI_ANONYMOUS_MODE = 'true';
     const next = jest.fn() as unknown as NextFunction;
     const { res } = makeRes();
     await requirePlan('TEAM')(makeReq(), res, next);

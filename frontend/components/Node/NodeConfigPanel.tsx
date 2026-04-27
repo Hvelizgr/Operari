@@ -1,6 +1,6 @@
 'use client';
 
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Copy, KeyRound, Settings, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -383,7 +383,7 @@ function SettingsResolver({
   }
 
   // 2. Specific Fallbacks
-  if (node?.type === 'nanorun.httpRequest') {
+  if (node?.type === 'operari.httpRequest') {
     const urlValue = typeof localConfig.url === 'string' ? localConfig.url : '';
     const methodValue = typeof localConfig.method === 'string' ? localConfig.method : 'GET';
     return (

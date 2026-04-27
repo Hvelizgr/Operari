@@ -1,5 +1,5 @@
 /**
- * NanoRun executor types
+ * Operari executor types
  *
  * These types define the contract between the runbook engine and individual
  * step executors (shell, http, kubectl, approval, notify, etc.).

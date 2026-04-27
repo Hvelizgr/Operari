@@ -41,14 +41,14 @@ function buildStubPrisma() {
 
 describe('tenantScopeGuard', () => {
   const prevNodeEnv = process.env.NODE_ENV;
-  const prevStrict = process.env.NANORUN_TENANT_GUARD_STRICT;
+  const prevStrict = process.env.OPERARI_TENANT_GUARD_STRICT;
 
   afterEach(() => {
     process.env.NODE_ENV = prevNodeEnv;
     if (prevStrict === undefined) {
-      delete process.env.NANORUN_TENANT_GUARD_STRICT;
+      delete process.env.OPERARI_TENANT_GUARD_STRICT;
     } else {
-      process.env.NANORUN_TENANT_GUARD_STRICT = prevStrict;
+      process.env.OPERARI_TENANT_GUARD_STRICT = prevStrict;
     }
   });
 
@@ -105,7 +105,7 @@ describe('tenantScopeGuard', () => {
     expect(called).toBe(true);
   });
 
-  it('opts out via NANORUN_ALLOW_CROSS_TENANT_QUERY and strips the flag', async () => {
+  it('opts out via OPERARI_ALLOW_CROSS_TENANT_QUERY and strips the flag', async () => {
     process.env.NODE_ENV = 'development';
     const { prisma, invoke } = buildStubPrisma();
 
@@ -113,12 +113,12 @@ describe('tenantScopeGuard', () => {
 
     const args = {
       where: { status: 'RUNNING' },
-      NANORUN_ALLOW_CROSS_TENANT_QUERY: true,
+      OPERARI_ALLOW_CROSS_TENANT_QUERY: true,
     };
     const { called } = await invoke({ model: 'Execution', action: 'count', args });
     expect(called).toBe(true);
     // Flag was stripped before reaching the next handler.
-    expect('NANORUN_ALLOW_CROSS_TENANT_QUERY' in args).toBe(false);
+    expect('OPERARI_ALLOW_CROSS_TENANT_QUERY' in args).toBe(false);
   });
 
   it('does not guard create paths (tenantId enforced by schema typing)', async () => {
@@ -201,12 +201,12 @@ describe('tenantScopeGuard', () => {
     ).rejects.toBeInstanceOf(TenantScopeViolationError);
   });
 
-  it('throws in production when NANORUN_TENANT_GUARD_STRICT=true', async () => {
+  it('throws in production when OPERARI_TENANT_GUARD_STRICT=true', async () => {
     // T.3: once the operator has observed a clean prod log for 2 weeks,
     // flipping this flag promotes soft-fail to hard-throw without a
     // code change.
     process.env.NODE_ENV = 'production';
-    process.env.NANORUN_TENANT_GUARD_STRICT = 'true';
+    process.env.OPERARI_TENANT_GUARD_STRICT = 'true';
     const { prisma, invoke } = buildStubPrisma();
 
     installTenantScopeGuard(prisma as any);
@@ -216,9 +216,9 @@ describe('tenantScopeGuard', () => {
     ).rejects.toBeInstanceOf(TenantScopeViolationError);
   });
 
-  it('still soft-fails in production when NANORUN_TENANT_GUARD_STRICT is unset', async () => {
+  it('still soft-fails in production when OPERARI_TENANT_GUARD_STRICT is unset', async () => {
     process.env.NODE_ENV = 'production';
-    delete process.env.NANORUN_TENANT_GUARD_STRICT;
+    delete process.env.OPERARI_TENANT_GUARD_STRICT;
     const { prisma, invoke } = buildStubPrisma();
 
     installTenantScopeGuard(prisma as any);

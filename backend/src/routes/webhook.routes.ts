@@ -50,7 +50,7 @@ function sourceIpOf(req: Request): string | null {
 }
 
 /**
- * NanoRun-style webhook receiver.
+ * Operari-style webhook receiver.
  *
  * URL pattern:
  *   POST /webhook/:token            (no event)

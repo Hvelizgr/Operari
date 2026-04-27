@@ -39,7 +39,7 @@ export interface NodeType {
   properties?: Property[]; // Dynamic form schema
 }
 
-// NanoRun runbook step categories — only categories that have at least
+// Operari runbook step categories — only categories that have at least
 // one step type with a real backend executor. Categories without
 // backing executors (flow control, integrations, ai) were dropped on
 // the editor cleanup pass — they were vapor and produced "Unknown
@@ -87,13 +87,13 @@ const CATEGORIES = [
 //   - Database: MySQL, Redis (kept Postgres only)
 //
 // What stayed (post-pivot, hand-verified against the backend executors):
-//   shell, approval, notify, wait, nanorun.httpRequest,
-//   nanorun.webhook (trigger), nanorun.cron (trigger),
+//   shell, approval, notify, wait, operari.httpRequest,
+//   operari.webhook (trigger), operari.cron (trigger),
 //   custom.frame, custom.note.
 // 9 step types total. Anything not on this list has no executor and
 // must not be re-added to the palette without one.
 const NODE_TYPES: NodeType[] = [
-  // === RUNBOOK CORE (NanoRun-native step types) ===
+  // === RUNBOOK CORE (Operari-native step types) ===
   {
     type: 'shell',
     icon: <Terminal size={18} />,
@@ -111,7 +111,7 @@ const NODE_TYPES: NodeType[] = [
         name: 'command',
         displayName: 'Command',
         type: 'string',
-        default: 'echo "hello from nanorun"',
+        default: 'echo "hello from operari"',
       },
       { name: 'cwd', displayName: 'Working directory', type: 'string', default: '' },
       { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 60000 },
@@ -178,7 +178,7 @@ const NODE_TYPES: NodeType[] = [
     ],
   },
   {
-    type: 'nanorun.database',
+    type: 'operari.database',
     icon: <Database size={18} />,
     label: { en: 'Database', es: 'Base de datos' },
     color: 'bg-primary',
@@ -326,7 +326,7 @@ const NODE_TYPES: NodeType[] = [
 
   // === TRIGGERS ===
   {
-    type: 'nanorun.webhook',
+    type: 'operari.webhook',
     icon: <Webhook size={18} />,
     label: { en: 'Webhook trigger', es: 'Trigger webhook' },
     color: 'bg-green-500',
@@ -360,7 +360,7 @@ const NODE_TYPES: NodeType[] = [
     ],
   },
   {
-    type: 'nanorun.cron',
+    type: 'operari.cron',
     icon: <Clock size={18} />,
     label: { en: 'Cron trigger', es: 'Trigger cron' },
     color: 'bg-green-500',
@@ -482,7 +482,7 @@ const NODE_TYPES: NodeType[] = [
     ],
   },
   {
-    type: 'nanorun.httpRequest',
+    type: 'operari.httpRequest',
     icon: <Globe size={18} />,
     label: { en: 'HTTP request', es: 'HTTP request' },
     color: 'bg-primary',

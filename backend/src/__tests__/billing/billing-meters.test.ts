@@ -47,7 +47,7 @@ describe('StripeBillingMeter', () => {
     });
 
     expect(sendMeterEvent).toHaveBeenCalledWith({
-      event_name: 'nanorun_runs',
+      event_name: 'operari_runs',
       customer_id: 'cus_acme',
       value: 1,
       identifier: 'run.started:run-1',
@@ -126,10 +126,10 @@ describe('StripeBillingMeter', () => {
     const sendMeterEvent = jest.fn().mockResolvedValue(undefined);
     const meter = new StripeBillingMeter({ sendMeterEvent });
     const types: Array<{ type: BillableEvent['type']; expected: string }> = [
-      { type: 'run.started', expected: 'nanorun_runs' },
-      { type: 'run.completed', expected: 'nanorun_runs_completed' },
-      { type: 'runner.minute', expected: 'nanorun_runner_minutes' },
-      { type: 'storage.gb_hour', expected: 'nanorun_storage_gb_hours' },
+      { type: 'run.started', expected: 'operari_runs' },
+      { type: 'run.completed', expected: 'operari_runs_completed' },
+      { type: 'runner.minute', expected: 'operari_runner_minutes' },
+      { type: 'storage.gb_hour', expected: 'operari_storage_gb_hours' },
     ];
 
     for (const { type } of types) {
@@ -145,23 +145,23 @@ describe('StripeBillingMeter', () => {
 });
 
 describe('buildBillingMeter', () => {
-  const ORIGINAL = process.env.NANORUN_BILLING_PROVIDER;
+  const ORIGINAL = process.env.OPERARI_BILLING_PROVIDER;
   afterEach(() => {
-    process.env.NANORUN_BILLING_PROVIDER = ORIGINAL;
+    process.env.OPERARI_BILLING_PROVIDER = ORIGINAL;
   });
 
   it('defaults to NoopBillingMeter', () => {
-    delete process.env.NANORUN_BILLING_PROVIDER;
+    delete process.env.OPERARI_BILLING_PROVIDER;
     expect(buildBillingMeter().name).toBe('noop');
   });
 
   it('returns StripeBillingMeter when env=stripe', () => {
-    process.env.NANORUN_BILLING_PROVIDER = 'stripe';
+    process.env.OPERARI_BILLING_PROVIDER = 'stripe';
     expect(buildBillingMeter().name).toBe('stripe');
   });
 
   it('falls back to noop for unknown providers', () => {
-    process.env.NANORUN_BILLING_PROVIDER = 'orb-eventually';
+    process.env.OPERARI_BILLING_PROVIDER = 'orb-eventually';
     expect(buildBillingMeter().name).toBe('noop');
   });
 });

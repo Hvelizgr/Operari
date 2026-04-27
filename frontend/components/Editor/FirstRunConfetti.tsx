@@ -3,8 +3,8 @@
 import anime from 'animejs';
 import { useEffect, useRef } from 'react';
 
-import { storageRead, storageWrite } from '@/lib/storage-compat';
 import { prefersReducedMotion } from '@/lib/motion';
+import { storageRead, storageWrite } from '@/lib/storage-compat';
 
 /**
  * One-shot confetti burst the first time the user's very first run
@@ -14,7 +14,7 @@ import { prefersReducedMotion } from '@/lib/motion';
  *
  * Gated on a localStorage flag so the burst never fires twice per
  * browser — operators running twice in a minute would otherwise see
- * it stick around. Flag is a sibling to `nanorun:hasRunFirstRunbook`
+ * it stick around. Flag is a sibling to `operari:hasRunFirstRunbook`
  * (OnboardingRunHint's flag) intentionally: the hint may have been
  * dismissed manually while confetti should still play on the first
  * real run.
@@ -25,7 +25,7 @@ import { prefersReducedMotion } from '@/lib/motion';
  * their OS setting.
  */
 
-const FLAG_KEY = 'nanorun:sawFirstRunConfetti';
+const FLAG_KEY = 'operari:sawFirstRunConfetti';
 
 const COLORS = [
   '#3ecf8e', // emerald (brand)

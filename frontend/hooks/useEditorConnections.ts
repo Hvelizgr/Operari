@@ -147,9 +147,9 @@ export function useEditorConnections({
           nType.includes('controller') ||
           nType === 'condition' ||
           nType === 'switch' ||
-          nType === 'nanorun.switch' ||
+          nType === 'operari.switch' ||
           nType === 'if' ||
-          nType === 'nanorun.if';
+          nType === 'operari.if';
         const isEntity =
           nType.includes('trigger') ||
           nType === 'start' ||
@@ -160,7 +160,7 @@ export function useEditorConnections({
           nType.includes('limit') ||
           nType === 'loop' ||
           nType === 'iterator' ||
-          nType === 'nanorun.loop';
+          nType === 'operari.loop';
 
         const dims = (node as WithDims).dimensions;
         const nodeW = isController ? 128 : isEntity ? 64 : (dims?.width ?? 275);

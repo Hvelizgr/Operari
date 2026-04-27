@@ -216,8 +216,8 @@ let eventStreamSingleton: EventStreamService | null = null;
 export function getEventStream(): EventStreamService {
   if (!eventStreamSingleton) {
     const { redisConfig } = require('../config/redis.config');
-    const maxEntries = process.env.NANORUN_EVENT_STREAM_MAX_ENTRIES
-      ? parseInt(process.env.NANORUN_EVENT_STREAM_MAX_ENTRIES, 10)
+    const maxEntries = process.env.OPERARI_EVENT_STREAM_MAX_ENTRIES
+      ? parseInt(process.env.OPERARI_EVENT_STREAM_MAX_ENTRIES, 10)
       : undefined;
     eventStreamSingleton = new EventStreamService(redisConfig.getClient(), { maxEntries });
   }

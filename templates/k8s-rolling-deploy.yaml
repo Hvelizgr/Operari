@@ -1,4 +1,4 @@
-# NanoRun Template: Kubernetes rolling deploy with health checks
+# Operari Template: Kubernetes rolling deploy with health checks
 #
 # Variables expected:
 #   - namespace      (string) k8s namespace

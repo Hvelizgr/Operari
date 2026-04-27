@@ -161,7 +161,7 @@ export default function KeyboardShortcutsModal({
             {/* Footer */}
             <div className="border-t border-gray-700 bg-black/20 p-4 text-center">
               <p className="text-xs italic text-gray-500">
-                NanoRun Editor v1.0 • Built for advanced workflow automation.
+                Operari Editor v1.0 • Built for advanced workflow automation.
               </p>
             </div>
           </motion.div>

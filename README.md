@@ -1,4 +1,4 @@
-# NanoRun
+# Operari
 
 **Open-source runbook automation for SREs and platform engineers.**
 Visual, executable, dev-first. Stop maintaining deploy procedures in Confluence.
@@ -9,9 +9,9 @@ Visual, executable, dev-first. Stop maintaining deploy procedures in Confluence.
 [![Tests: 1375 passing](https://img.shields.io/badge/tests-1375_passing-brightgreen.svg)](#status)
 [![Status: pre-launch alpha](https://img.shields.io/badge/status-pre--launch_alpha-orange.svg)](#status)
 
-> NanoRun is in **pre-launch alpha**. The status section below tells you exactly
+> Operari is in **pre-launch alpha**. The status section below tells you exactly
 > what works and what doesn't — no roadmap-ware. The repo started as
-> NanoFlow (an n8n-style generic workflow editor) and pivoted to NanoRun
+> Operari (an n8n-style generic workflow editor) and pivoted to Operari
 > in April 2026; some folder names still carry the legacy. The pivot is
 > documented in [`docs/rebranding-and-editor-audit.md`](./docs/rebranding-and-editor-audit.md)
 > and [`docs/post-pivot-cleanup-audit.md`](./docs/post-pivot-cleanup-audit.md).
@@ -35,7 +35,7 @@ abandonware. Backstage catalogs services but doesn't _execute_ anything.
 incident.io is post-incident, not pre. There is no dev-first, open-source,
 visual-and-executable runbook tool aimed at SREs at small-to-mid teams.
 
-NanoRun is that tool. A runbook is a versioned graph of steps. Each step
+Operari is that tool. A runbook is a versioned graph of steps. Each step
 runs a real command in a sandboxed runner (`kubectl`, `aws`, `gh`, `bash`).
 Steps support retries, conditional gates, secret references, human
 approval, and an AI side-panel that diagnoses when something fails. The
@@ -60,7 +60,7 @@ This list is conservative and hand-verified against the test suite, not the road
 
 **Execution**
 
-- 9 step types with real executors today: `shell`, `nanorun.httpRequest`, `approval`, `notify`, `wait`, `nanorun.cron` (trigger), `nanorun.webhook` (trigger), plus `custom.frame` and `custom.note` for organization. Earlier drafts of this README listed 20 types — that was vapor inherited from the n8n-era. The other ones (`switch`, `loop`, `github`, `docker`, `awsS3`, `agent`, `postgres`, `set`) have no backend executor and have been removed from the editor palette to avoid promising what we cannot run.
+- 9 step types with real executors today: `shell`, `operari.httpRequest`, `approval`, `notify`, `wait`, `operari.cron` (trigger), `operari.webhook` (trigger), plus `custom.frame` and `custom.note` for organization. Earlier drafts of this README listed 20 types — that was vapor inherited from the n8n-era. The other ones (`switch`, `loop`, `github`, `docker`, `awsS3`, `agent`, `postgres`, `set`) have no backend executor and have been removed from the editor palette to avoid promising what we cannot run.
 - Sandboxed runners with three backends: local process, Docker container, Fly.io machine
 - Real-time stdout / stderr streaming over Socket.IO + durable Redis stream backing
 - Human approval gates that suspend the run and resume on `grant`/`reject`
@@ -73,7 +73,7 @@ This list is conservative and hand-verified against the test suite, not the road
 - Run history at `/runs` with status filters, ETA from past runs, cursor pagination
 - Run detail timeline at `/runs/:id` with per-step output, error blocks, replay-from-step button
 - AI assist side-panel that takes the failed step's stdout/stderr/exit-code as prompt context and streams a diagnosis. It does NOT yet have tool access to run history or other step logs — see "What does NOT work yet" below
-- Hash-chained immutable audit log (SHA-256) with a CLI to verify the chain (`nanorun audit verify`)
+- Hash-chained immutable audit log (SHA-256) with a CLI to verify the chain (`operari audit verify`)
 - RBAC with custom roles, role assignments, and audit events on grant/revoke
 - OpenTelemetry: every run is a trace, every step is a span
 
@@ -110,8 +110,8 @@ This list is conservative and hand-verified against the test suite, not the road
 
 **Plugins (custom step types)**
 
-- `@nanorun/sdk/steps` exports `defineStep({ type, configSchema, execute })`. Plugin authors ship npm packages whose `package.json` declares `nanorun.steps`; the runtime scans `NANORUN_PLUGINS_DIR` at boot and registers every declared entry
-- Type collisions with core step types (`shell`, `approval`, `nanorun.*`) are rejected; a broken plugin never crashes boot — the offending entry is skipped with a log line
+- `@operari/sdk/steps` exports `defineStep({ type, configSchema, execute })`. Plugin authors ship npm packages whose `package.json` declares `operari.steps`; the runtime scans `OPERARI_PLUGINS_DIR` at boot and registers every declared entry
+- Type collisions with core step types (`shell`, `approval`, `operari.*`) are rejected; a broken plugin never crashes boot — the offending entry is skipped with a log line
 
 **Billing + quotas (new)**
 
@@ -157,10 +157,10 @@ This is the part Show HN will dig into anyway, so it's better up here than burie
 | **Database step**                    | Hardened to allow `migrate`/`health`/`backup` only, but still a passthrough stub. Real Prisma wiring is not in                                                     | Backlog                              |
 | **Public demo instance**             | None. You have to self-host to try it                                                                                                                              | —                                    |
 | **Loom / video walkthrough**         | None                                                                                                                                                               | —                                    |
-| **Verified domain + trademark**      | The repo is at `Hvelizgr/NanoFlow`; the `NanoRun` mark and the `.dev/.io/.com` domains are not yet secured                                                         | Pre-launch checklist                 |
+| **Verified domain + trademark**      | The repo is at `Hvelizgr/Operari`; the `Operari` mark and the `.dev/.io/.com` domains are not yet secured                                                          | Pre-launch checklist                 |
 | **Production design partners**       | Zero                                                                                                                                                               | —                                    |
 
-If any of these are deal-breakers for you, NanoRun is not yet the tool you
+If any of these are deal-breakers for you, Operari is not yet the tool you
 need. Star the repo and check back in 4-6 weeks.
 
 ---
@@ -187,8 +187,8 @@ need. Star the repo and check back in 4-6 weeks.
 Requires **Docker 24+** with Compose V2.
 
 ```bash
-git clone https://github.com/Hvelizgr/NanoFlow.git nanorun
-cd nanorun
+git clone https://github.com/Hvelizgr/Operari.git operari
+cd operari
 cp .env.example .env
 
 # Generate the two required secrets and paste them into .env:
@@ -202,11 +202,11 @@ docker compose up -d
 ```
 
 The first up takes ~2-3 minutes (image build + prisma migrate + node-type seed).
-Open `http://localhost:3000/en/editor` once the `nanorun-backend` container is healthy.
+Open `http://localhost:3000/en/editor` once the `operari-backend` container is healthy.
 
-The compose stack runs five containers: `nanorun-postgres`, `nanorun-redis`,
-`nanorun-migrate` (one-shot, applies migrations + seed and exits), `nanorun-backend`,
-`nanorun-frontend`. The optional `nanorun-jaeger` joins via the `traces` profile:
+The compose stack runs five containers: `operari-postgres`, `operari-redis`,
+`operari-migrate` (one-shot, applies migrations + seed and exits), `operari-backend`,
+`operari-frontend`. The optional `operari-jaeger` joins via the `traces` profile:
 
 ```bash
 docker compose --profile traces up -d
@@ -218,8 +218,8 @@ docker compose --profile traces up -d
 Requires **Node 18+**, **PostgreSQL 14+**, **Redis 6+** running locally.
 
 ```bash
-git clone https://github.com/Hvelizgr/NanoFlow.git nanorun
-cd nanorun
+git clone https://github.com/Hvelizgr/Operari.git operari
+cd operari
 
 # 1. Backend
 cd backend
@@ -312,7 +312,7 @@ steps:
 Trigger it from the CLI:
 
 ```bash
-cairn run k8s-rolling-deploy \
+operari run k8s-rolling-deploy \
   --var namespace=prod \
   --var deployment=api \
   --var image=registry/api:v2.1.4
@@ -321,7 +321,7 @@ cairn run k8s-rolling-deploy \
 Or from a webhook your CI fires after `main` merges:
 
 ```bash
-curl -X POST https://your-nanorun.example.com/api/webhooks/<token> \
+curl -X POST https://your-operari.example.com/api/webhooks/<token> \
   -H 'X-Signature: sha256=<hmac>' \
   -d '{"image":"registry/api:v2.1.4","namespace":"prod","deployment":"api"}'
 ```
@@ -330,7 +330,7 @@ curl -X POST https://your-nanorun.example.com/api/webhooks/<token> \
 
 ## VS Code integration
 
-NanoRun ships a JSON Schema for the runbook spec at
+Operari ships a JSON Schema for the runbook spec at
 `http://localhost:4000/runbook.schema.json` (served from your local
 backend, or any deployment). Point the [VS Code YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml)
 at it and every `*.runbook.yaml` file in your repo gets autocomplete,
@@ -361,12 +361,12 @@ against it. If the schema and the spec drift apart, the test goes red.
 
 ---
 
-## How NanoRun compares
+## How Operari compares
 
 Honest version. ✅ = built and tested. 🟡 = partial / stub. ❌ = not done.
 "Cost" is the public list price for the cheapest paid tier; free tiers vary.
 
-|                                     | NanoRun     | Rundeck (PD)     | StackStorm | incident.io         | Backstage                |
+|                                     | Operari     | Rundeck (PD)     | StackStorm | incident.io         | Backstage                |
 | ----------------------------------- | ----------- | ---------------- | ---------- | ------------------- | ------------------------ |
 | Visual canvas                       | ✅          | ❌               | ❌         | 🟡                  | ❌                       |
 | YAML source-of-truth                | ✅          | 🟡               | ✅         | ❌                  | 🟡                       |
@@ -382,17 +382,17 @@ Honest version. ✅ = built and tested. 🟡 = partial / stub. ❌ = not done.
 | Cheapest paid tier                  | n/a (alpha) | $125 / user / mo | free       | ~$20-40 / user / mo | "free" + ~$150K eng cost |
 | Aimed at SRE / platform eng         | ✅          | ✅               | ✅         | 🟡 (incident-side)  | ✅                       |
 
-NanoRun is the only entry in the top-left quadrant of "proactive procedures
+Operari is the only entry in the top-left quadrant of "proactive procedures
 
 - dev-first + open source + visual + AI". The full reasoning is in
-  [`INVESTIGACION_NANORUN_2026.md`](./docs/) (gitignored, internal).
+  [`INVESTIGACION_OPERARI_2026.md`](./docs/) (gitignored, internal).
 
 ---
 
 ## Architecture
 
 ```
-nanorun/
+operari/
 ├── backend/
 │   └── src/
 │       ├── runbook/             ← canonical: spec, serializer, executors, runners
@@ -400,7 +400,7 @@ nanorun/
 │       │   ├── executors/       ← step executors (shell, http, approval, notify, wait)
 │       │   ├── runners/         ← local / docker / fly sandbox backends
 │       │   └── services/        ← api-key, webhook, approval
-│       ├── editor/              ← legacy NanoFlow editor layer (consolidation deferred — see ADR 0004)
+│       ├── editor/              ← legacy Operari editor layer (consolidation deferred — see ADR 0004)
 │       │   ├── nodes/           ← per-node-type executors
 │       │   └── execution/       ← ExecutionService, socket.io live logs
 │       ├── routes/
@@ -433,9 +433,9 @@ nanorun/
 │   └── utils/runbookYaml.ts     ← in-browser mirror of the backend serializer
 │
 ├── packages/
-│   ├── shared/                  ← @nanorun/shared (types shared by frontend + backend)
-│   ├── sdk/                     ← @nanorun/sdk (npm, MIT)
-│   └── cli/                     ← @nanorun/cli (npm, MIT)
+│   ├── shared/                  ← @operari/shared (types shared by frontend + backend)
+│   ├── sdk/                     ← @operari/sdk (npm, MIT)
+│   └── cli/                     ← @operari/cli (npm, MIT)
 │
 ├── templates/                   ← 5 production-shaped runbooks
 └── docs/
@@ -456,8 +456,8 @@ nanorun/
 ## License split
 
 The split is intentional: AGPL on the server prevents cloud providers from
-SaaS-ing NanoRun without contributing back; MIT on the client tooling means
-you can integrate NanoRun into anything without restrictions.
+SaaS-ing Operari without contributing back; MIT on the client tooling means
+you can integrate Operari into anything without restrictions.
 
 | Path            | License   |
 | --------------- | --------- |
@@ -485,7 +485,7 @@ Honest, time-boxed, conservative.
 
 **4 → 12 weeks (post-launch alpha)**
 
-- 5 design partners using NanoRun in earnest
+- 5 design partners using Operari in earnest
 - Python SDK
 - AI agent gets read-only tools (`get_recent_runs`, `get_step_logs`, `search_step_history`)
 - Live log streaming on the run detail timeline
@@ -548,7 +548,7 @@ operational headaches absorbed.
 
 ## Background
 
-NanoRun started as **NanoFlow**, a generic n8n-style workflow editor.
+Operari started as **Operari**, a generic n8n-style workflow editor.
 In April 2026 the project pivoted to focus on operational runbooks for
 SREs and platform engineers — a much narrower wedge with a clearer
 audience and a less crowded market. The pivot is documented commit-by-commit
@@ -559,4 +559,4 @@ still carry the legacy and will be renamed when the consolidation in
 [ADR 0004](./docs/adr/0004-consolidate-executor-hierarchies.md) lands.
 
 If you're evaluating the project, those three documents tell you more
-than this README does about what NanoRun is and isn't.
+than this README does about what Operari is and isn't.

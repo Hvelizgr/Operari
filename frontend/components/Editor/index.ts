@@ -10,5 +10,5 @@ export { default as NodesLayer } from './NodesLayer';
 export { default as NoteNode } from './NoteNode';
 export type { WorkflowProperties } from './WorkflowPropertiesPanel';
 export { default as WorkflowPropertiesPanel } from './WorkflowPropertiesPanel';
-export type { Connection } from '@nanorun/shared';
-export type { WorkflowNode } from '@nanorun/shared';
+export type { Connection } from '@operari/shared';
+export type { WorkflowNode } from '@operari/shared';

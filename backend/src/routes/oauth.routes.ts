@@ -15,8 +15,8 @@ import { prisma } from '../server';
 
 const router = Router();
 
-const STATE_COOKIE = 'nanorun_oauth_state';
-const RETURN_COOKIE = 'nanorun_oauth_return';
+const STATE_COOKIE = 'operari_oauth_state';
+const RETURN_COOKIE = 'operari_oauth_return';
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 function stateCookieOptions(req: Request): CookieOptions {
@@ -44,7 +44,7 @@ function safeReturnPath(value: unknown): string | null {
 }
 
 function callbackUrl(req: Request, provider: OAuthProviderName): string {
-  // Prefer an explicit configured base (e.g. https://api.nanorun.dev) so
+  // Prefer an explicit configured base (e.g. https://api.operari.dev) so
   // callbacks work behind a TLS terminator. Fall back to the frontend
   // URL since the Next.js dev server rewrites /api/* to us — which
   // means the provider redirects the *browser* to the frontend, and

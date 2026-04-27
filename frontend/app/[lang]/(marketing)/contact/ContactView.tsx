@@ -13,15 +13,15 @@ type Contact = typeof contentEn.contact;
 const CHANNEL_LABELS: Record<string, string> = {
   issues: 'open an issue',
   discussions: 'a discussion',
-  'mailto:security@nanorun.dev': 'security@nanorun.dev',
-  'mailto:hello@nanorun.dev': 'hello@nanorun.dev',
+  'mailto:security@operari.dev': 'security@operari.dev',
+  'mailto:hello@operari.dev': 'hello@operari.dev',
 };
 
 const CHANNEL_LABELS_ES: Record<string, string> = {
   issues: 'abrí un issue',
   discussions: 'una discusión',
-  'mailto:security@nanorun.dev': 'security@nanorun.dev',
-  'mailto:hello@nanorun.dev': 'hello@nanorun.dev',
+  'mailto:security@operari.dev': 'security@operari.dev',
+  'mailto:hello@operari.dev': 'hello@operari.dev',
 };
 
 const MAINTAINERS = [

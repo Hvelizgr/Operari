@@ -102,9 +102,9 @@ describe('buildOtpauthUrl', () => {
     const url = new URL(buildOtpauthUrl({ secret: 'ABCDEFGH', accountName: 'jane@acme.io' }));
     expect(url.protocol).toBe('otpauth:');
     expect(url.host).toBe('totp');
-    expect(decodeURIComponent(url.pathname)).toBe('/NanoRun:jane@acme.io');
+    expect(decodeURIComponent(url.pathname)).toBe('/Operari:jane@acme.io');
     expect(url.searchParams.get('secret')).toBe('ABCDEFGH');
-    expect(url.searchParams.get('issuer')).toBe('NanoRun');
+    expect(url.searchParams.get('issuer')).toBe('Operari');
     expect(url.searchParams.get('algorithm')).toBe('SHA1');
     expect(url.searchParams.get('digits')).toBe('6');
     expect(url.searchParams.get('period')).toBe('30');

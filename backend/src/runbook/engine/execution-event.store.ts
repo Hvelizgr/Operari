@@ -31,7 +31,7 @@ import { reduceRunState, type ReplayableEvent } from './run-state.reducer';
  *
  * Wiring status (closes the circle):
  *   - ExecutionService dual-writes to this store + audit chain via
- *     `safeAppendEvent`, gated on NANORUN_DURABLE_ENGINE
+ *     `safeAppendEvent`, gated on OPERARI_DURABLE_ENGINE
  *   - The cancel route appends run.cancelled directly
  *   - The resume worker reads via listInFlightExecutions + reduceState
  *     at server startup

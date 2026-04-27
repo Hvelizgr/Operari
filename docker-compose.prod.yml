@@ -1,4 +1,4 @@
-name: nanorun-prod
+name: operari-prod
 
 # Production-shaped compose stack for a single-host deployment.
 #
@@ -12,7 +12,7 @@ name: nanorun-prod
 #     rather than quietly running with `replace-me-...` in prod.
 #   - Healthchecks are tighter (start_period shorter, no
 #     `:-dev-default` shims).
-#   - NANORUN_ANONYMOUS_MODE defaults to FALSE here so authentication
+#   - OPERARI_ANONYMOUS_MODE defaults to FALSE here so authentication
 #     is always on.
 #
 # Required before `docker compose -f docker-compose.prod.yml up -d`:
@@ -29,16 +29,16 @@ name: nanorun-prod
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: nanorun-postgres
+    container_name: operari-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
-      POSTGRES_DB: ${POSTGRES_DB:-nanorun}
+      POSTGRES_DB: ${POSTGRES_DB:-operari}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-nanorun}']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-operari}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -46,7 +46,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: nanorun-redis
+    container_name: operari-redis
     restart: unless-stopped
     volumes:
       - redis-data:/data
@@ -61,10 +61,10 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: nanorun-migrate
+    container_name: operari-migrate
     user: '0:0'
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nanorun}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-operari}?schema=public
       HOME: /tmp
     command: >
       sh -c "
@@ -80,12 +80,12 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: nanorun-backend
+    container_name: operari-backend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 4000
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nanorun}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-operari}?schema=public
       REDIS_URL: redis://redis:6379
       FRONTEND_URL: https://${PUBLIC_DOMAIN:?required}
       # Required — boot crashes loud if unset.
@@ -94,7 +94,7 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?required}
       COOKIE_SECURE: 'true'
       # Auth is REQUIRED in prod. Flip only for single-tenant self-host.
-      NANORUN_ANONYMOUS_MODE: 'false'
+      OPERARI_ANONYMOUS_MODE: 'false'
       # Optional AI provider — without this the AI assist drawer 500s.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -104,11 +104,11 @@ services:
       # as privileged + allow the shell step — acceptable for small
       # trusted teams. For multi-tenant cloud flip to `docker` or
       # `fly` (requires FLY_API_TOKEN).
-      NANORUN_RUNNER: ${NANORUN_RUNNER:-local}
+      OPERARI_RUNNER: ${OPERARI_RUNNER:-local}
       FLY_API_TOKEN: ${FLY_API_TOKEN:-}
       # ADR 0003 durable engine.
-      NANORUN_DURABLE_ENGINE: ${NANORUN_DURABLE_ENGINE:-true}
-      NANORUN_RESUME_WORKER_ACT: ${NANORUN_RESUME_WORKER_ACT:-true}
+      OPERARI_DURABLE_ENGINE: ${OPERARI_DURABLE_ENGINE:-true}
+      OPERARI_RESUME_WORKER_ACT: ${OPERARI_RESUME_WORKER_ACT:-true}
       # Observability. Tracing defaults ON in prod so operators are
       # not blind after a deploy — every runbook execution maps to a
       # trace whose spans match the step timeline. JAEGER_ENDPOINT
@@ -117,7 +117,7 @@ services:
       # traceId correlation in logs. Set JAEGER_ENDPOINT in the .env
       # to actually ship spans to a Jaeger / OTel collector.
       ENABLE_TRACING: ${ENABLE_TRACING:-true}
-      OTEL_SERVICE_NAME: nanorun-backend
+      OTEL_SERVICE_NAME: operari-backend
       JAEGER_ENDPOINT: ${JAEGER_ENDPOINT:-}
       # Transactional email (password reset, team invites, verification).
       # Missing → log-only (not production-grade).
@@ -137,17 +137,17 @@ services:
       STRIPE_PRICE_TEAM_YEARLY: ${STRIPE_PRICE_TEAM_YEARLY:-}
       STRIPE_PRICE_BUSINESS_MONTHLY: ${STRIPE_PRICE_BUSINESS_MONTHLY:-}
       STRIPE_PRICE_BUSINESS_YEARLY: ${STRIPE_PRICE_BUSINESS_YEARLY:-}
-      NANORUN_BILLING_PROVIDER: ${NANORUN_BILLING_PROVIDER:-stripe}
+      OPERARI_BILLING_PROVIDER: ${OPERARI_BILLING_PROVIDER:-stripe}
       # Plan quotas (env-tunable per tier).
-      NANORUN_QUOTA_FREE_RUNBOOKS: ${NANORUN_QUOTA_FREE_RUNBOOKS:-3}
-      NANORUN_QUOTA_FREE_RUNS: ${NANORUN_QUOTA_FREE_RUNS:-100}
+      OPERARI_QUOTA_FREE_RUNBOOKS: ${OPERARI_QUOTA_FREE_RUNBOOKS:-3}
+      OPERARI_QUOTA_FREE_RUNS: ${OPERARI_QUOTA_FREE_RUNS:-100}
       # HIBP breach check (fail-open if unreachable).
-      NANORUN_PASSWORD_BREACH_CHECK: ${NANORUN_PASSWORD_BREACH_CHECK:-true}
+      OPERARI_PASSWORD_BREACH_CHECK: ${OPERARI_PASSWORD_BREACH_CHECK:-true}
       # Custom plugin directory. Mount a volume at /app/plugins to use.
-      NANORUN_PLUGINS_DIR: ${NANORUN_PLUGINS_DIR:-}
+      OPERARI_PLUGINS_DIR: ${OPERARI_PLUGINS_DIR:-}
     volumes:
       # Optional: mount local plugin packages at /app/plugins and set
-      # NANORUN_PLUGINS_DIR=/app/plugins in your .env. Commented out
+      # OPERARI_PLUGINS_DIR=/app/plugins in your .env. Commented out
       # by default because most deployments don't ship custom plugins.
       # - ./plugins:/app/plugins:ro
       - /dev/null:/dev/null
@@ -171,14 +171,14 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         API_URL: http://backend:4000
-    container_name: nanorun-frontend
+    container_name: operari-frontend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: https://${PUBLIC_DOMAIN}
       NEXT_PUBLIC_SITE_URL: https://${PUBLIC_DOMAIN}
       API_URL: http://backend:4000
-      NEXT_PUBLIC_NANORUN_ANONYMOUS_MODE: 'false'
+      NEXT_PUBLIC_OPERARI_ANONYMOUS_MODE: 'false'
       # Social login buttons show only when flipped on AND backend has creds.
       NEXT_PUBLIC_OAUTH_GOOGLE: ${NEXT_PUBLIC_OAUTH_GOOGLE:-false}
       NEXT_PUBLIC_OAUTH_GITHUB: ${NEXT_PUBLIC_OAUTH_GITHUB:-false}
@@ -188,7 +188,7 @@ services:
 
   caddy:
     image: caddy:2-alpine
-    container_name: nanorun-caddy
+    container_name: operari-caddy
     restart: unless-stopped
     ports:
       - '80:80'

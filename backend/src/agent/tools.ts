@@ -19,19 +19,19 @@ export interface OrchestratorToolsOptions {
   approvalService?: ApprovalService;
   /**
    * Force-enable write tools regardless of the env flag. Useful for
-   * tests; production paths go through CAIRN_AGENT_WRITE_TOOLS.
+   * tests; production paths go through OPERARI_AGENT_WRITE_TOOLS.
    */
   writeEnabled?: boolean;
 }
 
 /**
- * Tools for the NanoRun orchestrator.
+ * Tools for the Operari orchestrator.
  *
  * READ tools (always on) give the assistant *eyes* into the tenant's
  * runs and runbooks. Every tool is bound to a single tenantId at
  * construction time so the model can never escape the tenant boundary.
  *
- * WRITE tools (opt-in via CAIRN_AGENT_WRITE_TOOLS=true) currently cover
+ * WRITE tools (opt-in via OPERARI_AGENT_WRITE_TOOLS=true) currently cover
  * approval grant/reject. They route through ApprovalService so the same
  * audit events, tenant isolation, and concurrency guards that gate the
  * HTTP API also gate the agent. The actor is recorded as
@@ -267,7 +267,7 @@ export function buildOrchestratorTools(
     }),
   };
 
-  const writeEnabled = options.writeEnabled ?? process.env.CAIRN_AGENT_WRITE_TOOLS === 'true';
+  const writeEnabled = options.writeEnabled ?? process.env.OPERARI_AGENT_WRITE_TOOLS === 'true';
   if (!writeEnabled) return readTools;
 
   // Lazy-init the approval service. We wire resumeExecution through

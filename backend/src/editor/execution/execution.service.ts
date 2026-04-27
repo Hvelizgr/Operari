@@ -88,7 +88,7 @@ export interface ExecutionServiceOptions {
   tracer?: RunTracer | null;
   /**
    * Durable execution event store (ADR 0003 phase 2). When provided
-   * (or when `NANORUN_DURABLE_ENGINE=true`) every state transition
+   * (or when `OPERARI_DURABLE_ENGINE=true`) every state transition
    * is appended to the ExecutionEvent log alongside the audit chain
    * write, so a worker can resume in-flight runs after a restart.
    *
@@ -96,7 +96,7 @@ export interface ExecutionServiceOptions {
    * the env flag is set. Pass an instance to override the default
    * (used by tests to capture events with a fake store).
    *
-   * Defaults: enabled iff `process.env.NANORUN_DURABLE_ENGINE === 'true'`.
+   * Defaults: enabled iff `process.env.OPERARI_DURABLE_ENGINE === 'true'`.
    * The flag exists because phase 2 is the integration step the ADR
    * warns about — toggling it off must be a single env var flip.
    */
@@ -104,7 +104,7 @@ export interface ExecutionServiceOptions {
   /**
    * Billing meter (P1 #12). Self-host deployments get NoopBillingMeter
    * by default, which discards every event. Cloud deployments get
-   * StripeBillingMeter via NANORUN_BILLING_PROVIDER=stripe and the
+   * StripeBillingMeter via OPERARI_BILLING_PROVIDER=stripe and the
    * runtime emits run.started + run.completed billable events
    * automatically.
    *
@@ -136,7 +136,7 @@ export class ExecutionService {
       options.eventStore === null
         ? null
         : (options.eventStore ??
-          (process.env.NANORUN_DURABLE_ENGINE === 'true' ? new ExecutionEventStore(prisma) : null));
+          (process.env.OPERARI_DURABLE_ENGINE === 'true' ? new ExecutionEventStore(prisma) : null));
     this.meter = options.meter === null ? null : (options.meter ?? getBillingMeter());
   }
 
@@ -1237,13 +1237,13 @@ export class ExecutionService {
           const isConditionNode =
             currentNode.type === 'Condition' ||
             currentNode.type === 'If' ||
-            currentNode.type === 'nanorun.if';
+            currentNode.type === 'operari.if';
           const isSwitchNode =
-            currentNode.type === 'Switch' || currentNode.type === 'nanorun.switch';
+            currentNode.type === 'Switch' || currentNode.type === 'operari.switch';
           const isLoopNode =
             currentNode.type === 'Loop' ||
             currentNode.type === 'Iterator' ||
-            currentNode.type === 'nanorun.loop';
+            currentNode.type === 'operari.loop';
 
           let outgoingConnections = connections.filter(c => c.source === currentNode.id);
 

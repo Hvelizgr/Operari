@@ -1,6 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import anime from 'animejs';
 import {
   ChevronDown,
   Copy,
@@ -13,17 +14,12 @@ import {
   Share2,
   Trash2,
   X,
+  Activity,
+  Zap,
+  Clock,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-
-import {
-  motionFor,
-  reducedStaggerChildVariants,
-  reducedStaggerContainerVariants,
-  staggerChildVariants,
-  staggerContainerVariants,
-} from '@/lib/motion';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EmptyState } from '../Common/EmptyState';
 import Sparkline from '../Common/Sparkline';
@@ -58,18 +54,18 @@ interface Template {
 
 const STRINGS = {
   en: {
-    title: 'Runbooks',
+    title: 'Runbook Library',
     subtitle:
-      'Versioned graphs of steps that codify your operational procedures. Run them, edit them, schedule them.',
+      'The source of truth for your operational logic. Versioned, executable, and shared across your team.',
     newRunbook: 'New runbook',
-    newBlank: 'Blank',
-    newFromTemplate: 'From template',
+    newBlank: 'Blank Canvas',
+    newFromTemplate: 'From Template',
     newImport: 'Import YAML',
-    searchPlaceholder: 'Search by name or description…',
-    allCategories: 'All categories',
-    empty: 'No runbooks yet.',
-    emptyHint: 'Create one from scratch or pick a template.',
-    runs: 'runs',
+    searchPlaceholder: 'Filter by name or intent…',
+    allCategories: 'All Categories',
+    empty: 'The library is empty.',
+    emptyHint: 'Start building your operational safety by creating your first runbook.',
+    runs: 'executions',
     successRate: 'success',
     lastRun: 'Last run',
     never: 'never',
@@ -80,25 +76,25 @@ const STRINGS = {
     history: 'History',
     delete: 'Delete',
     confirmDelete: 'Delete this runbook? This cannot be undone.',
-    loading: 'Loading…',
-    loadError: 'Failed to load runbooks.',
-    templatesTitle: 'Pick a template',
+    loading: 'Fetching library…',
+    loadError: 'Failed to connect to the library.',
+    templatesTitle: 'Select Blueprint',
     cancel: 'Cancel',
-    run_now: 'Run now',
+    run_now: 'Trigger execution',
     new_blank_name: 'Untitled runbook',
   },
   es: {
-    title: 'Runbooks',
+    title: 'Biblioteca de Runbooks',
     subtitle:
-      'Grafos versionados de pasos que codifican tus procedimientos operativos. Ejecutalos, editalos, programalos.',
+      'La fuente de verdad para tu lógica operativa. Versionada, ejecutable y compartida con tu equipo.',
     newRunbook: 'Nuevo runbook',
-    newBlank: 'Vacío',
+    newBlank: 'Lienzo en blanco',
     newFromTemplate: 'Desde plantilla',
     newImport: 'Importar YAML',
-    searchPlaceholder: 'Buscar por nombre o descripción…',
+    searchPlaceholder: 'Filtrar por nombre o intención…',
     allCategories: 'Todas las categorías',
-    empty: 'Aún no hay runbooks.',
-    emptyHint: 'Creá uno desde cero o elegí una plantilla.',
+    empty: 'La biblioteca está vacía.',
+    emptyHint: 'Empieza a construir tu seguridad operativa creando tu primer runbook.',
     runs: 'ejecuciones',
     successRate: 'éxito',
     lastRun: 'Última',
@@ -110,11 +106,11 @@ const STRINGS = {
     history: 'Historial',
     delete: 'Borrar',
     confirmDelete: '¿Borrar este runbook? No se puede deshacer.',
-    loading: 'Cargando…',
-    loadError: 'Error cargando runbooks.',
-    templatesTitle: 'Elegí una plantilla',
+    loading: 'Cargando biblioteca…',
+    loadError: 'Error al conectar con la biblioteca.',
+    templatesTitle: 'Seleccionar Blueprint',
     cancel: 'Cancelar',
-    run_now: 'Ejecutar ahora',
+    run_now: 'Disparar ejecución',
     new_blank_name: 'Runbook sin título',
   },
 } as const;
@@ -122,11 +118,11 @@ const STRINGS = {
 function statusDot(status: string | null): string {
   switch (status) {
     case 'SUCCESS':
-      return 'bg-emerald-500';
+      return 'bg-[var(--op-moss)]';
     case 'FAILED':
-      return 'bg-red-500';
+      return 'bg-[var(--op-sunset)]';
     case 'RUNNING':
-      return 'bg-primary animate-pulse';
+      return 'bg-[var(--accent-color)] animate-pulse';
     default:
       return 'bg-gray-600';
   }
@@ -154,11 +150,24 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
   const [category, setCategory] = useState<string>('');
   const [showNewMenu, setShowNewMenu] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
-  // Intentional: recapture `now` on every list refresh so every row's
-  // relativeTime() sees the same moment. The memo body doesn't read
-  // `runbooks` but the list changing is the signal we want — lint
-  // can't see that.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // Staggered entrance animation for cards using anime.js
+  useEffect(() => {
+    if (runbooks && runbooks.length > 0 && gridRef.current) {
+      const cards = gridRef.current.querySelectorAll('.rb-card');
+      anime({
+        targets: cards,
+        opacity: [0, 1],
+        translateY: [20, 0],
+        scale: [0.95, 1],
+        delay: anime.stagger(50),
+        duration: 800,
+        easing: 'cubicBezier(0.22, 1, 0.36, 1)',
+      });
+    }
+  }, [runbooks, search, category]);
+
   const now = useMemo(() => new Date(), [runbooks]);
 
   const load = useCallback(async () => {
@@ -224,9 +233,6 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
 
   const handleCreateFromTemplate = async (tpl: Template) => {
     try {
-      // Two-step: create empty runbook, then push the YAML body via
-      // PUT /:id/yaml. Avoids re-implementing the YAML parser on
-      // the frontend and reuses the same import path the editor uses.
       const created = await fetch(`${API_BASE}/api/runbooks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -282,123 +288,145 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#0f1218] text-gray-200">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-6 flex items-start justify-between">
+    <div className="marketing-shell flex-1 overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)]">
+      <div className="mx-auto max-w-6xl px-6 py-12">
+        {/* Header Section */}
+        <div className="mb-12 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="flex items-center gap-2 text-2xl font-semibold text-white">
-              <Share2 size={22} className="text-emerald-400" />
+            <div className="m-eyebrow mb-2">Library</div>
+            <h1 className="text-5xl font-black tracking-tighter text-[var(--text-primary)]">
               {t.title}
-              <span className="ml-2 text-xs font-normal text-gray-500">
-                {counts.total} total · {counts.active} active
-              </span>
             </h1>
-            <p className="mt-1 max-w-2xl text-sm text-gray-500">{t.subtitle}</p>
+            <p className="mt-4 max-w-2xl text-lg font-medium leading-relaxed text-[var(--text-muted)]">
+              {t.subtitle}
+            </p>
+            <div className="mt-4 flex items-center gap-4 text-xs font-black uppercase tracking-widest text-[var(--text-muted)] opacity-60">
+              <span className="flex items-center gap-1.5">
+                <Activity size={12} className="text-[var(--op-moss)]" />
+                {counts.total} total
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Zap size={12} className="text-[var(--accent-color)]" />
+                {counts.active} active
+              </span>
+            </div>
           </div>
           <div className="relative">
             <button
               onClick={() => setShowNewMenu(!showNewMenu)}
-              className="bg-primary hover:bg-primary flex items-center gap-2 rounded-md px-3 py-2 text-sm text-white"
+              className="flex items-center gap-2 rounded-xl bg-[var(--accent-color)] px-6 py-3 text-sm font-black text-black shadow-xl transition-all hover:scale-105 active:scale-95"
             >
-              <Plus size={16} />
+              <Plus size={18} strokeWidth={3} />
               {t.newRunbook}
-              <ChevronDown size={14} />
+              <ChevronDown size={16} strokeWidth={3} />
             </button>
-            {showNewMenu && (
-              <div className="absolute right-0 top-full z-10 mt-1 w-44 rounded-md border border-white/10 bg-[#1a1f2a] py-1 shadow-xl">
-                <button
-                  onClick={handleCreateBlank}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5"
+            <AnimatePresence>
+              {showNewMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 top-full z-[60] mt-3 w-56 overflow-hidden rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-1 shadow-2xl backdrop-blur-xl"
                 >
-                  {t.newBlank}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowNewMenu(false);
-                    setShowTemplates(true);
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5"
-                >
-                  {t.newFromTemplate}
-                </button>
-              </div>
-            )}
+                  <button
+                    onClick={handleCreateBlank}
+                    className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--panel-elevated)]"
+                  >
+                    <Edit3 size={16} />
+                    {t.newBlank}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowNewMenu(false);
+                      setShowTemplates(true);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--panel-elevated)]"
+                  >
+                    <FileCode size={16} />
+                    {t.newFromTemplate}
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mb-5 flex items-center gap-3">
+        {/* Search & Filters */}
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center">
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <Search
+              size={18}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] opacity-50"
+            />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder={t.searchPlaceholder}
-              className="focus:border-primary w-full rounded-md border border-white/10 bg-[#1a1f2a] py-2 pl-9 pr-3 text-sm text-gray-200 focus:outline-none"
+              className="focus:border-[var(--accent-color)]/50 placeholder:text-[var(--text-muted)]/50 w-full rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] py-3 pl-12 pr-4 text-sm font-medium text-[var(--text-primary)] transition-all focus:outline-none"
             />
           </div>
-          <select
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-            className="focus:border-primary rounded-md border border-white/10 bg-[#1a1f2a] px-3 py-2 text-sm text-gray-300 focus:outline-none"
-          >
-            <option value="">{t.allCategories}</option>
-            {categories.map(c => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-3">
+            <select
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              className="focus:border-[var(--accent-color)]/50 relative appearance-none rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3 pr-10 text-sm font-bold text-[var(--text-primary)] transition-all focus:outline-none"
+              style={{
+                backgroundImage:
+                  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23666'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")",
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 1rem center',
+                backgroundSize: '1rem',
+              }}
+            >
+              <option value="">{t.allCategories}</option>
+              {categories.map(c => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-md border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-300">
+          <div className="border-[var(--op-sunset)]/20 bg-[var(--op-sunset)]/5 mb-6 rounded-xl border p-4 text-sm font-bold text-[var(--op-sunset)]">
+            <Activity size={16} className="mb-1" />
             {t.loadError} · {error}
           </div>
         )}
 
         {filtered === null ? (
-          <div className="text-sm text-gray-500">{t.loading}</div>
+          <div className="flex h-64 items-center justify-center text-sm font-black uppercase tracking-widest text-[var(--text-muted)] opacity-50">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-2 w-12 animate-pulse rounded-full bg-[var(--accent-color)]" />
+              {t.loading}
+            </div>
+          </div>
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Share2}
             title={t.empty}
             body={t.emptyHint}
-            primaryLabel={lang === 'en' ? 'Browse templates' : 'Ver templates'}
+            primaryLabel={lang === 'en' ? 'Explore Templates' : 'Explorar Plantillas'}
             primaryHref={`/${lang}/templates`}
-            secondaryLabel={lang === 'en' ? 'Start from scratch' : 'Empezar desde cero'}
+            secondaryLabel={lang === 'en' ? 'New Blank Runbook' : 'Nuevo Runbook'}
             secondaryHref={`/${lang}/editor`}
           />
         ) : (
-          // Grid staggers its cards on mount. With up to ~20 cards
-          // per page the 50 ms per-child stagger keeps the full
-          // sweep under ~1 s; the child animation itself is a short
-          // fade + 6 px slide. Container variants re-fire when
-          // `filter`/`search` causes `filtered` to change length —
-          // acceptable here because the list itself is rebuilt.
-          <motion.div
-            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
-            variants={motionFor(staggerContainerVariants, reducedStaggerContainerVariants)}
-            initial="initial"
-            animate="animate"
-          >
+          <div ref={gridRef} className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filtered.map(rb => (
-              <motion.div
+              <RunbookCard
                 key={rb.id}
-                variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
-              >
-                <RunbookCard
-                  rb={rb}
-                  t={t}
-                  lang={lang}
-                  now={now}
-                  onRunNow={() => handleRunNow(rb)}
-                  onDuplicate={() => handleDuplicate(rb)}
-                  onDelete={() => handleDelete(rb)}
-                />
-              </motion.div>
+                rb={rb}
+                t={t}
+                lang={lang}
+                now={now}
+                onRunNow={() => handleRunNow(rb)}
+                onDuplicate={() => handleDuplicate(rb)}
+                onDelete={() => handleDelete(rb)}
+              />
             ))}
-          </motion.div>
+          </div>
         )}
       </div>
 
@@ -434,80 +462,111 @@ function RunbookCard({
   onDelete: () => void;
 }) {
   const successRate = rb.successRate30d != null ? `${(rb.successRate30d * 100).toFixed(0)}%` : '—';
+
   return (
-    <div className="flex flex-col rounded-md border border-white/10 bg-[#1a1f2a] p-4 transition-colors hover:border-white/20">
-      <div className="mb-2 flex items-start gap-2">
-        <span
-          className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${
-            rb.isActive ? 'bg-emerald-500' : 'bg-gray-600'
-          }`}
-        />
+    <div className="rb-card hover:border-[var(--accent-color)]/30 group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 transition-all hover:scale-[1.02] hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)]">
+      {/* Visual connection to the brand */}
+      <div className="bg-[var(--accent-color)]/5 group-hover:bg-[var(--accent-color)]/10 absolute right-0 top-0 h-24 w-24 translate-x-12 translate-y-[-12px] rounded-full blur-2xl transition-all" />
+
+      <div className="relative mb-6 flex items-start justify-between">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-white">{rb.name}</div>
-          {rb.category && (
-            <span className="mt-1 inline-block rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-emerald-300">
-              {rb.category}
-            </span>
-          )}
+          <div className="mb-2 flex items-center gap-2">
+            <div
+              className={`h-2 w-2 rounded-full shadow-[0_0_8px] ${rb.isActive ? 'bg-[var(--op-moss)] shadow-[var(--op-moss)]' : 'bg-gray-600 shadow-transparent'}`}
+            />
+            {rb.category && (
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--accent-color)] opacity-70">
+                {rb.category}
+              </span>
+            )}
+          </div>
+          <h3 className="truncate text-xl font-black tracking-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-color)]">
+            {rb.name}
+          </h3>
         </div>
       </div>
+
       {rb.description && (
-        <p className="mb-3 line-clamp-2 min-h-[2.5em] text-xs text-gray-500">{rb.description}</p>
+        <p className="relative mb-6 line-clamp-2 min-h-[3em] text-sm font-medium leading-relaxed text-[var(--text-muted)]">
+          {rb.description}
+        </p>
       )}
-      <div className="mb-3 flex items-center gap-4 text-[11px] text-gray-500">
-        <span>
-          {rb._count.executions} {t.runs}
-        </span>
-        <span>
-          {successRate} {t.successRate}
-        </span>
-        <span className="flex items-center gap-1">
-          <span className={`h-1.5 w-1.5 rounded-full ${statusDot(rb.lastRunStatus)}`} />
-          {rb.lastRunAt ? relativeTime(rb.lastRunAt, now) : t.never}
-        </span>
+
+      {/* Stats row */}
+      <div className="mb-6 grid grid-cols-3 gap-2 border-y border-[var(--panel-border)] py-4">
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] opacity-50">
+            Executions
+          </span>
+          <span className="text-sm font-black text-[var(--text-primary)]">
+            {rb._count.executions}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] opacity-50">
+            Success
+          </span>
+          <span className="text-sm font-black text-[var(--op-moss)]">{successRate}</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] opacity-50">
+            Freshness
+          </span>
+          <span className="flex items-center gap-1.5 text-sm font-black text-[var(--text-primary)]">
+            <div className={`h-1.5 w-1.5 rounded-full ${statusDot(rb.lastRunStatus)}`} />
+            {rb.lastRunAt ? relativeTime(rb.lastRunAt, now) : '—'}
+          </span>
+        </div>
       </div>
+
       {rb.recentStatuses && rb.recentStatuses.length > 0 && (
-        <div className="mb-3">
-          <Sparkline statuses={rb.recentStatuses} tileHeight={12} />
+        <div className="mb-6 opacity-60 transition-opacity group-hover:opacity-100">
+          <Sparkline statuses={rb.recentStatuses} tileHeight={14} />
         </div>
       )}
-      <div className="mt-auto flex items-center gap-1">
-        <button
-          onClick={onRunNow}
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-emerald-300 transition-colors hover:bg-emerald-500/10"
-          title={t.run_now}
-        >
-          <PlayCircle size={13} />
-          {t.run}
-        </button>
-        <a
-          href={`/${lang}/editor?id=${rb.id}`}
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
-        >
-          <Edit3 size={13} />
-          {t.edit}
-        </a>
-        <a
-          href={`/${lang}/runs?runbook=${rb.id}`}
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
-          title={t.history}
-        >
-          <History size={13} />
-        </a>
-        <button
-          onClick={onDuplicate}
-          className="ml-auto rounded p-1 text-gray-400 hover:bg-white/5 hover:text-white"
-          title={t.duplicate}
-        >
-          <Copy size={13} />
-        </button>
-        <button
-          onClick={onDelete}
-          className="rounded p-1 text-gray-400 hover:bg-red-500/10 hover:text-red-400"
-          title={t.delete}
-        >
-          <Trash2 size={13} />
-        </button>
+
+      <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onRunNow}
+            className="bg-[var(--op-moss)]/10 flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-black text-[var(--op-moss)] transition-all hover:bg-[var(--op-moss)] hover:text-black"
+            title={t.run_now}
+          >
+            <PlayCircle size={14} strokeWidth={3} />
+            {t.run}
+          </button>
+          <a
+            href={`/${lang}/editor?id=${rb.id}`}
+            className="flex items-center gap-2 rounded-lg bg-[var(--panel-elevated)] px-3 py-1.5 text-xs font-black text-[var(--text-primary)] transition-all hover:bg-[var(--accent-color)] hover:text-black"
+          >
+            <Edit3 size={14} strokeWidth={3} />
+            {t.edit}
+          </a>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <a
+            href={`/${lang}/runs?runbook=${rb.id}`}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] transition-all hover:bg-[var(--panel-elevated)] hover:text-[var(--text-primary)]"
+            title={t.history}
+          >
+            <History size={16} />
+          </a>
+          <button
+            onClick={onDuplicate}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] transition-all hover:bg-[var(--panel-elevated)] hover:text-[var(--text-primary)]"
+            title={t.duplicate}
+          >
+            <Copy size={16} />
+          </button>
+          <button
+            onClick={onDelete}
+            className="hover:bg-[var(--op-sunset)]/10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] transition-all hover:text-[var(--op-sunset)]"
+            title={t.delete}
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -532,46 +591,73 @@ function TemplatePicker({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-white/10 bg-[#1a1f2a] shadow-2xl">
-        <div className="sticky top-0 flex items-center justify-between border-b border-white/10 bg-[#1a1f2a] px-5 py-3">
-          <h2 className="text-sm font-semibold text-white">{t.templatesTitle}</h2>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-white">
-            <X size={16} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="custom-scrollbar relative max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-[var(--panel-border)] bg-[var(--app-bg)] shadow-2xl"
+      >
+        <div className="bg-[var(--app-bg)]/80 sticky top-0 z-10 flex items-center justify-between border-b border-[var(--panel-border)] px-8 py-6 backdrop-blur-xl">
+          <div>
+            <div className="m-eyebrow mb-1">Blueprints</div>
+            <h2 className="text-3xl font-black tracking-tighter text-[var(--text-primary)]">
+              {t.templatesTitle}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full bg-[var(--panel-elevated)] p-2 text-[var(--text-muted)] transition-all hover:text-[var(--text-primary)]"
+          >
+            <X size={24} />
           </button>
         </div>
-        <div className="p-5">
+        <div className="p-8">
           {templates === null ? (
-            <div className="text-sm text-gray-500">{t.loading}</div>
+            <div className="flex h-48 items-center justify-center text-sm font-black uppercase tracking-widest text-[var(--text-muted)] opacity-50">
+              {t.loading}
+            </div>
           ) : templates.length === 0 ? (
-            <div className="text-sm text-gray-500">No templates found.</div>
+            <div className="py-12 text-center text-[var(--text-muted)]">
+              No blueprints found in the library.
+            </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {templates.map(tpl => (
                 <button
                   key={tpl.file}
                   onClick={() => onSelect(tpl)}
-                  className="hover:border-primary hover:bg-primary/5 rounded-md border border-white/10 p-3 text-left transition-colors"
+                  className="hover:border-[var(--accent-color)]/50 group relative flex flex-col rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 text-left transition-all hover:scale-[1.02]"
                 >
-                  <div className="mb-1 flex items-center gap-2">
-                    <FileCode size={14} className="text-primary/70" />
-                    <span className="truncate text-sm font-medium text-white">{tpl.name}</span>
-                  </div>
-                  {tpl.category && (
-                    <span className="mb-2 inline-block rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-emerald-300">
-                      {tpl.category}
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="bg-[var(--accent-color)]/10 flex h-10 w-10 items-center justify-center rounded-lg text-[var(--accent-color)]">
+                      <FileCode size={20} />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] opacity-50">
+                      {tpl.stepCount} steps
                     </span>
-                  )}
+                  </div>
+                  <h4 className="mb-2 text-lg font-black text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-color)]">
+                    {tpl.name}
+                  </h4>
                   {tpl.description && (
-                    <p className="line-clamp-2 text-xs text-gray-500">{tpl.description}</p>
+                    <p className="line-clamp-2 text-xs font-medium leading-relaxed text-[var(--text-muted)]">
+                      {tpl.description}
+                    </p>
                   )}
-                  <div className="mt-2 text-[10px] text-gray-600">{tpl.stepCount} steps</div>
+                  {tpl.category && (
+                    <div className="mt-4">
+                      <span className="rounded-lg bg-[var(--panel-elevated)] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                        {tpl.category}
+                      </span>
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

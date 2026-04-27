@@ -6,11 +6,11 @@
 
 ## Context
 
-NanoRun currently runs steps through **two parallel executor
+Operari currently runs steps through **two parallel executor
 hierarchies** that exist for historical reasons:
 
 ```
-backend/src/editor/nodes/        ← legacy NanoFlow editor executors
+backend/src/editor/nodes/        ← legacy Operari editor executors
 backend/src/runbook/executors/   ← post-pivot runbook executors (P0 #1)
 ```
 
@@ -126,7 +126,7 @@ ADR 0003 phase 4 lands"_. When the time comes:
 4. ExecutionService becomes the single caller — `tryRunbookExecutor`
    is no longer "try the runbook side first", it's the only path.
 5. Update `seed-nodes.ts` and `NodePalette.tsx` if any type strings
-   change shape (they shouldn't — the rename to `nanorun.*` already
+   change shape (they shouldn't — the rename to `operari.*` already
    landed in commit `<rename>`).
 6. Drop the `editor/` folder entirely — it stops existing as a
    meaningful boundary once the executors live elsewhere. The

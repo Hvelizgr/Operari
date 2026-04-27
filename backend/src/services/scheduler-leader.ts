@@ -116,7 +116,7 @@ export class SchedulerLeader {
       connectionString: this.options.connectionString ?? env.DATABASE_URL,
       // Short application_name so pg_stat_activity surfaces this
       // connection clearly to operators debugging "who holds the lock".
-      application_name: 'nanorun-scheduler-leader',
+      application_name: 'operari-scheduler-leader',
     });
     client.on('error', err => {
       // Connection-level error: the lock is dead. Drop leadership so

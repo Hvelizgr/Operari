@@ -7,7 +7,7 @@ export interface CliConfig {
   baseURL: string;
 }
 
-const CONFIG_DIR = path.join(os.homedir(), '.nanorun');
+const CONFIG_DIR = path.join(os.homedir(), '.operari');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
 export function getConfigPath(): string {
@@ -46,7 +46,7 @@ export function clearConfig(): boolean {
 export function requireConfig(): CliConfig {
   const config = loadConfig();
   if (!config) {
-    console.error('Not logged in. Run `cairn login` first.');
+    console.error('Not logged in. Run `operari login` first.');
     process.exit(1);
   }
   return config;

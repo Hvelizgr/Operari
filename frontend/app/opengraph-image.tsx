@@ -13,7 +13,7 @@ import { repo } from '@/config/repo.config';
  * Design constraints:
  *   - 1200×630, the standard OG size that Twitter / Slack / LinkedIn
  *     expect. Anything else gets cropped or stretched.
- *   - One sentence: "Your alert fires. NanoRun runs the fix." Vendor-
+ *   - One sentence: "Your alert fires. Operari runs the fix." Vendor-
  *     neutral on purpose so the preview reads as "we plug into whatever
  *     monitoring you already have", not as a Sentry add-on.
  *   - Dark background with the same orange accent as the favicon and
@@ -22,7 +22,7 @@ import { repo } from '@/config/repo.config';
  *     a custom font here would slow the route by ~400ms per request.
  */
 export const runtime = 'edge';
-export const alt = 'NanoRun — Your alert fires. NanoRun runs the fix.';
+export const alt = 'Operari — Your alert fires. Operari runs the fix.';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -69,7 +69,7 @@ export default async function Image() {
           </svg>
         </div>
         <div style={{ color: '#fafafa', fontSize: 38, fontWeight: 700, letterSpacing: -0.5 }}>
-          NanoRun
+          Operari
         </div>
       </div>
 
@@ -102,7 +102,7 @@ export default async function Image() {
             letterSpacing: -2,
           }}
         >
-          NanoRun runs the fix.
+          Operari runs the fix.
         </div>
         <div
           style={{

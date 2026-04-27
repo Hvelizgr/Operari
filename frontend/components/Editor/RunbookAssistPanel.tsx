@@ -1,6 +1,6 @@
 'use client';
 
-import type { WorkflowNode } from '@nanorun/shared';
+import type { WorkflowNode } from '@operari/shared';
 import { AlertCircle, Loader2, Sparkles, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -21,7 +21,7 @@ interface RunbookAssistPanelProps {
 const STRINGS: Record<'en' | 'es', Record<string, string>> = {
   en: {
     title: 'AI assist',
-    subtitle: 'Ask NanoRun to diagnose a failing step.',
+    subtitle: 'Ask Operari to diagnose a failing step.',
     noFailure: 'Select a failed step to get a diagnosis, or paste an error below.',
     stepLabel: 'Step',
     errorLabel: 'Error',
@@ -34,11 +34,11 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     suggestRecent: 'Show recent failed runs',
     suggestCompare: 'What changed since the last success?',
     failed: 'Diagnosis failed',
-    brand: 'NanoRun AI',
+    brand: 'Operari AI',
   },
   es: {
     title: 'Asistente IA',
-    subtitle: 'Pedile a NanoRun que diagnostique un paso fallido.',
+    subtitle: 'Pedile a Operari que diagnostique un paso fallido.',
     noFailure: 'Selecciona un paso fallido o pega un error abajo.',
     stepLabel: 'Paso',
     errorLabel: 'Error',
@@ -51,7 +51,7 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     suggestRecent: 'Mostrame runs fallidos recientes',
     suggestCompare: '¿Qué cambió desde el último éxito?',
     failed: 'Diagnóstico fallido',
-    brand: 'NanoRun AI',
+    brand: 'Operari AI',
   },
 };
 

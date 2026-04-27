@@ -1,4 +1,4 @@
-import type { Connection } from '@nanorun/shared';
+import type { Connection } from '@operari/shared';
 import { fireEvent, render } from '@testing-library/react';
 
 import EditorConnection from '@/components/Editor/EditorConnection';
@@ -68,7 +68,7 @@ describe('EditorConnection', () => {
     const { container } = renderInSvg({ isSelected: true });
     const paths = container.querySelectorAll('path');
     // The third path (index 2) is the main coloured line.
-    // Selected colour is emerald #3ecf8e (post-Cairn rebrand accent).
+    // Selected colour is emerald #3ecf8e (post-Operari rebrand accent).
     expect(paths[2]).toHaveAttribute('stroke', '#3ecf8e');
   });
 

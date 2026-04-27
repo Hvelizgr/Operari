@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 /**
- * NanoRun theme system.
+ * Operari theme system.
  *
  * Three real themes — light, dark, midnight. Persists the user's
  * choice in localStorage and applies the result globally to <html>:
@@ -24,7 +24,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 export type Theme = 'light' | 'dark' | 'midnight';
 
-const STORAGE_KEY = 'nanorun-theme';
+const STORAGE_KEY = 'operari-theme';
 const DEFAULT_THEME: Theme = 'dark';
 
 export const THEMES: Array<{

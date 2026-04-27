@@ -13,7 +13,7 @@ interface RetryPolicyEditorProps {
 const STRINGS: Record<'en' | 'es', Record<string, string>> = {
   en: {
     title: 'Retry policy',
-    subtitle: 'How NanoRun should react if this step fails.',
+    subtitle: 'How Operari should react if this step fails.',
     enable: 'Enable retries',
     count: 'Attempts',
     countHint: 'Extra attempts after the first failure (e.g. 3 = up to 4 total runs).',
@@ -27,7 +27,7 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
   },
   es: {
     title: 'Política de reintentos',
-    subtitle: 'Cómo debe reaccionar NanoRun si este paso falla.',
+    subtitle: 'Cómo debe reaccionar Operari si este paso falla.',
     enable: 'Habilitar reintentos',
     count: 'Intentos',
     countHint: 'Intentos extra tras el primer fallo (3 = hasta 4 ejecuciones).',

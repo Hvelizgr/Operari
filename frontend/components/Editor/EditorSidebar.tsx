@@ -210,28 +210,30 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
     return (
       <>
         {/* Header / Logo */}
-        <div className="flex h-[50px] items-center justify-between border-b border-[var(--border-color)] bg-[rgba(0,0,0,0.1)] px-3">
+        <div className="flex h-[60px] items-center justify-between border-b border-[var(--panel-border)] bg-[rgba(255,255,255,0.02)] px-4">
           {showLabels && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="flex items-center gap-2"
             >
-              <DNAMark size={22} />
-              <span className="text-lg font-bold tracking-wider text-white">NanoRun</span>
+              <DNAMark size={24} primary="var(--op-moss)" />
+              <span className="text-xl font-black tracking-tighter text-[var(--text-primary)]">
+                Operari
+              </span>
             </motion.div>
           )}
           {/* Collapsed sidebar still shows the mark so the brand never
               disappears when the user collapses the rail. */}
           {!showLabels && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <DNAMark size={22} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mx-auto">
+              <DNAMark size={24} primary="var(--op-moss)" />
             </motion.div>
           )}
-          {!isMobile && (
+          {showLabels && !isMobile && (
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className="rounded p-1 transition-colors hover:bg-white/10"
+              className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--panel-elevated)] hover:text-[var(--text-primary)]"
             >
               {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
             </button>
@@ -239,7 +241,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           {isMobile && (
             <button
               onClick={() => setDrawerOpen(false)}
-              className="rounded p-1 transition-colors hover:bg-white/10"
+              className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--panel-elevated)]"
               aria-label="Close menu"
             >
               <X size={16} />
@@ -248,19 +250,16 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
         </div>
 
         {/* Menu Groups */}
-        <div className="flex-1 overflow-y-auto py-2">
+        <div className="custom-scrollbar flex-1 overflow-y-auto py-4">
           {menuGroups.map((group, groupIdx) => (
-            <div key={group.id}>
-              {/* Separator line between groups. When collapsed, a
-                  plain hairline stands in for the label so the
-                  grouping is still visible. */}
-              {groupIdx > 0 && (
-                <div className="mx-3 my-2 border-t border-white/5" aria-hidden="true" />
-              )}
+            <div key={group.id} className="mb-6">
               {showLabels && (
-                <div className="mb-1 mt-1 px-4 text-[10px] font-semibold uppercase tracking-wider text-gray-600">
+                <div className="mb-2 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] opacity-50">
                   {group.label}
                 </div>
+              )}
+              {!showLabels && groupIdx > 0 && (
+                <div className="mx-4 my-4 border-t border-[var(--panel-border)] opacity-30" />
               )}
               {group.items.map(item => {
                 const isActive = pathname.startsWith(item.href);
@@ -269,25 +268,33 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                   <div
                     key={item.id}
                     onClick={() => router.push(item.href)}
-                    className={`mx-2 my-0.5 flex cursor-pointer items-center rounded-md px-3 py-2 transition-all duration-200 ${
+                    className={`group relative mx-3 my-1 flex cursor-pointer items-center rounded-xl px-3 py-2.5 transition-all duration-300 ${
                       isActive
-                        ? 'bg-primary text-white shadow-md'
-                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                        ? 'bg-[var(--accent-color)]/10 text-[var(--accent-color)]'
+                        : 'text-[var(--text-muted)] hover:bg-[var(--panel-elevated)] hover:text-[var(--text-primary)]'
                     }`}
                     title={!showLabels ? item.label : ''}
                   >
-                    <div className="flex min-w-[20px] justify-center">
-                      <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-                    </div>
-                    {showLabels && (
-                      <motion.span
-                        className="ml-3 truncate text-sm font-medium"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                      >
-                        {item.label}
-                      </motion.span>
+                    {isActive && (
+                      <motion.div
+                        layoutId="active-pill"
+                        className="absolute left-0 h-5 w-1 rounded-r-full bg-[var(--accent-color)]"
+                      />
                     )}
+                    <div
+                      className={`flex min-w-[240px] items-center ${!showLabels ? 'min-w-0 justify-center' : ''}`}
+                    >
+                      <div className="flex w-6 justify-center">
+                        <Icon
+                          size={18}
+                          strokeWidth={isActive ? 2.5 : 2}
+                          className={isActive ? 'drop-shadow-[0_0_8px_rgba(62,207,142,0.5)]' : ''}
+                        />
+                      </div>
+                      {showLabels && (
+                        <span className="ml-3 text-sm font-bold tracking-tight">{item.label}</span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -296,45 +303,47 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
         </div>
 
         {/* Footer / User */}
-        <div className="border-t border-[var(--border-color)] bg-[rgba(0,0,0,0.2)] p-2">
+        <div className="border-t border-[var(--panel-border)] bg-[rgba(255,255,255,0.02)] p-4">
           <div
-            className={`flex items-center ${!showLabels ? 'justify-center' : 'px-2'} rounded py-2 text-gray-400 transition-colors`}
+            className={`flex items-center ${!showLabels ? 'justify-center' : ''} group cursor-pointer rounded-xl p-2 transition-all hover:bg-[var(--panel-elevated)]`}
+            onClick={() => router.push(`/${lang}/settings`)}
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-600 bg-slate-700">
-              <User size={16} />
+            <div className="group-hover:border-[var(--accent-color)]/50 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] text-[var(--text-muted)] transition-all group-hover:text-[var(--accent-color)]">
+              <User size={18} />
             </div>
             {showLabels && (
-              <motion.div
-                className="ml-3 overflow-hidden"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                <div className="truncate text-xs font-bold text-white">{displayName}</div>
-                <div className="truncate text-[10px] text-gray-500">{displayEmail}</div>
-              </motion.div>
+              <div className="ml-3 overflow-hidden">
+                <div className="truncate text-xs font-black text-[var(--text-primary)]">
+                  {displayName}
+                </div>
+                <div className="truncate text-[10px] font-medium text-[var(--text-muted)]">
+                  {displayEmail}
+                </div>
+              </div>
             )}
           </div>
-          <div
-            className={`mt-1 flex items-center ${!showLabels ? 'justify-center' : 'justify-end gap-2'}`}
-          >
-            <button
-              onClick={() => router.push(`/${lang}/settings`)}
-              className="rounded p-1.5 text-gray-400 hover:bg-white/10 hover:text-white"
-              title={lang === 'en' ? 'Settings' : 'Configuración'}
-            >
-              <Settings size={14} />
-            </button>
-            {showLabels && session && session.user.id !== 'anonymous' && (
+
+          {showLabels && (
+            <div className="mt-4 flex items-center justify-between px-2">
               <button
-                onClick={handleLogout}
-                disabled={signingOut}
-                className="rounded p-1.5 text-gray-400 hover:bg-white/10 hover:text-white disabled:opacity-50"
-                title={lang === 'en' ? 'Sign out' : 'Cerrar sesión'}
+                onClick={() => router.push(`/${lang}/settings`)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] transition-all hover:bg-[var(--panel-elevated)] hover:text-[var(--text-primary)]"
+                title={lang === 'en' ? 'Settings' : 'Configuración'}
               >
-                <LogOut size={14} />
+                <Settings size={16} />
               </button>
-            )}
-          </div>
+              {session && session.user.id !== 'anonymous' && (
+                <button
+                  onClick={handleLogout}
+                  disabled={signingOut}
+                  className="hover:bg-[var(--op-sunset)]/10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] transition-all hover:text-[var(--op-sunset)] disabled:opacity-50"
+                  title={lang === 'en' ? 'Sign out' : 'Cerrar sesión'}
+                >
+                  <LogOut size={16} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </>
     );
@@ -349,27 +358,25 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
         <GlobalCommandPalette lang={lang} />
         <button
           onClick={() => setDrawerOpen(true)}
-          className="fixed left-3 top-3 z-[60] rounded-md border border-white/10 bg-[#2a2f3a] p-2 text-white shadow-lg"
+          className="fixed left-4 top-4 z-[60] rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-2.5 text-[var(--text-primary)] shadow-2xl backdrop-blur-xl"
           aria-label="Open menu"
         >
-          <Menu size={18} />
+          <Menu size={20} />
         </button>
         {drawerOpen && (
-          <div className="fixed inset-0 z-[55] bg-black/60" onClick={() => setDrawerOpen(false)} />
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm"
+            onClick={() => setDrawerOpen(false)}
+          />
         )}
         <motion.div
           initial={{ x: '-100%' }}
           animate={{ x: drawerOpen ? 0 : '-100%' }}
-          transition={{ type: 'spring', stiffness: 350, damping: 32 }}
-          className="fixed left-0 top-0 z-[56] flex h-screen w-[240px] flex-col border-r border-[var(--border-color)] bg-[var(--sidebar-background-color)] text-[var(--sidebar-text-color)]"
-          style={
-            {
-              '--sidebar-background-color': '#2a2f3a',
-              '--sidebar-text-color': '#ccc',
-              '--sidebar-active-background': '#3ecf8e',
-              '--sidebar-active-text': '#fff',
-            } as React.CSSProperties
-          }
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          className="fixed left-0 top-0 z-[56] flex h-screen w-[280px] flex-col border-r border-[var(--panel-border)] bg-[var(--app-bg)] text-[var(--text-primary)] shadow-2xl"
         >
           {renderContents(true)}
         </motion.div>
@@ -382,18 +389,10 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
       <StatusPill lang={lang} />
       <GlobalCommandPalette lang={lang} />
       <motion.div
-        className="relative z-50 flex h-screen flex-shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--sidebar-background-color)] text-[var(--sidebar-text-color)]"
-        initial={{ width: 220 }}
-        animate={{ width: collapsed ? 50 : 220 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        style={
-          {
-            '--sidebar-background-color': '#2a2f3a',
-            '--sidebar-text-color': '#ccc',
-            '--sidebar-active-background': '#3b82f6',
-            '--sidebar-active-text': '#fff',
-          } as React.CSSProperties
-        }
+        className="bg-[var(--panel-bg)]/50 relative z-50 flex h-screen flex-shrink-0 flex-col border-r border-[var(--panel-border)] text-[var(--text-primary)] backdrop-blur-xl"
+        initial={{ width: 240 }}
+        animate={{ width: collapsed ? 70 : 240 }}
+        transition={{ type: 'spring', stiffness: 250, damping: 25 }}
       >
         {renderContents(false)}
       </motion.div>

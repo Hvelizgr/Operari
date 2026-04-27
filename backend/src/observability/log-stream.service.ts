@@ -24,7 +24,7 @@ import type { Redis } from 'ioredis';
  * The `~` makes the trim approximate (Redis trims at chunk
  * boundaries) which is dramatically faster than exact trim and
  * enough for our purposes. Default cap = 10_000 entries per run.
- * Override via NANORUN_LOG_STREAM_MAX_ENTRIES.
+ * Override via OPERARI_LOG_STREAM_MAX_ENTRIES.
  *
  * Best-effort semantics
  *   - If Redis is not configured (no REDIS_URL), every method is a
@@ -278,8 +278,8 @@ export function getLogStream(): LogStreamService {
     // Lazy import to avoid pulling redisConfig into test environments
     // that mock this module entirely.
     const { redisConfig } = require('../config/redis.config');
-    const maxEntries = process.env.NANORUN_LOG_STREAM_MAX_ENTRIES
-      ? parseInt(process.env.NANORUN_LOG_STREAM_MAX_ENTRIES, 10)
+    const maxEntries = process.env.OPERARI_LOG_STREAM_MAX_ENTRIES
+      ? parseInt(process.env.OPERARI_LOG_STREAM_MAX_ENTRIES, 10)
       : undefined;
     logStreamSingleton = new LogStreamService(redisConfig.getClient(), { maxEntries });
   }

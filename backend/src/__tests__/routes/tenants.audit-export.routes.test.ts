@@ -114,7 +114,7 @@ describe('GET /api/tenants/audit/export', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toContain('application/x-ndjson');
     expect(res.headers['content-disposition']).toMatch(
-      /^attachment; filename="cairn-audit-t1-\d{4}-\d{2}-\d{2}T\d{6}\.ndjson"$/
+      /^attachment; filename="operari-audit-t1-\d{4}-\d{2}-\d{2}T\d{6}\.ndjson"$/
     );
     const lines = res.text.trim().split('\n');
     expect(lines).toHaveLength(2);

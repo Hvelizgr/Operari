@@ -10,7 +10,7 @@ import { resolveTemplate } from './_shared';
 /**
  * Database step — runbook-scoped passthrough stub.
  *
- * NanoRun narrows the database node to the operations a runbook
+ * Operari narrows the database node to the operations a runbook
  * author legitimately needs:
  *
  *   - migrate  — apply a versioned schema migration (DDL)
@@ -36,7 +36,7 @@ export class DatabaseNodeExecutor implements EditorNodeExecutor<
   DatabaseResult
 > {
   readonly type = 'Database';
-  readonly aliases = ['nanorun.postgres'] as const;
+  readonly aliases = ['operari.postgres'] as const;
 
   async execute(
     config: DatabaseNodeConfig,

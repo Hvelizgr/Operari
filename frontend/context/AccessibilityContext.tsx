@@ -24,7 +24,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     setHasMounted(true);
 
     // Load preference from localStorage
-    const saved = storageRead('nanorun-high-contrast');
+    const saved = storageRead('operari-high-contrast');
     if (saved) {
       setHighContrast(saved === 'true');
     } else {
@@ -39,7 +39,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
   const toggleHighContrast = () => {
     setHighContrast(prev => {
       const newValue = !prev;
-      storageWrite('nanorun-high-contrast', String(newValue));
+      storageWrite('operari-high-contrast', String(newValue));
       return newValue;
     });
     announceMessage(highContrast ? 'Normal contrast mode enabled' : 'High contrast mode enabled');

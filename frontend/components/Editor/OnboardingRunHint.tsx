@@ -18,7 +18,7 @@ import { motionFor, overlayPillVariants, reducedOverlayPillVariants } from '@/li
  * When this renders
  *   - user has a runbook on the canvas (nodes > 0)
  *   - no execution has happened YET in this tenant-session
- *     (localStorage flag `nanorun:hasRunFirstRunbook` is unset)
+ *     (localStorage flag `operari:hasRunFirstRunbook` is unset)
  *   - not currently executing (CanvasRunStatus owns that slot instead)
  *
  * When it stops rendering
@@ -43,7 +43,7 @@ interface OnboardingRunHintProps {
   lang: 'en' | 'es';
 }
 
-const STORAGE_KEY = 'nanorun:hasRunFirstRunbook';
+const STORAGE_KEY = 'operari:hasRunFirstRunbook';
 
 const LABELS = {
   en: {

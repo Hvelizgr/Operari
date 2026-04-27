@@ -1,4 +1,4 @@
-import { Connection, WorkflowNode } from '@nanorun/shared';
+import { Connection, WorkflowNode } from '@operari/shared';
 import { ChevronDown, Database, HelpCircle } from 'lucide-react';
 import React, { lazy, Suspense, useState } from 'react';
 

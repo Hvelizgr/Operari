@@ -149,7 +149,7 @@ export class ErrorNotificationService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'cairn/1.0',
+          'User-Agent': 'operari/1.0',
         },
         body: JSON.stringify({
           type: 'error',

@@ -1,5 +1,5 @@
 import * as readline from 'readline';
-import { NanoRun } from '@nanorun/sdk';
+import { Operari } from '@operari/sdk';
 import { saveConfig } from '../config';
 import { colors, symbols } from '../colors';
 
@@ -22,8 +22,8 @@ function prompt(question: string): Promise<string> {
 }
 
 export async function loginCommand(options: LoginOptions = {}) {
-  console.log(colors.bold(`${symbols.dot} NanoRun login`));
-  console.log(colors.dim('  Get your API key from your NanoRun dashboard.\n'));
+  console.log(colors.bold(`${symbols.dot} Operari login`));
+  console.log(colors.dim('  Get your API key from your Operari dashboard.\n'));
 
   let baseURL = options.baseUrl;
   if (!baseURL) {
@@ -44,7 +44,7 @@ export async function loginCommand(options: LoginOptions = {}) {
   // Verify the key works
   process.stdout.write(colors.dim('  Verifying...'));
   try {
-    const client = new NanoRun({ apiKey, baseURL });
+    const client = new Operari({ apiKey, baseURL });
     await client.listRunbooks();
     process.stdout.write('\r' + ' '.repeat(20) + '\r');
   } catch (err) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { Connection } from '@nanorun/shared';
+import { Connection } from '@operari/shared';
 import { motion } from 'framer-motion';
 
 // Removed local Connection interface

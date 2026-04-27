@@ -110,7 +110,7 @@ export const BUILTIN_PRESETS: BuiltinPreset[] = [
   },
 ];
 
-export const CUSTOM_PRESETS_KEY = 'nanorun-appearance-presets';
+export const CUSTOM_PRESETS_KEY = 'operari-appearance-presets';
 /** Hard cap so a user who clicks "Save" forever can't blow their
  *  localStorage quota. Well above any realistic use (the UI surfaces
  *  the cap when it trips). */

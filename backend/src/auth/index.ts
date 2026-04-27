@@ -15,8 +15,8 @@ export { WorkOSJwksVerifier } from './workos-jwks-verifier';
 /**
  * Build the configured AuthProvider for this process.
  *
- *   NANORUN_AUTH_PROVIDER=jwt     (default — self-host)
- *   NANORUN_AUTH_PROVIDER=workos  (cloud, requires WORKOS_CLIENT_ID etc.)
+ *   OPERARI_AUTH_PROVIDER=jwt     (default — self-host)
+ *   OPERARI_AUTH_PROVIDER=workos  (cloud, requires WORKOS_CLIENT_ID etc.)
  *
  * Defaults to JWT so existing self-host deployments need ZERO config
  * changes after this commit lands. The WorkOS path is opt-in. When
@@ -27,7 +27,7 @@ export { WorkOSJwksVerifier } from './workos-jwks-verifier';
  * insecurity.
  */
 export function buildAuthProvider(prisma: PrismaClient): AuthProvider {
-  const provider = (process.env.NANORUN_AUTH_PROVIDER ?? 'jwt').toLowerCase();
+  const provider = (process.env.OPERARI_AUTH_PROVIDER ?? 'jwt').toLowerCase();
   switch (provider) {
     case 'workos': {
       const clientId = process.env.WORKOS_CLIENT_ID;

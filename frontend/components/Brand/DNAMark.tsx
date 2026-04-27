@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * DNA-helix brand mark prototype for NanoRun.
+ * DNA-helix brand mark prototype for Operari.
  *
  * Two strands cross at top, middle, and bottom — the iconic
  * double-helix profile flattened to 2D. The narrative the user
- * picked: each strand is one of the two surfaces every NanoRun step
+ * picked: each strand is one of the two surfaces every Operari step
  * lives on at once — the canvas (what you author) and the audit
  * chain (what actually ran). Steps are the dots at each crossing,
  * connected to both strands by definition.
@@ -18,7 +18,7 @@
 interface DNAMarkProps {
   /** Pixel size — default 32px keeps it readable at favicon scales. */
   size?: number;
-  /** Strand A colour. Defaults to NanoRun's emerald accent. */
+  /** Strand A colour. Defaults to Operari's emerald accent. */
   primary?: string;
   /** Strand B colour. Defaults to a softer white-ish for contrast on
    *  dark backgrounds. */
@@ -54,7 +54,7 @@ export function DNAMark({
       viewBox="0 0 32 32"
       fill="none"
       role="img"
-      aria-label="NanoRun"
+      aria-label="Operari"
       className={className}
     >
       {showRungs && (

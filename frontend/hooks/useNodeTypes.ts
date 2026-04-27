@@ -23,7 +23,7 @@ export function useNodeTypes() {
   useEffect(() => {
     const fetchNodes = async () => {
       // Try to load from localStorage first
-      const cached = storageRead('nanorun-node-types');
+      const cached = storageRead('operari-node-types');
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
@@ -47,7 +47,7 @@ export function useNodeTypes() {
         const data = await res.json();
 
         // Cache the raw data (without React elements)
-        storageWrite('nanorun-node-types', JSON.stringify(data));
+        storageWrite('operari-node-types', JSON.stringify(data));
 
         const mappedNodes = data.map((node: any) => {
           // Resolve icon from string name

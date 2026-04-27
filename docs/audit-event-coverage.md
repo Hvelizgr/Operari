@@ -115,7 +115,7 @@ before we onboard a paying customer with compliance needs:
 - ~~`connectedaccount.linked`, `connectedaccount.unlinked`~~ — paired with
   `secret.accessed`, this lets us answer "who connected this Slack
   workspace"
-- `key.rotated` — when `NANORUN_SECRET_KEY` rotates, log the
+- `key.rotated` — when `OPERARI_SECRET_KEY` rotates, log the
   fingerprint transition (not the keys themselves) so we can
   cross-reference any subsequent decrypt failures
 
@@ -124,7 +124,7 @@ a `safeAudit` call at the relevant write site.
 
 ## Verification
 
-- `cairn audit verify` (`packages/cli/src/commands/audit/verify.ts`)
+- `operari audit verify` (`packages/cli/src/commands/audit/verify.ts`)
   walks the chain per tenant and reports any tampering.
 - `__tests__/audit/audit.service.test.ts` and
   `__tests__/audit/execution-audit.test.ts` cover the emit paths above.

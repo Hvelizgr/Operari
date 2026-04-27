@@ -1,4 +1,4 @@
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AUTOSAVE_DEBOUNCE_MS } from '../constants/timeouts';
@@ -51,8 +51,8 @@ export function useAutosave({
   const saveToLocalStorage = useCallback(
     (data: WorkflowData) => {
       try {
-        storageWrite(`nanorun-workflow-${workflowId}`, JSON.stringify(data));
-        storageWrite(`nanorun-workflow-${workflowId}-timestamp`, data.timestamp.toString());
+        storageWrite(`operari-workflow-${workflowId}`, JSON.stringify(data));
+        storageWrite(`operari-workflow-${workflowId}-timestamp`, data.timestamp.toString());
       } catch (error) {
         console.error('Failed to save to localStorage:', error);
       }
@@ -244,14 +244,14 @@ export function useAutosave({
   }, [enableAutosave, saveStatus, performSave]);
 
   useEffect(() => {
-    const savedPreference = storageRead('nanorun-autosave-enabled');
+    const savedPreference = storageRead('operari-autosave-enabled');
     if (savedPreference !== null) {
       setEnableAutosave(savedPreference === 'true');
     }
   }, []);
 
   useEffect(() => {
-    storageWrite('nanorun-autosave-enabled', enableAutosave.toString());
+    storageWrite('operari-autosave-enabled', enableAutosave.toString());
   }, [enableAutosave]);
 
   /**

@@ -9,7 +9,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  * useful.
  *
  * Shape: one note node ("what is this") → one shell node ("echo hello
- * from NanoRun"). Intentionally simple: the demo exists to prove the
+ * from Operari"). Intentionally simple: the demo exists to prove the
  * canvas + the run button work end-to-end, not to teach every node
  * type. A curious user will replace it within minutes.
  *
@@ -18,7 +18,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  * demo row — not worth failing registration over.
  */
 
-const DEMO_RUNBOOK_NAME = 'Hello NanoRun';
+const DEMO_RUNBOOK_NAME = 'Hello Operari';
 const DEMO_RUNBOOK_DESCRIPTION =
   'Starter runbook — a tiny shell step that prints a greeting. Open the editor, hit ⌘+Enter to run it, and replace the nodes with something useful.';
 
@@ -32,7 +32,7 @@ const DEMO_NODES = [
     position: { x: 160, y: 120 },
     data: {
       text:
-        'Welcome to NanoRun. This is your starter runbook — click “Run” in the top bar ' +
+        'Welcome to Operari. This is your starter runbook — click “Run” in the top bar ' +
         'or press ⌘+Enter to trigger the shell step below. Replace it with your own ' +
         'diagnostic, failover, or deploy step when you are ready.',
     },
@@ -43,7 +43,7 @@ const DEMO_NODES = [
     position: { x: 160, y: 340 },
     data: {
       label: 'Print greeting',
-      command: 'echo "hello from NanoRun"',
+      command: 'echo "hello from Operari"',
     },
   },
 ];

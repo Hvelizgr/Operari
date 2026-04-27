@@ -1,7 +1,7 @@
 /**
  * Pluggable billing meter for usage-based pricing.
  *
- * IMPLEMENTACION P1 #12: NanoRun's pricing model is "$X/seat/mo +
+ * IMPLEMENTACION P1 #12: Operari's pricing model is "$X/seat/mo +
  * $Y/1000 runs" so the runtime needs to record billable events
  * (a run started, a runner minute consumed, …) without coupling to
  * a specific billing provider. The doc says: Stripe Billing Meters
@@ -29,7 +29,7 @@
  *   `${eventType}:${runId}:${stepId}` so retries collapse.
  * - Customer resolution: meterEvent.customerId is the BILLING-side
  *   customer id (Stripe customer cus_xxx, Orb customer cust_xxx),
- *   NOT the NanoRun tenant id. The mapping lives in
+ *   NOT the Operari tenant id. The mapping lives in
  *   `Tenant.stripeCustomerId` (added when the cloud beta migration
  *   lands). Until then, every meter call no-ops on missing mapping.
  */
@@ -45,7 +45,7 @@ export interface BillableEvent {
   type: BillableEventType;
   /**
    * Billing-side customer id (Stripe `cus_...`, Orb `cust_...`).
-   * NOT the NanoRun tenant id; resolution happens at the call site
+   * NOT the Operari tenant id; resolution happens at the call site
    * via `Tenant.stripeCustomerId`. Pass undefined to skip the
    * write — the meter no-ops rather than guessing.
    */

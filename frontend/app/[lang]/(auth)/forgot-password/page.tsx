@@ -13,7 +13,7 @@ export async function generateMetadata({
   const { lang } = await params;
   const typedLang: AuthLang = lang === 'es' ? 'es' : 'en';
   return {
-    title: `${resetStrings[typedLang].forgot.eyebrow} · NanoRun`,
+    title: `${resetStrings[typedLang].forgot.eyebrow} · Operari`,
     description: resetStrings[typedLang].forgot.subtitle,
   };
 }

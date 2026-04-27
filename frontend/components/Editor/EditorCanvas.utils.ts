@@ -1,4 +1,4 @@
-import { WorkflowNode } from '@nanorun/shared';
+import { WorkflowNode } from '@operari/shared';
 
 import { ExecutionMetric, ViewportState } from '../../types/editor.types';
 import { NodeType } from '../Node';

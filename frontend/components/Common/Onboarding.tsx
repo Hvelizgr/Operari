@@ -115,12 +115,12 @@ export default function Onboarding({
 export function EmptyStateMessage({ lang }: { lang: 'en' | 'es' }) {
   const content = {
     en: {
-      title: 'Welcome to the NanoRun canvas',
+      title: 'Welcome to the Operari canvas',
       description: 'Start building a runbook by adding steps and sequencing them.',
       cta: 'Add your first step',
     },
     es: {
-      title: 'Bienvenido al canvas NanoRun',
+      title: 'Bienvenido al canvas Operari',
       description: 'Empezá a construir un runbook agregando pasos y secuenciándolos.',
       cta: 'Agregar tu primer paso',
     },

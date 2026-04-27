@@ -43,7 +43,7 @@ describe('Contact routes', () => {
       name: 'Jane SRE',
       email: 'jane@acme.dev',
       company: 'Acme',
-      message: 'Hi, we want NanoRun for incident response.',
+      message: 'Hi, we want Operari for incident response.',
     });
 
     expect(res.status).toBe(202);

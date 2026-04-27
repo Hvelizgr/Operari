@@ -29,7 +29,7 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const DEFAULT_TIMEOUT_MS = 5000;
 
 function fromAddress(): string {
-  return process.env.CONTACT_FROM_EMAIL || 'noreply@nanorun.dev';
+  return process.env.CONTACT_FROM_EMAIL || 'noreply@operari.dev';
 }
 
 async function sendViaResend(msg: EmailMessage, apiKey: string): Promise<SendResult> {

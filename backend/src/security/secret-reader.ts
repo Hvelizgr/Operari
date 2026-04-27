@@ -3,7 +3,7 @@ import { SecretCipher, SecretCipherError } from './secret-cipher';
 
 /**
  * SecretReader — the only sanctioned way to read decrypted secrets in
- * NanoRun production code.
+ * Operari production code.
  *
  * Wraps {@link SecretCipher} so that every successful or failed decrypt
  * emits a `secret.accessed` audit event tied to the requesting actor.
@@ -29,7 +29,7 @@ export interface SecretReadRequest {
   aad?: string;
   /**
    * Tenant whose audit chain receives the event. Required — there is
-   * no "global" audit log in NanoRun.
+   * no "global" audit log in Operari.
    */
   tenantId: string;
   /** Who is asking. `null` for system-initiated reads (cron, runner). */
@@ -90,7 +90,7 @@ export class SecretReader {
    * Audit write that swallows its own errors. The point of the audit
    * chain is to be best-effort observability — we never want a flaky
    * Postgres write to break a runbook that legitimately needs the
-   * secret. The chain verifier (`nanorun audit verify`) is the
+   * secret. The chain verifier (`operari audit verify`) is the
    * backstop for "did we miss anything".
    */
   private async recordSafe(args: {

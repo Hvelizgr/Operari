@@ -15,7 +15,7 @@ type CTAProps = {
 };
 
 /**
- * Final CTA — the docker compose snippet, not a "Get NanoRun" button.
+ * Final CTA — the docker compose snippet, not a "Get Operari" button.
  *
  * The two CTAs:
  *   1. Read the README — primary, because the README does the

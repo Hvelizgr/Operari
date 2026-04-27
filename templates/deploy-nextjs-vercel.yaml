@@ -1,4 +1,4 @@
-# NanoRun Template: Deploy Next.js to Vercel
+# Operari Template: Deploy Next.js to Vercel
 # Use case: production deploys with tests, build, smoke check, and Slack notification.
 #
 # Variables expected:

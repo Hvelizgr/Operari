@@ -1,7 +1,7 @@
-# NanoRun Template: Respond to a Sentry alert
+# Operari Template: Respond to a Sentry alert
 #
 # The runbook that justifies the whole landing positioning:
-# "Sentry catches it. NanoRun runs the fix."
+# "Sentry catches it. Operari runs the fix."
 #
 # When Sentry posts a webhook for a new issue, this runbook:
 #   1. Captures incident context (logs, recent deploys)
@@ -118,7 +118,7 @@ steps:
       webhookUrl: 'https://api.linear.app/graphql'
       title: 'Incident post-mortem: {{vars.project_slug}}'
       message: |
-        Auto-created from NanoRun runbook respond-to-sentry-alert.
+        Auto-created from Operari runbook respond-to-sentry-alert.
 
         Trigger: Sentry alert "{{vars.error_message}}"
         Action taken: Helm rollback to previous revision

@@ -1,7 +1,7 @@
 /**
  * Pluggable authentication provider interface.
  *
- * NanoRun supports two auth modes per IMPLEMENTACION P1 #11:
+ * Operari supports two auth modes per IMPLEMENTACION P1 #11:
  *
  *   1. Self-host: JWT casero (the existing path). Stays the default
  *      so single-node deployments do not need an external auth

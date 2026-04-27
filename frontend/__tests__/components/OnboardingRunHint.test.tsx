@@ -17,22 +17,22 @@ describe('OnboardingRunHint', () => {
     const { container } = render(
       <OnboardingRunHint nodeCount={0} isExecuting={false} hasExecution={false} lang="en" />
     );
-    expect(container.firstChild).toBeNull();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('hides while a run is in flight so the status pill owns the slot', () => {
     const { container } = render(
       <OnboardingRunHint nodeCount={3} isExecuting hasExecution={false} lang="en" />
     );
-    expect(container.firstChild).toBeNull();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('hides when the tenant has already run at least once (localStorage flag)', () => {
-    window.localStorage.setItem('nanorun:hasRunFirstRunbook', '1');
+    window.localStorage.setItem('operari:hasRunFirstRunbook', '1');
     const { container } = render(
       <OnboardingRunHint nodeCount={3} isExecuting={false} hasExecution={false} lang="en" />
     );
-    expect(container.firstChild).toBeNull();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('dismisses permanently when the user clicks the close icon', async () => {
@@ -50,9 +50,9 @@ describe('OnboardingRunHint', () => {
     const { rerender } = render(
       <OnboardingRunHint nodeCount={3} isExecuting={false} hasExecution={false} lang="en" />
     );
-    expect(window.localStorage.getItem('nanorun:hasRunFirstRunbook')).toBeNull();
+    expect(window.localStorage.getItem('operari:hasRunFirstRunbook')).toBeNull();
     rerender(<OnboardingRunHint nodeCount={3} isExecuting={false} hasExecution lang="en" />);
-    expect(window.localStorage.getItem('nanorun:hasRunFirstRunbook')).toBe('1');
+    expect(window.localStorage.getItem('operari:hasRunFirstRunbook')).toBe('1');
   });
 
   it('localises the hint text in Spanish', () => {

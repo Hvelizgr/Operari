@@ -91,8 +91,8 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
 
   useEffect(() => {
     try {
-      setAutosave(storageRead('nanorun-autosave-enabled') !== 'false');
-      setSnap(localStorage.getItem('nanorun-editor-snap-to-grid') === '1');
+      setAutosave(storageRead('operari-autosave-enabled') !== 'false');
+      setSnap(localStorage.getItem('operari-editor-snap-to-grid') === '1');
     } catch {
       /* noop */
     }
@@ -101,7 +101,7 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
   const handleAutosave = (next: boolean) => {
     setAutosave(next);
     try {
-      storageWrite('nanorun-autosave-enabled', next ? 'true' : 'false');
+      storageWrite('operari-autosave-enabled', next ? 'true' : 'false');
     } catch {
       /* noop */
     }
@@ -110,7 +110,7 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
   const handleSnap = (next: boolean) => {
     setSnap(next);
     try {
-      localStorage.setItem('nanorun-editor-snap-to-grid', next ? '1' : '0');
+      localStorage.setItem('operari-editor-snap-to-grid', next ? '1' : '0');
     } catch {
       /* noop */
     }

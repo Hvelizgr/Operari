@@ -1,5 +1,5 @@
 /**
- * Shared motion primitives for NanoRun.
+ * Shared motion primitives for Operari.
  *
  * One module owns every variant so timing, easing, and
  * prefers-reduced-motion behaviour stay consistent across overlays

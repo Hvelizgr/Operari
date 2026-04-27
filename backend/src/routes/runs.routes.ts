@@ -7,7 +7,7 @@ import { prisma } from '../server';
 
 const router = Router();
 
-// Anonymous fallback gated by NANORUN_ANONYMOUS_MODE=true.
+// Anonymous fallback gated by OPERARI_ANONYMOUS_MODE=true.
 router.use(anonymousFallback);
 
 /**

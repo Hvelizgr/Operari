@@ -110,7 +110,7 @@ describe('ExecutionEventLog', () => {
       })
     );
     render(<ExecutionEventLog runId="run-1" lang="en" />);
-    await waitFor(() => expect(screen.getByText('run.started')).toBeInTheDocument());
+    expect(await screen.findByText('run.started')).toBeInTheDocument();
 
     // Payload is hidden until the row is expanded.
     expect(screen.queryByText(/2026-04-24T12:34:56/)).not.toBeInTheDocument();
@@ -377,7 +377,7 @@ describe('ExecutionEventLog', () => {
     // Success banner surfaces with a "View new run →" link to the
     // returned run id so the operator can hop to the new execution.
     const link = await screen.findByRole('link', { name: /view new run/i });
-    expect(link.getAttribute('href')).toBe('/en/runs/run-new');
+    expect(link).toHaveAttribute('href', '/en/runs/run-new');
     confirmSpy.mockRestore();
   });
 

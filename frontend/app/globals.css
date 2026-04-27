@@ -3,25 +3,25 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────
-   Cairn brand tokens — single source of truth.
-   See docs/adr/0005-rebrand-to-cairn.md for the full palette
+   Operari brand tokens — single source of truth.
+   See docs/adr/0005-rebrand-to-operari.md for the full palette
    and the naming rationale. Every theme block below derives
-   from these; downstream CSS should prefer --cairn-* over raw
+   from these; downstream CSS should prefer --op-* over raw
    hex codes so a future palette tweak is a one-file edit.
    ───────────────────────────────────────────────────────────── */
 :root {
-  --cairn-stone: #a1a1aa;
-  --cairn-moss: #3ecf8e;
-  --cairn-sky: #0ea5e9;
-  --cairn-granite: #0a0a0a;
-  --cairn-graphite: #171717;
-  --cairn-weathered: #262626;
-  --cairn-snow: #ededed;
-  --cairn-fog: #a1a1aa;
-  --cairn-lichen: #24b47e;
-  --cairn-gold: #f59e0b;
-  --cairn-sunset: #ef4444;
-  --cairn-ice: #38bdf8;
+  --op-stone: #a1a1aa;
+  --op-moss: #3ecf8e;
+  --op-sky: #0ea5e9;
+  --op-granite: #0a0a0a;
+  --op-graphite: #171717;
+  --op-weathered: #262626;
+  --op-snow: #ededed;
+  --op-fog: #a1a1aa;
+  --op-lichen: #24b47e;
+  --op-gold: #f59e0b;
+  --op-sunset: #ef4444;
+  --op-ice: #38bdf8;
 
   /* Landing page polish — Supabase-inspired emerald glow */
   --landing-glow-emerald: radial-gradient(
@@ -90,7 +90,7 @@ html[data-theme='midnight'] {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Cairn theme palettes — apply to ALL pages (not just editor).
+   Operari theme palettes — apply to ALL pages (not just editor).
    The data-theme attribute is set on <html> by ThemeContext +
    the inline bootstrap script in app/layout.tsx.
 
@@ -100,7 +100,7 @@ html[data-theme='midnight'] {
      - tailwind dark: utilities still work via the .dark class
 
    Downstream tokens map onto the brand tokens defined at the top
-   of this file (--cairn-*). To retint the product, edit those
+   of this file (--op-*). To retint the product, edit those
    twelve lines and nothing else.
    ───────────────────────────────────────────────────────────── */
 
@@ -115,7 +115,7 @@ html[data-theme='light'] {
   /* --accent-override is set by VisualizationContext.applyToDocument
      and the inline bootstrap script. Falls back to emerald if not
      present (e.g. fresh install, SSR before hydrate). */
-  --accent-color: var(--accent-override, var(--cairn-moss));
+  --accent-color: var(--accent-override, var(--op-moss));
 
   /* Editor (overrides values in WorkflowNode.css :root) */
   --background-color: #fafafa;
@@ -124,29 +124,29 @@ html[data-theme='light'] {
   --body-text-color: #0a0a0a;
   --label-color: #404040;
   --descriptor-color: #737373;
-  --highlight-color: var(--accent-override, var(--cairn-moss));
-  --theme-color: var(--accent-override, var(--cairn-moss));
+  --highlight-color: var(--accent-override, var(--op-moss));
+  --theme-color: var(--accent-override, var(--op-moss));
   --shadow-color: rgba(10, 10, 10, 0.06);
 }
 
 html[data-theme='dark'] {
-  --app-bg: var(--cairn-granite);
-  --panel-bg: var(--cairn-graphite);
+  --app-bg: var(--op-granite);
+  --panel-bg: var(--op-graphite);
   --panel-border: rgba(250, 250, 249, 0.08);
   --panel-elevated: #292524;
-  --text-primary: var(--cairn-snow);
-  --text-secondary: var(--cairn-fog);
+  --text-primary: var(--op-snow);
+  --text-secondary: var(--op-fog);
   --text-muted: #78716c;
-  --accent-color: var(--accent-override, var(--cairn-moss));
+  --accent-color: var(--accent-override, var(--op-moss));
 
-  --background-color: var(--cairn-granite);
-  --box-background-color: var(--cairn-graphite);
-  --border-color: var(--cairn-weathered);
+  --background-color: var(--op-granite);
+  --box-background-color: var(--op-graphite);
+  --border-color: var(--op-weathered);
   --body-text-color: #e7e5e4;
-  --label-color: var(--cairn-fog);
+  --label-color: var(--op-fog);
   --descriptor-color: #78716c;
-  --highlight-color: var(--cairn-sky);
-  --theme-color: var(--accent-override, var(--cairn-moss));
+  --highlight-color: var(--op-sky);
+  --theme-color: var(--accent-override, var(--op-moss));
   --shadow-color: rgba(0, 0, 0, 0.4);
 }
 
@@ -378,7 +378,7 @@ html[data-theme='midnight'] {
   z-index: 1;
 }
 /* ─────────────────────────────────────────────────────────────
-   NanoRun visualization preferences — driven by data-* attributes
+   Operari visualization preferences — driven by data-* attributes
    on <html> set by VisualizationContext.
 
    These rules let the user tune density, animations and glow
@@ -535,19 +535,19 @@ html[data-node-icon='lg'] {
    (static). The legacy `.wf_active` animation is preserved and then
    overridden where needed. */
 html[data-pulse-variant='breathe'] .wf_active {
-  animation: nanorun-pulse-breathe calc(1.6s * var(--anim-duration-mult, 1)) ease-in-out infinite;
+  animation: operari-pulse-breathe calc(1.6s * var(--anim-duration-mult, 1)) ease-in-out infinite;
 }
 html[data-pulse-variant='wave'] .wf_active {
-  animation: nanorun-pulse-wave calc(1.4s * var(--anim-duration-mult, 1)) ease-out infinite;
+  animation: operari-pulse-wave calc(1.4s * var(--anim-duration-mult, 1)) ease-out infinite;
 }
 html[data-pulse-variant='ripple'] .wf_active {
-  animation: nanorun-pulse-ripple calc(2s * var(--anim-duration-mult, 1)) ease-out infinite;
+  animation: operari-pulse-ripple calc(2s * var(--anim-duration-mult, 1)) ease-out infinite;
 }
 html[data-pulse-variant='none'] .wf_active {
   animation: none !important;
 }
 
-@keyframes nanorun-pulse-breathe {
+@keyframes operari-pulse-breathe {
   0%,
   100% {
     box-shadow: 0 0 calc(6px * var(--editor-glow, 1))
@@ -559,7 +559,7 @@ html[data-pulse-variant='none'] .wf_active {
   }
 }
 
-@keyframes nanorun-pulse-wave {
+@keyframes operari-pulse-wave {
   0% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-override, #3ecf8e) 55%, transparent);
   }
@@ -569,7 +569,7 @@ html[data-pulse-variant='none'] .wf_active {
   }
 }
 
-@keyframes nanorun-pulse-ripple {
+@keyframes operari-pulse-ripple {
   0% {
     box-shadow:
       0 0 0 0 color-mix(in srgb, var(--accent-override, #3ecf8e) 70%, transparent),
@@ -591,17 +591,17 @@ html[data-pulse-variant='none'] .wf_active {
    to `.wf_completed`. Each variant maps the same hook `.wf_completed`
    to a different keyframe. */
 html[data-flash-variant='flash'] .wf_completed {
-  animation: nanorun-flash-flash calc(0.9s * var(--anim-duration-mult, 1)) ease-out 1;
+  animation: operari-flash-flash calc(0.9s * var(--anim-duration-mult, 1)) ease-out 1;
 }
 html[data-flash-variant='bounce'] .wf_completed {
-  animation: nanorun-flash-bounce calc(0.55s * var(--anim-duration-mult, 1))
+  animation: operari-flash-bounce calc(0.55s * var(--anim-duration-mult, 1))
     cubic-bezier(0.34, 1.56, 0.64, 1) 1;
 }
 html[data-flash-variant='none'] .wf_completed {
   animation: none !important;
 }
 
-@keyframes nanorun-flash-flash {
+@keyframes operari-flash-flash {
   0% {
     box-shadow:
       0 0 0 2px color-mix(in srgb, var(--accent-override, #3ecf8e) 80%, transparent),
@@ -612,7 +612,7 @@ html[data-flash-variant='none'] .wf_completed {
   }
 }
 
-@keyframes nanorun-flash-bounce {
+@keyframes operari-flash-bounce {
   0% {
     transform: scale(var(--node-scale, 1));
   }

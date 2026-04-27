@@ -143,7 +143,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     });
 
     const { store, events } = buildRecordingEventStore();
-    // Pass null explicitly — this is how a test (or NANORUN_DURABLE_ENGINE
+    // Pass null explicitly — this is how a test (or OPERARI_DURABLE_ENGINE
     // unset) disables the wiring even though a store instance exists.
     const svc = new ExecutionService(mockPrisma, {
       audit: null,

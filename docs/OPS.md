@@ -1,6 +1,6 @@
-# Operating NanoRun in production
+# Operating Operari in production
 
-Production-day-1 checklist for operating the NanoRun backend. Covers uptime monitoring, log aggregation, error tracking, and the endpoints you will want to point every one of those tools at.
+Production-day-1 checklist for operating the Operari backend. Covers uptime monitoring, log aggregation, error tracking, and the endpoints you will want to point every one of those tools at.
 
 The backend is a plain Node + Express process. Nothing here assumes Kubernetes — anything that runs a Docker container works.
 
@@ -51,7 +51,7 @@ Returns `503` when postgres is unreachable (status becomes `degraded`).
 **Use this for:**
 
 - Kubernetes `readinessProbe` (a failure removes the pod from the Service load-balancer but does NOT restart it — the right behavior during a DB failover)
-- Deep monitors that should alert when NanoRun can't serve traffic, not just when the process is wedged
+- Deep monitors that should alert when Operari can't serve traffic, not just when the process is wedged
 
 ### Suggested Kubernetes probes
 
@@ -106,15 +106,15 @@ All of these assume you run the container with stdout captured. None require cod
 ```bash
 docker run --rm \
   --log-driver=axiom \
-  --log-opt axiom-dataset=cairn-prod \
+  --log-opt axiom-dataset=operari-prod \
   --log-opt axiom-token=$AXIOM_TOKEN \
-  cairn-backend
+  operari-backend
 ```
 
 Or stream via `pino-axiom`:
 
 ```bash
-node dist/server.js | npx pino-axiom --dataset cairn-prod
+node dist/server.js | npx pino-axiom --dataset operari-prod
 ```
 
 #### Grafana Loki (self-host)
@@ -123,12 +123,12 @@ Add a Promtail sidecar that tails the container's stdout and ships to a Loki end
 
 ```yaml
 scrape_configs:
-  - job_name: cairn
+  - job_name: operari
     static_configs:
       - targets: [localhost]
         labels:
-          job: cairn-backend
-          __path__: /var/log/cairn/*.log
+          job: operari-backend
+          __path__: /var/log/operari/*.log
     pipeline_stages:
       - json:
           expressions:
@@ -148,8 +148,8 @@ Datadog Agent picks up container stdout automatically when the `DD_LOGS_ENABLED=
 docker run \
   --log-driver=awslogs \
   --log-opt awslogs-region=us-east-1 \
-  --log-opt awslogs-group=cairn-backend \
-  cairn-backend
+  --log-opt awslogs-group=operari-backend \
+  operari-backend
 ```
 
 ### Minimal query recipes

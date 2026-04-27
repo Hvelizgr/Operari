@@ -1,10 +1,10 @@
-"""Official Python client for the NanoRun API.
+"""Official Python client for the Operari API.
 
 Quick start::
 
-    from cairn import NanoRun
+    from operari import Operari
 
-    client = NanoRun(api_key="nrk_...")
+    client = Operari(api_key="nrk_...")
 
     # Trigger a runbook and wait for completion
     run = client.run("deploy-frontend", variables={"env": "production"})
@@ -26,10 +26,10 @@ from urllib.parse import quote, urlencode
 import httpx
 
 from .errors import (
-    CairnError,
-    CairnAuthError,
-    CairnNotFoundError,
-    CairnTimeoutError,
+    OperariError,
+    OperariAuthError,
+    OperariNotFoundError,
+    OperariTimeoutError,
 )
 from .types import (
     AuditVerifyResult,
@@ -41,16 +41,16 @@ from .types import (
     TriggerResponse,
 )
 
-DEFAULT_BASE_URL = "https://api.nanorun.dev"
+DEFAULT_BASE_URL = "https://api.operari.dev"
 TERMINAL_STATUSES = {RunStatus.SUCCESS, RunStatus.FAILED, RunStatus.CANCELLED}
 
 
-class NanoRun:
-    """NanoRun API client.
+class Operari:
+    """Operari API client.
 
     Args:
         api_key: API key with the required scopes.
-        base_url: Override the API base URL (default: https://api.nanorun.dev).
+        base_url: Override the API base URL (default: https://api.operari.dev).
         timeout: HTTP request timeout in seconds (default: 30).
     """
 
@@ -62,14 +62,14 @@ class NanoRun:
         timeout: float = 30.0,
     ) -> None:
         if not api_key:
-            raise CairnError("api_key is required")
+            raise OperariError("api_key is required")
         self._base_url = base_url.rstrip("/")
         self._client = httpx.Client(
             base_url=self._base_url,
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
-                "User-Agent": "cairn-python/0.1.0",
+                "User-Agent": "operari-python/0.1.0",
             },
             timeout=timeout,
         )
@@ -78,7 +78,7 @@ class NanoRun:
         """Close the underlying HTTP client."""
         self._client.close()
 
-    def __enter__(self) -> NanoRun:
+    def __enter__(self) -> Operari:
         return self
 
     def __exit__(self, *_: Any) -> None:
@@ -152,7 +152,7 @@ class NanoRun:
         """Poll a run until it reaches a terminal state.
 
         Raises:
-            CairnTimeoutError: If the run doesn't finish within timeout_ms.
+            OperariTimeoutError: If the run doesn't finish within timeout_ms.
         """
         start = time.monotonic()
         deadline = start + timeout_ms / 1000.0
@@ -161,7 +161,7 @@ class NanoRun:
             if run.status in TERMINAL_STATUSES:
                 return run
             time.sleep(poll_interval_ms / 1000.0)
-        raise CairnTimeoutError(
+        raise OperariTimeoutError(
             f"Run {run_id} did not complete within {timeout_ms}ms"
         )
 
@@ -176,7 +176,7 @@ class NanoRun:
         triggered = self.trigger(runbook, variables=variables)
         result = self.wait_for_completion(triggered.id, timeout_ms=timeout_ms)
         if result.status == RunStatus.FAILED:
-            raise CairnError(
+            raise OperariError(
                 f"Run failed: {result.error or 'unknown error'}",
                 status_code=500,
                 code="run_failed",
@@ -260,7 +260,7 @@ class NanoRun:
                 json=body if body else None,
             )
         except httpx.TimeoutException as exc:
-            raise CairnTimeoutError(str(exc)) from exc
+            raise OperariTimeoutError(str(exc)) from exc
 
         if response.status_code == 204:
             return {}
@@ -274,10 +274,10 @@ class NanoRun:
             msg = data.get("error", f"Request failed: {response.status_code}")
             code = data.get("code")
             if response.status_code == 401:
-                raise CairnAuthError(msg)
+                raise OperariAuthError(msg)
             if response.status_code == 404:
-                raise CairnNotFoundError(msg)
-            raise CairnError(msg, response.status_code, code, data.get("details"))
+                raise OperariNotFoundError(msg)
+            raise OperariError(msg, response.status_code, code, data.get("details"))
 
         return data
 

@@ -1,4 +1,4 @@
-import { NanoRun } from '@nanorun/sdk';
+import { Operari } from '@operari/sdk';
 import { requireConfig } from '../../config';
 import { colors, symbols, statusColor } from '../../colors';
 
@@ -9,7 +9,7 @@ export interface GrantFlags {
 
 export async function approvalGrantCommand(approvalId: string, opts: GrantFlags = {}) {
   const config = requireConfig();
-  const client = new NanoRun(config);
+  const client = new Operari(config);
 
   try {
     const result = await client.grantApproval(approvalId, { comment: opts.comment });

@@ -18,7 +18,7 @@ export async function generateStaticParams() {
 /**
  * Marketing landing — six sections, one narrative.
  *
- *   Hero          → "Your alert fires. NanoRun runs the fix." +
+ *   Hero          → "Your alert fires. Operari runs the fix." +
  *                   live alert→runbook scenario card
  *   Story         → 01 author / 02 commit / 03 respond, with stylized
  *                   editor / yaml-diff / run-timeline mockups

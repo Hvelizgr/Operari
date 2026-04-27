@@ -116,7 +116,7 @@ export function configPreview(
     }
     case 'approval':
       return (config.message as string) ? trunc(config.message) : null;
-    case 'nanorun.httpRequest': {
+    case 'operari.httpRequest': {
       const method = ((config.method as string) || 'GET').toUpperCase();
       const url = trunc(config.url ?? '', 50);
       return url ? `${method} ${url}` : method;
@@ -130,15 +130,15 @@ export function configPreview(
           ? `$ ${cmd}`
           : null;
     }
-    case 'nanorun.database': {
+    case 'operari.database': {
       const op = (config.operation as string) ?? 'health';
       const q = trunc(config.query ?? '', 40);
       const tunnel = config.useSshTunnel ? ' 🔒' : '';
       return op === 'query' && q ? `${op}${tunnel} · ${q}` : `${op}${tunnel}`;
     }
-    case 'nanorun.cron':
+    case 'operari.cron':
       return (config.expression as string) ?? null;
-    case 'nanorun.webhook':
+    case 'operari.webhook':
       return (config.path as string) ? `/${config.path}` : null;
     default:
       return null;
@@ -175,15 +175,15 @@ export function validateConfig(
       if (!config.host) return 'Missing host';
       if (!config.credentialId) return 'Missing SSH key';
       return config.command ? null : 'Missing command';
-    case 'nanorun.database':
+    case 'operari.database':
       if (!config.credentialId) return 'Missing credential';
       if (config.operation === 'query' && !config.query) return 'Missing SQL query';
       return null;
-    case 'nanorun.httpRequest':
+    case 'operari.httpRequest':
       return config.url ? null : 'Missing URL';
-    case 'nanorun.cron':
+    case 'operari.cron':
       return config.expression ? null : 'Missing cron expression';
-    case 'nanorun.webhook':
+    case 'operari.webhook':
       return null; // path defaults at runtime
     default:
       return null;

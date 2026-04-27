@@ -267,7 +267,7 @@ function validateWebhookUrl(url: string, channel: NotifyConfig['channel']): stri
 function truncate(text: string, maxBytes: number): string {
   const buf = Buffer.from(text, 'utf-8');
   if (buf.byteLength <= maxBytes) return text;
-  const marker = '\n\n[truncated by NanoRun notify step]';
+  const marker = '\n\n[truncated by Operari notify step]';
   const allowed = maxBytes - Buffer.byteLength(marker, 'utf-8');
   return buf.subarray(0, allowed).toString('utf-8') + marker;
 }

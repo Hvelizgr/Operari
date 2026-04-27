@@ -49,15 +49,15 @@ export function createRunner(options: RunnerRegistryOptions): Runner {
  * Read runner configuration from process.env.
  *
  * Variables:
- *   NANORUN_RUNNER         = "local" | "docker" | "fly"   (default: "local")
- *   NANORUN_RUNNER_IMAGE   = "ghcr.io/nanorun/runner:..." (optional default image for docker/fly)
+ *   OPERARI_RUNNER         = "local" | "docker" | "fly"   (default: "local")
+ *   OPERARI_RUNNER_IMAGE   = "ghcr.io/operari/runner:..." (optional default image for docker/fly)
  *   DOCKER_BINARY          = "podman" | "docker"          (optional, docker only)
  *   FLY_API_TOKEN          = ...                          (required if "fly")
  *   FLY_APP_NAME           = ...                          (required if "fly")
  *   FLY_REGION             = "iad" | "sjc" | ...          (optional)
  */
 export function runnerOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): RunnerRegistryOptions {
-  const type = (env.NANORUN_RUNNER ?? 'local') as RunnerType;
+  const type = (env.OPERARI_RUNNER ?? 'local') as RunnerType;
 
   if (type === 'fly') {
     return {
@@ -66,7 +66,7 @@ export function runnerOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): Runn
         apiToken: env.FLY_API_TOKEN ?? '',
         appName: env.FLY_APP_NAME ?? '',
         region: env.FLY_REGION,
-        defaultImage: env.NANORUN_RUNNER_IMAGE,
+        defaultImage: env.OPERARI_RUNNER_IMAGE,
       },
     };
   }
@@ -75,7 +75,7 @@ export function runnerOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): Runn
     return {
       type: 'docker',
       docker: {
-        defaultImage: env.NANORUN_RUNNER_IMAGE,
+        defaultImage: env.OPERARI_RUNNER_IMAGE,
         dockerBinary: env.DOCKER_BINARY,
       },
     };

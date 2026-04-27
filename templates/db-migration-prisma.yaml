@@ -1,4 +1,4 @@
-# NanoRun Template: Prisma database migration with backup and rollback safety
+# Operari Template: Prisma database migration with backup and rollback safety
 #
 # Variables expected:
 #   - database_url    (secret) PostgreSQL connection string

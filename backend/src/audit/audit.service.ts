@@ -4,7 +4,7 @@ import { createHash } from 'crypto';
 import { canonicalJson } from './canonical-json';
 
 /**
- * Stable identifiers for the kinds of events NanoRun audits.
+ * Stable identifiers for the kinds of events Operari audits.
  *
  * Add new types here, do not invent them at call sites — having a closed
  * union makes it possible to grep for every place that emits a given type

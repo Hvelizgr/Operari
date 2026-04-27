@@ -145,17 +145,17 @@ describe('DockerRunner.buildDockerArgs', () => {
       ctx({ runId: 'r-9', stepId: 's-9', tenantId: 't-9' })
     );
     const labels = args.filter((_, i, arr) => arr[i - 1] === '--label');
-    expect(labels).toContain('nanorun.run.id=r-9');
-    expect(labels).toContain('nanorun.step.id=s-9');
-    expect(labels).toContain('nanorun.tenant.id=t-9');
+    expect(labels).toContain('operari.run.id=r-9');
+    expect(labels).toContain('operari.step.id=s-9');
+    expect(labels).toContain('operari.tenant.id=t-9');
   });
 
   it('honors a custom image override', () => {
     const args = runner.buildDockerArgs(
-      { command: 'true', image: 'ghcr.io/nanorun/runner:1.2.3' },
+      { command: 'true', image: 'ghcr.io/operari/runner:1.2.3' },
       ctx()
     );
-    expect(args).toContain('ghcr.io/nanorun/runner:1.2.3');
+    expect(args).toContain('ghcr.io/operari/runner:1.2.3');
   });
 
   it('honors a custom shell', () => {
@@ -256,7 +256,7 @@ describe('DockerRunner.run with --name', () => {
     const idx = args.indexOf('--name');
     expect(idx).toBeGreaterThan(0);
     const name = args[idx + 1];
-    expect(name).toMatch(/^nanorun-r-42-s-7-[0-9a-f]{8}$/);
+    expect(name).toMatch(/^operari-r-42-s-7-[0-9a-f]{8}$/);
   });
 
   it('sanitizes runId/stepId characters that docker would reject', () => {
@@ -265,7 +265,7 @@ describe('DockerRunner.run with --name', () => {
       stepId: 'step with spaces',
       tenantId: 't',
     });
-    expect(name).toMatch(/^nanorun-run_with_bad_chars-step_with_spaces-[0-9a-f]{8}$/);
+    expect(name).toMatch(/^operari-run_with_bad_chars-step_with_spaces-[0-9a-f]{8}$/);
   });
 });
 
@@ -333,7 +333,7 @@ describe('DockerRunner.cancel', () => {
     const killCall = calls.find(c => c.args[0] === 'kill');
     expect(killCall).toBeDefined();
     expect(killCall!.command).toBe('docker');
-    expect(killCall!.args[1]).toMatch(/^nanorun-r-cancel-/);
+    expect(killCall!.args[1]).toMatch(/^operari-r-cancel-/);
 
     await runPromise;
   });

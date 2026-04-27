@@ -15,7 +15,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { lang } = await params;
   const c = lang === 'es' ? contentEs : contentEn;
-  return { title: `${c.contact.title} · NanoRun`, description: c.contact.subtitle };
+  return { title: `${c.contact.title} · Operari`, description: c.contact.subtitle };
 }
 
 export default async function ContactPage({ params }: { params: Promise<{ lang: string }> }) {

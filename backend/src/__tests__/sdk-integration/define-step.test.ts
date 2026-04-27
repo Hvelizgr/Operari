@@ -23,7 +23,7 @@ const { defineStep } = require('../../../../packages/sdk/dist/steps/define-step'
  *
  * The loader tests already exercise the happy path end-to-end; these
  * cases focus on the input-validation guards that keep a well-meaning
- * plugin author honest before they ship to a real NanoRun.
+ * plugin author honest before they ship to a real Operari.
  */
 
 describe('defineStep', () => {

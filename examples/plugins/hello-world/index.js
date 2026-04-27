@@ -1,6 +1,6 @@
 // Plain CJS so the plugin loader can `require()` this without a
 // build step. Real plugins will typically author in TypeScript with
-// zod and `defineStep()` imported from '@nanorun/sdk/steps', then
+// zod and `defineStep()` imported from '@operari/sdk/steps', then
 // compile to this shape. We keep the example raw so a self-host
 // user can copy the file and modify it in place.
 //

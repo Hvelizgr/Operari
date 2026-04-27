@@ -1,6 +1,6 @@
 'use client';
 
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Download, FolderOpen, Save, Upload, X } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -53,11 +53,11 @@ export default function SaveLoadMenu({ nodes, connections, onLoad, lang }: SaveL
       version: '1.0',
       timestamp: Date.now(),
     };
-    storageWrite('nanorun-workflow', JSON.stringify(workflow));
+    storageWrite('operari-workflow', JSON.stringify(workflow));
   };
 
   const handleLoad = () => {
-    const saved = storageRead('nanorun-workflow');
+    const saved = storageRead('operari-workflow');
     if (saved) {
       try {
         const workflow = JSON.parse(saved);

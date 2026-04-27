@@ -162,7 +162,7 @@ export const STRINGS = {
     exportLabel: 'Export JSON',
     importLabel: 'Import JSON',
     resetConfirm: 'Restore every appearance knob to its factory default?',
-    importFailed: 'That file is not a valid NanoRun appearance export.',
+    importFailed: 'That file is not a valid Operari appearance export.',
     presetDefaultLabel: 'Default',
     presetDefaultDesc: 'Factory baseline — emerald accent, bezier lines, orb flow.',
     presetNeonLabel: 'Neon',

@@ -62,7 +62,7 @@ export function PresetsTab({ t }: { t: Strings }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `nanorun-appearance-${Date.now()}.json`;
+    a.download = `operari-appearance-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };

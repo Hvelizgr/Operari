@@ -1,6 +1,6 @@
 'use client';
 
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, GitBranch, RotateCw, Settings, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -14,10 +14,10 @@ import TriggerModifiersSection, {
 
 // Default trigger/org type sets — used when no registry is provided.
 const DEFAULT_TRIGGER_TYPES = new Set([
-  'nanorun.webhook',
-  'nanorun.cron',
-  'nanorun.scheduleTrigger',
-  'nanorun.manualTrigger',
+  'operari.webhook',
+  'operari.cron',
+  'operari.scheduleTrigger',
+  'operari.manualTrigger',
   'Webhook',
   'Trigger',
   'Schedule',
@@ -299,7 +299,7 @@ function SettingsResolver({
   }
 
   // 2. Specific Fallbacks
-  if (node?.type === 'nanorun.httpRequest') {
+  if (node?.type === 'operari.httpRequest') {
     const urlValue = typeof localConfig.url === 'string' ? localConfig.url : '';
     const methodValue = typeof localConfig.method === 'string' ? localConfig.method : 'GET';
     return (

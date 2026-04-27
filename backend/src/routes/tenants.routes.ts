@@ -246,7 +246,7 @@ router.get('/audit/export', authenticate, async (req: AuthRequest, res: Response
     }
   }
 
-  const filename = `cairn-audit-${tenantId}-${new Date().toISOString().slice(0, 19).replace(/:/g, '')}.ndjson`;
+  const filename = `operari-audit-${tenantId}-${new Date().toISOString().slice(0, 19).replace(/:/g, '')}.ndjson`;
   res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.setHeader('Cache-Control', 'no-store');

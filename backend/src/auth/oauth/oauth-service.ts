@@ -2,7 +2,6 @@ import type { PrismaClient } from '@prisma/client';
 import { randomBytes } from 'crypto';
 
 import { seedDemoRunbook } from '../../services/tenant-seed.service';
-
 import type { OAuthProfile, OAuthProviderConfig } from './providers';
 
 export interface OAuthExchangeDeps {
@@ -96,7 +95,7 @@ export async function exchangeCode(
   const userRes = await fetchImpl(provider.userInfoUrl, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'User-Agent': 'nanorun-oauth',
+      'User-Agent': 'operari-oauth',
       Accept: 'application/vnd.github+json',
     },
   });

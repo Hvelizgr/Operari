@@ -3,7 +3,7 @@ import type { SendMeterEventFn } from './stripe-billing-meter';
 /**
  * Stripe billing/meter_events HTTP client.
  *
- * Wraps the single Stripe API endpoint NanoRun cares about for usage
+ * Wraps the single Stripe API endpoint Operari cares about for usage
  * billing — `POST /v1/billing/meter_events` — without pulling the
  * full Stripe Node SDK. The SDK is ~MB of code that we do not need
  * for one POST.
@@ -11,7 +11,7 @@ import type { SendMeterEventFn } from './stripe-billing-meter';
  * Endpoint reference: https://docs.stripe.com/api/billing/meter-event
  *
  * Request shape (form-encoded, Stripe legacy convention):
- *   event_name=nanorun_runs
+ *   event_name=operari_runs
  *   payload[stripe_customer_id]=cus_xxx
  *   payload[value]=1
  *   identifier=run.started:run-1

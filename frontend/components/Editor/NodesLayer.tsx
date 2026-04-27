@@ -1,10 +1,11 @@
 'use client';
 
-import type { WorkflowNode } from '@nanorun/shared';
+import type { WorkflowNode } from '@operari/shared';
 import { motion } from 'framer-motion';
 import type { MouseEvent } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef } from 'react';
 
+import { useStaggerAnimation } from '../../hooks/useStaggerAnimation';
 import type { NodeMeta } from '../../hooks/useExecutionSocket';
 import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
 import type { ViewportState } from '../../types/editor.types';
@@ -73,6 +74,11 @@ function NodesLayer({
   nodeMeta = {},
   registry,
 }: NodesLayerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Activate premium staggered entrance
+  useStaggerAnimation(containerRef, nodes.length);
+
   // Sort nodes: frames first (lowest z-index), then notes, then regular nodes
   const sortedNodes = useMemo(() => {
     return [...nodes].sort((a, b) => {
@@ -175,6 +181,7 @@ function NodesLayer({
 
   return (
     <motion.div
+      ref={containerRef}
       className={layerClass}
       style={{
         position: 'absolute',

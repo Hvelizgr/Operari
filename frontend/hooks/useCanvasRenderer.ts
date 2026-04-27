@@ -1,4 +1,4 @@
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 import { useCallback, useEffect, useRef } from 'react';
 
 import type { ViewportState } from '../types/editor.types';

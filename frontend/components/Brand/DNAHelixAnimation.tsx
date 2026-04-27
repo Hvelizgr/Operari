@@ -152,7 +152,7 @@ export function DNAHelixAnimation({
       height={height}
       viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
       role="img"
-      aria-label="NanoRun double helix — runbook steps tracing the canvas and audit chain"
+      aria-label="Operari double helix — runbook steps tracing the canvas and audit chain"
       className="block"
     >
       {/* Soft glow under the strands for depth. Not animated — would

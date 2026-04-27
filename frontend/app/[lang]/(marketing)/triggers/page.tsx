@@ -16,7 +16,7 @@ export async function generateMetadata({
   const { lang } = await params;
   const c = lang === 'es' ? contentEs : contentEn;
   return {
-    title: `${c.triggers.title} · NanoRun`,
+    title: `${c.triggers.title} · Operari`,
     description: c.triggers.subtitle,
   };
 }

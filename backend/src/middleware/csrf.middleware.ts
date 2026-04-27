@@ -7,7 +7,7 @@ import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, SESSION_COOKIE_NAME } from '../auth
  * Double-submit cookie CSRF protection.
  *
  * Threat model: an attacker who controls a foreign origin wants to
- * make the authed browser POST to api.nanorun.dev with the user's
+ * make the authed browser POST to api.operari.dev with the user's
  * session cookie attached. `SameSite=Lax` already blocks most of
  * this, but we layer the double-submit on top so:
  *   - a sub-domain takeover can't bypass SameSite
@@ -20,13 +20,13 @@ import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, SESSION_COOKIE_NAME } from '../auth
  *   - GET/HEAD/OPTIONS are always safe-method allowed.
  *   - Requests authenticated via Authorization: Bearer <token> are
  *     exempt — API keys and third-party SDK calls never carry
- *     `nanorun_session`, so there is no cookie for the attacker to
+ *     `operari_session`, so there is no cookie for the attacker to
  *     forge with.
  *   - Requests with no session cookie pass through (public endpoints
  *     like /auth/login itself; CSRF is about protecting authed
  *     actions).
  *   - Requests WITH a session cookie must carry an `X-CSRF-Token`
- *     header whose value matches the `nanorun_csrf` cookie, compared
+ *     header whose value matches the `operari_csrf` cookie, compared
  *     with a constant-time equal.
  *
  * Rollout: gated by CSRF_ENFORCE env. When "false" (default) the

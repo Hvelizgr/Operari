@@ -15,7 +15,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { lang } = await params;
   const c = lang === 'es' ? contentEs : contentEn;
-  return { title: `${c.privacy.title} · NanoRun`, description: c.privacy.subtitle };
+  return { title: `${c.privacy.title} · Operari`, description: c.privacy.subtitle };
 }
 
 export default async function PrivacyPage({ params }: { params: Promise<{ lang: string }> }) {

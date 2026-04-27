@@ -51,7 +51,7 @@ const STRINGS = {
   en: {
     title: 'Utilities',
     subtitle:
-      'API keys, webhooks, and connected accounts. The plumbing that lets the rest of your stack call NanoRun and lets NanoRun reach out to your services.',
+      'API keys, webhooks, and connected accounts. The plumbing that lets the rest of your stack call Operari and lets Operari reach out to your services.',
     tabKeys: 'API keys',
     tabWebhooks: 'Webhooks',
     tabAccounts: 'Connected accounts',
@@ -77,7 +77,7 @@ const STRINGS = {
   es: {
     title: 'Utilidades',
     subtitle:
-      'API keys, webhooks y cuentas conectadas. La plomería que deja al resto de tu stack llamar a NanoRun y a NanoRun llegar a tus servicios.',
+      'API keys, webhooks y cuentas conectadas. La plomería que deja al resto de tu stack llamar a Operari y a Operari llegar a tus servicios.',
     tabKeys: 'API keys',
     tabWebhooks: 'Webhooks',
     tabAccounts: 'Cuentas conectadas',

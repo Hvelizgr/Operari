@@ -1,4 +1,4 @@
-import { Connection, WorkflowNode } from '@nanorun/shared';
+import { Connection, WorkflowNode } from '@operari/shared';
 import dagre from 'dagre';
 
 // Configuration for layout
@@ -51,7 +51,7 @@ export const getAutoLayout = (
     const nodeWithPosition = dagreGraph.node(node.id);
 
     // Dagre returns center x,y. We likely use top-left in our canvas.
-    // NanoRun `node.position` is top-left.
+    // Operari `node.position` is top-left.
     return {
       ...node,
       position: {

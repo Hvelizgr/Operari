@@ -2,7 +2,7 @@
 
 import './WorkflowNode.css';
 
-import { WorkflowNode } from '@nanorun/shared';
+import { WorkflowNode } from '@operari/shared';
 import * as Icons from 'lucide-react';
 import { memo, MouseEvent, useLayoutEffect, useRef } from 'react';
 
@@ -154,16 +154,16 @@ function EditorNode({
     type.includes('controller') ||
     type === 'condition' ||
     type === 'switch' ||
-    type === 'nanorun.switch' ||
+    type === 'operari.switch' ||
     type === 'if' ||
-    type === 'nanorun.if'
+    type === 'operari.if'
   )
     visualType = 'controller';
   else if (
     type.includes('limit') ||
     type === 'loop' ||
     type === 'iterator' ||
-    type === 'nanorun.loop'
+    type === 'operari.loop'
   )
     visualType = 'limit';
   else if (
@@ -211,7 +211,7 @@ function EditorNode({
 
   // Status icon for the title strip. Returned as a small JSX block
   // so we can color it inline without burning CSS classes for each
-  // status. The 7 NanoRun statuses map to 5 distinct visual cues —
+  // status. The 7 Operari statuses map to 5 distinct visual cues —
   // PENDING uses a faint dot, CANCELLED an X.
   const renderStatusIcon = (): React.ReactNode => {
     if (!status) return null;
@@ -250,7 +250,7 @@ function EditorNode({
       node.type,
       node.config as Record<string, unknown> | undefined
     );
-    if (!hint && node.type === 'nanorun.httpRequest') {
+    if (!hint && node.type === 'operari.httpRequest') {
       // Backward compat: inline HTTP chip when no registry
       const cfg = (node.config ?? {}) as Record<string, unknown>;
       const method = String(cfg.method ?? 'GET').toUpperCase();
@@ -542,11 +542,11 @@ function EditorNode({
     switch (node.type) {
       case 'shell':
         return '$';
-      case 'nanorun.cron':
+      case 'operari.cron':
         return '⏱';
-      case 'nanorun.webhook':
+      case 'operari.webhook':
         return '↘';
-      case 'nanorun.httpRequest':
+      case 'operari.httpRequest':
         return '↗';
       case 'approval':
         return '✋';

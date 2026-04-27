@@ -6,7 +6,7 @@ import type { SecretReader } from './secret-reader';
 
 /**
  * ConnectedAccountService — the only sanctioned path for creating,
- * reading, and removing OAuth credentials in NanoRun.
+ * reading, and removing OAuth credentials in Operari.
  *
  * Why it exists:
  *   - The schema has `accessToken` / `refreshToken` columns that
@@ -99,7 +99,7 @@ export class ConnectedAccountService {
   async link(input: LinkAccountInput): Promise<ConnectedAccountSummary> {
     // Per-tenant key derivation (v2). A leaked accessToken ciphertext
     // from tenant A cannot be decrypted under tenant B's derived key,
-    // even if both share the same master NANORUN_SECRET_KEY.
+    // even if both share the same master OPERARI_SECRET_KEY.
     const accessTokenCipher = this.cipher.encryptForTenant(input.accessToken, input.tenantId);
     const refreshTokenCipher = input.refreshToken
       ? this.cipher.encryptForTenant(input.refreshToken, input.tenantId)

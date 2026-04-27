@@ -1,5 +1,5 @@
 import {
-  NanoRunConfig,
+  OperariConfig,
   RunbookSummary,
   TriggerOptions,
   TriggerResponse,
@@ -15,23 +15,23 @@ import {
   TailLogsOptions,
 } from './types';
 import {
-  NanoRunError,
-  NanoRunAuthError,
-  NanoRunNotFoundError,
-  NanoRunTimeoutError,
+  OperariError,
+  OperariAuthError,
+  OperariNotFoundError,
+  OperariTimeoutError,
 } from './errors';
 
-const DEFAULT_BASE_URL = 'https://api.nanorun.dev';
+const DEFAULT_BASE_URL = 'https://api.operari.dev';
 
 /**
- * Official Node.js client for the NanoRun API.
+ * Official Node.js client for the Operari API.
  *
  * Quick start:
  *
  * ```ts
- * import { NanoRun } from '@nanorun/sdk';
+ * import { Operari } from '@operari/sdk';
  *
- * const client = new NanoRun({ apiKey: process.env.NANORUN_API_KEY! });
+ * const client = new Operari({ apiKey: process.env.OPERARI_API_KEY! });
  *
  * // Trigger a runbook
  * const run = await client.trigger('deploy-frontend', {
@@ -43,14 +43,14 @@ const DEFAULT_BASE_URL = 'https://api.nanorun.dev';
  * console.log(finalRun.status); // SUCCESS
  * ```
  */
-export class NanoRun {
+export class Operari {
   private readonly apiKey: string;
   private readonly baseURL: string;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(config: NanoRunConfig) {
+  constructor(config: OperariConfig) {
     if (!config.apiKey) {
-      throw new NanoRunError('apiKey is required');
+      throw new OperariError('apiKey is required');
     }
     this.apiKey = config.apiKey;
     this.baseURL = (config.baseURL || DEFAULT_BASE_URL).replace(/\/$/, '');
@@ -104,7 +104,7 @@ export class NanoRun {
       }
       await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
     }
-    throw new NanoRunTimeoutError(`Run ${runId} did not complete within ${timeoutMs}ms`);
+    throw new OperariTimeoutError(`Run ${runId} did not complete within ${timeoutMs}ms`);
   }
 
   /**
@@ -118,7 +118,7 @@ export class NanoRun {
     const triggered = await this.trigger(runbookSlugOrId, options);
     const final = await this.waitForCompletion(triggered.id, { timeoutMs: options.timeoutMs });
     if (final.status === 'FAILED') {
-      throw new NanoRunError(
+      throw new OperariError(
         `Run failed: ${final.error || 'unknown error'}`,
         500,
         'run_failed',
@@ -132,7 +132,7 @@ export class NanoRun {
    * Grant a pending approval and resume its paused execution.
    *
    * Requires API key scope `approvals:resolve`. Throws
-   * `NanoRunNotFoundError` if the approval id does not exist (also used
+   * `OperariNotFoundError` if the approval id does not exist (also used
    * when it belongs to another tenant — by design).
    */
   async grantApproval(
@@ -164,12 +164,12 @@ export class NanoRun {
   /**
    * Verify the audit chain for the tenant owning this API key.
    *
-   * NanoRun stores tamper-evident audit events in a hash chain. This
+   * Operari stores tamper-evident audit events in a hash chain. This
    * method walks the chain and reports whether every hash recomputes
    * correctly and whether the seq column is contiguous. Use it from
    * compliance automation, or directly from the CLI:
    *
-   *   cairn audit verify
+   *   operari audit verify
    *
    * Requires an API key with scope `audit:read`.
    */
@@ -223,7 +223,7 @@ export class NanoRun {
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         Accept: 'text/event-stream',
-        'User-Agent': '@nanorun/sdk/0.1.0',
+        'User-Agent': '@operari/sdk/0.1.0',
       },
       signal: options.signal,
     });
@@ -231,14 +231,14 @@ export class NanoRun {
     if (!response.ok) {
       const text = await response.text().catch(() => '');
       const message = text || `tailLogs failed: ${response.status}`;
-      if (response.status === 401) throw new NanoRunAuthError(message);
-      if (response.status === 404) throw new NanoRunNotFoundError(message);
-      throw new NanoRunError(message, response.status);
+      if (response.status === 401) throw new OperariAuthError(message);
+      if (response.status === 404) throw new OperariNotFoundError(message);
+      throw new OperariError(message, response.status);
     }
     if (!response.body) {
       // Implementations without streaming bodies (very old fetch
       // polyfills) can't honor SSE — fail clearly rather than hang.
-      throw new NanoRunError(
+      throw new OperariError(
         'Response body is not a readable stream; SSE requires streaming fetch'
       );
     }
@@ -294,7 +294,7 @@ export class NanoRun {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json',
-      'User-Agent': '@nanorun/sdk/0.1.0',
+      'User-Agent': '@operari/sdk/0.1.0',
     };
 
     const response = await this.fetchImpl(url, {
@@ -315,9 +315,9 @@ export class NanoRun {
       const errPayload = (data as { error?: string; code?: string; details?: unknown }) || {};
       const message = errPayload.error || `Request failed: ${response.status}`;
 
-      if (response.status === 401) throw new NanoRunAuthError(message);
-      if (response.status === 404) throw new NanoRunNotFoundError(message);
-      throw new NanoRunError(message, response.status, errPayload.code, errPayload.details);
+      if (response.status === 401) throw new OperariAuthError(message);
+      if (response.status === 404) throw new OperariNotFoundError(message);
+      throw new OperariError(message, response.status, errPayload.code, errPayload.details);
     }
 
     return data as T;

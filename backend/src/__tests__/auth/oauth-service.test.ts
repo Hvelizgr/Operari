@@ -25,7 +25,7 @@ describe('newState', () => {
 });
 
 describe('buildAuthorizeUrl', () => {
-  const REDIRECT = 'https://api.nanorun.dev/api/auth/google/callback';
+  const REDIRECT = 'https://api.operari.dev/api/auth/google/callback';
 
   beforeEach(() => {
     process.env.GOOGLE_CLIENT_ID = 'google-id';

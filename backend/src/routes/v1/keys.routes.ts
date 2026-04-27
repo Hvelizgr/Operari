@@ -24,11 +24,11 @@ router.use(async (req: AuthRequest, _res, next) => {
       create: { id: 'default-tenant', name: 'Default', slug: 'default', plan: 'FREE' },
     });
     await prisma.user.upsert({
-      where: { email: 'anonymous@nanorun.local' },
+      where: { email: 'anonymous@operari.local' },
       update: {},
       create: {
         id: 'anonymous',
-        email: 'anonymous@nanorun.local',
+        email: 'anonymous@operari.local',
         passwordHash: '',
         name: 'Anonymous',
         role: 'USER',
@@ -37,7 +37,7 @@ router.use(async (req: AuthRequest, _res, next) => {
     });
     req.user = {
       id: 'anonymous',
-      email: 'anonymous@nanorun.local',
+      email: 'anonymous@operari.local',
       role: 'USER',
       tenantId: tenant.id,
     };

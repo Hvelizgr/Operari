@@ -12,7 +12,7 @@ import { getNestedValue, resolveTemplate } from './_shared';
  */
 export class SwitchNodeExecutor implements EditorNodeExecutor<SwitchNodeConfig, SwitchResult> {
   readonly type = 'Switch';
-  readonly aliases = ['nanorun.switch'] as const;
+  readonly aliases = ['operari.switch'] as const;
 
   async execute(
     config: SwitchNodeConfig,

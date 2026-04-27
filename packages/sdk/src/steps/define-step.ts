@@ -1,10 +1,10 @@
 import type { DefineStepOptions, PluginContext, PluginResult, PluginStep } from './types';
 
 /**
- * Author a custom step executor loaded by NanoRun at boot.
+ * Author a custom step executor loaded by Operari at boot.
  *
  * Usage:
- *   import { defineStep } from '@nanorun/sdk/steps';
+ *   import { defineStep } from '@operari/sdk/steps';
  *   import { z } from 'zod';
  *
  *   export default defineStep({

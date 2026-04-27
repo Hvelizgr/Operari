@@ -1,12 +1,12 @@
 # MCP server (placeholder)
 
 This directory will host the **Model Context Protocol** server that exposes
-NanoRun primitives to external agents (Claude Desktop, Cursor, custom
+Operari primitives to external agents (Claude Desktop, Cursor, custom
 agents).
 
 It is intentionally empty today — see `IMPLEMENTACION_NANORUN.md` **P2
 #16**. The pivot is the "structured knowledge layer" play: instead of
-competing with general-purpose agents, NanoRun becomes the source of truth
+competing with general-purpose agents, Operari becomes the source of truth
 they call into for runbook context.
 
 ## Planned tools

@@ -14,7 +14,7 @@ router.use((req: AuthRequest, _res, next) => {
   if (!req.user) {
     req.user = {
       id: 'anonymous',
-      email: 'anonymous@nanorun.local',
+      email: 'anonymous@operari.local',
       role: 'USER',
       tenantId: 'default-tenant',
     };
@@ -161,7 +161,7 @@ async function resolveContext(body: DiagnoseInput, tenantId: string): Promise<Re
 
 function buildPrompt(context: ResolvedContext, question?: string): ModelMessage[] {
   const lines: string[] = [
-    'A NanoRun runbook step has failed. Diagnose the most likely cause and suggest a concrete fix.',
+    'A Operari runbook step has failed. Diagnose the most likely cause and suggest a concrete fix.',
     '',
     `Step: ${context.stepName}`,
     `Type: ${context.stepType}`,

@@ -36,7 +36,7 @@ export default function Footer({ content }: FooterProps) {
               <div className="flex h-8 w-8 items-center justify-center rounded-md border border-emerald-500/30 bg-emerald-500/10 shadow-md shadow-emerald-500/10">
                 <DNAMark size={20} />
               </div>
-              <span className="text-foreground text-xl font-bold tracking-tight">NanoRun</span>
+              <span className="text-foreground text-xl font-bold tracking-tight">Operari</span>
             </div>
             <p className="text-muted-foreground mb-6 max-w-sm text-sm leading-relaxed">
               {content.tagline}
@@ -90,7 +90,7 @@ export default function Footer({ content }: FooterProps) {
 
         <div className="border-border/40 text-muted-foreground flex flex-col items-center justify-between gap-4 border-t pt-8 text-sm md:flex-row">
           <p>
-            © {year} NanoRun · {content.rights}
+            © {year} Operari · {content.rights}
           </p>
           <div className="flex gap-6">
             <Link href="/en" className="hover:text-foreground transition-colors">

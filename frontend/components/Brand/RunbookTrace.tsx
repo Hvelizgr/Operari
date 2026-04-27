@@ -17,7 +17,7 @@ import { prefersReducedMotion } from '@/lib/motion';
 /**
  * Animated horizontal trace of a runbook execution.
  *
- * The hero/landing showpiece. Communicates "NanoRun runs a sequence
+ * The hero/landing showpiece. Communicates "Operari runs a sequence
  * of typed steps with state transitions" at a glance — without
  * forcing the visitor to read the request/response code panel.
  *
@@ -40,8 +40,6 @@ import { prefersReducedMotion } from '@/lib/motion';
  * output chip + duration badge visible, audit hash chip up). Don't
  * slow the loop down — disable. The end-state still tells the story.
  */
-
-type StepStatus = 'pending' | 'running' | 'success';
 
 type AccentTone = 'emerald' | 'sky' | 'amber' | 'violet' | 'rose';
 

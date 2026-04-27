@@ -89,18 +89,18 @@ describe('GitHubStatusService', () => {
         sha: 'abc123',
         state: 'failure',
         description: 'Step "deploy" failed',
-        targetUrl: 'https://app.nanorun.dev/runs/run-1',
-        context: 'nanorun/deploy-prod',
+        targetUrl: 'https://app.operari.dev/runs/run-1',
+        context: 'operari/deploy-prod',
       });
 
       const body = JSON.parse(captured[0].init.body as string);
       expect(body.state).toBe('failure');
       expect(body.description).toBe('Step "deploy" failed');
-      expect(body.target_url).toBe('https://app.nanorun.dev/runs/run-1');
-      expect(body.context).toBe('nanorun/deploy-prod');
+      expect(body.target_url).toBe('https://app.operari.dev/runs/run-1');
+      expect(body.context).toBe('operari/deploy-prod');
     });
 
-    it('defaults context to "nanorun" when not provided', async () => {
+    it('defaults context to "operari" when not provided', async () => {
       const { fetch: mockFetch, captured } = captureFetch();
       const svc = new GitHubStatusService(fakePrisma(), mockFetch, identityGitHubTokenDecryptor);
 
@@ -113,7 +113,7 @@ describe('GitHubStatusService', () => {
       });
 
       const body = JSON.parse(captured[0].init.body as string);
-      expect(body.context).toBe('nanorun');
+      expect(body.context).toBe('operari');
     });
 
     it('returns false when no GitHub token is found', async () => {
@@ -204,7 +204,7 @@ describe('GitHubStatusService', () => {
       const body = JSON.parse(captured[0].init.body as string);
       expect(body.state).toBe('pending');
       expect(body.description).toContain('deploy-prod');
-      expect(body.context).toBe('nanorun/deploy-prod');
+      expect(body.context).toBe('operari/deploy-prod');
       expect(body.target_url).toContain('run-42');
     });
   });

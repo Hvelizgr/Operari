@@ -67,11 +67,11 @@ export default async function BrandPreviewPage({ params }: { params: Promise<{ l
           <div className="flex flex-col gap-6">
             <div className="inline-flex items-center gap-3 rounded-md border border-white/10 bg-white/[0.02] px-4 py-3">
               <DNAMark size={28} />
-              <span className="text-lg font-bold tracking-tight text-white">NanoRun</span>
+              <span className="text-lg font-bold tracking-tight text-white">Operari</span>
             </div>
             <div className="inline-flex items-center gap-2.5 rounded-md border border-white/10 bg-white/[0.02] px-3 py-2">
               <DNAMark size={20} />
-              <span className="text-sm font-semibold tracking-tight text-white">NanoRun</span>
+              <span className="text-sm font-semibold tracking-tight text-white">Operari</span>
               <span className="ml-1 rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-300">
                 alpha
               </span>
@@ -124,8 +124,8 @@ export default async function BrandPreviewPage({ params }: { params: Promise<{ l
             </li>
             <li className="rounded-md border border-white/5 bg-white/[0.02] p-4">
               <strong className="block text-emerald-400">Step crossings.</strong>
-              Three nodes where the strands meet — top, middle, bottom — read naturally as "this is
-              a graph of steps", which is what a runbook is.
+              Three nodes where the strands meet — top, middle, bottom — read naturally as
+              &quot;this is a graph of steps&quot;, which is what a runbook is.
             </li>
             <li className="rounded-md border border-white/5 bg-white/[0.02] p-4">
               <strong className="block text-emerald-400">Animation latent.</strong>
@@ -134,8 +134,8 @@ export default async function BrandPreviewPage({ params }: { params: Promise<{ l
             </li>
             <li className="rounded-md border border-white/5 bg-white/[0.02] p-4">
               <strong className="block text-emerald-400">Devs-DNA cue.</strong>
-              The "this is in the dev's DNA" line lands without saying biotech. The shape suggests
-              structure, intrinsic, baked-in.
+              The &quot;this is in the dev&apos;s DNA&quot; line lands without saying biotech. The
+              shape suggests structure, intrinsic, baked-in.
             </li>
           </ul>
         </section>

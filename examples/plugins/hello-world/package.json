@@ -1,16 +1,16 @@
 {
-  "name": "@example/nanorun-hello-world",
+  "name": "@example/operari-hello-world",
   "version": "0.1.0",
-  "description": "Minimal NanoRun plugin — shows the defineStep() contract end-to-end",
+  "description": "Minimal Operari plugin — shows the defineStep() contract end-to-end",
   "private": true,
   "main": "index.js",
-  "nanorun": {
+  "operari": {
     "steps": [
       "./index.js"
     ]
   },
   "peerDependencies": {
-    "@nanorun/sdk": "^0.1.0",
+    "@operari/sdk": "^0.1.0",
     "zod": "^3.24.0"
   }
 }

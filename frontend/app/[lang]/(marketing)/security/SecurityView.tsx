@@ -160,10 +160,10 @@ export default function SecurityView({ content, lang }: { content: Security; lan
                 </p>
               </div>
               <a
-                href="mailto:security@nanorun.dev"
+                href="mailto:security@operari.dev"
                 className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/25 inline-flex h-11 items-center gap-2 rounded-lg px-5 font-mono text-sm font-semibold shadow-md"
               >
-                security@nanorun.dev
+                security@operari.dev
                 <ArrowRight className="h-4 w-4" />
               </a>
             </div>

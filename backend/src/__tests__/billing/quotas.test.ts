@@ -37,38 +37,38 @@ function stubPrisma(state: {
 
 describe('quotasFor', () => {
   it('defaults FREE to 3 runbooks', () => {
-    delete process.env.NANORUN_QUOTA_FREE_RUNBOOKS;
+    delete process.env.OPERARI_QUOTA_FREE_RUNBOOKS;
     expect(quotasFor('FREE').activeRunbooks).toBe(3);
   });
 
-  it('honours NANORUN_QUOTA_FREE_RUNBOOKS env override', () => {
-    process.env.NANORUN_QUOTA_FREE_RUNBOOKS = '10';
+  it('honours OPERARI_QUOTA_FREE_RUNBOOKS env override', () => {
+    process.env.OPERARI_QUOTA_FREE_RUNBOOKS = '10';
     expect(quotasFor('FREE').activeRunbooks).toBe(10);
-    delete process.env.NANORUN_QUOTA_FREE_RUNBOOKS;
+    delete process.env.OPERARI_QUOTA_FREE_RUNBOOKS;
   });
 
   it('treats env override `0` as unlimited', () => {
-    process.env.NANORUN_QUOTA_FREE_RUNBOOKS = '0';
+    process.env.OPERARI_QUOTA_FREE_RUNBOOKS = '0';
     expect(quotasFor('FREE').activeRunbooks).toBe(Number.POSITIVE_INFINITY);
-    delete process.env.NANORUN_QUOTA_FREE_RUNBOOKS;
+    delete process.env.OPERARI_QUOTA_FREE_RUNBOOKS;
   });
 
   it('returns unlimited for BUSINESS and ENTERPRISE regardless of env', () => {
-    process.env.NANORUN_QUOTA_FREE_RUNBOOKS = '1';
+    process.env.OPERARI_QUOTA_FREE_RUNBOOKS = '1';
     expect(quotasFor('BUSINESS').activeRunbooks).toBe(Number.POSITIVE_INFINITY);
     expect(quotasFor('ENTERPRISE').activeRunbooks).toBe(Number.POSITIVE_INFINITY);
-    delete process.env.NANORUN_QUOTA_FREE_RUNBOOKS;
+    delete process.env.OPERARI_QUOTA_FREE_RUNBOOKS;
   });
 });
 
 describe('assertRunbookQuota', () => {
   afterEach(() => {
-    delete process.env.NANORUN_ANONYMOUS_MODE;
-    delete process.env.NANORUN_QUOTA_FREE_RUNBOOKS;
+    delete process.env.OPERARI_ANONYMOUS_MODE;
+    delete process.env.OPERARI_QUOTA_FREE_RUNBOOKS;
   });
 
   it('bypasses the gate under anonymous mode', async () => {
-    process.env.NANORUN_ANONYMOUS_MODE = 'true';
+    process.env.OPERARI_ANONYMOUS_MODE = 'true';
     const prisma = stubPrisma({ plan: 'FREE', runbookCount: 50 });
     await expect(assertRunbookQuota(prisma, 't-1')).resolves.toBeUndefined();
   });
@@ -152,12 +152,12 @@ describe('getTenantUsage', () => {
 
 describe('assertRunsQuota', () => {
   afterEach(() => {
-    delete process.env.NANORUN_ANONYMOUS_MODE;
-    delete process.env.NANORUN_QUOTA_FREE_RUNS;
+    delete process.env.OPERARI_ANONYMOUS_MODE;
+    delete process.env.OPERARI_QUOTA_FREE_RUNS;
   });
 
   it('bypasses the gate in anonymous mode', async () => {
-    process.env.NANORUN_ANONYMOUS_MODE = 'true';
+    process.env.OPERARI_ANONYMOUS_MODE = 'true';
     const prisma = stubPrisma({ plan: 'FREE', runbookCount: 0, executionCount: 10_000 });
     await expect(assertRunsQuota(prisma, 't-1')).resolves.toBeUndefined();
   });
@@ -172,8 +172,8 @@ describe('assertRunsQuota', () => {
     await expect(assertRunsQuota(prisma, 't-1')).rejects.toBeInstanceOf(QuotaExceededError);
   });
 
-  it('honours NANORUN_QUOTA_FREE_RUNS override', async () => {
-    process.env.NANORUN_QUOTA_FREE_RUNS = '5';
+  it('honours OPERARI_QUOTA_FREE_RUNS override', async () => {
+    process.env.OPERARI_QUOTA_FREE_RUNS = '5';
     const prisma = stubPrisma({ plan: 'FREE', runbookCount: 0, executionCount: 5 });
     await expect(assertRunsQuota(prisma, 't-1')).rejects.toBeInstanceOf(QuotaExceededError);
   });

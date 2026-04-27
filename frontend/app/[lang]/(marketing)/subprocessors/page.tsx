@@ -15,7 +15,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { lang } = await params;
   const c = lang === 'es' ? contentEs : contentEn;
-  return { title: `${c.subprocessors.title} · NanoRun`, description: c.subprocessors.subtitle };
+  return { title: `${c.subprocessors.title} · Operari`, description: c.subprocessors.subtitle };
 }
 
 export default async function SubprocessorsPage({ params }: { params: Promise<{ lang: string }> }) {

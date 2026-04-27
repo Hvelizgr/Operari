@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { OnboardingTour } from '@/components/Common/OnboardingTour';
 
-const STORAGE_KEY = 'nanorun_tour_completed';
+const STORAGE_KEY = 'operari_tour_completed';
 
 // The useAuth session shape the tour reads from. Each test overrides
 // this before rendering so we can cover every gating path

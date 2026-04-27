@@ -26,7 +26,7 @@ describe('FirstRunConfetti', () => {
     const anime = jest.requireMock('animejs').default as jest.Mock;
     render(<FirstRunConfetti runCompleted={true} />);
     expect(anime).not.toHaveBeenCalled();
-    expect(window.localStorage.getItem('nanorun:sawFirstRunConfetti')).toBeNull();
+    expect(window.localStorage.getItem('operari:sawFirstRunConfetti')).toBeNull();
   });
 
   it('fires on false→true transition and sets the seen flag', () => {
@@ -38,11 +38,11 @@ describe('FirstRunConfetti', () => {
       rerender(<FirstRunConfetti runCompleted={true} />);
     });
     expect(anime).toHaveBeenCalledTimes(1);
-    expect(window.localStorage.getItem('nanorun:sawFirstRunConfetti')).toBe('1');
+    expect(window.localStorage.getItem('operari:sawFirstRunConfetti')).toBe('1');
   });
 
   it('skips the burst when the seen flag is already set (idempotent across sessions)', () => {
-    window.localStorage.setItem('nanorun:sawFirstRunConfetti', '1');
+    window.localStorage.setItem('operari:sawFirstRunConfetti', '1');
     const anime = jest.requireMock('animejs').default as jest.Mock;
 
     const { rerender } = render(<FirstRunConfetti runCompleted={false} />);

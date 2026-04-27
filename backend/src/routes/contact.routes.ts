@@ -69,7 +69,7 @@ router.post('/', async (req: Request, res: Response) => {
     company: submission.company || null,
     message: submission.message,
   });
-  const to = process.env.CONTACT_TO_EMAIL || 'hello@nanorun.dev';
+  const to = process.env.CONTACT_TO_EMAIL || 'hello@operari.dev';
 
   const result = await sendEmail({
     to,

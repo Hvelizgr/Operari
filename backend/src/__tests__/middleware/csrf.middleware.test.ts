@@ -34,7 +34,7 @@ describe('csrfProtection', () => {
   it('is a no-op when CSRF_ENFORCE is unset (default self-host)', async () => {
     delete process.env.CSRF_ENFORCE;
     const app = makeApp();
-    const res = await request(app).post('/api/test').set('Cookie', 'nanorun_session=s');
+    const res = await request(app).post('/api/test').set('Cookie', 'operari_session=s');
     expect(res.status).toBe(200);
   });
 
@@ -43,7 +43,7 @@ describe('csrfProtection', () => {
     const app = makeApp();
     const res = await request(app)
       .post('/api/test')
-      .set('Cookie', 'nanorun_session=s; nanorun_csrf=tok-123')
+      .set('Cookie', 'operari_session=s; operari_csrf=tok-123')
       .send({});
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('csrf_invalid');
@@ -54,7 +54,7 @@ describe('csrfProtection', () => {
     const app = makeApp();
     const res = await request(app)
       .post('/api/test')
-      .set('Cookie', 'nanorun_session=s; nanorun_csrf=tok-123')
+      .set('Cookie', 'operari_session=s; operari_csrf=tok-123')
       .set('X-CSRF-Token', 'tok-123')
       .send({});
     expect(res.status).toBe(200);
@@ -65,7 +65,7 @@ describe('csrfProtection', () => {
     const app = makeApp();
     const res = await request(app)
       .post('/api/test')
-      .set('Cookie', 'nanorun_session=s; nanorun_csrf=tok-123')
+      .set('Cookie', 'operari_session=s; operari_csrf=tok-123')
       .set('X-CSRF-Token', 'tok-XYZ')
       .send({});
     expect(res.status).toBe(403);
@@ -76,7 +76,7 @@ describe('csrfProtection', () => {
     const app = makeApp();
     const res = await request(app)
       .get('/api/test')
-      .set('Cookie', 'nanorun_session=s; nanorun_csrf=tok-123');
+      .set('Cookie', 'operari_session=s; operari_csrf=tok-123');
     expect(res.status).toBe(200);
   });
 
@@ -118,7 +118,7 @@ describe('csrfProtection', () => {
     const app = makeApp();
     const res = await request(app)
       .post('/api/test')
-      .set('Cookie', 'nanorun_session=s; nanorun_csrf=tok-123')
+      .set('Cookie', 'operari_session=s; operari_csrf=tok-123')
       .send({});
     expect(res.status).toBe(200);
   });

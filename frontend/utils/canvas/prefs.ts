@@ -38,7 +38,7 @@ export interface RenderPrefs {
 
 /** Palette fallbacks used when the user has not set a color override.
  *  Matches the legacy hardcoded values so a fresh install looks
- *  identical to pre-Appearance-page NanoRun. */
+ *  identical to pre-Appearance-page Operari. */
 export const BUILT_IN_STATUS_COLORS: RenderPrefs['statusColor'] = {
   RUNNING: '#3ecf8e',
   SUCCESS: 'rgba(62, 207, 142, 0.65)',

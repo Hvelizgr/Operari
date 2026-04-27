@@ -52,14 +52,14 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install workspace deps
         run: npm ci --ignore-scripts
-      # frontend imports `@cairn/shared` via npm-workspaces, which
+      # frontend imports `@operari/shared` via npm-workspaces, which
       # resolves to `packages/shared/package.json` → `dist/index.js` +
       # `dist/index.d.ts`. With --ignore-scripts above, no postinstall
       # builds dist, so every frontend step (typecheck, test, build)
-      # fails with TS2307 "Cannot find module '@cairn/shared'" unless
+      # fails with TS2307 "Cannot find module '@operari/shared'" unless
       # we build it ourselves first.
       - name: Build shared
-        run: npm run build -w @cairn/shared
+        run: npm run build -w @operari/shared
       - name: Lint
         run: npm run lint -w frontend
       - name: Typecheck
@@ -73,7 +73,7 @@ jobs:
           # feed opengraph-image + sitemap generation. Dummy values are
           # fine for CI; real prod uses the Fly.io / Caddy env.
           NEXT_PUBLIC_SITE_URL: https://example.test
-          NEXT_PUBLIC_API_URL: https://example.test/api
+          NEXT_PUBLIC_API_URL: https://example.test
 
   backend:
     name: Backend (lint + typecheck + test)
@@ -88,7 +88,7 @@ jobs:
         env:
           POSTGRES_PASSWORD: ci
           POSTGRES_USER: ci
-          POSTGRES_DB: nanorun_ci
+          POSTGRES_DB: operari_ci
         ports:
           - 5432:5432
         options: >-
@@ -119,7 +119,7 @@ jobs:
         run: npm run test:ci -w backend
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/nanorun_ci
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/operari_ci
           JWT_SECRET: ci-jwt-secret-at-least-32-chars-long-xxxxxx
           # ENCRYPTION_KEY must be 64 hex chars OR 44 base64 chars so
           # SecretCipher.parseKey() accepts it. 64 zeros is valid hex.
@@ -141,13 +141,13 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install workspace deps
         run: npm ci --ignore-scripts
-      # `@cairn/shared` has to build before the SDK and CLI pick up its
+      # `@operari/shared` has to build before the SDK and CLI pick up its
       # dist — the workspace topological order would normally handle this,
       # but running the builds explicitly makes a tsc failure easier to
       # read in the logs.
       - name: Build shared
-        run: npm run build -w @cairn/shared
+        run: npm run build -w @operari/shared
       - name: Build SDK
-        run: npm run build -w @cairn/sdk
+        run: npm run build -w @operari/sdk
       - name: Build CLI
-        run: npm run build -w @cairn/cli
+        run: npm run build -w @operari/cli

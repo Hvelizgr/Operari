@@ -27,7 +27,7 @@ import { logger } from '../config/logger.config';
  *     assert that here.
  *
  * Cross-tenant queries (admin analytics, cron sweeps over all runs)
- * opt out by setting `NANORUN_ALLOW_CROSS_TENANT_QUERY: true` on the
+ * opt out by setting `OPERARI_ALLOW_CROSS_TENANT_QUERY: true` on the
  * query args — a deliberate, grep-able flag that reviewers can spot.
  * The flag is stripped before the query reaches Prisma.
  *
@@ -46,7 +46,7 @@ export class TenantScopeViolationError extends Error {
       `Tenant-scope guard: ${model}.${action}() called without a tenantId ` +
         `filter. Every query to ${model} must include where.tenantId (or a ` +
         `relation filter that carries tenantId). Cross-tenant queries must ` +
-        `opt in via NANORUN_ALLOW_CROSS_TENANT_QUERY.`
+        `opt in via OPERARI_ALLOW_CROSS_TENANT_QUERY.`
     );
     this.name = 'TenantScopeViolationError';
   }
@@ -70,7 +70,7 @@ const UNGUARDED_ACTIONS: ReadonlySet<string> = new Set([
 
 type MaybeWhere = {
   where?: unknown;
-  NANORUN_ALLOW_CROSS_TENANT_QUERY?: boolean;
+  OPERARI_ALLOW_CROSS_TENANT_QUERY?: boolean;
 };
 
 function hasTenantFilter(where: unknown): boolean {
@@ -101,13 +101,13 @@ function hasTenantFilter(where: unknown): boolean {
 
 function reportViolation(model: string, action: string): void {
   const err = new TenantScopeViolationError(model, action);
-  if (process.env.NODE_ENV === 'production' && process.env.NANORUN_TENANT_GUARD_STRICT !== 'true') {
+  if (process.env.NODE_ENV === 'production' && process.env.OPERARI_TENANT_GUARD_STRICT !== 'true') {
     // Don't tank live traffic on a safety-net violation — log loudly
     // so Sentry picks it up, then let the underlying query run. The
     // Execution / NodeLog / ExecutionError rows still carry tenantId
     // at the DB level, so a reviewer can trace the leak via logs.
     //
-    // Flip NANORUN_TENANT_GUARD_STRICT=true once prod logs show zero
+    // Flip OPERARI_TENANT_GUARD_STRICT=true once prod logs show zero
     // violations for ≥2 weeks — the audit's "T.3" validation step.
     logger.error({ err, model, action }, 'Tenant-scope guard violation (prod soft-fail)');
     return;
@@ -126,10 +126,10 @@ export function installTenantScopeGuard(prisma: PrismaClient): void {
     const { model, action, args } = params;
     if (model && GUARDED_MODELS.has(model) && !UNGUARDED_ACTIONS.has(action)) {
       const guardArgs = (args ?? {}) as MaybeWhere;
-      if (guardArgs.NANORUN_ALLOW_CROSS_TENANT_QUERY === true) {
+      if (guardArgs.OPERARI_ALLOW_CROSS_TENANT_QUERY === true) {
         // Strip the flag before the query reaches Prisma — passing
         // an unknown top-level key would otherwise fail validation.
-        delete guardArgs.NANORUN_ALLOW_CROSS_TENANT_QUERY;
+        delete guardArgs.OPERARI_ALLOW_CROSS_TENANT_QUERY;
       } else {
         const whereSource = action === 'upsert' ? (guardArgs.where ?? {}) : guardArgs.where;
         if (!hasTenantFilter(whereSource)) {

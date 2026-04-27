@@ -14,7 +14,7 @@ import {
   NodesLayer,
 } from './';
 const LogTerminal = dynamic(() => import('./terminal/LogTerminal'), { ssr: false });
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 import { Terminal as TerminalIcon, X } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,9 +32,9 @@ import RunDialog from '../Workflow/RunDialog';
 import ScheduleDialog from '../Workflow/ScheduleDialog';
 import SnapshotDialog from '../Workflow/SnapshotDialog';
 import CanvasRunStatus from './CanvasRunStatus';
-import FirstRunConfetti from './FirstRunConfetti';
 import CommandPalette, { CommandAction } from './CommandPalette';
 import EditorSidebar from './EditorSidebar';
+import FirstRunConfetti from './FirstRunConfetti';
 import GitHubBranchPanel from './GitHubBranchPanel';
 import OnboardingRunHint from './OnboardingRunHint';
 import RunbookAssistPanel from './RunbookAssistPanel';
@@ -493,7 +493,9 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
   return (
     <>
-      <div className="flex h-screen w-full overflow-hidden bg-[var(--box-background-color)]">
+      <div className="marketing-shell flex h-screen w-full overflow-hidden bg-[var(--app-bg)]">
+        {/* Grain overlay is applied via .marketing-shell::before in globals.css */}
+
         {/* 1. Sidebar */}
         <EditorSidebar lang={lang} />
 

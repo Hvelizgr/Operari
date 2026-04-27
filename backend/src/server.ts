@@ -174,7 +174,7 @@ app.use('/api/sql', standardRateLimiter, sqlRoutes);
 app.use('/api/github', standardRateLimiter, githubExplorerRoutes);
 app.use('/api/contact', standardRateLimiter, contactRoutes);
 
-// NanoRun API v1 (SDK & CLI)
+// Operari API v1 (SDK & CLI)
 app.use('/api/v1/runbooks', executionRateLimiter, v1RunbookRoutes);
 app.use('/api/v1/runs', standardRateLimiter, v1RunRoutes);
 app.use('/api/v1/keys', standardRateLimiter, v1KeyRoutes);
@@ -198,7 +198,7 @@ app.get('/live', (_req, res) => {
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    version: process.env.APP_VERSION ?? process.env.NANORUN_VERSION ?? '0.1.0-dev',
+    version: process.env.APP_VERSION ?? process.env.OPERARI_VERSION ?? '0.1.0-dev',
     uptimeSeconds: Math.round(process.uptime()),
   });
 });
@@ -257,8 +257,8 @@ app.get('/health', async (_req, res) => {
     timestamp: new Date().toISOString(),
     // Prefer APP_VERSION (same value Sentry uses for release tagging)
     // so one tag correlates uptime pings with error groups. Falls
-    // back to NANORUN_VERSION for legacy compose files.
-    version: process.env.APP_VERSION ?? process.env.NANORUN_VERSION ?? '0.1.0-dev',
+    // back to OPERARI_VERSION for legacy compose files.
+    version: process.env.APP_VERSION ?? process.env.OPERARI_VERSION ?? '0.1.0-dev',
     uptimeSeconds: Math.round(process.uptime()),
     deps: {
       postgres: { status: postgres, ...(postgresError && { error: postgresError }) },
@@ -289,7 +289,7 @@ app.get('/health', async (_req, res) => {
 app.get('/health/roles', (_req, res) => {
   const snapshot = computeRoles({
     schedulerLeader,
-    billingProvider: process.env.NANORUN_BILLING_PROVIDER,
+    billingProvider: process.env.OPERARI_BILLING_PROVIDER,
   });
   res.status(200).json({ timestamp: new Date().toISOString(), ...snapshot });
 });
@@ -303,7 +303,7 @@ app.get('/api/openapi.json', (req, res) => {
 // Canonical RunbookSpec JSON Schema. Served at the root so VS Code's
 // yaml extension can pick it up via a stable URL — point yaml.schemas
 // at this endpoint and every *.runbook.yaml file gets autocomplete +
-// inline diagnostics. Also consumed by the CLI for `nanorun lint`
+// inline diagnostics. Also consumed by the CLI for `operari lint`
 // and (eventually) by the editor for save-time validation.
 //
 // The file is checked into the repo at backend/src/runbook/yaml/runbook.schema.json
@@ -357,9 +357,9 @@ async function main() {
       );
     }
 
-    if (env.NANORUN_ANONYMOUS_MODE === 'true') {
+    if (env.OPERARI_ANONYMOUS_MODE === 'true') {
       logger.warn(
-        '⚠️  NANORUN_ANONYMOUS_MODE=true — all API routes allow unauthenticated access. ' +
+        '⚠️  OPERARI_ANONYMOUS_MODE=true — all API routes allow unauthenticated access. ' +
           'Only use this for single-tenant self-host deployments.'
       );
     }
@@ -403,7 +403,7 @@ async function main() {
     // worker when a real billing provider is configured. For noop /
     // self-host we skip both — there's nothing to ship.
     let billingDispatchInterval: NodeJS.Timeout | null = null;
-    if ((process.env.NANORUN_BILLING_PROVIDER ?? 'noop').toLowerCase() === 'stripe') {
+    if ((process.env.OPERARI_BILLING_PROVIDER ?? 'noop').toLowerCase() === 'stripe') {
       const { installQueuedBillingMeter } = await import('./billing');
       const dispatchWorker = installQueuedBillingMeter(prisma);
       // 15s cadence. Tight enough that a transient Stripe outage
@@ -451,7 +451,7 @@ async function main() {
       const { KeyRotationService } = await import('./security/key-rotation.service');
       const { secretCipherFromEnv } = await import('./security/secret-cipher');
       const { AuditService } = await import('./audit/audit.service');
-      // Lazily construct cipher — if NANORUN_SECRET_KEY is unset the
+      // Lazily construct cipher — if OPERARI_SECRET_KEY is unset the
       // call throws, which we catch so server boot isn't blocked
       // just because self-host didn't set the master key.
       const rotationService = new KeyRotationService({
@@ -473,18 +473,18 @@ async function main() {
       process.on('SIGTERM', () => clearInterval(keyRotationInterval));
       logger.info('Key rotation worker started (5s interval)');
     } catch (err) {
-      logger.warn({ err }, 'Key rotation worker not started (NANORUN_SECRET_KEY missing?)');
+      logger.warn({ err }, 'Key rotation worker not started (OPERARI_SECRET_KEY missing?)');
     }
 
     // ADR 0003 phase 3 + 4: scan for runs that were in flight when the
     // previous backend instance died. Behind three flags:
-    //   NANORUN_DURABLE_ENGINE=true    → engine is wired in general
-    //   NANORUN_RESUME_WORKER_ACT=true → act on decisions, not just dryRun
-    //   NANORUN_RESUME_WORKER_REPLAY=true → phase 4 (replay instead of
+    //   OPERARI_DURABLE_ENGINE=true    → engine is wired in general
+    //   OPERARI_RESUME_WORKER_ACT=true → act on decisions, not just dryRun
+    //   OPERARI_RESUME_WORKER_REPLAY=true → phase 4 (replay instead of
     //     abandon) for runs whose event log shows no step mid-execution
     // Default: dryRun=true + replay=false so a fresh deploy logs the
     // report without mutation and keeps the conservative abandon policy.
-    if (env.NANORUN_DURABLE_ENGINE === 'true') {
+    if (env.OPERARI_DURABLE_ENGINE === 'true') {
       try {
         const { ExecutionEventStore } = await import('./runbook/engine/execution-event.store');
         const { ResumeWorker } = await import('./runbook/engine/resume-worker');
@@ -496,8 +496,8 @@ async function main() {
           prisma,
           executionService,
         });
-        const dryRun = env.NANORUN_RESUME_WORKER_ACT !== 'true';
-        const replay = env.NANORUN_RESUME_WORKER_REPLAY === 'true';
+        const dryRun = env.OPERARI_RESUME_WORKER_ACT !== 'true';
+        const replay = env.OPERARI_RESUME_WORKER_REPLAY === 'true';
         const report = await worker.runOnce({ dryRun, replay });
         logger.info(
           {

@@ -24,14 +24,14 @@ let eventStore: ExecutionEventStore | null = null;
  * write to the store unless the rest of the engine is too.
  */
 function getEventStore(): ExecutionEventStore | null {
-  if (process.env.NANORUN_DURABLE_ENGINE !== 'true') return null;
+  if (process.env.OPERARI_DURABLE_ENGINE !== 'true') return null;
   if (!eventStore) eventStore = new ExecutionEventStore(prisma);
   return eventStore;
 }
 
 const router = Router();
 
-// Anonymous fallback gated by NANORUN_ANONYMOUS_MODE=true.
+// Anonymous fallback gated by OPERARI_ANONYMOUS_MODE=true.
 router.use(anonymousFallback);
 
 /**

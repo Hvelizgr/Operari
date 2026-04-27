@@ -2,11 +2,11 @@ import { repo } from '@/config/repo.config';
 
 export const content = {
   seo: {
-    title: 'NanoRun — La capa de acción para tus alertas',
+    title: 'Operari — La capa de acción para tus alertas',
     description:
-      'Salta la alarma a las 3 de la mañana. NanoRun apaga el fuego. Runbooks visuales open source disparados por Datadog, Sentry, GitHub, PagerDuty, Grafana o cualquier webhook. Self-host con un comando.',
+      'Salta la alarma a las 3 de la mañana. Operari apaga el fuego. Runbooks visuales open source disparados por Datadog, Sentry, GitHub, PagerDuty, Grafana o cualquier webhook. Self-host con un comando.',
     openGraph: {
-      title: 'NanoRun — Salta la alarma. NanoRun apaga el fuego.',
+      title: 'Operari — Salta la alarma. Operari apaga el fuego.',
       description:
         'Automatización open source de runbooks para responder a alertas. Visual para escribir, YAML para commitear, sandbox para ejecutar, auditado para probar.',
     },
@@ -30,7 +30,7 @@ export const content = {
       requestUrl: '/api/v1/runs/trigger',
       requestLabel: 'Request',
       requestLines: [
-        'curl -X POST https://api.nanorun.dev/v1/runs/trigger \\',
+        'curl -X POST https://api.operari.dev/v1/runs/trigger \\',
         '  -H "Authorization: Bearer sk_live_…" \\',
         '  -H "Content-Type: application/json" \\',
         '  -d \'{"runbook": "rollback-last-deploy",',
@@ -44,7 +44,7 @@ export const content = {
         '  "status": "running",',
         '  "steps": 4,',
         '  "audit_hash": "3f9c…b2e1",',
-        '  "stream": "wss://api.nanorun.dev/v1/runs/run_3f9c2b7a/stream"',
+        '  "stream": "wss://api.operari.dev/v1/runs/run_3f9c2b7a/stream"',
         '}',
       ],
       streamLabel: 'Stream',
@@ -103,7 +103,7 @@ export const content = {
         description:
           'Flag y listo: cada step loguea lo que HARÍA — sin subprocess, sin HTTP, sin pause de approval, sin notificación. Corrés contra credenciales de prod antes del rollback real, ves el payload exacto, dormís tranquilo.',
         example:
-          'curl -X POST https://api.nanorun.dev/v1/runs/trigger \\\n  -d \'{"runbook":"rollback","dryRun":true}\'',
+          'curl -X POST https://api.operari.dev/v1/runs/trigger \\\n  -d \'{"runbook":"rollback","dryRun":true}\'',
       },
       {
         title: 'Los errores disparan el siguiente runbook automáticamente.',
@@ -121,9 +121,9 @@ export const content = {
       {
         title: 'Tus propios step types, shippeados como npm packages.',
         description:
-          '@nanorun/sdk exporta defineStep({type, configSchema, execute}). Lo escribís en TypeScript, shippeás el build, lo dropeás en NANORUN_PLUGINS_DIR. El runtime valida config con tu zod schema antes del execute. Los types reservados no se pueden override.',
+          '@operari/sdk exporta defineStep({type, configSchema, execute}). Lo escribís en TypeScript, shippeás el build, lo dropeás en OPERARI_PLUGINS_DIR. El runtime valida config con tu zod schema antes del execute. Los types reservados no se pueden override.',
         example:
-          "import { defineStep } from '@nanorun/sdk/steps';\nexport default defineStep({\n  type: 'myorg.slack-notify',\n  configSchema: z.object({ webhook: z.string().url() }),\n  async execute(config, ctx) { /* ... */ },\n});",
+          "import { defineStep } from '@operari/sdk/steps';\nexport default defineStep({\n  type: 'myorg.slack-notify',\n  configSchema: z.object({ webhook: z.string().url() }),\n  async execute(config, ctx) { /* ... */ },\n});",
       },
     ],
   },
@@ -131,7 +131,7 @@ export const content = {
     eyebrow: 'Cómo funciona',
     title: 'Tres cosas, una sola herramienta.',
     subtitle:
-      'Las otras herramientas del rubro eligen una y pierden el resto. NanoRun hace las tres porque ninguna funciona sola.',
+      'Las otras herramientas del rubro eligen una y pierden el resto. Operari hace las tres porque ninguna funciona sola.',
     blocks: [
       {
         number: '01',
@@ -151,7 +151,7 @@ export const content = {
         number: '03',
         title: 'La alerta dispara → corre → la cadena de auditoría lo prueba.',
         description:
-          'Webhook entra, runbook sale. Cada step corre en un runner sandboxeado con retries, gates condicionales y aprobación humana donde la quieras. El operador ve el run en vivo en un event log estilo Temporal (tail SSE, jump-to-latest, retry-desde-step) mientras las mismas transiciones caen en una cadena hash SHA-256 verificable con `nanorun audit verify`.',
+          'Webhook entra, runbook sale. Cada step corre en un runner sandboxeado con retries, gates condicionales y aprobación humana donde la quieras. El operador ve el run en vivo en un event log estilo Temporal (tail SSE, jump-to-latest, retry-desde-step) mientras las mismas transiciones caen en una cadena hash SHA-256 verificable con `operari audit verify`.',
         caption: 'De la alerta a la evidencia, en una sola herramienta.',
       },
     ],
@@ -253,7 +253,7 @@ export const content = {
     title: 'No somos para todos. Acá la prueba.',
     subtitle:
       'Inclinada a nuestro favor donde ganamos, gris donde no competimos, roja donde perdemos. Leela antes de star.',
-    headers: ['', 'NanoRun', 'Rundeck', 'StackStorm', 'incident.io', 'Backstage'],
+    headers: ['', 'Operari', 'Rundeck', 'StackStorm', 'incident.io', 'Backstage'],
     rows: [
       {
         feature: 'Canvas visual + round-trip YAML',
@@ -538,8 +538,8 @@ export const content = {
         date: '2026-04-24',
         version: 'v0.6.0',
         tag: 'sdk',
-        title: 'SDK público consolidado bajo @nanorun/*',
-        body: 'El SDK de TypeScript, el CLI y los tipos compartidos ahora se publican como @nanorun/sdk, @nanorun/cli y @nanorun/shared. El namespace intermedio Cairn fue retirado para mantener el branding consistente en el binario CLI, los nombres de paquetes, los templates de email y el copy in-app.',
+        title: 'SDK público consolidado bajo @operari/*',
+        body: 'El SDK de TypeScript, el CLI y los tipos compartidos ahora se publican como @operari/sdk, @operari/cli y @operari/shared. El namespace intermedio Operari fue retirado para mantener el branding consistente en el binario CLI, los nombres de paquetes, los templates de email y el copy in-app.',
       },
       {
         date: '2026-03-14',
@@ -553,7 +553,7 @@ export const content = {
         version: 'v0.4.0',
         tag: 'feature',
         title: 'Cadena de auditoría hash-chained',
-        body: 'Cada step cae en una cadena SHA-256. `nanorun audit verify` reejecuta la cadena entera; tampering se detecta determinísticamente.',
+        body: 'Cada step cae en una cadena SHA-256. `operari audit verify` reejecuta la cadena entera; tampering se detecta determinísticamente.',
       },
     ],
   },
@@ -564,7 +564,7 @@ export const content = {
     sections: [
       {
         heading: 'Reportar una vulnerabilidad',
-        body: 'Email a security@nanorun.dev con mensaje cifrado PGP. Acusamos recibo en 24h, triage en 72h. Política de disclosure en SECURITY.md del repo.',
+        body: 'Email a security@operari.dev con mensaje cifrado PGP. Acusamos recibo en 24h, triage en 72h. Política de disclosure en SECURITY.md del repo.',
       },
       {
         heading: 'Sandboxing',
@@ -576,7 +576,7 @@ export const content = {
       },
       {
         heading: 'Cadena de auditoría',
-        body: 'I/O de cada step se hashea con SHA-256 y se encadena. Verificás un run end-to-end con `nanorun audit verify`. Tampering rompe la cadena determinísticamente.',
+        body: 'I/O de cada step se hashea con SHA-256 y se encadena. Verificás un run end-to-end con `operari audit verify`. Tampering rompe la cadena determinísticamente.',
       },
       {
         heading: 'Residencia de datos (Cloud)',
@@ -643,7 +643,7 @@ export const content = {
     sections: [
       {
         heading: 'Self-host: cero telemetría',
-        body: 'Self-host no nos manda nada. Sin pings, sin contadores de uso, sin reportes de crash a menos que habilites explícitamente el flag NANORUN_TELEMETRY. Tus runbooks, ejecuciones, logs y credenciales nunca salen de tu infraestructura.',
+        body: 'Self-host no nos manda nada. Sin pings, sin contadores de uso, sin reportes de crash a menos que habilites explícitamente el flag OPERARI_TELEMETRY. Tus runbooks, ejecuciones, logs y credenciales nunca salen de tu infraestructura.',
       },
       {
         heading: 'Cloud: qué datos guardamos',
@@ -655,7 +655,7 @@ export const content = {
       },
       {
         heading: 'Tus derechos',
-        body: 'Podés acceder, corregir, exportar o eliminar cada campo asociado a tu cuenta desde la página de Settings. Para derechos que requieren gestión manual (restricción, oposición, portabilidad en bulk), escribinos a privacy@nanorun.dev y respondemos en 30 días. Residentes en la UE/EEE y UK pueden también hacer reclamos ante su autoridad de protección de datos local.',
+        body: 'Podés acceder, corregir, exportar o eliminar cada campo asociado a tu cuenta desde la página de Settings. Para derechos que requieren gestión manual (restricción, oposición, portabilidad en bulk), escribinos a privacy@operari.dev y respondemos en 30 días. Residentes en la UE/EEE y UK pueden también hacer reclamos ante su autoridad de protección de datos local.',
       },
       {
         heading: 'Retención',
@@ -667,7 +667,7 @@ export const content = {
       },
       {
         heading: 'Cookies',
-        body: 'Usamos dos cookies funcionales: nanorun_session (HttpOnly, requerida para login) y nanorun_csrf (legible por el navegador para que los forms incluyan un token CSRF). El sitio de marketing usa analytics privacy-first sin cookies ni tracking cross-site.',
+        body: 'Usamos dos cookies funcionales: operari_session (HttpOnly, requerida para login) y operari_csrf (legible por el navegador para que los forms incluyan un token CSRF). El sitio de marketing usa analytics privacy-first sin cookies ni tracking cross-site.',
       },
       {
         heading: 'Subprocesadores',
@@ -679,11 +679,11 @@ export const content = {
       },
       {
         heading: 'Datos de menores',
-        body: 'El servicio no está dirigido a menores de 16 años. No recolectamos conscientemente datos de menores; si creés que los datos de un menor llegaron a nosotros, escribinos a privacy@nanorun.dev y los eliminamos.',
+        body: 'El servicio no está dirigido a menores de 16 años. No recolectamos conscientemente datos de menores; si creés que los datos de un menor llegaron a nosotros, escribinos a privacy@operari.dev y los eliminamos.',
       },
       {
         heading: 'Contacto',
-        body: 'Consultas de privacidad o pedidos de derechos: privacy@nanorun.dev. Divulgaciones de seguridad: security@nanorun.dev (PGP bajo pedido). Para asuntos GDPR de la UE mantendremos un Representante EEA una vez que la facturación en la región supere el umbral de EU Rep.',
+        body: 'Consultas de privacidad o pedidos de derechos: privacy@operari.dev. Divulgaciones de seguridad: security@operari.dev (PGP bajo pedido). Para asuntos GDPR de la UE mantendremos un Representante EEA una vez que la facturación en la región supere el umbral de EU Rep.',
       },
     ],
   },
@@ -694,7 +694,7 @@ export const content = {
     sections: [
       {
         heading: 'Partes',
-        body: 'Estos términos forman un acuerdo entre vos ("Cliente") y NanoRun ("nosotros"). Al registrarte en el servicio hosted o al correr la distribución self-host en producción, aceptás estos términos.',
+        body: 'Estos términos forman un acuerdo entre vos ("Cliente") y Operari ("nosotros"). Al registrarte en el servicio hosted o al correr la distribución self-host en producción, aceptás estos términos.',
       },
       {
         heading: 'Licencia self-host',
@@ -786,14 +786,14 @@ export const content = {
       {
         name: 'Seguridad',
         description: 'Vulnerabilidades. PGP cifrado, ack 24h.',
-        href: 'mailto:security@nanorun.dev',
-        action: 'security@nanorun.dev',
+        href: 'mailto:security@operari.dev',
+        action: 'security@operari.dev',
       },
       {
         name: 'Ventas',
         description: 'Business, Enterprise y on-prem.',
-        href: 'mailto:hello@nanorun.dev',
-        action: 'hello@nanorun.dev',
+        href: 'mailto:hello@operari.dev',
+        action: 'hello@operari.dev',
       },
     ],
     form: {
@@ -810,7 +810,7 @@ export const content = {
   modal: {
     title: 'Sé un design partner',
     subtitle:
-      'Alpha pre-lanzamiento. Buscamos 5 equipos de SRE / plataforma usando NanoRun en serio. Gratis para siempre en self-host, office hours semanales, línea directa con la gente que lo está construyendo.',
+      'Alpha pre-lanzamiento. Buscamos 5 equipos de SRE / plataforma usando Operari en serio. Gratis para siempre en self-host, office hours semanales, línea directa con la gente que lo está construyendo.',
     placeholder: 'vos@empresa.com',
     button: 'Pedir un chat',
     processing: 'Enviando...',

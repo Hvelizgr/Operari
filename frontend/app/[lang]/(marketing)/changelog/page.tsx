@@ -15,7 +15,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { lang } = await params;
   const c = lang === 'es' ? contentEs : contentEn;
-  return { title: `${c.changelog.title} · NanoRun`, description: c.changelog.subtitle };
+  return { title: `${c.changelog.title} · Operari`, description: c.changelog.subtitle };
 }
 
 export default async function ChangelogPage({ params }: { params: Promise<{ lang: string }> }) {

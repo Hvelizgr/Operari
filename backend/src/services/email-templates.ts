@@ -208,7 +208,7 @@ interface ShellParams {
  * globals.css is not reachable.
  */
 const BRAND = {
-  name: 'NanoRun',
+  name: 'Operari',
   emerald: '#3ecf8e',
   ink: '#0a0a0a',
   text: '#1e293b',
@@ -316,7 +316,7 @@ ${escapeHtml(p.messageBlock)}
               ${escapeHtml(footer.tagline)}
             </p>
             <p style="margin:8px 0 0;font:400 12px/1.5 ${BRAND.sans};color:${BRAND.subtext};">
-              <a href="https://nanorun.dev" style="color:${BRAND.subtext};text-decoration:underline;">nanorun.dev</a>
+              <a href="https://operari.dev" style="color:${BRAND.subtext};text-decoration:underline;">operari.dev</a>
             </p>
           </td>
         </tr>
@@ -367,24 +367,24 @@ function renderLogoLockup(): string {
 const STRINGS = {
   en: {
     passwordReset: {
-      subject: 'Reset your NanoRun password',
+      subject: 'Reset your Operari password',
       preheader: 'Open the link inside — valid for 30 minutes.',
       heading: 'Reset your password',
-      body: 'Someone (hopefully you) asked to reset the password on your NanoRun account. Click the button below to pick a new one.',
+      body: 'Someone (hopefully you) asked to reset the password on your Operari account. Click the button below to pick a new one.',
       cta: 'Reset password',
       expiry: 'This link expires in 30 minutes.',
       ignoreLine: "Didn't request this? You can ignore this email — your password hasn't changed.",
     },
     verification: {
-      subject: 'Verify your NanoRun email',
+      subject: 'Verify your Operari email',
       preheader: 'One click to finish setting up your workspace.',
       heading: 'Verify your email',
-      body: 'Confirm this is your inbox so you can receive invites, alerts, and audit exports from NanoRun.',
+      body: 'Confirm this is your inbox so you can receive invites, alerts, and audit exports from Operari.',
       cta: 'Verify email',
       expiry: 'This link is valid for 7 days.',
     },
     invite: {
-      subject: "You're invited to {tenantName} on NanoRun",
+      subject: "You're invited to {tenantName} on Operari",
       preheader: '{tenantName} added you as a teammate.',
       heading: 'Join {tenantName}',
       body: '{inviterEmail} invited you to collaborate on runbooks in the {tenantName} workspace.',
@@ -393,45 +393,45 @@ const STRINGS = {
     },
     contact: {
       subject: '[contact] {name}',
-      preheader: 'New message from the NanoRun contact form.',
+      preheader: 'New message from the Operari contact form.',
       heading: 'New message from {name}',
       fromLabel: 'From',
       companyLabel: 'Company',
     },
     monitorAlert: {
-      subject: '[NanoRun] Monitor "{monitorName}" is FIRING',
+      subject: '[Operari] Monitor "{monitorName}" is FIRING',
       preheader: 'Monitor {monitorName} just transitioned to FIRING.',
       heading: 'Monitor "{monitorName}" is FIRING',
       monitorLabel: 'Monitor',
       reasonLabel: 'Reason',
       contextLabel: 'Context',
       cta: 'Open monitor',
-      footerLine: 'Open NanoRun to acknowledge or silence this alert.',
+      footerLine: 'Open Operari to acknowledge or silence this alert.',
     },
     footer: {
-      tagline: 'NanoRun · runbook automation for on-call engineers.',
+      tagline: 'Operari · runbook automation for on-call engineers.',
     },
   },
   es: {
     passwordReset: {
-      subject: 'Restablecé tu contraseña de NanoRun',
+      subject: 'Restablecé tu contraseña de Operari',
       preheader: 'Abrí el link adentro — válido 30 minutos.',
       heading: 'Restablecé tu contraseña',
-      body: 'Alguien (esperamos que vos) pidió restablecer la contraseña de tu cuenta NanoRun. Hacé clic en el botón para elegir una nueva.',
+      body: 'Alguien (esperamos que vos) pidió restablecer la contraseña de tu cuenta Operari. Hacé clic en el botón para elegir una nueva.',
       cta: 'Restablecer contraseña',
       expiry: 'Este link vence en 30 minutos.',
       ignoreLine: '¿No lo pediste? Podés ignorar este email — tu contraseña no cambió.',
     },
     verification: {
-      subject: 'Verificá tu email de NanoRun',
+      subject: 'Verificá tu email de Operari',
       preheader: 'Un clic para terminar de configurar tu workspace.',
       heading: 'Verificá tu email',
-      body: 'Confirmá que este es tu inbox para recibir invitaciones, alertas y exports de auditoría desde NanoRun.',
+      body: 'Confirmá que este es tu inbox para recibir invitaciones, alertas y exports de auditoría desde Operari.',
       cta: 'Verificar email',
       expiry: 'Este link es válido por 7 días.',
     },
     invite: {
-      subject: 'Te invitaron a {tenantName} en NanoRun',
+      subject: 'Te invitaron a {tenantName} en Operari',
       preheader: '{tenantName} te sumó como compañero/a.',
       heading: 'Unite a {tenantName}',
       body: '{inviterEmail} te invitó a colaborar con runbooks en el workspace {tenantName}.',
@@ -440,23 +440,23 @@ const STRINGS = {
     },
     contact: {
       subject: '[contacto] {name}',
-      preheader: 'Nuevo mensaje desde el form de contacto de NanoRun.',
+      preheader: 'Nuevo mensaje desde el form de contacto de Operari.',
       heading: 'Nuevo mensaje de {name}',
       fromLabel: 'De',
       companyLabel: 'Empresa',
     },
     monitorAlert: {
-      subject: '[NanoRun] El monitor "{monitorName}" está FIRING',
+      subject: '[Operari] El monitor "{monitorName}" está FIRING',
       preheader: 'El monitor {monitorName} acaba de transicionar a FIRING.',
       heading: 'El monitor "{monitorName}" está FIRING',
       monitorLabel: 'Monitor',
       reasonLabel: 'Razón',
       contextLabel: 'Contexto',
       cta: 'Abrir monitor',
-      footerLine: 'Abrí NanoRun para reconocer o silenciar esta alerta.',
+      footerLine: 'Abrí Operari para reconocer o silenciar esta alerta.',
     },
     footer: {
-      tagline: 'NanoRun · automatización de runbooks para on-call.',
+      tagline: 'Operari · automatización de runbooks para on-call.',
     },
   },
 } as const;

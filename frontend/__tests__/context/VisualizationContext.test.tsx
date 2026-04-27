@@ -31,7 +31,7 @@ import {
    - Custom preset cap at MAX_CUSTOM_PRESETS.
    ───────────────────────────────────────────────────────────── */
 
-const STORAGE_KEY = 'nanorun-visualization';
+const STORAGE_KEY = 'operari-visualization';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <VisualizationProvider>{children}</VisualizationProvider>

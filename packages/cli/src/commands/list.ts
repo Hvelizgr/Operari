@@ -1,10 +1,10 @@
-import { NanoRun } from '@nanorun/sdk';
+import { Operari } from '@operari/sdk';
 import { requireConfig } from '../config';
 import { colors, symbols } from '../colors';
 
 export async function listCommand() {
   const config = requireConfig();
-  const client = new NanoRun(config);
+  const client = new Operari(config);
 
   try {
     const runbooks = await client.listRunbooks();
@@ -38,7 +38,7 @@ export async function listCommand() {
       );
     }
 
-    console.log(colors.dim(`\nRun a runbook with: cairn run <slug>`));
+    console.log(colors.dim(`\nRun a runbook with: operari run <slug>`));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(colors.red(`${symbols.cross} ${msg}`));

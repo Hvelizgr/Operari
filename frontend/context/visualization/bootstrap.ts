@@ -21,7 +21,7 @@ import { STORAGE_KEY } from './storage';
  *   - the literal below (first-paint)
  */
 export const themeBootstrapScript = `(function(){
-try{var t=localStorage.getItem('nanorun-theme');if(t!=='light'&&t!=='dark'&&t!=='midnight')t='dark';document.documentElement.setAttribute('data-theme',t);if(t!=='light')document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');document.documentElement.classList.add('dark');}
+try{var t=localStorage.getItem('operari-theme');if(t!=='light'&&t!=='dark'&&t!=='midnight')t='dark';document.documentElement.setAttribute('data-theme',t);if(t!=='light')document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');document.documentElement.classList.add('dark');}
 try{
 var v=JSON.parse(localStorage.getItem(${JSON.stringify(STORAGE_KEY)})||'{}');
 var html=document.documentElement;

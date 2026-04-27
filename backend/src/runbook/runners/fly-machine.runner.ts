@@ -70,7 +70,7 @@ interface FlyMachineState {
  * persistent consumer. For v1 this runner returns the exit code (the
  * most security-critical signal — "did the runbook step succeed?") and
  * leaves stdout/stderr empty. v1.1 will add log capture via a sidecar
- * pattern: the runner image POSTs its own stdout to a NanoRun callback
+ * pattern: the runner image POSTs its own stdout to a Operari callback
  * webhook tagged with the machine id.
  *
  * Pricing reference (verified Q1 2026): shared 256MB ≈ $0.0027/hour,
@@ -160,9 +160,9 @@ export class FlyMachineRunner implements Runner {
         services,
         env: this.buildEnv(spec),
         metadata: {
-          'nanorun.run.id': context.runId,
-          'nanorun.step.id': context.stepId,
-          'nanorun.tenant.id': context.tenantId,
+          'operari.run.id': context.runId,
+          'operari.step.id': context.stepId,
+          'operari.tenant.id': context.tenantId,
         },
       },
     };

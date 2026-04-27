@@ -43,8 +43,8 @@ describe('LocalRunner', () => {
   it('injects custom env vars', async () => {
     const result = await runner.run(
       {
-        command: 'echo $NANORUN_TEST_VAR',
-        env: { NANORUN_TEST_VAR: 'pong' },
+        command: 'echo $OPERARI_TEST_VAR',
+        env: { OPERARI_TEST_VAR: 'pong' },
       },
       ctx()
     );

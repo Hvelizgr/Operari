@@ -5,7 +5,7 @@ import type { PermissionService } from './permission.service';
 
 /**
  * RoleAssignmentService — the only sanctioned way to grant or revoke
- * a custom role in NanoRun.
+ * a custom role in Operari.
  *
  * Three things must happen on every grant/revoke:
  *   1. The `RoleAssignment` row is created or deleted

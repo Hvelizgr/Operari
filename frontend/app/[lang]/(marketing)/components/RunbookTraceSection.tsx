@@ -33,7 +33,7 @@ const STRINGS = {
     runSlug: 'sentry-rollback',
     title: 'A real runbook, in five beats.',
     subtitle:
-      'Sentry alerts. NanoRun fetches logs, rolls back the deploy, asks on-call to confirm, posts to #incidents — every transition lands in a SHA-256 audit chain you can verify with a single CLI command.',
+      'Sentry alerts. Operari fetches logs, rolls back the deploy, asks on-call to confirm, posts to #incidents — every transition lands in a SHA-256 audit chain you can verify with a single CLI command.',
     statusLabel: 'Streaming',
   },
   es: {
@@ -42,7 +42,7 @@ const STRINGS = {
     runSlug: 'sentry-rollback',
     title: 'Un runbook real, en cinco beats.',
     subtitle:
-      'Sentry dispara. NanoRun trae los logs, hace rollback del deploy, pide confirmación al on-call y publica en #incidentes — cada transición cae en una cadena de auditoría SHA-256 verificable con un solo comando.',
+      'Sentry dispara. Operari trae los logs, hace rollback del deploy, pide confirmación al on-call y publica en #incidentes — cada transición cae en una cadena de auditoría SHA-256 verificable con un solo comando.',
     statusLabel: 'Streaming',
   },
 } as const;

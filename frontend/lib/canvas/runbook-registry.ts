@@ -79,7 +79,7 @@ function configPreview(
     }
     case 'approval':
       return (config.message as string) ? trunc(config.message) : null;
-    case 'nanorun.httpRequest': {
+    case 'operari.httpRequest': {
       const method = ((config.method as string) || 'GET').toUpperCase();
       const url = trunc(config.url ?? '', 50);
       return url ? `${method} ${url}` : method;
@@ -93,15 +93,15 @@ function configPreview(
           ? `$ ${cmd}`
           : null;
     }
-    case 'nanorun.database': {
+    case 'operari.database': {
       const op = (config.operation as string) ?? 'health';
       const q = trunc(config.query ?? '', 40);
       const tunnel = config.useSshTunnel ? ' 🔒' : '';
       return op === 'query' && q ? `${op}${tunnel} · ${q}` : `${op}${tunnel}`;
     }
-    case 'nanorun.cron':
+    case 'operari.cron':
       return (config.expression as string) ?? null;
-    case 'nanorun.webhook':
+    case 'operari.webhook':
       return (config.path as string) ? `/${config.path}` : null;
     case 'Condition': {
       const field = trunc(config.field ?? '', 20);
@@ -152,15 +152,15 @@ function validateConfig(
       if (!config.host) return 'Missing host';
       if (!config.credentialId) return 'Missing SSH key';
       return config.command ? null : 'Missing command';
-    case 'nanorun.database':
+    case 'operari.database':
       if (!config.credentialId) return 'Missing credential';
       if (config.operation === 'query' && !config.query) return 'Missing SQL query';
       return null;
-    case 'nanorun.httpRequest':
+    case 'operari.httpRequest':
       return config.url ? null : 'Missing URL';
-    case 'nanorun.cron':
+    case 'operari.cron':
       return config.expression ? null : 'Missing cron expression';
-    case 'nanorun.webhook':
+    case 'operari.webhook':
       return null;
     case 'Condition':
       if (!config.field) return 'Missing field';
@@ -187,7 +187,7 @@ function previewRenderHint(
   methodColor: string;
   url: string;
 } | null {
-  if (type !== 'nanorun.httpRequest' || !config) return null;
+  if (type !== 'operari.httpRequest' || !config) return null;
   const method = ((config.method as string) || 'GET').toUpperCase();
   const url = typeof config.url === 'string' ? config.url : '';
   return {
@@ -208,10 +208,10 @@ export const runbookRegistry: NodeTypeRegistry = {
     color: c.color,
   })),
   triggerTypes: new Set([
-    'nanorun.webhook',
-    'nanorun.cron',
-    'nanorun.scheduleTrigger',
-    'nanorun.manualTrigger',
+    'operari.webhook',
+    'operari.cron',
+    'operari.scheduleTrigger',
+    'operari.manualTrigger',
     'Webhook',
     'Trigger',
     'Schedule',

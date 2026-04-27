@@ -57,7 +57,7 @@ export class NodeExecutor {
    * Built once in the constructor; immutable thereafter.
    */
   private editorRegistry: Map<string, AnyEditorExecutor>;
-  // NanoRun: registry of runbook executors (shell, approval, notify, wait).
+  // Operari: registry of runbook executors (shell, approval, notify, wait).
   // Kept separate from editorRegistry because the runbook executors use a
   // different context shape; step 6 of ADR 0002 will merge the two.
   private runbookRegistry: Map<string, StepExecutor>;
@@ -198,7 +198,7 @@ export class NodeExecutor {
   }
 
   /**
-   * NanoRun: try to execute the node using the new runbook executor registry.
+   * Operari: try to execute the node using the new runbook executor registry.
    * Returns null if the node type is not registered (caller should fall through
    * to the legacy switch statement).
    */

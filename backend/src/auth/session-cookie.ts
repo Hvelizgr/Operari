@@ -1,8 +1,8 @@
 import { randomBytes } from 'crypto';
 import type { CookieOptions, Request, Response } from 'express';
 
-export const SESSION_COOKIE_NAME = 'nanorun_session';
-export const CSRF_COOKIE_NAME = 'nanorun_csrf';
+export const SESSION_COOKIE_NAME = 'operari_session';
+export const CSRF_COOKIE_NAME = 'operari_csrf';
 export const CSRF_HEADER_NAME = 'x-csrf-token';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;

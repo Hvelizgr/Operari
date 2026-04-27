@@ -68,7 +68,7 @@ describe('RunTracer', () => {
       expect(fake.spans).toHaveLength(1);
       const span = fake.spans[0];
       expect(span.name).toBe('run:Deploy Production');
-      expect(span.attributes['nanorun.run.id']).toBe('run-1');
+      expect(span.attributes['operari.run.id']).toBe('run-1');
       expect(span.attributes['runbook.id']).toBe('wf-1');
       expect(span.attributes['runbook.name']).toBe('Deploy Production');
       expect(span.attributes['tenant.id']).toBe('t-1');
@@ -172,7 +172,7 @@ describe('RunTracer', () => {
       expect(stepSpan.attributes['step.id']).toBe('s-1');
       expect(stepSpan.attributes['step.name']).toBe('fetch user');
       expect(stepSpan.attributes['step.type']).toBe('HTTP');
-      expect(stepSpan.attributes['nanorun.run.id']).toBe('r');
+      expect(stepSpan.attributes['operari.run.id']).toBe('r');
     });
 
     it('endStep records duration_ms and success=true', async () => {

@@ -31,7 +31,7 @@ const FILTERED_ENV_KEYS = [
  * WHEN TO USE:
  *   ✅ Self-hosted single-tenant deployments where the operator owns
  *      both the runbooks and the host.
- *   ✅ Local development of NanoRun itself.
+ *   ✅ Local development of Operari itself.
  *   ❌ Cloud SaaS — use FlyMachineRunner.
  *   ❌ Multi-tenant self-host — use DockerRunner.
  *
@@ -56,7 +56,7 @@ export class LocalRunner implements Runner {
 
     // Create an isolated tmpdir for each step so commands can't
     // read/write each other's temp files. Cleaned up after execution.
-    const stepTmpDir = mkdtempSync(join(tmpdir(), `nanorun-${context.runId}-`));
+    const stepTmpDir = mkdtempSync(join(tmpdir(), `operari-${context.runId}-`));
     const cwd = spec.cwd ?? stepTmpDir;
 
     // Filter dangerous env vars from the inherited environment

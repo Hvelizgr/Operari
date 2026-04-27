@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "nanorun"
+name = "operari"
 version = "0.1.0"
-description = "Official Python SDK for the NanoRun runbook automation API"
+description = "Official Python SDK for the Operari runbook automation API"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-authors = [{ name = "NanoRun" }]
-keywords = ["nanorun", "runbook", "automation", "sre", "devops"]
+authors = [{ name = "Operari" }]
+keywords = ["operari", "runbook", "automation", "sre", "devops"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -26,9 +26,9 @@ classifiers = [
 dependencies = ["httpx>=0.25.0"]
 
 [project.urls]
-Homepage = "https://github.com/hvelizg/NanoFlow"
-Documentation = "https://github.com/hvelizg/NanoFlow/tree/main/packages/python-sdk"
-Repository = "https://github.com/hvelizg/NanoFlow"
+Homepage = "https://github.com/hvelizg/Operari"
+Documentation = "https://github.com/hvelizg/Operari/tree/main/packages/python-sdk"
+Repository = "https://github.com/hvelizg/Operari"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/nanorun"]
+packages = ["src/operari"]

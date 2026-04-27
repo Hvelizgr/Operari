@@ -43,7 +43,7 @@ export interface HttpOutput {
  * first and the legacy executor is no longer reached.
  */
 export class HttpExecutor implements StepExecutor<HttpConfig> {
-  readonly type = 'nanorun.httpRequest';
+  readonly type = 'operari.httpRequest';
 
   /** Override-able for tests. Real path uses `globalThis.fetch`. */
   private readonly httpFetch: typeof fetch;

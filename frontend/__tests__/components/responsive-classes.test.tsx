@@ -48,7 +48,7 @@ describe('ApprovalInbox — mobile (390px) responsive classes', () => {
     expect(classes).toContain('sm:py-10');
 
     const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1.className).toContain('text-2xl');
-    expect(h1.className).toContain('sm:text-3xl');
+    expect(h1).toHaveClass('text-2xl');
+    expect(h1).toHaveClass('sm:text-3xl');
   });
 });

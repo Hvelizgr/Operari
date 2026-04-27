@@ -1,9 +1,9 @@
 import { Context, context as otelContext, Span, SpanStatusCode, trace } from '@opentelemetry/api';
 
 /**
- * RunTracer — maps NanoRun runs and steps onto OpenTelemetry traces.
+ * RunTracer — maps Operari runs and steps onto OpenTelemetry traces.
  *
- * The model NanoRun exposes to operators is the one
+ * The model Operari exposes to operators is the one
  * `IMPLEMENTACION_NANORUN.md` P1 #10 specifies:
  *
  *   run  = trace
@@ -24,7 +24,7 @@ import { Context, context as otelContext, Span, SpanStatusCode, trace } from '@o
  *
  * Why a wrapper instead of calling the OTel API directly:
  *   - The OTel API requires holding onto the active context to create
- *     child spans. NanoRun runs are async event loops, not function
+ *     child spans. Operari runs are async event loops, not function
  *     stacks; this class keeps the per-run context in a Map so step
  *     spans land under the correct trace without polluting AsyncLocalStorage.
  *   - Tests can swap a fake tracer at the singleton boundary without
@@ -62,7 +62,7 @@ interface ActiveStep {
   startedAt: number;
 }
 
-const TRACER_NAME = 'nanorun.runs';
+const TRACER_NAME = 'operari.runs';
 
 export class RunTracer {
   private readonly activeRuns = new Map<string, ActiveRun>();
@@ -84,7 +84,7 @@ export class RunTracer {
     }
     const span = this.tracer.startSpan(`run:${input.runbookName}`, {
       attributes: {
-        'nanorun.run.id': input.runId,
+        'operari.run.id': input.runId,
         'runbook.id': input.runbookId,
         'runbook.name': input.runbookName,
         'tenant.id': input.tenantId,
@@ -153,7 +153,7 @@ export class RunTracer {
       `step:${input.stepType}:${input.stepName}`,
       {
         attributes: {
-          'nanorun.run.id': input.runId,
+          'operari.run.id': input.runId,
           'step.id': input.stepId,
           'step.name': input.stepName,
           'step.type': input.stepType,

@@ -41,7 +41,7 @@ describe('seedDemoRunbook', () => {
     expect(args.data.tenantId).toBe('t-1');
     expect(args.data.userId).toBe('u-1');
     expect(args.data.isActive).toBe(false);
-    expect(args.data.name).toMatch(/NanoRun/i);
+    expect(args.data.name).toMatch(/Operari/i);
     // Definition shape: one note node + one shell node + one connection.
     expect(args.data.nodes).toHaveLength(2);
     expect(args.data.connections).toHaveLength(1);

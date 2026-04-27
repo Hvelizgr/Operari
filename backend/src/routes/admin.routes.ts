@@ -13,7 +13,7 @@ router.use((req: AuthRequest, _res, next) => {
   if (!req.user) {
     req.user = {
       id: 'anonymous',
-      email: 'anonymous@nanorun.local',
+      email: 'anonymous@operari.local',
       role: 'USER',
       tenantId: 'default-tenant',
     };
@@ -134,7 +134,7 @@ const startRotationSchema = z.object({
  *
  * Creates a KeyRotationJob row and returns it. The background worker
  * (server.ts interval) picks it up on the next tick. Rejects when
- * another rotation is active or when NANORUN_SECRET_KEY_LEGACY is
+ * another rotation is active or when OPERARI_SECRET_KEY_LEGACY is
  * unset (unless dryRun).
  */
 router.post('/key-rotation/start', async (req: AuthRequest, res: Response) => {

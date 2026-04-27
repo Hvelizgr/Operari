@@ -1,20 +1,20 @@
-# @nanorun/sdk
+# @operari/sdk
 
-Official Node.js SDK for NanoRun — visual runbooks for engineers.
+Official Node.js SDK for Operari — visual runbooks for engineers.
 
 ## Install
 
 ```bash
-npm install @nanorun/sdk
+npm install @operari/sdk
 ```
 
 ## Quick start
 
 ```ts
-import { NanoRun } from '@nanorun/sdk';
+import { Operari } from '@operari/sdk';
 
-const client = new NanoRun({
-  apiKey: process.env.NANORUN_API_KEY!,
+const client = new Operari({
+  apiKey: process.env.OPERARI_API_KEY!,
   baseURL: 'http://localhost:4000', // omit for production
 });
 
@@ -38,10 +38,10 @@ const result = await client.run('deploy-frontend', {
 
 ## API
 
-### `new NanoRun(config)`
+### `new Operari(config)`
 
 - `config.apiKey` (required) — your API key starting with `nr_live_` or `nr_test_`
-- `config.baseURL` (optional) — defaults to `https://api.nanorun.dev`
+- `config.baseURL` (optional) — defaults to `https://api.operari.dev`
 - `config.fetch` (optional) — custom fetch implementation
 
 ### `client.listRunbooks()`

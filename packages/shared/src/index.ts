@@ -1,5 +1,5 @@
 /**
- * @nanorun/shared
+ * @operari/shared
  * Shared types and utilities between frontend and backend
  */
 

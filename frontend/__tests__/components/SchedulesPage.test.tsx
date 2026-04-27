@@ -57,7 +57,7 @@ describe('SchedulesPage', () => {
 
     // Fire "Run now" on the only row.
     fireEvent.click(screen.getByRole('button', { name: /run now/i }));
-    await waitFor(() => expect(screen.getByText(/run triggered/i)).toBeInTheDocument());
+    expect(await screen.findByText(/run triggered/i)).toBeInTheDocument();
 
     expect(nativeAlert).not.toHaveBeenCalled();
     nativeAlert.mockRestore();

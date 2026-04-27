@@ -1,5 +1,5 @@
 {
-  "name": "nanorun",
+  "name": "operari",
   "private": true,
   "workspaces": [
     "frontend",

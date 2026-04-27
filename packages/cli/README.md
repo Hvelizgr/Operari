@@ -1,62 +1,62 @@
-# @nanorun/cli
+# @operari/cli
 
-Run [NanoRun](https://nanorun.dev) runbooks from your terminal.
+Run [Operari](https://operari.dev) runbooks from your terminal.
 
 ## Install
 
 ```bash
-npm install -g @nanorun/cli
+npm install -g @operari/cli
 ```
 
 ## Quick start
 
 ```bash
 # Login (interactive — paste your API key)
-nanorun login
+operari login
 
 # Or login with flags
-nanorun login --api-key nr_live_xxx --base-url https://api.nanorun.dev
+operari login --api-key nr_live_xxx --base-url https://api.operari.dev
 
 # List your runbooks
-nanorun list
+operari list
 
 # Run a runbook
-nanorun run deploy-frontend
+operari run deploy-frontend
 
 # Run with variables
-nanorun run deploy-frontend -v env=production -v version=2.1.4
+operari run deploy-frontend -v env=production -v version=2.1.4
 
 # Trigger and exit (don't wait)
-nanorun run nightly-backup --async
+operari run nightly-backup --async
 
 # Get status of a previous run
-nanorun status <run-id>
+operari status <run-id>
 ```
 
 ## Commands
 
-### `nanorun login`
+### `operari login`
 
-Save your API key to `~/.nanorun/config.json` (mode 0600).
+Save your API key to `~/.operari/config.json` (mode 0600).
 
 Options:
 
 - `--api-key <key>` — skip the prompt
 - `--base-url <url>` — server URL (default: prompt or `http://localhost:4000`)
 
-### `nanorun logout`
+### `operari logout`
 
 Delete saved credentials.
 
-### `nanorun whoami`
+### `operari whoami`
 
 Show current login info (key prefix only).
 
-### `nanorun list` (alias: `ls`)
+### `operari list` (alias: `ls`)
 
 List all runbooks accessible to your API key.
 
-### `nanorun run <slug>`
+### `operari run <slug>`
 
 Trigger a runbook by slug or id and stream the output.
 
@@ -68,7 +68,7 @@ Options:
 
 Exits with code `0` on success, `1` on failure or timeout.
 
-### `nanorun status <run-id>`
+### `operari status <run-id>`
 
 Get the status of a previous run.
 
@@ -78,11 +78,11 @@ Get the status of a previous run.
 # .github/workflows/deploy.yml
 - name: Run deploy runbook
   run: |
-    npx @nanorun/cli run deploy-prod \
+    npx @operari/cli run deploy-prod \
       -v commit=$GITHUB_SHA \
       -v branch=$GITHUB_REF_NAME
   env:
-    NANORUN_API_KEY: ${{ secrets.NANORUN_API_KEY }}
+    OPERARI_API_KEY: ${{ secrets.OPERARI_API_KEY }}
 ```
 
 ## License

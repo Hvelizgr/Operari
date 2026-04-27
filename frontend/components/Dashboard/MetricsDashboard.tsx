@@ -1,8 +1,19 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { BarChart3, CheckCircle, Clock, TrendingUp, X, XCircle } from 'lucide-react';
+import {
+  BarChart3,
+  CheckCircle,
+  Clock,
+  TrendingUp,
+  X,
+  XCircle,
+  Zap,
+  Activity,
+  Timer,
+} from 'lucide-react';
 import { useState } from 'react';
+import { StaggeredMetricCard } from './StaggeredMetricCard';
 
 interface ExecutionMetric {
   nodeId: string;
@@ -111,170 +122,208 @@ export default function MetricsDashboard({
       {showInternalButton && (
         <button
           onClick={() => setIsOpen(true)}
-          className="absolute left-1/2 top-4 z-40 flex translate-x-24 items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-200 shadow-lg transition-colors hover:bg-slate-700"
+          className="absolute left-1/2 top-4 z-40 flex translate-x-24 items-center gap-2 rounded-lg border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-2 text-sm font-bold text-[var(--text-primary)] shadow-xl transition-all hover:scale-105 hover:border-[var(--accent-color)]"
         >
-          <BarChart3 size={16} />
-          Metrics
+          <Activity size={16} className="text-[var(--accent-color)]" />
+          {text.title}
         </button>
       )}
 
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
               onClick={() => setIsOpen(false)}
             />
 
             <motion.div
-              className="relative mx-4 max-h-[80vh] w-full max-w-4xl overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 p-6 shadow-2xl"
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              className="marketing-shell relative h-full max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-[var(--panel-border)] bg-[var(--app-bg)] p-8 shadow-2xl"
+              initial={{ scale: 0.9, y: 40, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 40, opacity: 0 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 100 }}
             >
-              <div className="mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <BarChart3 size={24} className="text-primary" />
-                  <h2 className="text-2xl font-bold text-slate-100">{text.title}</h2>
+              {/* Header */}
+              <div className="mb-10 flex items-center justify-between">
+                <div>
+                  <div className="m-eyebrow mb-2">Analytics</div>
+                  <h2 className="text-4xl font-black tracking-tighter text-[var(--text-primary)]">
+                    {text.title}
+                  </h2>
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="text-slate-400 transition-colors hover:text-slate-200"
+                  className="rounded-full bg-[var(--panel-elevated)] p-3 text-[var(--text-muted)] transition-all hover:scale-110 hover:text-[var(--text-primary)]"
                 >
                   <X size={24} />
                 </button>
               </div>
 
               {totalExecutions === 0 ? (
-                <div className="py-12 text-center text-slate-400">{text.noData}</div>
+                <div className="flex h-64 flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--panel-border)] py-12 text-center text-[var(--text-muted)]">
+                  <Activity size={48} className="mb-4 opacity-20" />
+                  {text.noData}
+                </div>
               ) : (
-                <>
-                  <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-                      <div className="mb-2 flex items-center gap-2 text-sm text-slate-400">
-                        <TrendingUp size={16} />
-                        {text.totalExecutions}
-                      </div>
-                      <div className="text-2xl font-bold text-slate-100">{totalExecutions}</div>
-                      <div className="mt-1 text-xs text-slate-500">{text.executions}</div>
-                    </div>
+                <div className="space-y-8">
+                  {/* Metric Cards Grid */}
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                    <StaggeredMetricCard
+                      label={text.totalExecutions}
+                      value={totalExecutions}
+                      suffix={text.executions}
+                      icon={<Zap size={20} />}
+                      delay={100}
+                    />
 
-                    <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-                      <div className="mb-2 flex items-center gap-2 text-sm text-slate-400">
-                        <CheckCircle size={16} />
-                        {text.successRate}
-                      </div>
-                      <div className="text-2xl font-bold text-green-400">
-                        {successRate.toFixed(1)}%
-                      </div>
-                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-700">
-                        <div
-                          className="h-full bg-gradient-to-r from-green-500 to-green-400 transition-all"
-                          style={{ width: `${successRate}%` }}
-                        />
-                      </div>
-                    </div>
+                    <StaggeredMetricCard
+                      label={text.successRate}
+                      value={successRate}
+                      suffix="%"
+                      subValue={`${successCount} / ${totalExecutions}`}
+                      icon={<CheckCircle size={20} />}
+                      delay={200}
+                    />
 
-                    <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-                      <div className="mb-2 flex items-center gap-2 text-sm text-slate-400">
-                        <Clock size={16} />
-                        {text.avgExecutionTime}
-                      </div>
-                      <div className="text-primary/70 text-2xl font-bold">
-                        {avgExecutionTime.toFixed(0)}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">{text.ms}</div>
-                    </div>
+                    <StaggeredMetricCard
+                      label={text.avgExecutionTime}
+                      value={avgExecutionTime}
+                      suffix={text.ms}
+                      icon={<Timer size={20} />}
+                      delay={300}
+                    />
                   </div>
 
-                  <div className="mb-6 rounded-lg border border-slate-700 bg-slate-900 p-4">
-                    <h3 className="mb-4 text-lg font-semibold text-slate-100">
-                      {text.nodePerformance}
-                    </h3>
-                    <div className="space-y-3">
-                      {topNodes.map((node, index) => (
-                        <div key={node.id} className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded bg-slate-800 text-xs font-bold text-slate-400">
-                            {index + 1}
-                          </div>
-                          <div className="flex-1">
-                            <div className="mb-1 flex items-center justify-between">
-                              <span className="text-sm font-medium text-slate-200">
-                                {node.name}
-                              </span>
-                              <span className="text-xs text-slate-400">
-                                {node.count} {text.executions}
-                              </span>
+                  {/* Performance Section */}
+                  <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 400 }}
+                      className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 shadow-sm"
+                    >
+                      <h3 className="mb-6 flex items-center gap-2 text-xl font-black tracking-tight text-[var(--text-primary)]">
+                        <BarChart3 size={20} className="text-[var(--accent-color)]" />
+                        {text.nodePerformance}
+                      </h3>
+                      <div className="space-y-6">
+                        {topNodes.map((node, index) => (
+                          <div key={node.id} className="group flex items-center gap-4">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--panel-elevated)] text-sm font-black text-[var(--text-muted)] transition-all group-hover:bg-[var(--accent-color)] group-hover:text-black">
+                              {index + 1}
                             </div>
-                            <div className="flex items-center gap-4 text-xs">
-                              <span className="text-slate-400">
-                                {node.avgTime.toFixed(0)} {text.ms}
-                              </span>
-                              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-700">
-                                <div
-                                  className={`h-full ${
-                                    node.successRate > 80
-                                      ? 'bg-green-500'
-                                      : node.successRate > 50
-                                        ? 'bg-yellow-500'
-                                        : 'bg-red-500'
-                                  }`}
-                                  style={{ width: `${node.successRate}%` }}
-                                />
+                            <div className="flex-1">
+                              <div className="mb-2 flex items-center justify-between">
+                                <span className="text-sm font-bold text-[var(--text-primary)]">
+                                  {node.name}
+                                </span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                                  {node.count} {text.executions}
+                                </span>
                               </div>
-                              <span
-                                className={`font-medium ${
-                                  node.successRate > 80
-                                    ? 'text-green-400'
-                                    : node.successRate > 50
-                                      ? 'text-yellow-400'
-                                      : 'text-red-400'
-                                }`}
-                              >
-                                {node.successRate.toFixed(0)}%
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-                    <h3 className="mb-4 text-lg font-semibold text-slate-100">{text.recent}</h3>
-                    <div className="max-h-48 space-y-2 overflow-y-auto">
-                      {metrics
-                        .slice(-10)
-                        .reverse()
-                        .map((metric, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center justify-between border-b border-slate-800 py-2 last:border-0"
-                          >
-                            <div className="flex items-center gap-3">
-                              {metric.status === 'success' ? (
-                                <CheckCircle size={16} className="text-green-500" />
-                              ) : (
-                                <XCircle size={16} className="text-red-500" />
-                              )}
-                              <span className="text-sm text-slate-200">{metric.nodeName}</span>
-                            </div>
-                            <div className="flex items-center gap-3 text-xs text-slate-400">
-                              <span>
-                                {metric.executionTime} {text.ms}
-                              </span>
-                              <span>{new Date(metric.timestamp).toLocaleTimeString()}</span>
+                              <div className="flex items-center gap-4 text-xs">
+                                <span className="w-12 font-mono text-[var(--text-muted)]">
+                                  {node.avgTime.toFixed(0)}ms
+                                </span>
+                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--panel-elevated)]">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${node.successRate}%` }}
+                                    transition={{
+                                      duration: 1.5,
+                                      delay: 600 + index * 100,
+                                      ease: 'easeOutExpo',
+                                    }}
+                                    className={`h-full ${
+                                      node.successRate > 80
+                                        ? 'bg-[var(--op-moss)]'
+                                        : node.successRate > 50
+                                          ? 'bg-[var(--op-gold)]'
+                                          : 'bg-[var(--op-sunset)]'
+                                    }`}
+                                  />
+                                </div>
+                                <span
+                                  className={`w-10 text-right font-black ${
+                                    node.successRate > 80
+                                      ? 'text-[var(--op-moss)]'
+                                      : node.successRate > 50
+                                        ? 'text-[var(--op-gold)]'
+                                        : 'text-[var(--op-sunset)]'
+                                  }`}
+                                >
+                                  {node.successRate.toFixed(0)}%
+                                </span>
+                              </div>
                             </div>
                           </div>
                         ))}
-                    </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Recent Executions */}
+                    <motion.div
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 500 }}
+                      className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 shadow-sm"
+                    >
+                      <h3 className="mb-6 flex items-center gap-2 text-xl font-black tracking-tight text-[var(--text-primary)]">
+                        <Clock size={20} className="text-[var(--accent-color)]" />
+                        {text.recent}
+                      </h3>
+                      <div className="custom-scrollbar max-h-[360px] space-y-3 overflow-y-auto pr-2">
+                        {metrics
+                          .slice(-12)
+                          .reverse()
+                          .map((metric, index) => (
+                            <motion.div
+                              key={index}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 600 + index * 50 }}
+                              className="hover:border-[var(--accent-color)]/30 flex items-center justify-between rounded-xl border border-[var(--panel-border)] bg-[var(--app-bg)] p-4 transition-all hover:scale-[1.02]"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div
+                                  className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                                    metric.status === 'success'
+                                      ? 'bg-green-500/10 text-green-500'
+                                      : 'bg-red-500/10 text-red-500'
+                                  }`}
+                                >
+                                  {metric.status === 'success' ? (
+                                    <CheckCircle size={16} />
+                                  ) : (
+                                    <XCircle size={16} />
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-bold text-[var(--text-primary)]">
+                                    {metric.nodeName}
+                                  </div>
+                                  <div className="font-mono text-[10px] text-[var(--text-muted)]">
+                                    {new Date(metric.timestamp).toLocaleTimeString()}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-mono text-sm font-black text-[var(--text-primary)]">
+                                  {metric.executionTime}ms
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))}
+                      </div>
+                    </motion.div>
                   </div>
-                </>
+                </div>
               )}
             </motion.div>
           </motion.div>

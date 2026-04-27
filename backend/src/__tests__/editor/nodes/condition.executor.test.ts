@@ -6,7 +6,7 @@ describe('ConditionNodeExecutor', () => {
   it('exposes type=Condition and If alias', () => {
     const exec = new ConditionNodeExecutor();
     expect(exec.type).toBe('Condition');
-    expect(exec.aliases).toEqual(['If', 'nanorun.if']);
+    expect(exec.aliases).toEqual(['If', 'operari.if']);
   });
 
   describe('declarative operators', () => {

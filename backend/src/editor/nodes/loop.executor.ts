@@ -12,7 +12,7 @@ import { getNestedValue } from './_shared';
  */
 export class LoopNodeExecutor implements EditorNodeExecutor<LoopNodeConfig, LoopResult> {
   readonly type = 'Loop';
-  readonly aliases = ['Iterator', 'nanorun.loop'] as const;
+  readonly aliases = ['Iterator', 'operari.loop'] as const;
 
   async execute(
     config: LoopNodeConfig,

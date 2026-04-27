@@ -8,7 +8,7 @@ describe('CanvasRunStatus', () => {
       <CanvasRunStatus executing={false} hasFailedNode={false} startedAt={null} lang="en" />
     );
     // Null return = empty div from the testing-library wrapper.
-    expect(container.firstChild).toBeNull();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('shows "Running" with a spinner and no elapsed when startedAt is null', () => {

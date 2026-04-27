@@ -1,6 +1,6 @@
 import { logger } from '../config/logger.config';
-import { renderMonitorAlertEmail } from './email-templates';
 import { sendEmail } from './email.service';
+import { renderMonitorAlertEmail } from './email-templates';
 
 /**
  * MonitorAlertService — notify a human when a Monitor flips to FIRING.

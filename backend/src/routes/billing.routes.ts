@@ -189,7 +189,7 @@ function planFromPriceId(priceId: string): Plan | null {
 /**
  * POST /api/billing/webhook
  *
- * Stripe → NanoRun. Raw body signature-verified with the endpoint
+ * Stripe → Operari. Raw body signature-verified with the endpoint
  * secret. Only three event types move the needle on our state:
  *
  *   - checkout.session.completed: first successful payment. We pull
@@ -274,7 +274,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
         const sub = event.data.object as StripeSubscription;
         const priceId = sub.items.data[0]?.price.id;
         const plan = priceId ? planFromPriceId(priceId) : null;
-        const tenantId = sub.metadata?.nanorun_tenant;
+        const tenantId = sub.metadata?.operari_tenant;
         if (!tenantId) break;
         await prisma.tenant.update({
           where: { id: tenantId },
@@ -290,7 +290,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
       }
       case 'customer.subscription.deleted': {
         const sub = event.data.object as StripeSubscription;
-        const tenantId = sub.metadata?.nanorun_tenant;
+        const tenantId = sub.metadata?.operari_tenant;
         if (!tenantId) break;
         await prisma.tenant.update({
           where: { id: tenantId },

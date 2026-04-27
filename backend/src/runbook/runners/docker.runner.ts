@@ -153,7 +153,7 @@ export class DockerRunner implements Runner {
   static buildContainerName(context: RunnerContext): string {
     const safe = (s: string) => s.replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 32);
     const suffix = randomBytes(4).toString('hex');
-    return `nanorun-${safe(context.runId)}-${safe(context.stepId)}-${suffix}`;
+    return `operari-${safe(context.runId)}-${safe(context.stepId)}-${suffix}`;
   }
 
   /**
@@ -212,9 +212,9 @@ export class DockerRunner implements Runner {
     }
 
     // ---- labels for audit / quota tracking ----
-    args.push('--label', `nanorun.run.id=${context.runId}`);
-    args.push('--label', `nanorun.step.id=${context.stepId}`);
-    args.push('--label', `nanorun.tenant.id=${context.tenantId}`);
+    args.push('--label', `operari.run.id=${context.runId}`);
+    args.push('--label', `operari.step.id=${context.stepId}`);
+    args.push('--label', `operari.tenant.id=${context.tenantId}`);
 
     // ---- image and command ----
     args.push(image);

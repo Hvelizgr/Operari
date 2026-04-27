@@ -100,7 +100,7 @@ export const PROVIDERS: Record<OAuthProviderName, OAuthProviderConfig> = {
       const res = await fetch('https://api.github.com/user/emails', {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'User-Agent': 'nanorun-oauth',
+          'User-Agent': 'operari-oauth',
           Accept: 'application/vnd.github+json',
         },
       });

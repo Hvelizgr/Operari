@@ -1,4 +1,4 @@
-import type { Connection, WorkflowNode } from '@nanorun/shared';
+import type { Connection, WorkflowNode } from '@operari/shared';
 import yaml from 'js-yaml';
 
 /**

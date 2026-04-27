@@ -97,8 +97,8 @@ describe('SecretCipher', () => {
 });
 
 describe('secretCipherFromEnv', () => {
-  it('builds a cipher from NANORUN_SECRET_KEY', () => {
-    const cipher = secretCipherFromEnv({ NANORUN_SECRET_KEY: HEX_KEY });
+  it('builds a cipher from OPERARI_SECRET_KEY', () => {
+    const cipher = secretCipherFromEnv({ OPERARI_SECRET_KEY: HEX_KEY });
     expect(cipher.encrypt('x')).toContain('v1:');
   });
 
@@ -263,10 +263,10 @@ describe('SecretCipher dual-key (rotation window)', () => {
     expect(newCipher.isCipheredUnderPrimary(blob, 'tenant-a', 'wrong')).toBe(false);
   });
 
-  it('secretCipherFromEnv wires legacy keys from NANORUN_SECRET_KEY_LEGACY', () => {
+  it('secretCipherFromEnv wires legacy keys from OPERARI_SECRET_KEY_LEGACY', () => {
     const cipher = secretCipherFromEnv({
-      NANORUN_SECRET_KEY: PRIMARY,
-      NANORUN_SECRET_KEY_LEGACY: LEGACY,
+      OPERARI_SECRET_KEY: PRIMARY,
+      OPERARI_SECRET_KEY_LEGACY: LEGACY,
     });
     expect(cipher.hasLegacyKeys()).toBe(true);
     const oldCipher = new SecretCipher(LEGACY);
@@ -276,18 +276,18 @@ describe('SecretCipher dual-key (rotation window)', () => {
 
   it('secretCipherFromEnv parses comma-separated legacy list', () => {
     const cipher = secretCipherFromEnv({
-      NANORUN_SECRET_KEY: PRIMARY,
-      NANORUN_SECRET_KEY_LEGACY: `${LEGACY} , ${OLDER_LEGACY}`,
+      OPERARI_SECRET_KEY: PRIMARY,
+      OPERARI_SECRET_KEY_LEGACY: `${LEGACY} , ${OLDER_LEGACY}`,
     });
     const oldest = new SecretCipher(OLDER_LEGACY);
     const blob = oldest.encryptForTenant('oldest', 'tenant-a');
     expect(cipher.decryptForTenant(blob, 'tenant-a')).toBe('oldest');
   });
 
-  it('secretCipherFromEnv treats empty NANORUN_SECRET_KEY_LEGACY as no legacy keys', () => {
+  it('secretCipherFromEnv treats empty OPERARI_SECRET_KEY_LEGACY as no legacy keys', () => {
     const cipher = secretCipherFromEnv({
-      NANORUN_SECRET_KEY: PRIMARY,
-      NANORUN_SECRET_KEY_LEGACY: '',
+      OPERARI_SECRET_KEY: PRIMARY,
+      OPERARI_SECRET_KEY_LEGACY: '',
     });
     expect(cipher.hasLegacyKeys()).toBe(false);
   });

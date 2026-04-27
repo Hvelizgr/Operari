@@ -278,7 +278,7 @@ describe('NotifyExecutor', () => {
       expect(result.success).toBe(true);
       expect((result.output as Record<string, unknown>).truncated).toBe(true);
       const body = JSON.parse(calls[0].init.body!);
-      expect(body.text).toMatch(/truncated by NanoRun notify step/);
+      expect(body.text).toMatch(/truncated by Operari notify step/);
       expect(Buffer.byteLength(body.text, 'utf-8')).toBeLessThanOrEqual(35 * 1024);
     });
 

@@ -14,7 +14,7 @@ export class TriggerNodeExecutor implements EditorNodeExecutor<
   TriggerResult
 > {
   readonly type = 'Trigger';
-  readonly aliases = ['Webhook', 'Schedule', 'nanorun.webhook', 'nanorun.cron'] as const;
+  readonly aliases = ['Webhook', 'Schedule', 'operari.webhook', 'operari.cron'] as const;
 
   async execute(
     _config: Record<string, unknown>,

@@ -1,6 +1,6 @@
 'use client';
 
-import { Connection, WorkflowNode } from '@nanorun/shared';
+import { Connection, WorkflowNode } from '@operari/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Check,

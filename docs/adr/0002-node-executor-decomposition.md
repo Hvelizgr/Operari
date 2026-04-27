@@ -108,7 +108,7 @@ runbook `ExecutorContext` shape end-to-end.
 - Removing the `NodeExecutionResult` superset type — preserving it keeps
   the diff small.
 - Removing `executeN8n` — the underlying service was already deleted in
-  the NanoRun pivot; the case branch is dead and can go in step 1.
+  the Operari pivot; the case branch is dead and can go in step 1.
 
 ## Consequences
 
@@ -182,4 +182,4 @@ session) can pick it up step by step instead of attempting a 1020-LOC
 rewrite in one shot. The P0 RCE concern that originally motivated the
 "refactor `node-executor.service.ts`" line item is **already resolved**:
 `executeShellCommand` now delegates to the runner-backed `ShellExecutor`,
-so `NANORUN_RUNNER=docker|fly` is honored on the editor path too.
+so `OPERARI_RUNNER=docker|fly` is honored on the editor path too.

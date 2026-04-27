@@ -26,7 +26,7 @@ export function requirePlan(
   ...allowedPlans: Plan[]
 ): (req: AuthRequest, res: Response, next: NextFunction) => Promise<void> {
   return async (req, res, next) => {
-    if (process.env.NANORUN_ANONYMOUS_MODE === 'true') {
+    if (process.env.OPERARI_ANONYMOUS_MODE === 'true') {
       return next();
     }
     if (!req.user) {

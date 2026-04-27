@@ -67,7 +67,7 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
     }
   });
 
-  it('routes Trigger and its Webhook/Schedule/nanorun.* aliases to the same executor', async () => {
+  it('routes Trigger and its Webhook/Schedule/operari.* aliases to the same executor', async () => {
     const make = (type: string) =>
       executor.execute(
         {
@@ -81,15 +81,15 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
       );
 
     // Pin BOTH the legacy aliases (Webhook, Schedule) AND the
-    // post-pivot nanorun.* aliases that the curated palette emits.
+    // post-pivot operari.* aliases that the curated palette emits.
     // The connection-dispatch fix added these so the new node
     // type strings actually find their executor.
     const results = await Promise.all([
       make('Trigger'),
       make('Webhook'),
       make('Schedule'),
-      make('nanorun.webhook'),
-      make('nanorun.cron'),
+      make('operari.webhook'),
+      make('operari.cron'),
     ]);
 
     for (const result of results) {
@@ -100,14 +100,14 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
     }
   });
 
-  it('routes nanorun.httpRequest, nanorun.if, nanorun.loop, nanorun.postgres aliases', async () => {
+  it('routes operari.httpRequest, operari.if, operari.loop, operari.postgres aliases', async () => {
     // Each of these post-pivot type strings was an orphan before
     // the connection-dispatch fix. Now they have to dispatch to
     // their legacy-named executors via aliases. We do not assert
     // the result shape here because each executor is exercised by
     // its own dedicated test file — this case only pins that
     // dispatch *finds* the executor (no NODE_NOT_FOUND throw).
-    const types = ['nanorun.httpRequest', 'nanorun.if', 'nanorun.loop', 'nanorun.postgres'];
+    const types = ['operari.httpRequest', 'operari.if', 'operari.loop', 'operari.postgres'];
     for (const type of types) {
       // Each may resolve, throw a config error, or do an HTTP
       // call we cannot mock here — what we forbid is the dispatcher
@@ -120,11 +120,11 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
             title: type,
             position: { x: 0, y: 0 },
             config:
-              type === 'nanorun.postgres'
+              type === 'operari.postgres'
                 ? { operation: 'health' }
-                : type === 'nanorun.httpRequest'
+                : type === 'operari.httpRequest'
                   ? { url: 'https://invalid.local.test' }
-                  : type === 'nanorun.if'
+                  : type === 'operari.if'
                     ? { field: 'x', operator: 'equals', value: 'y' }
                     : { items: [] },
           },

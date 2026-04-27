@@ -19,7 +19,7 @@ type ComparisonProps = {
  * Why this exists: SREs senior have seen 50 landing pages that pretend
  * to be everything for everyone. The fastest way to earn their trust
  * is to show where you LOSE. We render a sortable-style table with
- * tilted favorability (NanoRun column highlighted) but explicit X
+ * tilted favorability (Operari column highlighted) but explicit X
  * marks where we lose. The footnote spells out the loss in prose.
  *
  * The visual cues:
@@ -28,7 +28,7 @@ type ComparisonProps = {
  *   - "partial"/"parcial" → amber dash
  *   - any string     → rendered as plain text (price columns, license types)
  *
- * NanoRun column has a subtle highlight column behind it so it pops
+ * Operari column has a subtle highlight column behind it so it pops
  * without being obnoxious.
  */
 export default function Comparison({ content }: ComparisonProps) {
@@ -103,7 +103,7 @@ export default function Comparison({ content }: ComparisonProps) {
 
         {/* Mobile card view — visible only below md. A full table at this
             width is unreadable even with horizontal scroll, so on small
-            screens we render a stack of "NanoRun vs X" cards comparing
+            screens we render a stack of "Operari vs X" cards comparing
             us to each competitor across the same features. */}
         <div className="md:hidden">
           <MobileComparison content={content} />
@@ -198,7 +198,7 @@ export default function Comparison({ content }: ComparisonProps) {
  * "responsive table" pattern: at narrow widths, you don't make the
  * table smaller, you transpose it.
  *
- * The first card is NanoRun itself, highlighted, so the visitor sees
+ * The first card is Operari itself, highlighted, so the visitor sees
  * "what we do" before "how we compare to X".
  */
 function MobileComparison({ content }: { content: ComparisonProps['content'] }) {
@@ -255,7 +255,7 @@ function MobileComparison({ content }: { content: ComparisonProps['content'] }) 
  * Recognizes a few sentinel values ("yes", "sí", "no", "partial",
  * "parcial") and renders them as icons. Anything else (license names,
  * prices) is rendered as styled text. The highlighted variant is
- * used for the NanoRun column so the green checks read brighter.
+ * used for the Operari column so the green checks read brighter.
  */
 function Cell({ value, highlighted }: { value: string; highlighted: boolean }) {
   const v = value.toLowerCase();

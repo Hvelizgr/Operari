@@ -30,7 +30,7 @@ export interface RunnerSpec {
   timeoutMs?: number;
   /**
    * Container image (Docker / Fly only). Ignored by LocalRunner.
-   * Default per-runner; typically "alpine:3.20" or a NanoRun base image.
+   * Default per-runner; typically "alpine:3.20" or a Operari base image.
    */
   image?: string;
   /**

@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://nanorun.dev/schemas/runbook.schema.json",
-  "title": "NanoRun Runbook",
-  "description": "Canonical YAML/JSON schema for a NanoRun runbook. Mirrors backend/src/runbook/yaml/runbook-spec.ts. Used by the editor for save-time validation, by the CLI for `nanorun lint`, and by VS Code via yaml.schemas to power autocomplete + inline diagnostics.",
+  "$id": "https://operari.dev/schemas/runbook.schema.json",
+  "title": "Operari Runbook",
+  "description": "Canonical YAML/JSON schema for a Operari runbook. Mirrors backend/src/runbook/yaml/runbook-spec.ts. Used by the editor for save-time validation, by the CLI for `operari lint`, and by VS Code via yaml.schemas to power autocomplete + inline diagnostics.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "name", "steps"],
@@ -58,13 +58,13 @@
       "required": ["id", "type"],
       "properties": {
         "id": {
-          "description": "Unique slug-cased id within the runbook (e.g. `deploy-canary`). Appears in logs, retries, and `nanorun resume --from <id>`.",
+          "description": "Unique slug-cased id within the runbook (e.g. `deploy-canary`). Appears in logs, retries, and `operari resume --from <id>`.",
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9_-]*$",
           "maxLength": 64
         },
         "type": {
-          "description": "Step type matching a registered executor. The curated catalog ships shell, http, approval, notify, wait, switch, loop, plus the nanorun.* prefixed integration steps. Unknown types fail at run time, not at save time, so custom executors registered at runtime are still valid here.",
+          "description": "Step type matching a registered executor. The curated catalog ships shell, http, approval, notify, wait, switch, loop, plus the operari.* prefixed integration steps. Unknown types fail at run time, not at save time, so custom executors registered at runtime are still valid here.",
           "type": "string",
           "minLength": 1,
           "maxLength": 128

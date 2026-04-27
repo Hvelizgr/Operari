@@ -1,12 +1,12 @@
 # Security Policy
 
-NanoRun executes user-defined commands. We take security reports seriously.
+Operari executes user-defined commands. We take security reports seriously.
 
 ## Reporting a vulnerability
 
 **Do not open a public GitHub issue.** Instead, email:
 
-> **security@nanorun.dev**
+> **security@operari.dev**
 
 Please include:
 
@@ -28,7 +28,7 @@ We will not pursue legal action against researchers who:
 
 ## Supported versions
 
-NanoRun is in **alpha**. Only the `main` branch receives security fixes.
+Operari is in **alpha**. Only the `main` branch receives security fixes.
 Once we cut a `0.x` release, we will support the latest minor.
 
 | Version | Supported          |
@@ -42,7 +42,7 @@ In scope:
 
 - The `backend/`, `frontend/`, `packages/sdk`, and `packages/cli` source trees
 - Default Docker images shipped from this repository
-- The hosted `app.nanorun.dev` instance once it goes live
+- The hosted `app.operari.dev` instance once it goes live
 
 Out of scope:
 
@@ -56,14 +56,14 @@ Out of scope:
 These are documented trade-offs, not vulnerabilities — please do not file
 reports for them unless you have a concrete escalation:
 
-- **`LocalRunner` is single-tenant only.** Configuring `NANORUN_RUNNER=local`
+- **`LocalRunner` is single-tenant only.** Configuring `OPERARI_RUNNER=local`
   on a multi-tenant deployment is unsupported. Use `docker` or `fly` for
   multi-tenant. See `backend/src/runbook/runners/local.runner.ts`.
 - **Self-host JWT secret rotation requires a restart.** Documented in
   `backend/.env.example`.
 - **The audit chain detects tampering, it does not prevent it.** A DBA with
   raw Postgres access can drop rows; verification will then fail loudly via
-  `cairn audit verify`.
+  `operari audit verify`.
 
 ## Cryptography
 

@@ -48,7 +48,7 @@ describe('buildStripeMeterEventSender', () => {
     });
 
     await send({
-      event_name: 'nanorun_runs',
+      event_name: 'operari_runs',
       customer_id: 'cus_acme',
       value: 1,
       identifier: 'run.started:run-1',
@@ -62,7 +62,7 @@ describe('buildStripeMeterEventSender', () => {
     expect(call.headers['Content-Type']).toBe('application/x-www-form-urlencoded');
 
     const body = new URLSearchParams(call.body);
-    expect(body.get('event_name')).toBe('nanorun_runs');
+    expect(body.get('event_name')).toBe('operari_runs');
     expect(body.get('payload[stripe_customer_id]')).toBe('cus_acme');
     expect(body.get('payload[value]')).toBe('1');
     expect(body.get('identifier')).toBe('run.started:run-1');
@@ -76,7 +76,7 @@ describe('buildStripeMeterEventSender', () => {
     });
 
     await send({
-      event_name: 'nanorun_runs',
+      event_name: 'operari_runs',
       customer_id: 'cus_acme',
       value: 1,
     });
@@ -93,7 +93,7 @@ describe('buildStripeMeterEventSender', () => {
     });
 
     await send({
-      event_name: 'nanorun_runs',
+      event_name: 'operari_runs',
       customer_id: 'cus_acme',
       value: 1,
       metadata: { runId: 'run-1', tenant: 'acme' },
@@ -112,7 +112,7 @@ describe('buildStripeMeterEventSender', () => {
     });
 
     await send({
-      event_name: 'nanorun_runs',
+      event_name: 'operari_runs',
       customer_id: 'cus_acme',
       value: 1,
       metadata: {
@@ -141,7 +141,7 @@ describe('buildStripeMeterEventSender', () => {
 
     await expect(
       send({
-        event_name: 'nanorun_runs',
+        event_name: 'operari_runs',
         customer_id: 'cus_acme',
         value: 1,
       })
@@ -160,7 +160,7 @@ describe('buildStripeMeterEventSender', () => {
 
     await expect(
       send({
-        event_name: 'nanorun_runs',
+        event_name: 'operari_runs',
         customer_id: 'cus_acme',
         value: 1,
       })

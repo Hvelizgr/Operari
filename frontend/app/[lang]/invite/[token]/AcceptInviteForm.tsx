@@ -23,8 +23,8 @@ const STRINGS = {
     titleOk: (tenantName: string) => `Join ${tenantName}`,
     bodyOk: (inviter: string | null, email: string) =>
       inviter
-        ? `${inviter} invited ${email} to join their NanoRun workspace.`
-        : `You were invited to join a NanoRun workspace as ${email}.`,
+        ? `${inviter} invited ${email} to join their Operari workspace.`
+        : `You were invited to join a Operari workspace as ${email}.`,
     passwordLabel: 'Set a password',
     passwordHint: 'At least 8 characters.',
     nameLabel: 'Your name (optional)',
@@ -44,8 +44,8 @@ const STRINGS = {
     titleOk: (tenantName: string) => `Unite a ${tenantName}`,
     bodyOk: (inviter: string | null, email: string) =>
       inviter
-        ? `${inviter} invitó a ${email} a su workspace de NanoRun.`
-        : `Te invitaron a un workspace de NanoRun como ${email}.`,
+        ? `${inviter} invitó a ${email} a su workspace de Operari.`
+        : `Te invitaron a un workspace de Operari como ${email}.`,
     passwordLabel: 'Elegí una contraseña',
     passwordHint: 'Mínimo 8 caracteres.',
     nameLabel: 'Tu nombre (opcional)',

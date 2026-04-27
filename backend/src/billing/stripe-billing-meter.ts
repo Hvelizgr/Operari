@@ -22,7 +22,7 @@ import type { BillableEvent, BillingMeter } from './billing-meter.types';
  *
  * What this DOES NOT cover (out of scope for this file)
  *   - Webhook handling for `customer.subscription.*` events from
- *     Stripe (the inverse direction — Stripe telling NanoRun a
+ *     Stripe (the inverse direction — Stripe telling Operari a
  *     customer cancelled). Lives in a future webhooks/stripe.routes.ts.
  *   - Meter aggregation. Stripe handles that server-side.
  */
@@ -50,10 +50,10 @@ export interface StripeBillingMeterOptions {
 }
 
 const DEFAULT_METER_NAMES: Record<string, string> = {
-  'run.started': 'nanorun_runs',
-  'run.completed': 'nanorun_runs_completed',
-  'runner.minute': 'nanorun_runner_minutes',
-  'storage.gb_hour': 'nanorun_storage_gb_hours',
+  'run.started': 'operari_runs',
+  'run.completed': 'operari_runs_completed',
+  'runner.minute': 'operari_runner_minutes',
+  'storage.gb_hour': 'operari_storage_gb_hours',
 };
 
 export class StripeBillingMeter implements BillingMeter {

@@ -1,8 +1,8 @@
-# Contributing to NanoRun
+# Contributing to Operari
 
-Thanks for your interest in NanoRun! This document explains how to get the project running locally, how the codebase is organized, and how to send a change that has a good chance of being merged.
+Thanks for your interest in Operari! This document explains how to get the project running locally, how the codebase is organized, and how to send a change that has a good chance of being merged.
 
-NanoRun is in **alpha**. APIs, schemas, and internal structure are still moving. If you plan a non-trivial change, please open an issue first so we can align on direction before you spend time on a PR.
+Operari is in **alpha**. APIs, schemas, and internal structure are still moving. If you plan a non-trivial change, please open an issue first so we can align on direction before you spend time on a PR.
 
 ---
 
@@ -15,18 +15,18 @@ By participating in this project you agree to abide by the [Code of Conduct](./C
 ## Repository layout
 
 ```
-nanorun/
+operari/
 ├── backend/         AGPL-3.0 — server, executor, runbook engine, AI agent, API
 ├── frontend/        AGPL-3.0 — Next.js editor, canvas, real-time collab
 ├── packages/
 │   ├── sdk/         MIT — TypeScript SDK to trigger runbooks from your code
-│   ├── cli/         MIT — `nanorun` CLI
+│   ├── cli/         MIT — `operari` CLI
 │   └── shared/      Shared types between server, SDK and frontend
 ├── templates/       MIT — example runbooks (deploys, migrations, onboarding…)
 └── docs/            User-facing documentation
 ```
 
-The split between AGPL (server + frontend) and MIT (SDK + CLI + templates) is intentional: it lets you embed the SDK and CLI in any project without restrictions, while preventing third parties from offering NanoRun as a hosted service without contributing back.
+The split between AGPL (server + frontend) and MIT (SDK + CLI + templates) is intentional: it lets you embed the SDK and CLI in any project without restrictions, while preventing third parties from offering Operari as a hosted service without contributing back.
 
 ---
 
@@ -42,8 +42,8 @@ The split between AGPL (server + frontend) and MIT (SDK + CLI + templates) is in
 ### Clone and install
 
 ```bash
-git clone https://github.com/your-org/nanorun.git
-cd nanorun
+git clone https://github.com/your-org/operari.git
+cd operari
 npm install
 ```
 
@@ -81,7 +81,7 @@ npm run test --workspace backend
 npm run test --workspace frontend
 
 # SDK
-npm run test --workspace @nanorun/sdk
+npm run test --workspace @operari/sdk
 ```
 
 A PR that touches code without an accompanying test is unlikely to be merged unless the change is purely cosmetic.
@@ -163,7 +163,7 @@ Open an issue with:
 2. What you expected
 3. What actually happened
 4. How to reproduce (a runbook export or a curl command is gold)
-5. Versions: NanoRun, Node, OS, browser if relevant
+5. Versions: Operari, Node, OS, browser if relevant
 
 For security issues, **do not open a public issue.** See [SECURITY.md](./SECURITY.md).
 
@@ -177,4 +177,4 @@ Releases are cut from `main` using `npm version` in the affected workspace, then
 
 ## Questions
 
-Open a [discussion](https://github.com/your-org/nanorun/discussions) or ping us in the project chat (link in the README). Thanks for helping make NanoRun better.
+Open a [discussion](https://github.com/your-org/operari/discussions) or ping us in the project chat (link in the README). Thanks for helping make Operari better.

@@ -49,7 +49,7 @@ const buildRunner = (
 ) =>
   new FlyMachineRunner({
     apiToken: 'fly-test-token',
-    appName: 'nanorun-runners',
+    appName: 'operari-runners',
     region: opts.region,
     defaultImage: opts.defaultImage,
     fetchImpl: fetchFn,
@@ -87,7 +87,7 @@ describe('FlyMachineRunner.buildCreateBody', () => {
       {
         command: 'echo $0',
         shell: 'bash',
-        image: 'ghcr.io/nanorun/runner:1.2.3',
+        image: 'ghcr.io/operari/runner:1.2.3',
         resources: { memoryMb: 512, cpuMillis: 2000 },
       },
       ctx()
@@ -98,7 +98,7 @@ describe('FlyMachineRunner.buildCreateBody', () => {
         guest: { cpus: number; memory_mb: number };
       };
     };
-    expect(body.config.image).toBe('ghcr.io/nanorun/runner:1.2.3');
+    expect(body.config.image).toBe('ghcr.io/operari/runner:1.2.3');
     expect(body.config.init.exec).toEqual(['bash', '-c', 'echo $0']);
     expect(body.config.guest.cpus).toBe(2);
     expect(body.config.guest.memory_mb).toBe(512);
@@ -112,14 +112,14 @@ describe('FlyMachineRunner.buildCreateBody', () => {
     expect(body.config.auto_destroy).toBe(false);
   });
 
-  it('attaches NanoRun audit metadata', () => {
+  it('attaches Operari audit metadata', () => {
     const body = runner.buildCreateBody(
       { command: 'true' },
       ctx({ runId: 'r-9', stepId: 's-9', tenantId: 't-9' })
     ) as { config: { metadata: Record<string, string> } };
-    expect(body.config.metadata['nanorun.run.id']).toBe('r-9');
-    expect(body.config.metadata['nanorun.step.id']).toBe('s-9');
-    expect(body.config.metadata['nanorun.tenant.id']).toBe('t-9');
+    expect(body.config.metadata['operari.run.id']).toBe('r-9');
+    expect(body.config.metadata['operari.step.id']).toBe('s-9');
+    expect(body.config.metadata['operari.tenant.id']).toBe('t-9');
   });
 
   it('rejects malicious env var names', () => {
@@ -197,7 +197,7 @@ describe('FlyMachineRunner.run', () => {
 
     expect(calls).toHaveLength(4);
     expect(calls[0].method).toBe('POST');
-    expect(calls[0].url).toContain('/v1/apps/nanorun-runners/machines');
+    expect(calls[0].url).toContain('/v1/apps/operari-runners/machines');
     expect(calls[1].method).toBe('GET');
     expect(calls[1].url).toContain('/wait?state=stopped');
     expect(calls[2].method).toBe('GET');
@@ -301,7 +301,7 @@ describe('FlyMachineRunner.cancel', () => {
 
 describe('FlyMachineRunner.healthcheck', () => {
   it('passes on 200', async () => {
-    const { fn } = buildFetch([{ status: 200, body: { name: 'nanorun-runners' } }]);
+    const { fn } = buildFetch([{ status: 200, body: { name: 'operari-runners' } }]);
     const runner = buildRunner(fn);
     await expect(runner.healthcheck()).resolves.toBeUndefined();
   });

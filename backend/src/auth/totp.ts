@@ -79,7 +79,7 @@ export function buildOtpauthUrl(params: {
   accountName: string;
   issuer?: string;
 }): string {
-  const issuer = params.issuer ?? 'NanoRun';
+  const issuer = params.issuer ?? 'Operari';
   const label = encodeURIComponent(`${issuer}:${params.accountName}`);
   const qs = new URLSearchParams({
     secret: params.secret,

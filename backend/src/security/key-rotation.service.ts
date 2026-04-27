@@ -7,13 +7,13 @@ import type { SecretCipher } from './secret-cipher';
 /**
  * KeyRotationService — drives the re-encrypt-everything workflow.
  *
- * Why this exists: PENDIENTE.md flagged "rotating NANORUN_SECRET_KEY
+ * Why this exists: PENDIENTE.md flagged "rotating OPERARI_SECRET_KEY
  * is manual y riesgoso" as the last crypto gap before SOC 2. This
  * service is the state machine + batch worker that closes it.
  *
  * Operator flow
- *   1. Deploy with NANORUN_SECRET_KEY_LEGACY=<current>, rotate
- *      NANORUN_SECRET_KEY to <new>. Every process now reads both and
+ *   1. Deploy with OPERARI_SECRET_KEY_LEGACY=<current>, rotate
+ *      OPERARI_SECRET_KEY to <new>. Every process now reads both and
  *      writes under <new>.
  *   2. Admin calls POST /api/admin/key-rotation/start. This inserts
  *      a KeyRotationJob with status=PENDING + a deadline.
@@ -23,7 +23,7 @@ import type { SecretCipher } from './secret-cipher';
  *      User.mfaSecretCiphered), decrypts with whichever master
  *      works, and re-encrypts under the CURRENT master.
  *   4. When the cursor reaches the end, status=COMPLETED. Operator
- *      drops NANORUN_SECRET_KEY_LEGACY on the next deploy.
+ *      drops OPERARI_SECRET_KEY_LEGACY on the next deploy.
  *
  * Design choices
  *   - Only ONE active rotation at a time. startRotation rejects when
@@ -124,7 +124,7 @@ export class KeyRotationService {
     // nothing ciphered under an old master to re-encrypt.
     if (!input.dryRun && !this.opts.cipher.hasLegacyKeys()) {
       throw new KeyRotationError(
-        'No legacy keys configured. Set NANORUN_SECRET_KEY_LEGACY to the previous master before starting a rotation.',
+        'No legacy keys configured. Set OPERARI_SECRET_KEY_LEGACY to the previous master before starting a rotation.',
         'NO_LEGACY_KEYS'
       );
     }

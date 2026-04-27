@@ -1,6 +1,6 @@
 -- Key rotation orchestration (S3.4).
 --
--- Background: rotating NANORUN_SECRET_KEY today is manual and risky —
+-- Background: rotating OPERARI_SECRET_KEY today is manual and risky —
 -- the operator has to: (1) re-encrypt every ConnectedAccount.accessToken
 -- / refreshToken, (2) re-encrypt every User.mfaSecretCiphered, (3) do
 -- it without downtime, (4) leave a compliance trail showing when the

@@ -49,7 +49,7 @@ export interface CreateCheckoutSessionParams {
   /**
    * Arbitrary key/value bag persisted on the resulting
    * subscription. We use `tenantId` here so the webhook can resolve
-   * the NanoRun tenant without a second lookup.
+   * the Operari tenant without a second lookup.
    */
   metadata?: Record<string, string>;
 }
@@ -114,7 +114,7 @@ export async function createCheckoutSession(
   }
   // Propagate on the subscription row so the webhook handler can
   // map back to our tenant without a second API hit.
-  form.set('subscription_data[metadata][nanorun_tenant]', params.metadata?.tenantId ?? '');
+  form.set('subscription_data[metadata][operari_tenant]', params.metadata?.tenantId ?? '');
   for (const [k, v] of Object.entries(params.metadata ?? {})) {
     form.set(`metadata[${k}]`, v);
   }

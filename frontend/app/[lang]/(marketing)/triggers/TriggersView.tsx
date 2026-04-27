@@ -87,7 +87,7 @@ const SOURCE_DETAIL: Record<SourceKey, Omit<Source, 'name' | 'description' | 'st
     "head_branch": "main",
     "head_sha": "3f9c2b7"
   },
-  "repository": { "full_name": "cairn/api" }
+  "repository": { "full_name": "operari/api" }
 }`,
     vars: [
       { from: '$.workflow_run.name', to: 'vars.workflow' },
@@ -99,7 +99,7 @@ const SOURCE_DETAIL: Record<SourceKey, Omit<Source, 'name' | 'description' | 'st
     key: 'webhook',
     icon: Webhook,
     accent: 'text-primary border-primary/40 bg-primary/10',
-    hmac: 'X-NanoRun-Signature: t=…,v1=<hmac-sha256>',
+    hmac: 'X-Operari-Signature: t=…,v1=<hmac-sha256>',
     payload: `{
   "service": "checkout",
   "incident_id": "INC-2026-0042",
@@ -280,7 +280,7 @@ export default function TriggersView({ triggers, lang }: { triggers: Triggers; l
             : 'Your source not in the list? Generic webhook accepts any JSON POST.'}
         </p>
         <a
-          href="https://github.com/cairn-run/cairn/blob/main/docs/webhooks.md"
+          href="https://github.com/operari-run/operari/blob/main/docs/webhooks.md"
           target="_blank"
           rel="noopener noreferrer"
           className="text-primary hover:text-primary/80 inline-flex items-center gap-2 text-sm font-semibold"

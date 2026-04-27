@@ -1,7 +1,7 @@
-export interface NanoRunConfig {
-  /** Your NanoRun API key (starts with nr_live_ or nr_test_) */
+export interface OperariConfig {
+  /** Your Operari API key (starts with nr_live_ or nr_test_) */
   apiKey: string;
-  /** Base URL of the NanoRun API. Defaults to https://api.nanorun.dev */
+  /** Base URL of the Operari API. Defaults to https://api.operari.dev */
   baseURL?: string;
   /** Optional fetch implementation (useful for tests or non-standard envs) */
   fetch?: typeof fetch;

@@ -376,7 +376,7 @@ describe('Auth Routes', () => {
       );
     }
 
-    it('sets an HttpOnly nanorun_session cookie on register', async () => {
+    it('sets an HttpOnly operari_session cookie on register', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
       (prisma.tenant.create as jest.Mock).mockResolvedValue({
         id: 't',
@@ -397,7 +397,7 @@ describe('Auth Routes', () => {
 
       const setCookie = response.headers['set-cookie'];
       const cookies = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
-      const session = cookies.find((c: string) => c.startsWith('nanorun_session='));
+      const session = cookies.find((c: string) => c.startsWith('operari_session='));
       expect(session).toBeDefined();
       const attrs = cookieAttrs(session!);
       expect(attrs.HttpOnly).toBe(true);
@@ -423,7 +423,7 @@ describe('Auth Routes', () => {
 
       const setCookie = response.headers['set-cookie'];
       const cookies = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
-      expect(cookies.some((c: string) => c.startsWith('nanorun_session='))).toBe(true);
+      expect(cookies.some((c: string) => c.startsWith('operari_session='))).toBe(true);
     });
   });
 
@@ -537,7 +537,7 @@ describe('Auth Routes', () => {
       expect(response.body).toHaveProperty('token');
       const cookies = response.headers['set-cookie'];
       const cookiesArray = Array.isArray(cookies) ? cookies : cookies ? [cookies] : [];
-      expect(cookiesArray.some((c: string) => c.startsWith('nanorun_session='))).toBe(true);
+      expect(cookiesArray.some((c: string) => c.startsWith('operari_session='))).toBe(true);
     });
   });
 

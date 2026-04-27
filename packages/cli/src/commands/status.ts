@@ -1,4 +1,4 @@
-import { NanoRun } from '@nanorun/sdk';
+import { Operari } from '@operari/sdk';
 import { requireConfig } from '../config';
 import { colors, symbols, statusColor } from '../colors';
 
@@ -11,7 +11,7 @@ function formatDuration(ms: number | null): string {
 
 export async function statusCommand(runId: string) {
   const config = requireConfig();
-  const client = new NanoRun(config);
+  const client = new Operari(config);
 
   try {
     const run = await client.getRun(runId);

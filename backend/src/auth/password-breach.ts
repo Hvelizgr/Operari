@@ -39,13 +39,13 @@ export interface CheckBreachedOptions {
    * Minimum occurrence count that counts as "breached". Default is
    * 1 (any appearance). Raise to a higher number (e.g., 100) if you
    * want to allow common-but-not-egregious passwords for internal
-   * tools. Configurable via NANORUN_PASSWORD_BREACH_THRESHOLD.
+   * tools. Configurable via OPERARI_PASSWORD_BREACH_THRESHOLD.
    */
   threshold?: number;
 }
 
 function envThreshold(): number {
-  const raw = process.env.NANORUN_PASSWORD_BREACH_THRESHOLD;
+  const raw = process.env.OPERARI_PASSWORD_BREACH_THRESHOLD;
   if (!raw) return 1;
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
@@ -61,7 +61,7 @@ export async function checkBreachedPassword(
   // Skip the network call entirely in self-host + explicit opt-out.
   // The HIBP API is public but makes an external HTTP call on every
   // register; an operator behind an egress firewall may not want it.
-  if (process.env.NANORUN_PASSWORD_BREACH_CHECK === 'false') {
+  if (process.env.OPERARI_PASSWORD_BREACH_CHECK === 'false') {
     return { breached: false };
   }
 

@@ -24,7 +24,7 @@ export interface ApiKeyServiceOptions {
 }
 
 /**
- * Manages NanoRun API keys used by the SDK and CLI to authenticate.
+ * Manages Operari API keys used by the SDK and CLI to authenticate.
  *
  * Keys have the format: nr_<env>_<24 random url-safe bytes>
  * The full key is shown only once at creation; we store a bcrypt hash.

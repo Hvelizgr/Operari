@@ -92,7 +92,7 @@ Mechanical rename across the codebase in atomic commits, in this order:
 
 1. Decision doc and theme tokens (this ADR + `globals.css` palette)
 2. User-facing strings: landing page, editor chrome, messages en/es
-3. Package names: `@nanoflow/*` and `@nanorun/*` → `@cairn/*`
+3. Package names: `@nanoflow/*` and `@operari/*` → `@cairn/*`
 4. Python SDK: `nanorun` → `cairn`
 5. Docker compose, env vars, CI workflow names
 6. Docs: README, CONTRIBUTING, SECURITY, ADRs, templates

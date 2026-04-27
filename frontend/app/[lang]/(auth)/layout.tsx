@@ -19,7 +19,7 @@ export default async function AuthLayout({
             <div className="flex h-8 w-8 items-center justify-center rounded-md border border-emerald-500/30 bg-emerald-500/10 shadow-lg shadow-emerald-500/10">
               <DNAMark size={20} />
             </div>
-            <span className="text-foreground text-lg font-bold tracking-tight">NanoRun</span>
+            <span className="text-foreground text-lg font-bold tracking-tight">Operari</span>
           </Link>
           <Link
             href={`/${lang}`}

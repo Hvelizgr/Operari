@@ -15,7 +15,7 @@ interface RundeckImportOptions {
  * Currently:
  *   - Reads and parses the file (best-effort, no real Rundeck schema yet)
  *   - Detects job count and surfaces the field shapes
- *   - Prints what NanoRun runbooks WOULD be generated
+ *   - Prints what Operari runbooks WOULD be generated
  *   - Does NOT write any files
  *   - Does NOT call the server
  *
@@ -48,7 +48,7 @@ export async function rundeckImportCommand(file: string, options: RundeckImportO
           plannedRunbooks: jobCount,
           notImplemented: [
             'YAML schema parsing',
-            'Rundeck step → NanoRun executor mapping',
+            'Rundeck step → Operari executor mapping',
             'Variable substitution ($RD_OPTION_*)',
             'Node filter → runner selection',
             'Schedule → trigger conversion',
@@ -69,7 +69,7 @@ export async function rundeckImportCommand(file: string, options: RundeckImportO
   console.log();
   console.log(colors.dim('Not yet implemented in this stub:'));
   console.log(colors.dim('  · Full YAML schema parsing'));
-  console.log(colors.dim('  · Rundeck step → NanoRun executor mapping'));
+  console.log(colors.dim('  · Rundeck step → Operari executor mapping'));
   console.log(colors.dim('  · Variable substitution ($RD_OPTION_* → {{vars.*}})'));
   console.log(colors.dim('  · Node filter → runner selection'));
   console.log(colors.dim('  · Schedule → trigger conversion'));

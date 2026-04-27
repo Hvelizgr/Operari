@@ -71,7 +71,7 @@ describe('MonitorsPage', () => {
     await act(async () => {
       render(<MonitorsPage lang="en" />);
     });
-    await waitFor(() => expect(screen.getByText('Payments runbook')).toBeInTheDocument());
+    expect(await screen.findByText('Payments runbook')).toBeInTheDocument();
 
     const link = screen.getByText('Payments runbook').closest('a');
     expect(link).toHaveAttribute('href', '/en/runbooks/payments');
@@ -82,7 +82,7 @@ describe('MonitorsPage', () => {
     await act(async () => {
       render(<MonitorsPage lang="en" />);
     });
-    await waitFor(() => expect(screen.getByText('Payments 5xx')).toBeInTheDocument());
+    expect(await screen.findByText('Payments 5xx')).toBeInTheDocument();
 
     const deleteBtn = screen.getByRole('button', { name: /delete/i });
 
@@ -106,7 +106,7 @@ describe('MonitorsPage', () => {
     await act(async () => {
       render(<MonitorsPage lang="en" />);
     });
-    await waitFor(() => expect(screen.getByText('Payments 5xx')).toBeInTheDocument());
+    expect(await screen.findByText('Payments 5xx')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }));
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
@@ -126,7 +126,7 @@ describe('MonitorsPage', () => {
     await act(async () => {
       render(<MonitorsPage lang="en" />);
     });
-    await waitFor(() => expect(screen.getByText('Payments 5xx')).toBeInTheDocument());
+    expect(await screen.findByText('Payments 5xx')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }));
     fireEvent.click(screen.getByRole('button', { name: /yes, delete/i }));
@@ -158,9 +158,7 @@ describe('MonitorsPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /new monitor/i }));
     });
     // Wait for modal to mount (form's Save button appears inside it).
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /^save$/i })).toBeInTheDocument()
-    );
+    expect(await screen.findByRole('button', { name: /^save$/i })).toBeInTheDocument();
     // Submit the form directly (fireEvent.click on the button is
     // unreliable for jsdom + React submit wiring — `fireEvent.submit`
     // on the <form> dispatches the synthetic event React listens to).
@@ -170,7 +168,7 @@ describe('MonitorsPage', () => {
     await act(async () => {
       fireEvent.submit(form);
     });
-    await waitFor(() => expect(screen.getByText(/name is required/i)).toBeInTheDocument());
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
     expect(screen.getByText(/pick a runbook/i)).toBeInTheDocument();
     // No new fetch call — validation short-circuited the submit.
     const postCalls = fetchMock.mock.calls

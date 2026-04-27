@@ -23,8 +23,8 @@ export { buildStripeMeterEventSender } from './stripe-http-client';
 /**
  * Build the configured billing meter for this process.
  *
- *   NANORUN_BILLING_PROVIDER=noop    (default — self-host)
- *   NANORUN_BILLING_PROVIDER=stripe  (cloud, requires STRIPE_SECRET_KEY)
+ *   OPERARI_BILLING_PROVIDER=noop    (default — self-host)
+ *   OPERARI_BILLING_PROVIDER=stripe  (cloud, requires STRIPE_SECRET_KEY)
  *
  * Default is noop so existing self-host deployments need ZERO config
  * changes. Stripe is opt-in and falls back to noop if its dependencies
@@ -33,7 +33,7 @@ export { buildStripeMeterEventSender } from './stripe-http-client';
  * half-configured env.
  */
 export function buildBillingMeter(): BillingMeter {
-  const provider = (process.env.NANORUN_BILLING_PROVIDER ?? 'noop').toLowerCase();
+  const provider = (process.env.OPERARI_BILLING_PROVIDER ?? 'noop').toLowerCase();
   switch (provider) {
     case 'stripe': {
       const secretKey = process.env.STRIPE_SECRET_KEY;

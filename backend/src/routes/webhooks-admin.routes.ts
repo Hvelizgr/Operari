@@ -27,7 +27,7 @@ router.use((req: AuthRequest, _res, next) => {
   if (!req.user) {
     req.user = {
       id: 'anonymous',
-      email: 'anonymous@nanorun.local',
+      email: 'anonymous@operari.local',
       role: 'USER',
       tenantId: 'default-tenant',
     };

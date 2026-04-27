@@ -1,19 +1,19 @@
-# nanorun
+# operari
 
-Official Python SDK for the NanoRun runbook automation API.
+Official Python SDK for the Operari runbook automation API.
 
 ## Install
 
 ```bash
-pip install nanorun
+pip install operari
 ```
 
 ## Quick start
 
 ```python
-from nanorun import NanoRun
+from operari import Operari
 
-client = NanoRun(api_key="nrk_...")
+client = Operari(api_key="nrk_...")
 
 # Trigger and wait
 run = client.run("deploy-frontend", variables={"env": "production"})

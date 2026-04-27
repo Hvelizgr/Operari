@@ -23,7 +23,7 @@ async function main() {
     update: {},
     create: {
       id: 'anonymous',
-      email: 'anonymous@nanorun.local',
+      email: 'anonymous@operari.local',
       name: 'Anonymous User',
       passwordHash: 'not-used',
       role: 'USER',

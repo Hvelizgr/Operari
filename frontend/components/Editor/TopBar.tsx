@@ -143,7 +143,7 @@ export default function TopBar({
       {/* Left: Branding & Runbook info */}
       <div className="flex items-center gap-4">
         <div className="from-primary to-primary bg-gradient-to-r bg-clip-text text-xl font-bold text-transparent">
-          NanoRun
+          Operari
         </div>
         <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
         <div className="flex items-center gap-2">

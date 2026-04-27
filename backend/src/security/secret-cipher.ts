@@ -35,7 +35,7 @@ import {
  * or tenant ID — so a stolen ciphertext can't be re-pasted into another
  * row.
  *
- * Master key: 32 bytes, supplied via env `NANORUN_SECRET_KEY` as hex (64
+ * Master key: 32 bytes, supplied via env `OPERARI_SECRET_KEY` as hex (64
  * chars) or base64 (44 chars). Generate with:
  *
  *     node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -58,12 +58,12 @@ export class SecretCipher {
    * rotation path — stored v2 ciphertexts derived under the old salt
    * become unreadable.
    */
-  private static readonly TENANT_KEK_SALT = Buffer.from('nanorun-tenant-kek-v1', 'utf8');
+  private static readonly TENANT_KEK_SALT = Buffer.from('operari-tenant-kek-v1', 'utf8');
 
   private readonly key: Buffer;
   /**
    * Optional legacy master keys that decrypt-only accepts. Populated
-   * from `NANORUN_SECRET_KEY_LEGACY` when the operator is mid-rotation:
+   * from `OPERARI_SECRET_KEY_LEGACY` when the operator is mid-rotation:
    * during the window, new writes go out under the current key but
    * old rows ciphered under the previous one still decrypt cleanly.
    * Once the KeyRotationService has re-encrypted every row, the
@@ -373,9 +373,9 @@ export class SecretCipherError extends Error {
 }
 
 /**
- * Build a SecretCipher from env. `NANORUN_SECRET_KEY` is the current
+ * Build a SecretCipher from env. `OPERARI_SECRET_KEY` is the current
  * master (used for every encrypt + decrypt attempt first).
- * `NANORUN_SECRET_KEY_LEGACY` is optional; set it to the PREVIOUS
+ * `OPERARI_SECRET_KEY_LEGACY` is optional; set it to the PREVIOUS
  * master during a rotation window so rows ciphered under the old key
  * still decrypt. Comma-separated to support chained rotations (newest
  * legacy first).
@@ -384,14 +384,14 @@ export class SecretCipherError extends Error {
  * fail loud, not silently store plaintext.
  */
 export function secretCipherFromEnv(env: NodeJS.ProcessEnv = process.env): SecretCipher {
-  const key = env.NANORUN_SECRET_KEY;
+  const key = env.OPERARI_SECRET_KEY;
   if (!key) {
     throw new SecretCipherError(
-      'NANORUN_SECRET_KEY is not set. Generate one with:\n' +
+      'OPERARI_SECRET_KEY is not set. Generate one with:\n' +
         "  node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
     );
   }
-  const legacyRaw = env.NANORUN_SECRET_KEY_LEGACY;
+  const legacyRaw = env.OPERARI_SECRET_KEY_LEGACY;
   const legacyKeys = legacyRaw
     ? legacyRaw
         .split(',')

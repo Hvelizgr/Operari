@@ -1,11 +1,11 @@
-# example/nanorun-hello-world
+# example/operari-hello-world
 
-Minimal plugin that shows the `defineStep()` contract NanoRun uses to
+Minimal plugin that shows the `defineStep()` contract Operari uses to
 load user-authored step executors at boot.
 
 ## How it works
 
-1. `package.json` declares a `nanorun.steps` field pointing to the
+1. `package.json` declares a `operari.steps` field pointing to the
    compiled entry files. The loader reads this on startup, so
    TypeScript plugins must ship their built output in the package.
 2. Each entry file's default export is a descriptor with
@@ -15,7 +15,7 @@ load user-authored step executors at boot.
    the engine.
 3. `example.hello-world` is namespaced — core step types
    (`shell`, `approval`, `notify`, `wait`, `ssh`, `runbook`,
-   `nanorun.*`) are reserved and will be rejected.
+   `operari.*`) are reserved and will be rejected.
 
 ## Try it
 
@@ -23,7 +23,7 @@ load user-authored step executors at boot.
 # Self-host with docker compose
 mkdir -p ./plugins
 cp -r examples/plugins/hello-world ./plugins/
-NANORUN_PLUGINS_DIR=/app/plugins docker compose up
+OPERARI_PLUGINS_DIR=/app/plugins docker compose up
 ```
 
 Then create a runbook with a step:
@@ -32,14 +32,14 @@ Then create a runbook with a step:
 - id: say_hi
   type: example.hello-world
   config:
-    name: NanoRun
+    name: Operari
 ```
 
 ## Authoring a real plugin
 
 ```ts
 // src/index.ts
-import { defineStep } from '@nanorun/sdk/steps';
+import { defineStep } from '@operari/sdk/steps';
 import { z } from 'zod';
 
 export default defineStep({
@@ -58,5 +58,5 @@ export default defineStep({
 });
 ```
 
-Compile with `tsc`, ship the package with `nanorun.steps` pointing at
-`dist/index.js`, drop the built folder into `NANORUN_PLUGINS_DIR`.
+Compile with `tsc`, ship the package with `operari.steps` pointing at
+`dist/index.js`, drop the built folder into `OPERARI_PLUGINS_DIR`.

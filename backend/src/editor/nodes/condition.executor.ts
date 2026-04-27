@@ -26,7 +26,7 @@ export class ConditionNodeExecutor implements EditorNodeExecutor<
   ConditionResult
 > {
   readonly type = 'Condition';
-  readonly aliases = ['If', 'nanorun.if'] as const;
+  readonly aliases = ['If', 'operari.if'] as const;
 
   async execute(
     config: ConditionNodeConfig,

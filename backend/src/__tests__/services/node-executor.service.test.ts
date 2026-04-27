@@ -4,7 +4,7 @@ import { ExecutionInput, WorkflowNode } from '../../types/workflow.types';
 
 // Mock dependencies
 jest.mock('nodemailer');
-// n8n service removed in NanoRun transformation
+// n8n service removed in Operari transformation
 jest.mock('../../services/logger.service', () => ({
   Logger: {
     getInstance: jest.fn().mockReturnValue({

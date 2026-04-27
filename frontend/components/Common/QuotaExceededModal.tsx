@@ -106,7 +106,7 @@ export function QuotaInterceptor() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const original = window.fetch;
-    if ((original as unknown as { __cairnQuota?: boolean }).__cairnQuota) return;
+    if ((original as unknown as { __operariQuota?: boolean }).__operariQuota) return;
 
     const wrapped = async (input: RequestInfo | URL, init?: RequestInit) => {
       const res = await original(input, init);
@@ -134,7 +134,7 @@ export function QuotaInterceptor() {
       }
       return res;
     };
-    (wrapped as unknown as { __cairnQuota?: boolean }).__cairnQuota = true;
+    (wrapped as unknown as { __operariQuota?: boolean }).__operariQuota = true;
     window.fetch = wrapped as typeof window.fetch;
     return () => {
       window.fetch = original;

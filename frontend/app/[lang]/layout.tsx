@@ -23,7 +23,7 @@ export async function generateMetadata({
       description: content.seo.openGraph.description,
       type: 'website',
       locale: lang,
-      siteName: 'NanoRun',
+      siteName: 'Operari',
     },
   };
 }

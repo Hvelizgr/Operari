@@ -128,7 +128,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   const tpl = renderInviteEmail({
     inviteUrl,
     inviterEmail: req.user!.email,
-    tenantName: tenant?.name ?? 'a NanoRun workspace',
+    tenantName: tenant?.name ?? 'a Operari workspace',
   });
 
   await sendEmail({
