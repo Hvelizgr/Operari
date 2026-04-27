@@ -6,6 +6,7 @@ import { Runner } from '../runners/runner.types';
 import { StepExecutor } from '../types/executor.types';
 import { ApprovalExecutor } from './approval.executor';
 import { DatabaseExecutor } from './database.executor';
+import { GitHubCommitFileExecutor } from './github-commit-file.executor';
 import { HttpExecutor } from './http.executor';
 import { NotifyExecutor } from './notify.executor';
 import { RunbookExecutor } from './runbook.executor';
@@ -15,6 +16,7 @@ import { WaitExecutor } from './wait.executor';
 
 export { ApprovalExecutor } from './approval.executor';
 export { DatabaseExecutor } from './database.executor';
+export { GitHubCommitFileExecutor } from './github-commit-file.executor';
 export { HttpExecutor } from './http.executor';
 export { NotifyExecutor } from './notify.executor';
 export { RunbookExecutor } from './runbook.executor';
@@ -31,7 +33,7 @@ export interface ExecutorRegistryOptions {
 }
 
 /**
- * Registry of all available step executors in NanoRun.
+ * Registry of all available step executors in Operari.
  *
  * To add a new node type:
  *   1. Create a new file in this directory implementing StepExecutor
@@ -51,11 +53,12 @@ export function createExecutorRegistry(
   registry.set('notify', new NotifyExecutor());
   registry.set('wait', new WaitExecutor());
   registry.set('ssh', new SSHExecutor());
-  registry.set('nanorun.httpRequest', new HttpExecutor());
-  registry.set('nanorun.database', new DatabaseExecutor());
+  registry.set('operari.httpRequest', new HttpExecutor());
+  registry.set('operari.database', new DatabaseExecutor());
+  registry.set('github.commitFile', new GitHubCommitFileExecutor());
   registry.set('runbook', new RunbookExecutor(prisma));
 
-  // User-authored plugins. Loaded from NANORUN_PLUGINS_DIR (opt-in
+  // User-authored plugins. Loaded from OPERARI_PLUGINS_DIR (opt-in
   // per deployment). The loader catches its own errors so a broken
   // plugin never prevents the core registry from being built; we
   // only skip the offending entry and log it.

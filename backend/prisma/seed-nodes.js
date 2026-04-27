@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 /**
- * NanoRun curated node catalog.
+ * Operari curated node catalog.
  *
  * Plain CommonJS so it runs under `node prisma/seed-nodes.js` without
  * any TypeScript / ts-node / tsx machinery — the previous .ts version
@@ -14,12 +14,12 @@ const prisma = new PrismaClient();
  *
  * The catalog is the runbook-relevant subset of step types — the
  * same ~20 nodes the editor's NodePalette renders. The previous
- * NanoFlow seed had 70+ n8n-era nodes (Google Sheets, Mailchimp,
+ * Operari seed had 70+ n8n-era nodes (Google Sheets, Mailchimp,
  * Twitter, LangChain, etc.) which were dropped during the post-pivot
  * cleanup.
  *
  * Type-string convention: every step type uses the canonical
- * `nanorun.*` prefix (post pivot rename, see migration
+ * `operari.*` prefix (post pivot rename, see migration
  * 20260407170000_rename_n8n_node_types). A handful of executor
  * types — `shell`, `wait`, `notify`, `approval`, `agent`, plus the
  * `custom.frame` and `custom.note` organisation nodes — predate the
@@ -51,7 +51,7 @@ const NODES = [
     outputs: [MAIN_PORT],
   },
   {
-    type: 'nanorun.postgres',
+    type: 'operari.postgres',
     category: 'devops',
     icon: 'Database',
     color: 'bg-blue-400',
@@ -66,7 +66,7 @@ const NODES = [
 
   // === triggers ===
   {
-    type: 'nanorun.webhook',
+    type: 'operari.webhook',
     category: 'triggers',
     icon: 'Webhook',
     color: 'bg-green-500',
@@ -79,7 +79,7 @@ const NODES = [
     outputs: [MAIN_PORT],
   },
   {
-    type: 'nanorun.cron',
+    type: 'operari.cron',
     category: 'triggers',
     icon: 'Clock',
     color: 'bg-green-500',
@@ -91,7 +91,7 @@ const NODES = [
 
   // === core ===
   {
-    type: 'nanorun.httpRequest',
+    type: 'operari.httpRequest',
     category: 'core',
     icon: 'Globe',
     color: 'bg-indigo-500',
@@ -101,7 +101,7 @@ const NODES = [
     outputs: [MAIN_PORT],
   },
   {
-    type: 'nanorun.if',
+    type: 'operari.if',
     category: 'core',
     icon: 'GitBranch',
     color: 'bg-yellow-500',
@@ -119,7 +119,7 @@ const NODES = [
 
   // === flow ===
   {
-    type: 'nanorun.loop',
+    type: 'operari.loop',
     category: 'flow',
     icon: 'RefreshCw',
     color: 'bg-yellow-500',
@@ -143,6 +143,19 @@ const NODES = [
   },
 
   // === integrations ===
+  {
+    type: 'github.commitFile',
+    category: 'integrations',
+    icon: 'FileCode',
+    color: 'bg-zinc-700',
+    label: { en: 'GitHub: commit file', es: 'GitHub: commit de archivo' },
+    description: {
+      en: 'Commit a single file to a branch via the GitHub Contents API. Auth via ConnectedAccount (provider=github).',
+      es: 'Commit de un archivo a una rama vía la GitHub Contents API. Auth con ConnectedAccount (provider=github).',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [MAIN_PORT],
+  },
   {
     type: 'notify',
     category: 'integrations',
