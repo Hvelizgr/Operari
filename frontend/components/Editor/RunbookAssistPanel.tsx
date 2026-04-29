@@ -1,7 +1,7 @@
 'use client';
 
 import type { WorkflowNode } from '@operari/shared';
-import { AlertCircle, Loader2, Sparkles, X } from 'lucide-react';
+import { AlertCircle, ChevronRight, Loader2, Sparkles, Wrench, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 interface RunbookAssistPanelProps {
@@ -56,23 +56,68 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
 };
 
 /**
- * Parses one line of the Vercel AI SDK data stream protocol.
- * Lines look like `0:"chunk"` (text) or `d:{"finishReason":"stop"}` (done).
+ * Each piece of the assistant's reply, in arrival order. The
+ * orchestrator interleaves text with tool calls (e.g. "Let me check…"
+ * → list_recent_runs → "I see that…" → get_step_logs → final answer);
+ * the panel renders each event as its own block so the user can
+ * follow the agent's reasoning instead of staring at "Thinking…"
+ * for ten seconds.
  */
-function parseStreamLine(line: string): { kind: 'text' | 'done' | 'other'; value: string } {
+type AssistEvent =
+  | { kind: 'text'; text: string }
+  | {
+      kind: 'tool';
+      id: string;
+      name: string;
+      args: unknown;
+      result?: unknown;
+    };
+
+interface ParsedLine {
+  kind: 'text' | 'tool-call' | 'tool-result' | 'done' | 'other';
+  text?: string;
+  toolCallId?: string;
+  toolName?: string;
+  args?: unknown;
+  result?: unknown;
+}
+
+/**
+ * Parse one line of the v1 Vercel AI SDK data stream protocol the
+ * backend speaks. Tag mapping:
+ *   0:"text"                                          — text chunk
+ *   9:{toolCallId, toolName, args}                    — tool call
+ *   a:{toolCallId, result}                            — tool result
+ *   d:{finishReason}                                  — done
+ * Anything else is dropped silently — the SDK emits protocol-level
+ * events (text-start, finish-step, reasoning) the panel does not need.
+ */
+function parseStreamLine(line: string): ParsedLine {
   const colon = line.indexOf(':');
-  if (colon < 0) return { kind: 'other', value: '' };
+  if (colon < 0) return { kind: 'other' };
   const tag = line.slice(0, colon);
   const rest = line.slice(colon + 1);
-  if (tag === '0') {
-    try {
-      return { kind: 'text', value: JSON.parse(rest) };
-    } catch {
-      return { kind: 'other', value: '' };
+
+  try {
+    if (tag === '0') return { kind: 'text', text: JSON.parse(rest) };
+    if (tag === '9') {
+      const payload = JSON.parse(rest) as { toolCallId: string; toolName: string; args: unknown };
+      return {
+        kind: 'tool-call',
+        toolCallId: payload.toolCallId,
+        toolName: payload.toolName,
+        args: payload.args,
+      };
     }
+    if (tag === 'a') {
+      const payload = JSON.parse(rest) as { toolCallId: string; result: unknown };
+      return { kind: 'tool-result', toolCallId: payload.toolCallId, result: payload.result };
+    }
+    if (tag === 'd') return { kind: 'done' };
+  } catch {
+    return { kind: 'other' };
   }
-  if (tag === 'd') return { kind: 'done', value: '' };
-  return { kind: 'other', value: '' };
+  return { kind: 'other' };
 }
 
 export default function RunbookAssistPanel({
@@ -90,13 +135,13 @@ export default function RunbookAssistPanel({
   const [question, setQuestion] = useState('');
   const [errorOverride, setErrorOverride] = useState('');
   const [streaming, setStreaming] = useState(false);
-  const [reply, setReply] = useState('');
+  const [events, setEvents] = useState<AssistEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!open) {
-      setReply('');
+      setEvents([]);
       setError(null);
       setStreaming(false);
       abortRef.current?.abort();
@@ -107,7 +152,7 @@ export default function RunbookAssistPanel({
 
   const ask = async () => {
     setError(null);
-    setReply('');
+    setEvents([]);
     setStreaming(true);
     const controller = new AbortController();
     abortRef.current = controller;
@@ -147,7 +192,27 @@ export default function RunbookAssistPanel({
           if (!line) continue;
           const parsed = parseStreamLine(line);
           if (parsed.kind === 'text') {
-            setReply(prev => prev + parsed.value);
+            const text = parsed.text ?? '';
+            setEvents(prev => {
+              // Coalesce contiguous text deltas into one block so the
+              // DOM doesn't get a new <pre> per token.
+              const last = prev[prev.length - 1];
+              if (last && last.kind === 'text') {
+                return [...prev.slice(0, -1), { ...last, text: last.text + text }];
+              }
+              return [...prev, { kind: 'text', text }];
+            });
+          } else if (parsed.kind === 'tool-call') {
+            const id = parsed.toolCallId ?? '';
+            const name = parsed.toolName ?? '';
+            const args = parsed.args;
+            setEvents(prev => [...prev, { kind: 'tool', id, name, args }]);
+          } else if (parsed.kind === 'tool-result') {
+            const id = parsed.toolCallId ?? '';
+            const result = parsed.result;
+            setEvents(prev =>
+              prev.map(ev => (ev.kind === 'tool' && ev.id === id ? { ...ev, result } : ev))
+            );
           } else if (parsed.kind === 'done') {
             // stream complete
           }
@@ -264,16 +329,103 @@ export default function RunbookAssistPanel({
           </div>
         )}
 
-        {(reply || streaming) && (
+        {(events.length > 0 || streaming) && (
           <div className="rounded border border-zinc-800 bg-black/40 p-3">
             <div className="text-primary/70 mb-2 text-[11px] font-bold uppercase">{t.brand}</div>
-            <pre className="whitespace-pre-wrap font-sans text-sm text-zinc-100">
-              {reply}
-              {streaming && <span className="animate-pulse">▍</span>}
-            </pre>
+            <div className="space-y-2">
+              {events.map((ev, idx) =>
+                ev.kind === 'text' ? (
+                  <pre key={idx} className="whitespace-pre-wrap font-sans text-sm text-zinc-100">
+                    {ev.text}
+                    {streaming && idx === events.length - 1 && (
+                      <span className="animate-pulse">▍</span>
+                    )}
+                  </pre>
+                ) : (
+                  <ToolCallBlock key={idx} event={ev} />
+                )
+              )}
+              {streaming && events.length === 0 && (
+                <span className="animate-pulse text-zinc-500">▍</span>
+              )}
+            </div>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+/**
+ * Visible bubble for one orchestrator tool call. Header always shows
+ * `tool_name(arg=value, …)` so the user reads what the agent did at
+ * a glance; the full args + result blob expands on click. Pending
+ * calls (no result yet, mid-stream) get a subtle spinner.
+ *
+ * Why this is its own component: the iteration in the parent uses an
+ * `idx` key which is stable enough for the streaming case but the
+ * collapsible state needs to live somewhere — so each block owns its
+ * own open/closed flag.
+ */
+function ToolCallBlock({
+  event,
+}: {
+  event: { kind: 'tool'; id: string; name: string; args: unknown; result?: unknown };
+}) {
+  const [open, setOpen] = useState(false);
+  const pending = event.result === undefined;
+  const argSummary = summarizeArgs(event.args);
+
+  return (
+    <div className="rounded border border-zinc-800 bg-zinc-900/40">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left transition-colors hover:bg-zinc-800/40"
+      >
+        <ChevronRight
+          size={11}
+          className={`shrink-0 text-zinc-500 transition-transform ${open ? 'rotate-90' : ''}`}
+        />
+        <Wrench size={11} className="shrink-0 text-amber-400/80" />
+        <span className="truncate font-mono text-[11px] text-zinc-200">
+          {event.name}
+          <span className="text-zinc-500">({argSummary})</span>
+        </span>
+        {pending ? (
+          <Loader2 size={11} className="ml-auto shrink-0 animate-spin text-zinc-500" />
+        ) : (
+          <span className="ml-auto shrink-0 text-[10px] text-emerald-400/70">ok</span>
+        )}
+      </button>
+      {open && (
+        <div className="space-y-1 border-t border-zinc-800/60 px-2 py-1.5 text-[10px]">
+          <div>
+            <div className="mb-0.5 text-zinc-500">args</div>
+            <pre className="whitespace-pre-wrap break-words font-mono text-zinc-300">
+              {JSON.stringify(event.args, null, 2)}
+            </pre>
+          </div>
+          <div>
+            <div className="mb-0.5 text-zinc-500">result</div>
+            <pre className="whitespace-pre-wrap break-words font-mono text-zinc-300">
+              {pending ? '…' : JSON.stringify(event.result, null, 2)}
+            </pre>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function summarizeArgs(args: unknown): string {
+  if (!args || typeof args !== 'object') return '';
+  const entries = Object.entries(args as Record<string, unknown>);
+  if (entries.length === 0) return '';
+  // Truncate values aggressively — the full blob lives one click away.
+  const parts = entries.map(([k, v]) => {
+    const s = typeof v === 'string' ? `"${v.length > 24 ? v.slice(0, 24) + '…' : v}"` : String(v);
+    return `${k}: ${s}`;
+  });
+  return parts.join(', ');
 }

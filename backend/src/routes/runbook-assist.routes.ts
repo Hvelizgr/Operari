@@ -101,8 +101,49 @@ router.post('/diagnose', async (req: AuthRequest, res: Response) => {
       tenantId: req.user!.tenantId,
       prisma,
     });
-    for await (const chunk of result.textStream) {
-      res.write(`0:${JSON.stringify(chunk)}\n`);
+    // We iterate fullStream (not textStream) so the side-panel can
+    // render the tool calls the orchestrator makes — list_recent_runs,
+    // get_step_logs, etc. — as visible UI bubbles instead of a
+    // suspicious silence between "Thinking..." and the final answer.
+    //
+    // Tag mapping mirrors the v1 Vercel AI SDK data-stream protocol so
+    // the frontend parser only needs two new tags on top of `0:` text:
+    //   9: tool-call    { toolCallId, toolName, args }
+    //   a: tool-result  { toolCallId, result }
+    //
+    // Other event types (text-start/end, reasoning, finish-step,
+    // start-step, raw warnings) are intentionally dropped — they're
+    // protocol-level noise the side panel doesn't render.
+    for await (const part of result.fullStream) {
+      if (part.type === 'text-delta') {
+        res.write(`0:${JSON.stringify(part.text)}\n`);
+      } else if (part.type === 'tool-call') {
+        res.write(
+          `9:${JSON.stringify({
+            toolCallId: part.toolCallId,
+            toolName: part.toolName,
+            args: part.input,
+          })}\n`
+        );
+      } else if (part.type === 'tool-result') {
+        res.write(
+          `a:${JSON.stringify({
+            toolCallId: part.toolCallId,
+            result: part.output,
+          })}\n`
+        );
+      } else if (part.type === 'tool-error') {
+        // Surface tool errors as a "result" with an error envelope so
+        // the UI can render them in the same slot as a real result —
+        // a dedicated tag would mean a third frontend code path for
+        // an event the model rarely emits.
+        res.write(
+          `a:${JSON.stringify({
+            toolCallId: part.toolCallId,
+            result: { ok: false, error: String(part.error) },
+          })}\n`
+        );
+      }
     }
     res.write(`d:${JSON.stringify({ finishReason: 'stop' })}\n`);
     res.end();

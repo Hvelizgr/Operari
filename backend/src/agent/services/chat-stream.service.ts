@@ -56,12 +56,42 @@ export class ChatStreamService {
         prisma: this.prisma,
       });
 
-      for await (const chunk of result.textStream) {
-        fullResponse += chunk;
-        // Vercel AI SDK data stream protocol: text parts
-        // Format: 0:"chunk"\n
-        const encoded = JSON.stringify(chunk);
-        res.write(`0:${encoded}\n`);
+      // Iterate fullStream so the chat UI can render tool calls
+      // (list_recent_runs, get_step_logs, ...) as visible bubbles
+      // alongside the assistant text. Tag mapping mirrors the v1
+      // Vercel AI SDK protocol the side-panel parser already speaks:
+      //   0: text chunk    9: tool-call    a: tool-result
+      // Other event types (text-start/end, finish-step, reasoning) are
+      // intentionally dropped — protocol noise the chat UI doesn't
+      // render, and persisting them would balloon Message.content
+      // with no user benefit.
+      for await (const part of result.fullStream) {
+        if (part.type === 'text-delta') {
+          fullResponse += part.text;
+          res.write(`0:${JSON.stringify(part.text)}\n`);
+        } else if (part.type === 'tool-call') {
+          res.write(
+            `9:${JSON.stringify({
+              toolCallId: part.toolCallId,
+              toolName: part.toolName,
+              args: part.input,
+            })}\n`
+          );
+        } else if (part.type === 'tool-result') {
+          res.write(
+            `a:${JSON.stringify({
+              toolCallId: part.toolCallId,
+              result: part.output,
+            })}\n`
+          );
+        } else if (part.type === 'tool-error') {
+          res.write(
+            `a:${JSON.stringify({
+              toolCallId: part.toolCallId,
+              result: { ok: false, error: String(part.error) },
+            })}\n`
+          );
+        }
       }
 
       // Signal stream finish
@@ -69,7 +99,10 @@ export class ChatStreamService {
       res.write(`d:${JSON.stringify({ finishReason: 'stop' })}\n`);
       res.end();
 
-      // Persist complete assistant response
+      // Persist complete assistant response — only the visible text
+      // body, not the tool-call envelopes. Tool calls are runtime
+      // ephemera; the assistant's narrative reply is what the user
+      // sees on conversation reload.
       await this.conversationService.addMessage(conversationId, 'ASSISTANT', fullResponse, null, {
         model: process.env.AI_MODEL_NAME || 'claude-sonnet-4-6',
         provider: process.env.AI_MODEL_PROVIDER || 'anthropic',

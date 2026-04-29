@@ -3,11 +3,16 @@ import request from 'supertest';
 
 // Stub the orchestrator BEFORE importing the route so the route uses
 // our fake stream and never tries to reach Anthropic/OpenAI in CI.
+//
+// The route iterates `fullStream` (Vercel AI SDK v6) which yields
+// typed events: text-delta / tool-call / tool-result / finish / etc.
+// The fixture below covers the diagnosis-by-text path; tests that
+// assert tool-call rendering install their own fixture.
 jest.mock('../../agent/orchestrator', () => ({
   streamOrchestratorReply: jest.fn(() => ({
-    textStream: (async function* () {
-      yield 'diagnosis: ';
-      yield 'check the env var';
+    fullStream: (async function* () {
+      yield { type: 'text-delta', id: 't1', text: 'diagnosis: ' };
+      yield { type: 'text-delta', id: 't1', text: 'check the env var' };
     })(),
   })),
 }));
@@ -100,5 +105,76 @@ describe('POST /api/runbook-assist/diagnose', () => {
     });
     expect(res.status).toBe(200);
     expect(res.text).toContain('"finishReason":"stop"');
+  });
+
+  it('emits tool-call (9:) and tool-result (a:) frames when the orchestrator calls a tool', async () => {
+    // Override the default fixture for this one test: simulate the
+    // orchestrator deciding to call list_recent_runs mid-stream.
+    (streamOrchestratorReply as jest.Mock).mockImplementationOnce(() => ({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', id: 't1', text: 'Let me check…' };
+        yield {
+          type: 'tool-call',
+          toolCallId: 'call-1',
+          toolName: 'list_recent_runs',
+          input: { status: 'FAILED', limit: 5 },
+        };
+        yield {
+          type: 'tool-result',
+          toolCallId: 'call-1',
+          toolName: 'list_recent_runs',
+          input: { status: 'FAILED', limit: 5 },
+          output: { runs: [{ id: 'run-7', error: 'boom' }] },
+        };
+        yield { type: 'text-delta', id: 't2', text: 'I see one failure: boom.' };
+      })(),
+    }));
+
+    const res = await request(buildApp()).post('/api/runbook-assist/diagnose').send({
+      stepName: 'Build',
+      stepType: 'shell',
+      errorMessage: 'exit 1',
+    });
+
+    expect(res.status).toBe(200);
+    // text deltas survive
+    expect(res.text).toContain('0:"Let me check…"');
+    expect(res.text).toContain('0:"I see one failure: boom."');
+    // tool-call frame: tag 9, includes name + args
+    expect(res.text).toContain('9:{"toolCallId":"call-1","toolName":"list_recent_runs"');
+    expect(res.text).toContain('"status":"FAILED"');
+    // tool-result frame: tag a, paired by toolCallId
+    expect(res.text).toContain('a:{"toolCallId":"call-1"');
+    expect(res.text).toContain('"id":"run-7"');
+    // finish frame still terminates the stream
+    expect(res.text).toContain('"finishReason":"stop"');
+  });
+
+  it('translates tool-error events into a result envelope so the panel can render them', async () => {
+    (streamOrchestratorReply as jest.Mock).mockImplementationOnce(() => ({
+      fullStream: (async function* () {
+        yield {
+          type: 'tool-call',
+          toolCallId: 'call-2',
+          toolName: 'get_step_logs',
+          input: { runId: 'r', stepId: 's' },
+        };
+        yield {
+          type: 'tool-error',
+          toolCallId: 'call-2',
+          toolName: 'get_step_logs',
+          input: { runId: 'r', stepId: 's' },
+          error: new Error('step not found'),
+        };
+      })(),
+    }));
+
+    const res = await request(buildApp())
+      .post('/api/runbook-assist/diagnose')
+      .send({ stepName: 'X', stepType: 'shell', errorMessage: 'e' });
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('a:{"toolCallId":"call-2","result":{"ok":false,"error":');
+    expect(res.text).toContain('step not found');
   });
 });
