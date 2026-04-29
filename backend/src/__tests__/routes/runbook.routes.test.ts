@@ -246,4 +246,57 @@ describe('Runbook routes', () => {
       });
     });
   });
+
+  describe('PUT /workflows/:id/yaml — schema validation (defence in depth)', () => {
+    beforeEach(() => {
+      // The YAML route looks up the runbook before parsing; return a
+      // minimal row so the validator is the only check that can fail.
+      (prisma.runbook.findFirst as jest.Mock).mockResolvedValue(mockWorkflow);
+    });
+
+    it('rejects YAML missing the required "name" field with schema_invalid + details', async () => {
+      const badYaml = `
+version: 1
+steps:
+  - id: pre_check
+    type: shell
+    config:
+      command: echo hi
+`;
+      const res = await request(app)
+        .put('/workflows/wf-1/yaml')
+        .set('Content-Type', 'application/json')
+        .send({ yaml: badYaml });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('schema_invalid');
+      expect(Array.isArray(res.body.details)).toBe(true);
+      expect(res.body.details.join('\n')).toMatch(/missing required field "name"/);
+      // The transactional save MUST NOT have run.
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects YAML with an empty steps array', async () => {
+      const badYaml = `
+version: 1
+name: Empty
+steps: []
+`;
+      const res = await request(app)
+        .put('/workflows/wf-1/yaml')
+        .set('Content-Type', 'application/json')
+        .send({ yaml: badYaml });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('schema_invalid');
+      expect(res.body.details.join('\n')).toMatch(/steps/);
+    });
+
+    // Happy-path is covered by frontend integration in YamlViewModal —
+    // a happy-path test here would need every prisma model mocked
+    // (runbookStep + runbookConnection deleteMany/create) which is
+    // scope creep. The rejection tests above prove the schema layer
+    // is wired correctly; downstream behaviour is unchanged from
+    // pre-validation.
+  });
 });

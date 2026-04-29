@@ -13,6 +13,7 @@ import {
   toSpec,
   yamlToSpec,
 } from '../runbook/yaml/runbook-serializer';
+import { validateRunbookSpec } from '../runbook/yaml/schema-validator';
 import { prisma } from '../server';
 import { computeNextRunAt } from '../services/scheduler.service';
 import { RunbookValidatorService } from '../services/runbook-validator.service';
@@ -712,6 +713,20 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
     let parsed;
     try {
       const spec = yamlToSpec(yamlText);
+      // Defence-in-depth: the editor already runs this validator
+      // browser-side, but anyone with an API key can hit this route
+      // directly. Run the same JSON Schema check here so a malformed
+      // spec never lands in the database — the YAML route is a
+      // destructive replace, not a merge, and a bad save here would
+      // wipe the existing canvas.
+      const schema = validateRunbookSpec(spec);
+      if (!schema.valid) {
+        return res.status(400).json({
+          error: 'Runbook does not match the canonical schema',
+          code: 'schema_invalid',
+          details: schema.errors,
+        });
+      }
       parsed = fromSpec(spec);
     } catch (err) {
       if (err instanceof RunbookSerializerError) {

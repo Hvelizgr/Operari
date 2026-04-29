@@ -22,22 +22,64 @@ let inflight: Promise<ValidateFunction> | null = null;
 /**
  * Inline fallback schema used when the backend is unreachable. This is
  * a copy of backend/src/runbook/yaml/runbook.schema.json — keep them
- * in sync by re-copying when the canonical schema changes.
+ * in sync by re-copying when the canonical schema changes. The
+ * drift-guard test in `__tests__/utils/runbookSchemaValidator.test.ts`
+ * fails the build if this copy diverges from the canonical.
  */
-const FALLBACK_SCHEMA = {
+export const FALLBACK_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
+  $id: 'https://operari.dev/schemas/runbook.schema.json',
+  title: 'Operari Runbook',
+  description:
+    'Canonical YAML/JSON schema for a Operari runbook. Mirrors backend/src/runbook/yaml/runbook-spec.ts. Used by the editor for save-time validation, by the CLI for `operari lint`, and by VS Code via yaml.schemas to power autocomplete + inline diagnostics.',
   type: 'object',
   additionalProperties: false,
   required: ['version', 'name', 'steps'],
   properties: {
-    version: { const: 1 },
-    slug: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]*$', maxLength: 64 },
-    name: { type: 'string', minLength: 1, maxLength: 200 },
-    description: { type: 'string', maxLength: 500 },
-    category: { type: 'string', maxLength: 64 },
-    schedule: { type: 'string' },
-    vars: { type: 'object', additionalProperties: true },
-    steps: { type: 'array', minItems: 1, items: { $ref: '#/definitions/RunbookStep' } },
+    version: {
+      description: 'Schema version. Bump on breaking changes.',
+      const: 1,
+    },
+    slug: {
+      description:
+        'Stable slug used by the CLI/SDK to reference this runbook (e.g. `deploy-frontend`).',
+      type: 'string',
+      pattern: '^[a-z0-9][a-z0-9-]*$',
+      maxLength: 64,
+    },
+    name: {
+      description: 'Human-readable name shown in the editor and run history.',
+      type: 'string',
+      minLength: 1,
+      maxLength: 200,
+    },
+    description: {
+      description: 'Optional one-line description.',
+      type: 'string',
+      maxLength: 500,
+    },
+    category: {
+      description: 'Free-form category for organisation, e.g. `deploy`, `migration`, `incident`.',
+      type: 'string',
+      maxLength: 64,
+    },
+    schedule: {
+      description:
+        'Cron expression. Five fields, standard syntax. Validated against the scheduler at save time.',
+      type: 'string',
+    },
+    vars: {
+      description:
+        'Variables exposed to every step at runtime via {{vars.foo}}. Values are arbitrary YAML — strings, numbers, objects, lists.',
+      type: 'object',
+      additionalProperties: true,
+    },
+    steps: {
+      description: 'Ordered list of runbook steps. At least one step is required.',
+      type: 'array',
+      minItems: 1,
+      items: { $ref: '#/definitions/RunbookStep' },
+    },
   },
   definitions: {
     RunbookStep: {
@@ -45,15 +87,51 @@ const FALLBACK_SCHEMA = {
       additionalProperties: false,
       required: ['id', 'type'],
       properties: {
-        id: { type: 'string', pattern: '^[a-z0-9][a-z0-9_-]*$', maxLength: 64 },
-        type: { type: 'string', minLength: 1, maxLength: 128 },
-        name: { type: 'string', maxLength: 200 },
-        enabled: { type: 'boolean' },
-        config: { type: 'object', additionalProperties: true },
+        id: {
+          description:
+            'Unique slug-cased id within the runbook (e.g. `deploy-canary`). Appears in logs, retries, and `operari resume --from <id>`.',
+          type: 'string',
+          pattern: '^[a-z0-9][a-z0-9_-]*$',
+          maxLength: 64,
+        },
+        type: {
+          description:
+            'Step type matching a registered executor. The curated catalog ships shell, http, approval, notify, wait, switch, loop, plus the operari.* prefixed integration steps. Unknown types fail at run time, not at save time, so custom executors registered at runtime are still valid here.',
+          type: 'string',
+          minLength: 1,
+          maxLength: 128,
+        },
+        name: {
+          description:
+            'Human-readable label shown in the canvas and run timeline. Defaults to `id` if omitted.',
+          type: 'string',
+          maxLength: 200,
+        },
+        enabled: {
+          description:
+            'Whether the step runs. Defaults to true; setting to false disables it without removing it from the YAML.',
+          type: 'boolean',
+        },
+        config: {
+          description:
+            'Type-specific configuration. The shape depends on the step `type`; the schema does not validate it because executors evolve independently.',
+          type: 'object',
+          additionalProperties: true,
+        },
         retry: { $ref: '#/definitions/RetryPolicy' },
-        runIf: { type: 'string' },
-        skipIf: { type: 'string' },
+        runIf: {
+          description:
+            'Template expression evaluated before the step runs. Falsy → step is SKIPPED and execution continues. Mutually exclusive with `skipIf`; if both are set, `skipIf` wins.',
+          type: 'string',
+        },
+        skipIf: {
+          description:
+            'Inverse of `runIf`. Truthy → step is SKIPPED. Useful for `skip on dry-run` patterns.',
+          type: 'string',
+        },
         next: {
+          description:
+            'Successor step id(s). Omit on the final step. Strings reference another step by id. The structured form preserves source/target port indexes for non-default branching.',
           oneOf: [
             { type: 'string' },
             {
@@ -63,32 +141,73 @@ const FALLBACK_SCHEMA = {
           ],
         },
         position: {
+          description:
+            'Editor-only metadata. Preserved on round-trip but YAML authors should never write it by hand.',
           type: 'object',
           additionalProperties: false,
           required: ['x', 'y'],
-          properties: { x: { type: 'number' }, y: { type: 'number' } },
+          properties: {
+            x: { type: 'number' },
+            y: { type: 'number' },
+          },
         },
       },
     },
     RetryPolicy: {
+      description:
+        'Per-step retry policy. Cross-cutting (every step type honours it) so it lives at the step level rather than inside `config`.',
       type: 'object',
       additionalProperties: false,
       required: ['count'],
       properties: {
-        count: { type: 'integer', minimum: 1, maximum: 20 },
-        backoff: { type: 'string', enum: ['fixed', 'exponential'] },
-        delayMs: { type: 'integer', minimum: 0 },
-        maxDelayMs: { type: 'integer', minimum: 0 },
+        count: {
+          description:
+            'Extra attempts after the first failure (count: 3 ⇒ up to 4 total runs of the step).',
+          type: 'integer',
+          minimum: 1,
+          maximum: 20,
+        },
+        backoff: {
+          description:
+            'Strategy for the wait between attempts. `fixed` waits `delayMs` between every retry; `exponential` doubles each retry up to `maxDelayMs`.',
+          type: 'string',
+          enum: ['fixed', 'exponential'],
+        },
+        delayMs: {
+          description:
+            'Base delay in milliseconds. For exponential backoff this is the first delay.',
+          type: 'integer',
+          minimum: 0,
+        },
+        maxDelayMs: {
+          description:
+            'Cap on backoff growth in milliseconds. Only meaningful for exponential backoff.',
+          type: 'integer',
+          minimum: 0,
+        },
       },
     },
     StepConnection: {
+      description:
+        'Explicit successor edge with port indexes. Use the bare-string form unless you need non-default ports.',
       type: 'object',
       additionalProperties: false,
       required: ['to'],
       properties: {
-        to: { type: 'string' },
-        fromPort: { type: 'integer', minimum: 0 },
-        toPort: { type: 'integer', minimum: 0 },
+        to: {
+          description: 'Target step id.',
+          type: 'string',
+        },
+        fromPort: {
+          description: 'Source port index on this step. Defaults to 0.',
+          type: 'integer',
+          minimum: 0,
+        },
+        toPort: {
+          description: 'Target port index on the destination step. Defaults to 0.',
+          type: 'integer',
+          minimum: 0,
+        },
       },
     },
   },

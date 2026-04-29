@@ -476,8 +476,10 @@ Honest, time-boxed, conservative.
 **Now → 4 weeks (pre-launch)**
 
 - One real webhook integration end-to-end (GitHub or Sentry, not both)
-- JSON Schema validation in the in-app YAML save modal (the schema is
-  shipping today, the editor still uses semantic-only validation)
+- ~~JSON Schema validation in the in-app YAML save modal~~ — shipped
+  (`frontend/utils/runbookSchemaValidator.ts` + the matching server-side
+  guard in the YAML save route, with a drift-guard test that pins the
+  bundled offline copy to the canonical schema)
 - 90-second loom walkthrough
 - README polish and Show HN draft
 - 30 discovery interviews with platform engineers (not optional)
