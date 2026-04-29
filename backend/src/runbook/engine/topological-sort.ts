@@ -22,7 +22,7 @@
  *   - `startNodeIds` (optional) restricts the sort to the sub-DAG
  *     reachable from those nodes. The engine uses this for replay /
  *     resume / "start from node X" actions.
- *   - A cycle triggers a clear error. WorkflowValidatorService
+ *   - A cycle triggers a clear error. RunbookValidatorService
  *     already rejects these at save time (A2), so this path is only
  *     reached for legacy rows whose cycle the validator missed — we
  *     fail loud rather than loop forever.
@@ -81,7 +81,7 @@ export function topologicalSort(
     inDegree.set(id, 0);
   }
   for (const edge of edges) {
-    // Skip self-loops and edges to unknown nodes — WorkflowValidator
+    // Skip self-loops and edges to unknown nodes — RunbookValidator
     // reports those separately; this pass just needs a clean graph.
     if (edge.source === edge.target) continue;
     if (!reachable.has(edge.source) || !reachable.has(edge.target)) continue;

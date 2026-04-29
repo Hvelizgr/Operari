@@ -1,4 +1,4 @@
-import type { ExecutionInput, SuspendNodeConfig, SuspendResult } from '../../types/workflow.types';
+import type { ExecutionInput, SuspendNodeConfig, SuspendResult } from '../../types/runbook.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 
 /**

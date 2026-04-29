@@ -5,7 +5,7 @@ import type {
   ExecutionInput,
   ExecutionOutput,
   StoreGetNodeConfig,
-} from '../../types/workflow.types';
+} from '../../types/runbook.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { resolveTemplate } from './_shared';
 

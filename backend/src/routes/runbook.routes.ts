@@ -15,7 +15,7 @@ import {
 } from '../runbook/yaml/runbook-serializer';
 import { prisma } from '../server';
 import { computeNextRunAt } from '../services/scheduler.service';
-import { WorkflowValidatorService } from '../services/workflow-validator.service';
+import { RunbookValidatorService } from '../services/runbook-validator.service';
 import {
   runbookInputDefinitionSchema,
   WorkflowConnection,
@@ -24,7 +24,7 @@ import {
   workflowDefinitionSchema,
   WorkflowNode,
   workflowNodeSchema,
-} from '../types/workflow.types';
+} from '../types/runbook.types';
 
 const router = Router();
 
@@ -509,7 +509,7 @@ router.post('/', async (req: AuthRequest, res) => {
     }
 
     // Validate logic
-    const validator = new WorkflowValidatorService();
+    const validator = new RunbookValidatorService();
     const validation = validator.validate(data as WorkflowDefinition);
 
     if (!validation.isValid) {
@@ -930,7 +930,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
       schedule: updateData.schedule ?? existing.schedule ?? undefined,
     };
 
-    const validator = new WorkflowValidatorService();
+    const validator = new RunbookValidatorService();
     const validation = validator.validate(fullWorkflowForValidation);
 
     if (!validation.isValid) {

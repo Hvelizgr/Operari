@@ -2,7 +2,7 @@ import { PrismaClient, TriggerType } from '@prisma/client';
 
 import { ExecutionService } from '../editor/execution/execution.service';
 import { ErrorCode, WorkflowError } from '../errors/custom-error';
-import { WorkflowConnection, WorkflowNode } from '../types/workflow.types';
+import { WorkflowConnection, WorkflowNode } from '../types/runbook.types';
 
 jest.mock('../editor/node-executor.service');
 jest.mock('../services/error-notification.service');

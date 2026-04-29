@@ -1,5 +1,5 @@
 import { validateRunInputs } from '../../../runbook/inputs/validate-run-inputs';
-import type { RunbookInputDefinition } from '../../../types/workflow.types';
+import type { RunbookInputDefinition } from '../../../types/runbook.types';
 
 describe('validateRunInputs', () => {
   it('passes the payload through when no inputs are declared', () => {

@@ -1,6 +1,6 @@
 import { NodeExecutor } from '../../editor/node-executor.service';
 import { ErrorCode } from '../../errors/custom-error';
-import { ExecutionInput, WorkflowNode } from '../../types/workflow.types';
+import { ExecutionInput, WorkflowNode } from '../../types/runbook.types';
 
 // Mock dependencies
 jest.mock('nodemailer');

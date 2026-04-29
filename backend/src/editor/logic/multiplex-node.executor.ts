@@ -1,5 +1,5 @@
 import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
-import { ExecutionInput, MultiplexNodeConfig, MultiplexResult } from '../../types/workflow.types';
+import { ExecutionInput, MultiplexNodeConfig, MultiplexResult } from '../../types/runbook.types';
 import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
 
 export class MultiplexNodeExecutor implements EditorNodeExecutor<

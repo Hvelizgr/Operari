@@ -1,12 +1,12 @@
 import {
   ValidationSeverity,
-  WorkflowValidatorService,
-} from '../../services/workflow-validator.service';
+  RunbookValidatorService,
+} from '../../services/runbook-validator.service';
 import type {
   WorkflowConnection,
   WorkflowDefinition,
   WorkflowNode,
-} from '../../types/workflow.types';
+} from '../../types/runbook.types';
 
 const node = (id: string, type: WorkflowNode['type'] = 'HTTP'): WorkflowNode => ({
   id,
@@ -28,8 +28,8 @@ const wf = (nodes: WorkflowNode[], connections: WorkflowConnection[]): WorkflowD
   connections,
 });
 
-describe('WorkflowValidatorService.checkCycles', () => {
-  const validator = new WorkflowValidatorService();
+describe('RunbookValidatorService.checkCycles', () => {
+  const validator = new RunbookValidatorService();
 
   it('accepts a simple straight-line DAG', () => {
     const result = validator.validate(

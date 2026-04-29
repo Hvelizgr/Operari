@@ -1,4 +1,4 @@
-import { WorkflowConnection, WorkflowDefinition, WorkflowNode } from '../types/workflow.types';
+import { WorkflowConnection, WorkflowDefinition, WorkflowNode } from '../types/runbook.types';
 
 export enum ValidationSeverity {
   INFO = 'info',
@@ -18,7 +18,7 @@ export interface ValidationResult {
   issues: ValidationIssue[];
 }
 
-export class WorkflowValidatorService {
+export class RunbookValidatorService {
   /**
    * Validate a workflow definition
    */

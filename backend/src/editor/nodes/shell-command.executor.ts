@@ -5,7 +5,7 @@ import type {
   ExecutionInput,
   ShellCommandNodeConfig,
   ShellCommandResult,
-} from '../../types/workflow.types';
+} from '../../types/runbook.types';
 import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_shared';
 
 /**

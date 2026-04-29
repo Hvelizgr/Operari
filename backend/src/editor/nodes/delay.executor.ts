@@ -1,4 +1,4 @@
-import type { DelayNodeConfig, DelayResult, ExecutionInput } from '../../types/workflow.types';
+import type { DelayNodeConfig, DelayResult, ExecutionInput } from '../../types/runbook.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 
 /**

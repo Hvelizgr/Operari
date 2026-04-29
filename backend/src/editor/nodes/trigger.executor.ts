@@ -1,4 +1,4 @@
-import type { ExecutionInput, TriggerResult } from '../../types/workflow.types';
+import type { ExecutionInput, TriggerResult } from '../../types/runbook.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 
 /**

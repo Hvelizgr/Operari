@@ -1,9 +1,5 @@
 import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
-import type {
-  DatabaseNodeConfig,
-  DatabaseResult,
-  ExecutionInput,
-} from '../../types/workflow.types';
+import type { DatabaseNodeConfig, DatabaseResult, ExecutionInput } from '../../types/runbook.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { resolveTemplate } from './_shared';
 

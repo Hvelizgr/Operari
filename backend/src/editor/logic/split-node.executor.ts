@@ -1,5 +1,5 @@
 import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
-import { ExecutionInput, NodeExecutionResult } from '../../types/workflow.types';
+import { ExecutionInput, NodeExecutionResult } from '../../types/runbook.types';
 import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
 
 export interface SplitNodeConfig {

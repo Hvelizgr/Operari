@@ -13,7 +13,7 @@
  */
 
 import type { Logger } from '../../services/logger.service';
-import type { ExecutionInput, NodeExecutionResult } from '../../types/workflow.types';
+import type { ExecutionInput, NodeExecutionResult } from '../../types/runbook.types';
 
 /**
  * The minimal identification block that every NodeExecutionError carries.

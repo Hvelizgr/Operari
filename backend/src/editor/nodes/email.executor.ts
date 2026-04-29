@@ -1,5 +1,5 @@
 import { ErrorCode, ExternalServiceError } from '../../errors/custom-error';
-import type { EmailNodeConfig, EmailResult, ExecutionInput } from '../../types/workflow.types';
+import type { EmailNodeConfig, EmailResult, ExecutionInput } from '../../types/runbook.types';
 import { withExternalServiceRetry } from '../../utils/retry';
 import type {
   EditorNodeExecutor,

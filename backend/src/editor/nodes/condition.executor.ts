@@ -2,7 +2,7 @@ import type {
   ConditionNodeConfig,
   ConditionResult,
   ExecutionInput,
-} from '../../types/workflow.types';
+} from '../../types/runbook.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { getNestedValue, resolveTemplate } from './_shared';
 

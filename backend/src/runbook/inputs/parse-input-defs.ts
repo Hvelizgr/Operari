@@ -4,7 +4,7 @@ import { logger } from '../../config/logger.config';
 import {
   type RunbookInputDefinition,
   runbookInputDefinitionSchema,
-} from '../../types/workflow.types';
+} from '../../types/runbook.types';
 
 /**
  * Parse a `Runbook.inputs` JSON blob coming out of Prisma into a

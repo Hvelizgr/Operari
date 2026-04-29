@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 
 import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
-import type { ExecutionInput, StoreResult, StoreSetNodeConfig } from '../../types/workflow.types';
+import type { ExecutionInput, StoreResult, StoreSetNodeConfig } from '../../types/runbook.types';
 import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
 import { resolveTemplate } from './_shared';
 

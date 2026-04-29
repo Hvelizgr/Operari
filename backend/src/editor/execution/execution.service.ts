@@ -25,7 +25,7 @@ import {
   SuspendResult,
   WorkflowConnection,
   WorkflowNode,
-} from '../../types/workflow.types';
+} from '../../types/runbook.types';
 import { persistExecutionError } from '../../utils/error-persistence';
 import { NodeExecutor } from '../node-executor.service';
 import { socketService } from './socket.service';

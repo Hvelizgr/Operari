@@ -1,4 +1,4 @@
-import type { RunbookInputDefinition } from '../../types/workflow.types';
+import type { RunbookInputDefinition } from '../../types/runbook.types';
 
 /**
  * Validate + normalize the `input` payload a run dispatch carries
