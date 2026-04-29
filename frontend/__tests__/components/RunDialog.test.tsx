@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import type { RunbookInputDefinition } from '@/components/Editor/RunbookInputsPanel';
-import RunDialog, { type DialogRunResult } from '@/components/Workflow/RunDialog';
+import RunDialog, { type DialogRunResult } from '@/components/Runbook/RunDialog';
 
 /**
  * The dialog's form-generation path is already exercised through

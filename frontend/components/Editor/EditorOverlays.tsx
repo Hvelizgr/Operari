@@ -20,7 +20,7 @@ import {
 import { MetricsDashboard } from '../Dashboard';
 import { MiniMap, SearchBar, ZoomControls } from '../Navigation';
 import type { NodeType } from '../Node';
-import { TemplateGallery } from '../Workflow';
+import { TemplateGallery } from '../Runbook';
 import type { Connection, WorkflowNode } from './';
 import PropertiesPanel from './PropertiesPanel';
 

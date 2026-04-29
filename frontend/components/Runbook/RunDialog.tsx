@@ -1,4 +1,4 @@
-// frontend/components/Workflow/RunDialog.tsx
+// frontend/components/Runbook/RunDialog.tsx
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';

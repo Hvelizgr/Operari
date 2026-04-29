@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 
-import ScheduleDialog from '@/components/Workflow/ScheduleDialog';
+import ScheduleDialog from '@/components/Runbook/ScheduleDialog';
 
 /**
  * ScheduleDialog is the dedicated TopBar-triggered wrapper around
