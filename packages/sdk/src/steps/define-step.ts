@@ -58,7 +58,26 @@ export function defineStep<TConfig>(options: DefineStepOptions<TConfig>): Plugin
     type: options.type,
     configSchema: options.configSchema,
     execute: options.execute,
+    // Visual + form metadata. All optional. The backend loader picks
+    // these up and upserts a NodeType row at boot so the editor's
+    // palette + PropertiesPanel render this plugin like a built-in.
+    label: options.label,
+    description: options.description,
+    icon: options.icon,
+    color: options.color,
+    category: options.category,
+    inputs: options.inputs,
+    outputs: options.outputs,
+    properties: options.properties,
   };
 }
 
-export type { DefineStepOptions, PluginContext, PluginResult, PluginStep };
+export type {
+  DefineStepOptions,
+  PluginContext,
+  PluginResult,
+  PluginStep,
+  PluginStepLocalized,
+  PluginStepMetadata,
+  PluginStepProperty,
+} from './types';

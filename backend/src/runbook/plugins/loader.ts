@@ -59,11 +59,32 @@ interface PluginManifest {
   pluginDir: string;
 }
 
+/**
+ * Visual + form metadata picked up from the plugin descriptor.
+ * Plumbed through to a NodeType row so the editor's palette and
+ * PropertiesPanel render this plugin like a built-in. Every field is
+ * optional — a plugin that doesn't supply any still loads + executes,
+ * it just gets a default placeholder appearance.
+ */
+export interface PluginNodeMetadata {
+  type: string;
+  source: string;
+  label?: unknown;
+  description?: unknown;
+  icon?: string;
+  color?: string;
+  category?: string;
+  inputs?: unknown[];
+  outputs?: unknown[];
+  properties?: unknown[];
+}
+
 interface LoadedPlugin {
   type: string;
   schema: { parse: (input: unknown) => unknown };
   execute: (config: unknown, context: PluginContextLike) => Promise<PluginResultLike>;
   source: string;
+  metadata: PluginNodeMetadata;
 }
 
 /** Structural duck-type of a SDK PluginContext event. */
@@ -159,6 +180,14 @@ function loadDescriptor(manifest: PluginManifest, entry: string): LoadedPlugin |
     type: string;
     configSchema: { parse: (input: unknown) => unknown };
     execute: (config: unknown, context: PluginContextLike) => Promise<PluginResultLike>;
+    label?: unknown;
+    description?: unknown;
+    icon?: unknown;
+    color?: unknown;
+    category?: unknown;
+    inputs?: unknown;
+    outputs?: unknown;
+    properties?: unknown;
   };
 
   if (isReservedType(descriptor.type)) {
@@ -170,11 +199,26 @@ function loadDescriptor(manifest: PluginManifest, entry: string): LoadedPlugin |
     return null;
   }
 
+  const source = `${manifest.name}:${entry}`;
+  const metadata: PluginNodeMetadata = {
+    type: descriptor.type,
+    source,
+    label: descriptor.label,
+    description: descriptor.description,
+    icon: typeof descriptor.icon === 'string' ? descriptor.icon : undefined,
+    color: typeof descriptor.color === 'string' ? descriptor.color : undefined,
+    category: typeof descriptor.category === 'string' ? descriptor.category : undefined,
+    inputs: Array.isArray(descriptor.inputs) ? descriptor.inputs : undefined,
+    outputs: Array.isArray(descriptor.outputs) ? descriptor.outputs : undefined,
+    properties: Array.isArray(descriptor.properties) ? descriptor.properties : undefined,
+  };
+
   return {
     type: descriptor.type,
     schema: descriptor.configSchema,
     execute: descriptor.execute,
-    source: `${manifest.name}:${entry}`,
+    source,
+    metadata,
   };
 }
 
@@ -242,6 +286,13 @@ export interface LoadPluginsOptions {
 
 export interface LoadPluginsResult {
   executors: StepExecutor[];
+  /**
+   * Visual + form metadata for every successfully-loaded plugin,
+   * keyed by step type. The boot path passes this to
+   * `upsertPluginNodeTypes` so the editor's NodePalette and
+   * PropertiesPanel see plugin steps with proper icons + auto-forms.
+   */
+  manifests: PluginNodeMetadata[];
   /** For logging / diagnostics — not required by the registry. */
   loaded: string[];
   skipped: string[];
@@ -249,7 +300,7 @@ export interface LoadPluginsResult {
 
 export function loadPluginsSync(options: LoadPluginsOptions = {}): LoadPluginsResult {
   const dir = options.pluginsDir ?? process.env.OPERARI_PLUGINS_DIR;
-  const result: LoadPluginsResult = { executors: [], loaded: [], skipped: [] };
+  const result: LoadPluginsResult = { executors: [], manifests: [], loaded: [], skipped: [] };
 
   if (!dir) return result;
   if (!fs.existsSync(dir)) {
@@ -294,6 +345,7 @@ export function loadPluginsSync(options: LoadPluginsOptions = {}): LoadPluginsRe
       }
       claimedTypes.add(loaded.type);
       result.executors.push(adaptToExecutor(loaded));
+      result.manifests.push(loaded.metadata);
       result.loaded.push(`${manifest.name}:${loaded.type}`);
     }
   }

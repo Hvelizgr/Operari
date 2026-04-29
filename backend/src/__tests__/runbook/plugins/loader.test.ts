@@ -267,4 +267,98 @@ describe('plugin loader', () => {
     expect(thrown.success).toBe(false);
     expect(thrown.error).toMatch(/kaboom/);
   });
+
+  describe('manifest metadata extraction', () => {
+    it('preserves visual + form metadata on the manifests array', () => {
+      const pluginsDir = makePlugin('case-meta/with-meta', {
+        'package.json': JSON.stringify({
+          name: 'with-meta',
+          operari: { steps: ['./index.js'] },
+        }),
+        'index.js': `
+          module.exports = {
+            type: 'example.with-meta',
+            configSchema: { parse: (x) => x },
+            execute: async () => ({ success: true }),
+            label: { en: 'With meta', es: 'Con metadata' },
+            description: 'A step that ships palette metadata',
+            icon: 'Send',
+            color: 'bg-pink-500',
+            category: 'integrations',
+            inputs: [{ name: 'main', type: 'main' }],
+            outputs: [{ name: 'main', type: 'main' }],
+            properties: [
+              { name: 'msg', displayName: 'Message', type: 'string' },
+            ],
+          };
+        `,
+      });
+
+      const result = loadPluginsSync({ pluginsDir });
+      expect(result.executors).toHaveLength(1);
+      expect(result.manifests).toHaveLength(1);
+      const m = result.manifests[0];
+      expect(m.type).toBe('example.with-meta');
+      expect(m.icon).toBe('Send');
+      expect(m.color).toBe('bg-pink-500');
+      expect(m.category).toBe('integrations');
+      expect(m.label).toEqual({ en: 'With meta', es: 'Con metadata' });
+      expect(m.description).toBe('A step that ships palette metadata');
+      expect(Array.isArray(m.inputs)).toBe(true);
+      expect(Array.isArray(m.properties)).toBe(true);
+      expect((m.properties as unknown[]).length).toBe(1);
+    });
+
+    it('emits a manifest with undefined fields when the plugin omits metadata', () => {
+      const pluginsDir = makePlugin('case-meta-bare/bare-meta', {
+        'package.json': JSON.stringify({
+          name: 'bare-meta',
+          operari: { steps: ['./index.js'] },
+        }),
+        'index.js': `
+          module.exports = {
+            type: 'example.bare-meta',
+            configSchema: { parse: (x) => x },
+            execute: async () => ({ success: true }),
+          };
+        `,
+      });
+
+      const result = loadPluginsSync({ pluginsDir });
+      expect(result.manifests).toHaveLength(1);
+      const m = result.manifests[0];
+      expect(m.type).toBe('example.bare-meta');
+      expect(m.icon).toBeUndefined();
+      expect(m.label).toBeUndefined();
+      expect(m.properties).toBeUndefined();
+    });
+
+    it('drops malformed metadata fields without dropping the executor', () => {
+      // A plugin that ships icon as a number or properties as a
+      // non-array should still load — the runtime contract is what
+      // matters; the editor gracefully falls back to defaults.
+      const pluginsDir = makePlugin('case-meta-bad/bad-meta', {
+        'package.json': JSON.stringify({
+          name: 'bad-meta',
+          operari: { steps: ['./index.js'] },
+        }),
+        'index.js': `
+          module.exports = {
+            type: 'example.bad-meta',
+            configSchema: { parse: (x) => x },
+            execute: async () => ({ success: true }),
+            icon: 42,
+            properties: 'not-an-array',
+          };
+        `,
+      });
+
+      const result = loadPluginsSync({ pluginsDir });
+      expect(result.executors).toHaveLength(1);
+      expect(result.manifests).toHaveLength(1);
+      const m = result.manifests[0];
+      expect(m.icon).toBeUndefined();
+      expect(m.properties).toBeUndefined();
+    });
+  });
 });

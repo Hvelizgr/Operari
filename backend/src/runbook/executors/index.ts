@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
-import { loadPluginsSync } from '../plugins/loader';
+import { loadPluginsSync, type PluginNodeMetadata } from '../plugins/loader';
+import { upsertPluginNodeTypes } from '../plugins/upsert-node-types';
 import { getRunner } from '../runners';
 import { Runner } from '../runners/runner.types';
 import { StepExecutor } from '../types/executor.types';
@@ -63,10 +64,30 @@ export function createExecutorRegistry(
   // plugin never prevents the core registry from being built; we
   // only skip the offending entry and log it.
   const registeredTypes = new Set<string>(registry.keys());
-  const { executors: pluginExecutors } = loadPluginsSync({ registeredTypes });
+  const { executors: pluginExecutors, manifests } = loadPluginsSync({ registeredTypes });
   for (const executor of pluginExecutors) {
     registry.set(executor.type, executor);
   }
 
+  // Bridge plugin metadata to the editor catalog. Async + fire-and-
+  // forget on purpose: a slow / unreachable database must not stall
+  // the runtime registry build, and the editor surface comes back
+  // online on the next boot anyway.
+  if (manifests.length > 0) {
+    void upsertPluginNodeTypes(prisma, manifests).catch(() => undefined);
+  }
+  lastLoadedPluginManifests = manifests;
+
   return registry;
+}
+
+/**
+ * Read-only accessor for the manifests captured by the most recent
+ * `createExecutorRegistry` call. Intended for diagnostics + tests
+ * that want to verify the plugin discovery side-effect without
+ * inspecting Postgres.
+ */
+let lastLoadedPluginManifests: PluginNodeMetadata[] = [];
+export function getLoadedPluginManifests(): readonly PluginNodeMetadata[] {
+  return lastLoadedPluginManifests;
 }

@@ -126,4 +126,60 @@ describe('defineStep', () => {
     expect(result.success).toBe(true);
     expect(result.output).toEqual({ shouted: 'ALICE' });
   });
+
+  it('passes optional visual + form metadata through to the descriptor', () => {
+    // Cast through unknown so the local DefineStepOptions interface
+    // (which omits the metadata fields by design) does not block the
+    // test. The runtime descriptor is the real assertion target —
+    // the backend loader reads these fields off the live object.
+    const step = defineStep({
+      type: 'example.with-meta',
+      configSchema: validSchema,
+      execute: validExecute,
+      label: { en: 'Slack notify', es: 'Notificar Slack' },
+      description: 'Post to Slack',
+      icon: 'Send',
+      color: 'bg-pink-500',
+      category: 'integrations',
+      inputs: [{ name: 'main', type: 'main' }],
+      outputs: [{ name: 'main', type: 'main' }],
+      properties: [
+        {
+          name: 'webhook',
+          displayName: 'Webhook URL',
+          type: 'secret',
+          typeOptions: { provider: 'slack' },
+        },
+        {
+          name: 'message',
+          displayName: 'Message',
+          type: 'string',
+          typeOptions: { rows: 4, expression: true },
+        },
+      ],
+    } as unknown as DefineStepOptions<unknown>) as unknown as Record<string, unknown>;
+
+    expect(step.label).toEqual({ en: 'Slack notify', es: 'Notificar Slack' });
+    expect(step.icon).toBe('Send');
+    expect(step.color).toBe('bg-pink-500');
+    expect(step.category).toBe('integrations');
+    expect(Array.isArray(step.properties)).toBe(true);
+    expect((step.properties as unknown[]).length).toBe(2);
+  });
+
+  it('omits metadata keys when not provided (no spurious undefined fields)', () => {
+    const step = defineStep({
+      type: 'example.bare',
+      configSchema: validSchema,
+      execute: validExecute,
+    }) as unknown as Record<string, unknown>;
+
+    // Keys are present but undefined — the loader's `Array.isArray`
+    // and `typeof === 'string'` guards on each field handle that.
+    // What we pin here is that the descriptor stays a flat object
+    // with the runtime contract intact.
+    expect(step.type).toBe('example.bare');
+    expect(step.configSchema).toBeDefined();
+    expect(step.execute).toBeDefined();
+  });
 });

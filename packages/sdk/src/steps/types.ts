@@ -68,7 +68,69 @@ export interface StepConfigSchema<T = unknown> {
   parse: (input: unknown) => T;
 }
 
-export interface DefineStepOptions<TConfig> {
+/**
+ * Optional descriptor for a single editable field in the plugin's
+ * config form. Operari's `PropertiesPanel` reads this list and
+ * generates real form inputs (text, select, boolean toggle, secret
+ * picker, sql editor) instead of falling back to a JSON textarea.
+ *
+ * Authors who skip this field still get a working step — the editor
+ * just renders the JSON fallback for the config block.
+ */
+export interface PluginStepProperty {
+  /** Field key inside the runbook's step `config` block. */
+  name: string;
+  /** Human-readable label shown above the input. */
+  displayName: string;
+  /** Renderer to use. Anything else falls back to a string input. */
+  type: 'string' | 'boolean' | 'options' | 'number' | 'secret' | 'sql' | 'color';
+  /** Pre-filled value when a node is first dropped on the canvas. */
+  default?: unknown;
+  /** Help text rendered as a tooltip beside the label. */
+  description?: string;
+  /** For `type: 'options'` — the dropdown choices. */
+  options?: { name: string; value: string }[];
+  /**
+   * Renderer hints. `rows` makes a string input multi-line.
+   * `expression` adds the expression-builder badge for `{{vars.x}}`
+   * templates. `provider` scopes the SecretPicker to one ConnectedAccount
+   * provider (e.g. `'github'`, `'postgres'`).
+   */
+  typeOptions?: { rows?: number; expression?: boolean; provider?: string };
+}
+
+/** I18n string accepted by Operari's editor. Plain strings are also fine. */
+export type PluginStepLocalized = string | { en?: string; es?: string };
+
+/**
+ * Optional palette / form metadata. Plumbed through the backend
+ * loader to a NodeType row in Postgres on plugin discovery so the
+ * editor's NodePalette and PropertiesPanel render this step type
+ * the same way they render the built-ins.
+ *
+ * Every field is optional — a plugin author who only cares about
+ * the runtime contract can ignore the whole interface.
+ */
+export interface PluginStepMetadata {
+  /** Human-readable name. Defaults to the `type` string. */
+  label?: PluginStepLocalized;
+  /** One-line description shown in the palette tooltip. */
+  description?: PluginStepLocalized;
+  /** Lucide icon name, e.g. `'Send'`, `'Database'`. */
+  icon?: string;
+  /** Tailwind background class, e.g. `'bg-pink-500'`. */
+  color?: string;
+  /** Palette section, e.g. `'integrations'`, `'devops'`, `'custom'`. */
+  category?: string;
+  /** Input ports on the canvas node. Defaults to a single `main`. */
+  inputs?: { name: string; type: string }[];
+  /** Output ports. Defaults to a single `main`. */
+  outputs?: { name: string; type: string }[];
+  /** Auto-form descriptors. Empty array → JSON textarea fallback. */
+  properties?: PluginStepProperty[];
+}
+
+export interface DefineStepOptions<TConfig> extends PluginStepMetadata {
   /**
    * Unique type identifier. Use a reverse-DNS-ish namespace to avoid
    * collisions with built-in steps or other plugins:
@@ -96,7 +158,7 @@ export interface DefineStepOptions<TConfig> {
  * produce this via `defineStep(...)` rather than construct it by hand
  * so type inference and validation stay consistent.
  */
-export interface PluginStep<TConfig = unknown> {
+export interface PluginStep<TConfig = unknown> extends PluginStepMetadata {
   readonly type: string;
   readonly configSchema: StepConfigSchema<TConfig>;
   execute: (config: TConfig, context: PluginContext) => Promise<PluginResult>;
