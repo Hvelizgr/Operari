@@ -22,7 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { specToNodes, yamlToSpec } from '@/utils/runbookYaml';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-// ... existing imports
+
 import './WorkflowNode.css';
 
 import { useEditorTools } from '../../hooks/useEditorTools';

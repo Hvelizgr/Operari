@@ -34,7 +34,6 @@ export default function NodeConfigPanel({
   const [localTitle, setLocalTitle] = useState('');
   const [localConfig, setLocalConfig] = useState<Record<string, unknown>>({});
 
-  // ... existing initialization ...
   const nodeTypeInfo = node ? NODE_TYPES.find(t => t.type === node.type) : null;
   const nodeDescription = nodeTypeInfo?.description?.[lang];
 
@@ -44,8 +43,6 @@ export default function NodeConfigPanel({
       setLocalConfig((node.config as Record<string, unknown>) || {});
     }
   }, [node]);
-
-  // ... existing content object ...
 
   const content = {
     en: {
