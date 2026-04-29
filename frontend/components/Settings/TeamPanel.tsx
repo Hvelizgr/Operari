@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth';
 
+import { AuditChainInspector } from './AuditChainInspector';
 import { AuditExportCard } from './AuditExportCard';
 import { MfaPolicyCard } from './MfaPolicyCard';
 
@@ -228,6 +229,11 @@ export function TeamPanel({ lang }: { lang: 'en' | 'es' }) {
             | null
         }
       />
+
+      {/* Audit chain inspector — verify the SHA-256 hash chain in
+                place + read recent events. Admin-only and not plan
+                gated; tamper-evidence has to be free everywhere. */}
+      <AuditChainInspector lang={lang} viewerRole={viewerRole} />
 
       {/* Members list — added after UX audit flagged that
                 inviting without being able to see/remove existing

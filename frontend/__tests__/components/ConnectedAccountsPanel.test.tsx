@@ -160,8 +160,8 @@ describe('ConnectedAccountsPanel', () => {
 
     // give the click handler a tick to NOT issue a DELETE
     await new Promise(r => setTimeout(r, 10));
-    const deleteCall = fetchMock.mock.calls.find(
-      call => (call[1] as RequestInit)?.method === 'DELETE'
+    const deleteCall = (fetchMock.mock.calls as unknown[][]).find(
+      call => (call[1] as RequestInit | undefined)?.method === 'DELETE'
     );
     expect(deleteCall).toBeUndefined();
   });

@@ -2,8 +2,8 @@ import type { Role } from '@prisma/client';
 import { type Response, Router } from 'express';
 import { z } from 'zod';
 
-import { AuditService } from '../audit/audit.service';
-import { buildDeletedActorSet, redactRow } from '../audit/audit-redaction';
+import { AuditService, type AuditEventType } from '../audit/audit.service';
+import { type AuditExportRow, buildDeletedActorSet, redactRow } from '../audit/audit-redaction';
 import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
 import { prisma } from '../server';
 
@@ -200,6 +200,143 @@ router.patch('/security', authenticate, async (req: AuthRequest, res: Response) 
     .catch(() => undefined);
 
   res.json({ data: updated });
+});
+
+/**
+ * GET /api/tenants/audit/verify
+ *
+ * Walks the caller tenant's audit chain and reports whether the hash
+ * sequence is intact. Session-authenticated mirror of the API-key
+ * `/api/v1/audit/verify` endpoint so an admin can run "verify chain"
+ * from the Settings page without minting an API key.
+ *
+ * Admin-only: the chain status is sensitive operational metadata. A
+ * tampered or broken chain is the first signal an attacker would try
+ * to suppress; non-admin members do not get to read it.
+ *
+ * Not plan-gated. Verification has to be free for self-host and free
+ * tenants — it is the whole point of an immutable audit log.
+ */
+router.get('/audit/verify', authenticate, async (req: AuthRequest, res: Response) => {
+  if (req.user!.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Only admins can verify the audit chain' });
+  }
+
+  const tenantId = req.user!.tenantId;
+
+  let fromSeq: bigint | undefined;
+  if (typeof req.query.fromSeq === 'string') {
+    try {
+      fromSeq = BigInt(req.query.fromSeq);
+      if (fromSeq < 0n) throw new Error('negative');
+    } catch {
+      return res.status(400).json({
+        error: 'fromSeq must be a non-negative integer',
+        code: 'invalid_fromSeq',
+      });
+    }
+  }
+
+  const status = await getAudit().verifyChain(tenantId, { fromSeq });
+
+  res.json({
+    tenantId: status.tenantId,
+    eventCount: status.eventCount,
+    intact: status.firstBrokenSeq === null && status.firstGapAfterSeq === null,
+    firstBrokenSeq: status.firstBrokenSeq?.toString() ?? null,
+    firstGapAfterSeq: status.firstGapAfterSeq?.toString() ?? null,
+    verifiedAt: new Date().toISOString(),
+  });
+});
+
+/**
+ * GET /api/tenants/audit/events
+ *
+ * Paginated read of the caller tenant's audit chain for the inspector
+ * UI. Cursor pagination by seq (ascending) so the UI can step forward
+ * one page at a time without expensive offset-based scans.
+ *
+ * Query params:
+ *   - fromSeq:  optional bigint string, the inclusive low bound
+ *   - pageSize: optional, default 50, clamped to [1, 200]
+ *   - type:     optional repeatable filter by AuditEventType, e.g.
+ *               `?type=run.started&type=run.failed`
+ *
+ * Admin-only for the same reason as verify. GDPR redaction of
+ * deleted-actor references is applied before bytes leave the process,
+ * mirroring the export endpoint so the inspector and the export show
+ * the same redacted view.
+ */
+router.get('/audit/events', authenticate, async (req: AuthRequest, res: Response) => {
+  if (req.user!.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Only admins can read the audit log' });
+  }
+
+  const tenantId = req.user!.tenantId;
+
+  let fromSeq: bigint | undefined;
+  if (typeof req.query.fromSeq === 'string') {
+    try {
+      fromSeq = BigInt(req.query.fromSeq);
+      if (fromSeq < 0n) throw new Error('negative');
+    } catch {
+      return res.status(400).json({
+        error: 'fromSeq must be a non-negative integer',
+        code: 'invalid_fromSeq',
+      });
+    }
+  }
+
+  let pageSize = 50;
+  if (typeof req.query.pageSize === 'string') {
+    const parsed = Number.parseInt(req.query.pageSize, 10);
+    if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 200) {
+      return res.status(400).json({
+        error: 'pageSize must be an integer between 1 and 200',
+        code: 'invalid_pageSize',
+      });
+    }
+    pageSize = parsed;
+  }
+
+  const typesParam = req.query.type;
+  const types = Array.isArray(typesParam)
+    ? typesParam.filter((t): t is string => typeof t === 'string')
+    : typeof typesParam === 'string'
+      ? [typesParam]
+      : undefined;
+
+  const deletedActors = await buildDeletedActorSet(getAudit(), tenantId);
+
+  const collected: AuditExportRow[] = [];
+  // streamEvents yields one page at a time internally; we cap the
+  // collection at pageSize for the inspector. The +1 lets us decide
+  // whether a `nextSeq` cursor exists without a second query.
+  // Cast: AuditEventType is a closed union but the request layer hands
+  // us arbitrary strings. Prisma's `IN` is a no-match on unknown
+  // values, so an attacker probing junk types just gets [].
+  for await (const row of getAudit().streamEvents(tenantId, {
+    fromSeq,
+    pageSize: pageSize + 1,
+    types: types as AuditEventType[] | undefined,
+  })) {
+    collected.push(redactRow(row, deletedActors));
+    if (collected.length > pageSize) break;
+  }
+
+  const hasMore = collected.length > pageSize;
+  const trimmed = hasMore ? collected.slice(0, pageSize) : collected;
+  const data = trimmed.map(row => ({
+    ...row,
+    seq: row.seq.toString(),
+    createdAt: row.createdAt.toISOString(),
+  }));
+
+  res.json({
+    data,
+    nextSeq:
+      hasMore && trimmed.length > 0 ? (trimmed[trimmed.length - 1].seq + 1n).toString() : null,
+  });
 });
 
 const EXPORT_ALLOWED_PLANS = new Set(['BUSINESS', 'ENTERPRISE', 'PRO']);
