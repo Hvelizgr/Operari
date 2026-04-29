@@ -68,6 +68,28 @@ export class WebhookService {
     return result.count > 0;
   }
 
+  /**
+   * Rotate the HMAC secret for an existing webhook. Tenant-scoped —
+   * cross-tenant ids return null so the caller maps that to a 404.
+   *
+   * Use case: the operator pasted the secret into a Slack DM on
+   * accident, or rotated their Sentry monitor and wants a clean trail.
+   * Generating a new 32-byte secret is cheap; the URL/token does not
+   * change so existing receivers keep working until they fail HMAC,
+   * which is the moment the operator updates the secret in the
+   * provider's UI. There is intentionally no grace window — once the
+   * new secret is stored, the old one stops verifying immediately.
+   */
+  async rotateSecret(tenantId: string, id: string): Promise<{ secret: string } | null> {
+    const newSecret = crypto.randomBytes(32).toString('base64url');
+    const result = await this.prisma.webhook.updateMany({
+      where: { id, tenantId },
+      data: { secret: newSecret },
+    });
+    if (result.count === 0) return null;
+    return { secret: newSecret };
+  }
+
   async recordTrigger(id: string) {
     return this.prisma.webhook.update({
       where: { id },

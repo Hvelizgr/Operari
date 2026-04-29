@@ -1,9 +1,20 @@
 'use client';
 
-import { AlertCircle, Check, Copy, Loader2, Plus, Trash2, Webhook } from 'lucide-react';
+import {
+  AlertCircle,
+  Check,
+  Copy,
+  HelpCircle,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Webhook,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import WebhookReceiptsPanel from './WebhookReceiptsPanel';
+import WebhookSetupWizardModal from './WebhookSetupWizardModal';
 
 interface TriggerRecord {
   id: string;
@@ -50,6 +61,12 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     loadFailed: 'Failed to load triggers',
     createFailed: 'Failed to create trigger',
     deleteFailed: 'Failed to delete trigger',
+    setupWizard: 'Setup wizard',
+    rotate: 'Rotate secret',
+    rotating: 'Rotating…',
+    rotateConfirm:
+      'Rotate the signing secret? Existing senders will be rejected with HTTP 401 until you update the secret in the provider UI.',
+    rotateFailed: 'Failed to rotate secret',
   },
   es: {
     title: 'Disparadores',
@@ -68,6 +85,12 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     loadFailed: 'No se pudieron cargar los disparadores',
     createFailed: 'No se pudo crear el disparador',
     deleteFailed: 'No se pudo eliminar',
+    setupWizard: 'Asistente de configuración',
+    rotate: 'Rotar secreto',
+    rotating: 'Rotando…',
+    rotateConfirm:
+      '¿Rotar el secreto de firma? Los emisores existentes recibirán HTTP 401 hasta que actualices el secreto en la UI del proveedor.',
+    rotateFailed: 'No se pudo rotar el secreto',
   },
 };
 
@@ -81,6 +104,8 @@ export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
+  const [wizardFor, setWizardFor] = useState<TriggerRecord | null>(null);
 
   const load = useCallback(async () => {
     if (!runbookId) return;
@@ -125,6 +150,27 @@ export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
       setError(`${t.createFailed}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const rotateSecret = async (id: string) => {
+    if (typeof window !== 'undefined' && !window.confirm(t.rotateConfirm)) return;
+    setRotatingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`${apiBase}/api/webhooks/${id}/rotate-secret`, {
+        method: 'POST',
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      const body = (await res.json()) as { id: string; secret: string };
+      setRevealedSecrets(prev => ({ ...prev, [id]: body.secret }));
+    } catch (err) {
+      setError(`${t.rotateFailed}: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRotatingId(null);
     }
   };
 
@@ -192,18 +238,43 @@ export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
                   key={tr.id}
                   className="space-y-1 rounded border border-slate-700 bg-black/30 p-2"
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-primary/70 text-[11px] font-bold uppercase">
                       {tr.source}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => remove(tr.id)}
-                      title={t.delete}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setWizardFor(tr)}
+                        title={t.setupWizard}
+                        className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-white"
+                      >
+                        <HelpCircle size={11} />
+                        {t.setupWizard}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => rotateSecret(tr.id)}
+                        disabled={rotatingId === tr.id}
+                        title={t.rotate}
+                        className="inline-flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300 disabled:opacity-50"
+                      >
+                        {rotatingId === tr.id ? (
+                          <Loader2 size={11} className="animate-spin" />
+                        ) : (
+                          <RefreshCw size={11} />
+                        )}
+                        {rotatingId === tr.id ? t.rotating : t.rotate}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(tr.id)}
+                        title={t.delete}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <div className="text-[9px] uppercase text-slate-500">{t.url}</div>
@@ -265,6 +336,23 @@ export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
             </div>
           </div>
         </>
+      )}
+
+      {wizardFor && (
+        <WebhookSetupWizardModal
+          open
+          onClose={() => setWizardFor(null)}
+          lang={lang}
+          source={
+            (['sentry', 'datadog', 'github', 'custom'] as const).includes(
+              wizardFor.source as 'sentry' | 'datadog' | 'github' | 'custom'
+            )
+              ? (wizardFor.source as 'sentry' | 'datadog' | 'github' | 'custom')
+              : 'custom'
+          }
+          url={wizardFor.url}
+          secret={revealedSecrets[wizardFor.id] ?? wizardFor.secret}
+        />
       )}
     </div>
   );

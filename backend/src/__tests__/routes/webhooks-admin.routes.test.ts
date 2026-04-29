@@ -88,10 +88,12 @@ const mapPayloadToVariablesMock = jest.fn((_source: string, _event: unknown, bod
 }));
 const executeMock = jest.fn();
 
+const rotateSecretMock = jest.fn();
 jest.mock('../../runbook/services/webhook.service', () => ({
-  WebhookService: jest
-    .fn()
-    .mockImplementation(() => ({ mapPayloadToVariables: mapPayloadToVariablesMock })),
+  WebhookService: jest.fn().mockImplementation(() => ({
+    mapPayloadToVariables: mapPayloadToVariablesMock,
+    rotateSecret: rotateSecretMock,
+  })),
 }));
 jest.mock('../../editor/execution/execution.service', () => ({
   ExecutionService: jest.fn().mockImplementation(() => ({ execute: executeMock })),
@@ -372,5 +374,38 @@ describe('POST /api/webhooks/:id/receipts/:receiptId/replay', () => {
     );
     expect(res.status).toBe(500);
     expect(mockedPrisma.webhookReceipt.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/webhooks/:id/rotate-secret', () => {
+  beforeEach(() => {
+    rotateSecretMock.mockReset();
+  });
+
+  it('returns the new secret when rotation succeeds', async () => {
+    rotateSecretMock.mockResolvedValue({ secret: 'rotated-secret-base64url' });
+
+    const res = await request(makeApp(USER)).post('/api/webhooks/hook-1/rotate-secret');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ id: 'hook-1', secret: 'rotated-secret-base64url' });
+    expect(rotateSecretMock).toHaveBeenCalledWith('t1', 'hook-1');
+  });
+
+  it('returns 404 when the webhook id does not match the tenant', async () => {
+    rotateSecretMock.mockResolvedValue(null);
+
+    const res = await request(makeApp(USER)).post('/api/webhooks/wrong-id/rotate-secret');
+
+    expect(res.status).toBe(404);
+    expect(rotateSecretMock).toHaveBeenCalledWith('t1', 'wrong-id');
+  });
+
+  it('returns 500 when the service throws', async () => {
+    rotateSecretMock.mockRejectedValue(new Error('db down'));
+
+    const res = await request(makeApp(USER)).post('/api/webhooks/hook-1/rotate-secret');
+
+    expect(res.status).toBe(500);
   });
 });

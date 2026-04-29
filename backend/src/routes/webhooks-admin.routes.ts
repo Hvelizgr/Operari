@@ -266,6 +266,31 @@ router.post('/:id/receipts/:receiptId/replay', async (req: AuthRequest, res: Res
 });
 
 /**
+ * POST /api/webhooks/:id/rotate-secret
+ *
+ * Generates a new HMAC secret for an existing webhook and returns it
+ * in the response — once. The URL/token does not change, so existing
+ * receivers keep delivering until they fail signature verification,
+ * at which point the operator updates the secret in the provider's
+ * UI. Tenant-scoped; cross-tenant ids return 404.
+ *
+ * Use case: the operator pasted the secret into a chat by accident,
+ * or routinely rotates secrets every quarter for compliance.
+ */
+router.post('/:id/rotate-secret', async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.user!.tenantId;
+    const id = String(req.params.id);
+    const result = await getService().rotateSecret(tenantId, id);
+    if (!result) return res.status(404).json({ error: 'Webhook not found' });
+    return res.json({ id, secret: result.secret });
+  } catch (err) {
+    req.log.error({ err }, 'Rotate webhook secret error');
+    return res.status(500).json({ error: 'Failed to rotate webhook secret' });
+  }
+});
+
+/**
  * DELETE /api/webhooks/:id
  * Deletes a trigger registration. Tenant-scoped.
  */
