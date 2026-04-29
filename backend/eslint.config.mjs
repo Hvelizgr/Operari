@@ -83,8 +83,14 @@ export default [
     rules: {
       ...tsPlugin.configs.recommended.rules,
       ...prettierConfig.rules,
+      // Tightened from `warn` to `error` after a full-tree audit
+      // showed zero violations under the strict setting. Keeping it
+      // as a warn was a "soft mode" the code didn't actually need —
+      // an unused var that survives review is almost always a real
+      // bug (forgot to wire a destructured field, removed the only
+      // call site, etc.) so a hard fail catches it earlier.
       '@typescript-eslint/no-unused-vars': [
-        'warn',
+        'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/no-explicit-any': 'warn',

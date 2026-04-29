@@ -1,6 +1,6 @@
 import {
-  ValidationSeverity,
   RunbookValidatorService,
+  ValidationSeverity,
 } from '../../services/runbook-validator.service';
 import type {
   WorkflowConnection,
