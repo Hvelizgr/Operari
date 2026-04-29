@@ -594,10 +594,10 @@ enum TriggerType {
   /// Spawned by a `runbook` step inside another execution. The parent
   /// Execution.id lives on `parentExecutionId`, which the UI uses to
   /// render the sub-run tree.
-  WORKFLOW
+  RUNBOOK
   /// Spawned automatically because a parent run hit status=FAILED and
   /// the parent runbook declared `onErrorRunbookId`. Distinct from
-  /// WORKFLOW so the engine can refuse to chain error triggers (an
+  /// RUNBOOK so the engine can refuse to chain error triggers (an
   /// ERROR-triggered run that itself FAILs does NOT trigger its own
   /// onErrorRunbookId — otherwise a misconfigured handler loops).
   ERROR

@@ -168,7 +168,7 @@ export class RunbookExecutor implements StepExecutor<RunbookStepConfig> {
       workflowId: target.id,
       userId: parent.userId,
       tenantId: context.tenantId,
-      trigger: 'WORKFLOW',
+      trigger: 'RUNBOOK',
       input: resolvedInputs,
       parentExecutionId: context.runId,
       // Dry-run propagates recursively so an operator dry-running
