@@ -32,4 +32,10 @@ __all__ = [
     "AuditVerifyResult",
 ]
 
+# Step authoring lives at `operari.steps` so plugin modules import:
+#   from operari.steps import define_step, run_cli, PluginContext, PluginResult
+# Re-exporting at the top level would mix the API client with the
+# plugin runtime and add hard-to-follow circular imports for
+# downstream tooling.
+
 __version__ = "0.1.0"
