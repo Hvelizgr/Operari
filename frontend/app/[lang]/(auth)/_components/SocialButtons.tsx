@@ -1,6 +1,6 @@
 'use client';
 
-import { Github } from 'lucide-react';
+import { Building2, Github } from 'lucide-react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 import type { AuthLang } from '../strings';
@@ -32,18 +32,22 @@ interface SocialButtonsProps {
   lang: AuthLang;
   googleEnabled?: boolean;
   githubEnabled?: boolean;
+  workosEnabled?: boolean;
   dividerLabel: string;
   google: string;
   github: string;
+  workos?: string;
 }
 
 export function SocialButtons({
   lang,
   googleEnabled,
   githubEnabled,
+  workosEnabled,
   dividerLabel,
   google,
   github,
+  workos,
 }: SocialButtonsProps) {
   const pathname = usePathname() ?? `/${lang}/login`;
   const searchParams = useSearchParams();
@@ -53,10 +57,15 @@ export function SocialButtons({
   const redirectParam = searchParams.get('redirect');
   const returnTo =
     redirectParam ?? (pathname.startsWith('/es') ? '/es/dashboard' : '/en/dashboard');
-  const href = (provider: 'google' | 'github') =>
-    `/api/auth/${provider}?redirect=${encodeURIComponent(returnTo)}`;
+  const href = (provider: 'google' | 'github' | 'workos') =>
+    provider === 'workos'
+      ? // WorkOS uses its own /api/auth/workos prefix, distinct from
+        // the shared /api/auth/:provider catch-all that handles
+        // Google + GitHub.
+        `/api/auth/workos?redirect=${encodeURIComponent(returnTo)}`
+      : `/api/auth/${provider}?redirect=${encodeURIComponent(returnTo)}`;
 
-  if (!googleEnabled && !githubEnabled) return null;
+  if (!googleEnabled && !githubEnabled && !workosEnabled) return null;
 
   return (
     <div className="mt-6">
@@ -84,6 +93,15 @@ export function SocialButtons({
           >
             <Github className="h-5 w-5" />
             {github}
+          </a>
+        )}
+        {workosEnabled && workos && (
+          <a
+            href={href('workos')}
+            className="border-border/70 bg-background/60 hover:bg-background/90 hover:border-primary/40 text-foreground/90 flex h-11 w-full items-center justify-center gap-3 rounded-lg border text-sm font-medium transition-colors"
+          >
+            <Building2 className="h-5 w-5" />
+            {workos}
           </a>
         )}
       </div>

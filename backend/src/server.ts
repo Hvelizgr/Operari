@@ -54,6 +54,7 @@ import invitesRoutes from './routes/invites.routes';
 import monitorsRoutes from './routes/monitors.routes';
 import nodeTypesRoutes from './routes/node-types.routes'; // Added import
 import oauthRoutes from './routes/oauth.routes';
+import workosRoutes from './routes/workos.routes';
 import runbookRoutes from './routes/runbook.routes';
 import runbookAssistRoutes from './routes/runbook-assist.routes';
 import runRoutes from './routes/runs.routes';
@@ -152,6 +153,7 @@ app.use('/api/auth', authRateLimiter, authRoutes);
 // precedence. The OAuth router owns dynamic `:provider` + `:provider/callback`
 // and does its own 501 when the provider is not configured.
 app.use('/api/auth', oauthRoutes);
+app.use('/api/auth/workos', workosRoutes);
 app.use('/api/billing', standardRateLimiter, billingRoutes);
 app.use('/api/invites', standardRateLimiter, invitesRoutes);
 app.use('/api/tenants', standardRateLimiter, tenantsRoutes);

@@ -80,6 +80,7 @@ export const authStrings = {
       socialDivider: 'Or continue with',
       google: 'Continue with Google',
       github: 'Continue with GitHub',
+      workos: 'Continue with SSO (WorkOS)',
       oauthError: 'Social sign-in failed. Try again.',
       forgot: 'Forgot your password?',
       devBadge: 'DEV MODE',
@@ -107,6 +108,7 @@ export const authStrings = {
       socialDivider: 'Or continue with',
       google: 'Sign up with Google',
       github: 'Sign up with GitHub',
+      workos: 'Sign up with SSO (WorkOS)',
     },
   },
   es: {
@@ -127,6 +129,7 @@ export const authStrings = {
       socialDivider: 'O continuá con',
       google: 'Continuar con Google',
       github: 'Continuar con GitHub',
+      workos: 'Continuar con SSO (WorkOS)',
       oauthError: 'El inicio con proveedor externo falló. Probá de nuevo.',
       forgot: '¿Olvidaste tu contraseña?',
       devBadge: 'MODO DEV',
@@ -154,6 +157,7 @@ export const authStrings = {
       socialDivider: 'O continuá con',
       google: 'Registrate con Google',
       github: 'Registrate con GitHub',
+      workos: 'Registrate con SSO (WorkOS)',
     },
   },
 } as const;

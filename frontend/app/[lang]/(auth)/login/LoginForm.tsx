@@ -14,6 +14,7 @@ const SAFE_REDIRECT = /^\/[a-z]{2}(\/[\w\-/]*)?$/i;
 
 const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GOOGLE === 'true';
 const GITHUB_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GITHUB === 'true';
+const WORKOS_ENABLED = process.env.NEXT_PUBLIC_OAUTH_WORKOS === 'true';
 const DEV_MODE_ENABLED = process.env.NEXT_PUBLIC_DEV_LOGIN_ENABLED === 'true';
 
 export function LoginForm({ lang }: { lang: AuthLang }) {
@@ -119,9 +120,11 @@ export function LoginForm({ lang }: { lang: AuthLang }) {
         lang={lang}
         googleEnabled={GOOGLE_ENABLED}
         githubEnabled={GITHUB_ENABLED}
+        workosEnabled={WORKOS_ENABLED}
         dividerLabel={t.socialDivider}
         google={t.google}
         github={t.github}
+        workos={t.workos}
       />
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>

@@ -12,6 +12,7 @@ import { type AuthLang, authStrings } from '../strings';
 
 const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GOOGLE === 'true';
 const GITHUB_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GITHUB === 'true';
+const WORKOS_ENABLED = process.env.NEXT_PUBLIC_OAUTH_WORKOS === 'true';
 
 // Only accept template slugs that look URL-safe. Same pattern as the
 // backend enforces for runbook slug creation, but kept tight to
@@ -79,9 +80,11 @@ export function RegisterForm({ lang }: { lang: AuthLang }) {
         lang={lang}
         googleEnabled={GOOGLE_ENABLED}
         githubEnabled={GITHUB_ENABLED}
+        workosEnabled={WORKOS_ENABLED}
         dividerLabel={t.socialDivider}
         google={t.google}
         github={t.github}
+        workos={t.workos}
       />
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
