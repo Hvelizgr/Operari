@@ -187,14 +187,11 @@ export class ErrorNotificationService {
       },
     });
 
-    // TODO: Integrate with actual email service (SendGrid, AWS SES, etc.)
-    // Example:
-    // const emailService = EmailService.getInstance();
-    // await emailService.send({
-    //     to: email,
-    //     subject: `[${payload.severity.toUpperCase()}] Error in runbook ${payload.workflowName}`,
-    //     html: this.formatEmailBody(payload),
-    // });
+    // Extension point: this method only logs today. Wiring an actual
+    // email backend (SendGrid, AWS SES, the local SMTP transport) is
+    // a per-deployment concern — keep the call site stable so adding
+    // a transport later is a one-file change here, not a refactor of
+    // every error path.
   }
 
   /**
@@ -222,12 +219,10 @@ export class ErrorNotificationService {
       },
     });
 
-    // TODO: Emit to event bus
-    // Example:
-    // const eventBus = EventBus.getInstance();
-    // eventBus.emit('execution.error', {
-    //     executionId,
-    //     error: error.toJSON(),
-    // });
+    // Extension point: today this method logs to the structured
+    // logger only. A real event bus (RabbitMQ / Kafka / Redis pub-sub)
+    // would slot in here without changing the callers — every error
+    // path already calls emitErrorEvent, so adding a bus is a single
+    // .publish() line in this method.
   }
 }
