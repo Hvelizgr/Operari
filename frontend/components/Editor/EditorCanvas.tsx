@@ -84,6 +84,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     executionMetrics,
     cycleError,
     selectedNodes,
+    setSelectedNodes,
     highlightedNodes,
     focusedNodeIndex,
     draggingNode,
@@ -457,9 +458,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         id: 'select_all',
         label: lang === 'en' ? 'Select All' : 'Seleccionar Todo',
         shortcut: ['Ctrl', 'A'],
-        action: () => {
-          /* TODO */
-        },
+        action: () => setSelectedNodes(new Set(nodes.map(n => n.id))),
       },
       {
         id: 'add_node',

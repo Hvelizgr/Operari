@@ -952,6 +952,7 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     executionMetrics,
     cycleError,
     selectedNodes,
+    setSelectedNodes,
     highlightedNodes,
     focusedNodeIndex,
     draggingNode,
