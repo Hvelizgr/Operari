@@ -60,7 +60,7 @@ This list is conservative and hand-verified against the test suite, not the road
 
 **Execution**
 
-- 9 step types with real executors today: `shell`, `operari.httpRequest`, `approval`, `notify`, `wait`, `operari.cron` (trigger), `operari.webhook` (trigger), plus `custom.frame` and `custom.note` for organization. Earlier drafts of this README listed 20 types — that was vapor inherited from the n8n-era. The other ones (`switch`, `loop`, `github`, `docker`, `awsS3`, `agent`, `postgres`, `set`) have no backend executor and have been removed from the editor palette to avoid promising what we cannot run.
+- 10 step types with real executors today: `shell`, `operari.httpRequest`, `approval`, `notify`, `wait`, `operari.cron` (trigger), `operari.webhook` (trigger), `operari.database` (Postgres health / introspect / read-only query, with optional SSH tunnel via bastion), plus `custom.frame` and `custom.note` for organization. Earlier drafts of this README listed 20 types — that was vapor inherited from the n8n-era. The other ones (`switch`, `loop`, `github`, `docker`, `awsS3`, `agent`, `set`) have no backend executor and have been removed from the editor palette to avoid promising what we cannot run.
 - Sandboxed runners with three backends: local process, Docker container, Fly.io machine
 - Real-time stdout / stderr streaming over Socket.IO + durable Redis stream backing
 - Human approval gates that suspend the run and resume on `grant`/`reject`
@@ -149,15 +149,14 @@ This list is conservative and hand-verified against the test suite, not the road
 
 This is the part Show HN will dig into anyway, so it's better up here than buried.
 
-| Area                                 | State                                                                                                          | Tracked in                           |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| **GitHub App OAuth + status checks** | Connected accounts model exists, OAuth dance not wired                                                         | P1 #9 in `IMPLEMENTACION_NANORUN.md` |
-| **Sentry / Datadog payload parsing** | Webhook receiver verifies HMAC and routes to runbooks; provider-specific parsing is stubbed                    | P1 #9                                |
-| **Database step**                    | Hardened to allow `migrate`/`health`/`backup` only, but still a passthrough stub. Real Prisma wiring is not in | Backlog                              |
-| **Public demo instance**             | None. You have to self-host to try it                                                                          | —                                    |
-| **Loom / video walkthrough**         | None                                                                                                           | —                                    |
-| **Verified domain + trademark**      | The repo is at `Hvelizgr/Operari`; the `Operari` mark and the `.dev/.io/.com` domains are not yet secured      | Pre-launch checklist                 |
-| **Production design partners**       | Zero                                                                                                           | —                                    |
+| Area                                 | State                                                                                                     | Tracked in                           |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **GitHub App OAuth + status checks** | Connected accounts model exists, OAuth dance not wired                                                    | P1 #9 in `IMPLEMENTACION_NANORUN.md` |
+| **Sentry / Datadog payload parsing** | Webhook receiver verifies HMAC and routes to runbooks; provider-specific parsing is stubbed               | P1 #9                                |
+| **Public demo instance**             | None. You have to self-host to try it                                                                     | —                                    |
+| **Loom / video walkthrough**         | None                                                                                                      | —                                    |
+| **Verified domain + trademark**      | The repo is at `Hvelizgr/Operari`; the `Operari` mark and the `.dev/.io/.com` domains are not yet secured | Pre-launch checklist                 |
+| **Production design partners**       | Zero                                                                                                      | —                                    |
 
 If any of these are deal-breakers for you, Operari is not yet the tool you
 need. Star the repo and check back in 4-6 weeks.
