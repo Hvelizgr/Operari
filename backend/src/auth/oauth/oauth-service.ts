@@ -53,16 +53,26 @@ export function buildAuthorizeUrl(
 }
 
 /**
- * Exchange an auth code for an access token and fetch the user
- * profile. Does NOT touch the database — that's the caller's job so
- * linking logic stays in one place.
+ * Exchange an auth code for an access token AND fetch the user profile.
+ *
+ * Does NOT touch the database — that's the caller's job so linking
+ * logic stays in one place. Login (`oauth.routes.ts`) discards the
+ * token after the userinfo lookup; connected-account linking
+ * (`connected-accounts.routes.ts`) keeps it so the runtime can call
+ * GitHub APIs on the user's behalf later. The shared helper makes
+ * both flows go through the same audited code path.
  */
-export async function exchangeCode(
+export interface OAuthExchangeResult {
+  accessToken: string;
+  profile: OAuthProfile;
+}
+
+export async function exchangeCodeForTokenAndProfile(
   provider: OAuthProviderConfig,
   code: string,
   redirectUri: string,
   deps: OAuthExchangeDeps = {}
-): Promise<OAuthProfile> {
+): Promise<OAuthExchangeResult> {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const clientId = provider.clientId();
   const clientSecret = provider.clientSecret();
@@ -110,6 +120,21 @@ export async function exchangeCode(
   if (!profile.email && provider.fetchFallbackEmail) {
     profile.email = await provider.fetchFallbackEmail(accessToken);
   }
+  return { accessToken, profile };
+}
+
+/**
+ * Backwards-compatible wrapper that returns only the profile. Used by
+ * the login flow that throws the access token away after fetching the
+ * user info.
+ */
+export async function exchangeCode(
+  provider: OAuthProviderConfig,
+  code: string,
+  redirectUri: string,
+  deps: OAuthExchangeDeps = {}
+): Promise<OAuthProfile> {
+  const { profile } = await exchangeCodeForTokenAndProfile(provider, code, redirectUri, deps);
   return profile;
 }
 
