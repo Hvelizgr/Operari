@@ -49,6 +49,48 @@ const NODES = [
     },
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'command',
+        displayName: 'Command',
+        type: 'string',
+        description: 'Shell command to run. Supports {{vars.x}} templates.',
+        typeOptions: { rows: 6, expression: true },
+      },
+      {
+        name: 'cwd',
+        displayName: 'Working directory',
+        type: 'string',
+        description: 'Optional. Defaults to the runner sandbox root.',
+      },
+      {
+        name: 'shell',
+        displayName: 'Shell binary',
+        type: 'string',
+        default: 'sh',
+        description: 'sh, bash, zsh — must exist in the runner image.',
+      },
+      {
+        name: 'timeout',
+        displayName: 'Timeout (ms)',
+        type: 'number',
+        default: 60000,
+        description: 'Hard kill if the command runs longer than this.',
+      },
+      {
+        name: 'failOnNonZeroExit',
+        displayName: 'Fail on non-zero exit',
+        type: 'boolean',
+        default: true,
+        description: 'Off → step succeeds and exits go into output.exitCode.',
+      },
+      {
+        name: 'image',
+        displayName: 'Runner image (docker / fly only)',
+        type: 'string',
+        description: 'Override the default runner image for this step.',
+      },
+    ],
   },
   {
     type: 'operari.postgres',
@@ -62,6 +104,40 @@ const NODES = [
     },
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'operation',
+        displayName: 'Operation',
+        type: 'options',
+        default: 'health',
+        description: 'introspect = list tables; health = SELECT 1; query = read-only SQL.',
+        options: [
+          { name: 'Health check', value: 'health' },
+          { name: 'Introspect schema', value: 'introspect' },
+          { name: 'Read-only query', value: 'query' },
+        ],
+      },
+      {
+        name: 'credentialId',
+        displayName: 'Postgres credential',
+        type: 'secret',
+        description: 'ConnectedAccount id for the Postgres DSN.',
+        typeOptions: { provider: 'postgres' },
+      },
+      {
+        name: 'query',
+        displayName: 'SQL query',
+        type: 'sql',
+        description: 'Only used when operation = query. Read-only enforced.',
+        typeOptions: { rows: 6 },
+      },
+      {
+        name: 'timeout',
+        displayName: 'Timeout (ms)',
+        type: 'number',
+        default: 30000,
+      },
+    ],
   },
 
   // === triggers ===
@@ -87,6 +163,14 @@ const NODES = [
     description: { en: 'Run on a cron schedule', es: 'Ejecutar según un cron' },
     inputs: [],
     outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'schedule',
+        displayName: 'Cron expression',
+        type: 'string',
+        description: '5-field standard cron, e.g. "*/15 * * * *" for every 15 minutes.',
+      },
+    ],
   },
 
   // === core ===
@@ -99,6 +183,55 @@ const NODES = [
     description: { en: 'Call any HTTP API', es: 'Llamar a cualquier API HTTP' },
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'method',
+        displayName: 'Method',
+        type: 'options',
+        default: 'GET',
+        options: [
+          { name: 'GET', value: 'GET' },
+          { name: 'POST', value: 'POST' },
+          { name: 'PUT', value: 'PUT' },
+          { name: 'PATCH', value: 'PATCH' },
+          { name: 'DELETE', value: 'DELETE' },
+          { name: 'HEAD', value: 'HEAD' },
+        ],
+      },
+      {
+        name: 'url',
+        displayName: 'URL',
+        type: 'string',
+        description: 'Supports {{vars.x}} and {{secrets.y}} templates.',
+        typeOptions: { expression: true },
+      },
+      {
+        name: 'body',
+        displayName: 'Body',
+        type: 'string',
+        description: 'Request body. Empty for GET/HEAD.',
+        typeOptions: { rows: 6, expression: true },
+      },
+      {
+        name: 'timeout',
+        displayName: 'Timeout (ms)',
+        type: 'number',
+        default: 30000,
+      },
+      {
+        name: 'followRedirects',
+        displayName: 'Follow redirects',
+        type: 'boolean',
+        default: true,
+      },
+      {
+        name: 'failOnNon2xx',
+        displayName: 'Fail on non-2xx',
+        type: 'boolean',
+        default: true,
+        description: 'Off → response captured into output, step succeeds.',
+      },
+    ],
   },
   {
     type: 'operari.if',
@@ -115,6 +248,16 @@ const NODES = [
       { name: 'true', type: 'main' },
       { name: 'false', type: 'main' },
     ],
+    properties: [
+      {
+        name: 'condition',
+        displayName: 'Condition',
+        type: 'string',
+        description:
+          'Template expression. Truthy result routes through "true", falsy through "false".',
+        typeOptions: { expression: true },
+      },
+    ],
   },
 
   // === flow ===
@@ -130,6 +273,16 @@ const NODES = [
     },
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'items',
+        displayName: 'Items expression',
+        type: 'string',
+        description:
+          'Template expression that resolves to an array. The downstream branch fires once per item.',
+        typeOptions: { expression: true },
+      },
+    ],
   },
   {
     type: 'wait',
@@ -140,6 +293,15 @@ const NODES = [
     description: { en: 'Pause for a fixed duration', es: 'Pausar por una duración fija' },
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'durationMs',
+        displayName: 'Duration (ms)',
+        type: 'number',
+        default: 1000,
+        description: 'Up to 600000 (10 min). Longer pauses belong in approval gates.',
+      },
+    ],
   },
 
   // === integrations ===
@@ -155,6 +317,70 @@ const NODES = [
     },
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'repo',
+        displayName: 'Repository',
+        type: 'string',
+        description: 'owner/name format, e.g. "Hvelizgr/operari".',
+      },
+      {
+        name: 'branch',
+        displayName: 'Branch',
+        type: 'string',
+        default: 'main',
+      },
+      {
+        name: 'path',
+        displayName: 'File path',
+        type: 'string',
+        description: 'Path inside the repo, no leading slash.',
+      },
+      {
+        name: 'content',
+        displayName: 'File content',
+        type: 'string',
+        description: 'Plain UTF-8. Supports {{vars.x}} templates.',
+        typeOptions: { rows: 8, expression: true },
+      },
+      {
+        name: 'message',
+        displayName: 'Commit message',
+        type: 'string',
+        typeOptions: { expression: true },
+      },
+      {
+        name: 'credentialId',
+        displayName: 'GitHub credential',
+        type: 'secret',
+        description: 'ConnectedAccount id for a GitHub PAT with repo scope.',
+        typeOptions: { provider: 'github' },
+      },
+      {
+        name: 'committerName',
+        displayName: 'Committer name',
+        type: 'string',
+        description: 'Optional. Defaults to the PAT owner.',
+      },
+      {
+        name: 'committerEmail',
+        displayName: 'Committer email',
+        type: 'string',
+      },
+      {
+        name: 'requireExisting',
+        displayName: 'Require existing file',
+        type: 'boolean',
+        default: false,
+        description: 'On → fail if the path does not already exist.',
+      },
+      {
+        name: 'timeout',
+        displayName: 'Timeout (ms)',
+        type: 'number',
+        default: 30000,
+      },
+    ],
   },
   {
     type: 'notify',
@@ -168,6 +394,50 @@ const NODES = [
     },
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'channel',
+        displayName: 'Channel',
+        type: 'options',
+        default: 'slack',
+        options: [
+          { name: 'Slack', value: 'slack' },
+          { name: 'Discord', value: 'discord' },
+          { name: 'Generic webhook', value: 'webhook' },
+        ],
+      },
+      {
+        name: 'webhookUrl',
+        displayName: 'Webhook URL',
+        type: 'string',
+        description: 'Use {{secrets.<connected-account-id>}} to reference a stored secret.',
+        typeOptions: { expression: true },
+      },
+      {
+        name: 'title',
+        displayName: 'Title',
+        type: 'string',
+        typeOptions: { expression: true },
+      },
+      {
+        name: 'message',
+        displayName: 'Message',
+        type: 'string',
+        typeOptions: { rows: 4, expression: true },
+      },
+      {
+        name: 'color',
+        displayName: 'Color',
+        type: 'options',
+        default: 'good',
+        description: 'Slack-style severity. Hex codes also accepted by Slack.',
+        options: [
+          { name: 'Good (green)', value: 'good' },
+          { name: 'Warning (amber)', value: 'warning' },
+          { name: 'Danger (red)', value: 'danger' },
+        ],
+      },
+    ],
   },
 
   {
@@ -182,6 +452,14 @@ const NODES = [
     },
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'runbookId',
+        displayName: 'Runbook id or slug',
+        type: 'string',
+        description: 'The runbook this step should call. Tenant-scoped.',
+      },
+    ],
   },
 
   // === organization ===
@@ -197,6 +475,21 @@ const NODES = [
     },
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'message',
+        displayName: 'Approval prompt',
+        type: 'string',
+        description: 'Shown to the approver. Supports {{vars.x}} and {{steps.id.output.y}}.',
+        typeOptions: { rows: 5, expression: true },
+      },
+      {
+        name: 'timeoutSeconds',
+        displayName: 'Timeout (seconds)',
+        type: 'number',
+        description: 'Optional. After this many seconds the approval auto-rejects.',
+      },
+    ],
   },
   {
     type: 'custom.frame',
@@ -229,6 +522,11 @@ const NODES = [
 async function main() {
   console.log(`Seeding ${NODES.length} runbook node types...`);
   for (const node of NODES) {
+    // properties drives the auto-generated config form in the editor's
+    // PropertiesPanel. Default to an empty array so visual-only nodes
+    // (custom.frame, custom.note) and nodes that intentionally have
+    // no config (operari.webhook) round-trip cleanly.
+    const properties = node.properties ?? [];
     await prisma.nodeType.upsert({
       where: { type: node.type },
       update: {
@@ -239,6 +537,7 @@ async function main() {
         description: node.description,
         inputs: node.inputs,
         outputs: node.outputs,
+        properties,
       },
       create: {
         type: node.type,
@@ -249,17 +548,26 @@ async function main() {
         description: node.description,
         inputs: node.inputs,
         outputs: node.outputs,
+        properties,
       },
     });
   }
   console.log('Node types seeded.');
 }
 
-main()
-  .catch(e => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+// Export the catalog so tests + tooling can pin the shape without
+// re-parsing the seed file. Guarded by `require.main === module` so
+// importing this file from a test does not connect to Postgres or
+// run the seed loop.
+module.exports = { NODES };
+
+if (require.main === module) {
+  main()
+    .catch(e => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

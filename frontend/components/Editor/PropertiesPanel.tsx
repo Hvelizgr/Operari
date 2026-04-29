@@ -284,7 +284,12 @@ function SettingsResolver({
   const inputClass =
     'w-full bg-black/20 border border-[var(--border-color)] rounded p-2 text-sm text-[var(--body-text-color)] focus:outline-none focus:border-[var(--highlight-color)] transition-colors font-mono';
 
-  // 1. Dynamic Form
+  // Auto-generated form from the node type's property manifest. Built-
+  // in types ship their manifest via the prisma seed; tenant-owned
+  // plugin types ship theirs via the SDK install path. Both flow
+  // through DynamicNodeForm, so the editor renders a real form
+  // instead of a raw JSON textarea for every step the catalog knows
+  // about.
   if (nodeTypeDefinition?.properties && nodeTypeDefinition.properties.length > 0) {
     return (
       <DynamicNodeForm
@@ -295,36 +300,6 @@ function SettingsResolver({
         connections={connections}
         lang={lang}
       />
-    );
-  }
-
-  // 2. Specific Fallbacks
-  if (node?.type === 'operari.httpRequest') {
-    const urlValue = typeof localConfig.url === 'string' ? localConfig.url : '';
-    const methodValue = typeof localConfig.method === 'string' ? localConfig.method : 'GET';
-    return (
-      <div className="space-y-4">
-        <ConfigField label="URL" description="Endpoint URL">
-          <input
-            type="text"
-            value={urlValue}
-            onChange={e => handleConfigChange('url', e.target.value)}
-            className={inputClass}
-            placeholder="https://..."
-          />
-        </ConfigField>
-        <ConfigField label="Method" description="HTTP Verb">
-          <select
-            value={methodValue}
-            onChange={e => handleConfigChange('method', e.target.value)}
-            className={inputClass}
-          >
-            {['GET', 'POST', 'PUT', 'DELETE'].map(m => (
-              <option key={m}>{m}</option>
-            ))}
-          </select>
-        </ConfigField>
-      </div>
     );
   }
 
