@@ -37,6 +37,7 @@ import EditorSidebar from './EditorSidebar';
 import FirstRunConfetti from './FirstRunConfetti';
 import GitHubBranchPanel from './GitHubBranchPanel';
 import OnboardingRunHint from './OnboardingRunHint';
+import PendingHttpStepBanner from './PendingHttpStepBanner';
 import RunbookAssistPanel from './RunbookAssistPanel';
 import TopBar from './TopBar';
 import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertiesPanel';
@@ -162,6 +163,34 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     const { nodes: layoutedNodes } = getAutoLayout(nodes, connections);
     setNodes(layoutedNodes);
   }, [nodes, connections, setNodes]);
+
+  // Insert an `operari.httpRequest` step from a request stashed in
+  // localStorage by the HTTP tester (`/[lang]/http-tester`). The
+  // banner that drives this is mounted further down in the canvas
+  // overlay; this handler owns the actual node creation so we can
+  // reuse the same setNodes path the rest of the editor uses.
+  const handleImportPendingHttpStep = useCallback(
+    (config: { method: string; url: string; headers?: Record<string, string>; body?: string }) => {
+      const centerX = (windowSize.width / 2 - viewport.x) / viewport.zoom;
+      const centerY = (windowSize.height / 2 - viewport.y) / viewport.zoom;
+      const newNode: WorkflowNode = {
+        id: `node-${Date.now()}-http`,
+        position: { x: centerX - 128, y: centerY - 32 },
+        title: lang === 'es' ? 'Solicitud HTTP' : 'HTTP request',
+        type: 'operari.httpRequest',
+        config: {
+          method: config.method,
+          url: config.url,
+          ...(config.headers ? { headers: config.headers } : {}),
+          ...(config.body ? { body: config.body } : {}),
+        },
+        inputs: [{ id: 'in', label: 'Input' }],
+        outputs: [{ id: 'out', label: 'Output' }],
+      };
+      setNodes(prev => [...prev, newNode]);
+    },
+    [setNodes, viewport, windowSize, lang]
+  );
 
   const [showTerminal, setShowTerminal] = useState(false);
   const [runMode, setRunMode] = useState<'run' | 'debug' | 'dry-run'>('run'); // New State
@@ -633,6 +662,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               hasExecution={Boolean(currentExecutionId)}
               lang={lang}
             />
+
+            <PendingHttpStepBanner lang={lang} onImport={handleImportPendingHttpStep} />
 
             <FirstRunConfetti runCompleted={runJustCompleted} />
 

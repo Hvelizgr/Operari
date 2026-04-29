@@ -49,6 +49,7 @@ const STRINGS = {
       goRuns: 'Go to Run history',
       goInbox: 'Go to Inbox',
       goSql: 'Go to SQL editor',
+      goHttpTester: 'Go to API tester',
       runCanvas: 'Run current runbook',
       saveCanvas: 'Save runbook',
       closeDialog: 'Close any dialog/palette',
@@ -72,6 +73,7 @@ const STRINGS = {
       goRuns: 'Ir al historial',
       goInbox: 'Ir a la bandeja',
       goSql: 'Ir al SQL editor',
+      goHttpTester: 'Ir al probador de API',
       runCanvas: 'Ejecutar runbook actual',
       saveCanvas: 'Guardar runbook',
       closeDialog: 'Cerrar diálogo/paleta',
@@ -115,6 +117,7 @@ export default function ShortcutHelpModal({ isOpen, onClose, lang }: ShortcutHel
         { keys: ['G', 'R'], label: t.labels.goRunbooks },
         { keys: ['G', 'I'], label: t.labels.goInbox },
         { keys: ['G', 'S'], label: t.labels.goSql },
+        { keys: ['G', 'A'], label: t.labels.goHttpTester },
       ],
     },
     {
