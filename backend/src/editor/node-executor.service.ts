@@ -4,6 +4,7 @@ import * as nodemailer from 'nodemailer';
 import { AuditService } from '../audit/audit.service';
 import { ErrorCode, NodeExecutionError } from '../errors/custom-error';
 import { createExecutorRegistry } from '../runbook/executors';
+import { EditorExecutorAdapter } from '../runbook/executors/_editor-adapter';
 import {
   SecretReferenceError,
   SecretTemplateResolver,
@@ -50,16 +51,22 @@ export class NodeExecutor {
   private prisma: PrismaClient;
   private logger: Logger;
   /**
-   * Single registry of every editor node type, keyed by canonical type
-   * AND by every alias declared on the executor. The dispatcher does
-   * one Map.get() instead of a 27-case switch.
+   * Unified registry: every node type the engine can run, native
+   * (StepExecutor) or wrapped legacy (EditorExecutorAdapter), keyed by
+   * canonical type and by every alias. The dispatcher does one
+   * `Map.get()`; pre-pivot the same call had to try a runbook map and
+   * fall through to an editor map.
    *
    * Built once in the constructor; immutable thereafter.
    */
-  private editorRegistry: Map<string, AnyEditorExecutor>;
-  // Operari: registry of runbook executors (shell, approval, notify, wait).
-  // Kept separate from editorRegistry because the runbook executors use a
-  // different context shape; step 6 of ADR 0002 will merge the two.
+  private registry: Map<string, StepExecutor>;
+  /**
+   * The native runbook half of the registry. Kept around as a separate
+   * reference because `ShellCommandNodeExecutor` looks up the runbook
+   * `shell` executor lazily through a getter — the editor registry it
+   * lives in needs to read the runbook registry at call time, not
+   * registration time.
+   */
   private runbookRegistry: Map<string, StepExecutor>;
   /**
    * Pre-resolves `{{secrets.<id>}}` references before each runbook
@@ -97,26 +104,43 @@ export class NodeExecutor {
     }
 
     this.runbookRegistry = createExecutorRegistry(this.prisma);
-    this.editorRegistry = this.buildEditorRegistry();
+    this.registry = this.buildUnifiedRegistry();
   }
 
   /**
-   * Build the editor node registry. Each executor is registered under
-   * its canonical type and under every alias it declares. Throws on
-   * duplicate registration so a copy/paste bug surfaces immediately
-   * instead of silently routing one node type to the wrong executor.
+   * Build the unified registry. Native runbook executors land first;
+   * each legacy editor executor is then wrapped in
+   * `EditorExecutorAdapter` and registered under its canonical type
+   * and every alias. Native registrations win on collision so node
+   * types like `operari.httpRequest` (in the runbook registry as
+   * `HttpExecutor`, in the editor registry as an alias of
+   * `HttpNodeExecutor`) consistently route to the canonical
+   * implementation.
+   *
+   * Throws on duplicate registration WITHIN the editor side so a
+   * copy/paste bug surfaces immediately. Cross-half collisions are
+   * silent because the precedence rule is documented and intended.
    */
-  private buildEditorRegistry(): Map<string, AnyEditorExecutor> {
-    const registry = new Map<string, AnyEditorExecutor>();
+  private buildUnifiedRegistry(): Map<string, StepExecutor> {
+    const registry = new Map<string, StepExecutor>(this.runbookRegistry);
+    const editorTypesSeen = new Set<string>();
+
     const register = (executor: AnyEditorExecutor) => {
+      const wrapped = new EditorExecutorAdapter(executor);
       const types = [executor.type, ...(executor.aliases ?? [])];
       for (const t of types) {
-        if (registry.has(t)) {
+        if (editorTypesSeen.has(t)) {
           throw new Error(
-            `Duplicate editor node type registration: ${t} (already mapped to ${registry.get(t)!.type})`
+            `Duplicate editor node type registration: ${t} (already mapped to ${executor.type})`
           );
         }
-        registry.set(t, executor);
+        editorTypesSeen.add(t);
+        // Native runbook executors win on cross-half collision — for
+        // example, `operari.httpRequest` is owned by the runbook
+        // HttpExecutor; the editor HttpNodeExecutor's alias for the
+        // same type is silently shadowed.
+        if (registry.has(t)) continue;
+        registry.set(t, wrapped);
       }
     };
 
@@ -151,7 +175,7 @@ export class NodeExecutor {
     // Shell command — adapter that delegates to the runbook ShellExecutor
     // through `this.runbookRegistry.get('shell')`. Looking it up via a
     // getter means tests can swap the runbook executor without rebuilding
-    // the editor registry.
+    // the registry.
     register(
       new ShellCommandNodeExecutor({ logger: this.logger }, () => this.runbookRegistry.get('shell'))
     );
@@ -197,108 +221,6 @@ export class NodeExecutor {
     return this.secretResolver;
   }
 
-  /**
-   * Operari: try to execute the node using the new runbook executor registry.
-   * Returns null if the node type is not registered (caller should fall through
-   * to the legacy switch statement).
-   */
-  private async tryRunbookExecutor(
-    node: WorkflowNode,
-    input: ExecutionInput,
-    tenantId: string | undefined,
-    executionId: string | undefined,
-    dryRun: boolean = false
-  ): Promise<NodeExecutionResult | null> {
-    const executor = this.runbookRegistry.get(node.type);
-    if (!executor) return null;
-
-    const stepId = node.id;
-    const runId = executionId ?? 'unknown';
-    // The 'default-tenant' fallback is only reached on editor
-    // test-this-step previews where the dispatcher is invoked
-    // without an authenticated request context. Real executions
-    // always pass the runtime tenantId derived from the runbook
-    // row that was loaded with multi-tenant scoping in
-    // ExecutionService.execute().
-    const effectiveTenantId = tenantId ?? 'default-tenant';
-    const config = node.config ?? {};
-
-    // Pre-resolve `{{secrets.<id>}}` references before the executor
-    // runs. Done here (not inside resolveTemplate) so the template
-    // engine stays sync, audit fires once per unique secret, and
-    // missing/cross-tenant references fail fast with a clear error
-    // before the executor opens a socket.
-    let secrets: Record<string, string> | undefined;
-    const refs = SecretTemplateResolver.extractRefs(config);
-    if (refs.length > 0) {
-      const resolver = this.getSecretResolver();
-      if (!resolver) {
-        throw new NodeExecutionError({
-          nodeId: node.id,
-          nodeName: node.title,
-          nodeType: node.type,
-          message:
-            `Step references {{secrets.${refs[0]}}} but ENCRYPTION_KEY is not set. ` +
-            `Configure ENCRYPTION_KEY in the backend env (32+ chars) to enable runtime secret resolution.`,
-          code: ErrorCode.NODE_EXECUTION_FAILED,
-        });
-      }
-      try {
-        secrets = await resolver.resolve({
-          config,
-          tenantId: effectiveTenantId,
-          runId,
-          stepId,
-        });
-      } catch (err) {
-        if (err instanceof SecretReferenceError) {
-          throw new NodeExecutionError({
-            nodeId: node.id,
-            nodeName: node.title,
-            nodeType: node.type,
-            message: err.message,
-            code: ErrorCode.NODE_EXECUTION_FAILED,
-          });
-        }
-        throw err;
-      }
-    }
-
-    const context: ExecutorContext = {
-      runId,
-      stepId,
-      variables: (input as Record<string, unknown>) ?? {},
-      previousOutputs: (input as Record<string, unknown>) ?? {},
-      tenantId: effectiveTenantId,
-      secrets,
-      dryRun,
-      emit: executionId
-        ? event => {
-            socketService.emitLog(executionId, event.text.trimEnd(), {
-              nodeId: node.id,
-              nodeType: node.type,
-              stream: event.type,
-            });
-          }
-        : undefined,
-    };
-
-    const result = await executor.execute(node.config ?? {}, context);
-
-    if (!result.success) {
-      throw new NodeExecutionError({
-        nodeId: node.id,
-        nodeName: node.title,
-        nodeType: node.type,
-        message: result.error ?? 'Step failed',
-        code: ErrorCode.NODE_EXECUTION_FAILED,
-      });
-    }
-
-    // NodeExecutionResult is a generic shape; we wrap the executor output in it
-    return (result.output ?? { success: true }) as unknown as NodeExecutionResult;
-  }
-
   async execute(
     node: WorkflowNode,
     input: ExecutionInput,
@@ -312,38 +234,106 @@ export class NodeExecutor {
       nodeType: node.type,
     };
 
-    // 1. Runbook executors (shell/approval/notify/wait) take precedence
-    //    so the runbook engine can intercept node types it owns.
-    const runbookResult = await this.tryRunbookExecutor(
-      node,
-      input,
-      tenantId,
-      executionId,
-      dryRun ?? false
-    );
-    if (runbookResult !== null) {
-      return runbookResult;
+    const executor = this.registry.get(node.type);
+    if (!executor) {
+      throw new NodeExecutionError({
+        ...commonErrorContext,
+        message: `Unknown node type: ${node.type}`,
+        code: ErrorCode.NODE_NOT_FOUND,
+        userMessage: `Node type '${node.type}' is not recognized or supported.`,
+      });
     }
 
-    // 2. Editor registry — single Map.get instead of a 27-case switch.
-    const editorExecutor = this.editorRegistry.get(node.type);
-    if (editorExecutor) {
-      return editorExecutor.execute(
-        node.config ?? {},
-        input,
-        commonErrorContext,
-        tenantId,
-        executionId
-      );
+    const stepId = node.id;
+    const runId = executionId ?? 'unknown';
+    const isEditorWrapped = executor instanceof EditorExecutorAdapter;
+    // Native runbook executors get a 'default-tenant' fallback so
+    // editor "test this step" previews (which run without an
+    // authenticated request context) don't blow up on the
+    // ExecutorContext.tenantId requirement. Editor-wrapped executors
+    // get an empty-string fallback instead — state nodes like
+    // StoreSet check `if (!tenantId)` and throw CONFIGURATION_ERROR;
+    // a real-looking sentinel here would silently let them write to
+    // a fake tenant. The pre-consolidation dispatcher achieved this
+    // by passing two different effective tenantIds down the two
+    // branches; we preserve that semantics in the single branch.
+    const effectiveTenantId = isEditorWrapped ? (tenantId ?? '') : (tenantId ?? 'default-tenant');
+    const config = node.config ?? {};
+
+    // Pre-resolve `{{secrets.<id>}}` references for native runbook
+    // executors only. Editor executors (wrapped in
+    // EditorExecutorAdapter) use a flat ExecutionInput dict and never
+    // had secret resolution wired in — running the resolver for them
+    // would emit `secret.accessed` audit events for refs that the
+    // editor template engine then resolves to the empty string, which
+    // is a lie about what was actually read.
+    let secrets: Record<string, string> | undefined;
+    if (!isEditorWrapped) {
+      const refs = SecretTemplateResolver.extractRefs(config);
+      if (refs.length > 0) {
+        const resolver = this.getSecretResolver();
+        if (!resolver) {
+          throw new NodeExecutionError({
+            ...commonErrorContext,
+            message:
+              `Step references {{secrets.${refs[0]}}} but ENCRYPTION_KEY is not set. ` +
+              `Configure ENCRYPTION_KEY in the backend env (32+ chars) to enable runtime secret resolution.`,
+            code: ErrorCode.NODE_EXECUTION_FAILED,
+          });
+        }
+        try {
+          secrets = await resolver.resolve({
+            config,
+            tenantId: effectiveTenantId,
+            runId,
+            stepId,
+          });
+        } catch (err) {
+          if (err instanceof SecretReferenceError) {
+            throw new NodeExecutionError({
+              ...commonErrorContext,
+              message: err.message,
+              code: ErrorCode.NODE_EXECUTION_FAILED,
+            });
+          }
+          throw err;
+        }
+      }
     }
 
-    // 3. Unknown node type — fail loud.
-    throw new NodeExecutionError({
-      ...commonErrorContext,
-      message: `Unknown node type: ${node.type}`,
-      code: ErrorCode.NODE_NOT_FOUND,
-      userMessage: `Node type '${node.type}' is not recognized or supported.`,
-    });
+    const context: ExecutorContext = {
+      runId,
+      stepId,
+      variables: (input as Record<string, unknown>) ?? {},
+      previousOutputs: (input as Record<string, unknown>) ?? {},
+      tenantId: effectiveTenantId,
+      secrets,
+      dryRun: dryRun ?? false,
+      emit: executionId
+        ? event => {
+            socketService.emitLog(executionId, event.text.trimEnd(), {
+              nodeId: node.id,
+              nodeType: node.type,
+              stream: event.type,
+            });
+          }
+        : undefined,
+    };
+
+    const result = await executor.execute(config, context);
+
+    if (!result.success) {
+      throw new NodeExecutionError({
+        ...commonErrorContext,
+        message: result.error ?? 'Step failed',
+        code: ErrorCode.NODE_EXECUTION_FAILED,
+      });
+    }
+
+    // NodeExecutionResult is a generic shape; the executor output
+    // (typed by the editor side, uniform on the runbook side) is
+    // handed back to the engine unchanged.
+    return (result.output ?? { success: true }) as unknown as NodeExecutionResult;
   }
 
   private resolveTemplate(template: string, context: ExecutionInput): string {
