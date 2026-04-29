@@ -149,14 +149,14 @@ This list is conservative and hand-verified against the test suite, not the road
 
 This is the part Show HN will dig into anyway, so it's better up here than buried.
 
-| Area                                 | State                                                                                                     | Tracked in                           |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| **GitHub App OAuth + status checks** | Connected accounts model exists, OAuth dance not wired                                                    | P1 #9 in `IMPLEMENTACION_NANORUN.md` |
-| **Sentry / Datadog payload parsing** | Webhook receiver verifies HMAC and routes to runbooks; provider-specific parsing is stubbed               | P1 #9                                |
-| **Public demo instance**             | None. You have to self-host to try it                                                                     | —                                    |
-| **Loom / video walkthrough**         | None                                                                                                      | —                                    |
-| **Verified domain + trademark**      | The repo is at `Hvelizgr/Operari`; the `Operari` mark and the `.dev/.io/.com` domains are not yet secured | Pre-launch checklist                 |
-| **Production design partners**       | Zero                                                                                                      | —                                    |
+| Area                                 | State                                                                                                                                                       | Tracked in                           |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **GitHub App OAuth + status checks** | Connected accounts model exists, OAuth dance not wired                                                                                                      | P1 #9 in `IMPLEMENTACION_NANORUN.md` |
+| **Sentry / Datadog setup wizard**    | Parsers + HMAC + a cross-provider `vars.alert.*` envelope ship today; the missing piece is a UI walkthrough for pasting the webhook URL into Sentry/Datadog | doc polish pending                   |
+| **Public demo instance**             | None. You have to self-host to try it                                                                                                                       | —                                    |
+| **Loom / video walkthrough**         | None                                                                                                                                                        | —                                    |
+| **Verified domain + trademark**      | The repo is at `Hvelizgr/Operari`; the `Operari` mark and the `.dev/.io/.com` domains are not yet secured                                                   | Pre-launch checklist                 |
+| **Production design partners**       | Zero                                                                                                                                                        | —                                    |
 
 If any of these are deal-breakers for you, Operari is not yet the tool you
 need. Star the repo and check back in 4-6 weeks.

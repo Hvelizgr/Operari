@@ -103,8 +103,20 @@ async function handleWebhook(req: Request, res: Response) {
   // randomly. The raw body is captured by the express.json verify
   // hook in server.ts.
   if (webhook.secret) {
+    // Provider-specific signature headers, listed in priority order.
+    // GitHub uses x-hub-signature-256 with `sha256=<hex>` prefix.
+    // Sentry's webhook integration uses x-sentry-hook-signature with
+    // a bare hex digest (no prefix).
+    // Datadog signs with x-datadog-signature, also bare hex.
+    // x-webhook-signature is the generic fallback we document for
+    // custom callers.
+    // verifySignature() handles `sha256=` stripping uniformly so the
+    // priority here is just about which header we pick when more
+    // than one is present (rare but possible if a proxy replays).
     const sigHeader =
       (req.headers['x-hub-signature-256'] as string) ??
+      (req.headers['x-sentry-hook-signature'] as string) ??
+      (req.headers['x-datadog-signature'] as string) ??
       (req.headers['x-webhook-signature'] as string);
     const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody;
 

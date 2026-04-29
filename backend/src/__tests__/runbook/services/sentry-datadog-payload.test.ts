@@ -241,3 +241,91 @@ describe('WebhookService.mapPayloadToVariables (datadog)', () => {
     expect(vars.raw).toBe(payload);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cross-provider normalized envelope
+// ---------------------------------------------------------------------------
+
+describe('WebhookService.mapPayloadToVariables — cross-provider alert envelope', () => {
+  let svc: WebhookService;
+  beforeEach(() => {
+    svc = buildService();
+  });
+
+  it('emits an alert.* envelope on Sentry issue payloads', () => {
+    const vars = svc.mapPayloadToVariables('sentry', 'event_alert', {
+      action: 'triggered',
+      data: {
+        issue: {
+          title: 'NullPointerException',
+          web_url: 'https://sentry.io/issues/9999/',
+          level: 'fatal',
+          tags: [{ key: 'environment', value: 'production' }],
+          project: { slug: 'api' },
+        },
+        event: { title: 'NullPointerException' },
+      },
+    });
+    const alert = vars.alert as Record<string, unknown>;
+    expect(alert).toBeDefined();
+    expect(alert.source).toBe('sentry');
+    expect(alert.title).toBe('NullPointerException');
+    expect(alert.url).toBe('https://sentry.io/issues/9999/');
+    // Sentry "fatal" → normalized "critical"
+    expect(alert.severity).toBe('critical');
+    expect(alert.environment).toBe('production');
+  });
+
+  it('maps Sentry levels to the canonical severity scale', () => {
+    const cases: Array<[string, string]> = [
+      ['fatal', 'critical'],
+      ['error', 'error'],
+      ['warning', 'warning'],
+      ['info', 'info'],
+      ['debug', 'info'],
+    ];
+    for (const [level, expected] of cases) {
+      const vars = svc.mapPayloadToVariables('sentry', 'event_alert', {
+        data: { issue: { title: 't', level } },
+      });
+      expect((vars.alert as Record<string, unknown>).severity).toBe(expected);
+    }
+  });
+
+  it('emits an alert.* envelope on Datadog monitor payloads', () => {
+    const vars = svc.mapPayloadToVariables('datadog', undefined, {
+      alert_title: 'High error rate on payments',
+      alert_status: 'Triggered',
+      alert_transition: 'Triggered',
+      priority: 'P1',
+      link: 'https://app.datadoghq.com/monitors/123',
+      tags: ['env:production', 'service:payments'],
+      body: 'errors_5m above 10%',
+    });
+    const alert = vars.alert as Record<string, unknown>;
+    expect(alert).toBeDefined();
+    expect(alert.source).toBe('datadog');
+    expect(alert.title).toBe('High error rate on payments');
+    expect(alert.url).toBe('https://app.datadoghq.com/monitors/123');
+    // Datadog P1 → normalized "critical"
+    expect(alert.severity).toBe('critical');
+    expect(alert.environment).toBe('production');
+    expect(alert.summary).toBe('errors_5m above 10%');
+  });
+
+  it('falls back to tag-based severity when Datadog priority is unset', () => {
+    const vars = svc.mapPayloadToVariables('datadog', undefined, {
+      alert_title: 't',
+      tags: ['severity:high'],
+    });
+    expect((vars.alert as Record<string, unknown>).severity).toBe('error');
+  });
+
+  it('returns severity=unknown when neither side gives us a hint', () => {
+    const vars = svc.mapPayloadToVariables('datadog', undefined, {
+      alert_title: 't',
+      tags: [],
+    });
+    expect((vars.alert as Record<string, unknown>).severity).toBe('unknown');
+  });
+});

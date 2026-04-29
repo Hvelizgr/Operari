@@ -12,10 +12,19 @@
 #   6. Opens a Linear ticket for the post-mortem
 #
 # Variables expected (passed by the Sentry webhook payload mapper):
-#   - error_message      (string) issue title from Sentry
-#   - error_level        (string) "error" | "fatal" | "warning"
-#   - project_slug       (string) Sentry project slug
+#   - issue_title        (string) issue title from Sentry
+#   - issue_level        (string) "error" | "fatal" | "warning" | "info"
 #   - issue_url          (string) link back to the Sentry issue
+#   - project_slug       (string) Sentry project slug
+#   - environment        (string) prod / staging / dev (from Sentry tags)
+#
+# Cross-provider envelope (also populated by the Datadog parser, so
+# this runbook can be repurposed by changing only the trigger source):
+#   - alert.title        (string) — same as issue_title here
+#   - alert.url          (string) — same as issue_url here
+#   - alert.severity     (string) "info" | "warning" | "error" | "critical"
+#   - alert.environment  (string) — same as environment here
+#   - alert.source       (string) "sentry"
 #
 # Connected accounts (referenced via {{secrets.<account-id>}}):
 #   - slack-incidents    (Slack incoming webhook for #incidents)
@@ -67,8 +76,8 @@ steps:
     name: Approve rollback
     config:
       message: |
-        Sentry fired: {{vars.error_message}}
-        Level: {{vars.error_level}}
+        Sentry fired: {{vars.issue_title}}
+        Level: {{vars.issue_level}}
         Project: {{vars.project_slug}}
         Issue: {{vars.issue_url}}
 
@@ -101,7 +110,7 @@ steps:
       title: 'Auto-rollback: {{vars.project_slug}}'
       color: warning
       message: |
-        Sentry alert: {{vars.error_message}}
+        Sentry alert: {{vars.issue_title}}
         Action: rollback to previous Helm revision (approved by on-call)
         Audit: {{steps.rollback.output.exitCode}} exit
         Original issue: {{vars.issue_url}}
@@ -120,7 +129,7 @@ steps:
       message: |
         Auto-created from Operari runbook respond-to-sentry-alert.
 
-        Trigger: Sentry alert "{{vars.error_message}}"
+        Trigger: Sentry alert "{{vars.issue_title}}"
         Action taken: Helm rollback to previous revision
         Sentry issue: {{vars.issue_url}}
 
