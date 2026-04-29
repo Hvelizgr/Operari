@@ -20,12 +20,12 @@ describe('useAutosave', () => {
   const defaultProps: {
     nodes: any[];
     connections: any[];
-    workflowId: string;
+    runbookId: string;
     debounceMs: number;
   } = {
     nodes: [],
     connections: [],
-    workflowId: 'test-workflow',
+    runbookId: 'test-workflow',
     debounceMs: 1000,
   };
 

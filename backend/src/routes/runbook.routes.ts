@@ -78,15 +78,15 @@ function updateChangedDefinition(data: Record<string, unknown>): boolean {
 }
 
 /**
- * Fire-and-forget audit hook for workflow CRUD. Failures are swallowed
- * so a broken audit chain never blocks workflow management.
+ * Fire-and-forget audit hook for runbook CRUD. Failures are swallowed
+ * so a broken audit chain never blocks runbook management.
  */
 async function safeAuditWorkflow(
   type: 'runbook.created' | 'runbook.updated' | 'runbook.deleted',
   params: {
     tenantId: string;
     actorId: string;
-    workflowId: string;
+    runbookId: string;
     payload: Record<string, unknown>;
   }
 ): Promise<void> {
@@ -96,7 +96,7 @@ async function safeAuditWorkflow(
       type: type as AuditEventType,
       actorId: params.actorId,
       actorType: 'user',
-      resource: params.workflowId,
+      resource: params.runbookId,
       payload: params.payload,
     });
   } catch {
@@ -207,13 +207,13 @@ router.get('/', async (req: AuthRequest, res) => {
     // Enrich each runbook with its last run + 30-day success rate so
     // the Runbooks page can render rich cards in a single round-trip.
     // Two queries fan out across the page:
-    //   1. last execution per workflow (one findMany, sorted desc)
+    //   1. last execution per runbook (one findMany, sorted desc)
     //   2. groupBy status over the last 30 days
     // Both are bounded by the page size (default 10).
     const ids = workflows.map(w => w.id);
     let lastRunByWf = new Map<string, { startedAt: Date; status: string }>();
     let successRateByWf = new Map<string, number>();
-    // Up to 20 most recent statuses per workflow, oldest first, for a
+    // Up to 20 most recent statuses per runbook, oldest first, for a
     // sparkline strip on the runbook card. Built from the same
     // `recentRuns` read that feeds `lastRunStatus` so no extra DB hit.
     const recentStatusesByWf = new Map<string, string[]>();
@@ -221,34 +221,34 @@ router.get('/', async (req: AuthRequest, res) => {
       const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const [recentRuns, statusGroups] = await Promise.all([
         prisma.execution.findMany({
-          where: { workflowId: { in: ids } },
+          where: { runbookId: { in: ids } },
           orderBy: { startedAt: 'desc' },
-          select: { workflowId: true, startedAt: true, status: true },
+          select: { runbookId: true, startedAt: true, status: true },
         }),
         prisma.execution.groupBy({
-          by: ['workflowId', 'status'],
+          by: ['runbookId', 'status'],
           where: {
-            workflowId: { in: ids },
+            runbookId: { in: ids },
             startedAt: { gte: since30d },
           },
           _count: { _all: true },
         }),
       ]);
-      // Collect last-20 per workflow inline so we walk `recentRuns`
+      // Collect last-20 per runbook inline so we walk `recentRuns`
       // only once. Rows arrive newest-first, so we push then reverse
       // the bucket at the end to hand the frontend a chronological
       // (left→right) array.
       const SPARK_SLOTS = 20;
       for (const r of recentRuns) {
-        if (!lastRunByWf.has(r.workflowId)) {
-          lastRunByWf.set(r.workflowId, {
+        if (!lastRunByWf.has(r.runbookId)) {
+          lastRunByWf.set(r.runbookId, {
             startedAt: r.startedAt,
             status: r.status,
           });
         }
-        const bucket = recentStatusesByWf.get(r.workflowId);
+        const bucket = recentStatusesByWf.get(r.runbookId);
         if (!bucket) {
-          recentStatusesByWf.set(r.workflowId, [r.status]);
+          recentStatusesByWf.set(r.runbookId, [r.status]);
         } else if (bucket.length < SPARK_SLOTS) {
           bucket.push(r.status);
         }
@@ -259,9 +259,9 @@ router.get('/', async (req: AuthRequest, res) => {
       const totalsByWf = new Map<string, number>();
       const successByWf = new Map<string, number>();
       for (const g of statusGroups) {
-        totalsByWf.set(g.workflowId, (totalsByWf.get(g.workflowId) ?? 0) + g._count._all);
+        totalsByWf.set(g.runbookId, (totalsByWf.get(g.runbookId) ?? 0) + g._count._all);
         if (g.status === 'SUCCESS') {
-          successByWf.set(g.workflowId, (successByWf.get(g.workflowId) ?? 0) + g._count._all);
+          successByWf.set(g.runbookId, (successByWf.get(g.runbookId) ?? 0) + g._count._all);
         }
       }
       for (const [wfId, total] of totalsByWf) {
@@ -304,7 +304,7 @@ router.get('/', async (req: AuthRequest, res) => {
  * @swagger
  * /workflows/{id}:
  *   get:
- *     summary: Get a workflow by ID
+ *     summary: Get a runbook by ID
  *     tags: [Workflows]
  *     security:
  *       - bearerAuth: []
@@ -340,10 +340,10 @@ router.get('/', async (req: AuthRequest, res) => {
  */
 router.get('/:id', async (req: AuthRequest, res) => {
   try {
-    const workflowId = req.params.id as string;
-    const workflow = await prisma.runbook.findFirst({
+    const runbookId = req.params.id as string;
+    const runbook = await prisma.runbook.findFirst({
       where: {
-        id: workflowId,
+        id: runbookId,
         tenantId: req.user!.tenantId,
       },
       include: {
@@ -355,14 +355,14 @@ router.get('/:id', async (req: AuthRequest, res) => {
       },
     });
 
-    if (!workflow) {
+    if (!runbook) {
       return res.status(404).json({ error: 'Workflow not found' });
     }
 
-    res.json(workflow);
+    res.json(runbook);
   } catch (error) {
-    req.log.error({ error }, 'Get workflow error');
-    res.status(500).json({ error: 'Failed to get workflow' });
+    req.log.error({ error }, 'Get runbook error');
+    res.status(500).json({ error: 'Failed to get runbook' });
   }
 });
 
@@ -370,7 +370,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
  * @swagger
  * /workflows/{id}/metadata:
  *   get:
- *     summary: Get workflow metadata (updatedAt)
+ *     summary: Get runbook metadata (updatedAt)
  *     tags: [Workflows]
  *     security:
  *       - bearerAuth: []
@@ -394,10 +394,10 @@ router.get('/:id', async (req: AuthRequest, res) => {
  */
 router.get('/:id/metadata', async (req: AuthRequest, res) => {
   try {
-    const workflowId = req.params.id as string;
-    const workflow = await prisma.runbook.findFirst({
+    const runbookId = req.params.id as string;
+    const runbook = await prisma.runbook.findFirst({
       where: {
-        id: workflowId,
+        id: runbookId,
         tenantId: req.user!.tenantId,
       },
       select: {
@@ -406,17 +406,17 @@ router.get('/:id/metadata', async (req: AuthRequest, res) => {
       },
     });
 
-    if (!workflow) {
+    if (!runbook) {
       return res.status(404).json({ error: 'Workflow not found' });
     }
 
     res.json({
-      id: workflow.id,
-      lastModified: workflow.updatedAt.getTime(),
+      id: runbook.id,
+      lastModified: runbook.updatedAt.getTime(),
     });
   } catch (error) {
-    req.log.error({ error }, 'Get workflow metadata error');
-    res.status(500).json({ error: 'Failed to get workflow metadata' });
+    req.log.error({ error }, 'Get runbook metadata error');
+    res.status(500).json({ error: 'Failed to get runbook metadata' });
   }
 });
 
@@ -424,7 +424,7 @@ router.get('/:id/metadata', async (req: AuthRequest, res) => {
  * @swagger
  * /workflows:
  *   post:
- *     summary: Create a new workflow
+ *     summary: Create a new runbook
  *     tags: [Workflows]
  *     security:
  *       - bearerAuth: []
@@ -536,7 +536,7 @@ router.post('/', async (req: AuthRequest, res) => {
       }
     }
 
-    const workflow = await prisma.runbook.create({
+    const runbook = await prisma.runbook.create({
       data: {
         name: data.name,
         description: data.description,
@@ -553,12 +553,12 @@ router.post('/', async (req: AuthRequest, res) => {
 
     // Freeze the initial definition as version 1 so any run dispatched
     // against this runbook can replay exactly these bytes.
-    await safeCreateVersion(workflow.id, req.user!.id);
+    await safeCreateVersion(runbook.id, req.user!.id);
 
     if (data.schedule && data.isActive) {
       await prisma.scheduledJob.create({
         data: {
-          workflowId: workflow.id,
+          runbookId: runbook.id,
           cronExpr: data.schedule,
           isActive: true,
           nextRunAt: computeNextRunAt(data.schedule),
@@ -569,24 +569,24 @@ router.post('/', async (req: AuthRequest, res) => {
     await safeAuditWorkflow('runbook.created', {
       tenantId: req.user!.tenantId,
       actorId: req.user!.id,
-      workflowId: workflow.id,
+      runbookId: runbook.id,
       payload: {
-        workflowId: workflow.id,
-        name: workflow.name,
-        isActive: workflow.isActive,
-        schedule: workflow.schedule ?? null,
+        runbookId: runbook.id,
+        name: runbook.name,
+        isActive: runbook.isActive,
+        schedule: runbook.schedule ?? null,
         nodeCount: Array.isArray(data.nodes) ? data.nodes.length : 0,
         connectionCount: Array.isArray(data.connections) ? data.connections.length : 0,
       },
     });
 
-    res.status(201).json(workflow);
+    res.status(201).json(runbook);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    req.log.error({ error }, 'Create workflow error');
-    res.status(500).json({ error: 'Failed to create workflow' });
+    req.log.error({ error }, 'Create runbook error');
+    res.status(500).json({ error: 'Failed to create runbook' });
   }
 });
 
@@ -594,7 +594,7 @@ router.post('/', async (req: AuthRequest, res) => {
  * @swagger
  * /workflows/{id}:
  *   put:
- *     summary: Update a workflow
+ *     summary: Update a runbook
  *     tags: [Workflows]
  *     security:
  *       - bearerAuth: []
@@ -640,26 +640,26 @@ router.post('/', async (req: AuthRequest, res) => {
  */
 router.get('/:id/yaml', async (req: AuthRequest, res) => {
   try {
-    const workflowId = req.params.id as string;
-    const workflow = await prisma.runbook.findFirst({
-      where: { id: workflowId, tenantId: req.user!.tenantId },
+    const runbookId = req.params.id as string;
+    const runbook = await prisma.runbook.findFirst({
+      where: { id: runbookId, tenantId: req.user!.tenantId },
       include: {
-        workflowNodes: true,
-        workflowConnections: true,
+        steps: true,
+        stepConnections: true,
       },
     });
-    if (!workflow) return res.status(404).json({ error: 'Runbook not found' });
+    if (!runbook) return res.status(404).json({ error: 'Runbook not found' });
 
     const spec = toSpec(
       {
-        id: workflow.id,
-        slug: workflow.slug,
-        name: workflow.name,
-        description: workflow.description,
-        category: workflow.category,
-        schedule: workflow.schedule,
+        id: runbook.id,
+        slug: runbook.slug,
+        name: runbook.name,
+        description: runbook.description,
+        category: runbook.category,
+        schedule: runbook.schedule,
       },
-      workflow.workflowNodes.map(n => ({
+      runbook.steps.map(n => ({
         id: n.id,
         type: n.type,
         title: n.title,
@@ -668,7 +668,7 @@ router.get('/:id/yaml', async (req: AuthRequest, res) => {
         enabled: n.enabled,
         config: n.config,
       })),
-      workflow.workflowConnections.map(c => ({
+      runbook.stepConnections.map(c => ({
         sourceNodeId: c.sourceNodeId,
         sourcePort: c.sourcePort,
         targetNodeId: c.targetNodeId,
@@ -698,14 +698,14 @@ router.get('/:id/yaml', async (req: AuthRequest, res) => {
  */
 router.put('/:id/yaml', async (req: AuthRequest, res) => {
   try {
-    const workflowId = req.params.id as string;
+    const runbookId = req.params.id as string;
     const yamlText = typeof req.body === 'string' ? req.body : (req.body?.yaml as string);
     if (!yamlText || typeof yamlText !== 'string') {
       return res.status(400).json({ error: 'Body must contain YAML text', code: 'missing_yaml' });
     }
 
     const existing = await prisma.runbook.findFirst({
-      where: { id: workflowId, tenantId: req.user!.tenantId },
+      where: { id: runbookId, tenantId: req.user!.tenantId },
     });
     if (!existing) return res.status(404).json({ error: 'Runbook not found' });
 
@@ -721,11 +721,11 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
     }
 
     const updated = await prisma.$transaction(async tx => {
-      await tx.runbookConnection.deleteMany({ where: { workflowId } });
-      await tx.runbookStep.deleteMany({ where: { workflowId } });
+      await tx.runbookConnection.deleteMany({ where: { runbookId } });
+      await tx.runbookStep.deleteMany({ where: { runbookId } });
 
       await tx.runbook.update({
-        where: { id: workflowId },
+        where: { id: runbookId },
         data: {
           name: parsed.header.name,
           slug: parsed.header.slug,
@@ -739,7 +739,7 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
         await tx.runbookStep.create({
           data: {
             id: node.id,
-            workflowId,
+            runbookId,
             type: node.type,
             title: node.title,
             positionX: node.positionX,
@@ -752,7 +752,7 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
       for (const conn of parsed.connections) {
         await tx.runbookConnection.create({
           data: {
-            workflowId,
+            runbookId,
             sourceNodeId: conn.sourceNodeId,
             sourcePort: conn.sourcePort,
             targetNodeId: conn.targetNodeId,
@@ -762,8 +762,8 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
       }
 
       return tx.runbook.findFirst({
-        where: { id: workflowId },
-        include: { workflowNodes: true, workflowConnections: true },
+        where: { id: runbookId },
+        include: { steps: true, stepConnections: true },
       });
     });
 
@@ -772,7 +772,7 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
       name: updated!.name,
       slug: updated!.slug,
       updatedAt: updated!.updatedAt,
-      stepCount: updated!.workflowNodes.length,
+      stepCount: updated!.steps.length,
     });
   } catch (error) {
     req.log.error({ error }, 'Put runbook YAML error');
@@ -799,22 +799,22 @@ router.put('/:id', async (req: AuthRequest, res) => {
     });
 
     const data = updateSchema.parse(req.body);
-    const workflowId = req.params.id as string;
+    const runbookId = req.params.id as string;
 
     const existing = await prisma.runbook.findFirst({
       where: {
-        id: workflowId,
+        id: runbookId,
         tenantId: req.user!.tenantId,
       },
     });
 
     if (!existing) {
-      // Special handling for the default 'current-workflow' (scratchpad)
+      // Special handling for the default 'current-runbook' (scratchpad)
       // If it doesn't exist, we create it instead of returning 404
-      if (workflowId === 'current-workflow') {
+      if (runbookId === 'current-runbook') {
         const newWorkflow = await prisma.runbook.create({
           data: {
-            id: 'current-workflow',
+            id: 'current-runbook',
             name: data.name || 'Untitled Workflow',
             description: data.description,
             nodes: data.nodes as unknown as Prisma.InputJsonValue,
@@ -831,7 +831,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
         if (data.schedule && data.isActive) {
           await prisma.scheduledJob.create({
             data: {
-              workflowId: newWorkflow.id,
+              runbookId: newWorkflow.id,
               cronExpr: data.schedule,
               isActive: true,
               nextRunAt: computeNextRunAt(data.schedule),
@@ -842,9 +842,9 @@ router.put('/:id', async (req: AuthRequest, res) => {
         await safeAuditWorkflow('runbook.created', {
           tenantId: req.user!.tenantId,
           actorId: req.user!.id,
-          workflowId: newWorkflow.id,
+          runbookId: newWorkflow.id,
           payload: {
-            workflowId: newWorkflow.id,
+            runbookId: newWorkflow.id,
             name: newWorkflow.name,
             isActive: newWorkflow.isActive,
             schedule: newWorkflow.schedule ?? null,
@@ -898,7 +898,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
       if (data.onErrorRunbookId === null) {
         updateData.onErrorRunbookId = null;
       } else {
-        if (data.onErrorRunbookId === workflowId) {
+        if (data.onErrorRunbookId === runbookId) {
           return res.status(400).json({
             error: 'onErrorRunbookId cannot reference the runbook itself',
           });
@@ -916,7 +916,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
       }
     }
 
-    // Construct full workflow object for validation.
+    // Construct full runbook object for validation.
     // existing.{description,schedule} are nullable (Prisma `String?`),
     // but WorkflowDefinition only permits string | undefined — coerce
     // nulls to undefined at the boundary.
@@ -940,24 +940,24 @@ router.put('/:id', async (req: AuthRequest, res) => {
       });
     }
 
-    const workflow = await prisma.runbook.update({
-      where: { id: workflowId },
+    const runbook = await prisma.runbook.update({
+      where: { id: runbookId },
       data: updateData,
     });
 
     if (updateChangedDefinition(updateData)) {
-      await safeCreateVersion(workflow.id, req.user!.id);
+      await safeCreateVersion(runbook.id, req.user!.id);
     }
 
     await safeAuditWorkflow('runbook.updated', {
       tenantId: req.user!.tenantId,
       actorId: req.user!.id,
-      workflowId: workflow.id,
+      runbookId: runbook.id,
       payload: {
-        workflowId: workflow.id,
-        name: workflow.name,
-        isActive: workflow.isActive,
-        schedule: workflow.schedule ?? null,
+        runbookId: runbook.id,
+        name: runbook.name,
+        isActive: runbook.isActive,
+        schedule: runbook.schedule ?? null,
         changedFields: Object.keys(updateData),
         nodeCount: Array.isArray(data.nodes) ? data.nodes.length : 0,
         connectionCount: Array.isArray(data.connections) ? data.connections.length : 0,
@@ -967,9 +967,9 @@ router.put('/:id', async (req: AuthRequest, res) => {
     if (data.schedule) {
       const nextRunAt = computeNextRunAt(data.schedule);
       await prisma.scheduledJob.upsert({
-        where: { workflowId: workflow.id },
+        where: { runbookId: runbook.id },
         create: {
-          workflowId: workflow.id,
+          runbookId: runbook.id,
           cronExpr: data.schedule,
           isActive: data.isActive || false,
           nextRunAt,
@@ -983,16 +983,16 @@ router.put('/:id', async (req: AuthRequest, res) => {
     }
 
     res.json({
-      ...workflow,
-      timestamp: workflow.updatedAt.getTime(),
+      ...runbook,
+      timestamp: runbook.updatedAt.getTime(),
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       req.log.error({ error: error.errors }, 'Validation error');
       return res.status(400).json({ error: error.errors });
     }
-    req.log.error({ error }, 'Update workflow error');
-    res.status(500).json({ error: 'Failed to update workflow' });
+    req.log.error({ error }, 'Update runbook error');
+    res.status(500).json({ error: 'Failed to update runbook' });
   }
 });
 
@@ -1005,11 +1005,11 @@ router.put('/:id', async (req: AuthRequest, res) => {
  */
 router.put('/:id/inputs', async (req: AuthRequest, res) => {
   try {
-    const workflowId = req.params.id as string;
+    const runbookId = req.params.id as string;
     const inputs = z.array(runbookInputDefinitionSchema).parse(req.body?.inputs ?? []);
 
     const existing = await prisma.runbook.findFirst({
-      where: { id: workflowId, tenantId: req.user!.tenantId },
+      where: { id: runbookId, tenantId: req.user!.tenantId },
       select: { id: true },
     });
     if (!existing) {
@@ -1017,7 +1017,7 @@ router.put('/:id/inputs', async (req: AuthRequest, res) => {
     }
 
     const updated = await prisma.runbook.update({
-      where: { id: workflowId },
+      where: { id: runbookId },
       data: { inputs: inputs as unknown as Prisma.InputJsonValue },
       select: { id: true, inputs: true, updatedAt: true },
     });
@@ -1040,7 +1040,7 @@ router.put('/:id/inputs', async (req: AuthRequest, res) => {
  * @swagger
  * /workflows/{id}:
  *   delete:
- *     summary: Delete a workflow
+ *     summary: Delete a runbook
  *     tags: [Workflows]
  *     security:
  *       - bearerAuth: []
@@ -1057,10 +1057,10 @@ router.put('/:id/inputs', async (req: AuthRequest, res) => {
  */
 router.delete('/:id', async (req: AuthRequest, res) => {
   try {
-    const workflowId = req.params.id as string;
+    const runbookId = req.params.id as string;
     const existing = await prisma.runbook.findFirst({
       where: {
-        id: workflowId,
+        id: runbookId,
         tenantId: req.user!.tenantId,
       },
     });
@@ -1070,27 +1070,27 @@ router.delete('/:id', async (req: AuthRequest, res) => {
     }
 
     await prisma.scheduledJob.deleteMany({
-      where: { workflowId },
+      where: { runbookId },
     });
 
     await prisma.runbook.delete({
-      where: { id: workflowId },
+      where: { id: runbookId },
     });
 
     await safeAuditWorkflow('runbook.deleted', {
       tenantId: req.user!.tenantId,
       actorId: req.user!.id,
-      workflowId,
+      runbookId,
       payload: {
-        workflowId,
+        runbookId,
         name: existing.name,
       },
     });
 
     res.status(204).send();
   } catch (error) {
-    req.log.error({ error }, 'Delete workflow error');
-    res.status(500).json({ error: 'Failed to delete workflow' });
+    req.log.error({ error }, 'Delete runbook error');
+    res.status(500).json({ error: 'Failed to delete runbook' });
   }
 });
 
@@ -1098,7 +1098,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
  * @swagger
  * /workflows/{id}/duplicate:
  *   post:
- *     summary: Duplicate a workflow
+ *     summary: Duplicate a runbook
  *     tags: [Workflows]
  *     security:
  *       - bearerAuth: []
@@ -1121,10 +1121,10 @@ router.delete('/:id', async (req: AuthRequest, res) => {
  */
 router.post('/:id/duplicate', async (req: AuthRequest, res) => {
   try {
-    const workflowId = req.params.id as string;
+    const runbookId = req.params.id as string;
     const existing = await prisma.runbook.findFirst({
       where: {
-        id: workflowId,
+        id: runbookId,
         tenantId: req.user!.tenantId,
       },
     });
@@ -1134,7 +1134,7 @@ router.post('/:id/duplicate', async (req: AuthRequest, res) => {
     }
 
     // Cast Prisma JSON fields for the duplicate
-    const workflow = await prisma.runbook.create({
+    const runbook = await prisma.runbook.create({
       data: {
         name: `${existing.name} (Copy)`,
         description: existing.description,
@@ -1146,23 +1146,23 @@ router.post('/:id/duplicate', async (req: AuthRequest, res) => {
       },
     });
 
-    await safeCreateVersion(workflow.id, req.user!.id);
+    await safeCreateVersion(runbook.id, req.user!.id);
 
     await safeAuditWorkflow('runbook.created', {
       tenantId: req.user!.tenantId,
       actorId: req.user!.id,
-      workflowId: workflow.id,
+      runbookId: runbook.id,
       payload: {
-        workflowId: workflow.id,
-        name: workflow.name,
+        runbookId: runbook.id,
+        name: runbook.name,
         duplicatedFrom: existing.id,
       },
     });
 
-    res.status(201).json(workflow);
+    res.status(201).json(runbook);
   } catch (error) {
-    req.log.error({ error }, 'Duplicate workflow error');
-    res.status(500).json({ error: 'Failed to duplicate workflow' });
+    req.log.error({ error }, 'Duplicate runbook error');
+    res.status(500).json({ error: 'Failed to duplicate runbook' });
   }
 });
 

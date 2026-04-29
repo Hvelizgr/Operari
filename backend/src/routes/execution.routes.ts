@@ -50,7 +50,7 @@ router.use(anonymousFallback);
  *         name: limit
  *         schema: { type: integer, default: 20 }
  *       - in: query
- *         name: workflowId
+ *         name: runbookId
  *         schema: { type: string }
  *       - in: query
  *         name: status
@@ -77,7 +77,7 @@ router.use(anonymousFallback);
  *             example:
  *               executions:
  *                 - id: "exec-1"
- *                   workflowId: "wf-1"
+ *                   runbookId: "wf-1"
  *                   status: "COMPLETED"
  *                   startedAt: "2024-03-20T10:00:00Z"
  *                   duration: 1500
@@ -89,12 +89,12 @@ router.use(anonymousFallback);
  */
 router.get('/', async (req: AuthRequest, res) => {
   try {
-    const { page = '1', limit = '20', workflowId, status } = req.query;
+    const { page = '1', limit = '20', runbookId, status } = req.query;
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
     const where = {
-      workflow: { tenantId: req.user!.tenantId },
-      ...(workflowId && { workflowId: workflowId as string }),
+      runbook: { tenantId: req.user!.tenantId },
+      ...(runbookId && { runbookId: runbookId as string }),
       ...(status && { status: status as Prisma.ExecutionWhereInput['status'] }),
     };
 
@@ -105,7 +105,7 @@ router.get('/', async (req: AuthRequest, res) => {
         take: parseInt(limit as string),
         orderBy: { startedAt: 'desc' },
         include: {
-          workflow: { select: { id: true, name: true } },
+          runbook: { select: { id: true, name: true } },
           user: { select: { id: true, name: true, email: true } },
           _count: { select: { nodeLogs: true } },
         },
@@ -148,7 +148,7 @@ router.get('/', async (req: AuthRequest, res) => {
  *           application/json:
  *             example:
  *               id: "exec-1"
- *               workflowId: "wf-1"
+ *               runbookId: "wf-1"
  *               status: "FAILED"
  *               error: "HTTP 500"
  *               startedAt: "2024-03-20T10:00:00Z"
@@ -174,10 +174,10 @@ router.get('/:id', async (req: AuthRequest, res) => {
     const execution = await prisma.execution.findFirst({
       where: {
         id: executionId,
-        workflow: { tenantId: req.user!.tenantId },
+        runbook: { tenantId: req.user!.tenantId },
       },
       include: {
-        workflow: { select: { id: true, name: true } },
+        runbook: { select: { id: true, name: true } },
         user: { select: { id: true, name: true, email: true } },
         nodeLogs: { orderBy: { startedAt: 'asc' } },
       },
@@ -196,7 +196,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
 
 /**
  * @swagger
- * /executions/{workflowId}/run:
+ * /executions/{runbookId}/run:
  *   post:
  *     summary: Trigger manual execution
  *     tags: [Executions]
@@ -204,7 +204,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
- *         name: workflowId
+ *         name: runbookId
  *         required: true
  *         schema: { type: string }
  *     requestBody:
@@ -216,7 +216,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
  *             properties:
  *               input:
  *                 type: object
- *                 description: Initial input data for the workflow
+ *                 description: Initial input data for the runbook
  *           example:
  *             input:
  *               email: "user@example.com"
@@ -280,7 +280,7 @@ router.get('/:id/logs', async (req: AuthRequest, res) => {
     const execution = await prisma.execution.findFirst({
       where: {
         id: executionId,
-        workflow: { tenantId: req.user!.tenantId },
+        runbook: { tenantId: req.user!.tenantId },
       },
       select: { id: true },
     });
@@ -371,17 +371,17 @@ router.get('/:id/logs', async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/:workflowId/run', async (req: AuthRequest, res) => {
+router.post('/:runbookId/run', async (req: AuthRequest, res) => {
   try {
-    const workflowId = req.params.workflowId as string;
-    const workflow = await prisma.runbook.findFirst({
+    const runbookId = req.params.runbookId as string;
+    const runbook = await prisma.runbook.findFirst({
       where: {
-        id: workflowId,
+        id: runbookId,
         tenantId: req.user!.tenantId,
       },
     });
 
-    if (!workflow) {
+    if (!runbook) {
       return res.status(404).json({ error: 'Workflow not found' });
     }
 
@@ -389,7 +389,7 @@ router.post('/:workflowId/run', async (req: AuthRequest, res) => {
     // typed inputs. When the runbook has no declared inputs the
     // validator passes the payload through untouched, preserving
     // historical behavior for runbooks that never opted in.
-    const inputDefs = parseInputDefs(workflow.inputs);
+    const inputDefs = parseInputDefs(runbook.inputs);
     const validated = validateRunInputs(inputDefs, req.body.input);
     if (!validated.ok) {
       return res.status(400).json({
@@ -401,7 +401,7 @@ router.post('/:workflowId/run', async (req: AuthRequest, res) => {
 
     const executionService = new ExecutionService(prisma);
     const execution = await executionService.execute({
-      workflowId: workflow.id,
+      runbookId: runbook.id,
       userId: req.user!.id,
       tenantId: req.user!.tenantId,
       trigger: 'MANUAL',
@@ -414,8 +414,8 @@ router.post('/:workflowId/run', async (req: AuthRequest, res) => {
 
     res.status(202).json(execution);
   } catch (error) {
-    req.log.error({ error }, 'Run workflow error');
-    res.status(500).json({ error: 'Failed to run workflow' });
+    req.log.error({ error }, 'Run runbook error');
+    res.status(500).json({ error: 'Failed to run runbook' });
   }
 });
 
@@ -452,7 +452,7 @@ router.post('/:id/cancel', async (req: AuthRequest, res) => {
     const execution = await prisma.execution.findFirst({
       where: {
         id: executionId,
-        workflow: { tenantId: req.user!.tenantId },
+        runbook: { tenantId: req.user!.tenantId },
         status: 'RUNNING',
       },
     });
@@ -499,7 +499,7 @@ router.post('/:id/cancel', async (req: AuthRequest, res) => {
         resource: executionId,
         payload: {
           executionId,
-          workflowId: execution.workflowId,
+          runbookId: execution.runbookId,
           cancelledAt: new Date().toISOString(),
           signalledProcesses,
         },

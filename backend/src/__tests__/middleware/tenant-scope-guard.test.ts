@@ -86,7 +86,7 @@ describe('tenantScopeGuard', () => {
     const { called } = await invoke({
       model: 'Execution',
       action: 'findMany',
-      args: { where: { workflow: { tenantId: 'tenant-1' } } },
+      args: { where: { runbook: { tenantId: 'tenant-1' } } },
     });
     expect(called).toBe(true);
   });
@@ -130,7 +130,7 @@ describe('tenantScopeGuard', () => {
     const { called } = await invoke({
       model: 'Execution',
       action: 'create',
-      args: { data: { workflowId: 'w', userId: 'u', trigger: 'MANUAL', tenantId: 't' } },
+      args: { data: { runbookId: 'w', userId: 'u', trigger: 'MANUAL', tenantId: 't' } },
     });
     expect(called).toBe(true);
   });

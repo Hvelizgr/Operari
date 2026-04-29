@@ -109,8 +109,8 @@ describe('Runbook routes', () => {
       const res = await request(app).get('/workflows');
 
       expect(res.status).toBe(200);
-      expect(res.body.workflows).toHaveLength(1);
-      expect(res.body.workflows[0].id).toBe('wf-1');
+      expect(res.body.runbooks).toHaveLength(1);
+      expect(res.body.runbooks[0].id).toBe('wf-1');
       expect(prisma.runbook.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ tenantId: 'default-tenant' }),
@@ -136,7 +136,7 @@ describe('Runbook routes', () => {
   });
 
   describe('GET /workflows/:id', () => {
-    it('should return workflow details', async () => {
+    it('should return runbook details', async () => {
       (prisma.runbook.findFirst as jest.Mock).mockResolvedValue(mockWorkflow);
 
       const res = await request(app).get('/workflows/wf-1');
@@ -168,7 +168,7 @@ describe('Runbook routes', () => {
       isActive: false,
     };
 
-    it('should create a new workflow', async () => {
+    it('should create a new runbook', async () => {
       (prisma.runbook.create as jest.Mock).mockResolvedValue({
         ...mockWorkflow,
         ...newWorkflowData,
@@ -205,7 +205,7 @@ describe('Runbook routes', () => {
       connections: [], // Required by schema
     };
 
-    it('should update existing workflow', async () => {
+    it('should update existing runbook', async () => {
       (prisma.runbook.findFirst as jest.Mock).mockResolvedValue(mockWorkflow);
       (prisma.runbook.update as jest.Mock).mockResolvedValue({
         ...mockWorkflow,
@@ -219,15 +219,15 @@ describe('Runbook routes', () => {
       expect(prisma.runbook.update).toHaveBeenCalled();
     });
 
-    it('should create scratchpad workflow if not exists', async () => {
+    it('should create scratchpad runbook if not exists', async () => {
       (prisma.runbook.findFirst as jest.Mock).mockResolvedValue(null); // Not found
       (prisma.runbook.create as jest.Mock).mockResolvedValue({
         ...mockWorkflow,
-        id: 'current-workflow',
+        id: 'current-runbook',
         name: 'Updated Name',
       });
 
-      const res = await request(app).put('/workflows/current-workflow').send(updateData);
+      const res = await request(app).put('/workflows/current-runbook').send(updateData);
 
       expect(res.status).toBe(200);
       expect(prisma.runbook.create).toHaveBeenCalled();
@@ -235,7 +235,7 @@ describe('Runbook routes', () => {
   });
 
   describe('DELETE /workflows/:id', () => {
-    it('should delete workflow', async () => {
+    it('should delete runbook', async () => {
       (prisma.runbook.findFirst as jest.Mock).mockResolvedValue(mockWorkflow);
 
       const res = await request(app).delete('/workflows/wf-1');

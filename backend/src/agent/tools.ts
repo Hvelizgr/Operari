@@ -79,11 +79,11 @@ export function buildOrchestratorTools(
       }) => {
         const runs = await prisma.execution.findMany({
           where: {
-            workflow: { tenantId },
+            runbook: { tenantId },
             ...(status === 'ANY' ? {} : { status }),
           },
           include: {
-            workflow: { select: { slug: true, name: true } },
+            runbook: { select: { slug: true, name: true } },
           },
           orderBy: { startedAt: 'desc' },
           take: limit,
@@ -91,8 +91,8 @@ export function buildOrchestratorTools(
         return {
           runs: runs.map(r => ({
             id: r.id,
-            runbook: r.workflow.name,
-            slug: r.workflow.slug,
+            runbook: r.runbook.name,
+            slug: r.runbook.slug,
             status: r.status,
             trigger: r.trigger,
             startedAt: r.startedAt.toISOString(),
@@ -115,11 +115,11 @@ export function buildOrchestratorTools(
         const run = await prisma.execution.findFirst({
           where: {
             id: runId,
-            workflow: { tenantId },
+            runbook: { tenantId },
           },
           include: {
             nodeLogs: { orderBy: { startedAt: 'asc' } },
-            workflow: { select: { slug: true, name: true } },
+            runbook: { select: { slug: true, name: true } },
           },
         });
         if (!run) {
@@ -127,8 +127,8 @@ export function buildOrchestratorTools(
         }
         return {
           id: run.id,
-          runbook: run.workflow.name,
-          slug: run.workflow.slug,
+          runbook: run.runbook.name,
+          slug: run.runbook.slug,
           status: run.status,
           trigger: run.trigger,
           startedAt: run.startedAt.toISOString(),
@@ -166,7 +166,7 @@ export function buildOrchestratorTools(
           where: {
             executionId: runId,
             nodeId: stepId,
-            execution: { workflow: { tenantId } },
+            execution: { runbook: { tenantId } },
           },
         });
         if (!log) return { error: 'step_not_found' };
@@ -201,11 +201,11 @@ export function buildOrchestratorTools(
       execute: async ({ pattern, limit }: { pattern: string; limit: number }) => {
         const runs = await prisma.execution.findMany({
           where: {
-            workflow: { tenantId },
+            runbook: { tenantId },
             error: { contains: pattern, mode: 'insensitive' },
           },
           include: {
-            workflow: { select: { slug: true, name: true } },
+            runbook: { select: { slug: true, name: true } },
           },
           orderBy: { startedAt: 'desc' },
           take: limit,
@@ -214,7 +214,7 @@ export function buildOrchestratorTools(
           matchCount: runs.length,
           runs: runs.map(r => ({
             id: r.id,
-            runbook: r.workflow.name,
+            runbook: r.runbook.name,
             status: r.status,
             startedAt: r.startedAt.toISOString(),
             error: r.error && r.error.length > 500 ? r.error.slice(0, 500) + '…' : r.error,

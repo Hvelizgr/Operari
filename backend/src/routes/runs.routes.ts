@@ -38,14 +38,14 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
   const runs = await prisma.execution.findMany({
     where: {
-      workflow: {
+      runbook: {
         tenantId,
         ...(runbookParam ? { OR: [{ id: runbookParam }, { slug: runbookParam }] } : {}),
       },
       ...(statusFilter ? { status: statusFilter } : {}),
     },
     include: {
-      workflow: { select: { id: true, slug: true, name: true } },
+      runbook: { select: { id: true, slug: true, name: true } },
     },
     orderBy: { startedAt: 'desc' },
     take: limit + 1,
@@ -55,25 +55,25 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   const hasMore = runs.length > limit;
   const page = hasMore ? runs.slice(0, limit) : runs;
 
-  // ETA: average duration of the last 20 SUCCESS runs per workflow.
+  // ETA: average duration of the last 20 SUCCESS runs per runbook.
   // Computed in one groupBy so the route stays cheap even when the
   // page contains runs from many different runbooks. Returned only
   // for runs that are still RUNNING — finished runs already have a
   // real duration.
-  const workflowIds = Array.from(new Set(page.map(r => r.workflowId)));
+  const workflowIds = Array.from(new Set(page.map(r => r.runbookId)));
   const etaMap = await computeEtas(tenantId, workflowIds);
 
   res.json({
     data: page.map(r => ({
       id: r.id,
-      runbook: r.workflow,
+      runbook: r.runbook,
       status: r.status,
       trigger: r.trigger,
       startedAt: r.startedAt,
       completedAt: r.completedAt,
       duration: r.duration,
       error: r.error,
-      etaMs: r.status === 'RUNNING' ? (etaMap.get(r.workflowId) ?? null) : null,
+      etaMs: r.status === 'RUNNING' ? (etaMap.get(r.runbookId) ?? null) : null,
       dryRun: r.dryRun,
     })),
     nextCursor: hasMore ? page[page.length - 1].id : null,
@@ -83,18 +83,18 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 async function computeEtas(tenantId: string, workflowIds: string[]): Promise<Map<string, number>> {
   const map = new Map<string, number>();
   if (workflowIds.length === 0) return map;
-  // Per-workflow average over the last 20 successful runs. We do
-  // one query per workflow because Prisma's groupBy doesn't support
+  // Per-runbook average over the last 20 successful runs. We do
+  // one query per runbook because Prisma's groupBy doesn't support
   // a "top N per group" aggregate, and the page size is bounded so
   // the fan-out is at most ~50 small queries — fine for v0.1.
   await Promise.all(
-    workflowIds.map(async workflowId => {
+    workflowIds.map(async runbookId => {
       const recent = await prisma.execution.findMany({
         where: {
-          workflowId,
+          runbookId,
           status: 'SUCCESS',
           duration: { not: null },
-          workflow: { tenantId },
+          runbook: { tenantId },
         },
         orderBy: { startedAt: 'desc' },
         take: 20,
@@ -102,7 +102,7 @@ async function computeEtas(tenantId: string, workflowIds: string[]): Promise<Map
       });
       if (recent.length === 0) return;
       const total = recent.reduce((sum, r) => sum + (r.duration ?? 0), 0);
-      map.set(workflowId, Math.round(total / recent.length));
+      map.set(runbookId, Math.round(total / recent.length));
     })
   );
   return map;
@@ -135,7 +135,7 @@ router.get('/:id/events', async (req: AuthRequest, res: Response) => {
   // touching the event table. Event rows also carry tenantId so the
   // actual read is double-scoped.
   const run = await prisma.execution.findFirst({
-    where: { id: runId, workflow: { tenantId } },
+    where: { id: runId, runbook: { tenantId } },
     select: { id: true },
   });
   if (!run) {
@@ -228,7 +228,7 @@ router.get(
     // Same tenant gate as the polling endpoint — preserve 404 vs 403
     // semantics regardless of how the client is consuming events.
     const run = await prisma.execution.findFirst({
-      where: { id: runId, workflow: { tenantId } },
+      where: { id: runId, runbook: { tenantId } },
       select: { id: true },
     });
     if (!run) {
@@ -298,11 +298,11 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
   const run = await prisma.execution.findFirst({
     where: {
       id: runId,
-      workflow: { tenantId },
+      runbook: { tenantId },
     },
     include: {
       nodeLogs: { orderBy: { startedAt: 'asc' } },
-      workflow: { select: { id: true, slug: true, name: true } },
+      runbook: { select: { id: true, slug: true, name: true } },
     },
   });
 
@@ -312,7 +312,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 
   res.json({
     id: run.id,
-    runbook: run.workflow,
+    runbook: run.runbook,
     status: run.status,
     trigger: run.trigger,
     startedAt: run.startedAt,

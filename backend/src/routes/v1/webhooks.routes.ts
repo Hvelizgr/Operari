@@ -14,7 +14,7 @@ function getService() {
 }
 
 const createSchema = z.object({
-  workflowId: z.string().uuid(),
+  runbookId: z.string().uuid(),
   source: z.enum(['sentry', 'datadog', 'github', 'custom']).default('custom'),
   useSecret: z.boolean().default(true),
 });
@@ -31,25 +31,25 @@ router.get('/', requireApiKey('webhooks:read'), async (req: ApiKeyRequest, res: 
       triggerCount: w.triggerCount,
       lastTriggeredAt: w.lastTriggeredAt,
       createdAt: w.createdAt,
-      workflow: w.workflow,
+      runbook: w.runbook,
     })),
   });
 });
 
 router.post('/', requireApiKey('webhooks:write'), async (req: ApiKeyRequest, res: Response) => {
   try {
-    const { workflowId, source, useSecret } = createSchema.parse(req.body);
+    const { runbookId, source, useSecret } = createSchema.parse(req.body);
     const { tenantId } = req.apiContext!;
 
     // Verify the runbook exists and belongs to this tenant
-    const workflow = await prisma.runbook.findFirst({
-      where: { id: workflowId, tenantId },
+    const runbook = await prisma.runbook.findFirst({
+      where: { id: runbookId, tenantId },
     });
-    if (!workflow) {
+    if (!runbook) {
       return res.status(404).json({ error: 'Runbook not found' });
     }
 
-    const webhook = await getService().create(tenantId, workflowId, source, useSecret);
+    const webhook = await getService().create(tenantId, runbookId, source, useSecret);
 
     res.status(201).json({
       id: webhook.id,

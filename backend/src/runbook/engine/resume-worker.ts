@@ -268,10 +268,10 @@ export class ResumeWorker {
     try {
       const execution = await prisma.execution.findUnique({
         where: { id: decision.executionId },
-        include: { workflow: true, runbookVersion: true },
+        include: { runbook: true, runbookVersion: true },
       });
-      if (!execution || !execution.workflow) {
-        throw new Error(`Execution ${decision.executionId} has no workflow — cannot resume`);
+      if (!execution || !execution.runbook) {
+        throw new Error(`Execution ${decision.executionId} has no runbook — cannot resume`);
       }
 
       // Walk the frozen snapshot when this run was pinned to one
@@ -279,8 +279,8 @@ export class ResumeWorker {
       // historical rows. `applyRunbookVersionSnapshot` returns a new
       // object so the Runbook row itself is never mutated.
       const effectiveWorkflow: Runbook = execution.runbookVersion
-        ? applyRunbookVersionSnapshot(execution.workflow, execution.runbookVersion.snapshot)
-        : execution.workflow;
+        ? applyRunbookVersionSnapshot(execution.runbook, execution.runbookVersion.snapshot)
+        : execution.runbook;
 
       // Union everything that must not re-execute: successful,
       // skipped, and failed steps. Failed steps had a terminal event
@@ -292,7 +292,7 @@ export class ResumeWorker {
 
       await executionService.resumeFromEventLog({
         executionId: decision.executionId,
-        workflow: effectiveWorkflow,
+        runbook: effectiveWorkflow,
         completedNodeIds,
         nodeOutputs: state.completedStepOutputs,
         userId: execution.userId,

@@ -40,7 +40,7 @@ const buildApp = () => {
 
 const mkRun = (over: Record<string, unknown> = {}) => ({
   id: 'run-1',
-  workflow: { id: 'wf-1', slug: 'deploy', name: 'Deploy' },
+  runbook: { id: 'wf-1', slug: 'deploy', name: 'Deploy' },
   status: 'SUCCESS',
   trigger: 'MANUAL',
   startedAt: new Date('2026-04-07T00:00:00Z'),
@@ -55,7 +55,7 @@ describe('GET /api/v1/runs (list)', () => {
     findManyMock.mockReset();
   });
 
-  it('returns recent runs scoped via workflow.tenantId', async () => {
+  it('returns recent runs scoped via runbook.tenantId', async () => {
     findManyMock.mockResolvedValue([mkRun()]);
     const res = await request(buildApp()).get('/api/v1/runs');
 
@@ -66,7 +66,7 @@ describe('GET /api/v1/runs (list)', () => {
     expect(res.body.nextCursor).toBeNull();
 
     const args = findManyMock.mock.calls[0][0];
-    expect(args.where.workflow.tenantId).toBe('tenant-1');
+    expect(args.where.runbook.tenantId).toBe('tenant-1');
     // No status filter by default (returns all)
     expect(args.where.status).toBeUndefined();
   });
@@ -91,11 +91,11 @@ describe('GET /api/v1/runs (list)', () => {
     expect(res.body.code).toBe('invalid_status');
   });
 
-  it('?runbook=<slug> filters via workflow.OR (id or slug)', async () => {
+  it('?runbook=<slug> filters via runbook.OR (id or slug)', async () => {
     findManyMock.mockResolvedValue([]);
     await request(buildApp()).get('/api/v1/runs?runbook=deploy');
     const args = findManyMock.mock.calls[0][0];
-    expect(args.where.workflow.OR).toEqual([{ id: 'deploy' }, { slug: 'deploy' }]);
+    expect(args.where.runbook.OR).toEqual([{ id: 'deploy' }, { slug: 'deploy' }]);
   });
 
   it('returns nextCursor when more rows are available', async () => {

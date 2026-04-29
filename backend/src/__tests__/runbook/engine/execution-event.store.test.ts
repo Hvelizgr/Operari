@@ -76,7 +76,7 @@ describe('ExecutionEventStore', () => {
       await store.append('exec-1', TENANT, {
         type: 'run.created',
         payload: {
-          workflowId: 'wf-1',
+          runbookId: 'wf-1',
           workflowName: 'Deploy',
           trigger: 'manual',
         },
@@ -115,7 +115,7 @@ describe('ExecutionEventStore', () => {
 
       await store.append('exec-1', TENANT, {
         type: 'run.created',
-        payload: { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' },
+        payload: { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' },
       });
       await store.append('exec-1', TENANT, { type: 'run.started', payload: { startedAt: '' } });
       await store.append('exec-1', TENANT, {
@@ -134,11 +134,11 @@ describe('ExecutionEventStore', () => {
 
       await store.append('exec-A', TENANT, {
         type: 'run.created',
-        payload: { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' },
+        payload: { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' },
       });
       await store.append('exec-B', TENANT, {
         type: 'run.created',
-        payload: { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' },
+        payload: { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' },
       });
       await store.append('exec-A', TENANT, { type: 'run.started', payload: { startedAt: '' } });
 
@@ -161,7 +161,7 @@ describe('ExecutionEventStore', () => {
 
       await store.append('exec-1', TENANT, {
         type: 'run.created',
-        payload: { workflowId: 'wf', workflowName: 'Deploy', trigger: 'manual' },
+        payload: { runbookId: 'wf', workflowName: 'Deploy', trigger: 'manual' },
       });
       await store.append('exec-1', TENANT, { type: 'run.started', payload: { startedAt: '' } });
       await store.append('exec-1', TENANT, {
@@ -191,7 +191,7 @@ describe('ExecutionEventStore', () => {
       // exec-A: completed
       await store.append('exec-A', TENANT, {
         type: 'run.created',
-        payload: { workflowId: 'wf', workflowName: 'A', trigger: 'manual' },
+        payload: { runbookId: 'wf', workflowName: 'A', trigger: 'manual' },
       });
       await store.append('exec-A', TENANT, {
         type: 'run.completed',
@@ -201,20 +201,20 @@ describe('ExecutionEventStore', () => {
       // exec-B: in flight (only created)
       await store.append('exec-B', TENANT, {
         type: 'run.created',
-        payload: { workflowId: 'wf', workflowName: 'B', trigger: 'manual' },
+        payload: { runbookId: 'wf', workflowName: 'B', trigger: 'manual' },
       });
 
       // exec-C: in flight (started, no terminal)
       await store.append('exec-C', TENANT, {
         type: 'run.created',
-        payload: { workflowId: 'wf', workflowName: 'C', trigger: 'manual' },
+        payload: { runbookId: 'wf', workflowName: 'C', trigger: 'manual' },
       });
       await store.append('exec-C', TENANT, { type: 'run.started', payload: { startedAt: '' } });
 
       // exec-D: failed (terminal)
       await store.append('exec-D', TENANT, {
         type: 'run.created',
-        payload: { workflowId: 'wf', workflowName: 'D', trigger: 'manual' },
+        payload: { runbookId: 'wf', workflowName: 'D', trigger: 'manual' },
       });
       await store.append('exec-D', TENANT, {
         type: 'run.failed',
@@ -224,7 +224,7 @@ describe('ExecutionEventStore', () => {
       // exec-E: cancelled (terminal)
       await store.append('exec-E', TENANT, {
         type: 'run.created',
-        payload: { workflowId: 'wf', workflowName: 'E', trigger: 'manual' },
+        payload: { runbookId: 'wf', workflowName: 'E', trigger: 'manual' },
       });
       await store.append('exec-E', TENANT, {
         type: 'run.cancelled',

@@ -8,7 +8,7 @@ import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
  * frame between two functional nodes does not break the flow.
  *
  * Mirrors NoteNodeExecutor. Without this, dragging a Section onto the
- * canvas and running the workflow throws "Unknown node type: custom.frame"
+ * canvas and running the runbook throws "Unknown node type: custom.frame"
  * because the palette exposes the type but no executor handled it.
  */
 export class FrameNodeExecutor implements EditorNodeExecutor<

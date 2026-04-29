@@ -92,7 +92,7 @@ describe('ExecutionService → AuditService wiring', () => {
   });
 
   const mockWorkflow = {
-    id: 'workflow-1',
+    id: 'runbook-1',
     name: 'Test Workflow',
     tenantId: 'tenant-42',
     nodes: [
@@ -105,14 +105,14 @@ describe('ExecutionService → AuditService wiring', () => {
     (prisma.runbook.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
     (prisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-1',
-      workflowId: 'workflow-1',
+      runbookId: 'runbook-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',
     });
 
     await service.execute({
-      workflowId: 'workflow-1',
+      runbookId: 'runbook-1',
       userId: 'user-1',
       trigger: TriggerType.MANUAL,
       tenantId: 'tenant-42',
@@ -128,7 +128,7 @@ describe('ExecutionService → AuditService wiring', () => {
     expect(startEvent?.actorType).toBe('user');
     expect(startEvent?.resource).toBe('exec-1');
     expect(startEvent?.payload.executionId).toBe('exec-1');
-    expect(startEvent?.payload.workflowId).toBe('workflow-1');
+    expect(startEvent?.payload.runbookId).toBe('runbook-1');
     expect(startEvent?.payload.workflowName).toBe('Test Workflow');
     expect(startEvent?.payload.trigger).toBe(TriggerType.MANUAL);
   });
@@ -147,14 +147,14 @@ describe('ExecutionService → AuditService wiring', () => {
     (prisma.runbook.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
     (prisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-no-audit',
-      workflowId: 'workflow-1',
+      runbookId: 'runbook-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',
     });
 
     await noAuditService.execute({
-      workflowId: 'workflow-1',
+      runbookId: 'runbook-1',
       userId: 'user-1',
       trigger: TriggerType.MANUAL,
       tenantId: 'tenant-42',
@@ -174,7 +174,7 @@ describe('ExecutionService → AuditService wiring', () => {
     (prisma.runbook.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
     (prisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-broken-audit',
-      workflowId: 'workflow-1',
+      runbookId: 'runbook-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',
@@ -182,7 +182,7 @@ describe('ExecutionService → AuditService wiring', () => {
 
     await expect(
       safeService.execute({
-        workflowId: 'workflow-1',
+        runbookId: 'runbook-1',
         userId: 'user-1',
         trigger: TriggerType.MANUAL,
         tenantId: 'tenant-42',

@@ -14,7 +14,7 @@ const buildLogger = (): Logger =>
 const baseState = (overrides: Partial<RunState> = {}): RunState => ({
   executionId: 'exec-1',
   status: 'PENDING',
-  workflowId: 'wf-1',
+  runbookId: 'wf-1',
   workflowName: 'Deploy',
   trigger: 'manual',
   stepCount: 0,
@@ -256,7 +256,7 @@ describe('ResumeWorker.runOnce', () => {
           id: 'exec-A',
           userId: 'user-1',
           tenantId: 't-1',
-          workflow: runbookRow,
+          runbook: runbookRow,
           runbookVersion: null,
         })),
       },

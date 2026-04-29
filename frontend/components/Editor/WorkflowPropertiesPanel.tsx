@@ -208,7 +208,7 @@ export default function WorkflowPropertiesPanel({
             />
 
             {/* Triggers */}
-            <TriggersPanel lang={lang} workflowId={localProps.id} />
+            <TriggersPanel lang={lang} runbookId={localProps.id} />
 
             {/* Inputs (Rundeck-style job options) */}
             <div className="h-px bg-slate-700" />

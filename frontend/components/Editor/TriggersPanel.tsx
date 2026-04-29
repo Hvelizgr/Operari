@@ -7,7 +7,7 @@ import WebhookReceiptsPanel from './WebhookReceiptsPanel';
 
 interface TriggerRecord {
   id: string;
-  workflowId: string;
+  runbookId: string;
   source: string;
   url: string;
   secret: string | null;
@@ -19,7 +19,7 @@ interface TriggerRecord {
 
 interface TriggersPanelProps {
   lang: 'en' | 'es';
-  workflowId: string | undefined;
+  runbookId: string | undefined;
 }
 
 const SOURCES: Array<{
@@ -71,7 +71,7 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
   },
 };
 
-export default function TriggersPanel({ lang, workflowId }: TriggersPanelProps) {
+export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
   const t = STRINGS[lang] ?? STRINGS.en;
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -83,13 +83,11 @@ export default function TriggersPanel({ lang, workflowId }: TriggersPanelProps) 
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
-    if (!workflowId) return;
+    if (!runbookId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `${apiBase}/api/webhooks?workflowId=${encodeURIComponent(workflowId)}`
-      );
+      const res = await fetch(`${apiBase}/api/webhooks?runbookId=${encodeURIComponent(runbookId)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setTriggers(json.data || []);
@@ -98,21 +96,21 @@ export default function TriggersPanel({ lang, workflowId }: TriggersPanelProps) 
     } finally {
       setLoading(false);
     }
-  }, [apiBase, workflowId, t.loadFailed]);
+  }, [apiBase, runbookId, t.loadFailed]);
 
   useEffect(() => {
-    if (workflowId) load();
-  }, [workflowId, load]);
+    if (runbookId) load();
+  }, [runbookId, load]);
 
   const create = async (source: string) => {
-    if (!workflowId) return;
+    if (!runbookId) return;
     setCreating(true);
     setError(null);
     try {
       const res = await fetch(`${apiBase}/api/webhooks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workflowId, source, useSecret: true }),
+        body: JSON.stringify({ runbookId, source, useSecret: true }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -158,13 +156,13 @@ export default function TriggersPanel({ lang, workflowId }: TriggersPanelProps) 
       </label>
       <p className="mb-2 text-[10px] text-slate-500">{t.subtitle}</p>
 
-      {!workflowId && (
+      {!runbookId && (
         <div className="rounded border border-slate-700 bg-black/20 px-3 py-2 text-[11px] text-slate-400">
           {t.save_first}
         </div>
       )}
 
-      {workflowId && (
+      {runbookId && (
         <>
           {loading && (
             <div className="mb-2 flex items-center gap-2 text-[11px] text-slate-400">

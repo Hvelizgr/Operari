@@ -18,7 +18,7 @@ export interface ResolveApprovalInput {
 export interface ResolvedApproval {
   id: string;
   status: ApprovalStatus;
-  workflowId: string;
+  runbookId: string;
   executionId: string;
   stepId: string;
   approvedBy: string | null;
@@ -99,18 +99,18 @@ export class ApprovalService {
   async resolve(input: ResolveApprovalInput): Promise<ResolvedApproval> {
     const newStatus: ApprovalStatus = input.action === 'grant' ? 'APPROVED' : 'REJECTED';
 
-    // Look up approval + execution + workflow.tenantId in one go.
+    // Look up approval + execution + runbook.tenantId in one go.
     const approval = await this.prisma.approval.findUnique({
       where: { id: input.approvalId },
       include: {
-        workflow: { select: { tenantId: true } },
+        runbook: { select: { tenantId: true } },
       },
     });
 
     // Tenant isolation: an approval belonging to another tenant is
     // reported as not-found, never as forbidden, to avoid information
     // leakage about which IDs exist on the platform.
-    if (!approval || approval.workflow.tenantId !== input.tenantId) {
+    if (!approval || approval.runbook.tenantId !== input.tenantId) {
       throw new ApprovalServiceError(
         'approval_not_found',
         `Approval ${input.approvalId} not found`
@@ -187,7 +187,7 @@ export class ApprovalService {
       payload: {
         approvalId: result.fresh.id,
         executionId: result.fresh.executionId,
-        workflowId: result.fresh.workflowId,
+        runbookId: result.fresh.runbookId,
         stepId: result.fresh.stepId,
         comment: input.comment ?? null,
         executionResumed,
@@ -198,7 +198,7 @@ export class ApprovalService {
     return {
       id: result.fresh.id,
       status: result.fresh.status,
-      workflowId: result.fresh.workflowId,
+      runbookId: result.fresh.runbookId,
       executionId: result.fresh.executionId,
       stepId: result.fresh.stepId,
       approvedBy: result.fresh.approvedBy,

@@ -29,7 +29,7 @@ export interface MonitorAlertInput {
     name: string;
     alertWebhookUrl: string | null;
     alertEmail: string | null;
-    workflowId: string;
+    runbookId: string;
   };
   reason: string;
   /**

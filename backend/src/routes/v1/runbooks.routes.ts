@@ -99,7 +99,7 @@ router.post(
 
       // Trigger via the existing ExecutionService — same engine the UI uses
       const execution = await getExecutionService().execute({
-        workflowId: runbook.id,
+        runbookId: runbook.id,
         userId: runbook.userId,
         trigger: 'API',
         input: validated.values,

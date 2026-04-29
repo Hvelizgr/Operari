@@ -14,7 +14,7 @@ export type ExecuteWorkflowResult =
   | { kind: 'invalid_inputs'; issues: RunInputIssue[] }
   | { kind: 'error'; message: string };
 
-export function useWorkflowExecution(workflowId: string | null) {
+export function useWorkflowExecution(runbookId: string | null) {
   const [executing, setExecuting] = useState(false);
   const [currentExecutionId, setCurrentExecutionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export function useWorkflowExecution(workflowId: string | null) {
     input: unknown = {},
     mode: 'run' | 'debug' | 'dry-run' = 'run'
   ): Promise<ExecuteWorkflowResult | undefined> => {
-    if (!workflowId) return;
+    if (!runbookId) return;
 
     setExecuting(true);
     setError(null);
@@ -39,7 +39,7 @@ export function useWorkflowExecution(workflowId: string | null) {
       // Dry-run mode rides the same endpoint but flips the
       // `dryRun: true` flag; every step executor logs what it
       // WOULD do without side effects. Safe to use against prod.
-      const endpoint = `${apiBase}/api/executions/${workflowId}/run`;
+      const endpoint = `${apiBase}/api/executions/${runbookId}/run`;
       const payload =
         mode === 'debug'
           ? { input, debug: true }
@@ -88,14 +88,14 @@ export function useWorkflowExecution(workflowId: string | null) {
   };
 
   const executeFromNode = async (nodeId: string, input: any = {}) => {
-    if (!workflowId) return;
+    if (!runbookId) return;
 
     setExecuting(true);
     setError(null);
 
     try {
       const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const response = await fetch(`${apiBase}/api/executions/${workflowId}/run`, {
+      const response = await fetch(`${apiBase}/api/executions/${runbookId}/run`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

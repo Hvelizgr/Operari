@@ -176,7 +176,7 @@ const envSchema = z.object({
 });
 
 /** Silence validation in test runs so CI (or a bare `jest` call)
- *  can boot with the minimum envs declared in the workflow. Tests
+ *  can boot with the minimum envs declared in the runbook. Tests
  *  that need a specific var should set it explicitly. */
 function parseEnv() {
   const parsed = envSchema.safeParse(process.env);

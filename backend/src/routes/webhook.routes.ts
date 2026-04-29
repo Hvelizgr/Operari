@@ -200,8 +200,8 @@ async function handleWebhook(req: Request, res: Response) {
   let execution;
   try {
     execution = await getExecutionService().execute({
-      workflowId: webhook.workflowId,
-      userId: webhook.workflow.userId,
+      runbookId: webhook.runbookId,
+      userId: webhook.runbook.userId,
       trigger: 'WEBHOOK',
       input: variables,
       tenantId: webhook.tenantId,
@@ -256,7 +256,7 @@ async function handleWebhook(req: Request, res: Response) {
       owner: variables.owner as string,
       repo: variables.repo as string,
       sha: variables.head_sha as string,
-      runbookName: webhook.workflow.name,
+      runbookName: webhook.runbook.name,
     };
 
     // Store on execution so the completion hook can find it.
@@ -287,11 +287,11 @@ async function handleWebhook(req: Request, res: Response) {
   // sender as soon as the primary trigger lands.
   const execService = getExecutionService();
   const tenantId = webhook.tenantId;
-  const userId = webhook.workflow.userId;
+  const userId = webhook.runbook.userId;
   getEventAgentService()
-    .processWebhookEvent(webhook.id, req.body || {}, async (workflowId, vars) => {
+    .processWebhookEvent(webhook.id, req.body || {}, async (runbookId, vars) => {
       const run = await execService.execute({
-        workflowId,
+        runbookId,
         userId,
         trigger: 'WEBHOOK',
         input: vars,
@@ -308,7 +308,7 @@ async function handleWebhook(req: Request, res: Response) {
 
   res.status(202).json({
     runId: execution.id,
-    runbook: { id: webhook.workflow.id, name: webhook.workflow.name },
+    runbook: { id: webhook.runbook.id, name: webhook.runbook.name },
     triggered: true,
   });
 }

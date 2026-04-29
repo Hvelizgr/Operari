@@ -67,7 +67,7 @@ describe('POST /api/runbook-assist/diagnose', () => {
   it('pulls run logs when runId+stepId are provided', async () => {
     findFirstMock.mockResolvedValueOnce({
       id: 'run-1',
-      workflow: { id: 'wf-1', name: 'Deploy' },
+      runbook: { id: 'wf-1', name: 'Deploy' },
       nodeLogs: [
         {
           id: 'log-1',

@@ -333,7 +333,7 @@ export const runbookInputDefinitionSchema = z
   });
 
 // =============================================================================
-// Workflow Definition (full workflow data)
+// Workflow Definition (full runbook data)
 // =============================================================================
 
 export interface WorkflowDefinition {
@@ -376,7 +376,7 @@ export interface ExecutionOutput {
 }
 
 export interface ExecutionContext {
-  workflowId: string;
+  runbookId: string;
   executionId: string;
   input: ExecutionInput;
   output: ExecutionOutput;

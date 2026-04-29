@@ -29,7 +29,7 @@ router.use((req: AuthRequest, _res, next) => {
 });
 
 const createSchema = z.object({
-  workflowId: z.string().min(1),
+  runbookId: z.string().min(1),
   cronExpr: z.string().min(1).max(120),
 });
 
@@ -51,8 +51,8 @@ router.get('/upcoming', async (req: AuthRequest, res: Response) => {
 
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const { workflowId, cronExpr } = createSchema.parse(req.body);
-    const job = await getService().create(req.user!.tenantId, workflowId, cronExpr);
+    const { runbookId, cronExpr } = createSchema.parse(req.body);
+    const job = await getService().create(req.user!.tenantId, runbookId, cronExpr);
     res.status(201).json(job);
   } catch (err) {
     if (err instanceof z.ZodError) {

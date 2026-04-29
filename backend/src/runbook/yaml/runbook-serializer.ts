@@ -70,7 +70,7 @@ export class RunbookSerializerError extends Error {
  * mint new UUIDs for inserts.
  */
 export function toSpec(
-  workflow: WorkflowRow,
+  runbook: WorkflowRow,
   nodes: WorkflowNodeRow[],
   connections: WorkflowConnectionRow[],
   vars?: Record<string, unknown>
@@ -112,13 +112,13 @@ export function toSpec(
 
   const spec: RunbookSpec = {
     version: 1,
-    name: workflow.name,
+    name: runbook.name,
     steps: sorted,
   };
-  if (workflow.slug) spec.slug = workflow.slug;
-  if (workflow.description) spec.description = workflow.description;
-  if (workflow.category) spec.category = workflow.category;
-  if (workflow.schedule) spec.schedule = workflow.schedule;
+  if (runbook.slug) spec.slug = runbook.slug;
+  if (runbook.description) spec.description = runbook.description;
+  if (runbook.category) spec.category = runbook.category;
+  if (runbook.schedule) spec.schedule = runbook.schedule;
   if (vars && Object.keys(vars).length > 0) spec.vars = vars;
   return spec;
 }
@@ -126,7 +126,7 @@ export function toSpec(
 /**
  * Convert a RunbookSpec back into the rows we will persist.
  *
- * Returns the workflow header fields plus the list of nodes and the
+ * Returns the runbook header fields plus the list of nodes and the
  * list of connections, with newly minted UUIDs. Callers are
  * responsible for diffing against the existing rows in the database
  * (we do not touch Prisma here — keeping the serializer pure makes it

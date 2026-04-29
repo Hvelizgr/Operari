@@ -3,7 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import { ExecutionService } from '../../editor/execution/execution.service';
 
 /**
- * Focused tests for the error-workflow-trigger dispatch helper inside
+ * Focused tests for the error-runbook-trigger dispatch helper inside
  * ExecutionService. The helper is private so we reach it via bracket
  * access — this keeps the helper out of the module's public surface
  * while still letting us pin the failure modes (no handler, ERROR
@@ -51,7 +51,7 @@ interface FakeState {
   runbooks: Array<{ id: string; tenantId: string; name: string; onErrorRunbookId?: string | null }>;
   executions: Array<{
     id: string;
-    workflowId: string;
+    runbookId: string;
     parentExecutionId: string | null;
     trigger: string;
   }>;
@@ -88,7 +88,7 @@ async function callDispatch(
   service: ExecutionService,
   params: {
     failedExecutionId: string;
-    workflow: {
+    runbook: {
       id: string;
       name: string;
       tenantId: string;
@@ -103,7 +103,7 @@ async function callDispatch(
     service as unknown as {
       dispatchErrorHandler: (args: {
         failedExecutionId: string;
-        workflow: unknown;
+        runbook: unknown;
         errorMessage: string;
         tenantId: string | undefined;
         userId: string;
@@ -114,9 +114,9 @@ async function callDispatch(
 
   await method({
     failedExecutionId: params.failedExecutionId,
-    workflow: params.workflow,
+    runbook: params.runbook,
     errorMessage: params.errorMessage ?? 'step kaboom',
-    tenantId: params.tenantId ?? params.workflow.tenantId,
+    tenantId: params.tenantId ?? params.runbook.tenantId,
     userId: params.userId ?? 'user-1',
     contextLogger: STUB_LOGGER as unknown as { info: jest.Mock; warn: jest.Mock },
   });
@@ -132,7 +132,7 @@ describe('ExecutionService.dispatchErrorHandler', () => {
     const { service, executeSpy } = buildService({ runbooks: [], executions: [] });
     await callDispatch(service, {
       failedExecutionId: 'run-1',
-      workflow: { id: 'rb-parent', tenantId: 't-1', name: 'parent' /* no onError */ },
+      runbook: { id: 'rb-parent', tenantId: 't-1', name: 'parent' /* no onError */ },
     });
     expect(executeSpy).not.toHaveBeenCalled();
   });
@@ -144,13 +144,13 @@ describe('ExecutionService.dispatchErrorHandler', () => {
         { id: 'rb-parent', tenantId: 't-1', name: 'parent', onErrorRunbookId: 'rb-handler' },
       ],
       executions: [
-        { id: 'run-err', workflowId: 'rb-parent', parentExecutionId: 'run-root', trigger: 'ERROR' },
+        { id: 'run-err', runbookId: 'rb-parent', parentExecutionId: 'run-root', trigger: 'ERROR' },
       ],
     });
 
     await callDispatch(service, {
       failedExecutionId: 'run-err',
-      workflow: {
+      runbook: {
         id: 'rb-parent',
         tenantId: 't-1',
         name: 'parent',
@@ -170,14 +170,14 @@ describe('ExecutionService.dispatchErrorHandler', () => {
       ],
       // Ancestor chain: run-handler (handler) → run-mid (parent, MANUAL)
       executions: [
-        { id: 'run-top', workflowId: 'rb-handler', parentExecutionId: null, trigger: 'MANUAL' },
-        { id: 'run-mid', workflowId: 'rb-parent', parentExecutionId: 'run-top', trigger: 'MANUAL' },
+        { id: 'run-top', runbookId: 'rb-handler', parentExecutionId: null, trigger: 'MANUAL' },
+        { id: 'run-mid', runbookId: 'rb-parent', parentExecutionId: 'run-top', trigger: 'MANUAL' },
       ],
     });
 
     await callDispatch(service, {
       failedExecutionId: 'run-mid',
-      workflow: {
+      runbook: {
         id: 'rb-parent',
         tenantId: 't-1',
         name: 'parent',
@@ -198,13 +198,13 @@ describe('ExecutionService.dispatchErrorHandler', () => {
         { id: 'rb-handler', tenantId: 't-other', name: 'handler' },
       ],
       executions: [
-        { id: 'run-mid', workflowId: 'rb-parent', parentExecutionId: null, trigger: 'MANUAL' },
+        { id: 'run-mid', runbookId: 'rb-parent', parentExecutionId: null, trigger: 'MANUAL' },
       ],
     });
 
     await callDispatch(service, {
       failedExecutionId: 'run-mid',
-      workflow: {
+      runbook: {
         id: 'rb-parent',
         tenantId: 't-1',
         name: 'parent',
@@ -226,13 +226,13 @@ describe('ExecutionService.dispatchErrorHandler', () => {
         { id: 'rb-parent', tenantId: 't-1', name: 'deploy', onErrorRunbookId: 'rb-handler' },
       ],
       executions: [
-        { id: 'run-failed', workflowId: 'rb-parent', parentExecutionId: null, trigger: 'MANUAL' },
+        { id: 'run-failed', runbookId: 'rb-parent', parentExecutionId: null, trigger: 'MANUAL' },
       ],
     });
 
     await callDispatch(service, {
       failedExecutionId: 'run-failed',
-      workflow: {
+      runbook: {
         id: 'rb-parent',
         tenantId: 't-1',
         name: 'deploy',
@@ -245,7 +245,7 @@ describe('ExecutionService.dispatchErrorHandler', () => {
 
     expect(executeSpy).toHaveBeenCalledTimes(1);
     expect(executeSpy).toHaveBeenCalledWith({
-      workflowId: 'rb-handler',
+      runbookId: 'rb-handler',
       userId: 'sre-1',
       tenantId: 't-1',
       trigger: 'ERROR',
@@ -268,7 +268,7 @@ describe('ExecutionService.dispatchErrorHandler', () => {
         { id: 'rb-parent', tenantId: 't-1', name: 'deploy', onErrorRunbookId: 'rb-handler' },
       ],
       executions: [
-        { id: 'run-failed', workflowId: 'rb-parent', parentExecutionId: null, trigger: 'MANUAL' },
+        { id: 'run-failed', runbookId: 'rb-parent', parentExecutionId: null, trigger: 'MANUAL' },
       ],
     });
     executeSpy.mockRejectedValueOnce(new Error('downstream prisma crash'));
@@ -276,7 +276,7 @@ describe('ExecutionService.dispatchErrorHandler', () => {
     await expect(
       callDispatch(service, {
         failedExecutionId: 'run-failed',
-        workflow: {
+        runbook: {
           id: 'rb-parent',
           tenantId: 't-1',
           name: 'deploy',

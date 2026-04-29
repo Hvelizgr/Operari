@@ -11,7 +11,7 @@ import {
 import { RunbookSpec } from '../../../runbook/yaml/runbook-spec';
 
 describe('runbook-serializer', () => {
-  const workflow: WorkflowRow = {
+  const runbook: WorkflowRow = {
     id: 'wf-1',
     slug: 'deploy-frontend',
     name: 'Deploy frontend',
@@ -67,7 +67,7 @@ describe('runbook-serializer', () => {
 
   describe('toSpec', () => {
     it('builds a spec with friendly ids and topo-sorted steps', () => {
-      const spec = toSpec(workflow, nodes, connections);
+      const spec = toSpec(runbook, nodes, connections);
       expect(spec.version).toBe(1);
       expect(spec.slug).toBe('deploy-frontend');
       expect(spec.name).toBe('Deploy frontend');
@@ -75,14 +75,14 @@ describe('runbook-serializer', () => {
     });
 
     it('collapses single-target next to a string', () => {
-      const spec = toSpec(workflow, nodes, connections);
+      const spec = toSpec(runbook, nodes, connections);
       expect(spec.steps[0].next).toBe('approve-deploy');
       expect(spec.steps[1].next).toBe('deploy');
       expect(spec.steps[2].next).toBeUndefined();
     });
 
     it('preserves config and position', () => {
-      const spec = toSpec(workflow, nodes, connections);
+      const spec = toSpec(runbook, nodes, connections);
       expect(spec.steps[0].config).toEqual({ command: 'npm run build' });
       expect(spec.steps[0].position).toEqual({ x: 100, y: 200 });
     });
@@ -93,7 +93,7 @@ describe('runbook-serializer', () => {
         { ...nodes[0], id: 'b', title: 'Run tests' },
         { ...nodes[0], id: 'c', title: 'Run tests' },
       ];
-      const spec = toSpec(workflow, dupNodes, []);
+      const spec = toSpec(runbook, dupNodes, []);
       expect(spec.steps.map(s => s.id)).toEqual(['run-tests', 'run-tests-2', 'run-tests-3']);
     });
 
@@ -106,7 +106,7 @@ describe('runbook-serializer', () => {
           targetPort: null,
         },
       ];
-      const spec = toSpec(workflow, nodes.slice(0, 2), portConns);
+      const spec = toSpec(runbook, nodes.slice(0, 2), portConns);
       expect(spec.steps[0].next).toEqual([{ to: 'approve-deploy', fromPort: 1 }]);
     });
 
@@ -125,7 +125,7 @@ describe('runbook-serializer', () => {
           targetPort: null,
         },
       ];
-      const spec = toSpec(workflow, nodes, fanoutConns);
+      const spec = toSpec(runbook, nodes, fanoutConns);
       const buildStep = spec.steps.find(s => s.id === 'build')!;
       expect(buildStep.next).toEqual(['approve-deploy', 'deploy']);
     });
@@ -201,7 +201,7 @@ describe('runbook-serializer', () => {
           },
         },
       ];
-      const spec = toSpec(workflow, retryNodes, []);
+      const spec = toSpec(runbook, retryNodes, []);
       expect(spec.steps[0].retry).toEqual({
         count: 3,
         backoff: 'exponential',
@@ -215,7 +215,7 @@ describe('runbook-serializer', () => {
       const retryNodes: WorkflowNodeRow[] = [
         { ...nodes[0], config: { command: 'x', _retry: { count: 0 } } },
       ];
-      const spec = toSpec(workflow, retryNodes, []);
+      const spec = toSpec(runbook, retryNodes, []);
       expect(spec.steps[0].retry).toBeUndefined();
     });
 
@@ -248,7 +248,7 @@ describe('runbook-serializer', () => {
           },
         },
       ];
-      const spec1 = toSpec(workflow, retryNodes, []);
+      const spec1 = toSpec(runbook, retryNodes, []);
       const text = specToYaml(spec1);
       expect(text).toContain('retry:');
       expect(text).toContain('count: 5');
@@ -269,7 +269,7 @@ describe('runbook-serializer', () => {
           },
         },
       ];
-      const spec = toSpec(workflow, condNodes, []);
+      const spec = toSpec(runbook, condNodes, []);
       expect(spec.steps[0].runIf).toBe('{{vars.env}} == "prod"');
       expect(spec.steps[0].skipIf).toBe('{{vars.dryRun}}');
       expect(spec.steps[0].config).toEqual({ command: 'deploy' });
@@ -279,7 +279,7 @@ describe('runbook-serializer', () => {
       const condNodes: WorkflowNodeRow[] = [
         { ...nodes[0], config: { command: 'x', _runIf: '   ', _skipIf: '' } },
       ];
-      const spec = toSpec(workflow, condNodes, []);
+      const spec = toSpec(runbook, condNodes, []);
       expect(spec.steps[0].runIf).toBeUndefined();
       expect(spec.steps[0].skipIf).toBeUndefined();
     });
@@ -291,7 +291,7 @@ describe('runbook-serializer', () => {
           config: { command: 'flaky', _runIf: '{{vars.canary}}', _skipIf: '{{vars.frozen}}' },
         },
       ];
-      const spec1 = toSpec(workflow, condNodes, []);
+      const spec1 = toSpec(runbook, condNodes, []);
       const text = specToYaml(spec1);
       expect(text).toContain('runIf:');
       expect(text).toContain('skipIf:');
@@ -323,14 +323,14 @@ describe('runbook-serializer', () => {
 
   describe('round-trip', () => {
     it('toSpec → specToYaml → yamlToSpec → toSpec is stable', () => {
-      const spec1 = toSpec(workflow, nodes, connections);
+      const spec1 = toSpec(runbook, nodes, connections);
       const text = specToYaml(spec1);
       const spec2 = yamlToSpec(text);
       expect(spec2).toEqual(spec1);
     });
 
     it('YAML output is human-readable', () => {
-      const spec = toSpec(workflow, nodes, connections);
+      const spec = toSpec(runbook, nodes, connections);
       const text = specToYaml(spec);
       expect(text).toContain('version: 1');
       expect(text).toContain('slug: deploy-frontend');

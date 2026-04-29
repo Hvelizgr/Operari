@@ -16,13 +16,13 @@ describe('reduceRunState', () => {
   it('starts as PENDING when only run.created has been seen', () => {
     const state = reduceRunState('exec-1', [
       ev(1, 'run.created', {
-        workflowId: 'wf-1',
+        runbookId: 'wf-1',
         workflowName: 'Deploy',
         trigger: 'manual',
       }),
     ]);
     expect(state.status).toBe('PENDING');
-    expect(state.workflowId).toBe('wf-1');
+    expect(state.runbookId).toBe('wf-1');
     expect(state.workflowName).toBe('Deploy');
     expect(state.trigger).toBe('manual');
     expect(state.lastSeq).toBe(1n);
@@ -30,7 +30,7 @@ describe('reduceRunState', () => {
 
   it('transitions PENDING → RUNNING on run.started', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', { startedAt: '2026-04-07T00:00:00Z' }),
     ]);
     expect(state.status).toBe('RUNNING');
@@ -38,7 +38,7 @@ describe('reduceRunState', () => {
 
   it('counts step.completed events and tracks node ids', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(3, 'step.completed', { nodeName: 'a', nodeType: 'HTTP', durationMs: 5 }, 'n-1'),
       ev(4, 'step.completed', { nodeName: 'b', nodeType: 'Email', durationMs: 7 }, 'n-2'),
@@ -60,7 +60,7 @@ describe('reduceRunState', () => {
 
   it('transitions to COMPLETED on run.completed and records duration', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(3, 'run.completed', { durationMs: 1234, nodesExecuted: 5 }),
     ]);
@@ -70,7 +70,7 @@ describe('reduceRunState', () => {
 
   it('transitions to FAILED on run.failed and records error message', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(3, 'run.failed', { durationMs: 500, errorMessage: 'shell exited 1' }),
     ]);
@@ -81,7 +81,7 @@ describe('reduceRunState', () => {
 
   it('PAUSED state records the pause node, RESUMED clears it', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(3, 'run.paused', { pausedAtNodeId: 'n-approval' }),
     ]);
@@ -89,7 +89,7 @@ describe('reduceRunState', () => {
     expect(state.pausedAt).toBe('n-approval');
 
     const resumed = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(3, 'run.paused', { pausedAtNodeId: 'n-approval' }),
       ev(4, 'run.resumed', {}),
@@ -100,7 +100,7 @@ describe('reduceRunState', () => {
 
   it('CANCELLED is terminal — later events are ignored', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(3, 'run.cancelled', { cancelledAt: '2026-04-07T00:00:00Z' }),
       ev(4, 'step.completed', { nodeName: 'late', nodeType: 'HTTP', durationMs: 1 }, 'n-9'),
@@ -112,7 +112,7 @@ describe('reduceRunState', () => {
 
   it('lastSeq tracks the highest seq seen across all events', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(7, 'run.started', {}),
       ev(42, 'step.completed', { nodeName: 'x', nodeType: 'HTTP', durationMs: 1 }, 'n'),
     ]);
@@ -121,7 +121,7 @@ describe('reduceRunState', () => {
 
   it('ignores unknown event types (forward compatibility)', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(3, 'something.future', { foo: 'bar' }),
       ev(4, 'run.completed', { durationMs: 100, nodesExecuted: 0 }),
@@ -143,7 +143,7 @@ describe('reduceRunState', () => {
 
   it('captures step.completed.output into completedStepOutputs keyed by nodeId', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(
         3,
@@ -166,7 +166,7 @@ describe('reduceRunState', () => {
 
   it('omits outputs when step.completed carries no output payload', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(3, 'step.completed', { nodeName: 'a', nodeType: 'Delay', durationMs: 5 }, 'n-1'),
     ]);
@@ -175,7 +175,7 @@ describe('reduceRunState', () => {
 
   it('tracks a step as inFlight between step.started and step.completed', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(
         3,
@@ -190,7 +190,7 @@ describe('reduceRunState', () => {
 
   it('clears a step from inFlightSteps when step.completed lands', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(
         3,
@@ -211,7 +211,7 @@ describe('reduceRunState', () => {
 
   it('clears a step from inFlightSteps on step.failed or step.skipped', () => {
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(3, 'step.started', { nodeName: 'a', nodeType: 'HTTP', startedAt: 't' }, 'n-1'),
       ev(
@@ -229,7 +229,7 @@ describe('reduceRunState', () => {
   it('retains only the steps still mid-flight when a later step completes', () => {
     // Two parallel branches — a finishes, b crashes mid-way.
     const state = reduceRunState('exec-1', [
-      ev(1, 'run.created', { workflowId: 'wf', workflowName: 'wf', trigger: 'manual' }),
+      ev(1, 'run.created', { runbookId: 'wf', workflowName: 'wf', trigger: 'manual' }),
       ev(2, 'run.started', {}),
       ev(3, 'step.started', { nodeName: 'a', nodeType: 'HTTP', startedAt: 't' }, 'n-1'),
       ev(4, 'step.started', { nodeName: 'b', nodeType: 'SSH', startedAt: 't' }, 'n-2'),

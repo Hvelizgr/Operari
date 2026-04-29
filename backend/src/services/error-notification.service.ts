@@ -9,7 +9,7 @@ import { Logger } from './logger.service';
  */
 export interface ErrorNotificationPayload {
   executionId: string;
-  workflowId: string;
+  runbookId: string;
   workflowName?: string;
   errorCode: string;
   errorMessage: string;
@@ -68,7 +68,7 @@ export class ErrorNotificationService {
       // Prepare notification payload
       const payload: ErrorNotificationPayload = {
         executionId,
-        workflowId: error.context.workflowId!,
+        runbookId: error.context.runbookId!,
         workflowName: error.context.workflowName,
         errorCode: error.code,
         errorMessage: error.message,
@@ -192,7 +192,7 @@ export class ErrorNotificationService {
     // const emailService = EmailService.getInstance();
     // await emailService.send({
     //     to: email,
-    //     subject: `[${payload.severity.toUpperCase()}] Error in workflow ${payload.workflowName}`,
+    //     subject: `[${payload.severity.toUpperCase()}] Error in runbook ${payload.workflowName}`,
     //     html: this.formatEmailBody(payload),
     // });
   }

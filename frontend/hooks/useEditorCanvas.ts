@@ -98,7 +98,7 @@ interface UseEditorCanvasProps {
   lang: 'en' | 'es';
   /** Persist target. Defaults to 'current-workflow' (the scratchpad)
    * when no real runbook is loaded. */
-  workflowId?: string;
+  runbookId?: string;
   /** Header used by the YAML-native save path so the round-trip
    * preserves runbook metadata (slug, description, schedule, …). */
   runbookHeader?: {
@@ -110,7 +110,7 @@ interface UseEditorCanvasProps {
   };
 }
 
-export function useEditorCanvas({ lang, workflowId, runbookHeader }: UseEditorCanvasProps) {
+export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCanvasProps) {
   const windowSize = useWindowSize();
   const canvasRef = useRef<HTMLDivElement>(null);
   const { nodeTypes: dbNodeTypes } = useNodeTypes();
@@ -204,7 +204,7 @@ export function useEditorCanvas({ lang, workflowId, runbookHeader }: UseEditorCa
   const { saveStatus, enableAutosave, setEnableAutosave } = useAutosave({
     nodes,
     connections,
-    workflowId: workflowId ?? 'current-workflow',
+    runbookId: runbookId ?? 'current-workflow',
     runbookHeader,
     debounceMs: EDITOR_CONFIG.CANVAS.DEBOUNCE_MS,
   });

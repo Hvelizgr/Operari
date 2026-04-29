@@ -93,7 +93,7 @@ export class WebhookRetryWorker {
       },
       orderBy: { nextRetryAt: 'asc' },
       take: this.batchSize,
-      include: { webhook: { include: { workflow: { select: { userId: true } } } } },
+      include: { webhook: { include: { runbook: { select: { userId: true } } } } },
     });
 
     for (const row of pending) {
@@ -109,10 +109,10 @@ export class WebhookRetryWorker {
     row: WebhookReceipt & {
       webhook: {
         id: string;
-        workflowId: string;
+        runbookId: string;
         tenantId: string;
         source: string;
-        workflow: { userId: string };
+        runbook: { userId: string };
       };
     },
     report: WebhookRetryReport
@@ -125,8 +125,8 @@ export class WebhookRetryWorker {
 
     try {
       const execution = await this.opts.executionService.execute({
-        workflowId: row.webhook.workflowId,
-        userId: row.webhook.workflow.userId,
+        runbookId: row.webhook.runbookId,
+        userId: row.webhook.runbook.userId,
         trigger: 'WEBHOOK',
         input: variables,
         tenantId: row.webhook.tenantId,

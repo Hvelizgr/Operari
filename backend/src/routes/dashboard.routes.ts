@@ -86,11 +86,11 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       select: { duration: true },
     }),
     prisma.approval.count({
-      where: { workflow: { tenantId }, status: 'PENDING' },
+      where: { runbook: { tenantId }, status: 'PENDING' },
     }),
     prisma.approval.findMany({
-      where: { workflow: { tenantId }, status: 'PENDING' },
-      include: { workflow: { select: { name: true } } },
+      where: { runbook: { tenantId }, status: 'PENDING' },
+      include: { runbook: { select: { name: true } } },
       orderBy: { createdAt: 'desc' },
       take: 5,
     }),
@@ -100,7 +100,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
         status: 'RUNNING',
         startedAt: { lt: stuckThreshold },
       },
-      include: { workflow: { select: { name: true } } },
+      include: { runbook: { select: { name: true } } },
       orderBy: { startedAt: 'asc' },
       take: 5,
     }),
@@ -110,19 +110,19 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
         status: 'FAILED',
         completedAt: { gte: since2h },
       },
-      include: { workflow: { select: { name: true } } },
+      include: { runbook: { select: { name: true } } },
       orderBy: { completedAt: 'desc' },
       take: 5,
     }),
     prisma.execution.findMany({
       where: { ...tenantWorkflowFilter, status: 'RUNNING' },
-      include: { workflow: { select: { name: true } } },
+      include: { runbook: { select: { name: true } } },
       orderBy: { startedAt: 'desc' },
       take: 20,
     }),
     prisma.execution.findMany({
       where: tenantWorkflowFilter,
-      include: { workflow: { select: { name: true } } },
+      include: { runbook: { select: { name: true } } },
       orderBy: { startedAt: 'desc' },
       take: 10,
     }),
@@ -131,10 +131,10 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       select: { startedAt: true, status: true },
     }),
     prisma.execution.groupBy({
-      by: ['workflowId'],
+      by: ['runbookId'],
       where: { ...tenantWorkflowFilter, startedAt: { gte: since7d } },
       _count: { _all: true },
-      orderBy: { _count: { workflowId: 'desc' } },
+      orderBy: { _count: { runbookId: 'desc' } },
       take: 5,
     }),
     prisma.webhook.aggregate({
@@ -152,7 +152,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       },
     }),
     prisma.approval.count({
-      where: { workflow: { tenantId }, createdAt: { gte: since24h } },
+      where: { runbook: { tenantId }, createdAt: { gte: since24h } },
     }),
     prisma.monitor.count({
       where: { tenantId, lastFiredAt: { gte: since24h } },
@@ -190,7 +190,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
   }));
 
   // Top runbooks: hydrate names + success rate + avg duration in one extra query
-  const topWorkflowIds = topRunbooksRaw.map(r => r.workflowId);
+  const topWorkflowIds = topRunbooksRaw.map(r => r.runbookId);
   const topRunbooks: Array<{
     slug: string | null;
     name: string;
@@ -213,34 +213,34 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       }),
       prisma.execution.findMany({
         where: {
-          workflowId: { in: topWorkflowIds },
+          runbookId: { in: topWorkflowIds },
           startedAt: { gte: since7d },
         },
-        select: { workflowId: true, status: true, duration: true },
+        select: { runbookId: true, status: true, duration: true },
       }),
-      // Per-workflow last-20 fan-out. Prisma doesn't express "top N
-      // per group" so we issue one small query per workflow; topN is
+      // Per-runbook last-20 fan-out. Prisma doesn't express "top N
+      // per group" so we issue one small query per runbook; topN is
       // capped at ~10 upstream so the fan-out is bounded. Same pattern
       // as computeEtas in runs.routes.ts.
       Promise.all(
-        topWorkflowIds.map(async workflowId => {
+        topWorkflowIds.map(async runbookId => {
           const rows = await prisma.execution.findMany({
-            where: { workflowId },
+            where: { runbookId },
             orderBy: { startedAt: 'desc' },
             take: 20,
             select: { status: true },
           });
           // Reverse so oldest is first — sparklines read left→right.
-          return { workflowId, statuses: rows.map(r => r.status).reverse() };
+          return { runbookId, statuses: rows.map(r => r.status).reverse() };
         })
       ),
     ]);
     const byId = new Map(workflows.map(w => [w.id, w]));
-    const recentById = new Map(recentPerWorkflow.map(r => [r.workflowId, r.statuses]));
+    const recentById = new Map(recentPerWorkflow.map(r => [r.runbookId, r.statuses]));
     for (const row of topRunbooksRaw) {
-      const wf = byId.get(row.workflowId);
+      const wf = byId.get(row.runbookId);
       if (!wf) continue;
-      const execs = perWorkflowExecs.filter(e => e.workflowId === row.workflowId);
+      const execs = perWorkflowExecs.filter(e => e.runbookId === row.runbookId);
       const success = execs.filter(e => e.status === 'SUCCESS').length;
       const finished = execs.filter(e => e.duration != null);
       topRunbooks.push({
@@ -252,7 +252,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
           finished.length > 0
             ? Math.round(finished.reduce((s, e) => s + (e.duration ?? 0), 0) / finished.length)
             : null,
-        recentStatuses: recentById.get(row.workflowId) ?? [],
+        recentStatuses: recentById.get(row.runbookId) ?? [],
       });
     }
   }
@@ -267,31 +267,31 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     attention: {
       pendingApprovals: pendingApprovalsList.map(a => ({
         id: a.id,
-        runbookName: a.workflow.name,
+        runbookName: a.runbook.name,
         requestedBy: a.requestedBy,
         createdAt: a.createdAt,
       })),
       stuckRuns: stuckRuns.map(r => ({
         id: r.id,
-        runbookName: r.workflow.name,
+        runbookName: r.runbook.name,
         startedAt: r.startedAt,
       })),
       recentFailures: recentFailures.map(r => ({
         id: r.id,
-        runbookName: r.workflow.name,
+        runbookName: r.runbook.name,
         error: r.error,
         completedAt: r.completedAt,
       })),
     },
     liveRuns: liveRuns.map(r => ({
       id: r.id,
-      runbookName: r.workflow.name,
+      runbookName: r.runbook.name,
       trigger: r.trigger,
       startedAt: r.startedAt,
     })),
     recentRuns: recentRuns.map(r => ({
       id: r.id,
-      runbookName: r.workflow.name,
+      runbookName: r.runbook.name,
       status: r.status,
       startedAt: r.startedAt,
       duration: r.duration,

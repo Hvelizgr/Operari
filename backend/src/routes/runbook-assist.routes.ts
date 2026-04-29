@@ -130,10 +130,10 @@ async function resolveContext(body: DiagnoseInput, tenantId: string): Promise<Re
   if (!body.runId || !body.stepId) return ctx;
 
   const run = await prisma.execution.findFirst({
-    where: { id: body.runId, workflow: { tenantId } },
+    where: { id: body.runId, runbook: { tenantId } },
     include: {
       nodeLogs: { orderBy: { startedAt: 'asc' } },
-      workflow: { select: { id: true, name: true } },
+      runbook: { select: { id: true, name: true } },
     },
   });
   if (!run) return ctx;

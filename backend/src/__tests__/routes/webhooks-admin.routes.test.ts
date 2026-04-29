@@ -4,7 +4,7 @@ import request from 'supertest';
 type Webhook = {
   id: string;
   tenantId: string;
-  workflowId: string;
+  runbookId: string;
   source: string;
   url: string;
   secret: string | null;
@@ -12,7 +12,7 @@ type Webhook = {
   triggerCount: number;
   lastTriggeredAt: Date | null;
   createdAt: Date;
-  workflow?: { id: string; userId: string; name: string };
+  runbook?: { id: string; userId: string; name: string };
 };
 
 type Receipt = {
@@ -115,7 +115,7 @@ function seedWebhook(overrides: Partial<Webhook> = {}): Webhook {
   const w: Webhook = {
     id: 'hook-1',
     tenantId: 't1',
-    workflowId: 'wf-1',
+    runbookId: 'wf-1',
     source: 'custom',
     url: 'https://example.test/wh',
     secret: null,
@@ -123,7 +123,7 @@ function seedWebhook(overrides: Partial<Webhook> = {}): Webhook {
     triggerCount: 0,
     lastTriggeredAt: null,
     createdAt: new Date(),
-    workflow: { id: 'wf-1', userId: 'u1', name: 'Runbook' },
+    runbook: { id: 'wf-1', userId: 'u1', name: 'Runbook' },
     ...overrides,
   };
   webhooks.push(w);
@@ -320,7 +320,7 @@ describe('POST /api/webhooks/:id/receipts/:receiptId/replay', () => {
     // raw body under `payload`).
     expect(executeMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        workflowId: 'wf-1',
+        runbookId: 'wf-1',
         trigger: 'WEBHOOK',
         tenantId: 't1',
         input: { payload: { foo: 'bar' } },

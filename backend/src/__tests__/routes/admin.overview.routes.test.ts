@@ -130,7 +130,7 @@ describe('GET /api/admin/overview', () => {
       expect.objectContaining({ where: { tenantId: 't-1' } })
     );
     expect(prisma.scheduledJob.count).toHaveBeenCalledWith({
-      where: { workflow: { tenantId: 't-1' } },
+      where: { runbook: { tenantId: 't-1' } },
     });
   });
 

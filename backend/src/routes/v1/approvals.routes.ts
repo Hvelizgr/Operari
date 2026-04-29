@@ -53,7 +53,7 @@ const handle = (action: ResolveAction) => async (req: ApiKeyRequest, res: Respon
     return res.json({
       id: result.id,
       status: result.status,
-      workflowId: result.workflowId,
+      runbookId: result.runbookId,
       executionId: result.executionId,
       stepId: result.stepId,
       approvedBy: result.approvedBy,
@@ -89,7 +89,7 @@ const handle = (action: ResolveAction) => async (req: ApiKeyRequest, res: Respon
  *
  * Tenant scoping: the Approval model has no tenantId column; it
  * scopes via the parent Workflow's tenantId. The query joins through
- * `workflow.tenantId` so a tenant cannot see another tenant's approvals.
+ * `runbook.tenantId` so a tenant cannot see another tenant's approvals.
  *
  * Pagination: `?limit=N&cursor=<approvalId>` — cursor is the id of
  * the last approval from the previous page. Default limit 50, max 200.
@@ -122,11 +122,11 @@ router.get('/', requireApiKey('approvals:read'), async (req: ApiKeyRequest, res:
 
   const approvals = await prisma.approval.findMany({
     where: {
-      workflow: { tenantId },
+      runbook: { tenantId },
       ...(statusFilter ? { status: statusFilter } : {}),
     },
     include: {
-      workflow: { select: { id: true, slug: true, name: true } },
+      runbook: { select: { id: true, slug: true, name: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: limit + 1,
@@ -141,7 +141,7 @@ router.get('/', requireApiKey('approvals:read'), async (req: ApiKeyRequest, res:
       id: a.id,
       status: a.status,
       message: a.message,
-      workflow: a.workflow,
+      runbook: a.runbook,
       executionId: a.executionId,
       stepId: a.stepId,
       requestedBy: a.requestedBy,

@@ -305,7 +305,7 @@ export class EventAgentService {
   async processWebhookEvent(
     webhookId: string,
     payload: unknown,
-    triggerRunbook: (workflowId: string, vars: Record<string, unknown>) => Promise<{ id: string }>
+    triggerRunbook: (runbookId: string, vars: Record<string, unknown>) => Promise<{ id: string }>
   ): Promise<void> {
     const agents = await this.prisma.eventAgent.findMany({
       where: { webhookId, isEnabled: true },

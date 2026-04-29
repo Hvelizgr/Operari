@@ -20,13 +20,13 @@ export interface ValidationResult {
 
 export class RunbookValidatorService {
   /**
-   * Validate a workflow definition
+   * Validate a runbook definition
    */
-  public validate(workflow: WorkflowDefinition): ValidationResult {
+  public validate(runbook: WorkflowDefinition): ValidationResult {
     const issues: ValidationIssue[] = [];
 
     // 1. Basic empty check
-    if (!workflow.nodes || workflow.nodes.length === 0) {
+    if (!runbook.nodes || runbook.nodes.length === 0) {
       return {
         isValid: true, // Allow saving empty workflows, but warn
         issues: [{ severity: ValidationSeverity.WARNING, message: 'Workflow is empty' }],
@@ -34,22 +34,22 @@ export class RunbookValidatorService {
     }
 
     // 2. Trigger check
-    this.checkTriggers(workflow.nodes, issues);
+    this.checkTriggers(runbook.nodes, issues);
 
     // 3. Orphan check
-    this.checkOrphans(workflow.nodes, workflow.connections, issues);
+    this.checkOrphans(runbook.nodes, runbook.connections, issues);
 
     // 4. Configuration check
-    this.checkConfigurations(workflow.nodes, issues);
+    this.checkConfigurations(runbook.nodes, issues);
 
     // 5. Connection validity
-    this.checkConnections(workflow.nodes, workflow.connections, issues);
+    this.checkConnections(runbook.nodes, runbook.connections, issues);
 
     // 6. Cycle detection. The engine uses a greedy re-queue loop to
     // satisfy multi-parent joins; a runbook with a real cycle (A→B→C→A)
     // would re-queue forever and burn a worker. Catch it at save time
     // so the cycle never reaches the runtime.
-    this.checkCycles(workflow.nodes, workflow.connections, issues);
+    this.checkCycles(runbook.nodes, runbook.connections, issues);
 
     // Determine validity based on errors
     const hasErrors = issues.some(i => i.severity === ValidationSeverity.ERROR);
@@ -144,7 +144,7 @@ export class RunbookValidatorService {
         case 'Schedule':
           // Example: check if cron expression or interval is set
           if (!config.cron && !config.interval) {
-            // often schedule is on the workflow level, but if it's a node...
+            // often schedule is on the runbook level, but if it's a node...
           }
           break;
       }

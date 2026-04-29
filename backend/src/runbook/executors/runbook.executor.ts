@@ -22,7 +22,7 @@ import {
  *
  * 1. **Cycle detection** — a runbook cannot call itself, directly or
  *    transitively. We walk the `parentExecutionId` chain on the DB
- *    and fail immediately if the target workflowId already appears.
+ *    and fail immediately if the target runbookId already appears.
  * 2. **Depth limit** — 5 levels. Tight by design; if you need more
  *    you probably want a flatter composition anyway.
  * 3. **Tenant isolation** — the target runbook must belong to the
@@ -115,7 +115,7 @@ export class RunbookExecutor implements StepExecutor<RunbookStepConfig> {
 
     const parent = await this.prisma.execution.findUnique({
       where: { id: context.runId },
-      select: { userId: true, workflowId: true },
+      select: { userId: true, runbookId: true },
     });
     if (!parent) {
       return {
@@ -165,7 +165,7 @@ export class RunbookExecutor implements StepExecutor<RunbookStepConfig> {
     });
 
     const childExecution = await this.executionService.execute({
-      workflowId: target.id,
+      runbookId: target.id,
       userId: parent.userId,
       tenantId: context.tenantId,
       trigger: 'RUNBOOK',
@@ -182,7 +182,7 @@ export class RunbookExecutor implements StepExecutor<RunbookStepConfig> {
         success: true,
         output: {
           childExecutionId: childExecution.id,
-          workflowId: target.id,
+          runbookId: target.id,
           mode: 'async',
         },
         duration: this.now() - startTime,
@@ -209,7 +209,7 @@ export class RunbookExecutor implements StepExecutor<RunbookStepConfig> {
           success: true,
           output: {
             childExecutionId: childExecution.id,
-            workflowId: target.id,
+            runbookId: target.id,
             status: current.status,
             mode: 'sync',
           },
@@ -223,7 +223,7 @@ export class RunbookExecutor implements StepExecutor<RunbookStepConfig> {
             current.error ?? `Child runbook "${target.name}" ended with status ${current.status}`,
           output: {
             childExecutionId: childExecution.id,
-            workflowId: target.id,
+            runbookId: target.id,
             status: current.status,
             mode: 'sync',
           },
@@ -238,7 +238,7 @@ export class RunbookExecutor implements StepExecutor<RunbookStepConfig> {
       error: `Timed out waiting for runbook "${target.name}" after ${timeoutMs / 1000}s`,
       output: {
         childExecutionId: childExecution.id,
-        workflowId: target.id,
+        runbookId: target.id,
         mode: 'sync',
         timedOut: true,
       },
@@ -248,7 +248,7 @@ export class RunbookExecutor implements StepExecutor<RunbookStepConfig> {
 
   /**
    * Walk up the parent-execution chain looking for two things:
-   *   (a) the same workflowId as the target → that would be a cycle
+   *   (a) the same runbookId as the target → that would be a cycle
    *   (b) too many hops → depth cap.
    *
    * Both cases return a human-readable error string. A clean chain
@@ -271,14 +271,14 @@ export class RunbookExecutor implements StepExecutor<RunbookStepConfig> {
       }
       visited.add(cursor);
 
-      const row: { workflowId: string; parentExecutionId: string | null } | null =
+      const row: { runbookId: string; parentExecutionId: string | null } | null =
         await this.prisma.execution.findUnique({
           where: { id: cursor },
-          select: { workflowId: true, parentExecutionId: true },
+          select: { runbookId: true, parentExecutionId: true },
         });
       if (!row) break;
 
-      if (row.workflowId === targetWorkflowId) {
+      if (row.runbookId === targetWorkflowId) {
         return `Runbook cycle detected: target "${targetWorkflowId}" is already an ancestor in this run`;
       }
 

@@ -46,7 +46,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   tenant            Tenant             @relation(fields: [tenantId], references: [id])
-  workflows         Runbook[]
+  runbooks         Runbook[]
   executions        Execution[]
   conversations     Conversation[]
   connectedAccounts ConnectedAccount[]
@@ -213,7 +213,7 @@ model Tenant {
   planCurrentPeriodEnd DateTime?
 
   users             User[]
-  workflows         Runbook[]
+  runbooks         Runbook[]
   storageBuckets    StorageBucket[]
   conversations     Conversation[]
   agents            Agent[]
@@ -306,8 +306,8 @@ model Runbook {
   executions          Execution[]
   versions            RunbookVersion[]
   // New normalized relationships
-  workflowNodes       RunbookStep[]
-  workflowConnections RunbookConnection[]
+  steps           RunbookStep[]
+  stepConnections RunbookConnection[]
   webhooks            Webhook[]
   approvals           Approval[]
   eventAgents         EventAgent[]
@@ -358,7 +358,7 @@ model RunbookVersion {
 // Normalized RunbookStep model.
 model RunbookStep {
   id         String   @id @default(uuid())
-  workflowId String
+  runbookId String
   type       String
   title      String
   positionX  Float
@@ -370,18 +370,18 @@ model RunbookStep {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  workflow          Runbook             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  runbook          Runbook             @relation(fields: [runbookId], references: [id], onDelete: Cascade)
   sourceConnections RunbookConnection[] @relation("SourceNode")
   targetConnections RunbookConnection[] @relation("TargetNode")
 
-  @@index([workflowId])
+  @@index([runbookId])
   @@index([type])
 }
 
 // Normalized RunbookConnection model.
 model RunbookConnection {
   id           String   @id @default(uuid())
-  workflowId   String
+  runbookId   String
   sourceNodeId String
   sourcePort   Int? // Index of the source port
   targetNodeId String
@@ -389,18 +389,18 @@ model RunbookConnection {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  workflow   Runbook     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  runbook   Runbook     @relation(fields: [runbookId], references: [id], onDelete: Cascade)
   sourceNode RunbookStep @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
   targetNode RunbookStep @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
 
-  @@index([workflowId])
+  @@index([runbookId])
   @@index([sourceNodeId])
   @@index([targetNodeId])
 }
 
 model Execution {
   id          String          @id @default(uuid())
-  workflowId  String
+  runbookId  String
   /// Denormalized tenant scope. Joined-through scoping via Runbook
   /// was fragile — any query that forgot the join leaked data across
   /// tenants. Always populated at create-time from the Runbook, and
@@ -441,14 +441,14 @@ model Execution {
   /// always populate this.
   runbookVersionId String?
 
-  workflow        Runbook          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  runbook        Runbook          @relation(fields: [runbookId], references: [id], onDelete: Cascade)
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user            User             @relation(fields: [userId], references: [id])
   runbookVersion  RunbookVersion?  @relation(fields: [runbookVersionId], references: [id], onDelete: SetNull)
   nodeLogs        NodeLog[]
   executionErrors ExecutionError[]
 
-  @@index([workflowId])
+  @@index([runbookId])
   @@index([userId])
   @@index([status])
   @@index([startedAt])
@@ -535,7 +535,7 @@ model ErrorNotificationConfig {
 
 model ScheduledJob {
   id         String    @id @default(uuid())
-  workflowId String    @unique
+  runbookId String    @unique
   cronExpr   String
   isActive   Boolean   @default(true)
   lastRunAt  DateTime?
@@ -543,7 +543,7 @@ model ScheduledJob {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  workflow Runbook @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  runbook Runbook @relation(fields: [runbookId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
 }
@@ -794,7 +794,7 @@ model EventAgent {
 model Monitor {
   id          String    @id @default(uuid())
   tenantId    String
-  workflowId  String
+  runbookId  String
   name        String
   description String?
   checkType   String // "last_success_within" | "no_run_within" | "failure_rate_above"
@@ -817,11 +817,11 @@ model Monitor {
   updatedAt   DateTime  @updatedAt
 
   tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workflow Runbook        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  runbook Runbook        @relation(fields: [runbookId], references: [id], onDelete: Cascade)
   events   MonitorEvent[]
 
   @@index([tenantId])
-  @@index([workflowId])
+  @@index([runbookId])
   @@index([status])
 }
 
@@ -930,7 +930,7 @@ model ApiKey {
 model Webhook {
   id              String    @id @default(uuid())
   tenantId        String
-  workflowId      String // Workflow/Runbook this webhook triggers
+  runbookId      String // Workflow/Runbook this webhook triggers
   source          String // "sentry" | "datadog" | "github" | "custom"
   token           String    @unique // URL token: /api/webhooks/:token/:event
   secret          String? // Optional HMAC secret for signature validation
@@ -940,13 +940,13 @@ model Webhook {
   createdAt       DateTime  @default(now())
 
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workflow    Runbook      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  runbook    Runbook      @relation(fields: [runbookId], references: [id], onDelete: Cascade)
   eventAgents EventAgent[]
   receipts    WebhookReceipt[]
 
   @@index([tenantId])
   @@index([token])
-  @@index([workflowId])
+  @@index([runbookId])
 }
 
 /// Debug trail for inbound webhooks. One row per POST to
@@ -1003,7 +1003,7 @@ model WebhookReceipt {
 /// and creates an Approval record. The run resumes once approved/rejected.
 model Approval {
   id          String         @id @default(uuid())
-  workflowId  String
+  runbookId  String
   executionId String // The Execution/Run this approval belongs to
   stepId      String // The node id in the workflow that requested approval
   status      ApprovalStatus @default(PENDING)
@@ -1014,10 +1014,10 @@ model Approval {
   comment     String?
   createdAt   DateTime       @default(now())
 
-  workflow Runbook @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  runbook Runbook @relation(fields: [runbookId], references: [id], onDelete: Cascade)
 
   @@index([executionId])
-  @@index([workflowId])
+  @@index([runbookId])
   @@index([status])
 }
 

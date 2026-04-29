@@ -21,13 +21,13 @@ export class ScheduleService {
   ) {}
 
   /**
-   * Hydrate one ScheduledJob row with workflow info, last run status,
+   * Hydrate one ScheduledJob row with runbook info, last run status,
    * and a human-readable cron description. Used by the list endpoint.
    */
   private async hydrate(
     job: {
       id: string;
-      workflowId: string;
+      runbookId: string;
       cronExpr: string;
       isActive: boolean;
       lastRunAt: Date | null;
@@ -36,21 +36,21 @@ export class ScheduleService {
     },
     tenantId: string
   ) {
-    const [workflow, lastRun] = await Promise.all([
+    const [runbook, lastRun] = await Promise.all([
       this.prisma.runbook.findFirst({
-        where: { id: job.workflowId, tenantId },
+        where: { id: job.runbookId, tenantId },
         select: { id: true, slug: true, name: true },
       }),
       this.prisma.execution.findFirst({
         where: {
-          workflowId: job.workflowId,
+          runbookId: job.runbookId,
           trigger: 'SCHEDULED',
         },
         orderBy: { startedAt: 'desc' },
         select: { id: true, status: true, startedAt: true, completedAt: true },
       }),
     ]);
-    if (!workflow) return null;
+    if (!runbook) return null;
 
     let humanCron: string | null = null;
     try {
@@ -61,7 +61,7 @@ export class ScheduleService {
 
     return {
       id: job.id,
-      workflow,
+      runbook,
       cronExpr: job.cronExpr,
       humanCron,
       isActive: job.isActive,
@@ -74,7 +74,7 @@ export class ScheduleService {
 
   async list(tenantId: string) {
     const jobs = await this.prisma.scheduledJob.findMany({
-      where: { workflow: { tenantId } },
+      where: { runbook: { tenantId } },
       orderBy: { createdAt: 'desc' },
     });
     const hydrated = await Promise.all(jobs.map(j => this.hydrate(j, tenantId)));
@@ -85,7 +85,7 @@ export class ScheduleService {
     const cutoff = new Date(Date.now() + hours * 60 * 60 * 1000);
     const jobs = await this.prisma.scheduledJob.findMany({
       where: {
-        workflow: { tenantId },
+        runbook: { tenantId },
         isActive: true,
         nextRunAt: { not: null, lte: cutoff },
       },
@@ -96,7 +96,7 @@ export class ScheduleService {
     return hydrated.filter((j): j is NonNullable<typeof j> => j !== null);
   }
 
-  async create(tenantId: string, workflowId: string, cronExpr: string) {
+  async create(tenantId: string, runbookId: string, cronExpr: string) {
     if (!cron.validate(cronExpr)) {
       throw new CustomError({
         message: `Invalid cron expression: ${cronExpr}`,
@@ -104,21 +104,21 @@ export class ScheduleService {
         userMessage: 'The cron expression is not valid.',
       });
     }
-    // Confirm the workflow belongs to the tenant.
-    const workflow = await this.prisma.runbook.findFirst({
-      where: { id: workflowId, tenantId },
+    // Confirm the runbook belongs to the tenant.
+    const runbook = await this.prisma.runbook.findFirst({
+      where: { id: runbookId, tenantId },
     });
-    if (!workflow) {
+    if (!runbook) {
       throw new CustomError({
-        message: `Workflow ${workflowId} not found for tenant ${tenantId}`,
+        message: `Workflow ${runbookId} not found for tenant ${tenantId}`,
         code: ErrorCode.WORKFLOW_NOT_FOUND,
         userMessage: 'Runbook not found.',
       });
     }
-    // Schema enforces workflowId @unique, so a second create on the
+    // Schema enforces runbookId @unique, so a second create on the
     // same runbook would 500. Convert to a clean 409.
     const existing = await this.prisma.scheduledJob.findUnique({
-      where: { workflowId },
+      where: { runbookId },
     });
     if (existing) {
       throw new CustomError({
@@ -130,19 +130,19 @@ export class ScheduleService {
 
     const job = await this.prisma.scheduledJob.create({
       data: {
-        workflowId,
+        runbookId,
         cronExpr,
         isActive: true,
         nextRunAt: computeNextRunAt(cronExpr),
       },
     });
-    await this.scheduler.scheduleJob(job.id, workflowId, cronExpr);
+    await this.scheduler.scheduleJob(job.id, runbookId, cronExpr);
     return job;
   }
 
   async update(tenantId: string, id: string, patch: { cronExpr?: string; isActive?: boolean }) {
     const existing = await this.prisma.scheduledJob.findFirst({
-      where: { id, workflow: { tenantId } },
+      where: { id, runbook: { tenantId } },
     });
     if (!existing) return null;
 
@@ -171,7 +171,7 @@ export class ScheduleService {
     // require unschedule + (maybe) reschedule.
     await this.scheduler.unscheduleJob(id);
     if (nextActive) {
-      await this.scheduler.scheduleJob(id, existing.workflowId, nextCron);
+      await this.scheduler.scheduleJob(id, existing.runbookId, nextCron);
     }
 
     return updated;
@@ -179,7 +179,7 @@ export class ScheduleService {
 
   async delete(tenantId: string, id: string) {
     const existing = await this.prisma.scheduledJob.findFirst({
-      where: { id, workflow: { tenantId } },
+      where: { id, runbook: { tenantId } },
     });
     if (!existing) return null;
     await this.scheduler.unscheduleJob(id);
@@ -194,17 +194,17 @@ export class ScheduleService {
    */
   async runNow(tenantId: string, id: string) {
     const job = await this.prisma.scheduledJob.findFirst({
-      where: { id, workflow: { tenantId } },
-      include: { workflow: true },
+      where: { id, runbook: { tenantId } },
+      include: { runbook: true },
     });
     if (!job) return null;
-    const workflow = await this.prisma.runbook.findFirst({
-      where: { id: job.workflowId, tenantId },
+    const runbook = await this.prisma.runbook.findFirst({
+      where: { id: job.runbookId, tenantId },
     });
-    if (!workflow) return null;
+    if (!runbook) return null;
     const run = await this.executionService.execute({
-      workflowId: workflow.id,
-      userId: workflow.userId,
+      runbookId: runbook.id,
+      userId: runbook.userId,
       trigger: 'MANUAL',
       tenantId,
     });

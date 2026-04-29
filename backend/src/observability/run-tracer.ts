@@ -11,8 +11,8 @@ import { Context, context as otelContext, Span, SpanStatusCode, trace } from '@o
  *
  * Span attributes (stable contract — dashboards depend on these):
  *
- *   runbook.id           string  (workflow id)
- *   runbook.name         string  (workflow name, free-form)
+ *   runbook.id           string  (runbook id)
+ *   runbook.name         string  (runbook name, free-form)
  *   tenant.id            string
  *   runner.type          string  (local | docker | fly)
  *   trigger              string  (manual | webhook | schedule | api)

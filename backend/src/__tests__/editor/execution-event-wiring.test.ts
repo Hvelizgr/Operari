@@ -94,7 +94,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     });
     (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-1',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',
@@ -108,7 +108,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     });
 
     await svc.execute({
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       userId: 'user-1',
       trigger: TriggerType.MANUAL,
       tenantId: 'tenant-1',
@@ -120,7 +120,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     const types = events.map(e => e.type);
     // The first two events must be run.created then run.started, in that
     // order. The runWorkflow loop adds run.completed asynchronously after
-    // the empty workflow finishes.
+    // the empty runbook finishes.
     expect(types[0]).toBe('run.created');
     expect(types[1]).toBe('run.started');
     expect(events[0].tenantId).toBe('tenant-1');
@@ -136,7 +136,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     });
     (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-1',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',
@@ -152,7 +152,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     });
 
     await svc.execute({
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       userId: 'user-1',
       trigger: TriggerType.MANUAL,
       tenantId: 'tenant-1',
@@ -178,7 +178,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     });
     (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-1',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',
@@ -197,7 +197,7 @@ describe('ExecutionService event store wiring (ADR 0003 phase 2)', () => {
     // Must not throw — durability is best-effort
     await expect(
       svc.execute({
-        workflowId: 'wf-1',
+        runbookId: 'wf-1',
         userId: 'user-1',
         trigger: TriggerType.MANUAL,
         tenantId: 'tenant-1',

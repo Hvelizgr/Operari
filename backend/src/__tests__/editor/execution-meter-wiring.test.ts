@@ -98,7 +98,7 @@ const buildPrisma = (overrides: { stripeCustomerId?: string | null } = {}) =>
   }) as unknown as PrismaClient;
 
 const baseExecuteParams = {
-  workflowId: 'wf-1',
+  runbookId: 'wf-1',
   userId: 'user-1',
   trigger: TriggerType.MANUAL,
   tenantId: 'tenant-1',
@@ -119,7 +119,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
     });
     (prisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-1',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',
@@ -148,7 +148,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
   });
 
   it('records run.completed after a successful run finishes', async () => {
-    // ExecutionService.runWorkflow rejects an empty workflow with
+    // ExecutionService.runWorkflow rejects an empty runbook with
     // WORKFLOW_INVALID, so we have to give it at least one node.
     // We mock NodeExecutor (jest.mock at the top of this file),
     // so the node implementation does not need to do real work —
@@ -163,7 +163,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
     });
     (prisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-1',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',
@@ -194,7 +194,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
   });
 
   it('records the failure path as a billable run.completed (failed runs still consumed resources)', async () => {
-    // Empty workflow → WORKFLOW_INVALID → run.failed branch.
+    // Empty runbook → WORKFLOW_INVALID → run.failed branch.
     // safeMeter maps run.failed → run.completed at the billing
     // layer so the customer is still billed for the resources
     // the failed run consumed (a deliberate business decision
@@ -208,7 +208,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
     });
     (prisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-1',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',
@@ -247,7 +247,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
     });
     (prisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-1',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',
@@ -282,7 +282,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
     });
     (prisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-1',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',
@@ -320,7 +320,7 @@ describe('ExecutionService billing meter wiring (p1 #12)', () => {
     });
     (prisma.execution.create as jest.Mock).mockResolvedValue({
       id: 'exec-1',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       userId: 'user-1',
       status: 'RUNNING',
       trigger: 'MANUAL',

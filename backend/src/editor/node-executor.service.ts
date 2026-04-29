@@ -217,7 +217,7 @@ export class NodeExecutor {
     // The 'default-tenant' fallback is only reached on editor
     // test-this-step previews where the dispatcher is invoked
     // without an authenticated request context. Real executions
-    // always pass the runtime tenantId derived from the workflow
+    // always pass the runtime tenantId derived from the runbook
     // row that was loaded with multi-tenant scoping in
     // ExecutionService.execute().
     const effectiveTenantId = tenantId ?? 'default-tenant';

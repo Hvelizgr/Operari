@@ -24,7 +24,7 @@ function getService(): ApprovalService {
 }
 
 // Anonymous fallback for dev/single-tenant self-host, mirrors
-// workflow.routes.ts. Real JWT verification is enforced on the
+// runbook.routes.ts. Real JWT verification is enforced on the
 // /api/v1/* surfaces — this route exists so the in-app Approval
 // Inbox UI can talk to the same backend without an API key.
 router.use((req: AuthRequest, _res, next) => {
@@ -77,11 +77,11 @@ router.get('/', async (req: AuthRequest, res) => {
 
   const approvals = await prisma.approval.findMany({
     where: {
-      workflow: { tenantId },
+      runbook: { tenantId },
       ...(statusFilter ? { status: statusFilter } : {}),
     },
     include: {
-      workflow: { select: { id: true, slug: true, name: true } },
+      runbook: { select: { id: true, slug: true, name: true } },
     },
     orderBy: { createdAt: 'desc' },
     take: limit + 1,
@@ -96,7 +96,7 @@ router.get('/', async (req: AuthRequest, res) => {
       id: a.id,
       status: a.status,
       message: a.message,
-      workflow: a.workflow,
+      runbook: a.runbook,
       executionId: a.executionId,
       stepId: a.stepId,
       requestedBy: a.requestedBy,
@@ -140,7 +140,7 @@ const handle =
       return res.json({
         id: result.id,
         status: result.status,
-        workflowId: result.workflowId,
+        runbookId: result.runbookId,
         executionId: result.executionId,
         stepId: result.stepId,
         approvedBy: result.approvedBy,

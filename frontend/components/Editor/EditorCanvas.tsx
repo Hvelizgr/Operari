@@ -149,7 +149,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     toggleSnapToGrid,
   } = useEditorCanvas({
     lang,
-    workflowId: urlRunbookId ?? undefined,
+    runbookId: urlRunbookId ?? undefined,
     runbookHeader: {
       name: workflowProperties.name,
       description: workflowProperties.description,
@@ -206,7 +206,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   // state but the effect that keys on `executing` is declared below
   // where the execution hook result is in scope.
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
-  // Load a runbook from /editor?id=<workflowId>. Until this effect
+  // Load a runbook from /editor?id=<runbookId>. Until this effect
   // ran, the editor showed INITIAL_NODES — a single empty shell step
   // — regardless of what the user clicked from /runbooks. This is
   // the wiring that makes the ✏ Edit button on the Runbooks page

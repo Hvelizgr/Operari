@@ -1,5 +1,5 @@
 /**
- * Standardized error codes for the workflow execution system
+ * Standardized error codes for the runbook execution system
  */
 export enum ErrorCode {
   // General errors (1xxx)
@@ -120,7 +120,7 @@ export const ERROR_CODE_TO_HTTP: Record<ErrorCode, number> = {
  * Execution context for error tracing
  */
 export interface ExecutionErrorContext {
-  workflowId?: string;
+  runbookId?: string;
   workflowName?: string;
   executionId?: string;
   nodeId?: string;
@@ -192,9 +192,9 @@ export class CustomError extends Error {
         'There is a configuration issue. Please check your settings.',
       [ErrorCode.TIMEOUT_ERROR]: 'The operation timed out. Please try again.',
 
-      [ErrorCode.WORKFLOW_NOT_FOUND]: 'The workflow was not found.',
-      [ErrorCode.WORKFLOW_INVALID]: 'The workflow configuration is invalid.',
-      [ErrorCode.WORKFLOW_DISABLED]: 'The workflow is currently disabled.',
+      [ErrorCode.WORKFLOW_NOT_FOUND]: 'The runbook was not found.',
+      [ErrorCode.WORKFLOW_INVALID]: 'The runbook configuration is invalid.',
+      [ErrorCode.WORKFLOW_DISABLED]: 'The runbook is currently disabled.',
       [ErrorCode.EXECUTION_NOT_FOUND]: 'The execution was not found.',
       [ErrorCode.QUOTA_EXCEEDED]: 'Plan quota exceeded. Upgrade to continue.',
 
@@ -434,15 +434,15 @@ export class ExternalServiceError extends CustomError {
 }
 
 /**
- * Error for workflow-level issues
+ * Error for runbook-level issues
  */
 export class WorkflowError extends CustomError {
   constructor(options: {
     message: string;
     code?: ErrorCode;
-    workflowId: string;
+    runbookId: string;
     workflowName?: string;
-    context?: Omit<ExecutionErrorContext, 'workflowId' | 'workflowName'>;
+    context?: Omit<ExecutionErrorContext, 'runbookId' | 'workflowName'>;
     severity?: ErrorSeverity;
     cause?: Error;
     userMessage?: string;
@@ -452,7 +452,7 @@ export class WorkflowError extends CustomError {
       code: options.code || ErrorCode.WORKFLOW_INVALID,
       context: {
         ...options.context,
-        workflowId: options.workflowId,
+        runbookId: options.runbookId,
         workflowName: options.workflowName,
       },
       severity: options.severity || ErrorSeverity.CRITICAL,

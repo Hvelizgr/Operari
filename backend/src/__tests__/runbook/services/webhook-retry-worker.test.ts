@@ -15,10 +15,10 @@ type RowShape = {
   body: unknown;
   webhook: {
     id: string;
-    workflowId: string;
+    runbookId: string;
     tenantId: string;
     source: string;
-    workflow: { userId: string };
+    runbook: { userId: string };
   };
 };
 
@@ -32,10 +32,10 @@ const row = (overrides: Partial<RowShape> = {}): RowShape => ({
   body: { ref: 'refs/heads/main' },
   webhook: {
     id: 'wh-1',
-    workflowId: 'wf-1',
+    runbookId: 'wf-1',
     tenantId: 't-1',
     source: 'generic',
-    workflow: { userId: 'user-1' },
+    runbook: { userId: 'user-1' },
   },
   ...overrides,
 });
@@ -191,7 +191,7 @@ describe('WebhookRetryWorker.runOnce', () => {
     expect(wh.mapPayloadToVariables).toHaveBeenCalledWith('generic', undefined, { raw: 1 });
     expect(exec.execute).toHaveBeenCalledWith(
       expect.objectContaining({
-        workflowId: 'wf-1',
+        runbookId: 'wf-1',
         userId: 'user-1',
         tenantId: 't-1',
         trigger: 'WEBHOOK',

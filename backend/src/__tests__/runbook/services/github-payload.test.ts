@@ -204,7 +204,7 @@ describe('WebhookService.mapPayloadToVariables (github)', () => {
   });
 
   describe('workflow_run event', () => {
-    it('extracts workflow run fields', () => {
+    it('extracts runbook run fields', () => {
       const vars = svc.mapPayloadToVariables('github', 'workflow_run', {
         action: 'completed',
         workflow_run: {

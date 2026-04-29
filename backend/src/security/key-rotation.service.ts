@@ -5,7 +5,7 @@ import { logger } from '../config/logger.config';
 import type { SecretCipher } from './secret-cipher';
 
 /**
- * KeyRotationService — drives the re-encrypt-everything workflow.
+ * KeyRotationService — drives the re-encrypt-everything runbook.
  *
  * Why this exists: PENDIENTE.md flagged "rotating OPERARI_SECRET_KEY
  * is manual y riesgoso" as the last crypto gap before SOC 2. This

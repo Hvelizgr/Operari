@@ -12,7 +12,7 @@ class FakeAudit {
   }
 }
 
-const buildPrisma = (executionRow: { workflowId: string; userId: string } | null) =>
+const buildPrisma = (executionRow: { runbookId: string; userId: string } | null) =>
   ({
     execution: {
       findUnique: jest.fn().mockResolvedValue(executionRow),
@@ -33,7 +33,7 @@ const ctx = (over: Partial<ExecutorContext> = {}): ExecutorContext => ({
 
 describe('ApprovalExecutor', () => {
   it('creates an Approval row, returns paused=true, and emits approval.requested', async () => {
-    const prisma = buildPrisma({ workflowId: 'wf-1', userId: 'user-1' });
+    const prisma = buildPrisma({ runbookId: 'wf-1', userId: 'user-1' });
     const audit = new FakeAudit();
     const executor = new ApprovalExecutor(prisma, {
       audit: audit as unknown as AuditService,
@@ -50,7 +50,7 @@ describe('ApprovalExecutor', () => {
 
     expect(prisma.approval.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        workflowId: 'wf-1',
+        runbookId: 'wf-1',
         executionId: 'run-1',
         stepId: 'step-1',
         status: 'PENDING',
@@ -65,7 +65,7 @@ describe('ApprovalExecutor', () => {
     expect(event.tenantId).toBe('tenant-1');
     expect(event.payload).toMatchObject({
       executionId: 'run-1',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       stepId: 'step-1',
       approvalId: 'approval-1',
       message: 'Approve deploy?',
@@ -75,7 +75,7 @@ describe('ApprovalExecutor', () => {
   });
 
   it('skips audit when tenantId is missing', async () => {
-    const prisma = buildPrisma({ workflowId: 'wf-1', userId: 'user-1' });
+    const prisma = buildPrisma({ runbookId: 'wf-1', userId: 'user-1' });
     const audit = new FakeAudit();
     const executor = new ApprovalExecutor(prisma, {
       audit: audit as unknown as AuditService,
@@ -87,7 +87,7 @@ describe('ApprovalExecutor', () => {
   });
 
   it('does not call audit when audit is explicitly null', async () => {
-    const prisma = buildPrisma({ workflowId: 'wf-1', userId: 'user-1' });
+    const prisma = buildPrisma({ runbookId: 'wf-1', userId: 'user-1' });
     const executor = new ApprovalExecutor(prisma, { audit: null });
 
     const result = await executor.execute({ message: 'Approve?' }, ctx());
@@ -110,7 +110,7 @@ describe('ApprovalExecutor', () => {
   });
 
   it('does not throw when audit.record itself fails', async () => {
-    const prisma = buildPrisma({ workflowId: 'wf-1', userId: 'user-1' });
+    const prisma = buildPrisma({ runbookId: 'wf-1', userId: 'user-1' });
     const brokenAudit = {
       record: jest.fn().mockRejectedValue(new Error('db down')),
     } as unknown as AuditService;
@@ -124,7 +124,7 @@ describe('ApprovalExecutor', () => {
   });
 
   it('resolves message templates against context.variables', async () => {
-    const prisma = buildPrisma({ workflowId: 'wf-1', userId: 'user-1' });
+    const prisma = buildPrisma({ runbookId: 'wf-1', userId: 'user-1' });
     const audit = new FakeAudit();
     const executor = new ApprovalExecutor(prisma, {
       audit: audit as unknown as AuditService,

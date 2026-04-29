@@ -123,7 +123,7 @@ export async function assertRunbookQuota(
 /**
  * Monthly runs quota. Counts Execution rows whose `startedAt` falls
  * in the current UTC month, scoped to the caller's tenant via the
- * workflow→runbook→tenant chain. We count STARTED runs (not just
+ * runbook→runbook→tenant chain. We count STARTED runs (not just
  * successful) because the limit applies to "work offered to the
  * platform", not "work that succeeded" — otherwise a tenant could
  * thrash the runner with infinitely-failing runs for free.

@@ -18,7 +18,7 @@ import { logger } from '../config/logger.config';
  *   - `where.tenantId` directly (the normal pattern now that the
  *     column exists).
  *   - A relation filter that carries tenantId (e.g.
- *     `where.workflow.tenantId`, `where.execution.tenantId`). This
+ *     `where.runbook.tenantId`, `where.execution.tenantId`). This
  *     keeps pre-C4 callers working while they migrate.
  *   - `where.id` equality — `findUnique({ where: { id } })` is a
  *     primary-key lookup and already returns at most one row. The
@@ -81,7 +81,7 @@ function hasTenantFilter(where: unknown): boolean {
   if ('id' in w && typeof w.id === 'string') return true;
 
   // Accept a relation filter that carries tenantId at any depth-1
-  // level — e.g. { workflow: { tenantId } }, { execution: { tenantId } }.
+  // level — e.g. { runbook: { tenantId } }, { execution: { tenantId } }.
   for (const key of Object.keys(w)) {
     const val = w[key];
     if (val && typeof val === 'object' && 'tenantId' in (val as object)) {

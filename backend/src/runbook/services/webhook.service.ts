@@ -19,7 +19,7 @@ export class WebhookService {
 
   async create(
     tenantId: string,
-    workflowId: string,
+    runbookId: string,
     source: string,
     useSecret = true
   ): Promise<CreatedWebhook> {
@@ -29,7 +29,7 @@ export class WebhookService {
     const webhook = await this.prisma.webhook.create({
       data: {
         tenantId,
-        workflowId,
+        runbookId,
         source,
         token,
         secret,
@@ -47,7 +47,7 @@ export class WebhookService {
   async findByToken(token: string) {
     return this.prisma.webhook.findUnique({
       where: { token },
-      include: { workflow: true },
+      include: { runbook: true },
     });
   }
 
@@ -55,7 +55,7 @@ export class WebhookService {
     const baseUrl = process.env.APP_URL || 'http://localhost:4000';
     const webhooks = await this.prisma.webhook.findMany({
       where: { tenantId },
-      include: { workflow: { select: { id: true, name: true, slug: true } } },
+      include: { runbook: { select: { id: true, name: true, slug: true } } },
       orderBy: { createdAt: 'desc' },
     });
     return webhooks.map(w => ({ ...w, url: `${baseUrl}/api/webhooks/${w.token}` }));

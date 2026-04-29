@@ -135,7 +135,7 @@ describe('RunbookValidatorService.checkCycles', () => {
     expect(cycleIssues).toHaveLength(0);
   });
 
-  it('marks the workflow invalid when a cycle is present', () => {
+  it('marks the runbook invalid when a cycle is present', () => {
     const result = validator.validate(
       wf([node('a', 'Trigger'), node('b')], [edge('a', 'b'), edge('b', 'a')])
     );

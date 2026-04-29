@@ -16,7 +16,7 @@ function fakePrisma(overrides: Record<string, any> = {}): PrismaClient {
       findFirst: jest.fn(async (_args: any) => overrides.nodeLog ?? null),
     },
     runbook: {
-      findMany: jest.fn(async (_args: any) => overrides.workflows ?? []),
+      findMany: jest.fn(async (_args: any) => overrides.runbooks ?? []),
     },
   } as unknown as PrismaClient;
 }
@@ -49,7 +49,7 @@ describe('buildOrchestratorTools', () => {
             startedAt: new Date('2026-04-01T10:00:00Z'),
             duration: 1500,
             error: null,
-            workflow: { slug: 'deploy', name: 'Deploy Frontend' },
+            runbook: { slug: 'deploy', name: 'Deploy Frontend' },
           },
         ],
       });
@@ -71,7 +71,7 @@ describe('buildOrchestratorTools', () => {
       expect(prisma.execution.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            workflow: { tenantId: TENANT },
+            runbook: { tenantId: TENANT },
           }),
         })
       );
@@ -85,7 +85,7 @@ describe('buildOrchestratorTools', () => {
       expect(prisma.execution.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            workflow: { tenantId: TENANT },
+            runbook: { tenantId: TENANT },
             status: 'FAILED',
           }),
           take: 5,
@@ -117,7 +117,7 @@ describe('buildOrchestratorTools', () => {
           completedAt: new Date('2026-04-01T10:01:00Z'),
           duration: 60000,
           error: 'Step migrate failed',
-          workflow: { slug: 'db-migrate', name: 'DB Migrate' },
+          runbook: { slug: 'db-migrate', name: 'DB Migrate' },
           nodeLogs: [
             {
               nodeId: 'step-1',
@@ -152,7 +152,7 @@ describe('buildOrchestratorTools', () => {
         expect.objectContaining({
           where: {
             id: 'run-1',
-            workflow: { tenantId: TENANT },
+            runbook: { tenantId: TENANT },
           },
         })
       );
@@ -169,7 +169,7 @@ describe('buildOrchestratorTools', () => {
           completedAt: new Date(),
           duration: 100,
           error: null,
-          workflow: { slug: 's', name: 'S' },
+          runbook: { slug: 's', name: 'S' },
           nodeLogs: [
             {
               nodeId: 'step-1',
@@ -260,7 +260,7 @@ describe('buildOrchestratorTools', () => {
       expect(prisma.nodeLog.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            execution: { workflow: { tenantId: TENANT } },
+            execution: { runbook: { tenantId: TENANT } },
           }),
         })
       );
@@ -306,14 +306,14 @@ describe('buildOrchestratorTools', () => {
             status: 'FAILED',
             startedAt: new Date('2026-04-01T10:00:00Z'),
             error: 'ECONNREFUSED at db:5432',
-            workflow: { slug: 'db', name: 'DB Check' },
+            runbook: { slug: 'db', name: 'DB Check' },
           },
           {
             id: 'run-2',
             status: 'FAILED',
             startedAt: new Date('2026-04-02T10:00:00Z'),
             error: 'ECONNREFUSED at db:5432',
-            workflow: { slug: 'db', name: 'DB Check' },
+            runbook: { slug: 'db', name: 'DB Check' },
           },
         ],
       });
@@ -328,7 +328,7 @@ describe('buildOrchestratorTools', () => {
       expect(prisma.execution.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            workflow: { tenantId: TENANT },
+            runbook: { tenantId: TENANT },
             error: { contains: 'ECONNREFUSED', mode: 'insensitive' },
           }),
         })
@@ -344,7 +344,7 @@ describe('buildOrchestratorTools', () => {
             status: 'FAILED',
             startedAt: new Date(),
             error: longErr,
-            workflow: { slug: 'x', name: 'X' },
+            runbook: { slug: 'x', name: 'X' },
           },
         ],
       });
@@ -375,7 +375,7 @@ describe('buildOrchestratorTools', () => {
   describe('list_runbooks', () => {
     it('lists runbooks for the tenant', async () => {
       const prisma = fakePrisma({
-        workflows: [
+        runbooks: [
           {
             id: 'wf-1',
             slug: 'deploy',
@@ -428,8 +428,8 @@ describe('buildOrchestratorTools', () => {
       await toolsB.list_recent_runs.execute({ status: 'ANY', limit: 10 });
 
       const calls = (prisma.execution.findMany as jest.Mock).mock.calls;
-      expect(calls[0][0].where.workflow.tenantId).toBe('tenant-a');
-      expect(calls[1][0].where.workflow.tenantId).toBe('tenant-b');
+      expect(calls[0][0].where.runbook.tenantId).toBe('tenant-a');
+      expect(calls[1][0].where.runbook.tenantId).toBe('tenant-b');
     });
   });
 

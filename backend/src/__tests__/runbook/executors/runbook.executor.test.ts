@@ -20,7 +20,7 @@ interface FakeRunbook {
 }
 interface FakeExecution {
   id: string;
-  workflowId: string;
+  runbookId: string;
   parentExecutionId: string | null;
   status: 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
   error: string | null;
@@ -83,7 +83,7 @@ describe('RunbookExecutor', () => {
     const executions: FakeExecution[] = [
       {
         id: 'parent-run',
-        workflowId: 'rb-parent',
+        runbookId: 'rb-parent',
         parentExecutionId: null,
         status: 'RUNNING',
         error: null,
@@ -91,7 +91,7 @@ describe('RunbookExecutor', () => {
       },
       {
         id: 'child-run',
-        workflowId: 'rb-target',
+        runbookId: 'rb-target',
         parentExecutionId: 'parent-run',
         status: 'SUCCESS',
         error: null,
@@ -113,7 +113,7 @@ describe('RunbookExecutor', () => {
 
     expect(result.success).toBe(true);
     expect(execSvc.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ workflowId: 'rb-target', parentExecutionId: 'parent-run' })
+      expect.objectContaining({ runbookId: 'rb-target', parentExecutionId: 'parent-run' })
     );
   });
 
@@ -122,7 +122,7 @@ describe('RunbookExecutor', () => {
     const executions: FakeExecution[] = [
       {
         id: 'parent-run',
-        workflowId: 'rb-parent',
+        runbookId: 'rb-parent',
         parentExecutionId: null,
         status: 'RUNNING',
         error: null,
@@ -141,7 +141,7 @@ describe('RunbookExecutor', () => {
     const executions: FakeExecution[] = [
       {
         id: 'parent-run',
-        workflowId: 'rb-self',
+        runbookId: 'rb-self',
         parentExecutionId: null,
         status: 'RUNNING',
         error: null,
@@ -160,7 +160,7 @@ describe('RunbookExecutor', () => {
     const executions: FakeExecution[] = [
       {
         id: 'run-top',
-        workflowId: 'rb-a',
+        runbookId: 'rb-a',
         parentExecutionId: null,
         status: 'RUNNING',
         error: null,
@@ -168,7 +168,7 @@ describe('RunbookExecutor', () => {
       },
       {
         id: 'run-mid',
-        workflowId: 'rb-b',
+        runbookId: 'rb-b',
         parentExecutionId: 'run-top',
         status: 'RUNNING',
         error: null,
@@ -176,7 +176,7 @@ describe('RunbookExecutor', () => {
       },
       {
         id: 'run-leaf',
-        workflowId: 'rb-c',
+        runbookId: 'rb-c',
         parentExecutionId: 'run-mid',
         status: 'RUNNING',
         error: null,
@@ -197,7 +197,7 @@ describe('RunbookExecutor', () => {
     for (let i = 0; i <= 6; i++) {
       executions.push({
         id: `run-${i}`,
-        workflowId: `rb-${i}`,
+        runbookId: `rb-${i}`,
         parentExecutionId: i === 0 ? null : `run-${i - 1}`,
         status: 'RUNNING',
         error: null,
@@ -216,7 +216,7 @@ describe('RunbookExecutor', () => {
     const executions: FakeExecution[] = [
       {
         id: 'parent-run',
-        workflowId: 'rb-parent',
+        runbookId: 'rb-parent',
         parentExecutionId: null,
         status: 'RUNNING',
         error: null,
@@ -238,7 +238,7 @@ describe('RunbookExecutor', () => {
     const executions: FakeExecution[] = [
       {
         id: 'parent-run',
-        workflowId: 'rb-parent',
+        runbookId: 'rb-parent',
         parentExecutionId: null,
         status: 'RUNNING',
         error: null,
@@ -251,7 +251,7 @@ describe('RunbookExecutor', () => {
     const execSvc = makeExecutionService(async () => {
       executions.push({
         id: 'child-sync',
-        workflowId: 'rb-child',
+        runbookId: 'rb-child',
         parentExecutionId: 'parent-run',
         status: 'RUNNING',
         error: null,
@@ -290,7 +290,7 @@ describe('RunbookExecutor', () => {
     const executions: FakeExecution[] = [
       {
         id: 'parent-run',
-        workflowId: 'rb-parent',
+        runbookId: 'rb-parent',
         parentExecutionId: null,
         status: 'RUNNING',
         error: null,
@@ -298,7 +298,7 @@ describe('RunbookExecutor', () => {
       },
       {
         id: 'child-run',
-        workflowId: 'rb-child',
+        runbookId: 'rb-child',
         parentExecutionId: 'parent-run',
         status: 'FAILED',
         error: 'kubectl not found',
@@ -323,7 +323,7 @@ describe('RunbookExecutor', () => {
     const executions: FakeExecution[] = [
       {
         id: 'parent-run',
-        workflowId: 'rb-parent',
+        runbookId: 'rb-parent',
         parentExecutionId: null,
         status: 'RUNNING',
         error: null,
@@ -331,7 +331,7 @@ describe('RunbookExecutor', () => {
       },
       {
         id: 'child-run',
-        workflowId: 'rb-child',
+        runbookId: 'rb-child',
         parentExecutionId: 'parent-run',
         status: 'RUNNING',
         error: null,
@@ -365,7 +365,7 @@ describe('RunbookExecutor', () => {
     const executions: FakeExecution[] = [
       {
         id: 'parent-run',
-        workflowId: 'rb-parent',
+        runbookId: 'rb-parent',
         parentExecutionId: null,
         status: 'RUNNING',
         error: null,

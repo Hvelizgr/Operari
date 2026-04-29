@@ -13,7 +13,7 @@ class FakeAudit {
 
 interface ApprovalRow {
   id: string;
-  workflowId: string;
+  runbookId: string;
   executionId: string;
   stepId: string;
   status: ApprovalStatus;
@@ -47,7 +47,7 @@ const buildPrisma = (
         if (!row) return null;
         return {
           ...row,
-          workflow: { tenantId: workflowTenantMap[row.workflowId] ?? '' },
+          runbook: { tenantId: workflowTenantMap[row.runbookId] ?? '' },
         };
       }),
       findUniqueOrThrow: jest.fn(async (args: { where: { id: string } }) => {
@@ -90,7 +90,7 @@ const buildPrisma = (
 describe('ApprovalService.resolve', () => {
   const SAMPLE_APPROVAL: ApprovalRow = {
     id: 'approval-1',
-    workflowId: 'wf-1',
+    runbookId: 'wf-1',
     executionId: 'exec-1',
     stepId: 'step-1',
     status: 'PENDING',
@@ -141,7 +141,7 @@ describe('ApprovalService.resolve', () => {
     expect(audit.events[0].payload).toMatchObject({
       approvalId: 'approval-1',
       executionId: 'exec-1',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       comment: 'looks good',
       executionResumed: true,
     });

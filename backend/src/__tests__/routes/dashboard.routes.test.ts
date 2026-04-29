@@ -87,8 +87,8 @@ describe('GET /api/dashboard/overview — recentStatuses', () => {
     // recent-20 fan-out in desc order (newest first) from Prisma, and
     // the route must reverse so the sparkline reads left→right.
     m.execution.groupBy.mockResolvedValue([
-      { workflowId: 'wf-a', _count: { _all: 10 } },
-      { workflowId: 'wf-b', _count: { _all: 3 } },
+      { runbookId: 'wf-a', _count: { _all: 10 } },
+      { runbookId: 'wf-b', _count: { _all: 3 } },
     ]);
     m.runbook.findMany.mockResolvedValue([
       { id: 'wf-a', slug: 'wf-a-slug', name: 'Workflow A' },
@@ -96,7 +96,7 @@ describe('GET /api/dashboard/overview — recentStatuses', () => {
     ]);
 
     // Per-call sequencing: perWorkflowExecs (aggregates) first, then
-    // one findMany per workflow for the last-20 rows. The route runs
+    // one findMany per runbook for the last-20 rows. The route runs
     // these in Promise.all inside the `if (topWorkflowIds.length > 0)`
     // branch — mock them in the order the call list will see.
     m.execution.findMany
@@ -114,8 +114,8 @@ describe('GET /api/dashboard/overview — recentStatuses', () => {
       .mockResolvedValueOnce([])
       // perWorkflowExecs (aggregate source for successRate/avgDuration)
       .mockResolvedValueOnce([
-        { workflowId: 'wf-a', status: 'SUCCESS', duration: 1000 },
-        { workflowId: 'wf-a', status: 'FAILED', duration: 500 },
+        { runbookId: 'wf-a', status: 'SUCCESS', duration: 1000 },
+        { runbookId: 'wf-a', status: 'FAILED', duration: 500 },
       ])
       // last-20 for wf-a (newest first)
       .mockResolvedValueOnce([{ status: 'FAILED' }, { status: 'SUCCESS' }, { status: 'SUCCESS' }])
@@ -138,7 +138,7 @@ describe('GET /api/dashboard/overview — recentStatuses', () => {
   });
 
   it('emits empty recentStatuses for runbooks with no executions in the fan-out', async () => {
-    m.execution.groupBy.mockResolvedValue([{ workflowId: 'wf-lonely', _count: { _all: 1 } }]);
+    m.execution.groupBy.mockResolvedValue([{ runbookId: 'wf-lonely', _count: { _all: 1 } }]);
     m.runbook.findMany.mockResolvedValue([{ id: 'wf-lonely', slug: null, name: 'Lonely' }]);
     m.execution.findMany
       .mockResolvedValueOnce([]) // runs24hFinished
@@ -155,22 +155,22 @@ describe('GET /api/dashboard/overview — recentStatuses', () => {
     expect(res.body.topRunbooks[0].recentStatuses).toEqual([]);
   });
 
-  it('skips the per-workflow fan-out entirely when no top runbooks exist', async () => {
+  it('skips the per-runbook fan-out entirely when no top runbooks exist', async () => {
     // groupBy returns [] → the if-branch never fires → recentStatuses
     // work never happens. Pinning this keeps the empty-tenant path
     // cheap (no extra round-trips for a brand-new account).
     const res = await request(buildApp()).get('/api/dashboard/overview');
     expect(res.status).toBe(200);
     expect(res.body.topRunbooks).toEqual([]);
-    // Only the 6 base findManys ran — no per-workflow fan-out.
+    // Only the 6 base findManys ran — no per-runbook fan-out.
     expect(m.execution.findMany).toHaveBeenCalledTimes(6);
     expect(m.runbook.findMany).not.toHaveBeenCalled();
   });
 
-  it('requests last 20 executions per workflow ordered startedAt desc', async () => {
+  it('requests last 20 executions per runbook ordered startedAt desc', async () => {
     // Pin the sparkline query shape so a refactor that drops the cap
     // or flips the ordering is caught here.
-    m.execution.groupBy.mockResolvedValue([{ workflowId: 'wf-a', _count: { _all: 5 } }]);
+    m.execution.groupBy.mockResolvedValue([{ runbookId: 'wf-a', _count: { _all: 5 } }]);
     m.runbook.findMany.mockResolvedValue([{ id: 'wf-a', slug: 's', name: 'A' }]);
     m.execution.findMany
       .mockResolvedValueOnce([]) // runs24hFinished
@@ -184,9 +184,9 @@ describe('GET /api/dashboard/overview — recentStatuses', () => {
 
     await request(buildApp()).get('/api/dashboard/overview');
 
-    // Call index 7 (0-based) is the per-workflow last-20 findMany.
+    // Call index 7 (0-based) is the per-runbook last-20 findMany.
     const last20Args = m.execution.findMany.mock.calls[7][0];
-    expect(last20Args.where).toEqual({ workflowId: 'wf-a' });
+    expect(last20Args.where).toEqual({ runbookId: 'wf-a' });
     expect(last20Args.orderBy).toEqual({ startedAt: 'desc' });
     expect(last20Args.take).toBe(20);
     expect(last20Args.select).toEqual({ status: true });

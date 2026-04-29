@@ -36,13 +36,13 @@ router.use((req: AuthRequest, _res, next) => {
 });
 
 const createSchema = z.object({
-  workflowId: z.string().min(1),
+  runbookId: z.string().min(1),
   source: z.enum(['sentry', 'datadog', 'github', 'custom']).default('custom'),
   useSecret: z.boolean().optional().default(true),
 });
 
 /**
- * GET /api/webhooks?workflowId=...
+ * GET /api/webhooks?runbookId=...
  * Lists trigger registrations for the current tenant. The editor's
  * Triggers panel uses this to show what's already wired up to a
  * runbook so users can copy URLs/secrets.
@@ -50,14 +50,14 @@ const createSchema = z.object({
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const tenantId = req.user!.tenantId;
-    const workflowId = req.query.workflowId as string | undefined;
+    const runbookId = req.query.runbookId as string | undefined;
     const all = await getService().list(tenantId);
-    const filtered = workflowId ? all.filter(w => w.workflowId === workflowId) : all;
+    const filtered = runbookId ? all.filter(w => w.runbookId === runbookId) : all;
     res.json({
       data: filtered.map(w => ({
         id: w.id,
-        workflowId: w.workflowId,
-        workflow: w.workflow,
+        runbookId: w.runbookId,
+        runbook: w.runbook,
         source: w.source,
         url: w.url,
         secret: w.secret,
@@ -74,30 +74,30 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 });
 
 /**
- * POST /api/webhooks { workflowId, source, useSecret? }
+ * POST /api/webhooks { runbookId, source, useSecret? }
  * Creates a new trigger registration. Returns the URL and secret —
  * the secret is shown only once at creation time.
  */
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const tenantId = req.user!.tenantId;
-    const { workflowId, source, useSecret } = createSchema.parse(req.body ?? {});
+    const { runbookId, source, useSecret } = createSchema.parse(req.body ?? {});
 
-    // Tenant scoping: refuse to attach a webhook to a workflow the
+    // Tenant scoping: refuse to attach a webhook to a runbook the
     // current tenant does not own. Without this check the editor
     // could mint webhooks for arbitrary workflows.
-    const workflow = await prisma.runbook.findFirst({
-      where: { id: workflowId, tenantId },
+    const runbook = await prisma.runbook.findFirst({
+      where: { id: runbookId, tenantId },
       select: { id: true },
     });
-    if (!workflow) {
+    if (!runbook) {
       return res.status(404).json({ error: 'Runbook not found', code: 'runbook_not_found' });
     }
 
-    const webhook = await getService().create(tenantId, workflowId, source, useSecret);
+    const webhook = await getService().create(tenantId, runbookId, source, useSecret);
     res.status(201).json({
       id: webhook.id,
-      workflowId: webhook.workflowId,
+      runbookId: webhook.runbookId,
       source: webhook.source,
       url: webhook.url,
       secret: webhook.secret,
@@ -208,7 +208,7 @@ router.post('/:id/receipts/:receiptId/replay', async (req: AuthRequest, res: Res
 
     const webhook = await prisma.webhook.findFirst({
       where: { id, tenantId },
-      include: { workflow: { select: { id: true, userId: true, name: true } } },
+      include: { runbook: { select: { id: true, userId: true, name: true } } },
     });
     if (!webhook) {
       return res.status(404).json({ error: 'Webhook not found' });
@@ -230,8 +230,8 @@ router.post('/:id/receipts/:receiptId/replay', async (req: AuthRequest, res: Res
     );
 
     const execution = await getExecutionService().execute({
-      workflowId: webhook.workflowId,
-      userId: webhook.workflow.userId,
+      runbookId: webhook.runbookId,
+      userId: webhook.runbook.userId,
       trigger: 'WEBHOOK',
       input: variables,
       tenantId: webhook.tenantId,
@@ -256,7 +256,7 @@ router.post('/:id/receipts/:receiptId/replay', async (req: AuthRequest, res: Res
 
     res.status(202).json({
       runId: execution.id,
-      runbook: { id: webhook.workflow.id, name: webhook.workflow.name },
+      runbook: { id: webhook.runbook.id, name: webhook.runbook.name },
       replayedFrom: receipt.id,
     });
   } catch (err) {

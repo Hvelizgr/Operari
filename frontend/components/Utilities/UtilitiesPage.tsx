@@ -24,7 +24,7 @@ interface Webhook {
   isActive: boolean;
   triggerCount: number;
   lastTriggeredAt: string | null;
-  workflowId?: string;
+  runbookId?: string;
 }
 
 interface ConnectedAccount {
@@ -43,7 +43,7 @@ interface Runbook {
 
 interface WebhookCreatePayload {
   source: string;
-  workflowId: string;
+  runbookId: string;
   secret?: string;
 }
 
@@ -496,7 +496,7 @@ function WebhookForm({
   t: (typeof STRINGS)[keyof typeof STRINGS];
 }) {
   const [source, setSource] = useState('sentry');
-  const [workflowId, setWorkflowId] = useState('');
+  const [runbookId, setWorkflowId] = useState('');
   const [secret, setSecret] = useState('');
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -523,7 +523,7 @@ function WebhookForm({
               {t.webhookRunbook}
             </label>
             <select
-              value={workflowId}
+              value={runbookId}
               onChange={e => setWorkflowId(e.target.value)}
               className="focus:border-primary w-full rounded border border-white/10 bg-[#0f1218] px-3 py-2 text-sm text-gray-200 focus:outline-none"
             >
@@ -555,10 +555,10 @@ function WebhookForm({
           </button>
           <button
             onClick={() =>
-              workflowId &&
+              runbookId &&
               onSubmit({
                 source,
-                workflowId,
+                runbookId,
                 secret: secret || undefined,
               })
             }

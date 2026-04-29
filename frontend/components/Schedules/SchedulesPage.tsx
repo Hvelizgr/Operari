@@ -492,7 +492,7 @@ function ScheduleForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [workflowId, setWorkflowId] = useState(initial?.workflow.id ?? '');
+  const [runbookId, setWorkflowId] = useState(initial?.workflow.id ?? '');
   const [cronExpr, setCronExpr] = useState(initial?.cronExpr ?? '*/5 * * * *');
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [submitting, setSubmitting] = useState(false);
@@ -522,7 +522,7 @@ function ScheduleForm({
         const res = await fetch(`${API_BASE}/api/schedules`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workflowId, cronExpr }),
+          body: JSON.stringify({ runbookId, cronExpr }),
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
@@ -561,7 +561,7 @@ function ScheduleForm({
               {t.formRunbook}
             </label>
             <select
-              value={workflowId}
+              value={runbookId}
               onChange={e => setWorkflowId(e.target.value)}
               disabled={!!initial}
               required

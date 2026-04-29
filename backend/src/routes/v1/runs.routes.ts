@@ -10,7 +10,7 @@ const router = Router();
  *
  * List recent runs for the authenticated tenant. Filter by:
  *   ?status=RUNNING|SUCCESS|FAILED|PAUSED|CANCELLED|all  (default: all)
- *   ?runbook=<workflow id or slug>                       (optional)
+ *   ?runbook=<runbook id or slug>                       (optional)
  *   ?limit=N&cursor=<runId>                              (default 50, max 200)
  *
  * Used by the Run History page in the frontend. Lighter response than
@@ -43,14 +43,14 @@ router.get('/', requireApiKey('runs:read'), async (req: ApiKeyRequest, res: Resp
 
   const runs = await prisma.execution.findMany({
     where: {
-      workflow: {
+      runbook: {
         tenantId,
         ...(runbookParam ? { OR: [{ id: runbookParam }, { slug: runbookParam }] } : {}),
       },
       ...(statusFilter ? { status: statusFilter } : {}),
     },
     include: {
-      workflow: { select: { id: true, slug: true, name: true } },
+      runbook: { select: { id: true, slug: true, name: true } },
     },
     orderBy: { startedAt: 'desc' },
     take: limit + 1,
@@ -63,7 +63,7 @@ router.get('/', requireApiKey('runs:read'), async (req: ApiKeyRequest, res: Resp
   res.json({
     data: page.map(r => ({
       id: r.id,
-      runbook: r.workflow,
+      runbook: r.runbook,
       status: r.status,
       trigger: r.trigger,
       startedAt: r.startedAt,
@@ -86,13 +86,13 @@ router.get('/:id', requireApiKey('runs:read'), async (req: ApiKeyRequest, res: R
   const run = await prisma.execution.findFirst({
     where: {
       id: runId,
-      workflow: { tenantId },
+      runbook: { tenantId },
     },
     include: {
       nodeLogs: {
         orderBy: { startedAt: 'asc' },
       },
-      workflow: {
+      runbook: {
         select: { id: true, slug: true, name: true },
       },
     },
@@ -104,7 +104,7 @@ router.get('/:id', requireApiKey('runs:read'), async (req: ApiKeyRequest, res: R
 
   res.json({
     id: run.id,
-    runbook: run.workflow,
+    runbook: run.runbook,
     status: run.status,
     trigger: run.trigger,
     startedAt: run.startedAt,

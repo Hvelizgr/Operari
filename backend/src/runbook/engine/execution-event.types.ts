@@ -32,7 +32,7 @@ export type ExecutionEventType =
   | 'step.skipped';
 
 export interface RunCreatedPayload {
-  workflowId: string;
+  runbookId: string;
   workflowName: string;
   trigger: string;
   startNodeId?: string | null;
@@ -144,7 +144,7 @@ export type RunStatus =
 export interface RunState {
   executionId: string;
   status: RunStatus;
-  workflowId: string | null;
+  runbookId: string | null;
   workflowName: string | null;
   trigger: string | null;
   /** Number of step events seen, regardless of outcome */

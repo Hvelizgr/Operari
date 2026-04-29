@@ -17,14 +17,14 @@ const monitor = (
     name: string;
     alertWebhookUrl: string | null;
     alertEmail: string | null;
-    workflowId: string;
+    runbookId: string;
   }> = {}
 ) => ({
   id: 'mon-1',
   name: 'deploys-per-hour',
   alertWebhookUrl: null,
   alertEmail: null,
-  workflowId: 'wf-1',
+  runbookId: 'wf-1',
   ...overrides,
 });
 

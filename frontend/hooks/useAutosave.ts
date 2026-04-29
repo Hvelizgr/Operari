@@ -17,7 +17,7 @@ export type SaveStatus = 'saving' | 'saved' | 'error' | 'conflict';
 interface AutosaveOptions {
   nodes: WorkflowNode[];
   connections: Connection[];
-  workflowId: string;
+  runbookId: string;
   /** When provided, autosave will first attempt the canonical YAML
    * round-trip via PUT /api/runbooks/:id/yaml and only fall back to
    * the legacy nodes/connections PUT if the YAML serialization or
@@ -32,13 +32,13 @@ interface WorkflowData {
   connections: Connection[];
   version: string;
   timestamp: number;
-  workflowId: string;
+  runbookId: string;
 }
 
 export function useAutosave({
   nodes,
   connections,
-  workflowId,
+  runbookId,
   runbookHeader,
   debounceMs = AUTOSAVE_DEBOUNCE_MS,
 }: AutosaveOptions) {
@@ -51,13 +51,13 @@ export function useAutosave({
   const saveToLocalStorage = useCallback(
     (data: WorkflowData) => {
       try {
-        storageWrite(`operari-workflow-${workflowId}`, JSON.stringify(data));
-        storageWrite(`operari-workflow-${workflowId}-timestamp`, data.timestamp.toString());
+        storageWrite(`operari-workflow-${runbookId}`, JSON.stringify(data));
+        storageWrite(`operari-workflow-${runbookId}-timestamp`, data.timestamp.toString());
       } catch (error) {
         console.error('Failed to save to localStorage:', error);
       }
     },
-    [workflowId]
+    [runbookId]
   );
 
   /**
@@ -72,7 +72,7 @@ export function useAutosave({
       try {
         const spec = nodesToSpec(runbookHeader, data.nodes, data.connections);
         const yamlBody = specToYaml(spec);
-        const response = await fetch(`${API_BASE}/api/runbooks/${workflowId}/yaml`, {
+        const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}/yaml`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ yaml: yamlBody }),
@@ -93,7 +93,7 @@ export function useAutosave({
         return false;
       }
     },
-    [runbookHeader, workflowId]
+    [runbookHeader, runbookId]
   );
 
   const saveToBackend = useCallback(
@@ -110,7 +110,7 @@ export function useAutosave({
       }
 
       try {
-        const response = await fetch(`${API_BASE}/api/runbooks/${workflowId}`, {
+        const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -141,15 +141,15 @@ export function useAutosave({
         return false;
       }
     },
-    [workflowId, saveYamlToBackend]
+    [runbookId, saveYamlToBackend]
   );
 
   const checkForConflicts = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE}/api/runbooks/${workflowId}/metadata`);
+      const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}/metadata`);
 
       // If it's the scratchpad and doesn't exist yet, there's no conflict.
-      if (response.status === 404 && workflowId === 'current-workflow') {
+      if (response.status === 404 && runbookId === 'current-workflow') {
         return false;
       }
 
@@ -167,7 +167,7 @@ export function useAutosave({
       // If we can't check for conflicts (e.g. network error), we assume no conflict to try to save
       return false;
     }
-  }, [workflowId]);
+  }, [runbookId]);
 
   const performSave = useCallback(async () => {
     if (isSavingRef.current || !enableAutosave) return;
@@ -180,7 +180,7 @@ export function useAutosave({
       connections,
       version: '1.0',
       timestamp: Date.now(),
-      workflowId,
+      runbookId,
     };
 
     saveToLocalStorage(workflowData);
@@ -204,7 +204,7 @@ export function useAutosave({
   }, [
     nodes,
     connections,
-    workflowId,
+    runbookId,
     enableAutosave,
     saveToLocalStorage,
     saveToBackend,
@@ -273,7 +273,7 @@ export function useAutosave({
       connections,
       version: '1.0',
       timestamp: Date.now(),
-      workflowId,
+      runbookId,
     };
 
     saveToLocalStorage(workflowData);
@@ -281,7 +281,7 @@ export function useAutosave({
     const success = await saveToBackend(workflowData);
     setSaveStatus(success ? 'saved' : 'error');
     isSavingRef.current = false;
-  }, [nodes, connections, workflowId, saveToLocalStorage, saveToBackend]);
+  }, [nodes, connections, runbookId, saveToLocalStorage, saveToBackend]);
 
   /**
    * Discard local changes and reload from server. Called when the

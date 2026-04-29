@@ -188,14 +188,14 @@ router.post('/conversations/from-run', async (req: AuthRequest, res: Response) =
 
     // Verify the run belongs to the tenant — never let the model see runs from elsewhere.
     const run = await prisma.execution.findFirst({
-      where: { id: runId, workflow: { tenantId: req.user!.tenantId } },
-      include: { workflow: { select: { name: true } } },
+      where: { id: runId, runbook: { tenantId: req.user!.tenantId } },
+      include: { runbook: { select: { name: true } } },
     });
     if (!run) {
       return res.status(404).json({ error: 'Run not found' });
     }
 
-    const title = `Diagnose: ${run.workflow.name}`;
+    const title = `Diagnose: ${run.runbook.name}`;
     const conversation = await getConversationService().createConversation(
       req.user!.id,
       req.user!.tenantId,

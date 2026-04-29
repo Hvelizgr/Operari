@@ -26,7 +26,7 @@ export interface MonitorCheckConfig {
 export interface MonitorInput {
   name: string;
   description?: string | null;
-  workflowId: string;
+  runbookId: string;
   checkType: MonitorCheckType;
   checkConfig: MonitorCheckConfig;
   isEnabled?: boolean;
@@ -46,7 +46,7 @@ export class MonitorService {
     return this.prisma.monitor.findMany({
       where: { tenantId },
       include: {
-        workflow: { select: { id: true, slug: true, name: true } },
+        runbook: { select: { id: true, slug: true, name: true } },
         _count: { select: { events: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -57,7 +57,7 @@ export class MonitorService {
     return this.prisma.monitor.findFirst({
       where: { id, tenantId },
       include: {
-        workflow: { select: { id: true, slug: true, name: true } },
+        runbook: { select: { id: true, slug: true, name: true } },
       },
     });
   }
@@ -72,14 +72,14 @@ export class MonitorService {
 
   async create(tenantId: string, input: MonitorInput) {
     const wf = await this.prisma.runbook.findFirst({
-      where: { id: input.workflowId, tenantId },
+      where: { id: input.runbookId, tenantId },
       select: { id: true },
     });
     if (!wf) throw new Error('workflow_not_found_in_tenant');
     return this.prisma.monitor.create({
       data: {
         tenantId,
-        workflowId: input.workflowId,
+        runbookId: input.runbookId,
         name: input.name,
         description: input.description ?? null,
         checkType: input.checkType,
@@ -126,7 +126,7 @@ export class MonitorService {
   async evaluate(monitor: {
     id: string;
     tenantId: string;
-    workflowId: string;
+    runbookId: string;
     checkType: string;
     checkConfig: unknown;
   }): Promise<{ status: 'OK' | 'FIRING'; reason: string }> {
@@ -138,7 +138,7 @@ export class MonitorService {
       const lastSuccess = await this.prisma.execution.findFirst({
         where: {
           tenantId: monitor.tenantId,
-          workflowId: monitor.workflowId,
+          runbookId: monitor.runbookId,
           status: 'SUCCESS',
           startedAt: { gte: since },
         },
@@ -157,7 +157,7 @@ export class MonitorService {
       const anyRun = await this.prisma.execution.findFirst({
         where: {
           tenantId: monitor.tenantId,
-          workflowId: monitor.workflowId,
+          runbookId: monitor.runbookId,
           startedAt: { gte: since },
         },
         orderBy: { startedAt: 'desc' },
@@ -177,7 +177,7 @@ export class MonitorService {
         by: ['status'],
         where: {
           tenantId: monitor.tenantId,
-          workflowId: monitor.workflowId,
+          runbookId: monitor.runbookId,
           startedAt: { gte: since },
         },
         _count: { _all: true },
@@ -261,7 +261,7 @@ export class MonitorService {
                   name: m.name,
                   alertWebhookUrl: effectiveWebhook,
                   alertEmail: effectiveEmail,
-                  workflowId: m.workflowId,
+                  runbookId: m.runbookId,
                 },
                 reason: result.reason,
               })

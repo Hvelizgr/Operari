@@ -42,7 +42,7 @@ export class SchedulerService {
     });
 
     for (const job of jobs) {
-      this.scheduleJob(job.id, job.workflowId, job.cronExpr);
+      this.scheduleJob(job.id, job.runbookId, job.cronExpr);
     }
 
     logger.info({ jobCount: jobs.length }, `Scheduler started with ${jobs.length} active jobs`);
@@ -54,7 +54,7 @@ export class SchedulerService {
     logger.info('Scheduler stopped');
   }
 
-  async scheduleJob(jobId: string, workflowId: string, cronExpr: string) {
+  async scheduleJob(jobId: string, runbookId: string, cronExpr: string) {
     if (this.tasks.has(jobId)) {
       this.tasks.get(jobId)?.stop();
     }
@@ -77,19 +77,19 @@ export class SchedulerService {
 
     const task = cron.schedule(cronExpr, async () => {
       logger.info(
-        { jobId, workflowId },
-        `Executing scheduled job ${jobId} for workflow ${workflowId}`
+        { jobId, runbookId },
+        `Executing scheduled job ${jobId} for runbook ${runbookId}`
       );
 
       try {
-        const workflow = await this.prisma.runbook.findUnique({
-          where: { id: workflowId },
+        const runbook = await this.prisma.runbook.findUnique({
+          where: { id: runbookId },
         });
 
-        if (!workflow) {
+        if (!runbook) {
           logger.error(
-            { workflowId, jobId },
-            `Workflow ${workflowId} not found for scheduled job ${jobId}`
+            { runbookId, jobId },
+            `Workflow ${runbookId} not found for scheduled job ${jobId}`
           );
           return;
         }
@@ -100,11 +100,11 @@ export class SchedulerService {
         // or fails because a required input has no default — in which
         // case we skip the dispatch and log, rather than silently
         // running the graph against undefined variables.
-        const inputDefs = parseInputDefs(workflow.inputs);
+        const inputDefs = parseInputDefs(runbook.inputs);
         const validated = validateRunInputs(inputDefs, {});
         if (!validated.ok) {
           logger.error(
-            { workflowId, jobId, issues: validated.issues },
+            { runbookId, jobId, issues: validated.issues },
             `Scheduled job ${jobId} skipped — required inputs missing and no defaults`
           );
           // Advance nextRunAt anyway so the UI doesn't stall on a
@@ -121,9 +121,9 @@ export class SchedulerService {
         }
 
         await this.executionService.execute({
-          workflowId: workflow.id,
-          userId: workflow.userId,
-          tenantId: workflow.tenantId,
+          runbookId: runbook.id,
+          userId: runbook.userId,
+          tenantId: runbook.tenantId,
           trigger: 'SCHEDULED',
           input: validated.values,
         });
@@ -143,9 +143,9 @@ export class SchedulerService {
     this.tasks.set(jobId, task);
   }
 
-  async rescheduleJob(jobId: string, workflowId: string, cronExpr: string) {
+  async rescheduleJob(jobId: string, runbookId: string, cronExpr: string) {
     await this.unscheduleJob(jobId);
-    await this.scheduleJob(jobId, workflowId, cronExpr);
+    await this.scheduleJob(jobId, runbookId, cronExpr);
   }
 
   async unscheduleJob(jobId: string) {

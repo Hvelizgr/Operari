@@ -32,7 +32,7 @@ interface Monitor {
   id: string;
   name: string;
   description: string | null;
-  workflowId: string;
+  runbookId: string;
   checkType: CheckType;
   checkConfig: { windowMinutes: number; threshold?: number };
   isEnabled: boolean;
@@ -406,7 +406,7 @@ function MonitorForm({
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
-  const [workflowId, setWorkflowId] = useState(initial?.workflowId ?? '');
+  const [runbookId, setWorkflowId] = useState(initial?.runbookId ?? '');
   const [checkType, setCheckType] = useState<CheckType>(
     initial?.checkType ?? 'last_success_within'
   );
@@ -420,7 +420,7 @@ function MonitorForm({
   // to true on blur (or on submit attempt below).
   const [touched, setTouched] = useState<{
     name?: boolean;
-    workflowId?: boolean;
+    runbookId?: boolean;
     windowMinutes?: boolean;
     threshold?: boolean;
   }>({});
@@ -428,7 +428,7 @@ function MonitorForm({
   // Live per-field validation. Null = valid, string = error message.
   const fieldErrors = {
     name: name.trim().length === 0 ? t.nameRequired : null,
-    workflowId: !initial && workflowId.trim().length === 0 ? t.runbookRequired : null,
+    runbookId: !initial && runbookId.trim().length === 0 ? t.runbookRequired : null,
     windowMinutes:
       !Number.isFinite(windowMinutes) || windowMinutes < 1 || windowMinutes > 10080
         ? t.windowInvalid
@@ -445,7 +445,7 @@ function MonitorForm({
     e.preventDefault();
     // On submit, reveal every error regardless of touched so a user
     // clicking Save on an empty form gets the full punch list.
-    setTouched({ name: true, workflowId: true, windowMinutes: true, threshold: true });
+    setTouched({ name: true, runbookId: true, windowMinutes: true, threshold: true });
     if (formInvalid) return;
     setSubmitting(true);
     setSubmitError(null);
@@ -457,7 +457,7 @@ function MonitorForm({
       const body = {
         name,
         description: description || undefined,
-        workflowId,
+        runbookId,
         checkType,
         checkConfig,
         isEnabled,
@@ -524,15 +524,13 @@ function MonitorForm({
               {t.formRunbook}
             </label>
             <select
-              value={workflowId}
+              value={runbookId}
               onChange={e => setWorkflowId(e.target.value)}
-              onBlur={() => setTouched(p => ({ ...p, workflowId: true }))}
+              onBlur={() => setTouched(p => ({ ...p, runbookId: true }))}
               disabled={!!initial}
-              aria-invalid={touched.workflowId && !!fieldErrors.workflowId}
+              aria-invalid={touched.runbookId && !!fieldErrors.runbookId}
               className={`focus:border-primary w-full rounded border bg-[#0f1218] px-3 py-2 text-gray-200 focus:outline-none disabled:opacity-50 ${
-                touched.workflowId && fieldErrors.workflowId
-                  ? 'border-red-500/60'
-                  : 'border-white/10'
+                touched.runbookId && fieldErrors.runbookId ? 'border-red-500/60' : 'border-white/10'
               }`}
             >
               <option value="">— select —</option>
@@ -542,8 +540,8 @@ function MonitorForm({
                 </option>
               ))}
             </select>
-            {touched.workflowId && fieldErrors.workflowId && (
-              <p className="mt-1 text-[11px] text-red-400">{fieldErrors.workflowId}</p>
+            {touched.runbookId && fieldErrors.runbookId && (
+              <p className="mt-1 text-[11px] text-red-400">{fieldErrors.runbookId}</p>
             )}
           </div>
           <div>

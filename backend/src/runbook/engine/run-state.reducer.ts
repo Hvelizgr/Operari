@@ -44,7 +44,7 @@ export function reduceRunState(executionId: string, events: ReplayableEvent[]): 
   const state: RunState = {
     executionId,
     status: 'PENDING',
-    workflowId: null,
+    runbookId: null,
     workflowName: null,
     trigger: null,
     stepCount: 0,
@@ -83,7 +83,7 @@ function applyEvent(state: RunState, event: ReplayableEvent): void {
   switch (event.type) {
     case 'run.created': {
       const p = payload as unknown as RunCreatedPayload;
-      state.workflowId = p.workflowId ?? null;
+      state.runbookId = p.runbookId ?? null;
       state.workflowName = p.workflowName ?? null;
       state.trigger = p.trigger ?? null;
       // status stays PENDING until run.started

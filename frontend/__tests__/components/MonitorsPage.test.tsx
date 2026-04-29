@@ -16,7 +16,7 @@ const monitor = (over: Partial<Record<string, unknown>> = {}) => ({
   id: 'm-1',
   name: 'Payments 5xx',
   description: null,
-  workflowId: 'wf-1',
+  runbookId: 'wf-1',
   checkType: 'failure_rate_above',
   checkConfig: { windowMinutes: 30, threshold: 0.1 },
   isEnabled: true,

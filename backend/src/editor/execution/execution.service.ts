@@ -31,7 +31,7 @@ import { NodeExecutor } from '../node-executor.service';
 import { socketService } from './socket.service';
 
 interface ExecuteParams {
-  workflowId: string;
+  runbookId: string;
   userId: string;
   trigger: TriggerType;
   input?: ExecutionInput;
@@ -348,7 +348,7 @@ export class ExecutionService {
    */
   private async dispatchErrorHandler(params: {
     failedExecutionId: string;
-    workflow: Runbook;
+    runbook: Runbook;
     errorMessage: string;
     tenantId: string | undefined;
     userId: string;
@@ -357,9 +357,9 @@ export class ExecutionService {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     contextLogger: { info: (...args: any[]) => void; warn: (...args: any[]) => void };
   }): Promise<void> {
-    const { failedExecutionId, workflow, errorMessage, tenantId, userId, contextLogger } = params;
+    const { failedExecutionId, runbook, errorMessage, tenantId, userId, contextLogger } = params;
 
-    const handlerId = (workflow as Runbook & { onErrorRunbookId?: string | null }).onErrorRunbookId;
+    const handlerId = (runbook as Runbook & { onErrorRunbookId?: string | null }).onErrorRunbookId;
     if (!handlerId) return;
 
     const current = await this.prisma.execution.findUnique({
@@ -378,7 +378,7 @@ export class ExecutionService {
       return;
     }
 
-    const effectiveTenantId = tenantId ?? workflow.tenantId;
+    const effectiveTenantId = tenantId ?? runbook.tenantId;
     const target = await this.prisma.runbook.findFirst({
       where: { id: handlerId, tenantId: effectiveTenantId },
       select: { id: true, name: true },
@@ -392,7 +392,7 @@ export class ExecutionService {
 
     try {
       await this.execute({
-        workflowId: target.id,
+        runbookId: target.id,
         userId,
         tenantId: effectiveTenantId,
         trigger: 'ERROR',
@@ -400,8 +400,8 @@ export class ExecutionService {
         input: {
           error: {
             runId: failedExecutionId,
-            runbookId: workflow.id,
-            runbookName: workflow.name,
+            runbookId: runbook.id,
+            runbookName: runbook.name,
             message: errorMessage,
           },
         },
@@ -418,7 +418,7 @@ export class ExecutionService {
 
   /**
    * Walk up `parentExecutionId` from the failed run. If the target
-   * handler's workflowId appears anywhere in the chain we refuse the
+   * handler's runbookId appears anywhere in the chain we refuse the
    * dispatch — the handler is (directly or transitively) already
    * running above us, and another child would loop.
    */
@@ -433,13 +433,13 @@ export class ExecutionService {
     while (cursor && depth < MAX) {
       if (visited.has(cursor)) return 'ancestor chain has a loop';
       visited.add(cursor);
-      const row: { workflowId: string; parentExecutionId: string | null } | null =
+      const row: { runbookId: string; parentExecutionId: string | null } | null =
         await this.prisma.execution.findUnique({
           where: { id: cursor },
-          select: { workflowId: true, parentExecutionId: true },
+          select: { runbookId: true, parentExecutionId: true },
         });
       if (!row) break;
-      if (row.workflowId === targetWorkflowId) {
+      if (row.runbookId === targetWorkflowId) {
         return `target handler "${targetWorkflowId}" is already in the run chain`;
       }
       cursor = row.parentExecutionId;
@@ -450,7 +450,7 @@ export class ExecutionService {
 
   async execute(params: ExecuteParams) {
     const {
-      workflowId,
+      runbookId,
       userId,
       trigger,
       input = {},
@@ -461,16 +461,16 @@ export class ExecutionService {
     } = params;
 
     try {
-      // Fetch workflow
-      const workflow = await this.prisma.runbook.findUnique({
-        where: { id: workflowId },
+      // Fetch runbook
+      const runbook = await this.prisma.runbook.findUnique({
+        where: { id: runbookId },
       });
 
-      if (!workflow) {
+      if (!runbook) {
         throw new WorkflowError({
-          message: `Runbook not found: ${workflowId}`,
+          message: `Runbook not found: ${runbookId}`,
           code: ErrorCode.WORKFLOW_NOT_FOUND,
-          workflowId,
+          runbookId,
           context: { userId, tenantId },
         });
       }
@@ -480,7 +480,7 @@ export class ExecutionService {
       // not want a half-committed run record that the UI shows
       // as "starting then immediately blocked". ERROR-triggered
       // sub-runs still count; they're real platform work.
-      const effectiveTenantIdForQuota = tenantId ?? workflow.tenantId;
+      const effectiveTenantIdForQuota = tenantId ?? runbook.tenantId;
       try {
         await assertRunsQuota(this.prisma, effectiveTenantIdForQuota);
       } catch (err) {
@@ -488,7 +488,7 @@ export class ExecutionService {
           throw new WorkflowError({
             message: err.message,
             code: ErrorCode.QUOTA_EXCEEDED,
-            workflowId,
+            runbookId,
             context: {
               userId,
               tenantId,
@@ -508,14 +508,14 @@ export class ExecutionService {
       // landed — the next save creates version 1 and the next run
       // pins itself.
       const latestVersion = await this.prisma.runbookVersion.findFirst({
-        where: { runbookId: workflowId },
+        where: { runbookId: runbookId },
         orderBy: { version: 'desc' },
       });
 
       // Create execution record
       const execution = await this.prisma.execution.create({
         data: {
-          workflowId,
+          runbookId,
           tenantId,
           userId,
           trigger,
@@ -528,8 +528,8 @@ export class ExecutionService {
       // Create context logger for this execution
       const executionContext = {
         executionId: execution.id,
-        workflowId,
-        workflowName: workflow.name,
+        runbookId,
+        workflowName: runbook.name,
         userId,
         tenantId,
       };
@@ -546,8 +546,8 @@ export class ExecutionService {
         resource: execution.id,
         payload: {
           executionId: execution.id,
-          workflowId,
-          workflowName: workflow.name,
+          runbookId,
+          workflowName: runbook.name,
           trigger,
           startNodeId: startNodeId ?? null,
         },
@@ -559,8 +559,8 @@ export class ExecutionService {
       await this.safeAppendEvent(execution.id, tenantId, {
         type: 'run.created',
         payload: {
-          workflowId,
-          workflowName: workflow.name,
+          runbookId,
+          workflowName: runbook.name,
           trigger: String(trigger),
           startNodeId: startNodeId ?? null,
           userId,
@@ -591,12 +591,12 @@ export class ExecutionService {
       // anonymous user, and the tracer expects a non-empty tag.
       // Multi-tenant cloud paths always pass a real tenantId,
       // so the fallback never fires there.
-      const effectiveTenantId = tenantId ?? workflow.tenantId ?? 'default-tenant';
+      const effectiveTenantId = tenantId ?? runbook.tenantId ?? 'default-tenant';
       try {
         this.tracer?.startRun({
           runId: execution.id,
-          runbookId: workflow.id,
-          runbookName: workflow.name,
+          runbookId: runbook.id,
+          runbookName: runbook.name,
           tenantId: effectiveTenantId,
           trigger: String(trigger),
           runnerType: this.safeRunnerType(),
@@ -613,10 +613,10 @@ export class ExecutionService {
       // `inputs` from this object, so a user editing the runbook
       // mid-flight cannot corrupt an in-flight run.
       const effectiveWorkflow = latestVersion
-        ? applyRunbookVersionSnapshot(workflow, latestVersion.snapshot)
-        : workflow;
+        ? applyRunbookVersionSnapshot(runbook, latestVersion.snapshot)
+        : runbook;
 
-      // Run workflow asynchronously with proper error handling
+      // Run runbook asynchronously with proper error handling
       this.runWorkflow(
         execution.id,
         effectiveWorkflow,
@@ -628,7 +628,7 @@ export class ExecutionService {
         dryRun ?? false
       ).catch(error => {
         // This handles uncaught errors from runWorkflow
-        this.logger.error('Uncaught error in workflow execution', {
+        this.logger.error('Uncaught error in runbook execution', {
           context: executionContext,
           error: error instanceof Error ? error : new Error(String(error)),
         });
@@ -636,8 +636,8 @@ export class ExecutionService {
 
       return execution;
     } catch (error) {
-      const wrappedError = wrapError(error, { workflowId, userId, tenantId });
-      this.logger.error('Failed to initialize workflow execution', {
+      const wrappedError = wrapError(error, { runbookId, userId, tenantId });
+      this.logger.error('Failed to initialize runbook execution', {
         error: wrappedError,
       });
       throw wrappedError;
@@ -656,7 +656,7 @@ export class ExecutionService {
     const originalExecution = await this.prisma.execution.findUnique({
       where: { id: executionId },
       include: {
-        workflow: true,
+        runbook: true,
         nodeLogs: true,
       },
     });
@@ -665,14 +665,14 @@ export class ExecutionService {
       throw new WorkflowError({
         message: `Original execution not found: ${executionId}`,
         code: ErrorCode.EXECUTION_NOT_FOUND,
-        workflowId: '',
+        runbookId: '',
       });
     }
 
     // Create a new execution for the replay
     const newExecution = await this.prisma.execution.create({
       data: {
-        workflowId: originalExecution.workflowId,
+        runbookId: originalExecution.runbookId,
         tenantId,
         userId,
         trigger: originalExecution.trigger,
@@ -682,8 +682,8 @@ export class ExecutionService {
 
     const executionContext = {
       executionId: newExecution.id,
-      workflowId: originalExecution.workflowId,
-      workflowName: originalExecution.workflow.name,
+      runbookId: originalExecution.runbookId,
+      workflowName: originalExecution.runbook.name,
       userId,
       tenantId,
       isReplay: true,
@@ -701,23 +701,23 @@ export class ExecutionService {
 
       this.runWorkflow(
         newExecution.id,
-        originalExecution.workflow,
+        originalExecution.runbook,
         log.input as ExecutionInput,
         executionContext,
         tenantId,
         nodeId
       ).catch(err => {
-        this.logger.error('Error in replayed workflow', { context: executionContext, error: err });
+        this.logger.error('Error in replayed runbook', { context: executionContext, error: err });
       });
     } else {
       this.runWorkflow(
         newExecution.id,
-        originalExecution.workflow,
+        originalExecution.runbook,
         {}, // Start from the beginning
         executionContext,
         tenantId
       ).catch(err => {
-        this.logger.error('Error in replayed workflow', { context: executionContext, error: err });
+        this.logger.error('Error in replayed runbook', { context: executionContext, error: err });
       });
     }
 
@@ -730,23 +730,23 @@ export class ExecutionService {
     const execution = await this.prisma.execution.findFirst({
       where: {
         id: executionId,
-        workflow: { tenantId },
+        runbook: { tenantId },
         status: 'PAUSED',
       },
-      include: { workflow: true },
+      include: { runbook: true },
     });
 
-    if (!execution || !execution.workflow) {
+    if (!execution || !execution.runbook) {
       throw new WorkflowError({
         message: `Paused execution not found: ${executionId}`,
         code: ErrorCode.EXECUTION_NOT_FOUND,
-        workflowId: '',
+        runbookId: '',
       });
     }
 
     const contextLogger = this.logger.child({
       executionId,
-      workflowId: execution.workflowId,
+      runbookId: execution.runbookId,
       userId,
       tenantId,
       isResumed: true,
@@ -766,7 +766,7 @@ export class ExecutionService {
       resource: executionId,
       payload: {
         executionId,
-        workflowId: execution.workflowId,
+        runbookId: execution.runbookId,
       },
     });
 
@@ -783,7 +783,7 @@ export class ExecutionService {
       executedNodes?: string[];
       nodesToExecute?: string[];
     };
-    const allNodes = execution.workflow.nodes as unknown as WorkflowNode[];
+    const allNodes = execution.runbook.nodes as unknown as WorkflowNode[];
 
     // Restore state
     const initialState: RunState = {
@@ -802,14 +802,14 @@ export class ExecutionService {
 
     this.runWorkflow(
       execution.id,
-      execution.workflow,
+      execution.runbook,
       {}, // Original input is already baked into the state
-      { executionId, workflowId: execution.workflowId, userId, tenantId },
+      { executionId, runbookId: execution.runbookId, userId, tenantId },
       tenantId,
       undefined,
       initialState
     ).catch(error => {
-      this.logger.error('Uncaught error in resumed workflow execution', {
+      this.logger.error('Uncaught error in resumed runbook execution', {
         error: error instanceof Error ? error : new Error(String(error)),
       });
     });
@@ -822,7 +822,7 @@ export class ExecutionService {
    * after reconstructing a run's checkpoint from the event log.
    *
    * Inputs:
-   *   - `executionId` / `workflow`: already loaded by the worker so we
+   *   - `executionId` / `runbook`: already loaded by the worker so we
    *     don't make a second trip for them.
    *   - `completedNodeIds`: union of successful + skipped + failed
    *     step ids. The engine skips these on re-entry.
@@ -842,15 +842,15 @@ export class ExecutionService {
    */
   async resumeFromEventLog(params: {
     executionId: string;
-    workflow: Runbook;
+    runbook: Runbook;
     completedNodeIds: string[];
     nodeOutputs: Record<string, unknown>;
     userId: string;
     tenantId: string;
   }): Promise<void> {
-    const { executionId, workflow, completedNodeIds, nodeOutputs, userId, tenantId } = params;
-    const allNodes = workflow.nodes as unknown as WorkflowNode[];
-    const allConnections = workflow.connections as unknown as WorkflowConnection[];
+    const { executionId, runbook, completedNodeIds, nodeOutputs, userId, tenantId } = params;
+    const allNodes = runbook.nodes as unknown as WorkflowNode[];
+    const allConnections = runbook.connections as unknown as WorkflowConnection[];
 
     // Cast the raw event-log outputs to the engine's ExecutionOutput
     // shape. The outputs were serialized from this same engine, so the
@@ -893,8 +893,8 @@ export class ExecutionService {
 
     const executionContext = {
       executionId,
-      workflowId: workflow.id,
-      workflowName: workflow.name,
+      runbookId: runbook.id,
+      workflowName: runbook.name,
       userId,
       tenantId,
       isResumedFromEventLog: true,
@@ -906,14 +906,14 @@ export class ExecutionService {
 
     this.runWorkflow(
       executionId,
-      workflow,
+      runbook,
       {},
       executionContext,
       tenantId,
       undefined,
       initialState
     ).catch(error => {
-      this.logger.error('Uncaught error in event-log resumed workflow', {
+      this.logger.error('Uncaught error in event-log resumed runbook', {
         error: error instanceof Error ? error : new Error(String(error)),
       });
     });
@@ -953,7 +953,7 @@ export class ExecutionService {
 
   private async runWorkflow(
     executionId: string,
-    workflow: Runbook,
+    runbook: Runbook,
     input: ExecutionInput,
     executionContext: Record<string, unknown>,
     tenantId: string,
@@ -965,11 +965,11 @@ export class ExecutionService {
     const contextLogger = this.logger.child(executionContext);
 
     // Cast Prisma JSON fields to typed arrays
-    const nodes = workflow.nodes as unknown as WorkflowNode[];
-    const connections = workflow.connections as unknown as WorkflowConnection[];
+    const nodes = runbook.nodes as unknown as WorkflowNode[];
+    const connections = runbook.connections as unknown as WorkflowConnection[];
 
     try {
-      // Validate workflow before execution
+      // Validate runbook before execution
       if (!initialState) {
         // Only validate on first run, not on resume
         this.validateWorkflow(nodes, connections);
@@ -1027,7 +1027,7 @@ export class ExecutionService {
             resource: executionId,
             payload: {
               executionId,
-              workflowId: workflow.id,
+              runbookId: runbook.id,
               nodeId: currentNode.id,
               nodeName: currentNode.title,
               nodeType: currentNode.type,
@@ -1151,7 +1151,7 @@ export class ExecutionService {
               resource: executionId,
               payload: {
                 executionId,
-                workflowId: workflow.id,
+                runbookId: runbook.id,
                 pausedAtNodeId: currentNode.id,
                 pausedAtNodeName: currentNode.title,
                 pausedAtNodeType: currentNode.type,
@@ -1201,7 +1201,7 @@ export class ExecutionService {
             resource: executionId,
             payload: {
               executionId,
-              workflowId: workflow.id,
+              runbookId: runbook.id,
               nodeId: currentNode.id,
               nodeName: currentNode.title,
               nodeType: currentNode.type,
@@ -1352,7 +1352,7 @@ export class ExecutionService {
             resource: executionId,
             payload: {
               executionId,
-              workflowId: workflow.id,
+              runbookId: runbook.id,
               nodeId: currentNode.id,
               nodeName: currentNode.title,
               nodeType: currentNode.type,
@@ -1450,8 +1450,8 @@ export class ExecutionService {
         resource: executionId,
         payload: {
           executionId,
-          workflowId: workflow.id,
-          workflowName: workflow.name,
+          runbookId: runbook.id,
+          workflowName: runbook.name,
           durationMs: duration,
           nodesExecuted: executedNodes.size,
         },
@@ -1476,7 +1476,7 @@ export class ExecutionService {
       await this.safeGitHubStatus(executionId, tenantId, {
         success: true,
         durationMs: duration,
-        workflowName: workflow.name,
+        workflowName: runbook.name,
       });
 
       try {
@@ -1524,8 +1524,8 @@ export class ExecutionService {
         resource: executionId,
         payload: {
           executionId,
-          workflowId: workflow.id,
-          workflowName: workflow.name,
+          runbookId: runbook.id,
+          workflowName: runbook.name,
           durationMs: duration,
           errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
           errorMessage,
@@ -1557,7 +1557,7 @@ export class ExecutionService {
       await this.safeGitHubStatus(executionId, tenantId, {
         success: false,
         durationMs: duration,
-        workflowName: workflow.name,
+        workflowName: runbook.name,
         error: errorMessage,
       });
 
@@ -1572,14 +1572,14 @@ export class ExecutionService {
         });
       }
 
-      // Error workflow trigger (n8n-style meta-automation): if the
+      // Error runbook trigger (n8n-style meta-automation): if the
       // runbook declares onErrorRunbookId, dispatch a child run of
       // that handler with the failure payload. Best-effort and
       // fully isolated — a broken handler must never break the
       // parent's FAILED transition.
       await this.dispatchErrorHandler({
         failedExecutionId: executionId,
-        workflow,
+        runbook,
         errorMessage,
         tenantId,
         userId: (executionContext.userId as string | undefined) ?? '',
@@ -1617,14 +1617,14 @@ export class ExecutionService {
   }
 
   /**
-   * Validate workflow structure before execution
+   * Validate runbook structure before execution
    */
   private validateWorkflow(nodes: WorkflowNode[], connections: WorkflowConnection[]): void {
     if (!nodes || nodes.length === 0) {
       throw new WorkflowError({
         message: 'Runbook has no nodes',
         code: ErrorCode.WORKFLOW_INVALID,
-        workflowId: '',
+        runbookId: '',
       });
     }
 
@@ -1635,7 +1635,7 @@ export class ExecutionService {
         throw new WorkflowError({
           message: `Connection references non-existent node: ${conn.source} -> ${conn.target}`,
           code: ErrorCode.WORKFLOW_INVALID,
-          workflowId: '',
+          runbookId: '',
         });
       }
     }
@@ -1645,7 +1645,7 @@ export class ExecutionService {
   }
 
   /**
-   * Check for circular dependencies in the workflow
+   * Check for circular dependencies in the runbook
    */
   private checkForCycles(nodeIds: Set<string>, connections: WorkflowConnection[]): void {
     const visited = new Set<string>();
@@ -1681,7 +1681,7 @@ export class ExecutionService {
           throw new WorkflowError({
             message: `Runbook contains circular dependencies. Cycle detected: ${cyclePath.join(' → ')}`,
             code: ErrorCode.WORKFLOW_INVALID,
-            workflowId: '',
+            runbookId: '',
             context: { cyclePath, cycleNodes: cyclePath },
           });
         }

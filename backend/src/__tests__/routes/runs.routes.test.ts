@@ -172,11 +172,11 @@ describe('GET /api/runs/:id/events/stream (tenant gate)', () => {
     const res = await request(buildApp()).get('/api/runs/run-x/events/stream');
     expect(res.status).toBe(404);
     expect(res.body.code).toBe('run_not_found');
-    // The tenant check is scoped via workflow.tenantId — same pattern
+    // The tenant check is scoped via runbook.tenantId — same pattern
     // as the detail and polling endpoints. Pins the invariant so a
     // refactor that swaps it for a loose id-only lookup breaks here.
     const args = m.execution.findFirst.mock.calls[0][0];
-    expect(args.where.workflow.tenantId).toBe('tenant-1');
+    expect(args.where.runbook.tenantId).toBe('tenant-1');
     expect(args.where.id).toBe('run-x');
   });
 });

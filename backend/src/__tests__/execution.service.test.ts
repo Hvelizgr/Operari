@@ -87,7 +87,7 @@ describe('ExecutionService', () => {
 
   describe('execute', () => {
     const mockWorkflow = {
-      id: 'workflow-1',
+      id: 'runbook-1',
       name: 'Test Workflow',
       nodes: [
         {
@@ -114,18 +114,18 @@ describe('ExecutionService', () => {
       ],
     };
 
-    it('should successfully execute a workflow', async () => {
+    it('should successfully execute a runbook', async () => {
       (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue(mockWorkflow);
       (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
         id: 'exec-1',
-        workflowId: 'workflow-1',
+        runbookId: 'runbook-1',
         userId: 'user-1',
         status: 'RUNNING',
         trigger: 'MANUAL',
       });
 
       const result = await executionService.execute({
-        workflowId: 'workflow-1',
+        runbookId: 'runbook-1',
         userId: 'user-1',
         tenantId: 'tenant-1',
         trigger: TriggerType.MANUAL,
@@ -135,11 +135,11 @@ describe('ExecutionService', () => {
       expect(result.id).toBe('exec-1');
       expect(result.status).toBe('RUNNING');
       expect(mockPrisma.runbook.findUnique).toHaveBeenCalledWith({
-        where: { id: 'workflow-1' },
+        where: { id: 'runbook-1' },
       });
       expect(mockPrisma.execution.create).toHaveBeenCalledWith({
         data: {
-          workflowId: 'workflow-1',
+          runbookId: 'runbook-1',
           tenantId: 'tenant-1',
           userId: 'user-1',
           trigger: TriggerType.MANUAL,
@@ -152,12 +152,12 @@ describe('ExecutionService', () => {
       });
     });
 
-    it('should throw error when workflow not found', async () => {
+    it('should throw error when runbook not found', async () => {
       (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
         executionService.execute({
-          workflowId: 'non-existent',
+          runbookId: 'non-existent',
           userId: 'user-1',
           tenantId: 'tenant-1',
           trigger: TriggerType.MANUAL,
@@ -170,7 +170,7 @@ describe('ExecutionService', () => {
       expect(mockPrisma.execution.create).not.toHaveBeenCalled();
     });
 
-    it('should handle workflow with no nodes', async () => {
+    it('should handle runbook with no nodes', async () => {
       const emptyWorkflow = {
         ...mockWorkflow,
         nodes: [],
@@ -180,14 +180,14 @@ describe('ExecutionService', () => {
       (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue(emptyWorkflow);
       (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
         id: 'exec-1',
-        workflowId: 'workflow-1',
+        runbookId: 'runbook-1',
         userId: 'user-1',
         status: 'RUNNING',
         trigger: 'MANUAL',
       });
 
       const result = await executionService.execute({
-        workflowId: 'workflow-1',
+        runbookId: 'runbook-1',
         userId: 'user-1',
         tenantId: 'tenant-1',
         trigger: TriggerType.MANUAL,
@@ -198,7 +198,7 @@ describe('ExecutionService', () => {
   });
 
   describe('validateWorkflow', () => {
-    it('should throw error for workflow with no nodes', () => {
+    it('should throw error for runbook with no nodes', () => {
       const service = executionService as any;
 
       expect(() => {
@@ -263,7 +263,7 @@ describe('ExecutionService', () => {
       }).toThrow(WorkflowError);
     });
 
-    it('should pass validation for valid workflow', () => {
+    it('should pass validation for valid runbook', () => {
       const service = executionService as any;
       const nodes: WorkflowNode[] = [
         {
@@ -296,12 +296,12 @@ describe('ExecutionService', () => {
   describe('replayExecution', () => {
     const originalExecution = {
       id: 'exec-1',
-      workflowId: 'workflow-1',
+      runbookId: 'runbook-1',
       userId: 'user-1',
       trigger: 'MANUAL' as const,
       status: 'SUCCESS' as const,
-      workflow: {
-        id: 'workflow-1',
+      runbook: {
+        id: 'runbook-1',
         name: 'Test Runbook',
         nodes: [
           { id: 'node-1', type: 'Trigger', title: 'Start', position: { x: 0, y: 0 } },
@@ -312,11 +312,11 @@ describe('ExecutionService', () => {
       nodeLogs: [{ nodeId: 'node-2', input: { fromPreviousStep: true } }],
     };
 
-    it('creates a new execution pointing at the same workflow on full replay', async () => {
+    it('creates a new execution pointing at the same runbook on full replay', async () => {
       (mockPrisma.execution.findUnique as jest.Mock).mockResolvedValue(originalExecution);
       (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
         id: 'exec-2',
-        workflowId: 'workflow-1',
+        runbookId: 'runbook-1',
         userId: 'user-2',
         status: 'RUNNING',
         trigger: 'MANUAL',
@@ -331,11 +331,11 @@ describe('ExecutionService', () => {
       expect(result.id).toBe('exec-2');
       expect(mockPrisma.execution.findUnique).toHaveBeenCalledWith({
         where: { id: 'exec-1' },
-        include: { workflow: true, nodeLogs: true },
+        include: { runbook: true, nodeLogs: true },
       });
       expect(mockPrisma.execution.create).toHaveBeenCalledWith({
         data: {
-          workflowId: 'workflow-1',
+          runbookId: 'runbook-1',
           tenantId: 'tenant-1',
           userId: 'user-2',
           trigger: 'MANUAL',
@@ -348,7 +348,7 @@ describe('ExecutionService', () => {
       (mockPrisma.execution.findUnique as jest.Mock).mockResolvedValue(originalExecution);
       (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
         id: 'exec-3',
-        workflowId: 'workflow-1',
+        runbookId: 'runbook-1',
         userId: 'user-2',
         status: 'RUNNING',
         trigger: 'MANUAL',
@@ -384,7 +384,7 @@ describe('ExecutionService', () => {
   describe('resumeExecution', () => {
     const pausedExecution = {
       id: 'exec-paused',
-      workflowId: 'workflow-1',
+      runbookId: 'runbook-1',
       userId: 'user-1',
       trigger: 'MANUAL' as const,
       status: 'PAUSED' as const,
@@ -394,8 +394,8 @@ describe('ExecutionService', () => {
         executedNodes: ['node-1'],
         nodesToExecute: ['node-2'],
       },
-      workflow: {
-        id: 'workflow-1',
+      runbook: {
+        id: 'runbook-1',
         tenantId: 'tenant-1',
         name: 'Test Runbook',
         nodes: [
@@ -425,10 +425,10 @@ describe('ExecutionService', () => {
       expect(mockPrisma.execution.findFirst).toHaveBeenCalledWith({
         where: {
           id: 'exec-paused',
-          workflow: { tenantId: 'tenant-1' },
+          runbook: { tenantId: 'tenant-1' },
           status: 'PAUSED',
         },
-        include: { workflow: true },
+        include: { runbook: true },
       });
       expect(mockPrisma.execution.update).toHaveBeenCalledWith({
         where: { id: 'exec-paused' },

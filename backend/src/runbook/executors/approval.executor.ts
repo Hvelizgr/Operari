@@ -79,10 +79,10 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
       };
     }
 
-    // Look up the workflowId from the execution
+    // Look up the runbookId from the execution
     const execution = await this.prisma.execution.findUnique({
       where: { id: context.runId },
-      select: { workflowId: true, userId: true },
+      select: { runbookId: true, userId: true },
     });
 
     if (!execution) {
@@ -95,7 +95,7 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
 
     const approval = await this.prisma.approval.create({
       data: {
-        workflowId: execution.workflowId,
+        runbookId: execution.runbookId,
         executionId: context.runId,
         stepId: context.stepId,
         status: 'PENDING',
@@ -122,7 +122,7 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
           resource: context.runId,
           payload: {
             executionId: context.runId,
-            workflowId: execution.workflowId,
+            runbookId: execution.runbookId,
             stepId: context.stepId,
             approvalId: approval.id,
             message,

@@ -15,12 +15,12 @@ export interface Snapshot {
 const MAX_SNAPSHOTS = 20;
 const STORAGE_KEY_PREFIX = 'operari-snapshot-';
 
-export function useSnapshots(workflowId: string = 'global') {
+export function useSnapshots(runbookId: string = 'global') {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
 
   // Load snapshots from local storage on mount
   useEffect(() => {
-    const key = `${STORAGE_KEY_PREFIX}${workflowId}`;
+    const key = `${STORAGE_KEY_PREFIX}${runbookId}`;
     const stored = storageRead(key);
     if (stored) {
       try {
@@ -30,13 +30,13 @@ export function useSnapshots(workflowId: string = 'global') {
         console.error('Failed to parse snapshots', e);
       }
     }
-  }, [workflowId]);
+  }, [runbookId]);
 
   // Save snapshots to local storage whenever they change
   useEffect(() => {
-    const key = `${STORAGE_KEY_PREFIX}${workflowId}`;
+    const key = `${STORAGE_KEY_PREFIX}${runbookId}`;
     storageWrite(key, JSON.stringify(snapshots));
-  }, [snapshots, workflowId]);
+  }, [snapshots, runbookId]);
 
   const createSnapshot = useCallback(
     (nodes: WorkflowNode[], connections: Connection[], name?: string) => {

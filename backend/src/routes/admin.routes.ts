@@ -72,7 +72,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       prisma.execution.count({ where: { tenantId } }),
       prisma.apiKey.count({ where: { tenantId } }),
       prisma.webhook.count({ where: { tenantId } }),
-      prisma.scheduledJob.count({ where: { workflow: { tenantId } } }),
+      prisma.scheduledJob.count({ where: { runbook: { tenantId } } }),
       prisma.eventAgent.count({ where: { tenantId } }),
       prisma.monitor.count({ where: { tenantId } }),
       prisma.auditEvent.count({ where: { tenantId } }),

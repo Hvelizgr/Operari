@@ -10,7 +10,7 @@ type MonitorRow = Pick<
   Monitor,
   | 'id'
   | 'tenantId'
-  | 'workflowId'
+  | 'runbookId'
   | 'name'
   | 'status'
   | 'alertWebhookUrl'
@@ -24,7 +24,7 @@ const monitorRow = (overrides: Partial<MonitorRow> = {}): MonitorRow =>
   ({
     id: 'mon-1',
     tenantId: 'tenant-1',
-    workflowId: 'wf-1',
+    runbookId: 'wf-1',
     name: 'deploys-per-hour',
     status: 'OK', // about to flip
     alertWebhookUrl: null,

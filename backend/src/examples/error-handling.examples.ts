@@ -39,15 +39,15 @@ async function fetchUserDataWithRetry() {
 
 import { CustomError, ErrorCode, ErrorSeverity } from '@/errors/custom-error';
 
-function validateWorkflow(workflow: any) {
-  if (!workflow.name) {
+function validateWorkflow(runbook: any) {
+  if (!runbook.name) {
     throw new CustomError({
       message: 'Workflow name is required',
       code: ErrorCode.VALIDATION_ERROR,
       severity: ErrorSeverity.MEDIUM,
-      userMessage: 'Please provide a workflow name',
+      userMessage: 'Please provide a runbook name',
       context: {
-        workflowId: workflow.id,
+        runbookId: runbook.id,
         userId: 'current-user-id',
       },
     });
@@ -73,7 +73,7 @@ async function executeNode(node: any, input: any) {
       nodeType: node.type,
       context: {
         executionId: 'exec-123',
-        workflowId: 'wf-456',
+        runbookId: 'wf-456',
       },
       isRetryable: true, // This node can be retried
       cause: error,
@@ -196,7 +196,7 @@ import { Logger } from '@/services/logger.service';
 
 async function runWorkflowWithErrorHandling(
   executionService: ExecutionService,
-  workflowId: string,
+  runbookId: string,
   userId: string,
   tenantId: string
 ) {
@@ -204,12 +204,12 @@ async function runWorkflowWithErrorHandling(
 
   try {
     // Start execution
-    logger.info('Starting workflow execution', {
-      context: { workflowId, userId, tenantId },
+    logger.info('Starting runbook execution', {
+      context: { runbookId, userId, tenantId },
     });
 
     const execution = await executionService.execute({
-      workflowId,
+      runbookId,
       userId,
       trigger: 'MANUAL',
       input: {
@@ -220,7 +220,7 @@ async function runWorkflowWithErrorHandling(
 
     logger.info('Workflow execution initiated', {
       context: {
-        workflowId,
+        runbookId,
         executionId: execution.id,
         userId,
         tenantId,
@@ -236,10 +236,10 @@ async function runWorkflowWithErrorHandling(
         : new CustomError({
             message: error instanceof Error ? error.message : 'Unknown error',
             code: ErrorCode.UNKNOWN_ERROR,
-            context: { workflowId, userId, tenantId },
+            context: { runbookId, userId, tenantId },
           });
 
-    logger.logError(customError, 'Failed to start workflow execution');
+    logger.logError(customError, 'Failed to start runbook execution');
     throw customError;
   }
 }
@@ -257,7 +257,7 @@ async function processWithLogging(executionId: string, nodeId: string) {
   const contextLogger = logger.child({
     executionId,
     nodeId,
-    workflowId: 'wf-123',
+    runbookId: 'wf-123',
   });
 
   try {
@@ -372,7 +372,7 @@ function validateWorkflowStructure(nodes: any[], connections: any[]) {
       throw new WorkflowError({
         message: `Connection references non-existent node: ${conn.source} -> ${conn.target}`,
         code: ErrorCode.WORKFLOW_INVALID,
-        workflowId: '',
+        runbookId: '',
         userMessage: 'Workflow has invalid connections',
       });
     }

@@ -33,7 +33,7 @@ const checkConfigSchema = z.object({
 const createSchema = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(500).optional(),
-  workflowId: z.string().min(1),
+  runbookId: z.string().min(1),
   checkType: z.enum(['last_success_within', 'no_run_within', 'failure_rate_above']),
   checkConfig: checkConfigSchema,
   isEnabled: z.boolean().optional(),

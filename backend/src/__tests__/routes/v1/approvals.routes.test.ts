@@ -59,7 +59,7 @@ describe('GET /api/v1/approvals (list)', () => {
     id: 'a-1',
     status: 'PENDING',
     message: 'Approve to ship',
-    workflowId: 'wf-1',
+    runbookId: 'wf-1',
     executionId: 'exec-1',
     stepId: 'step-approval',
     requestedBy: null,
@@ -67,22 +67,22 @@ describe('GET /api/v1/approvals (list)', () => {
     approvedAt: null,
     comment: null,
     createdAt: new Date('2026-04-07T00:00:00Z'),
-    workflow: { id: 'wf-1', slug: 'deploy', name: 'Deploy' },
+    runbook: { id: 'wf-1', slug: 'deploy', name: 'Deploy' },
     ...over,
   });
 
-  it('defaults to PENDING and scopes via workflow.tenantId', async () => {
+  it('defaults to PENDING and scopes via runbook.tenantId', async () => {
     findManyMock.mockResolvedValue([mkApproval()]);
     const res = await request(buildApp()).get('/api/v1/approvals');
 
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].id).toBe('a-1');
-    expect(res.body.data[0].workflow.slug).toBe('deploy');
+    expect(res.body.data[0].runbook.slug).toBe('deploy');
     expect(res.body.nextCursor).toBeNull();
 
     const args = findManyMock.mock.calls[0][0];
-    expect(args.where.workflow.tenantId).toBe('tenant-1');
+    expect(args.where.runbook.tenantId).toBe('tenant-1');
     expect(args.where.status).toEqual({ in: ['PENDING'] });
   });
 
@@ -139,7 +139,7 @@ describe('POST /api/v1/approvals/:id/grant', () => {
     resolveMock.mockResolvedValue({
       id: 'approval-1',
       status: 'APPROVED',
-      workflowId: 'wf-1',
+      runbookId: 'wf-1',
       executionId: 'exec-1',
       stepId: 'step-1',
       approvedBy: 'apikey:k-1',
@@ -200,7 +200,7 @@ describe('POST /api/v1/approvals/:id/grant', () => {
     resolveMock.mockResolvedValue({
       id: 'a',
       status: 'APPROVED',
-      workflowId: 'w',
+      runbookId: 'w',
       executionId: 'e',
       stepId: 's',
       approvedBy: 'apikey:k-42',
@@ -226,7 +226,7 @@ describe('POST /api/v1/approvals/:id/reject', () => {
     resolveMock.mockResolvedValue({
       id: 'a',
       status: 'REJECTED',
-      workflowId: 'w',
+      runbookId: 'w',
       executionId: 'e',
       stepId: 's',
       approvedBy: 'apikey:k-1',
