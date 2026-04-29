@@ -527,30 +527,31 @@ async function main() {
     // (custom.frame, custom.note) and nodes that intentionally have
     // no config (operari.webhook) round-trip cleanly.
     const properties = node.properties ?? [];
-    await prisma.nodeType.upsert({
-      where: { type: node.type },
-      update: {
-        category: node.category,
-        icon: node.icon,
-        color: node.color,
-        label: node.label,
-        description: node.description,
-        inputs: node.inputs,
-        outputs: node.outputs,
-        properties,
-      },
-      create: {
-        type: node.type,
-        category: node.category,
-        icon: node.icon,
-        color: node.color,
-        label: node.label,
-        description: node.description,
-        inputs: node.inputs,
-        outputs: node.outputs,
-        properties,
-      },
+    // Hand-rolled upsert: Prisma rejects `null` inside a compound
+    // whereUniqueInput, so we look up the existing global row first
+    // and dispatch update vs create. The partial unique index from
+    // migration 20260430000000_node_type_tenant_scoped_unique
+    // guarantees at most one global per type even if a parallel
+    // seed run races between findFirst and create.
+    const data = {
+      category: node.category,
+      icon: node.icon,
+      color: node.color,
+      label: node.label,
+      description: node.description,
+      inputs: node.inputs,
+      outputs: node.outputs,
+      properties,
+    };
+    const existing = await prisma.nodeType.findFirst({
+      where: { type: node.type, tenantId: null },
+      select: { id: true },
     });
+    if (existing) {
+      await prisma.nodeType.update({ where: { id: existing.id }, data });
+    } else {
+      await prisma.nodeType.create({ data: { type: node.type, tenantId: null, ...data } });
+    }
   }
   console.log('Node types seeded.');
 }

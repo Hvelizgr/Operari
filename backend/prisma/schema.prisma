@@ -619,7 +619,15 @@ enum NotificationType {
 
 model NodeType {
   id       String @id @default(uuid())
-  type     String @unique // e.g. "n8n-nodes-base.webhook"
+  /// Step type. Globally unique only when paired with tenantId — two
+  /// tenants can independently install a plugin that claims the same
+  /// type without colliding. The composite uniqueness is enforced
+  /// below via @@unique([type, tenantId]). The single-column index
+  /// stays so the legacy `where: { type }` upsert in the seed still
+  /// finds globals (Postgres allows multiple NULLs in a unique
+  /// composite, so the seed's tenantId=NULL rows remain at-most-one
+  /// per type).
+  type     String
   category String // e.g. "triggers"
 
   /// Optional tenant scope. NULL means "core global type" — visible
@@ -652,8 +660,8 @@ model NodeType {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([type, tenantId])
   @@index([tenantId])
-
   @@index([category])
   @@index([type])
 }

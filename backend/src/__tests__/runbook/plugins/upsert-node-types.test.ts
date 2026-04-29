@@ -12,19 +12,23 @@ import { upsertPluginNodeTypes } from '../../../runbook/plugins/upsert-node-type
 
 function makePrismaStub(opts: { failOn?: string[] } = {}): {
   prisma: PrismaClient;
-  upsert: jest.Mock;
+  findFirst: jest.Mock;
+  update: jest.Mock;
+  create: jest.Mock;
 } {
   const failures = new Set(opts.failOn ?? []);
-  const upsert = jest.fn(async (args: { where: { type: string } }) => {
-    if (failures.has(args.where.type)) {
-      throw new Error(`db down for ${args.where.type}`);
+  const findFirst = jest.fn(async () => null);
+  const update = jest.fn(async () => undefined);
+  const create = jest.fn(async (args: { data: { type: string } }) => {
+    if (failures.has(args.data.type)) {
+      throw new Error(`db down for ${args.data.type}`);
     }
     return undefined;
   });
   const prisma = {
-    nodeType: { upsert },
+    nodeType: { findFirst, update, create },
   } as unknown as PrismaClient;
-  return { prisma, upsert };
+  return { prisma, findFirst, update, create };
 }
 
 const richManifest: PluginNodeMetadata = {
@@ -50,80 +54,81 @@ const bareManifest: PluginNodeMetadata = {
 
 describe('upsertPluginNodeTypes', () => {
   it('returns 0/0 cleanly when called with an empty manifest list', async () => {
-    const { prisma, upsert } = makePrismaStub();
+    const { prisma, create } = makePrismaStub();
     const out = await upsertPluginNodeTypes(prisma, []);
     expect(out).toEqual({ upserted: 0, failed: 0 });
-    expect(upsert).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
   });
 
-  it('round-trips rich metadata onto the upsert payload', async () => {
-    const { prisma, upsert } = makePrismaStub();
+  it('round-trips rich metadata onto the create payload (when no existing row)', async () => {
+    const { prisma, create } = makePrismaStub();
 
     const out = await upsertPluginNodeTypes(prisma, [richManifest]);
 
     expect(out).toEqual({ upserted: 1, failed: 0 });
-    expect(upsert).toHaveBeenCalledTimes(1);
-    const args = upsert.mock.calls[0][0];
-    expect(args.where).toEqual({ type: 'acme.slack-notify' });
-    expect(args.create.tenantId).toBeNull();
-    expect(args.create.icon).toBe('Send');
-    expect(args.create.category).toBe('integrations');
-    expect(args.create.label).toEqual({ en: 'Slack notify', es: 'Notificar Slack' });
-    expect(Array.isArray(args.create.properties)).toBe(true);
-    expect(args.create.properties).toHaveLength(2);
+    expect(create).toHaveBeenCalledTimes(1);
+    const args = create.mock.calls[0][0];
+    expect(args.data.type).toBe('acme.slack-notify');
+    expect(args.data.tenantId).toBeNull();
+    expect(args.data.icon).toBe('Send');
+    expect(args.data.category).toBe('integrations');
+    expect(args.data.label).toEqual({ en: 'Slack notify', es: 'Notificar Slack' });
+    expect(Array.isArray(args.data.properties)).toBe(true);
+    expect(args.data.properties).toHaveLength(2);
   });
 
-  it('fills sensible defaults for a bare manifest (icon, color, category, ports, empty properties)', async () => {
-    const { prisma, upsert } = makePrismaStub();
+  it('fills sensible defaults for a bare manifest', async () => {
+    const { prisma, create } = makePrismaStub();
 
     await upsertPluginNodeTypes(prisma, [bareManifest]);
 
-    const args = upsert.mock.calls[0][0];
-    expect(args.create.icon).toBe('Plug');
-    expect(args.create.color).toBe('bg-purple-500');
-    expect(args.create.category).toBe('custom');
-    expect(args.create.inputs).toEqual([{ name: 'main', type: 'main' }]);
-    expect(args.create.outputs).toEqual([{ name: 'main', type: 'main' }]);
-    expect(args.create.properties).toEqual([]);
-    // label normalizes a missing string to the type itself, mirrored in es.
-    expect(args.create.label).toEqual({ en: 'acme.bare', es: 'acme.bare' });
+    const args = create.mock.calls[0][0];
+    expect(args.data.icon).toBe('Plug');
+    expect(args.data.color).toBe('bg-purple-500');
+    expect(args.data.category).toBe('custom');
+    expect(args.data.inputs).toEqual([{ name: 'main', type: 'main' }]);
+    expect(args.data.outputs).toEqual([{ name: 'main', type: 'main' }]);
+    expect(args.data.properties).toEqual([]);
+    expect(args.data.label).toEqual({ en: 'acme.bare', es: 'acme.bare' });
   });
 
   it('coerces a plain-string label into both en + es', async () => {
-    const { prisma, upsert } = makePrismaStub();
+    const { prisma, create } = makePrismaStub();
     await upsertPluginNodeTypes(prisma, [{ ...bareManifest, label: 'Just a string' }]);
-    const args = upsert.mock.calls[0][0];
-    expect(args.create.label).toEqual({ en: 'Just a string', es: 'Just a string' });
+    const args = create.mock.calls[0][0];
+    expect(args.data.label).toEqual({ en: 'Just a string', es: 'Just a string' });
   });
 
-  it('continues after a failing upsert and reports counts', async () => {
-    const { prisma, upsert } = makePrismaStub({ failOn: ['acme.bare'] });
+  it('continues after a failing create and reports counts', async () => {
+    const { prisma, create } = makePrismaStub({ failOn: ['acme.bare'] });
 
     const out = await upsertPluginNodeTypes(prisma, [bareManifest, richManifest]);
 
     expect(out).toEqual({ upserted: 1, failed: 1 });
-    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(create).toHaveBeenCalledTimes(2);
   });
 
-  it('writes the same shape to update + create so re-runs are idempotent', async () => {
-    const { prisma, upsert } = makePrismaStub();
+  it('uses update path when the row already exists (idempotent re-run)', async () => {
+    const { prisma, findFirst, update, create } = makePrismaStub();
+    findFirst.mockResolvedValueOnce({ id: 'existing-id' });
+
     await upsertPluginNodeTypes(prisma, [richManifest]);
-    const args = upsert.mock.calls[0][0];
-    // Every field on the data object lives on both branches.
-    for (const key of [
-      'category',
-      'icon',
-      'color',
-      'label',
-      'description',
-      'inputs',
-      'outputs',
-      'properties',
-    ]) {
-      expect(args.update[key]).toEqual(args.create[key]);
-    }
-    // Only `type` and `tenantId` live on create alone.
-    expect(args.update.type).toBeUndefined();
-    expect(args.update.tenantId).toBeUndefined();
+
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(create).not.toHaveBeenCalled();
+    const args = update.mock.calls[0][0];
+    expect(args.where).toEqual({ id: 'existing-id' });
+    expect(args.data.icon).toBe('Send');
+  });
+
+  it('threads tenantId into both findFirst and create when called per-tenant', async () => {
+    const { prisma, findFirst, create } = makePrismaStub();
+    await upsertPluginNodeTypes(prisma, [richManifest], 'tenant-42');
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { type: 'acme.slack-notify', tenantId: 'tenant-42' } })
+    );
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ tenantId: 'tenant-42' }) })
+    );
   });
 });
