@@ -72,7 +72,7 @@ This list is conservative and hand-verified against the test suite, not the road
 - Approval inbox at `/inbox` with status filters and inline grant/reject
 - Run history at `/runs` with status filters, ETA from past runs, cursor pagination
 - Run detail timeline at `/runs/:id` with per-step output, error blocks, replay-from-step button
-- AI assist side-panel that takes the failed step's stdout/stderr/exit-code as prompt context and streams a diagnosis. It does NOT yet have tool access to run history or other step logs — see "What does NOT work yet" below
+- AI assist side-panel that takes the failed step's stdout/stderr/exit-code as prompt context and streams a diagnosis. The orchestrator has read-only tool access to recent runs, step logs, full run details, error search, and the runbook list — Vercel AI SDK `tools` parameter wired in `backend/src/agent/orchestrator.ts`. Two write tools (`grant_approval`, `reject_approval`) are gated behind `OPERARI_AGENT_WRITE_TOOLS=true`
 - Hash-chained immutable audit log (SHA-256) with a CLI to verify the chain (`operari audit verify`)
 - RBAC with custom roles, role assignments, and audit events on grant/revoke
 - OpenTelemetry: every run is a trace, every step is a span
@@ -149,16 +149,15 @@ This list is conservative and hand-verified against the test suite, not the road
 
 This is the part Show HN will dig into anyway, so it's better up here than buried.
 
-| Area                                 | State                                                                                                                                                              | Tracked in                           |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
-| **GitHub App OAuth + status checks** | Connected accounts model exists, OAuth dance not wired                                                                                                             | P1 #9 in `IMPLEMENTACION_NANORUN.md` |
-| **Sentry / Datadog payload parsing** | Webhook receiver verifies HMAC and routes to runbooks; provider-specific parsing is stubbed                                                                        | P1 #9                                |
-| **AI agent tools**                   | The orchestrator streams responses; it does NOT yet have read access to past runs / step logs as tools. Today it only sees what the side-panel sends in the prompt | Backlog item, no eta                 |
-| **Database step**                    | Hardened to allow `migrate`/`health`/`backup` only, but still a passthrough stub. Real Prisma wiring is not in                                                     | Backlog                              |
-| **Public demo instance**             | None. You have to self-host to try it                                                                                                                              | —                                    |
-| **Loom / video walkthrough**         | None                                                                                                                                                               | —                                    |
-| **Verified domain + trademark**      | The repo is at `Hvelizgr/Operari`; the `Operari` mark and the `.dev/.io/.com` domains are not yet secured                                                          | Pre-launch checklist                 |
-| **Production design partners**       | Zero                                                                                                                                                               | —                                    |
+| Area                                 | State                                                                                                          | Tracked in                           |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **GitHub App OAuth + status checks** | Connected accounts model exists, OAuth dance not wired                                                         | P1 #9 in `IMPLEMENTACION_NANORUN.md` |
+| **Sentry / Datadog payload parsing** | Webhook receiver verifies HMAC and routes to runbooks; provider-specific parsing is stubbed                    | P1 #9                                |
+| **Database step**                    | Hardened to allow `migrate`/`health`/`backup` only, but still a passthrough stub. Real Prisma wiring is not in | Backlog                              |
+| **Public demo instance**             | None. You have to self-host to try it                                                                          | —                                    |
+| **Loom / video walkthrough**         | None                                                                                                           | —                                    |
+| **Verified domain + trademark**      | The repo is at `Hvelizgr/Operari`; the `Operari` mark and the `.dev/.io/.com` domains are not yet secured      | Pre-launch checklist                 |
+| **Production design partners**       | Zero                                                                                                           | —                                    |
 
 If any of these are deal-breakers for you, Operari is not yet the tool you
 need. Star the repo and check back in 4-6 weeks.
@@ -487,7 +486,7 @@ Honest, time-boxed, conservative.
 
 - 5 design partners using Operari in earnest
 - Python SDK
-- AI agent gets read-only tools (`get_recent_runs`, `get_step_logs`, `search_step_history`)
+- ~~AI agent gets read-only tools (`get_recent_runs`, `get_step_logs`, `search_step_history`)~~ — shipped (`list_recent_runs`, `get_run_details`, `get_step_logs`, `search_runs_by_error`, `list_runbooks` + opt-in `grant_approval` / `reject_approval`)
 - Live log streaming on the run detail timeline
 - Grafana dashboard JSON shipped with the repo
 - 5 more production-shaped templates from real customer scenarios
