@@ -82,6 +82,7 @@ This list is conservative and hand-verified against the test suite, not the road
 - Pluggable AuthProvider — JWT for self-host, WorkOS for cloud, single env flip to swap
 - Email/password register + login with bcrypt 12 rounds, generic error messages (no user enumeration), and a 5-req/min rate limit layered both per-IP and per-email so distributed credential stuffing also gets blocked
 - Social login via Google + GitHub OAuth 2. Account linking by verified email — one user can have password + Google + GitHub against the same inbox. Providers are fully optional; without creds the `/api/auth/{provider}` route returns 501 and the frontend hides the button
+- Connected accounts (GitHub today): a separate OAuth flow at `/api/connected-accounts/github/oauth/{start,callback}` lets a logged-in user link their GitHub account so the runbook engine can post commit statuses, write files via `github.commitFile`, and list repo metadata. The token is encrypted at rest with the per-tenant key, every read emits a `secret.accessed` audit event, and the user can disconnect from Settings → Connected accounts at any time
 - Dual-transport session: `Authorization: Bearer` for SDK/CLI clients, HttpOnly `SameSite=Lax` cookie for the web UI. Cookie's `Secure` flag auto-detects request protocol so local HTTP and prod HTTPS both work without a config flip
 - Password reset flow — 30-minute single-use tokens, SHA-256-hashed at rest, invalidates prior reset tokens on both request and consumption
 - Email verification — 7-day tokens, auto-sent at register, dismissible banner in the dashboard until clicked. OAuth users land pre-verified
@@ -149,14 +150,13 @@ This list is conservative and hand-verified against the test suite, not the road
 
 This is the part Show HN will dig into anyway, so it's better up here than buried.
 
-| Area                                 | State                                                                                                                                                       | Tracked in                           |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| **GitHub App OAuth + status checks** | Connected accounts model exists, OAuth dance not wired                                                                                                      | P1 #9 in `IMPLEMENTACION_NANORUN.md` |
-| **Sentry / Datadog setup wizard**    | Parsers + HMAC + a cross-provider `vars.alert.*` envelope ship today; the missing piece is a UI walkthrough for pasting the webhook URL into Sentry/Datadog | doc polish pending                   |
-| **Public demo instance**             | None. You have to self-host to try it                                                                                                                       | —                                    |
-| **Loom / video walkthrough**         | None                                                                                                                                                        | —                                    |
-| **Verified domain + trademark**      | The repo is at `Hvelizgr/Operari`; the `Operari` mark and the `.dev/.io/.com` domains are not yet secured                                                   | Pre-launch checklist                 |
-| **Production design partners**       | Zero                                                                                                                                                        | —                                    |
+| Area                              | State                                                                                                                                                       | Tracked in           |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| **Sentry / Datadog setup wizard** | Parsers + HMAC + a cross-provider `vars.alert.*` envelope ship today; the missing piece is a UI walkthrough for pasting the webhook URL into Sentry/Datadog | doc polish pending   |
+| **Public demo instance**          | None. You have to self-host to try it                                                                                                                       | —                    |
+| **Loom / video walkthrough**      | None                                                                                                                                                        | —                    |
+| **Verified domain + trademark**   | The repo is at `Hvelizgr/Operari`; the `Operari` mark and the `.dev/.io/.com` domains are not yet secured                                                   | Pre-launch checklist |
+| **Production design partners**    | Zero                                                                                                                                                        | —                    |
 
 If any of these are deal-breakers for you, Operari is not yet the tool you
 need. Star the repo and check back in 4-6 weeks.

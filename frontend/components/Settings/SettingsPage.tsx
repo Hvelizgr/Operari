@@ -5,6 +5,7 @@ import {
   Check,
   Grid3x3,
   Languages,
+  Link2,
   Palette,
   Save,
   Settings as SettingsIcon,
@@ -19,6 +20,7 @@ import { type Theme, THEMES, useTheme } from '@/context/ThemeContext';
 import { storageRead, storageWrite } from '@/lib/storage-compat';
 
 import { BillingPanel } from './BillingPanel';
+import ConnectedAccountsPanel from './ConnectedAccountsPanel';
 import { DangerZone } from './DangerZone';
 import { TeamPanel } from './TeamPanel';
 import { UpgradeWelcomeModal } from './UpgradeWelcomeModal';
@@ -220,6 +222,14 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
           }
         >
           <TeamPanel lang={lang} />
+        </Section>
+
+        {/* Connected accounts (GitHub today, more providers in time) */}
+        <Section
+          icon={<Link2 size={16} />}
+          title={lang === 'es' ? 'Cuentas conectadas' : 'Connected accounts'}
+        >
+          <ConnectedAccountsPanel lang={lang} />
         </Section>
 
         {/* Plan & billing */}
