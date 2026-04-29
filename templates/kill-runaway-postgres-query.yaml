@@ -1,0 +1,153 @@
+# Operari Template: Kill a runaway Postgres query
+#
+# The 3am scenario:
+#   - pgBouncer or RDS Performance Insights pages with "long-running
+#     query holding a lock for 12 minutes". Latency p99 is climbing
+#     because writers are queueing behind it.
+#   - Killing it via psql is one command, but you need to (a) prove
+#     which query you killed, (b) confirm the lock is released, and
+#     (c) leave a postmortem trail. Three terminal windows and a
+#     screenshot is not an audit log.
+#
+# What this runbook does:
+#   1. Lists every backend running for more than `min_duration_seconds`
+#      including the wait event, the held lock mode, and the SQL.
+#   2. Pauses for human approval — kills are destructive, the on-call
+#      should pick which PIDs to terminate.
+#   3. Calls pg_terminate_backend on the approved PID.
+#   4. Re-lists active backends to confirm the kill landed and no new
+#      query is blocking.
+#   5. Posts a status update with the killed query text so the team can
+#      pin a fix.
+#
+# Variables expected:
+#   - target_pid              (number) the PID to terminate. Get from step 1
+#                                      output in a real run, or pre-set if
+#                                      operator already knows.
+#   - min_duration_seconds    (number) only list queries running longer than
+#                                      this (default 60s in the SQL).
+#   - postgres_credential_id  (string) ConnectedAccount id for the Postgres
+#                                      DSN. Operari resolves it at run time.
+#
+# Connected accounts:
+#   - {{vars.postgres_credential_id}}  Postgres DSN with a role that has
+#                                      pg_signal_backend (RDS: rds_superuser
+#                                      or a custom role granted via
+#                                      pg_signal_backend GRANT).
+#   - slack-incidents                  Slack webhook for #incidents
+#
+# Trigger: manual from a "long-running query" alert.
+version: 1
+name: Kill runaway Postgres query
+slug: kill-runaway-postgres-query
+description: >-
+  List long-running backends, gate on approval, terminate the chosen PID,
+  verify the kill, and post the killed query text for postmortem.
+category: incident-response
+steps:
+  - id: list_long_running
+    type: operari.database
+    name: List long-running backends
+    config:
+      operation: query
+      credentialId: '{{vars.postgres_credential_id}}'
+      query: |
+        SELECT
+          pid,
+          state,
+          wait_event_type,
+          wait_event,
+          EXTRACT(EPOCH FROM (now() - query_start))::int AS duration_s,
+          usename,
+          application_name,
+          left(query, 500) AS query_preview
+        FROM pg_stat_activity
+        WHERE state = 'active'
+          AND pid <> pg_backend_pid()
+          AND now() - query_start > interval '{{vars.min_duration_seconds}} seconds'
+        ORDER BY query_start ASC
+        LIMIT 20;
+      timeout: 30000
+    next: list_blockers
+
+  # Surfaces the lock chain: who is blocking whom. The on-call can use
+  # this to spot a chain ahead of just one bad query.
+  - id: list_blockers
+    type: operari.database
+    name: List blocking lock chains
+    config:
+      operation: query
+      credentialId: '{{vars.postgres_credential_id}}'
+      query: |
+        SELECT
+          blocked.pid          AS blocked_pid,
+          blocked.usename      AS blocked_user,
+          blocking.pid         AS blocking_pid,
+          blocking.usename     AS blocking_user,
+          blocked.query        AS blocked_query,
+          blocking.query       AS blocking_query
+        FROM pg_stat_activity AS blocked
+        JOIN pg_stat_activity AS blocking
+          ON blocking.pid = ANY(pg_blocking_pids(blocked.pid))
+        LIMIT 20;
+      timeout: 30000
+    next: approve_terminate
+
+  - id: approve_terminate
+    type: approval
+    name: Approve pg_terminate_backend
+    config:
+      message: |
+        Long-running queries listed above. Lock-chain map listed above.
+
+        Approve to call pg_terminate_backend({{vars.target_pid}}) on
+        the chosen PID. Other PIDs in the list are NOT touched — re-run
+        with a different `target_pid` if more cleanup is needed.
+
+        Reminder: terminate_backend rolls back the transaction. Anything
+        the query has done is undone. Anything the BLOCKED queries are
+        about to do will be allowed to proceed.
+    next: terminate
+
+  - id: terminate
+    type: operari.database
+    name: Terminate target PID
+    config:
+      operation: query
+      credentialId: '{{vars.postgres_credential_id}}'
+      query: |
+        SELECT pg_terminate_backend({{vars.target_pid}}) AS terminated;
+      timeout: 15000
+    next: verify_gone
+
+  - id: verify_gone
+    type: operari.database
+    name: Verify backend is gone
+    config:
+      operation: query
+      credentialId: '{{vars.postgres_credential_id}}'
+      query: |
+        SELECT pid, state, query
+        FROM pg_stat_activity
+        WHERE pid = {{vars.target_pid}};
+      timeout: 15000
+    next: notify_killed
+
+  - id: notify_killed
+    type: notify
+    name: Notify #incidents
+    config:
+      channel: slack
+      webhookUrl: '{{secrets.slack-incidents}}'
+      title: 'Postgres query terminated: PID {{vars.target_pid}}'
+      color: warning
+      message: |
+        Killed PID {{vars.target_pid}} via pg_terminate_backend.
+
+        The runbook captured the full backend list, lock chain, and
+        the verification query in the audit chain. Pull the run
+        detail page in Operari to share the postmortem context.
+
+        Next steps (do this NOW, not later):
+          - Pin the offending SQL to a ticket
+          - Add the query pattern to the slow-query alert

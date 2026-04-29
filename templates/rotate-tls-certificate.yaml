@@ -1,0 +1,159 @@
+# Operari Template: Rotate a TLS certificate (Let's Encrypt + nginx)
+#
+# The 3am scenario:
+#   - The cert expiry alarm fired with 7 days left.
+#   - certbot's renewal cron mysteriously stopped (it always does)
+#     and you have no audit trail of the last successful run.
+#   - You need to renew the cert, reload nginx without dropping
+#     in-flight connections, and prove the new cert is serving.
+#
+# What this runbook does:
+#   1. Reads the current certificate's expiry from the live socket.
+#   2. Runs `certbot renew --dry-run` to surface any DNS / ACME failure
+#      before a real renewal happens. This catches expired DNS challenges
+#      and rate-limit issues before they become an outage.
+#   3. Pauses for human approval — reloading nginx is a user-visible
+#      action and the on-call should ack it.
+#   4. Runs the real `certbot renew`.
+#   5. Reloads nginx via SIGHUP (zero-downtime).
+#   6. Re-reads the cert's expiry and confirms the new date.
+#   7. Posts a status update to #ops with the new expiry date.
+#
+# Variables expected:
+#   - domain            (string) FQDN to renew, e.g. "api.example.com"
+#   - nginx_pod_label   (string) k8s label selector for the nginx pod,
+#                                e.g. "app=nginx-edge"
+#   - min_days_left     (number) skip if the cert has more days left than
+#                                this — guards against accidental early
+#                                rotation when re-running the runbook
+#                                (Let's Encrypt has a hard 5/week rate limit)
+#
+# Connected accounts:
+#   - slack-ops         Slack webhook for #ops
+#
+# Trigger: scheduled (weekly) or manual from a "cert is expiring" alert.
+version: 1
+name: Rotate TLS certificate
+slug: rotate-tls-certificate
+description: >-
+  Renew a Let's Encrypt cert, reload nginx zero-downtime, and verify the
+  new expiry. Includes a dry-run pre-check so DNS/ACME failures surface
+  before the rate-limit-counted real run.
+category: security
+steps:
+  - id: read_current_expiry
+    type: shell
+    name: Read current cert expiry
+    config:
+      command: |
+        echo | openssl s_client -servername {{vars.domain}} \
+          -connect {{vars.domain}}:443 2>/dev/null \
+          | openssl x509 -noout -enddate
+      timeout: 15000
+    next: skip_if_too_fresh
+
+  # Bail out early if the cert has more days left than min_days_left.
+  # This protects the Let's Encrypt 5-renewals-per-week-per-domain
+  # rate limit when the runbook gets re-fired by an over-eager
+  # scheduler or human.
+  - id: skip_if_too_fresh
+    type: shell
+    name: Guard against early rotation
+    config:
+      command: |
+        EXPIRY=$(echo | openssl s_client -servername {{vars.domain}} \
+          -connect {{vars.domain}}:443 2>/dev/null \
+          | openssl x509 -noout -enddate \
+          | cut -d= -f2)
+        EXPIRY_TS=$(date -d "$EXPIRY" +%s)
+        NOW_TS=$(date +%s)
+        DAYS=$(( (EXPIRY_TS - NOW_TS) / 86400 ))
+        echo "days_left=$DAYS min={{vars.min_days_left}}"
+        if [ "$DAYS" -gt "{{vars.min_days_left}}" ]; then
+          echo "cert is fresh, skipping rotation"
+          exit 2
+        fi
+      timeout: 15000
+    next: dry_run_renew
+
+  - id: dry_run_renew
+    type: shell
+    name: certbot renew --dry-run
+    config:
+      command: |
+        certbot renew --cert-name {{vars.domain}} \
+          --dry-run --non-interactive
+      timeout: 120000
+    next: approve_real_renew
+
+  - id: approve_real_renew
+    type: approval
+    name: Approve live renewal + nginx reload
+    config:
+      message: |
+        Dry-run renewal succeeded for {{vars.domain}}.
+
+        Approve to:
+          - Run `certbot renew` for real (counts against Let's Encrypt
+            rate limit)
+          - SIGHUP nginx pods matching label {{vars.nginx_pod_label}}
+            (zero-downtime, but worth eyeballing)
+    next: real_renew
+
+  - id: real_renew
+    type: shell
+    name: certbot renew
+    config:
+      command: |
+        certbot renew --cert-name {{vars.domain}} \
+          --non-interactive --no-self-upgrade
+      timeout: 180000
+    next: reload_nginx
+
+  - id: reload_nginx
+    type: shell
+    name: SIGHUP nginx pods
+    config:
+      command: |
+        for pod in $(kubectl get pods -n production \
+                     -l {{vars.nginx_pod_label}} \
+                     -o jsonpath='{.items[*].metadata.name}'); do
+          echo "reloading $pod"
+          kubectl exec -n production "$pod" -- nginx -s reload
+        done
+      timeout: 60000
+    next: verify_new_cert
+
+  # Wait a beat so the reload has visibly taken effect on every pod
+  # before we sample the public socket.
+  - id: wait_settle
+    type: wait
+    name: Settle 5s
+    config:
+      durationMs: 5000
+
+  - id: verify_new_cert
+    type: shell
+    name: Verify new expiry
+    config:
+      command: |
+        echo | openssl s_client -servername {{vars.domain}} \
+          -connect {{vars.domain}}:443 2>/dev/null \
+          | openssl x509 -noout -enddate -subject -issuer
+      timeout: 15000
+    next: notify_renewed
+
+  - id: notify_renewed
+    type: notify
+    name: Notify #ops
+    config:
+      channel: slack
+      webhookUrl: '{{secrets.slack-ops}}'
+      title: 'Cert renewed: {{vars.domain}}'
+      color: good
+      message: |
+        TLS certificate for {{vars.domain}} renewed and nginx reloaded.
+
+        New expiry recorded above. Audit chain has the dry-run, the
+        real renewal, the reload, and this notification — replay if
+        you want a copy of the openssl output.

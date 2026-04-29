@@ -1,0 +1,163 @@
+# Operari Template: Scale out a Kubernetes deployment on a traffic spike
+#
+# The 3am scenario:
+#   - PagerDuty fires "p99 latency above SLO for 5 minutes". The graph
+#     shows a clean step function in RPS — a marketing campaign,
+#     a press hit, a viral tweet. Real traffic, not an attack.
+#   - HPA is climbing but is capped at maxReplicas. You need to bump
+#     the cap. Doing this in kubectl with no record of who/why/when
+#     means a Slack postmortem week later that nobody can reconstruct.
+#
+# What this runbook does:
+#   1. Reads the current HPA min/max + actual replica count.
+#   2. Reads recent RPS from a Prometheus / Grafana endpoint and
+#      computes a target replica count using a desired RPS-per-pod.
+#   3. Pauses for human approval — bumping the cap has a cost.
+#   4. Patches the HPA `spec.maxReplicas`.
+#   5. Watches the deployment for the new pods to come ready.
+#   6. Posts to #ops with before/after numbers and the spike source.
+#
+# Variables expected:
+#   - namespace                 (string) k8s namespace
+#   - deployment                (string) deployment name
+#   - hpa_name                  (string) HPA resource name (often == deployment)
+#   - desired_rps_per_pod       (number) target RPS each pod should serve
+#   - prometheus_url            (string) base URL of Prometheus, e.g.
+#                                        "http://prometheus.monitoring:9090"
+#   - rps_metric_query          (string) PromQL returning current total RPS,
+#                                        e.g. 'sum(rate(http_requests_total
+#                                        {service="api"}[2m]))'
+#   - spike_source              (string) free-form context: "Hacker News
+#                                        front page", "marketing campaign",
+#                                        etc. Goes into the postmortem trail.
+#
+# Connected accounts:
+#   - slack-ops                 Slack webhook for #ops
+#
+# Trigger: manual from a latency / RPS alert. Auto-trigger is possible
+# but the approval gate is intentional — capacity changes are budget
+# decisions.
+version: 1
+name: Scale out on traffic spike
+slug: scale-out-on-traffic-spike
+description: >-
+  Compute a target replica count from current RPS, gate on approval,
+  raise the HPA max, and verify the new pods come ready.
+category: ops
+steps:
+  - id: read_current_hpa
+    type: shell
+    name: Read current HPA min/max + replicas
+    config:
+      command: |
+        kubectl get hpa {{vars.hpa_name}} -n {{vars.namespace}} \
+          -o jsonpath='{.spec.minReplicas}/{.spec.maxReplicas}/{.status.currentReplicas}/{.status.desiredReplicas}'
+        echo
+      timeout: 15000
+    next: read_current_rps
+
+  - id: read_current_rps
+    type: operari.httpRequest
+    name: Read current RPS from Prometheus
+    config:
+      method: GET
+      url: '{{vars.prometheus_url}}/api/v1/query?query={{vars.rps_metric_query}}'
+      timeout: 15000
+      failOnNon2xx: true
+    next: compute_target
+
+  # Pulls the scalar value out of the Prometheus response and computes
+  # a target replica count = ceil(rps / desired_rps_per_pod) with a
+  # +20% safety margin. Echoed for the operator to read in the
+  # approval message; the value is also exposed downstream as
+  # steps.compute_target.output.target.
+  - id: compute_target
+    type: shell
+    name: Compute target replica count
+    config:
+      command: |
+        # Prometheus instant-query response → first .data.result[0].value[1]
+        # We don't shell-out to jq here because the prom output is just
+        # a JSON string; awk + sed is enough for this single number.
+        RESP='{{steps.read_current_rps.output.body}}'
+        RPS=$(echo "$RESP" | grep -oE '"value":\[[0-9.]+,"[0-9.]+"' \
+              | head -1 \
+              | sed -E 's/.*"([0-9.]+)"$/\1/')
+        if [ -z "$RPS" ]; then
+          echo "could not parse RPS from prometheus response"; exit 1
+        fi
+        TARGET=$(awk -v rps="$RPS" -v per="{{vars.desired_rps_per_pod}}" \
+                     'BEGIN{ t=rps/per*1.2; printf "%d\n", (t==int(t)?t:int(t)+1) }')
+        echo "rps=$RPS per_pod={{vars.desired_rps_per_pod}} target=$TARGET"
+      timeout: 10000
+    next: approve_scale
+
+  - id: approve_scale
+    type: approval
+    name: Approve HPA max bump
+    config:
+      message: |
+        Traffic spike: {{vars.spike_source}}
+
+        Current HPA state and computed target are in the steps above.
+        Approve to raise spec.maxReplicas to the computed target.
+
+        Reminder: this is a budget decision. Each extra pod has a real
+        per-hour cost. Approve only if the spike is genuine traffic
+        (and not, say, a bot crawler we should rate-limit instead).
+    next: patch_hpa
+
+  - id: patch_hpa
+    type: shell
+    name: Patch HPA maxReplicas
+    config:
+      command: |
+        TARGET=$(echo "{{steps.compute_target.output.stdout}}" \
+                 | grep -oE 'target=[0-9]+' \
+                 | cut -d= -f2)
+        if [ -z "$TARGET" ]; then
+          echo "missing target from compute step"; exit 1
+        fi
+        kubectl patch hpa {{vars.hpa_name}} -n {{vars.namespace}} \
+          --type='json' \
+          -p="[{\"op\":\"replace\",\"path\":\"/spec/maxReplicas\",\"value\":$TARGET}]"
+      timeout: 30000
+    next: watch_rollout
+
+  - id: watch_rollout
+    type: shell
+    name: Watch deployment for new pods
+    config:
+      command: |
+        kubectl rollout status deployment/{{vars.deployment}} \
+          -n {{vars.namespace}} --timeout=300s
+      timeout: 360000
+    next: read_after
+
+  - id: read_after
+    type: shell
+    name: Read post-scale HPA state
+    config:
+      command: |
+        kubectl get hpa {{vars.hpa_name}} -n {{vars.namespace}} \
+          -o jsonpath='{.spec.minReplicas}/{.spec.maxReplicas}/{.status.currentReplicas}/{.status.desiredReplicas}'
+        echo
+      timeout: 15000
+    next: notify_scaled
+
+  - id: notify_scaled
+    type: notify
+    name: Notify #ops
+    config:
+      channel: slack
+      webhookUrl: '{{secrets.slack-ops}}'
+      title: 'Scaled out: {{vars.deployment}}'
+      color: good
+      message: |
+        Scaled {{vars.deployment}} in {{vars.namespace}} to absorb
+        the traffic spike: {{vars.spike_source}}.
+
+        Audit chain has the before/after HPA state, the Prometheus
+        sample, and the patch operation. When the spike subsides,
+        run `scale-back-after-spike` (sister runbook) to restore the
+        previous max.

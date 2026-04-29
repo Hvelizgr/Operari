@@ -1,0 +1,154 @@
+# Operari Template: Recover from a Redis cache stampede
+#
+# The 3am scenario:
+#   - A cache flush, Redis restart, or eviction storm leaves the cache cold.
+#   - Every incoming request misses, hits Postgres, and the database CPU
+#     pegs. Latency climbs, error rate spikes, and the on-call gets paged.
+#   - Adding cache capacity does not help — the herd has already left the
+#     gate. The fix is to throttle traffic, repopulate the hot keys in a
+#     controlled way, and lift the throttle once the hit rate recovers.
+#
+# What this runbook does:
+#   1. Snapshots Redis hit rate + memory so the operator can see the
+#      stampede in numbers, not vibes.
+#   2. Flips a feature flag that puts the API in degraded-but-safe mode
+#      (returns cached-or-stale, 503s anything that needs the DB).
+#   3. Triggers the pre-warm worker that replays the top-N keys.
+#   4. Polls Redis until hitRate >= target.
+#   5. Lifts the throttle and posts a status update.
+#
+# Variables expected:
+#   - service_slug      (string) k8s deployment name (also the API hostname)
+#   - target_hit_rate   (number) 0..1, lift the throttle when reached (e.g. 0.85)
+#   - prewarm_endpoint  (string) internal URL that triggers the pre-warm worker
+#
+# Connected accounts (referenced via {{secrets.<account-id>}}):
+#   - slack-incidents   Slack webhook for #incidents
+#
+# Trigger: manual from the editor, or a runbook step in a bigger
+# incident-response chain. Do not auto-trigger from a Datadog rule —
+# the throttle step is user-visible and should be approved.
+version: 1
+name: Recover from cache stampede
+slug: recover-cache-stampede
+description: >-
+  Throttle traffic, pre-warm Redis, and lift the throttle once the hit
+  rate recovers. The runbook for the 3am page where every request is a
+  cache miss and the DB is melting.
+category: incident-response
+steps:
+  - id: snapshot_cache_state
+    type: shell
+    name: Snapshot Redis hit rate
+    config:
+      command: |
+        kubectl exec -n production deploy/redis -- redis-cli INFO stats \
+          | grep -E '^(keyspace_hits|keyspace_misses|expired_keys):'
+      timeout: 15000
+    next: confirm_throttle
+
+  - id: confirm_throttle
+    type: approval
+    name: Approve throttle + pre-warm
+    config:
+      message: |
+        Cache stampede detected for {{vars.service_slug}}.
+        Snapshot above shows the miss-to-hit ratio.
+
+        Approve to:
+          - Flip the API into degraded mode (read-cache-or-503)
+          - Trigger the pre-warm worker at {{vars.prewarm_endpoint}}
+          - Wait until hitRate >= {{vars.target_hit_rate}} before lifting
+    next: enable_throttle
+
+  - id: enable_throttle
+    type: shell
+    name: Enable degraded-mode flag
+    config:
+      command: |
+        kubectl set env deployment/{{vars.service_slug}} \
+          -n production \
+          OPERARI_DEGRADED_MODE=true
+      timeout: 30000
+    next: trigger_prewarm
+
+  - id: trigger_prewarm
+    type: operari.httpRequest
+    name: Trigger pre-warm worker
+    config:
+      method: POST
+      url: '{{vars.prewarm_endpoint}}'
+      headers:
+        Content-Type: application/json
+      body: |
+        {"reason": "cache-stampede", "source": "operari-runbook"}
+      timeout: 30000
+      failOnNon2xx: true
+    next: wait_for_warmup
+
+  # Give the worker a head start before we begin polling.
+  - id: wait_for_warmup
+    type: wait
+    name: Wait 30s for worker to seed
+    config:
+      durationMs: 30000
+    next: poll_hit_rate
+
+  # Retry-as-poll: shell exits non-zero if hitRate is below target,
+  # the engine retries with a 15s fixed backoff up to 20 attempts
+  # (=5 minutes of patience). Tune for your service.
+  - id: poll_hit_rate
+    type: shell
+    name: Poll until hit rate recovers
+    config:
+      command: |
+        STATS=$(kubectl exec -n production deploy/redis -- \
+          redis-cli INFO stats)
+        HITS=$(echo "$STATS" | grep '^keyspace_hits:' | cut -d: -f2 | tr -d '\r')
+        MISSES=$(echo "$STATS" | grep '^keyspace_misses:' | cut -d: -f2 | tr -d '\r')
+        TOTAL=$((HITS + MISSES))
+        if [ "$TOTAL" -eq 0 ]; then
+          echo "no-traffic-yet"; exit 1
+        fi
+        # bash float-free hit rate * 100 vs target * 100
+        RATE=$((HITS * 100 / TOTAL))
+        TARGET=$(echo "{{vars.target_hit_rate}}" | awk '{print int($1 * 100)}')
+        echo "hitRate=$RATE% target=$TARGET%"
+        [ "$RATE" -ge "$TARGET" ]
+      timeout: 30000
+    retry:
+      count: 20
+      backoff: fixed
+      delayMs: 15000
+    next: lift_throttle
+
+  - id: lift_throttle
+    type: shell
+    name: Lift degraded-mode flag
+    config:
+      command: |
+        kubectl set env deployment/{{vars.service_slug}} \
+          -n production \
+          OPERARI_DEGRADED_MODE-
+      timeout: 30000
+    next: notify_recovered
+
+  - id: notify_recovered
+    type: notify
+    name: Notify #incidents
+    config:
+      channel: slack
+      webhookUrl: '{{secrets.slack-incidents}}'
+      title: 'Cache recovered: {{vars.service_slug}}'
+      color: good
+      message: |
+        Cache stampede mitigated for {{vars.service_slug}}.
+
+        Steps taken:
+          - Flipped service to degraded mode
+          - Pre-warm worker triggered at {{vars.prewarm_endpoint}}
+          - Hit rate climbed back to {{vars.target_hit_rate}} or above
+          - Degraded mode lifted
+
+        Run audit: this notification, the throttle, and the pre-warm
+        trigger are all hash-chained in the Operari audit log.

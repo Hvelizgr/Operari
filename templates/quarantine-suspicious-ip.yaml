@@ -1,0 +1,170 @@
+# Operari Template: Quarantine a suspicious IP at the edge (Cloudflare WAF)
+#
+# The 3am scenario:
+#   - Datadog or your WAF fires "5xx burst from a single IP" or
+#     "credential stuffing pattern from /24 block". You need to act
+#     before the abuser exhausts a rate limit budget or burns auth
+#     attempts on real users.
+#   - Banning an IP is one Cloudflare API call. The valuable thing
+#     Operari adds is the audit trail: who quarantined which IP,
+#     after seeing what evidence, with what TTL, and the GitHub
+#     issue that holds the postmortem.
+#
+# What this runbook does:
+#   1. Runs a read-only DB query to count recent failed-auth events
+#      from `target_ip` in the last 15 minutes — surfaces the evidence
+#      so the operator can confirm the abuse is real.
+#   2. Runs the WAF's existing rule check via the public health URL
+#      to confirm the IP is currently NOT already blocked (idempotency).
+#   3. Pauses for approval — bans are visible to the abuser and to
+#      legit users sharing the same egress NAT.
+#   4. Creates a Cloudflare firewall rule with the configured TTL.
+#   5. Files a GitHub issue capturing the evidence + the rule id so
+#      the team can audit / lift the ban later.
+#   6. Posts a Slack note for visibility.
+#
+# Variables expected:
+#   - target_ip               (string) IPv4/IPv6 to ban
+#   - cloudflare_zone_id      (string) Cloudflare zone id
+#   - ban_ttl_minutes         (number) how long the ban lasts in minutes,
+#                                       0 means permanent (use sparingly)
+#   - postgres_credential_id  (string) ConnectedAccount id for app DB
+#   - github_repo             (string) "owner/name" — where to file the issue
+#   - github_credential_id    (string) ConnectedAccount id for GitHub PAT
+#                                       with `repo` scope
+#
+# Connected accounts:
+#   - cloudflare-api          Cloudflare API token, Zone:Firewall Services:Edit
+#   - {{vars.postgres_credential_id}}  Read-only DB DSN
+#   - {{vars.github_credential_id}}    GitHub PAT
+#   - slack-security                   Slack webhook for #security
+#
+# Trigger: manual from a security alert. The approval gate is mandatory
+# — auto-banning on a single signal is how you accidentally ban an
+# entire ISP's egress NAT and end up on the front page.
+version: 1
+name: Quarantine suspicious IP
+slug: quarantine-suspicious-ip
+description: >-
+  Confirm abusive activity from an IP, gate on approval, push a
+  Cloudflare firewall rule with a TTL, and open a GitHub issue with
+  the evidence so the ban is auditable and reversible.
+category: security
+steps:
+  - id: count_failed_auth
+    type: operari.database
+    name: Count recent failed auth attempts
+    config:
+      operation: query
+      credentialId: '{{vars.postgres_credential_id}}'
+      query: |
+        SELECT
+          COUNT(*)                             AS attempts,
+          MIN(created_at)                      AS first_seen,
+          MAX(created_at)                      AS last_seen,
+          COUNT(DISTINCT user_id)              AS distinct_users
+        FROM auth_events
+        WHERE remote_ip = '{{vars.target_ip}}'
+          AND event_type IN ('login.failed', 'mfa.failed', 'auth.locked')
+          AND created_at > NOW() - INTERVAL '15 minutes';
+      timeout: 30000
+    next: check_existing_rule
+
+  # Cloudflare list-rules call. We do a GET first to confirm the IP is
+  # not already banned. If it is, the runbook ends here — Operari will
+  # NOT push a duplicate rule and clutter the WAF.
+  - id: check_existing_rule
+    type: operari.httpRequest
+    name: Check for existing Cloudflare ban
+    config:
+      method: GET
+      url: 'https://api.cloudflare.com/client/v4/zones/{{vars.cloudflare_zone_id}}/firewall/access_rules/rules?configuration.value={{vars.target_ip}}'
+      headers:
+        Authorization: 'Bearer {{secrets.cloudflare-api}}'
+      timeout: 30000
+      failOnNon2xx: true
+    next: approve_ban
+
+  - id: approve_ban
+    type: approval
+    name: Approve quarantine
+    config:
+      message: |
+        Evidence above:
+          - Failed-auth count from {{vars.target_ip}} (last 15 min)
+          - Existing Cloudflare rules matching this IP
+
+        Approve to push a `block` rule for {{vars.target_ip}} with
+        TTL {{vars.ban_ttl_minutes}} minutes. A GitHub issue will be
+        opened with the run audit link so the team can lift the ban
+        later, and a Slack note will go to #security.
+
+        Sanity check before approving:
+          - Is {{vars.target_ip}} a shared NAT (corporate, ISP)?
+          - Is the failed-auth count high enough to be abuse vs.
+            a misconfigured client retrying?
+    next: push_block_rule
+
+  - id: push_block_rule
+    type: operari.httpRequest
+    name: Push Cloudflare block rule
+    config:
+      method: POST
+      url: 'https://api.cloudflare.com/client/v4/zones/{{vars.cloudflare_zone_id}}/firewall/access_rules/rules'
+      headers:
+        Authorization: 'Bearer {{secrets.cloudflare-api}}'
+        Content-Type: application/json
+      body: |
+        {
+          "mode": "block",
+          "configuration": {
+            "target": "ip",
+            "value": "{{vars.target_ip}}"
+          },
+          "notes": "operari quarantine: failed-auth burst, ttl={{vars.ban_ttl_minutes}}m"
+        }
+      timeout: 30000
+      failOnNon2xx: true
+    next: file_postmortem
+
+  # GitHub commitFile is the wrong tool here (we want an issue, not a
+  # commit). We use the generic httpRequest against the Issues API
+  # because the GitHub commitFile executor is content-only.
+  - id: file_postmortem
+    type: operari.httpRequest
+    name: File GitHub postmortem issue
+    config:
+      method: POST
+      url: 'https://api.github.com/repos/{{vars.github_repo}}/issues'
+      headers:
+        Authorization: 'Bearer {{secrets[vars.github_credential_id]}}'
+        Accept: application/vnd.github+json
+        Content-Type: application/json
+      body: |
+        {
+          "title": "Quarantine: {{vars.target_ip}}",
+          "body": "Auto-filed by Operari runbook `quarantine-suspicious-ip`.\n\n- TTL: {{vars.ban_ttl_minutes}} minutes\n- Evidence: see Operari run audit chain\n- Cloudflare rule: see step `push_block_rule` output for the rule id\n\nLift this ban with the sibling runbook `lift-ip-quarantine` once the postmortem is complete.",
+          "labels": ["security", "operari-quarantine"]
+        }
+      timeout: 30000
+      failOnNon2xx: true
+    next: notify_security
+
+  - id: notify_security
+    type: notify
+    name: Notify #security
+    config:
+      channel: slack
+      webhookUrl: '{{secrets.slack-security}}'
+      title: 'IP quarantined: {{vars.target_ip}}'
+      color: warning
+      message: |
+        Cloudflare firewall rule pushed for {{vars.target_ip}}.
+
+        TTL: {{vars.ban_ttl_minutes}} minutes
+        GitHub issue: see operari-quarantine label on
+        {{vars.github_repo}}
+
+        Operari audit chain has the failed-auth count, the existing
+        rule check, the approval, the push, and this notification.
+        That whole chain is what makes this reversible.

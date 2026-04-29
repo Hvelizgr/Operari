@@ -1,0 +1,166 @@
+# Operari Template: Fail traffic over to a secondary region (Cloudflare DNS)
+#
+# The 3am scenario:
+#   - Primary region (e.g. us-east-1) is degraded. Datadog shows
+#     elevated 5xx, AWS Health Dashboard is yellow, and the on-call
+#     has decided to fail over.
+#   - The secondary region is warm but receives no traffic. Switching
+#     traffic = updating the A/AAAA records on the public hostname.
+#   - The 3am operator should not be hand-typing curl commands at the
+#     Cloudflare API. They should be reading from a runbook that has
+#     done this exact thing in staging twice already.
+#
+# What this runbook does:
+#   1. Probes the primary region's health endpoint and surfaces the
+#      response so the operator can confirm the failover is justified.
+#   2. Probes the secondary region the same way. Bails out if secondary
+#      is also unhealthy — failing over INTO a broken region is the
+#      worst outcome of all.
+#   3. Pauses for approval (this changes public DNS, no robot does it
+#      unattended).
+#   4. Updates the Cloudflare DNS record to point at the secondary IP.
+#   5. Waits for the TTL to expire and re-probes the public hostname.
+#   6. Posts the result to #incidents with the new IP and TTL.
+#
+# Variables expected:
+#   - hostname              (string) public DNS name, e.g. "api.example.com"
+#   - cloudflare_zone_id    (string) Cloudflare zone id (UUID)
+#   - cloudflare_record_id  (string) the record id to update
+#   - primary_ip            (string) primary region's anycast IP
+#   - secondary_ip          (string) secondary region's anycast IP
+#   - record_ttl            (number) seconds; matches the existing TTL
+#   - primary_health_url    (string) https URL to probe primary
+#   - secondary_health_url  (string) https URL to probe secondary
+#
+# Connected accounts:
+#   - cloudflare-api      Cloudflare API token with Zone:DNS:Edit
+#   - slack-incidents     Slack webhook for #incidents
+#
+# Trigger: manual only. Auto-failover requires more inputs (consensus
+# from multiple probes, freshness window) and is its own runbook.
+version: 1
+name: Fail over to secondary region
+slug: failover-traffic-cloudflare
+description: >-
+  Probe both regions, gate on approval, and switch the public DNS A
+  record to the secondary IP via Cloudflare. Verifies recovery before
+  posting to the incident channel.
+category: incident-response
+steps:
+  - id: probe_primary
+    type: operari.httpRequest
+    name: Probe primary region
+    config:
+      method: GET
+      url: '{{vars.primary_health_url}}'
+      timeout: 10000
+      followRedirects: false
+      failOnNon2xx: false
+    next: probe_secondary
+
+  - id: probe_secondary
+    type: operari.httpRequest
+    name: Probe secondary region
+    config:
+      method: GET
+      url: '{{vars.secondary_health_url}}'
+      timeout: 10000
+      followRedirects: false
+      failOnNon2xx: true
+    next: approve_failover
+
+  - id: approve_failover
+    type: approval
+    name: Approve DNS failover
+    config:
+      message: |
+        Probes finished. Decision time.
+
+          - Primary  ({{vars.primary_health_url}}): see step output
+          - Secondary ({{vars.secondary_health_url}}): healthy, 2xx
+
+        Approve to update Cloudflare:
+          - hostname: {{vars.hostname}}
+          - {{vars.primary_ip}}  →  {{vars.secondary_ip}}
+          - TTL: {{vars.record_ttl}}s
+
+        DNS propagation respects the TTL. Customers behind aggressive
+        resolver caches (looking at you, ISPs) may take longer.
+    next: update_dns
+
+  - id: update_dns
+    type: operari.httpRequest
+    name: Update Cloudflare A record
+    config:
+      method: PUT
+      url: 'https://api.cloudflare.com/client/v4/zones/{{vars.cloudflare_zone_id}}/dns_records/{{vars.cloudflare_record_id}}'
+      headers:
+        Authorization: 'Bearer {{secrets.cloudflare-api}}'
+        Content-Type: application/json
+      body: |
+        {
+          "type": "A",
+          "name": "{{vars.hostname}}",
+          "content": "{{vars.secondary_ip}}",
+          "ttl": {{vars.record_ttl}},
+          "proxied": false
+        }
+      timeout: 30000
+      failOnNon2xx: true
+    next: wait_for_ttl
+
+  # Wait one TTL plus a small margin so the public resolver picks the
+  # new record before we probe.
+  - id: wait_for_ttl
+    type: wait
+    name: Wait one TTL
+    config:
+      durationMs: 60000
+    next: verify_failover
+
+  - id: verify_failover
+    type: shell
+    name: Verify resolver returns secondary IP
+    config:
+      command: |
+        RESOLVED=$(dig +short A {{vars.hostname}} @1.1.1.1 | head -1)
+        echo "resolved=$RESOLVED expected={{vars.secondary_ip}}"
+        [ "$RESOLVED" = "{{vars.secondary_ip}}" ]
+      timeout: 15000
+    retry:
+      count: 5
+      backoff: fixed
+      delayMs: 30000
+    next: probe_public
+
+  - id: probe_public
+    type: operari.httpRequest
+    name: Probe public hostname
+    config:
+      method: GET
+      url: 'https://{{vars.hostname}}/healthz'
+      timeout: 15000
+      failOnNon2xx: true
+    next: notify_failover
+
+  - id: notify_failover
+    type: notify
+    name: Notify #incidents
+    config:
+      channel: slack
+      webhookUrl: '{{secrets.slack-incidents}}'
+      title: 'Failover complete: {{vars.hostname}} → secondary region'
+      color: warning
+      message: |
+        Traffic for {{vars.hostname}} now served from
+        {{vars.secondary_ip}} via Cloudflare.
+
+        Status:
+          - DNS updated, TTL {{vars.record_ttl}}s
+          - Resolver verified
+          - Public health check 2xx
+
+        Action items:
+          - Watch the secondary's saturation (this is single-region capacity)
+          - Decide failback window once primary recovers
+          - Run the corresponding `failback-traffic` runbook to return

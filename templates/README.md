@@ -4,13 +4,20 @@ Production-ready runbook templates you can import into Operari and adapt to your
 
 ## Available templates
 
-| Template                                                     | Category  | What it does                                                              |
-| ------------------------------------------------------------ | --------- | ------------------------------------------------------------------------- |
-| [`deploy-nextjs-vercel.yaml`](./deploy-nextjs-vercel.yaml)   | deploy    | Pull main → tests → build → approval → Vercel deploy → smoke test → Slack |
-| [`db-migration-prisma.yaml`](./db-migration-prisma.yaml)     | migration | Backup DB → check pending migrations → approval → apply → verify → notify |
-| [`rotate-aws-secrets.yaml`](./rotate-aws-secrets.yaml)       | security  | Create new IAM key → propagate to Vercel/GitHub → verify → revoke old key |
-| [`k8s-rolling-deploy.yaml`](./k8s-rolling-deploy.yaml)       | deploy    | Update image → watch rollout → smoke test pods → notify                   |
-| [`onboard-new-developer.yaml`](./onboard-new-developer.yaml) | ops       | GitHub invite → team membership → IAM user → welcome Slack message        |
+| Template                                                                 | Category          | What it does                                                                            |
+| ------------------------------------------------------------------------ | ----------------- | --------------------------------------------------------------------------------------- |
+| [`deploy-nextjs-vercel.yaml`](./deploy-nextjs-vercel.yaml)               | deploy            | Pull main → tests → build → approval → Vercel deploy → smoke test → Slack               |
+| [`db-migration-prisma.yaml`](./db-migration-prisma.yaml)                 | migration         | Backup DB → check pending migrations → approval → apply → verify → notify               |
+| [`rotate-aws-secrets.yaml`](./rotate-aws-secrets.yaml)                   | security          | Create new IAM key → propagate to Vercel/GitHub → verify → revoke old key               |
+| [`k8s-rolling-deploy.yaml`](./k8s-rolling-deploy.yaml)                   | deploy            | Update image → watch rollout → smoke test pods → notify                                 |
+| [`onboard-new-developer.yaml`](./onboard-new-developer.yaml)             | ops               | GitHub invite → team membership → IAM user → welcome Slack message                      |
+| [`respond-to-sentry-alert.yaml`](./respond-to-sentry-alert.yaml)         | incident-response | Sentry webhook → fetch logs → approval → Helm rollback → Slack → Linear postmortem      |
+| [`recover-cache-stampede.yaml`](./recover-cache-stampede.yaml)           | incident-response | Snapshot Redis → flip degraded mode → trigger pre-warm → poll hit rate → lift throttle  |
+| [`rotate-tls-certificate.yaml`](./rotate-tls-certificate.yaml)           | security          | Read expiry → certbot dry-run → approval → renew → SIGHUP nginx → verify new cert       |
+| [`kill-runaway-postgres-query.yaml`](./kill-runaway-postgres-query.yaml) | incident-response | List long-running backends → list lock chain → approval → pg_terminate_backend → notify |
+| [`failover-traffic-cloudflare.yaml`](./failover-traffic-cloudflare.yaml) | incident-response | Probe both regions → approval → patch Cloudflare DNS → wait TTL → verify → notify       |
+| [`scale-out-on-traffic-spike.yaml`](./scale-out-on-traffic-spike.yaml)   | ops               | Read HPA + Prometheus RPS → compute target → approval → patch maxReplicas → watch       |
+| [`quarantine-suspicious-ip.yaml`](./quarantine-suspicious-ip.yaml)       | security          | Count failed-auth events → check existing rule → approval → Cloudflare ban → file issue |
 
 ## How to use
 
