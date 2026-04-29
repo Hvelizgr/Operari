@@ -497,8 +497,17 @@ Honest, time-boxed, conservative.
   shipped `docker-compose.yml` and `docker-compose.prod.yml` default to
   on. Operators booting the backend without compose need to set the
   env var explicitly — see `.env.example`.
-- Grafana dashboard JSON shipped with the repo
-- 5 more production-shaped templates from real customer scenarios
+- ~~Grafana dashboard JSON shipped with the repo~~ — shipped at
+  `deploy/grafana/operari-runs.json`. Backed by a Prometheus scrape
+  endpoint at `/metrics` (gated by `OPERARI_METRICS_ENABLED=true`)
+  exposing run/step counters, run-duration + step-duration histograms,
+  and standard Node.js process metrics under the `operari_node_*`
+  prefix.
+- ~~5 more production-shaped templates from real customer scenarios~~ —
+  shipped: `recover-cache-stampede`, `rotate-tls-certificate`,
+  `kill-runaway-postgres-query`, `failover-traffic-cloudflare`,
+  `scale-out-on-traffic-spike`, `quarantine-suspicious-ip` (six,
+  not five — the 3am page comes in many shapes).
 
 **3 → 6 months (cloud beta)**
 

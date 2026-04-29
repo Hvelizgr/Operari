@@ -68,6 +68,7 @@ import v1RunbookRoutes from './routes/v1/runbooks.routes';
 import v1RunRoutes from './routes/v1/runs.routes';
 import v1WebhookRoutes from './routes/v1/webhooks.routes';
 import webhookRoutes from './routes/webhook.routes';
+import metricsRoutes from './routes/metrics.routes';
 import webhooksAdminRoutes from './routes/webhooks-admin.routes';
 import runbookJsonSchema from './runbook/yaml/runbook.schema.json';
 import { MonitorService } from './services/monitor.service';
@@ -175,6 +176,14 @@ app.use('/api/sql', standardRateLimiter, sqlRoutes);
 app.use('/api/http-tester', executionRateLimiter, httpTesterRoutes);
 app.use('/api/github', standardRateLimiter, githubExplorerRoutes);
 app.use('/api/contact', standardRateLimiter, contactRoutes);
+
+// Prometheus scrape endpoint, gated behind OPERARI_METRICS_ENABLED.
+// Mounted outside /api/* so a Prometheus scrape rule does not need
+// the api prefix and the scraper does not interact with the API
+// rate limiter.
+if (process.env.OPERARI_METRICS_ENABLED === 'true') {
+  app.use('/metrics', metricsRoutes);
+}
 
 // Operari API v1 (SDK & CLI)
 app.use('/api/v1/runbooks', executionRateLimiter, v1RunbookRoutes);

@@ -1,5 +1,7 @@
 import { Context, context as otelContext, Span, SpanStatusCode, trace } from '@opentelemetry/api';
 
+import { NULL_METRICS, type RunMetrics } from './metrics';
+
 /**
  * RunTracer — maps Operari runs and steps onto OpenTelemetry traces.
  *
@@ -55,11 +57,16 @@ interface ActiveRun {
   span: Span;
   context: Context;
   runnerType?: string;
+  tenantId: string;
+  trigger: string;
+  startedAt: number;
 }
 
 interface ActiveStep {
   span: Span;
   startedAt: number;
+  tenantId: string;
+  stepType: string;
 }
 
 const TRACER_NAME = 'operari.runs';
@@ -69,7 +76,10 @@ export class RunTracer {
   /** Step keys are `${runId}:${stepId}` to avoid collisions across runs. */
   private readonly activeSteps = new Map<string, ActiveStep>();
 
-  constructor(private readonly tracer = trace.getTracer(TRACER_NAME)) {}
+  constructor(
+    private readonly tracer = trace.getTracer(TRACER_NAME),
+    private readonly metrics: RunMetrics = NULL_METRICS
+  ) {}
 
   /**
    * Start a trace for a run. The returned span is the root span for
@@ -96,6 +106,14 @@ export class RunTracer {
     this.activeRuns.set(input.runId, {
       span,
       context: ctx,
+      runnerType: input.runnerType,
+      tenantId: input.tenantId,
+      trigger: input.trigger,
+      startedAt: Date.now(),
+    });
+    this.metrics.recordRunStarted({
+      tenantId: input.tenantId,
+      trigger: input.trigger,
       runnerType: input.runnerType,
     });
   }
@@ -125,6 +143,12 @@ export class RunTracer {
     }
     active.span.end();
     this.activeRuns.delete(runId);
+    this.metrics.recordRunFinished({
+      tenantId: active.tenantId,
+      trigger: active.trigger,
+      success,
+      durationSeconds: (Date.now() - active.startedAt) / 1000,
+    });
     // Defensive cleanup: any leftover step spans for this run get
     // ended so they do not leak into the next trace.
     for (const key of this.activeSteps.keys()) {
@@ -161,7 +185,12 @@ export class RunTracer {
       },
       ctx
     );
-    this.activeSteps.set(key, { span, startedAt: Date.now() });
+    this.activeSteps.set(key, {
+      span,
+      startedAt: Date.now(),
+      tenantId: parent?.tenantId ?? 'unknown',
+      stepType: input.stepType,
+    });
   }
 
   /**
@@ -193,6 +222,12 @@ export class RunTracer {
     }
     active.span.end();
     this.activeSteps.delete(key);
+    this.metrics.recordStepFinished({
+      tenantId: active.tenantId,
+      stepType: active.stepType,
+      success,
+      durationSeconds: durationMs / 1000,
+    });
   }
 
   /**

@@ -308,4 +308,67 @@ describe('RunTracer', () => {
       expect(tracer.inFlightCount).toEqual({ runs: 1, steps: 1 });
     });
   });
+
+  describe('metrics integration', () => {
+    it('forwards run + step lifecycle into the injected RunMetrics sink', () => {
+      const sink = {
+        recordRunStarted: jest.fn(),
+        recordRunFinished: jest.fn(),
+        recordStepFinished: jest.fn(),
+      };
+      const t = new RunTracer(buildFakeTracer() as never, sink);
+
+      t.startRun({
+        runId: 'run-X',
+        runbookId: 'wf',
+        runbookName: 'X',
+        tenantId: 'tenant-x',
+        trigger: 'webhook',
+        runnerType: 'docker',
+      });
+      t.startStep({ runId: 'run-X', stepId: 's-1', stepName: 'do', stepType: 'shell' });
+      t.endStep('run-X', 's-1', true);
+      t.endRun('run-X', true);
+
+      expect(sink.recordRunStarted).toHaveBeenCalledWith({
+        tenantId: 'tenant-x',
+        trigger: 'webhook',
+        runnerType: 'docker',
+      });
+      expect(sink.recordStepFinished).toHaveBeenCalledWith({
+        tenantId: 'tenant-x',
+        stepType: 'shell',
+        success: true,
+        durationSeconds: expect.any(Number),
+      });
+      expect(sink.recordRunFinished).toHaveBeenCalledWith({
+        tenantId: 'tenant-x',
+        trigger: 'webhook',
+        success: true,
+        durationSeconds: expect.any(Number),
+      });
+    });
+
+    it('marks the run as failed in metrics when endRun(success=false)', () => {
+      const sink = {
+        recordRunStarted: jest.fn(),
+        recordRunFinished: jest.fn(),
+        recordStepFinished: jest.fn(),
+      };
+      const t = new RunTracer(buildFakeTracer() as never, sink);
+
+      t.startRun({
+        runId: 'run-Z',
+        runbookId: 'wf',
+        runbookName: 'Z',
+        tenantId: 'tenant-z',
+        trigger: 'manual',
+      });
+      t.endRun('run-Z', false, { code: 'BOOM' });
+
+      expect(sink.recordRunFinished).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: 'tenant-z', trigger: 'manual', success: false })
+      );
+    });
+  });
 });
