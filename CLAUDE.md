@@ -63,6 +63,7 @@ operari/
 - **i18n** — No central dictionary. Each component does `const t = lang === 'es' ? {...} : {...}` inline. EN/ES are the only two.
 - **State** — No global frontend store. `useEditorCanvas` is monolithic and lives only on `/editor`. Cross-route handoffs go through localStorage with `operari:*` keys.
 - **`WorkflowNode` ≠ `RunbookStep`** — `WorkflowNode` (in `@operari/shared`) is the **canvas UI** representation: position, ports, drag state. `RunbookStep` (in Prisma) is the **persisted** entity: id, config, retry policy. The post-pivot rebrand renamed the entity but kept the canvas concept as "workflow" because "the workflow editor renders the runbook" still reads cleanly. Don't try to unify them.
+- **Live log streaming gate** — `/runs/:id`'s live-tail event log only fills if `OPERARI_DURABLE_ENGINE=true` is set. Both compose files default that to true; bare `node start` setups don't. When the timeline looks empty during a RUNNING run, check this flag first — the SSE endpoint exists, the frontend consumes it, but the engine writes events through the gated `ExecutionEventStore`.
 - **Tests** — Jest both sides. Backend tests mock Prisma + AuthService; frontend uses RTL + jsdom. Never use `--no-coverage` in CI.
 - **Commits** — Conventional Commits, lowercase scope + subject, body explains the _why_. No Co-Author trailer in this repo.
 - **Comments** — Default to none. Add only when the _why_ is non-obvious (hidden constraint, surprising behaviour, workaround for a specific bug). Never describe _what_ the code does.

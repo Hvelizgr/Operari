@@ -71,7 +71,7 @@ This list is conservative and hand-verified against the test suite, not the road
 
 - Approval inbox at `/inbox` with status filters and inline grant/reject
 - Run history at `/runs` with status filters, ETA from past runs, cursor pagination
-- Run detail timeline at `/runs/:id` with per-step output, error blocks, replay-from-step button
+- Run detail timeline at `/runs/:id` with per-step output, error blocks, replay-from-step button, and a live-tail event log (SSE backed by Redis Streams + a durable Postgres mirror) that auto-follows mid-run and pauses on manual scroll
 - AI assist side-panel that takes the failed step's stdout/stderr/exit-code as prompt context and streams a diagnosis. The orchestrator has read-only tool access to recent runs, step logs, full run details, error search, and the runbook list — Vercel AI SDK `tools` parameter wired in `backend/src/agent/orchestrator.ts`. Two write tools (`grant_approval`, `reject_approval`) are gated behind `OPERARI_AGENT_WRITE_TOOLS=true`
 - Hash-chained immutable audit log (SHA-256) with a CLI to verify the chain (`operari audit verify`)
 - RBAC with custom roles, role assignments, and audit events on grant/revoke
@@ -488,7 +488,15 @@ Honest, time-boxed, conservative.
 - 5 design partners using Operari in earnest
 - Python SDK
 - ~~AI agent gets read-only tools (`get_recent_runs`, `get_step_logs`, `search_step_history`)~~ — shipped (`list_recent_runs`, `get_run_details`, `get_step_logs`, `search_runs_by_error`, `list_runbooks` + opt-in `grant_approval` / `reject_approval`)
-- Live log streaming on the run detail timeline
+- ~~Live log streaming on the run detail timeline~~ — shipped via the
+  durable execution event log (`backend/src/runbook/engine/execution-event.store.ts`)
+  with a Redis Stream mirror for live-tail SSE and a Postgres row for
+  durability. The frontend `ExecutionEventLog` component opens an
+  `EventSource` for RUNNING runs and falls back to 2s polling. The
+  feature is gated behind `OPERARI_DURABLE_ENGINE=true`, which the
+  shipped `docker-compose.yml` and `docker-compose.prod.yml` default to
+  on. Operators booting the backend without compose need to set the
+  env var explicitly — see `.env.example`.
 - Grafana dashboard JSON shipped with the repo
 - 5 more production-shaped templates from real customer scenarios
 
