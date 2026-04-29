@@ -79,7 +79,7 @@ export default function SaveLoadMenu({ nodes, connections, onLoad, lang }: SaveL
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `workflow-${Date.now()}.json`;
+    a.download = `runbook-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };

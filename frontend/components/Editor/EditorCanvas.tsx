@@ -561,7 +561,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                const slug = (workflowProperties.name || 'workflow')
+                const slug = (workflowProperties.name || 'runbook')
                   .toLowerCase()
                   .replace(/[^a-z0-9]+/g, '-')
                   .replace(/^-|-$/g, '');
@@ -583,8 +583,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     ) {
                       alert(
                         lang === 'en'
-                          ? 'Invalid workflow file: must contain "nodes" and "connections" arrays'
-                          : 'Archivo inválido: debe contener arrays "nodes" y "connections"'
+                          ? 'Invalid runbook file: must contain "nodes" and "connections" arrays'
+                          : 'Archivo de runbook inválido: debe contener arrays "nodes" y "connections"'
                       );
                       return;
                     }
@@ -604,8 +604,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                     if (!valid) {
                       alert(
                         lang === 'en'
-                          ? 'Invalid workflow file: nodes must have id, type, and position'
-                          : 'Archivo inválido: los nodos deben tener id, type y position'
+                          ? 'Invalid runbook file: nodes must have id, type, and position'
+                          : 'Archivo de runbook inválido: los nodos deben tener id, type y position'
                       );
                       return;
                     }
@@ -646,7 +646,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               href="#workflow-canvas"
               className="focus:bg-primary focus:ring-primary/70 sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:px-4 focus:py-2 focus:text-white focus:outline-none focus:ring-2"
             >
-              {lang === 'en' ? 'Skip to workflow canvas' : 'Saltar al lienzo de flujo de trabajo'}
+              {lang === 'en' ? 'Skip to runbook canvas' : 'Saltar al lienzo del runbook'}
             </a>
 
             <CanvasRunStatus
