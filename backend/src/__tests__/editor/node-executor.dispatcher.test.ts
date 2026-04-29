@@ -107,7 +107,12 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
     // the result shape here because each executor is exercised by
     // its own dedicated test file — this case only pins that
     // dispatch *finds* the executor (no NODE_NOT_FOUND throw).
-    const types = ['operari.httpRequest', 'operari.if', 'operari.loop', 'operari.postgres'];
+    // operari.postgres was a pre-pivot alias of the legacy editor
+    // database stub. The stub was removed when the canonical
+    // operari.database runbook executor (with real pg.Client wiring)
+    // shipped; nothing in the palette or any template references the
+    // old alias.
+    const types = ['operari.httpRequest', 'operari.if', 'operari.loop', 'operari.database'];
     for (const type of types) {
       // Each may resolve, throw a config error, or do an HTTP
       // call we cannot mock here — what we forbid is the dispatcher
@@ -120,8 +125,8 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
             title: type,
             position: { x: 0, y: 0 },
             config:
-              type === 'operari.postgres'
-                ? { operation: 'health' }
+              type === 'operari.database'
+                ? { operation: 'health', credentialId: 'unused' }
                 : type === 'operari.httpRequest'
                   ? { url: 'https://invalid.local.test' }
                   : type === 'operari.if'
@@ -167,23 +172,6 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
     const r = result as Record<string, unknown>;
     expect(r.delayed).toBe(true);
     expect(r.duration).toBe(30);
-  });
-
-  it('routes the Database type through the database stub for migrate ops', async () => {
-    const result = await executor.execute(
-      {
-        id: 'n',
-        type: 'Database',
-        title: 'Migrate',
-        position: { x: 0, y: 0 },
-        config: { operation: 'migrate', table: 'users' },
-      },
-      {}
-    );
-    const r = result as Record<string, unknown>;
-    expect(r.operation).toBe('migrate');
-    expect(r.table).toBe('users');
-    expect(typeof r.message).toBe('string');
   });
 
   it('throws CONFIGURATION_ERROR for StoreSet without tenantId', async () => {

@@ -121,7 +121,7 @@ export const DatabaseNode: Story = {
       ...mockNode,
       id: 'db-node',
       title: 'Query Database',
-      type: 'Database',
+      type: 'operari.database',
       inputs: [{ id: 'in1', label: 'Query' }],
       outputs: [{ id: 'out1', label: 'Results' }],
     },

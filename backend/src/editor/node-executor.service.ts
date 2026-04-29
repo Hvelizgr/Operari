@@ -27,7 +27,6 @@ import {
   resolveTemplate as sharedResolveTemplate,
 } from './nodes/_shared';
 import { ConditionNodeExecutor } from './nodes/condition.executor';
-import { DatabaseNodeExecutor } from './nodes/database.executor';
 import { DelayNodeExecutor } from './nodes/delay.executor';
 import { EmailNodeExecutor } from './nodes/email.executor';
 import { FrameNodeExecutor } from './nodes/frame.executor';
@@ -162,7 +161,6 @@ export class NodeExecutor {
         getEmailTransporter: () => this.emailTransporter,
       })
     );
-    register(new DatabaseNodeExecutor());
 
     // State nodes
     register(new TriggerNodeExecutor());
