@@ -1,0 +1,44 @@
+# Example Prometheus scrape config for the Operari backend.
+#
+# Copy into your Prometheus config (`scrape_configs:` section) and
+# adjust the target hostname for your deploy. The matching Grafana
+# dashboard is at deploy/grafana/operari-runs.json.
+#
+# IMPORTANT: the /metrics endpoint is NOT authenticated. Gate it with
+# network policy — Prometheus scrapers don't authenticate, and
+# exposing per-tenant series on a public ingress is the kind of
+# accidental leak nobody wants. The Operari backend only mounts the
+# endpoint when OPERARI_METRICS_ENABLED=true.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: operari
+    metrics_path: /metrics
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+          # Replace with your backend's reachable address. In docker
+          # compose this is the service name + port; on Kubernetes
+          # use the headless service DNS.
+          - operari-backend:4000
+        labels:
+          # Optional: override the `instance` label so multiple
+          # Operari deployments stay distinguishable in the dashboard.
+          instance: operari-prod
+
+# If you run multiple Operari backends behind a load balancer, use
+# service discovery instead of static_configs:
+#
+#   - job_name: operari
+#     metrics_path: /metrics
+#     kubernetes_sd_configs:
+#       - role: pod
+#         namespaces:
+#           names: [operari]
+#     relabel_configs:
+#       - source_labels: [__meta_kubernetes_pod_label_app]
+#         action: keep
+#         regex: operari-backend

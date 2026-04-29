@@ -76,6 +76,30 @@ describe('Operari Prometheus metrics', () => {
     );
   });
 
+  it('emits operari_webhook_received_total with source + status labels', async () => {
+    const registry = new PromRegistry();
+    const metrics = buildMetrics(registry);
+
+    metrics.recordWebhookReceived({ tenantId: 't1', source: 'sentry', status: 'accepted' });
+    metrics.recordWebhookReceived({
+      tenantId: 't1',
+      source: 'datadog',
+      status: 'rejected_signature',
+    });
+    metrics.recordWebhookReceived({ tenantId: 't1', source: 'datadog', status: 'accepted' });
+
+    const text = await registry.metrics();
+    expect(text).toContain(
+      'operari_webhook_received_total{tenant="t1",source="sentry",status="accepted"} 1'
+    );
+    expect(text).toContain(
+      'operari_webhook_received_total{tenant="t1",source="datadog",status="rejected_signature"} 1'
+    );
+    expect(text).toContain(
+      'operari_webhook_received_total{tenant="t1",source="datadog",status="accepted"} 1'
+    );
+  });
+
   it('exposes the standard node process metrics under operari_node_*', async () => {
     const registry = new PromRegistry();
     buildMetrics(registry);

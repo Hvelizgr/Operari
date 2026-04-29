@@ -3,6 +3,7 @@ import { Request, Response, Router } from 'express';
 import { EventAgentService } from '../agent/services/event-agent.service';
 import { logger } from '../config/logger.config';
 import { ExecutionService } from '../editor/execution/execution.service';
+import { getMetrics, NULL_METRICS } from '../observability/metrics';
 import { GitHubStatusService } from '../runbook/services/github-status.service';
 import { WebhookService } from '../runbook/services/webhook.service';
 import { WebhookReceiptService } from '../runbook/services/webhook-receipt.service';
@@ -37,7 +38,10 @@ function getGitHubStatusService() {
 
 let _receiptService: WebhookReceiptService | null = null;
 function getReceiptService() {
-  if (!_receiptService) _receiptService = new WebhookReceiptService(prisma);
+  if (!_receiptService) {
+    const metrics = process.env.OPERARI_METRICS_ENABLED === 'true' ? getMetrics() : NULL_METRICS;
+    _receiptService = new WebhookReceiptService(prisma, metrics);
+  }
   return _receiptService;
 }
 
@@ -83,6 +87,7 @@ async function handleWebhook(req: Request, res: Response) {
       await receipts.record({
         webhookId: webhook.id,
         tenantId: webhook.tenantId,
+        source: webhook.source,
         status: 'rejected_inactive',
         statusCode: 404,
         reason: 'Webhook inactive',
@@ -126,6 +131,7 @@ async function handleWebhook(req: Request, res: Response) {
       await receipts.record({
         webhookId: webhook.id,
         tenantId: webhook.tenantId,
+        source: webhook.source,
         status: 'rejected_signature',
         statusCode: 401,
         reason: 'HMAC signature mismatch',
@@ -150,6 +156,7 @@ async function handleWebhook(req: Request, res: Response) {
       await receipts.record({
         webhookId: webhook.id,
         tenantId: webhook.tenantId,
+        source: webhook.source,
         status: 'rejected_signature',
         statusCode: 401,
         reason: `Timestamp replay guard: ${tsFail}`,
@@ -181,6 +188,7 @@ async function handleWebhook(req: Request, res: Response) {
         await receipts.record({
           webhookId: webhook.id,
           tenantId: webhook.tenantId,
+          source: webhook.source,
           status: 'rejected_inactive',
           statusCode: 200,
           reason: 'Duplicate delivery short-circuited',
@@ -228,6 +236,7 @@ async function handleWebhook(req: Request, res: Response) {
     await receipts.record({
       webhookId: webhook.id,
       tenantId: webhook.tenantId,
+      source: webhook.source,
       status: 'error',
       statusCode: 500,
       reason: err instanceof Error ? err.message : 'execution failed',
@@ -245,6 +254,7 @@ async function handleWebhook(req: Request, res: Response) {
     .record({
       webhookId: webhook.id,
       tenantId: webhook.tenantId,
+      source: webhook.source,
       status: 'accepted',
       statusCode: 202,
       headers,

@@ -45,6 +45,14 @@ export interface RunMetrics {
     success: boolean;
     durationSeconds: number;
   }): void;
+  /**
+   * Counts every webhook receipt. `status` mirrors the receipt
+   * status enum (accepted / rejected_signature / rejected_inactive /
+   * error) so dashboards can pivot on signature rejection rates and
+   * separately on engine errors. `source` is the runbook trigger
+   * provider (sentry / datadog / github / custom).
+   */
+  recordWebhookReceived(input: { tenantId: string; source: string; status: string }): void;
 }
 
 interface BuiltMetrics extends RunMetrics {
@@ -118,6 +126,13 @@ export function buildMetrics(registry: Registry): BuiltMetrics {
     registers: [registry],
   });
 
+  const webhookReceived = new Counter({
+    name: 'operari_webhook_received_total',
+    help: 'Total webhook deliveries received, labelled by tenant + source + receipt status (accepted / rejected_signature / rejected_inactive / error).',
+    labelNames: ['tenant', 'source', 'status'],
+    registers: [registry],
+  });
+
   return {
     registry,
     recordRunStarted({ tenantId, trigger }) {
@@ -135,6 +150,9 @@ export function buildMetrics(registry: Registry): BuiltMetrics {
         .labels({ tenant: tenantId, step_type: stepType, status })
         .observe(durationSeconds);
     },
+    recordWebhookReceived({ tenantId, source, status }) {
+      webhookReceived.labels({ tenant: tenantId, source, status }).inc(1);
+    },
   };
 }
 
@@ -147,4 +165,5 @@ export const NULL_METRICS: RunMetrics = {
   recordRunStarted() {},
   recordRunFinished() {},
   recordStepFinished() {},
+  recordWebhookReceived() {},
 };

@@ -315,6 +315,7 @@ describe('RunTracer', () => {
         recordRunStarted: jest.fn(),
         recordRunFinished: jest.fn(),
         recordStepFinished: jest.fn(),
+        recordWebhookReceived: jest.fn(),
       };
       const t = new RunTracer(buildFakeTracer() as never, sink);
 
@@ -354,6 +355,7 @@ describe('RunTracer', () => {
         recordRunStarted: jest.fn(),
         recordRunFinished: jest.fn(),
         recordStepFinished: jest.fn(),
+        recordWebhookReceived: jest.fn(),
       };
       const t = new RunTracer(buildFakeTracer() as never, sink);
 

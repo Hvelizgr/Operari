@@ -1,5 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 
+import { NULL_METRICS, type RunMetrics } from '../../observability/metrics';
+
 /**
  * Retention cap. Keep 50 receipts per webhook — enough to debug a
  * misbehaving sender (the "I sent it 20 times and it didn't work"
@@ -41,6 +43,13 @@ export interface RecordReceiptParams {
    * rejected_signature, rejected_inactive, or accepted.
    */
   nextRetryAt?: Date | null;
+  /**
+   * Trigger source — sentry / datadog / github / custom. Threaded
+   * through so the Prometheus counter operari_webhook_received_total
+   * can be labelled by source without forcing the receipt row schema
+   * to learn about it.
+   */
+  source?: string;
 }
 
 /**
@@ -51,7 +60,10 @@ export interface RecordReceiptParams {
  * dropping the trigger.
  */
 export class WebhookReceiptService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly metrics: RunMetrics = NULL_METRICS
+  ) {}
 
   async record(params: RecordReceiptParams): Promise<string | null> {
     try {
@@ -69,6 +81,16 @@ export class WebhookReceiptService {
           nextRetryAt: params.nextRetryAt ?? null,
         },
         select: { id: true },
+      });
+      // Emit the metric AFTER the row commits so a DB failure does
+      // not skew the counter higher than the persisted truth. The
+      // source falls back to 'unknown' for the rare "webhook
+      // findByToken returned the record but the route already lost
+      // the source field" edge case.
+      this.metrics.recordWebhookReceived({
+        tenantId: params.tenantId,
+        source: params.source ?? 'unknown',
+        status: params.status,
       });
       void this.trim(params.webhookId);
       return created.id;

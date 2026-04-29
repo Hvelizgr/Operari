@@ -19,13 +19,14 @@ Prometheus convention).
 
 Custom Operari metrics:
 
-| Name                            | Type      | Labels                    |
-| ------------------------------- | --------- | ------------------------- |
-| `operari_runs_started_total`    | Counter   | tenant, trigger           |
-| `operari_runs_finished_total`   | Counter   | tenant, trigger, status   |
-| `operari_run_duration_seconds`  | Histogram | tenant, status            |
-| `operari_steps_finished_total`  | Counter   | tenant, step_type, status |
-| `operari_step_duration_seconds` | Histogram | tenant, step_type, status |
+| Name                             | Type      | Labels                    |
+| -------------------------------- | --------- | ------------------------- |
+| `operari_runs_started_total`     | Counter   | tenant, trigger           |
+| `operari_runs_finished_total`    | Counter   | tenant, trigger, status   |
+| `operari_run_duration_seconds`   | Histogram | tenant, status            |
+| `operari_steps_finished_total`   | Counter   | tenant, step_type, status |
+| `operari_step_duration_seconds`  | Histogram | tenant, step_type, status |
+| `operari_webhook_received_total` | Counter   | tenant, source, status    |
 
 Plus standard Node.js process metrics under the `operari_node_*` prefix
 (eventloop lag, CPU, GC, heap, fd count) — registered via prom-client's
@@ -37,7 +38,8 @@ breakdowns belong in traces (Jaeger / Tempo), not in metrics.
 
 ## Scrape config
 
-A minimal Prometheus job:
+A ready-to-paste sample Prometheus config ships at
+[`prometheus.example.yml`](./prometheus.example.yml). The minimal job:
 
 ```yaml
 scrape_configs:
@@ -47,9 +49,10 @@ scrape_configs:
       - targets: ['operari-backend:4000']
 ```
 
-If you run multiple Operari backends, use a service-discovery target list. The
-dashboard's `tenant` template variable auto-populates from the labels Prometheus
-sees, so multi-tenant deployments get a per-tenant filter for free.
+If you run multiple Operari backends, use a service-discovery target list (see
+the commented section in `prometheus.example.yml`). The dashboard's `tenant`
+template variable auto-populates from the labels Prometheus sees, so
+multi-tenant deployments get a per-tenant filter for free.
 
 ## Importing the dashboard
 
