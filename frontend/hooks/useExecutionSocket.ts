@@ -54,7 +54,24 @@ export function useExecutionSocket(executionId: string | null) {
       const node = store.nodes.find(n => n.id === event.nodeId);
       if (!node) return;
 
-      store.updateNodeData(event.nodeId, { status: mapped });
+      // Track timing so the duration footer can show "ran 2.1s" or
+      // "running 4s…". Wall-clock from `event.timestamp` if parseable,
+      // else `Date.now()` so a malformed event doesn't break the UI.
+      const eventTime = Date.parse(event.timestamp);
+      const ts = Number.isFinite(eventTime) ? eventTime : Date.now();
+      const prev = node.data;
+      let timing: Pick<typeof prev, 'startedAt' | 'durationMs'> | undefined;
+      if (mapped === 'running') {
+        timing = { startedAt: ts, durationMs: null };
+      } else if (mapped === 'success' || mapped === 'failed' || mapped === 'skipped') {
+        const startedAt = prev?.startedAt ?? null;
+        timing = {
+          startedAt,
+          durationMs: startedAt != null ? Math.max(0, ts - startedAt) : null,
+        };
+      }
+
+      store.updateNodeData(event.nodeId, { status: mapped, ...(timing ?? {}) });
 
       // Edge status propagation: an edge into this node mirrors the
       // node's status so the orb / dash kicks in as soon as the step

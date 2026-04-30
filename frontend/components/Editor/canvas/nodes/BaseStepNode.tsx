@@ -3,8 +3,9 @@
 import { Handle, type NodeProps, Position } from '@xyflow/react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Loader2, MinusCircle, XCircle } from 'lucide-react';
-import { memo, type ReactNode } from 'react';
+import { memo, type ReactNode, useEffect, useState } from 'react';
 
+import { useNextInPath } from '@/hooks/useNextInPath';
 import type { RfNode } from '@/lib/canvas/adapter';
 
 import { NODE_CATALOG } from '../catalog';
@@ -28,6 +29,15 @@ const STATUS_RING_VAR: Record<Status, string> = {
   skipped: 'var(--rb-edge-skipped)',
 };
 
+const formatDuration = (ms: number): string => {
+  if (ms < 1000) return `${ms}ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  const rem = Math.floor(s - m * 60);
+  return `${m}m ${rem}s`;
+};
+
 function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   const { id, type, data, selected } = props;
   const def = NODE_CATALOG.get(type);
@@ -38,6 +48,32 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   const inputs = def?.inputs ?? ['main'];
   const outputs = def?.outputs ?? ['main'];
   const status: Status = data.status ?? 'idle';
+  const isNextInPath = useNextInPath(id);
+
+  // Live elapsed counter while running. Subscribes to a 1s tick only
+  // when this specific node is running, so the canvas pays nothing for
+  // idle nodes. Once the run terminates, the socket sets `durationMs`
+  // and the footer renders a static value.
+  const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  useEffect(() => {
+    if (status !== 'running' || !data.startedAt) {
+      setElapsedMs(null);
+      return;
+    }
+    const tick = () => setElapsedMs(Date.now() - (data.startedAt ?? Date.now()));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [status, data.startedAt]);
+
+  const footerDuration =
+    status === 'running'
+      ? elapsedMs != null
+        ? `running ${formatDuration(elapsedMs)}…`
+        : 'running…'
+      : data.durationMs != null
+        ? `ran ${formatDuration(data.durationMs)}`
+        : null;
 
   const ariaSummary = `${def?.label.en ?? type} step: ${title}${enabled ? '' : ' (disabled)'}${
     status !== 'idle' ? `, status ${status}` : ''
@@ -46,13 +82,16 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   const ringColor = selected ? 'var(--rb-node-selected)' : STATUS_RING_VAR[status];
   // Pulse animations live as keyframes in globals.css so the box-shadow
   // can reach 0 alpha without the inline `animate` array recomputing on
-  // every node re-render. Selected pulse is gentler than running.
+  // every node re-render. Running > selected > next-in-path; the
+  // next-in-path glow is the most subtle (slow soft moss-tinted shadow).
   const animationName =
     status === 'running'
       ? 'rb-running-pulse 1.6s ease-in-out infinite'
       : selected
         ? 'rb-selected-pulse 2.4s ease-in-out infinite'
-        : 'none';
+        : isNextInPath
+          ? 'rb-selected-pulse 3.2s ease-in-out infinite'
+          : 'none';
 
   return (
     <>
@@ -71,12 +110,18 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
         ].join(' ')}
         style={{
           background: 'var(--rb-node-bg)',
-          borderColor: ringColor === 'transparent' ? 'var(--rb-node-border)' : ringColor,
+          borderColor:
+            ringColor === 'transparent'
+              ? isNextInPath
+                ? 'color-mix(in oklab, var(--op-moss) 45%, transparent)'
+                : 'var(--rb-node-border)'
+              : ringColor,
           boxShadow: '0 0 0 0 transparent',
           animation: animationName,
         }}
         data-node-type={type}
         data-status={status}
+        data-next-in-path={isNextInPath || undefined}
       >
         <div
           className={[
@@ -103,6 +148,21 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
           {!enabled ? (
             <div className="mt-1 text-[10px] uppercase tracking-wide text-[color:var(--rb-edge-failed)]">
               disabled
+            </div>
+          ) : null}
+          {footerDuration ? (
+            <div
+              className="mt-1 font-mono text-[10px] uppercase tracking-wide"
+              style={{
+                color:
+                  status === 'running'
+                    ? 'var(--rb-edge-running)'
+                    : status === 'failed'
+                      ? 'var(--rb-edge-failed)'
+                      : 'var(--rb-node-muted)',
+              }}
+            >
+              {footerDuration}
             </div>
           ) : null}
         </div>

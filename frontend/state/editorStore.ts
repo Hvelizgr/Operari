@@ -5,6 +5,7 @@ import {
   applyNodeChanges,
   type EdgeChange,
   type NodeChange,
+  reconnectEdge as rfReconnectEdge,
 } from '@xyflow/react';
 import { create } from 'zustand';
 import { temporal } from 'zundo';
@@ -12,6 +13,7 @@ import { temporal } from 'zundo';
 import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
 import { rfToWorkflow, workflowToRf } from '@/lib/canvas/adapter';
 import { getDescendantIds, sortNodesForRf } from '@/lib/canvas/graph';
+import type { RunbookInputDefinition } from '@/components/Editor/RunbookInputsPanel';
 import type { Connection as WorkflowConnection, WorkflowNode } from '@operari/shared';
 
 export type SaveStatus = 'idle' | 'loading' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
@@ -27,6 +29,10 @@ export interface RunbookHeader {
 type State = {
   runbookId: string | null;
   runbookHeader: RunbookHeader | null;
+  /** Typed input declarations consumed by RunDialog. Persisted by a
+   *  separate REST endpoint (`PUT /api/runbooks/:id/inputs`); the
+   *  editor route only reads + updates the in-memory copy. */
+  runbookInputs: RunbookInputDefinition[];
   nodes: RfNode[];
   edges: RfEdge[];
   status: SaveStatus;
@@ -38,6 +44,7 @@ type Actions = {
   onNodesChange: (changes: NodeChange<RfNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<RfEdge>[]) => void;
   onConnect: (connection: RfConnection) => void;
+  reconnectEdge: (oldEdge: RfEdge, newConnection: RfConnection) => void;
   addNode: (node: RfNode) => void;
   removeNodes: (ids: string[]) => void;
   updateNodeData: (id: string, patch: Partial<RfNode['data']>) => void;
@@ -51,10 +58,12 @@ type Actions = {
   hydrateFromWorkflow: (
     runbookId: string,
     header: RunbookHeader,
+    inputs: RunbookInputDefinition[],
     nodes: WorkflowNode[],
     connections: WorkflowConnection[]
   ) => void;
   setRunbookHeader: (patch: Partial<RunbookHeader>) => void;
+  setRunbookInputs: (next: RunbookInputDefinition[]) => void;
   setStatus: (status: SaveStatus, errorMessage?: string | null) => void;
   markSaved: (savedAt?: number) => void;
   getRunbookPayload: () => { nodes: WorkflowNode[]; connections: WorkflowConnection[] };
@@ -66,6 +75,7 @@ export type EditorState = State & Actions;
 const initialState: State = {
   runbookId: null,
   runbookHeader: null,
+  runbookInputs: [],
   nodes: [],
   edges: [],
   status: 'idle',
@@ -93,6 +103,12 @@ export const useEditorStore = create<EditorState>()(
       onConnect: connection =>
         set(state => ({
           edges: addEdge<RfEdge>(connection, state.edges),
+          status: 'dirty',
+        })),
+
+      reconnectEdge: (oldEdge, newConnection) =>
+        set(state => ({
+          edges: rfReconnectEdge<RfEdge>(oldEdge, newConnection, state.edges),
           status: 'dirty',
         })),
 
@@ -160,11 +176,12 @@ export const useEditorStore = create<EditorState>()(
           return { nodes: sortNodesForRf(updated), status: 'dirty' };
         }),
 
-      hydrateFromWorkflow: (runbookId, header, nodes, connections) => {
+      hydrateFromWorkflow: (runbookId, header, inputs, nodes, connections) => {
         const rf = workflowToRf(nodes, connections);
         set({
           runbookId,
           runbookHeader: header,
+          runbookInputs: inputs,
           // Frames must precede their children in the array — RF requirement.
           nodes: sortNodesForRf(rf.nodes),
           edges: rf.edges,
@@ -183,6 +200,8 @@ export const useEditorStore = create<EditorState>()(
             ? { ...state.runbookHeader, ...patch }
             : ({ name: 'Untitled', ...patch } as RunbookHeader),
         })),
+
+      setRunbookInputs: next => set({ runbookInputs: next }),
 
       setStatus: (status, errorMessage = null) => set({ status, errorMessage }),
 

@@ -4,6 +4,14 @@ import type { Edge, Node } from '@xyflow/react';
 export type RfNodeData = {
   workflow: Omit<WorkflowNode, 'id' | 'type' | 'position'>;
   status?: 'idle' | 'running' | 'success' | 'failed' | 'skipped';
+  /** Wall-clock ms when the latest run of this step started — set when
+   *  the socket emits a `running` event, cleared when a fresh load
+   *  hydrates the canvas. The duration footer reads it. */
+  startedAt?: number | null;
+  /** Final duration in ms once the step reaches a terminal status.
+   *  Null while running so the footer renders the live elapsed value
+   *  computed from `startedAt`. */
+  durationMs?: number | null;
 };
 
 export type RfEdgeData = {

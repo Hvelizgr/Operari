@@ -3,6 +3,7 @@
 import type { Connection as WorkflowConnection, WorkflowNode } from '@operari/shared';
 import { useEffect, useRef } from 'react';
 
+import type { RunbookInputDefinition } from '@/components/Editor/RunbookInputsPanel';
 import type { RunbookHeader } from '@/state/editorStore';
 import { useEditorStore } from '@/state/editorStore';
 import { specToNodes, yamlToSpec } from '@/utils/runbookYaml';
@@ -63,7 +64,8 @@ export function useLoadRunbook(runbookId: string | null) {
           }
         }
         if (cancelled) return;
-        hydrateFromWorkflow(runbookId, headerFromRow(wf), nodes, connections);
+        const inputs = Array.isArray(wf.inputs) ? (wf.inputs as RunbookInputDefinition[]) : [];
+        hydrateFromWorkflow(runbookId, headerFromRow(wf), inputs, nodes, connections);
       } catch (err) {
         if (cancelled) return;
         setStatus('error', err instanceof Error ? err.message : 'load failed');

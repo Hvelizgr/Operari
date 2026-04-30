@@ -3,6 +3,7 @@
 import {
   Background,
   BackgroundVariant,
+  type Connection as RfConnection,
   Controls,
   type Edge,
   MiniMap,
@@ -11,7 +12,7 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
 import { useAutoParent } from '@/hooks/useAutoParent';
@@ -21,6 +22,7 @@ import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
 import { useExecutionSocket } from '@/hooks/useExecutionSocket';
 import { useIsValidConnection } from '@/hooks/useIsValidConnection';
 import { useLoadRunbook } from '@/hooks/useLoadRunbook';
+import { useViewportPersistence } from '@/hooks/useViewportPersistence';
 import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
 import { useEditorStore } from '@/state/editorStore';
 
@@ -69,6 +71,7 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   const onNodesChange = useEditorStore(s => s.onNodesChange);
   const onEdgesChange = useEditorStore(s => s.onEdgesChange);
   const onConnect = useEditorStore(s => s.onConnect);
+  const reconnectEdgeAction = useEditorStore(s => s.reconnectEdge);
   const addNode = useEditorStore(s => s.addNode);
   const removeNodes = useEditorStore(s => s.removeNodes);
 
@@ -97,6 +100,29 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   useCycleDetection();
   useEditorKeyboard();
   useExecutionSocket(executionId);
+  useViewportPersistence();
+
+  // Reconnect handlers. The success ref guards against `onReconnectEnd`
+  // firing after a successful reconnect (would otherwise delete the
+  // edge that the user just rerouted). On a drop into empty space the
+  // ref stays false and we delete via onEdgesChange.
+  const reconnectSuccessful = useRef(true);
+  const handleReconnectStart = useCallback(() => {
+    reconnectSuccessful.current = false;
+  }, []);
+  const handleReconnect = useCallback(
+    (oldEdge: RfEdge, newConnection: RfConnection) => {
+      reconnectSuccessful.current = true;
+      reconnectEdgeAction(oldEdge, newConnection);
+    },
+    [reconnectEdgeAction]
+  );
+  const handleReconnectEnd = useCallback((_event: unknown, edge: RfEdge) => {
+    if (!reconnectSuccessful.current) {
+      useEditorStore.getState().onEdgesChange([{ id: edge.id, type: 'remove' }]);
+    }
+    reconnectSuccessful.current = true;
+  }, []);
 
   const handleNodesDelete = useCallback(
     (deleted: RfNode[]) => {
@@ -173,12 +199,14 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onReconnect={handleReconnect}
+        onReconnectStart={handleReconnectStart}
+        onReconnectEnd={handleReconnectEnd}
         onNodeDragStart={handleNodeDragStart}
         onNodeDragStop={handleNodeDragStop}
         onNodesDelete={handleNodesDelete}
         onEdgeContextMenu={handleEdgeContextMenu}
         isValidConnection={isValidConnection}
-        fitView
         snapToGrid
         snapGrid={[20, 20]}
         selectionOnDrag
