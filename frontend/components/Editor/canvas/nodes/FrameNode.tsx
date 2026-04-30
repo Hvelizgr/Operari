@@ -26,6 +26,11 @@ function FrameNodeComponent({ id, data, selected, parentId }: NodeProps<RfNode>)
   const width = config.width ?? DEFAULT_WIDTH;
   const height = config.height ?? DEFAULT_HEIGHT;
 
+  // Drop-target highlight: while a step is being dragged over this
+  // frame, `hoveredFrameId` matches our id. The selector subscribes
+  // narrowly (boolean only) so unrelated drag ticks don't re-render us.
+  const isDropTarget = useEditorStore(s => s.hoveredFrameId === id);
+
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -79,11 +84,13 @@ function FrameNodeComponent({ id, data, selected, parentId }: NodeProps<RfNode>)
         style={{
           width,
           height,
-          background: fillTint,
+          background: isDropTarget ? `color-mix(in oklab, ${color} 22%, transparent)` : fillTint,
           borderColor: color,
-          boxShadow: selected
-            ? `0 0 0 2px color-mix(in oklab, ${color} 35%, transparent)`
-            : undefined,
+          boxShadow: isDropTarget
+            ? `0 0 0 4px color-mix(in oklab, ${color} 55%, transparent)`
+            : selected
+              ? `0 0 0 2px color-mix(in oklab, ${color} 35%, transparent)`
+              : undefined,
         }}
       >
         <div

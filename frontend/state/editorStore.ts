@@ -43,6 +43,10 @@ type State = {
    *  Drives "trace highlighting" — non-traced steps dim to 30% so the
    *  operator's eye lands on the executed path. */
   traceMode: boolean;
+  /** Frame the user is currently dragging a step over. The frame
+   *  component reads this to draw a hover ring telegraphing "drop
+   *  here to parent". Cleared on drag stop. */
+  hoveredFrameId: string | null;
 };
 
 type Actions = {
@@ -70,6 +74,7 @@ type Actions = {
   setRunbookHeader: (patch: Partial<RunbookHeader>) => void;
   setRunbookInputs: (next: RunbookInputDefinition[]) => void;
   setTraceMode: (active: boolean) => void;
+  setHoveredFrameId: (id: string | null) => void;
   setStatus: (status: SaveStatus, errorMessage?: string | null) => void;
   markSaved: (savedAt?: number) => void;
   getRunbookPayload: () => { nodes: WorkflowNode[]; connections: WorkflowConnection[] };
@@ -88,6 +93,7 @@ const initialState: State = {
   savedAt: null,
   errorMessage: null,
   traceMode: false,
+  hoveredFrameId: null,
 };
 
 export const useEditorStore = create<EditorState>()(
@@ -211,6 +217,9 @@ export const useEditorStore = create<EditorState>()(
       setRunbookInputs: next => set({ runbookInputs: next }),
 
       setTraceMode: active => set({ traceMode: active }),
+
+      setHoveredFrameId: id =>
+        set(state => (state.hoveredFrameId === id ? state : { hoveredFrameId: id })),
 
       setStatus: (status, errorMessage = null) => set({ status, errorMessage }),
 

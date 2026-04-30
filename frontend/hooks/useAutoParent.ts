@@ -9,21 +9,54 @@ import { useEditorStore } from '@/state/editorStore';
 
 const FRAME_TYPE = 'custom.frame';
 
-export function useAutoParent() {
+interface AutoParentHandlers {
+  /** Fired on every `onNodeDrag` tick. Cheaply updates the
+   *  `hoveredFrameId` slice so the frame component lights up while the
+   *  user is hovering over it. */
+  onDrag: (event: unknown, draggedNode: Node) => void;
+  /** Fired on `onNodeDragStop`. Performs the actual reparent + position
+   *  rebase, then clears the hover signal. */
+  onDragStop: (event: unknown, draggedNode: Node) => void;
+}
+
+export function useAutoParent(): AutoParentHandlers {
   const { getIntersectingNodes, getInternalNode } = useReactFlow<RfNode, RfEdge>();
   const reparentNode = useEditorStore(s => s.reparentNode);
+  const setHoveredFrameId = useEditorStore(s => s.setHoveredFrameId);
 
-  return useCallback(
+  const findTargetFrame = useCallback(
+    (draggedNode: Node): RfNode | undefined => {
+      if (draggedNode.type === FRAME_TYPE) return undefined;
+      const intersecting = getIntersectingNodes(draggedNode).filter(
+        n => n.type === FRAME_TYPE
+      ) as RfNode[];
+      return findInnermostFrame(draggedNode as RfNode, intersecting);
+    },
+    [getIntersectingNodes]
+  );
+
+  const onDrag = useCallback(
+    (_event: unknown, draggedNode: Node) => {
+      const target = findTargetFrame(draggedNode);
+      // Only push to the store when the result actually changes —
+      // setHoveredFrameId already short-circuits no-op writes, but
+      // this saves the function call entirely on most drag ticks.
+      const currentHover = useEditorStore.getState().hoveredFrameId;
+      const next = target?.id ?? null;
+      if (currentHover !== next) setHoveredFrameId(next);
+    },
+    [findTargetFrame, setHoveredFrameId]
+  );
+
+  const onDragStop = useCallback(
     (_event: unknown, draggedNode: Node) => {
       // Frames don't auto-parent into other frames — the V1 contract was
       // flat top-level frames, and nesting them via drag complicates the
       // mental model without helping a real workflow.
+      setHoveredFrameId(null);
       if (draggedNode.type === FRAME_TYPE) return;
 
-      const intersecting = getIntersectingNodes(draggedNode).filter(
-        n => n.type === FRAME_TYPE
-      ) as RfNode[];
-      const target = findInnermostFrame(draggedNode as RfNode, intersecting);
+      const target = findTargetFrame(draggedNode);
       const currentParentId = (draggedNode as RfNode).parentId ?? null;
       const nextParentId = target?.id ?? null;
 
@@ -50,6 +83,8 @@ export function useAutoParent() {
 
       reparentNode(draggedNode.id, nextParentId, nextPos);
     },
-    [getIntersectingNodes, getInternalNode, reparentNode]
+    [findTargetFrame, getInternalNode, reparentNode, setHoveredFrameId]
   );
+
+  return { onDrag, onDragStop };
 }

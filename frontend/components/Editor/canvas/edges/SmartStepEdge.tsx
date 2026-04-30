@@ -5,6 +5,7 @@ import { memo, useMemo } from 'react';
 
 import type { RfEdge } from '@/lib/canvas/adapter';
 
+import { EdgeDeleteButton } from './EdgeDeleteButton';
 import { isRunning, resolveEdgeStroke } from './edgeStyle';
 
 /**
@@ -123,6 +124,7 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
           </div>
         </EdgeLabelRenderer>
       ) : null}
+      {selected ? <EdgeDeleteButton edgeId={id} x={labelX} y={labelY} /> : null}
     </>
   );
 }

@@ -143,6 +143,22 @@
   background-color: var(--rb-node-bg);
 }
 
+/* Handle visual feedback during connection drag.
+   - `.connectingfrom` is the handle the drag started from.
+   - `.valid` is a candidate handle the connection can land on
+     (cycle-blocked targets do not get this class — `isValidConnection`
+     filters them out for us).
+   This is the SRE's "yes, drop here" cue and pairs with the node-level
+   `rb-target-pulse` keyframe. */
+.react-flow__handle.connectingfrom {
+  background: var(--op-gold);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--op-gold) 35%, transparent);
+}
+.react-flow__handle.valid {
+  background: var(--op-moss);
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--op-moss) 40%, transparent);
+}
+
 /* ─────────────────────────────────────────────────────────────
    Operari brand tokens — single source of truth.
    See docs/adr/0005-rebrand-to-operari.md for the full palette

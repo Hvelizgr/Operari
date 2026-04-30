@@ -111,7 +111,7 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   const isValidConnection = useIsValidConnection();
   const { theme } = useTheme();
   const colorMode = theme === 'light' ? 'light' : 'dark';
-  const reparentOnDragStop = useAutoParent();
+  const autoParent = useAutoParent();
 
   // One drag = one undo entry. Pause history capture during the drag,
   // run the auto-parent rebase on stop, then resume so the diff between
@@ -119,12 +119,18 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   const handleNodeDragStart = useCallback(() => {
     useEditorStore.temporal.getState().pause();
   }, []);
+  const handleNodeDrag = useCallback(
+    (event: React.MouseEvent | React.TouchEvent, node: RfNode) => {
+      autoParent.onDrag(event, node);
+    },
+    [autoParent]
+  );
   const handleNodeDragStop = useCallback(
     (event: React.MouseEvent | React.TouchEvent, node: RfNode) => {
-      reparentOnDragStop(event, node);
+      autoParent.onDragStop(event, node);
       useEditorStore.temporal.getState().resume();
     },
-    [reparentOnDragStop]
+    [autoParent]
   );
 
   useLoadRunbook(runbookId);
@@ -255,6 +261,7 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         onReconnectStart={handleReconnectStart}
         onReconnectEnd={handleReconnectEnd}
         onNodeDragStart={handleNodeDragStart}
+        onNodeDrag={handleNodeDrag}
         onNodeDragStop={handleNodeDragStop}
         onNodesDelete={handleNodesDelete}
         onEdgeContextMenu={embedMode ? undefined : handleEdgeContextMenu}
@@ -263,14 +270,23 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         snapGrid={[20, 20]}
         selectionOnDrag={!embedMode}
         panOnDrag={embedMode ? true : [1, 2]}
+        panOnScroll={!embedMode}
+        panActivationKeyCode="Space"
         multiSelectionKeyCode="Shift"
         deleteKeyCode={embedMode ? null : ['Delete', 'Backspace']}
+        connectionRadius={32}
         nodesDraggable={!embedMode}
         nodesConnectable={!embedMode}
         elementsSelectable={!embedMode}
         edgesFocusable={!embedMode}
         nodesFocusable={!embedMode}
         zoomOnDoubleClick={!embedMode}
+        // `onlyRenderVisibleElements` measures every node before
+        // deciding what's in viewport, so it costs more than it saves
+        // for graphs under ~200 nodes. Operari runbooks rarely exceed
+        // 50, but flipping this on for huge generated runbooks (e.g.,
+        // imported via plugin) is a one-line opt-in.
+        onlyRenderVisibleElements={false}
       >
         {/* Layered background: a coarse line grid for orientation and a
             fine dot grid on top so step alignment reads cleanly at any
