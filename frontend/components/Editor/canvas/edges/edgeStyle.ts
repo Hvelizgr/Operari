@@ -6,6 +6,7 @@ type Condition = NonNullable<RfEdgeData['condition']>;
 const STATUS_VAR: Record<Status, string> = {
   idle: 'var(--rb-edge)',
   running: 'var(--rb-edge-running)',
+  'yet-to-run': 'var(--rb-edge-yet-to-run)',
   success: 'var(--rb-edge-success)',
   failed: 'var(--rb-edge-failed)',
   skipped: 'var(--rb-edge-skipped)',
@@ -26,4 +27,10 @@ export const resolveEdgeStroke = (data: RfEdgeData | undefined): string => {
   return 'var(--rb-edge)';
 };
 
+/** Active animation while data is in flight (orb + dash). Yet-to-run
+ *  edges get the soft brightness but not the full motion — the
+ *  operator should be able to tell the difference between "currently
+ *  flowing" and "about to flow". */
 export const isRunning = (data: RfEdgeData | undefined): boolean => data?.status === 'running';
+
+export const isYetToRun = (data: RfEdgeData | undefined): boolean => data?.status === 'yet-to-run';

@@ -11,7 +11,13 @@ import { useEditorStore } from '@/state/editorStore';
 
 import { NODE_CATALOG } from '../catalog';
 import { NodeContextToolbar } from '../NodeContextToolbar';
-import { isOrphanOutput, resolvePreview, resolveSecondaryChips, resolveTags } from './nodeChrome';
+import {
+  handleTone,
+  isOrphanOutput,
+  resolvePreview,
+  resolveSecondaryChips,
+  resolveTags,
+} from './nodeChrome';
 import { TypePattern } from './TypePattern';
 
 type Status = NonNullable<RfNode['data']['status']>;
@@ -300,26 +306,32 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
           </div>
         </div>
 
-        {inputs.map((label, idx) => (
-          <Handle
-            key={`in-${idx}`}
-            id={String(idx)}
-            type="target"
-            position={Position.Left}
-            aria-label={`input ${label}`}
-            style={{ top: 32 + idx * 18 }}
-          />
-        ))}
-        {outputs.map((label, idx) => (
-          <Handle
-            key={`out-${idx}`}
-            id={String(idx)}
-            type="source"
-            position={Position.Right}
-            aria-label={`output ${label}`}
-            style={{ top: 32 + idx * 18 }}
-          />
-        ))}
+        {inputs.map((label, idx) => {
+          const tone = handleTone(label);
+          return (
+            <Handle
+              key={`in-${idx}`}
+              id={String(idx)}
+              type="target"
+              position={Position.Left}
+              aria-label={`input ${label}`}
+              style={{ top: 32 + idx * 18, ...(tone ? { background: tone } : {}) }}
+            />
+          );
+        })}
+        {outputs.map((label, idx) => {
+          const tone = handleTone(label);
+          return (
+            <Handle
+              key={`out-${idx}`}
+              id={String(idx)}
+              type="source"
+              position={Position.Right}
+              aria-label={`output ${label}`}
+              style={{ top: 32 + idx * 18, ...(tone ? { background: tone } : {}) }}
+            />
+          );
+        })}
       </motion.div>
     </>
   );

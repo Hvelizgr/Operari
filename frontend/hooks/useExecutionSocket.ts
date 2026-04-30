@@ -76,16 +76,32 @@ export function useExecutionSocket(executionId: string | null) {
 
       store.updateNodeData(event.nodeId, { status: mapped, ...(timing ?? {}) });
 
-      // Edge status propagation: an edge into this node mirrors the
-      // node's status so the orb / dash kicks in as soon as the step
-      // starts running. Outgoing edges are recomputed when the
-      // downstream node's status arrives.
-      const edgeStatus: NonNullable<RfEdgeData['status']> =
+      // Edge status propagation has two layers:
+      //   1. Incoming edges mirror the *target* node's status so the
+      //      orb / dash kicks in as soon as a step starts running.
+      //   2. Outgoing edges of a running step go to `yet-to-run`
+      //      (chaiNNer-style) so the operator sees what's queued
+      //      next — but only if the downstream step itself is still
+      //      idle. If the downstream is already running the existing
+      //      `running` state on its incoming edge wins.
+      const incomingStatus: NonNullable<RfEdgeData['status']> =
         mapped === 'running' ? 'running' : 'idle';
       for (const edge of store.edges) {
         if (edge.target !== event.nodeId) continue;
-        if ((edge.data?.status ?? 'idle') === edgeStatus) continue;
-        store.updateEdgeData(edge.id, { status: edgeStatus });
+        if ((edge.data?.status ?? 'idle') === incomingStatus) continue;
+        store.updateEdgeData(edge.id, { status: incomingStatus });
+      }
+      if (mapped === 'running') {
+        for (const edge of store.edges) {
+          if (edge.source !== event.nodeId) continue;
+          const target = store.nodes.find(n => n.id === edge.target);
+          const targetStatus = target?.data.status ?? 'idle';
+          // Only mark as yet-to-run when the downstream is still idle;
+          // a running downstream already paints its own incoming edge.
+          if (targetStatus === 'idle' && edge.data?.status !== 'yet-to-run') {
+            store.updateEdgeData(edge.id, { status: 'yet-to-run' });
+          }
+        }
       }
     };
 
@@ -103,7 +119,7 @@ export function useExecutionSocket(executionId: string | null) {
         }
       }
       for (const edge of store.edges) {
-        if (edge.data?.status === 'running') {
+        if (edge.data?.status === 'running' || edge.data?.status === 'yet-to-run') {
           store.updateEdgeData(edge.id, { status: 'idle' });
         }
       }

@@ -23,7 +23,11 @@ export type RfEdgeData = {
    *  a single edge in a curved graph really wants to be orthogonal
    *  (or vice-versa) for clarity. */
   lineStyle?: 'smart' | 'step';
-  status?: 'idle' | 'running' | 'success' | 'failed' | 'skipped';
+  /** `yet-to-run` is the chaiNNer-style "edge is about to fire": the
+   *  source node is currently running, the target hasn't started yet.
+   *  Visually softer than `running` but brighter than `idle` so the
+   *  operator can see what's queued next. */
+  status?: 'idle' | 'running' | 'success' | 'failed' | 'skipped' | 'yet-to-run';
   cyclic?: boolean;
 };
 

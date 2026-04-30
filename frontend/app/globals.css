@@ -15,6 +15,7 @@
 :root {
   --rb-edge: color-mix(in oklab, var(--op-fog) 70%, transparent);
   --rb-edge-running: var(--op-gold);
+  --rb-edge-yet-to-run: color-mix(in oklab, var(--op-moss) 60%, transparent);
   --rb-edge-success: var(--op-moss);
   --rb-edge-failed: var(--op-sunset);
   --rb-edge-skipped: var(--op-fog);

@@ -41,6 +41,7 @@ import AlignmentGuides from './AlignmentGuides';
 import Inspector from './Inspector';
 import { nodeTypes } from './canvas/nodeTypes';
 import Palette from './Palette';
+import PaneNodeMenu from './PaneNodeMenu';
 import SearchPalette from './SearchPalette';
 import SelectionStatusPill from './SelectionStatusPill';
 import Toolbar from './Toolbar';
@@ -183,6 +184,45 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
     position: { x: number; y: number };
   } | null>(null);
 
+  // Pane-search menu (drop a connection on empty canvas → suggest
+  // step types). State lives here because the trigger is RF's
+  // `onConnectEnd` and the close behavior is owned by the menu.
+  const [paneMenu, setPaneMenu] = useState<{
+    screenX: number;
+    screenY: number;
+    sourceNodeId: string;
+    sourceHandle: string | null;
+  } | null>(null);
+
+  const handleConnectEnd = useCallback<
+    NonNullable<React.ComponentProps<typeof ReactFlow>['onConnectEnd']>
+  >((event, connectionState) => {
+    // RF reports `isValid === false` when the connection landed on a
+    // valid handle but failed validation (cycle, etc) — leave that
+    // alone, the connection just doesn't get created. We only react
+    // to landings on the empty pane (`isValid === null`).
+    if (connectionState.isValid !== null) return;
+    const fromNodeId = connectionState.fromNode?.id;
+    if (!fromNodeId) return;
+    const evt = event as MouseEvent | TouchEvent;
+    const point =
+      'changedTouches' in evt && evt.changedTouches.length > 0
+        ? evt.changedTouches[0]
+        : (evt as MouseEvent);
+    setPaneMenu({
+      screenX: point.clientX,
+      screenY: point.clientY,
+      sourceNodeId: fromNodeId,
+      sourceHandle: connectionState.fromHandle?.id ?? null,
+    });
+  }, []);
+
+  const handleEdgeDoubleClick = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.stopPropagation();
+    useEditorStore.getState().onEdgesChange([{ id: edge.id, type: 'remove' }]);
+    useEditorStore.getState().setStatus('dirty');
+  }, []);
+
   // Cmd+K opens the search palette. Bound here (not in
   // useEditorKeyboard) because the open/close state is local to the
   // canvas component. Skip when an input field is focused so the
@@ -265,9 +305,11 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectEnd={handleConnectEnd}
         onReconnect={handleReconnect}
         onReconnectStart={handleReconnectStart}
         onReconnectEnd={handleReconnectEnd}
+        onEdgeDoubleClick={handleEdgeDoubleClick}
         onNodeDragStart={handleNodeDragStart}
         onNodeDrag={handleNodeDrag}
         onNodeDragStop={handleNodeDragStop}
@@ -336,6 +378,16 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         />
       ) : null}
       {!embedMode ? <Inspector lang={lang} /> : null}
+      {paneMenu && !embedMode ? (
+        <PaneNodeMenu
+          screenX={paneMenu.screenX}
+          screenY={paneMenu.screenY}
+          sourceNodeId={paneMenu.sourceNodeId}
+          sourceHandle={paneMenu.sourceHandle}
+          lang={lang}
+          onClose={() => setPaneMenu(null)}
+        />
+      ) : null}
     </div>
   );
 }

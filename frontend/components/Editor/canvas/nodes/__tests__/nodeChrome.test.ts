@@ -1,4 +1,10 @@
-import { isOrphanOutput, resolvePreview, resolveSecondaryChips, resolveTags } from '../nodeChrome';
+import {
+  handleTone,
+  isOrphanOutput,
+  resolvePreview,
+  resolveSecondaryChips,
+  resolveTags,
+} from '../nodeChrome';
 
 describe('resolvePreview', () => {
   it('returns the explicit primary key when present', () => {
@@ -62,6 +68,36 @@ describe('resolveSecondaryChips', () => {
 
   it('returns [] for types without secondary signal', () => {
     expect(resolveSecondaryChips('approval', { message: 'ok?' })).toEqual([]);
+  });
+});
+
+describe('handleTone', () => {
+  it('returns null for neutral labels', () => {
+    expect(handleTone('main')).toBeNull();
+    expect(handleTone('iteration')).toBeNull();
+    expect(handleTone('')).toBeNull();
+  });
+
+  it('returns sunset for error-shaped labels', () => {
+    expect(handleTone('err')).toBe('var(--op-sunset)');
+    expect(handleTone('error')).toBe('var(--op-sunset)');
+    expect(handleTone('FAIL')).toBe('var(--op-sunset)');
+  });
+
+  it('returns moss for ok / success labels', () => {
+    expect(handleTone('ok')).toBe('var(--op-moss)');
+    expect(handleTone('Success')).toBe('var(--op-moss)');
+    expect(handleTone('done')).toBe('var(--op-moss)');
+  });
+
+  it('returns gold for warning labels', () => {
+    expect(handleTone('warn')).toBe('var(--op-gold)');
+    expect(handleTone('warning')).toBe('var(--op-gold)');
+  });
+
+  it('returns fog for skipped labels', () => {
+    expect(handleTone('skip')).toBe('var(--op-fog)');
+    expect(handleTone('skipped')).toBe('var(--op-fog)');
   });
 });
 

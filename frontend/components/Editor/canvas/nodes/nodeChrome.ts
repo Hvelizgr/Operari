@@ -84,6 +84,25 @@ export const resolveSecondaryChips = (
 };
 
 /**
+ * Infer a semantic tone from an output handle label so we can color
+ * the handle dot by what condition it represents. Cheap heuristic on
+ * the label string — the catalog uses conventional names ('ok',
+ * 'err', 'main', 'warning') so a substring check covers everything
+ * we ship and degrades gracefully for plugin-defined types.
+ *
+ * Returns a CSS color (an `--op-*` var) or null for the neutral
+ * default. The caller stamps it onto the `<Handle>` style.
+ */
+export const handleTone = (label: string): string | null => {
+  const l = label.toLowerCase();
+  if (l === 'err' || l === 'error' || l === 'fail' || l === 'failure') return 'var(--op-sunset)';
+  if (l === 'ok' || l === 'success' || l === 'done') return 'var(--op-moss)';
+  if (l === 'warn' || l === 'warning') return 'var(--op-gold)';
+  if (l === 'skip' || l === 'skipped') return 'var(--op-fog)';
+  return null;
+};
+
+/**
  * `outputCount` here is "how many handles the type *should* have on the
  * source side" (looked up in the catalog by the caller). Compared
  * against the live edge count we get from `useNodeConnections`, this
