@@ -152,6 +152,7 @@ describe('SQL routes', () => {
     it('wraps the user query in BEGIN TRANSACTION READ ONLY + COMMIT', async () => {
       connectedAccountFindFirst.mockResolvedValueOnce({
         id: 'acc-1',
+        provider: 'postgres',
         accessToken: 'postgres://x@h:5432/db',
       });
       pgQueue.push({ rows: [{ n: 1 }], rowCount: 1, fields: [{ name: 'n', dataTypeID: 23 }] });
@@ -176,6 +177,7 @@ describe('SQL routes', () => {
     it('caps statement_timeout at 60000ms even when the caller asks for more', async () => {
       connectedAccountFindFirst.mockResolvedValueOnce({
         id: 'acc-1',
+        provider: 'postgres',
         accessToken: 'postgres://x@h:5432/db',
       });
       pgQueue.push({ rows: [], rowCount: 0 });
@@ -194,6 +196,7 @@ describe('SQL routes', () => {
     it('returns the query rows + rowCount + fields + durationMs on success', async () => {
       connectedAccountFindFirst.mockResolvedValueOnce({
         id: 'acc-1',
+        provider: 'postgres',
         accessToken: 'postgres://x@h:5432/db',
       });
       pgQueue.push({
@@ -223,6 +226,7 @@ describe('SQL routes', () => {
     it('returns 422 + error message on query failure without leaking stack traces', async () => {
       connectedAccountFindFirst.mockResolvedValueOnce({
         id: 'acc-1',
+        provider: 'postgres',
         accessToken: 'postgres://x@h:5432/db',
       });
       pgQueue.push({ error: 'syntax error at or near "SELEC"' });
@@ -241,6 +245,7 @@ describe('SQL routes', () => {
     it('closes the pg connection even on failure', async () => {
       connectedAccountFindFirst.mockResolvedValueOnce({
         id: 'acc-1',
+        provider: 'postgres',
         accessToken: 'postgres://x@h:5432/db',
       });
       pgQueue.push({ error: 'boom' });
@@ -274,6 +279,7 @@ describe('SQL routes', () => {
     it('introspects tables + columns into the canonical shape', async () => {
       connectedAccountFindFirst.mockResolvedValueOnce({
         id: 'acc-1',
+        provider: 'postgres',
         accessToken: 'postgres://x@h:5432/db',
       });
       // First call: list tables. Second call: columns for the single table.
@@ -308,6 +314,7 @@ describe('SQL routes', () => {
     it('returns 422 when introspection fails', async () => {
       connectedAccountFindFirst.mockResolvedValueOnce({
         id: 'acc-1',
+        provider: 'postgres',
         accessToken: 'postgres://x@h:5432/db',
       });
       pgQueue.push({ error: 'connection terminated' });
@@ -316,6 +323,257 @@ describe('SQL routes', () => {
       const res = await request(app).post('/api/sql/schema').send({ credentialId: 'acc-1' });
       expect(res.status).toBe(422);
       expect(res.body.error).toContain('connection terminated');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // POST /metadata — rich introspection feeding the schema diagram
+  // -----------------------------------------------------------------------
+
+  describe('POST /api/sql/metadata', () => {
+    it('rejects requests missing credentialId with 400', async () => {
+      const app = buildApp();
+      const res = await request(app).post('/api/sql/metadata').send({});
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/credentialId/);
+    });
+
+    it('returns 404 when the credential is not found', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce(null);
+      const app = buildApp();
+      const res = await request(app).post('/api/sql/metadata').send({ credentialId: 'missing' });
+      expect(res.status).toBe(404);
+    });
+
+    it('aggregates tables, columns, PKs, FKs and indexes into the metadata shape', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'acc-1',
+        provider: 'postgres',
+        accessToken: 'postgres://x@h:5432/db',
+      });
+      // The route fans out 7 queries via Promise.all. Order matches the
+      // destructure: version, db_name, tables, columns, pks, fks, indexes.
+      pgQueue.push({ rows: [{ version: 'PostgreSQL 16.0' }], rowCount: 1 });
+      pgQueue.push({ rows: [{ name: 'app' }], rowCount: 1 });
+      pgQueue.push({
+        rows: [
+          { schema: 'public', name: 'users', kind: 'r', comment: null },
+          { schema: 'public', name: 'orders', kind: 'r', comment: 'order facts' },
+          { schema: 'public', name: 'active_users', kind: 'v', comment: null },
+        ],
+        rowCount: 3,
+      });
+      pgQueue.push({
+        rows: [
+          {
+            schema: 'public',
+            table: 'users',
+            name: 'id',
+            ordinal_position: 1,
+            type: 'integer',
+            udt_name: 'int4',
+            nullable: false,
+            default: "nextval('users_id_seq')",
+            is_identity: false,
+            character_maximum_length: null,
+            numeric_precision: 32,
+            numeric_scale: 0,
+            comment: null,
+          },
+          {
+            schema: 'public',
+            table: 'users',
+            name: 'tags',
+            ordinal_position: 2,
+            type: 'ARRAY',
+            udt_name: '_text',
+            nullable: true,
+            default: null,
+            is_identity: false,
+            character_maximum_length: null,
+            numeric_precision: null,
+            numeric_scale: null,
+            comment: null,
+          },
+          {
+            schema: 'public',
+            table: 'orders',
+            name: 'user_id',
+            ordinal_position: 1,
+            type: 'integer',
+            udt_name: 'int4',
+            nullable: false,
+            default: null,
+            is_identity: false,
+            character_maximum_length: null,
+            numeric_precision: 32,
+            numeric_scale: 0,
+            comment: null,
+          },
+        ],
+        rowCount: 3,
+      });
+      pgQueue.push({
+        rows: [
+          {
+            schema: 'public',
+            table: 'users',
+            constraint_name: 'users_pkey',
+            columns: ['id'],
+          },
+        ],
+        rowCount: 1,
+      });
+      pgQueue.push({
+        rows: [
+          {
+            schema: 'public',
+            table: 'orders',
+            constraint_name: 'orders_user_id_fkey',
+            column: 'user_id',
+            referenced_schema: 'public',
+            referenced_table: 'users',
+            referenced_column: 'id',
+            on_delete_code: 'c',
+            on_update_code: 'a',
+          },
+        ],
+        rowCount: 1,
+      });
+      pgQueue.push({
+        rows: [
+          {
+            schema: 'public',
+            table: 'users',
+            name: 'users_pkey',
+            type: 'btree',
+            unique: true,
+            is_primary: true,
+            columns: ['id'],
+          },
+          {
+            schema: 'public',
+            table: 'users',
+            name: 'users_tags_gin',
+            type: 'gin',
+            unique: false,
+            is_primary: false,
+            columns: ['tags'],
+          },
+        ],
+        rowCount: 2,
+      });
+
+      const app = buildApp();
+      const res = await request(app).post('/api/sql/metadata').send({ credentialId: 'acc-1' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.databaseName).toBe('app');
+      expect(res.body.databaseVersion).toMatch(/PostgreSQL/);
+      // 3 base tables + 1 view, but our fixture has 2 base + 1 view.
+      expect(res.body.tables).toHaveLength(3);
+      const view = res.body.tables.find((t: { name: string }) => t.name === 'active_users');
+      expect(view.isView).toBe(true);
+      expect(view.isMaterializedView).toBe(false);
+
+      // ARRAY type stitched as `text[]`, USER-DEFINED would surface udt_name.
+      const tagsCol = res.body.columns.find(
+        (c: { table: string; name: string }) => c.table === 'users' && c.name === 'tags'
+      );
+      expect(tagsCol.type).toBe('text[]');
+      expect(tagsCol.isArray).toBe(true);
+
+      // PK stitched as a single row per constraint with ordered columns.
+      expect(res.body.primaryKeys).toEqual([
+        {
+          schema: 'public',
+          table: 'users',
+          constraintName: 'users_pkey',
+          columns: ['id'],
+        },
+      ]);
+
+      // FK with codes mapped to verbs; 'a' (default) is dropped to null.
+      expect(res.body.foreignKeys).toEqual([
+        expect.objectContaining({
+          column: 'user_id',
+          referencedTable: 'users',
+          onDelete: 'CASCADE',
+          onUpdate: null,
+        }),
+      ]);
+
+      // Indexes preserve type (gin) and primary flag.
+      const ginIndex = res.body.indexes.find((i: { name: string }) => i.name === 'users_tags_gin');
+      expect(ginIndex.type).toBe('gin');
+      expect(ginIndex.unique).toBe(false);
+      expect(ginIndex.isPrimary).toBe(false);
+
+      // Read-only transaction wraps the whole introspection.
+      expect(pgCalls).toContain('BEGIN TRANSACTION READ ONLY');
+      expect(pgCalls).toContain('COMMIT');
+    });
+
+    it('returns 422 when introspection fails', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'acc-1',
+        provider: 'postgres',
+        accessToken: 'postgres://x@h:5432/db',
+      });
+      pgQueue.push({ error: 'permission denied for pg_class' });
+
+      const app = buildApp();
+      const res = await request(app).post('/api/sql/metadata').send({ credentialId: 'acc-1' });
+      expect(res.status).toBe(422);
+      expect(res.body.error).toContain('permission denied');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Capability gate — same behavior across query / schema / metadata
+  // -----------------------------------------------------------------------
+
+  describe('SQL capability gate', () => {
+    it('rejects /query with 400 when the credential is for a non-SQL provider', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'slack-acc',
+        provider: 'slack',
+        accessToken: 'xoxb-secret',
+      });
+      const app = buildApp();
+      const res = await request(app)
+        .post('/api/sql/query')
+        .send({ credentialId: 'slack-acc', query: 'SELECT 1' });
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('capability_unsupported');
+      expect(res.body.provider).toBe('slack');
+      // Importantly we never opened a pg connection — the gate runs
+      // before PgClient is instantiated.
+      expect(pgCalls.length).toBe(0);
+    });
+
+    it('rejects /metadata with 400 for non-SQL providers', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'gh-acc',
+        provider: 'github',
+        accessToken: 'ghp_token',
+      });
+      const app = buildApp();
+      const res = await request(app).post('/api/sql/metadata').send({ credentialId: 'gh-acc' });
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('capability_unsupported');
+    });
+
+    it('rejects /schema with 400 for non-SQL providers', async () => {
+      connectedAccountFindFirst.mockResolvedValueOnce({
+        id: 'pd-acc',
+        provider: 'pagerduty',
+        accessToken: 'pd_token',
+      });
+      const app = buildApp();
+      const res = await request(app).post('/api/sql/schema').send({ credentialId: 'pd-acc' });
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('capability_unsupported');
     });
   });
 });
