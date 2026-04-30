@@ -34,7 +34,16 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "peerDependencies": {
+    "zod": "^3.22.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    }
+  },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "zod": "^3.22.0"
   }
 }

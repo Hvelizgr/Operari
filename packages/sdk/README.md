@@ -64,6 +64,70 @@ Poll until the run reaches a terminal state.
 
 Convenience: trigger AND wait. Throws if the run fails.
 
+## Authoring custom step types
+
+`@operari/sdk/steps` exposes a `defineStep` helper that mirrors the runtime
+contract Operari's plugin loader expects. A plugin module's default export is
+the descriptor returned by `defineStep`:
+
+```ts
+import { defineStep, propertiesFromZod } from '@operari/sdk/steps';
+import { z } from 'zod';
+
+const schema = z.object({
+  webhookUrl: z.string().url().describe('Slack webhook URL'),
+  message: z.string().describe('Message body'),
+  severity: z.enum(['info', 'warning', 'error']).default('info'),
+  verbose: z.boolean().default(false).describe('Include the full payload'),
+});
+
+export default defineStep({
+  type: 'myorg.slack-notify',
+  configSchema: schema,
+  // Auto-derived form metadata. The editor's PropertiesPanel renders
+  // a real form (text inputs, select for `severity`, toggle for
+  // `verbose`) instead of falling back to a JSON textarea.
+  properties: propertiesFromZod(schema),
+  label: { en: 'Slack notify', es: 'Notificar Slack' },
+  icon: 'Send',
+  color: 'bg-pink-500',
+  category: 'integrations',
+  async execute(config, context) {
+    await fetch(config.webhookUrl, {
+      method: 'POST',
+      body: JSON.stringify({ text: config.message }),
+    });
+    return { success: true, output: { delivered: true } };
+  },
+});
+```
+
+`zod` is an optional peer dependency. Plugin authors who use yup or arktype
+can write the `properties` array by hand (or skip it; the editor falls back
+to the JSON textarea automatically).
+
+### `propertiesFromZod(schema)`
+
+Converts a `z.object({...})` schema into a `PluginStepProperty[]` the editor
+can render. Supports:
+
+| zod                                | property                              |
+| ---------------------------------- | ------------------------------------- |
+| `z.string()`                       | `string`                              |
+| `z.number()`                       | `number`                              |
+| `z.boolean()`                      | `boolean`                             |
+| `z.enum([...])`                    | `options` with one choice per value   |
+| `z.literal('foo')` (string)        | `options` with a single choice        |
+| `z.nativeEnum(StringEnum)`         | `options`                             |
+| `.optional()` / `.nullable()`      | unwrapped + carried description       |
+| `.default(value)`                  | unwrapped + populated `default`       |
+| `.refine(...)` / `.transform(...)` | unwrapped to the underlying primitive |
+| `.describe('...')`                 | populated `description`               |
+
+Anything else (arrays, unions of mixed kinds, intersections, records) is
+silently dropped from the form — the runtime parse still validates it, the
+editor just falls back to its default behavior for that field.
+
 ## License
 
 MIT
