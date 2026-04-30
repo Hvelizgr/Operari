@@ -234,7 +234,15 @@ export const useEditorStore = create<EditorState>()(
     }),
     {
       limit: 50,
-      partialize: state => ({ nodes: state.nodes, edges: state.edges }),
+      // Strip transient UI flags from history snapshots — chaiNNer's
+      // pattern (HistoryProvider.tsx). Without this, undo/redo
+      // restores stale `selected` / `dragging` state from minutes ago,
+      // which is jarring. The graph shape is what actually matters
+      // for an undo step.
+      partialize: state => ({
+        nodes: state.nodes.map(({ selected: _s, dragging: _d, ...rest }) => rest as RfNode),
+        edges: state.edges.map(({ selected: _s, ...rest }) => rest as RfEdge),
+      }),
       equality: (prev, next) => prev.nodes === next.nodes && prev.edges === next.edges,
     }
   )

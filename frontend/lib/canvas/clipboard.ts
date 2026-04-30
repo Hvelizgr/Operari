@@ -38,11 +38,67 @@ export const buildSnapshot = (
   };
 };
 
-export const copyToClipboard = (snapshot: ClipboardSnapshot): void => {
-  clipboard = snapshot;
+// Cross-tab clipboard: we serialize the snapshot to JSON and write it
+// to the system clipboard with a magic prefix so we can recognize it
+// on read. `navigator.clipboard.writeText` is widely available; the
+// custom MIME path (ClipboardItem) is more restrictive and not worth
+// the complexity for our small payload.
+const CLIPBOARD_PREFIX = '__operari_clipboard_v1__\n';
+
+const serialize = (snapshot: ClipboardSnapshot): string =>
+  CLIPBOARD_PREFIX + JSON.stringify(snapshot);
+
+const tryDeserialize = (raw: string): ClipboardSnapshot | null => {
+  if (!raw.startsWith(CLIPBOARD_PREFIX)) return null;
+  try {
+    const parsed = JSON.parse(raw.slice(CLIPBOARD_PREFIX.length));
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      Array.isArray(parsed.nodes) &&
+      Array.isArray(parsed.edges)
+    ) {
+      return parsed as ClipboardSnapshot;
+    }
+  } catch {
+    // Malformed payload — fall back to the in-memory copy.
+  }
+  return null;
 };
 
+export const copyToClipboard = (snapshot: ClipboardSnapshot): void => {
+  clipboard = snapshot;
+  // Best-effort system-clipboard mirror so the snapshot survives a
+  // cross-tab paste. Failures (permission denied, Safari quirks) are
+  // silently swallowed — the in-memory copy is the canonical source.
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(serialize(snapshot)).catch(() => {
+      /* best-effort */
+    });
+  }
+};
+
+/** Synchronous read — returns the most recent same-tab copy. Used by
+ *  duplicate (Ctrl+D) where there's no chance of cross-tab content. */
 export const readClipboard = (): ClipboardSnapshot | null => clipboard;
+
+/** Async read that prefers the system clipboard so a paste in this
+ *  tab picks up content copied in another tab. Falls back to the
+ *  in-memory copy when permission is denied or the contents are not
+ *  Operari-shaped. */
+export const readClipboardAsync = async (): Promise<ClipboardSnapshot | null> => {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+    try {
+      const raw = await navigator.clipboard.readText();
+      const fromSystem = tryDeserialize(raw);
+      if (fromSystem) return fromSystem;
+    } catch {
+      // Permission denied / unsupported / focused element prevents
+      // read — fall through to the in-memory snapshot.
+    }
+  }
+  return clipboard;
+};
 
 /**
  * Produce fresh nodes/edges with regenerated IDs, offset positions, and

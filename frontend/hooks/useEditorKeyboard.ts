@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import {
   buildSnapshot,
   copyToClipboard,
-  readClipboard,
+  readClipboardAsync,
   remapForPaste,
 } from '@/lib/canvas/clipboard';
 import { useEditorStore } from '@/state/editorStore';
@@ -67,11 +67,16 @@ export function useEditorKeyboard() {
         return;
       }
       if (isMod(e) && (e.key === 'v' || e.key === 'V')) {
-        const snap = readClipboard();
-        if (!snap) return;
-        const { nodes, edges } = remapForPaste(snap);
-        store.appendForPaste(nodes, edges);
+        // Paste prefers the system clipboard (cross-tab) and falls
+        // back to the in-memory snapshot if denied. The handler
+        // becomes async after preventDefault so the keystroke isn't
+        // double-handled by the browser.
         e.preventDefault();
+        readClipboardAsync().then(snap => {
+          if (!snap) return;
+          const { nodes, edges } = remapForPaste(snap);
+          useEditorStore.getState().appendForPaste(nodes, edges);
+        });
         return;
       }
       if (isMod(e) && (e.key === 'd' || e.key === 'D')) {

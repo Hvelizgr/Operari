@@ -1,13 +1,15 @@
 'use client';
 
 import { useReactFlow } from '@xyflow/react';
-import { Search } from 'lucide-react';
+import { Search, Star } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFavorites } from '@/hooks/useFavorites';
 import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
 import { useEditorStore } from '@/state/editorStore';
 
 import { defaultConfigForType, NODE_CATALOG } from './canvas/catalog';
+import { rankByQuery } from './canvas/searchMatch';
 
 interface PaneNodeMenuProps {
   /** Screen-space pointer coords at which the menu opens. Converted
@@ -52,21 +54,29 @@ export default function PaneNodeMenu({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  const { favorites, isFavorite, toggle: toggleFavorite } = useFavorites();
+
   // Filter the catalog by query; exclude frame and note (don't make
   // sense as the downstream step of a freshly drawn connection).
+  // Favorites land first; among the rest, n-gram ranking sorts so
+  // Enter on the first row picks the most relevant step.
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
     const all = Array.from(NODE_CATALOG.values()).filter(
       def => def.type !== 'custom.frame' && def.type !== 'custom.note'
     );
-    if (!q) return all;
-    return all.filter(
-      def =>
-        def.label[lang].toLowerCase().includes(q) ||
-        def.type.toLowerCase().includes(q) ||
-        def.description?.[lang].toLowerCase().includes(q)
-    );
-  }, [query, lang]);
+    const q = query.trim();
+    const ordered = !q
+      ? all
+      : rankByQuery(
+          q,
+          all,
+          def => `${def.label[lang]} ${def.type} ${def.description?.[lang] ?? ''}`
+        ).map(r => r.item);
+    // Favorites pinned to top, preserving the within-group order.
+    const favs = ordered.filter(d => favorites.has(d.type));
+    const rest = ordered.filter(d => !favorites.has(d.type));
+    return [...favs, ...rest];
+  }, [query, lang, favorites]);
 
   useEffect(() => {
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -189,22 +199,42 @@ export default function PaneNodeMenu({
       </div>
 
       <ul className="max-h-64 overflow-y-auto py-1 text-xs" role="listbox">
-        {matches.map((def, idx) => (
-          <li
-            key={def.type}
-            role="option"
-            aria-selected={idx === activeIdx}
-            onClick={() => create(def.type)}
-            onMouseEnter={() => setActiveIdx(idx)}
-            className={[
-              'flex cursor-pointer items-center gap-2 px-3 py-1.5 transition-colors',
-              idx === activeIdx ? 'bg-white/10 text-white' : 'text-[color:var(--rb-node-text)]',
-            ].join(' ')}
-          >
-            <span className="flex h-5 w-5 items-center justify-center">{def.icon}</span>
-            <span className="flex-1 truncate font-medium">{def.label[lang]}</span>
-          </li>
-        ))}
+        {matches.map((def, idx) => {
+          const fav = isFavorite(def.type);
+          return (
+            <li
+              key={def.type}
+              role="option"
+              aria-selected={idx === activeIdx}
+              onClick={() => create(def.type)}
+              onMouseEnter={() => setActiveIdx(idx)}
+              className={[
+                'group flex cursor-pointer items-center gap-2 px-3 py-1.5 transition-colors',
+                idx === activeIdx ? 'bg-white/10 text-white' : 'text-[color:var(--rb-node-text)]',
+              ].join(' ')}
+            >
+              <span className="flex h-5 w-5 items-center justify-center">{def.icon}</span>
+              <span className="flex-1 truncate font-medium">{def.label[lang]}</span>
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  toggleFavorite(def.type);
+                }}
+                aria-label={fav ? 'Unpin favorite' : 'Pin as favorite'}
+                title={fav ? 'Unpin favorite' : 'Pin as favorite'}
+                className={[
+                  'flex h-5 w-5 items-center justify-center rounded transition-opacity',
+                  fav
+                    ? 'text-[color:var(--op-gold)] opacity-100'
+                    : 'text-[color:var(--rb-node-muted)] opacity-0 hover:text-[color:var(--op-gold)] group-hover:opacity-100',
+                ].join(' ')}
+              >
+                <Star size={12} fill={fav ? 'currentColor' : 'none'} />
+              </button>
+            </li>
+          );
+        })}
         {hint ? <li className="px-3 py-2 text-[color:var(--rb-node-muted)]">{hint}</li> : null}
       </ul>
     </div>

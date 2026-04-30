@@ -38,13 +38,50 @@ const STATUS_RING_VAR: Record<Status, string> = {
   skipped: 'var(--rb-edge-skipped)',
 };
 
-const formatDuration = (ms: number): string => {
-  if (ms < 1000) return `${ms}ms`;
-  const s = ms / 1000;
-  if (s < 60) return `${s.toFixed(1)}s`;
-  const m = Math.floor(s / 60);
-  const rem = Math.floor(s - m * 60);
-  return `${m}m ${rem}s`;
+// Timer formatting borrowed from chaiNNer's NodeFooter/Timer.tsx —
+// `splitDuration` separates ms into h/m/s, `shortFormat` produces a
+// compact label for the inline footer ("2.34s", "1m 25s", "1h 23m"),
+// and `longFormat` produces a humanized version for the title tooltip
+// so an SRE can hover to read the precise duration during a postmortem.
+interface SplitDuration {
+  hours: number;
+  minutes: number;
+  seconds: number;
+}
+
+const splitDuration = (ms: number): SplitDuration => {
+  const totalSeconds = ms / 1000;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutesTotal = totalSeconds - hours * 3600;
+  const minutes = Math.floor(minutesTotal / 60);
+  const seconds = +(minutesTotal - minutes * 60).toFixed(2);
+  return { hours, minutes, seconds };
+};
+
+const shortFormat = (ms: number): string => {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const { hours, minutes, seconds } = splitDuration(ms);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  const totalSeconds = minutes * 60 + seconds;
+  if (totalSeconds >= 100) return `${minutes}m ${Math.floor(seconds)}s`;
+  // Pick the shortest among "1.2", "1.20", and "1.2" — the second
+  // form keeps two decimals; the shorter ones drop trailing zeros.
+  const variants = [totalSeconds.toPrecision(2), totalSeconds.toFixed(2), String(totalSeconds)]
+    .filter(s => !s.includes('e+'))
+    .sort((a, b) => a.length - b.length);
+  return `${variants[0]}s`;
+};
+
+const longFormat = (ms: number): string => {
+  if (ms < 1000) return `${Math.round(ms)} milliseconds`;
+  const { hours, minutes, seconds } = splitDuration(ms);
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours} hour${hours === 1 ? '' : 's'}`);
+  if (minutes > 0) parts.push(`${minutes} minute${minutes === 1 ? '' : 's'}`);
+  if (hours === 0 && (parts.length === 0 || seconds > 0)) {
+    parts.push(`${seconds} second${seconds === 1 ? '' : 's'}`);
+  }
+  return parts.join(', ');
 };
 
 // One-shot animations for the run-completion moments. We trigger them
@@ -136,11 +173,19 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   const footerDuration =
     status === 'running'
       ? elapsedMs != null
-        ? `running ${formatDuration(elapsedMs)}…`
+        ? `running ${shortFormat(elapsedMs)}…`
         : 'running…'
       : data.durationMs != null
-        ? `ran ${formatDuration(data.durationMs)}`
+        ? `ran ${shortFormat(data.durationMs)}`
         : null;
+  // Long-form humanized duration for the title tooltip; lets the
+  // operator hover during a postmortem to read the precise number.
+  const footerTooltip =
+    status === 'running' && elapsedMs != null
+      ? `Running for ${longFormat(elapsedMs)}`
+      : data.durationMs != null
+        ? `Took ${longFormat(data.durationMs)}`
+        : undefined;
 
   const ariaSummary = `${def?.label.en ?? type} step: ${title}${enabled ? '' : ' (disabled)'}${
     status !== 'idle' ? `, status ${status}` : ''
@@ -289,6 +334,7 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
             </span>
             {footerDuration ? (
               <span
+                title={footerTooltip}
                 style={{
                   color:
                     status === 'running'
