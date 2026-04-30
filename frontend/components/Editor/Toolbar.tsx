@@ -9,6 +9,8 @@ import {
   Download,
   FileCode,
   FileImage,
+  Group,
+  LayoutGrid,
   Loader2,
   Moon,
   Play,
@@ -24,6 +26,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { usePngExport } from '@/hooks/usePngExport';
 import { useWorkflowExecution, type ExecuteWorkflowResult } from '@/hooks/useWorkflowExecution';
 import { rfToWorkflow } from '@/lib/canvas/adapter';
+import { computeAutoLayout } from '@/lib/canvas/layout';
+import { wrapInFrame } from '@/lib/canvas/wrapInFrame';
 import { useEditorStore } from '@/state/editorStore';
 
 import RunDialog, { type DialogRunResult } from '../Runbook/RunDialog';
@@ -91,6 +95,8 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           yaml: 'Ver YAML',
           png: 'Exportar PNG',
           svg: 'Exportar SVG',
+          tidy: 'Auto-layout',
+          wrap: 'Agrupar en frame',
           lineStyle: lineStyle === 'smart' ? 'Aristas curvas' : 'Aristas ortogonales',
           missingId: 'Guardá el runbook antes de ejecutar.',
           launching: 'Iniciando…',
@@ -105,6 +111,8 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           yaml: 'View YAML',
           png: 'Export PNG',
           svg: 'Export SVG',
+          tidy: 'Tidy up',
+          wrap: 'Wrap in frame',
           lineStyle: lineStyle === 'smart' ? 'Curved edges' : 'Step edges',
           missingId: 'Save the runbook before running.',
           launching: 'Launching…',
@@ -151,6 +159,25 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
   const handleScheduleChange = (next: string | null) => {
     setRunbookHeader({ schedule: next ?? undefined });
     setStatus('dirty');
+  };
+
+  const handleTidy = async () => {
+    const store = useEditorStore.getState();
+    const next = await computeAutoLayout(store.nodes, store.edges, { direction: 'RIGHT' });
+    useEditorStore.setState({ nodes: next, status: 'dirty' });
+  };
+
+  const handleWrap = () => {
+    const store = useEditorStore.getState();
+    const ids = store.nodes.filter(n => n.selected).map(n => n.id);
+    if (ids.length === 0) return;
+    const result = wrapInFrame(ids, store.nodes, store.edges);
+    if (!result) return;
+    useEditorStore.setState({
+      nodes: result.nodes,
+      edges: result.edges,
+      status: 'dirty',
+    });
   };
 
   const applyYaml = (next: {
@@ -318,6 +345,24 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
         >
           {lineStyle === 'smart' ? <Spline size={14} /> : <Route size={14} />}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleTidy}
+          title={t.tidy}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
+        >
+          <LayoutGrid size={14} />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleWrap}
+          title={t.wrap}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
+        >
+          <Group size={14} />
         </button>
 
         <button
