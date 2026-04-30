@@ -1,4 +1,4 @@
-import { NODE_TYPES, type NodeType } from '@/components/Node/NodePalette';
+import { NODE_TYPES, type NodeType } from './stepCatalog';
 
 export const NODE_CATALOG: Map<string, NodeType> = new Map(NODE_TYPES.map(nt => [nt.type, nt]));
 

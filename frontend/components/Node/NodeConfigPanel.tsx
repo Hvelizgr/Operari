@@ -9,7 +9,7 @@ import type { RetryPolicy } from '@/utils/runbookYaml';
 
 import ConditionalEditor from './ConditionalEditor';
 import DynamicNodeForm from './DynamicNodeForm';
-import { NODE_TYPES, NodeType } from './NodePalette';
+import { NODE_TYPES, type NodeType } from '@/components/Editor/canvas/stepCatalog';
 import RetryPolicyEditor from './RetryPolicyEditor';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';

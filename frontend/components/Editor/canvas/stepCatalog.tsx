@@ -1,10 +1,12 @@
 'use client';
 
-import { AnimatePresence, motion } from 'framer-motion';
+// Data-only catalog: this file used to be `components/Node/NodePalette.tsx`
+// — the V1 UI portion was stripped at the cutover and the data moved
+// here under the V2 namespace. Icons that remain are referenced inside
+// `NODE_TYPES` (rendered as JSX nodes) and `CATEGORIES` (passed by
+// reference for downstream consumers like Navigation/SearchBar).
 import {
   Bell,
-  ChevronDown,
-  ChevronRight,
   Clock,
   Database,
   Folder,
@@ -14,18 +16,15 @@ import {
   Play,
   Repeat,
   Route,
-  Search,
   Square,
   StickyNote,
   Terminal,
   UserCheck,
   Webhook,
-  X,
   Zap,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
 
-import type { Property } from './DynamicNodeForm';
+import type { Property } from '@/components/Node/DynamicNodeForm';
 
 export interface NodeType {
   type: string;
@@ -45,7 +44,7 @@ export interface NodeType {
 // the editor cleanup pass — they were vapor and produced "Unknown
 // node type" the moment an operator tried to run them. To re-add a
 // category, first land its executor in backend/src/runbook/executors/.
-const CATEGORIES = [
+export const CATEGORIES = [
   {
     id: 'devops',
     label: { en: 'Runbook core', es: 'Runbook core' },
@@ -92,7 +91,7 @@ const CATEGORIES = [
 //   custom.frame, custom.note.
 // 9 step types total. Anything not on this list has no executor and
 // must not be re-added to the palette without one.
-const NODE_TYPES: NodeType[] = [
+export const NODE_TYPES: NodeType[] = [
   // === RUNBOOK CORE (Operari-native step types) ===
   {
     type: 'shell',
@@ -577,247 +576,3 @@ interface NodePaletteProps {
     color: string;
   }[];
 }
-
-export default function NodePalette({
-  lang: langProp,
-  onNodeDragStart,
-  nodeTypes: customNodeTypes,
-  categories: customCategories,
-}: NodePaletteProps) {
-  const lang = langProp === 'en' || langProp === 'es' ? langProp : 'en';
-  const effectiveNodeTypes = customNodeTypes ?? NODE_TYPES;
-  const effectiveCategories = customCategories
-    ? customCategories.map(c => ({ ...c, icon: c.icon ?? Zap }))
-    : CATEGORIES;
-  const [isOpen, setIsOpen] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(
-    effectiveCategories.slice(0, 2).map(c => c.id)
-  );
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const content = {
-    en: {
-      title: 'Steps',
-      subtitle: 'Drag to canvas or click +',
-      toggle: isOpen ? 'Close' : 'Add step',
-      search: 'Search steps...',
-    },
-    es: {
-      title: 'Pasos',
-      subtitle: 'Arrastrá al canvas o clic en +',
-      toggle: isOpen ? 'Cerrar' : 'Agregar paso',
-      search: 'Buscar pasos...',
-    },
-  };
-
-  const text = content[lang] || content['en'];
-
-  const toggleCategory = (categoryId: string) => {
-    setExpandedCategories(prev =>
-      prev.includes(categoryId) ? prev.filter(id => id !== categoryId) : [...prev, categoryId]
-    );
-  };
-
-  const filteredNodes = useMemo(() => {
-    if (!searchTerm) return effectiveNodeTypes;
-    const term = searchTerm.toLowerCase();
-    return effectiveNodeTypes.filter(
-      node =>
-        node.label[lang].toLowerCase().includes(term) ||
-        node.type.toLowerCase().includes(term) ||
-        node.description?.[lang].toLowerCase().includes(term)
-    );
-  }, [searchTerm, lang, effectiveNodeTypes]);
-
-  const nodesByCategory = useMemo(() => {
-    const grouped: Record<string, NodeType[]> = {};
-    effectiveCategories.forEach(cat => {
-      grouped[cat.id] = filteredNodes.filter(node => node.category === cat.id);
-    });
-    return grouped;
-  }, [filteredNodes, effectiveCategories]);
-
-  const hasResults = filteredNodes.length > 0;
-
-  return (
-    <motion.div
-      className="absolute left-4 top-20 z-40 flex flex-col gap-2"
-      initial={{ x: -20, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ delay: 0.2 }}
-      onWheel={e => e.stopPropagation()}
-      onMouseDown={e => e.stopPropagation()}
-      onMouseUp={e => e.stopPropagation()}
-    >
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="from-primary to-primary hover:from-primary/70 hover:to-primary shadow-primary/30 flex items-center gap-2 self-start rounded-lg bg-gradient-to-r px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-all"
-      >
-        <Zap size={16} />
-        {text.toggle}
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="w-80 overflow-hidden rounded-xl border border-[#2d2d44] bg-[#1a1a2e] shadow-2xl"
-            initial={{ scale: 0.95, opacity: 0, y: -10 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: -10 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          >
-            {/* Header */}
-            <div className="border-b border-[#2d2d44] bg-[#16162a] p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-white">{text.title}</h3>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="text-gray-400 transition-colors hover:text-white"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-gray-500">{text.subtitle}</p>
-            </div>
-
-            {/* Search */}
-            <div className="border-b border-[#2d2d44] bg-[#16162a] p-3">
-              <div className="relative">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-                />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  placeholder={text.search}
-                  className="focus:border-primary focus:ring-primary/30 w-full rounded-lg border border-[#2d2d44] bg-[#0d0d1a] py-2.5 pl-9 pr-8 text-sm text-white placeholder-gray-500 transition-all focus:outline-none focus:ring-1"
-                />
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Categories */}
-            <div className="max-h-[60vh] overflow-y-auto">
-              {!hasResults ? (
-                <div className="p-6 text-center text-sm text-gray-500">
-                  {lang === 'en' ? 'No nodes found' : 'No se encontraron nodos'}
-                </div>
-              ) : searchTerm ? (
-                <div className="p-2">
-                  {filteredNodes.map(nodeType => (
-                    <NodeItem
-                      key={nodeType.type}
-                      nodeType={nodeType}
-                      lang={lang}
-                      onDragStart={onNodeDragStart}
-                    />
-                  ))}
-                </div>
-              ) : (
-                effectiveCategories.map(category => {
-                  const nodes = nodesByCategory[category.id];
-                  if (nodes.length === 0) return null;
-                  const isExpanded = expandedCategories.includes(category.id);
-                  const CategoryIcon = category.icon;
-
-                  return (
-                    <div key={category.id} className="border-b border-[#2d2d44] last:border-0">
-                      <button
-                        onClick={() => toggleCategory(category.id)}
-                        className="group flex w-full items-center gap-3 px-4 py-3 transition-colors hover:bg-[#22223a]"
-                      >
-                        <div className={`${category.color} transition-colors`}>
-                          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        </div>
-                        <CategoryIcon size={16} className={category.color} />
-                        <span className="flex-1 text-left text-sm font-medium text-gray-200">
-                          {category.label[lang]}
-                        </span>
-                        <span className="rounded-full bg-[#2d2d44] px-2 py-0.5 text-xs text-gray-500">
-                          {nodes.length}
-                        </span>
-                      </button>
-
-                      <AnimatePresence>
-                        {isExpanded && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden bg-[#0d0d1a]/50"
-                          >
-                            <div className="p-2 pl-4">
-                              {nodes.map(nodeType => (
-                                <NodeItem
-                                  key={nodeType.type}
-                                  nodeType={nodeType}
-                                  lang={lang}
-                                  onDragStart={onNodeDragStart}
-                                />
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
-
-function NodeItem({
-  nodeType,
-  lang,
-  onDragStart,
-}: {
-  nodeType: NodeType;
-  lang: 'en' | 'es';
-  onDragStart: (nodeType: NodeType) => void;
-}) {
-  return (
-    <motion.div
-      draggable
-      onDragStart={() => onDragStart(nodeType)}
-      className="group mb-1.5 flex cursor-move items-center gap-3 rounded-lg border border-transparent bg-[#1a1a2e] px-3 py-2.5 transition-all last:mb-0 hover:border-[#3d3d5c] hover:bg-[#22223a]"
-      whileHover={{ scale: 1.01, x: 2 }}
-      whileTap={{ scale: 0.98 }}
-    >
-      <div
-        className={`h-9 w-9 ${nodeType.color} flex items-center justify-center rounded-lg text-white shadow-md`}
-      >
-        {nodeType.icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-gray-200 transition-colors group-hover:text-white">
-          {nodeType.label[lang]}
-        </div>
-        {nodeType.description && (
-          <div className="truncate text-xs text-gray-500">{nodeType.description[lang]}</div>
-        )}
-      </div>
-      <div className="text-gray-400 opacity-0 transition-opacity group-hover:opacity-100">
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-      </div>
-    </motion.div>
-  );
-}
-
-export { CATEGORIES, NODE_TYPES };

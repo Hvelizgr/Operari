@@ -1,10 +1,44 @@
 'use client';
 
 import { NodeToolbar, Position } from '@xyflow/react';
-import { Copy, Power, Trash2, Unlink } from 'lucide-react';
+import { Copy, Play, Power, Trash2, Unlink } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 import { buildSnapshot, remapForPaste } from '@/lib/canvas/clipboard';
 import { useEditorStore } from '@/state/editorStore';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+/**
+ * Trigger a single-step execution that starts at this node. The
+ * backend `/api/executions/:runbookId/run` accepts a `startNodeId`
+ * which scopes the run to this step + its downstream chain. Useful
+ * for debugging a specific branch without rerunning the whole
+ * runbook. Mirrors chaiNNer's `useRunNode` pattern.
+ */
+const runFromNode = async (
+  runbookId: string,
+  nodeId: string,
+  router: ReturnType<typeof useRouter>
+): Promise<string | null> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/executions/${runbookId}/run`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: {}, startNodeId: nodeId }),
+    });
+    if (!res.ok) return null;
+    const execution = (await res.json()) as { id: string };
+    const url = new URL(window.location.href);
+    url.searchParams.set('run', execution.id);
+    router.replace(`${url.pathname}${url.search}`);
+    return execution.id;
+  } catch {
+    return null;
+  }
+};
 
 interface NodeContextToolbarProps {
   id: string;
@@ -29,6 +63,25 @@ export function NodeContextToolbar({
   enabled = true,
   parentId,
 }: NodeContextToolbarProps) {
+  const router = useRouter();
+  const [running, setRunning] = useState(false);
+
+  const runHere = async () => {
+    const runbookId = useEditorStore.getState().runbookId;
+    if (!runbookId) {
+      useEditorStore
+        .getState()
+        .setStatus('error', 'Save the runbook before running a single step.');
+      return;
+    }
+    setRunning(true);
+    const ok = await runFromNode(runbookId, id, router);
+    if (!ok) {
+      useEditorStore.getState().setStatus('error', 'Failed to start execution.');
+    }
+    setRunning(false);
+  };
+
   const duplicate = () => {
     const store = useEditorStore.getState();
     const snap = buildSnapshot([id], store.nodes, store.edges);
@@ -60,6 +113,18 @@ export function NodeContextToolbar({
       offset={8}
       className="bg-[color:var(--rb-node-bg)]/95 flex items-center gap-1 rounded-lg border border-[color:var(--rb-node-border)] p-1 shadow-xl backdrop-blur"
     >
+      {kind === 'step' ? (
+        <button
+          type="button"
+          onClick={runHere}
+          disabled={running}
+          aria-label="Run from here"
+          title="Run from here"
+          className={`${buttonClass} hover:bg-[color:var(--op-moss)]/15 hover:text-[color:var(--op-moss)] disabled:cursor-not-allowed disabled:opacity-40`}
+        >
+          <Play size={14} />
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={duplicate}

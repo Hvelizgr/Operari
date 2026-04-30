@@ -1,6 +1,6 @@
 'use client';
 
-import type { NodeType } from '@/components/Node/NodePalette';
+import type { NodeType } from './canvas/stepCatalog';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Panel } from '@xyflow/react';
 import { ChevronDown, ChevronRight, Search, Star, X, Zap } from 'lucide-react';
