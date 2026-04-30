@@ -3,18 +3,37 @@
 import {
   ChevronDown,
   ChevronRight,
+  Code2,
   Columns3,
   Database,
+  Filter,
+  Network,
   PanelLeft,
   Play,
   RefreshCw,
   Table2,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { hasCapability } from '@operari/shared';
+import { sqlMetadataSchema, type SqlMetadata } from '@/lib/sql/metadata';
 
 import SQLCodeEditor from './SQLCodeEditor';
 import SQLResultsTable, { type SQLError, type SQLResult } from './SQLResultsTable';
+
+// SchemaDiagram pulls elkjs + the React Flow surface — both are heavy
+// and only needed when the operator switches to the diagram tab.
+// `dynamic` keeps the SQL-editor default load lean.
+const SchemaDiagram = dynamic(() => import('./SchemaDiagram'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center text-xs text-zinc-500">
+      Loading diagram…
+    </div>
+  ),
+});
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -47,6 +66,28 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   // whole page was unusable on phones.
   const [schemaOpenMobile, setSchemaOpenMobile] = useState(false);
 
+  // Diagram view: lazy-loaded because elkjs + React Flow are heavy
+  // and most SQL-editor sessions never open the diagram. Metadata is
+  // fetched separately from the lightweight schema scan so we keep
+  // the sidebar fast and only pay the rich-introspection cost on
+  // first diagram open.
+  const [view, setView] = useState<'editor' | 'diagram'>('editor');
+  const [metadata, setMetadata] = useState<SqlMetadata | null>(null);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
+  const [isMetadataLoading, setIsMetadataLoading] = useState(false);
+  const [hiddenSchemas, setHiddenSchemas] = useState<Set<string>>(() => new Set());
+
+  const selectedCredential = useMemo(
+    () => credentials.find(c => c.id === credentialId) ?? null,
+    [credentials, credentialId]
+  );
+  // Gate the Diagram tab on whether the selected provider can be
+  // introspected. Postgres/MySQL → on; OAuth providers (slack,
+  // github) → off, with an explanatory tooltip.
+  const canShowDiagram = selectedCredential
+    ? hasCapability(selectedCredential.provider, 'canIntrospectSchema')
+    : false;
+
   const t =
     lang === 'es'
       ? {
@@ -62,6 +103,10 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
           noTables: 'No se encontraron tablas',
           results: 'Resultados',
           editor: 'Editor',
+          diagram: 'Diagrama',
+          metadataError: 'No se pudo cargar el diagrama',
+          schemasFilter: 'Schemas visibles',
+          retry: 'Reintentar',
         }
       : {
           title: 'SQL Editor',
@@ -76,6 +121,10 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
           noTables: 'No tables found',
           results: 'Results',
           editor: 'Editor',
+          diagram: 'Diagram',
+          metadataError: 'Failed to load diagram',
+          schemasFilter: 'Visible schemas',
+          retry: 'Retry',
         };
 
   // Load credentials — fires once on mount. Reading `credentialId`
@@ -119,6 +168,74 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   useEffect(() => {
     if (credentialId) loadSchema();
   }, [credentialId, loadSchema]);
+
+  // Rich metadata for the diagram. Reset on credential change so the
+  // operator never sees one connection's tables on top of another's
+  // diagram, then fetch on demand the first time the diagram tab is
+  // opened.
+  useEffect(() => {
+    setMetadata(null);
+    setMetadataError(null);
+    setHiddenSchemas(new Set());
+  }, [credentialId]);
+
+  const loadMetadata = useCallback(async () => {
+    if (!credentialId) return;
+    setIsMetadataLoading(true);
+    setMetadataError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/sql/metadata`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credentialId }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setMetadataError(body?.error ?? 'Metadata load failed');
+        setMetadata(null);
+        return;
+      }
+      const parsed = sqlMetadataSchema.safeParse(body);
+      if (!parsed.success) {
+        setMetadataError('Unexpected metadata shape from server');
+        setMetadata(null);
+        return;
+      }
+      setMetadata(parsed.data);
+    } catch (err) {
+      setMetadataError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setIsMetadataLoading(false);
+    }
+  }, [credentialId]);
+
+  useEffect(() => {
+    if (view === 'diagram' && credentialId && !metadata && !isMetadataLoading && !metadataError) {
+      loadMetadata();
+    }
+  }, [view, credentialId, metadata, isMetadataLoading, metadataError, loadMetadata]);
+
+  const visibleSchemas = useMemo<ReadonlySet<string> | undefined>(() => {
+    if (!metadata) return undefined;
+    if (hiddenSchemas.size === 0) return undefined;
+    const all = new Set(metadata.tables.map(t => t.schema));
+    for (const hidden of hiddenSchemas) all.delete(hidden);
+    return all;
+  }, [metadata, hiddenSchemas]);
+
+  const allSchemas = useMemo(() => {
+    if (!metadata) return [] as string[];
+    return Array.from(new Set(metadata.tables.map(tbl => tbl.schema))).sort();
+  }, [metadata]);
+
+  const toggleSchemaVisibility = (schema: string) => {
+    setHiddenSchemas(prev => {
+      const next = new Set(prev);
+      if (next.has(schema)) next.delete(schema);
+      else next.add(schema);
+      return next;
+    });
+  };
 
   // Execute query
   const runQuery = useCallback(async () => {
@@ -287,49 +404,151 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
 
           <div className="flex-1" />
 
-          {/* Run button */}
-          <button
-            onClick={runQuery}
-            disabled={isLoading || !credentialId || !query.trim()}
-            className="flex items-center gap-1.5 rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500"
-          >
-            <Play size={12} />
-            {t.run}
-            <span className="ml-1 text-[10px] text-emerald-300/60">{t.runHint}</span>
-          </button>
-        </div>
-
-        {/* Editor + Results split */}
-        <div className="flex min-h-0 flex-1 flex-col">
-          {/* SQL Editor */}
+          {/* Editor / Diagram toggle. We render two segments instead of
+              a dropdown so the active view is visible at a glance and
+              switching costs one click. */}
           <div
-            className="flex flex-col border-b border-zinc-800"
-            style={{ minHeight: '200px', maxHeight: '50%' }}
+            className="flex overflow-hidden rounded border border-zinc-700 bg-zinc-800"
+            role="tablist"
+            aria-label={`${t.editor} / ${t.diagram}`}
           >
-            <div className="border-b border-zinc-800/50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-600">
-              {t.editor}
-            </div>
-            <div className="flex-1 overflow-hidden p-2">
-              <SQLCodeEditor value={query} onChange={setQuery} onRun={runQuery} minHeight="160px" />
-            </div>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'editor'}
+              onClick={() => setView('editor')}
+              className={`flex items-center gap-1 px-2 py-1 text-[11px] transition-colors ${
+                view === 'editor' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Code2 size={11} />
+              <span className="hidden sm:inline">{t.editor}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'diagram'}
+              onClick={() => setView('diagram')}
+              disabled={!credentialId || !canShowDiagram}
+              title={
+                !canShowDiagram && selectedCredential
+                  ? lang === 'es'
+                    ? `${selectedCredential.provider} no soporta introspección de schema`
+                    : `${selectedCredential.provider} doesn't support schema introspection`
+                  : undefined
+              }
+              className={`flex items-center gap-1 px-2 py-1 text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                view === 'diagram' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Network size={11} />
+              <span className="hidden sm:inline">{t.diagram}</span>
+            </button>
           </div>
 
-          {/* Results */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="shrink-0 border-b border-zinc-800/50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-600">
-              {t.results}
+          {/* Run button (editor view only — meaningless on diagram tab). */}
+          {view === 'editor' ? (
+            <button
+              onClick={runQuery}
+              disabled={isLoading || !credentialId || !query.trim()}
+              className="flex items-center gap-1.5 rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500"
+            >
+              <Play size={12} />
+              {t.run}
+              <span className="ml-1 text-[10px] text-emerald-300/60">{t.runHint}</span>
+            </button>
+          ) : null}
+        </div>
+
+        {/* View body — switches between the editor + results split and
+            the schema diagram. We unmount the diagram (instead of
+            CSS-hiding it) when not active so React Flow doesn't run
+            its layout / measure loop in the background. */}
+        {view === 'editor' ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div
+              className="flex flex-col border-b border-zinc-800"
+              style={{ minHeight: '200px', maxHeight: '50%' }}
+            >
+              <div className="border-b border-zinc-800/50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-600">
+                {t.editor}
+              </div>
+              <div className="flex-1 overflow-hidden p-2">
+                <SQLCodeEditor
+                  value={query}
+                  onChange={setQuery}
+                  onRun={runQuery}
+                  minHeight="160px"
+                />
+              </div>
             </div>
-            <div className="flex-1 overflow-auto">
-              <SQLResultsTable
-                result={result}
-                error={error}
-                isLoading={isLoading}
-                lang={lang}
-                onRetry={runQuery}
-              />
+
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="shrink-0 border-b border-zinc-800/50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-600">
+                {t.results}
+              </div>
+              <div className="flex-1 overflow-auto">
+                <SQLResultsTable
+                  result={result}
+                  error={error}
+                  isLoading={isLoading}
+                  lang={lang}
+                  onRetry={runQuery}
+                />
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="relative flex min-h-0 flex-1">
+            {metadataError ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-xs text-zinc-400">
+                <span>{t.metadataError}</span>
+                <span className="font-mono text-[10px] text-zinc-600">{metadataError}</span>
+                <button
+                  type="button"
+                  onClick={loadMetadata}
+                  className="mt-2 rounded border border-zinc-700 bg-zinc-800 px-3 py-1 text-[11px] text-zinc-200 transition-colors hover:bg-zinc-700"
+                >
+                  {t.retry}
+                </button>
+              </div>
+            ) : metadata ? (
+              <>
+                <SchemaDiagram metadata={metadata} visibleSchemas={visibleSchemas} lang={lang} />
+                {allSchemas.length > 1 ? (
+                  <div className="absolute right-3 top-3 z-10 max-h-[60%] w-44 overflow-auto rounded-lg border border-zinc-700 bg-zinc-900/95 p-2 text-[11px] shadow-xl backdrop-blur">
+                    <div className="mb-1 flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                      <Filter size={10} />
+                      <span>{t.schemasFilter}</span>
+                    </div>
+                    {allSchemas.map(schemaName => (
+                      <label
+                        key={schemaName}
+                        className="flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-zinc-300 transition-colors hover:bg-zinc-800"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!hiddenSchemas.has(schemaName)}
+                          onChange={() => toggleSchemaVisibility(schemaName)}
+                          className="accent-emerald-500"
+                        />
+                        <span className="truncate font-mono">{schemaName}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 text-xs text-zinc-500">
+                <RefreshCw
+                  size={14}
+                  className={isMetadataLoading ? 'animate-spin' : 'opacity-40'}
+                />
+                <span>{t.loadingSchema}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
