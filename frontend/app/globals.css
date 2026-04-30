@@ -1,6 +1,61 @@
+@import '@xyflow/react/dist/style.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* React Flow V2 edge tokens. The dasharray / animation duration combo
+   (8 6 / 800ms) is calibrated so two consecutive dashes traverse a
+   typical 200–300px edge at the same cadence as the V1 Canvas 2D loop
+   (~25 px/frame). Tweak both together if changing one. */
+:root {
+  --rb-edge: rgb(148 163 184 / 0.7);
+  --rb-edge-running: #f59e0b;
+  --rb-edge-success: #10b981;
+  --rb-edge-failed: #f43f5e;
+  --rb-edge-skipped: #64748b;
+  --rb-edge-cyclic: #ef4444;
+  --rb-edge-warning: #f59e0b;
+  --rb-edge-disabled: #475569;
+  --rb-orb: #fde68a;
+}
+
+@keyframes rb-dash {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+/* RF v12 token overrides per theme. We keep the library defaults in
+   light mode and tighten the dark / midnight palettes so the canvas
+   chrome (handles, markers, attribution, controls) reads against the
+   Operari background instead of RF's stock blue/white. */
+.dark .react-flow,
+[data-theme='midnight'] .react-flow {
+  --xy-background-color: transparent;
+  --xy-edge-stroke-default: rgb(148 163 184 / 0.7);
+  --xy-edge-stroke-selected-default: var(--rb-edge-running);
+  --xy-handle-background-color-default: #1a1a2e;
+  --xy-handle-border-color-default: rgba(255, 255, 255, 0.4);
+  --xy-controls-button-background-color-default: rgba(26, 26, 46, 0.9);
+  --xy-controls-button-background-color-hover-default: rgba(40, 40, 70, 0.95);
+  --xy-controls-button-color-default: #e5e7eb;
+  --xy-controls-button-color-hover-default: #ffffff;
+  --xy-controls-button-border-color-default: rgba(255, 255, 255, 0.1);
+  --xy-minimap-background-color-default: rgba(26, 26, 46, 0.9);
+  --xy-minimap-mask-background-color-default: rgba(0, 0, 0, 0.55);
+  --xy-attribution-background-color-default: transparent;
+  --xy-selection-background-color-default: rgba(55, 145, 245, 0.12);
+  --xy-selection-border-default: 1px dashed rgba(55, 145, 245, 0.7);
+}
+
+/* Midnight goes one shade darker on the chrome so it doesn't fight
+   the pure-black background. */
+[data-theme='midnight'] .react-flow {
+  --xy-handle-background-color-default: #050505;
+  --xy-controls-button-background-color-default: rgba(0, 0, 0, 0.85);
+  --xy-minimap-background-color-default: rgba(0, 0, 0, 0.85);
+}
 
 /* ─────────────────────────────────────────────────────────────
    Operari brand tokens — single source of truth.
