@@ -79,6 +79,7 @@ backend/prisma/*.db-journal
 # of /docs lets git recurse into the directory so the negation patterns work.
 /docs/*
 !/docs/adr/
+!/docs/research/
 !/docs/audit-event-coverage.md
 !/docs/rebranding-and-editor-audit.md
 !/docs/OPS.md

@@ -5,3 +5,4 @@
 export * from './workflow';
 export * from './node';
 export * from './execution';
+export * from './connected-account-capabilities';
