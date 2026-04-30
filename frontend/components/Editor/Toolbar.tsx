@@ -2,6 +2,7 @@
 
 import { Panel } from '@xyflow/react';
 import {
+  Activity,
   AlertCircle,
   Bug,
   Camera,
@@ -151,6 +152,9 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
   const setRunbookHeader = useEditorStore(s => s.setRunbookHeader);
   const setStatus = useEditorStore(s => s.setStatus);
   const hydrateFromWorkflow = useEditorStore(s => s.hydrateFromWorkflow);
+  const reconcileFromWorkflow = useEditorStore(s => s.reconcileFromWorkflow);
+  const showStats = useEditorStore(s => s.showStats);
+  const setShowStats = useEditorStore(s => s.setShowStats);
 
   const { executing, executeWorkflow } = useWorkflowExecution(runbookId);
   const { exportImage, exporting: exportingPng } = usePngExport();
@@ -179,6 +183,7 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           templates: 'Plantillas',
           snapshots: 'Instantáneas',
           lineStyle: lineStyle === 'smart' ? 'Aristas curvas' : 'Aristas ortogonales',
+          stats: showStats ? 'Ocultar estadísticas' : 'Ver estadísticas',
           missingId: 'Guardá el runbook antes de ejecutar.',
           launching: 'Iniciando…',
           untitled: 'Sin título',
@@ -197,6 +202,7 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           templates: 'Templates',
           snapshots: 'Snapshots',
           lineStyle: lineStyle === 'smart' ? 'Curved edges' : 'Step edges',
+          stats: showStats ? 'Hide stats' : 'Show stats',
           missingId: 'Save the runbook before running.',
           launching: 'Launching…',
           untitled: 'Untitled',
@@ -330,16 +336,12 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
       ...(next.header.category ? { category: next.header.category } : {}),
       ...(next.header.schedule ? { schedule: next.header.schedule } : {}),
     };
-    // YamlViewModal returns workflow-shape nodes/connections so they
-    // hydrate cleanly via the existing pipeline.
-    hydrateFromWorkflow(
-      runbookId,
-      cleanedHeader,
-      inputs,
-      next.nodes as never,
-      next.connections as never
-    );
-    setStatus('dirty');
+    // YamlViewModal returns workflow-shape nodes/connections. Use the
+    // incremental reconcile path so editing a single field in the
+    // YAML doesn't snap every node back to its layout origin —
+    // existing nodes keep their position and selection, only the
+    // changed body is refreshed.
+    reconcileFromWorkflow(cleanedHeader, inputs, next.nodes as never, next.connections as never);
     setDialog(null);
   };
 
@@ -482,6 +484,11 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
               icon: <Camera size={12} />,
               label: t.snapshots,
               onClick: () => setDialog('snapshots'),
+            },
+            {
+              icon: <Activity size={12} />,
+              label: t.stats,
+              onClick: () => setShowStats(!showStats),
             },
             {
               icon: <ThemeIcon size={12} />,

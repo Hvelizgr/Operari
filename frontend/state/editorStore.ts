@@ -13,6 +13,7 @@ import { temporal } from 'zundo';
 import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
 import { rfToWorkflow, workflowToRf } from '@/lib/canvas/adapter';
 import { getDescendantIds, sortNodesForRf } from '@/lib/canvas/graph';
+import { reconcileWorkflow } from '@/lib/canvas/reconcile';
 import type { RunbookInputDefinition } from '@/components/Editor/RunbookInputsPanel';
 import type { Connection as WorkflowConnection, WorkflowNode } from '@operari/shared';
 
@@ -47,6 +48,25 @@ type State = {
    *  component reads this to draw a hover ring telegraphing "drop
    *  here to parent". Cleared on drag stop. */
   hoveredFrameId: string | null;
+  /** When true, BaseStepNode renders the run-history strip + heat
+   *  tint sourced from the per-step stats endpoint. Toggled from the
+   *  toolbar; not persisted (operators turn it on for diagnosis,
+   *  off for authoring). */
+  showStats: boolean;
+  /** Per-step run statistics keyed by nodeId. Populated by
+   *  `useStepStats` when `showStats` is on; cleared back to `{}`
+   *  when off. Stripped from undo snapshots via `partialize`. */
+  stepStats: Record<
+    string,
+    {
+      runs: number;
+      successRate: number | null;
+      failureRate: number | null;
+      p50DurationMs: number | null;
+      p95DurationMs: number | null;
+      recent: Array<{ status: string; startedAt: string; durationMs: number | null }>;
+    }
+  >;
 };
 
 type Actions = {
@@ -71,10 +91,24 @@ type Actions = {
     nodes: WorkflowNode[],
     connections: WorkflowConnection[]
   ) => void;
+  /** Incremental version of `hydrateFromWorkflow`: nodes that exist
+   *  in both the current canvas and the incoming workflow keep their
+   *  positions and selection state. New nodes appear at the position
+   *  declared in the workflow body; missing ones drop. Used by the
+   *  YAML editor's "Apply" button so editing a single field doesn't
+   *  reset the whole layout. */
+  reconcileFromWorkflow: (
+    header: RunbookHeader,
+    inputs: RunbookInputDefinition[],
+    nodes: WorkflowNode[],
+    connections: WorkflowConnection[]
+  ) => void;
   setRunbookHeader: (patch: Partial<RunbookHeader>) => void;
   setRunbookInputs: (next: RunbookInputDefinition[]) => void;
   setTraceMode: (active: boolean) => void;
   setHoveredFrameId: (id: string | null) => void;
+  setShowStats: (active: boolean) => void;
+  setStepStats: (next: State['stepStats']) => void;
   setStatus: (status: SaveStatus, errorMessage?: string | null) => void;
   markSaved: (savedAt?: number) => void;
   getRunbookPayload: () => { nodes: WorkflowNode[]; connections: WorkflowConnection[] };
@@ -94,6 +128,8 @@ const initialState: State = {
   errorMessage: null,
   traceMode: false,
   hoveredFrameId: null,
+  showStats: false,
+  stepStats: {},
 };
 
 export const useEditorStore = create<EditorState>()(
@@ -207,6 +243,22 @@ export const useEditorStore = create<EditorState>()(
         useEditorStore.temporal.getState().clear();
       },
 
+      reconcileFromWorkflow: (header, inputs, nodes, connections) => {
+        const state = get();
+        const reconciled = reconcileWorkflow(
+          { nodes: state.nodes, edges: state.edges },
+          { nodes, connections }
+        );
+        set({
+          runbookHeader: header,
+          runbookInputs: inputs,
+          nodes: sortNodesForRf(reconciled.nodes),
+          edges: reconciled.edges,
+          status: 'dirty',
+          errorMessage: null,
+        });
+      },
+
       setRunbookHeader: patch =>
         set(state => ({
           runbookHeader: state.runbookHeader
@@ -220,6 +272,16 @@ export const useEditorStore = create<EditorState>()(
 
       setHoveredFrameId: id =>
         set(state => (state.hoveredFrameId === id ? state : { hoveredFrameId: id })),
+
+      setShowStats: active =>
+        set(state => ({
+          showStats: active,
+          // Drop cached stats when turning the overlay off so a re-enable
+          // refetches fresh data instead of flashing stale percentiles.
+          stepStats: active ? state.stepStats : {},
+        })),
+
+      setStepStats: next => set({ stepStats: next }),
 
       setStatus: (status, errorMessage = null) => set({ status, errorMessage }),
 

@@ -22,6 +22,7 @@ import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
 import { useExecutionSocket } from '@/hooks/useExecutionSocket';
 import { useIsValidConnection } from '@/hooks/useIsValidConnection';
 import { useLoadRunbook } from '@/hooks/useLoadRunbook';
+import { useStepStats } from '@/hooks/useStepStats';
 import { useViewportPersistence } from '@/hooks/useViewportPersistence';
 import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
 import { useEditorStore } from '@/state/editorStore';
@@ -148,6 +149,19 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   useEditorKeyboard();
   useExecutionSocket(executionId);
   useViewportPersistence();
+
+  // Pull per-step run statistics into the editor store while the
+  // operator's "Show stats" overlay is on. Stats land in the store
+  // so BaseStepNode can subscribe per-id without prop-drilling.
+  // `executionId` keys into the dependency so we refetch when a run
+  // ends — the new NodeLog row is exactly what the operator wants
+  // to see on the strip.
+  const showStats = useEditorStore(s => s.showStats);
+  const setStepStats = useEditorStore(s => s.setStepStats);
+  const { stats: liveStats } = useStepStats(runbookId, showStats);
+  useEffect(() => {
+    setStepStats(liveStats);
+  }, [liveStats, setStepStats]);
 
   // Reconnect handlers. The success ref guards against `onReconnectEnd`
   // firing after a successful reconnect (would otherwise delete the

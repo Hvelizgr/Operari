@@ -120,6 +120,13 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   // node component.
   const traceMode = useEditorStore(s => s.traceMode);
   const traceDim = traceMode && status === 'idle';
+  // Stats overlay: when "Show stats" is on, the editor store carries
+  // the latest run-history per node. We pluck this node's bucket so
+  // the strip + heat tint render only for steps that have actually
+  // executed in the lookback window. `useEditorStore` with a narrow
+  // selector keeps re-renders scoped to changes in this node's stats.
+  const showStats = useEditorStore(s => s.showStats);
+  const stats = useEditorStore(s => s.stepStats[id]);
 
   // Per-node connection counts. `useNodeConnections` is reactive — adds
   // / removes update without re-rendering the whole canvas.
@@ -191,7 +198,21 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
     status !== 'idle' ? `, status ${status}` : ''
   }`;
 
-  const ringColor = selected ? 'var(--rb-node-selected)' : STATUS_RING_VAR[status];
+  // Heat tint, derived from this run's failure rate. Picks a single
+  // brand colour per band so the operator's eye reads "this step
+  // burns" at a glance. Only applies when the overlay is on, the
+  // node is idle (a live run wins on the border), and this step has
+  // actually run in the window.
+  const heatColor =
+    showStats && status === 'idle' && stats && stats.failureRate != null
+      ? stats.failureRate >= 0.2
+        ? 'var(--op-sunset)'
+        : stats.failureRate >= 0.05
+          ? 'var(--op-gold)'
+          : null
+      : null;
+
+  const ringColor = selected ? 'var(--rb-node-selected)' : (heatColor ?? STATUS_RING_VAR[status]);
   const animationName =
     status === 'running'
       ? 'rb-running-pulse 1.6s ease-in-out infinite'
@@ -320,6 +341,44 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
                   {tag}
                 </span>
               ))}
+            </div>
+          ) : null}
+          {showStats && stats ? (
+            <div
+              className="mt-1.5 flex items-center justify-between gap-2 font-mono text-[10px] tracking-tight text-[color:var(--rb-node-muted)]"
+              title={
+                stats.failureRate != null
+                  ? `${stats.runs} runs · ${(stats.failureRate * 100).toFixed(0)}% fail · p50 ${stats.p50DurationMs ?? '?'}ms · p95 ${stats.p95DurationMs ?? '?'}ms`
+                  : `${stats.runs} runs`
+              }
+            >
+              <span className="flex items-center gap-1">
+                {stats.recent.slice(0, 5).map((entry, idx) => (
+                  <span
+                    key={idx}
+                    className="block h-1.5 w-1.5 rounded-full"
+                    style={{
+                      background:
+                        entry.status === 'SUCCESS'
+                          ? 'var(--rb-edge-success)'
+                          : 'var(--rb-edge-failed)',
+                    }}
+                  />
+                ))}
+                {/* Pad with hollow placeholders to a consistent 5-slot width
+                    so the strip aligns across nodes with different run counts. */}
+                {Array.from({ length: Math.max(0, 5 - stats.recent.length) }).map((_, idx) => (
+                  <span
+                    key={`pad-${idx}`}
+                    className="block h-1.5 w-1.5 rounded-full border border-white/15"
+                  />
+                ))}
+              </span>
+              {stats.p95DurationMs != null ? (
+                <span className="text-[color:var(--rb-node-muted)]">
+                  p95 {shortFormat(stats.p95DurationMs)}
+                </span>
+              ) : null}
             </div>
           ) : null}
           <div className="mt-1.5 flex items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-wide text-[color:var(--rb-node-muted)]">
