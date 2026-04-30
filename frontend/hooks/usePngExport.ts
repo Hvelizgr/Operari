@@ -5,30 +5,29 @@ import { useCallback, useState } from 'react';
 
 import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
 
+type Format = 'png' | 'svg';
+
 /**
- * Capture the runbook canvas as a PNG sized to the bounding box of all
- * nodes (or just the selected ones). The intended share path is a
- * Slack thread during an incident — operators paste a snapshot of the
- * runbook so the team sees the structure without opening the editor.
+ * Capture the runbook canvas as a PNG (raster, for Slack threads) or
+ * SVG (vector, for Notion postmortems). The export targets only the
+ * `.react-flow__viewport` transform layer so chrome (`<Panel>`s,
+ * Controls, MiniMap) doesn't bleed into the image.
  *
- * `html-to-image` is loaded dynamically so the dependency only enters
- * the bundle for users who actually click Export. The capture targets
- * `.react-flow__viewport`, the inner transform layer that holds nodes
- * and edges — capturing the outer wrapper would also drag the
- * `<Panel>`s and Controls into the screenshot.
+ * `html-to-image` is loaded dynamically so the ~80kB dependency only
+ * enters the bundle for users who actually click Export.
  *
  * Returns:
  *   - `exporting`: render the button as busy while the work runs
  *   - `error`:     last error message; null when fresh
- *   - `exportPng`: kicks off capture + download
+ *   - `exportImage(format, filename)`: kicks off capture + download
  */
 export function usePngExport() {
   const { getNodes } = useReactFlow<RfNode, RfEdge>();
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const exportPng = useCallback(
-    async (filename = 'runbook.png') => {
+  const exportImage = useCallback(
+    async (format: Format, filename?: string) => {
       setError(null);
       setExporting(true);
       try {
@@ -51,27 +50,27 @@ export function usePngExport() {
         const width = bounds.width + PADDING * 2;
         const height = bounds.height + PADDING * 2;
 
-        // Lazy import keeps html-to-image (~80kb) out of the editor's
-        // initial chunk. The dynamic import is cached after first use.
-        const { toPng } = await import('html-to-image');
-
-        const dataUrl = await toPng(viewport, {
+        const lib = await import('html-to-image');
+        const captureOptions = {
           backgroundColor: '#171717',
           width,
           height,
-          // Translate the viewport so the top-left of `bounds` lands at
-          // (PADDING, PADDING) within the captured frame, regardless of
-          // the user's current pan/zoom.
           style: {
             width: `${width}px`,
             height: `${height}px`,
             transform: `translate(${-bounds.x + PADDING}px, ${-bounds.y + PADDING}px) scale(1)`,
           },
-          pixelRatio: 2,
-        });
+          // Pixel ratio applies only to PNG; SVG is vector.
+          ...(format === 'png' ? { pixelRatio: 2 } : {}),
+        };
+
+        const dataUrl =
+          format === 'png'
+            ? await lib.toPng(viewport, captureOptions)
+            : await lib.toSvg(viewport, captureOptions);
 
         const link = document.createElement('a');
-        link.download = filename;
+        link.download = filename ?? `runbook.${format}`;
         link.href = dataUrl;
         link.click();
       } catch (err) {
@@ -83,5 +82,12 @@ export function usePngExport() {
     [getNodes]
   );
 
-  return { exportPng, exporting, error };
+  // Backwards-compatible alias: `exportPng` was the only API before
+  // SVG support landed. Internal callers use `exportImage` directly.
+  const exportPng = useCallback(
+    (filename = 'runbook.png') => exportImage('png', filename),
+    [exportImage]
+  );
+
+  return { exportPng, exportImage, exporting, error };
 }

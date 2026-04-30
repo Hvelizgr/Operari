@@ -18,6 +18,11 @@ export type RfEdgeData = {
   condition?: WorkflowConnection['condition'];
   sourcePort?: number;
   targetPort?: number;
+  /** Per-edge override of the line-style preference. When set, this
+   *  edge ignores the global `operari:line-style` setting. Useful when
+   *  a single edge in a curved graph really wants to be orthogonal
+   *  (or vice-versa) for clarity. */
+  lineStyle?: 'smart' | 'step';
   status?: 'idle' | 'running' | 'success' | 'failed' | 'skipped';
   cyclic?: boolean;
 };

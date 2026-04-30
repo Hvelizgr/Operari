@@ -41,6 +41,7 @@ import Inspector from './Inspector';
 import { nodeTypes } from './canvas/nodeTypes';
 import Palette from './Palette';
 import SearchPalette from './SearchPalette';
+import SelectionStatusPill from './SelectionStatusPill';
 import Toolbar from './Toolbar';
 import UndoRedoPanel from './UndoRedoPanel';
 import ZoomToRunning from './ZoomToRunning';
@@ -93,11 +94,17 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
 
   const nodes = useEditorStore(s => s.nodes);
   const storedEdges = useEditorStore(s => s.edges);
-  // Override every edge's type with the user's preferred line style so
-  // the toggle applies retroactively to existing edges (the persisted
-  // shape always says `smart`; rendering is a presentation concern).
+  // Resolve the per-edge effective type: a per-edge `data.lineStyle`
+  // override wins, otherwise the global preference applies. The
+  // persisted shape always says `smart`; rendering is a presentation
+  // concern, so the toggle (and any per-edge override) applies
+  // retroactively to existing edges.
   const edges = useMemo(
-    () => storedEdges.map(e => (e.type === lineStyle ? e : { ...e, type: lineStyle })),
+    () =>
+      storedEdges.map(e => {
+        const effective = e.data?.lineStyle ?? lineStyle;
+        return e.type === effective ? e : { ...e, type: effective };
+      }),
     [storedEdges, lineStyle]
   );
   const onNodesChange = useEditorStore(s => s.onNodesChange);
@@ -307,6 +314,7 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
           color="color-mix(in oklab, var(--op-moss) 18%, transparent)"
         />
         {!embedMode ? <UndoRedoPanel lang={lang} /> : null}
+        {!embedMode ? <SelectionStatusPill lang={lang} /> : null}
         {!embedMode ? (
           <Toolbar lang={lang} lineStyle={lineStyle} onLineStyleToggle={toggleLineStyle} />
         ) : null}

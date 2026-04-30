@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Download,
   FileCode,
+  FileImage,
   Loader2,
   Moon,
   Play,
@@ -69,7 +70,7 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
   const hydrateFromWorkflow = useEditorStore(s => s.hydrateFromWorkflow);
 
   const { executing, executeWorkflow } = useWorkflowExecution(runbookId);
-  const { exportPng, exporting: exportingPng } = usePngExport();
+  const { exportImage, exporting: exportingPng } = usePngExport();
 
   const [dialog, setDialog] = useState<Dialog>(null);
   const [editingName, setEditingName] = useState(false);
@@ -89,6 +90,7 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           theme: 'Tema',
           yaml: 'Ver YAML',
           png: 'Exportar PNG',
+          svg: 'Exportar SVG',
           lineStyle: lineStyle === 'smart' ? 'Aristas curvas' : 'Aristas ortogonales',
           missingId: 'Guardá el runbook antes de ejecutar.',
           launching: 'Iniciando…',
@@ -102,6 +104,7 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           theme: 'Theme',
           yaml: 'View YAML',
           png: 'Export PNG',
+          svg: 'Export SVG',
           lineStyle: lineStyle === 'smart' ? 'Curved edges' : 'Step edges',
           missingId: 'Save the runbook before running.',
           launching: 'Launching…',
@@ -290,12 +293,22 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
 
         <button
           type="button"
-          onClick={() => exportPng(`${header?.slug || header?.name || 'runbook'}.png`)}
+          onClick={() => exportImage('png', `${header?.slug || header?.name || 'runbook'}.png`)}
           disabled={exportingPng}
           title={t.png}
           className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {exportingPng ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => exportImage('svg', `${header?.slug || header?.name || 'runbook'}.svg`)}
+          disabled={exportingPng}
+          title={t.svg}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <FileImage size={14} />
         </button>
 
         <button
