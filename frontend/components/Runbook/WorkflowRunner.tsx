@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, ChevronRight, Loader2, Play, Square, XCircle } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
-import { WorkflowNode } from '../Editor';
+import { WorkflowNode } from '@operari/shared';
 
 export type NodeExecutionState = 'idle' | 'running' | 'success' | 'error';
 

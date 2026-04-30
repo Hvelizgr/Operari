@@ -1,8 +1,8 @@
-# ADR 0007 — Editor canvas rebuild on React Flow v12, behind a flag with deferred cutover
+# ADR 0007 — Editor canvas rebuild on React Flow v12
 
-- **Status:** accepted (V2 implemented, cutover pending QA)
-- **Date:** 2026-04-30
-- **Context links:** branch `feat/editor-reactflow-rebuild`, `frontend/components/Editor/v2/`, `frontend/lib/canvas/v2/`, `frontend/state/editorStoreV2.ts`, `frontend/hooks/v2/`
+- **Status:** accepted
+- **Date:** 2026-04-30 (cutover: 2026-04-30, same day, on user request)
+- **Context links:** branch `feat/editor-reactflow-rebuild`, `frontend/components/Editor/Canvas.tsx`, `frontend/components/Editor/canvas/`, `frontend/lib/canvas/`, `frontend/state/editorStore.ts`, `frontend/hooks/`
 
 ## Context
 
@@ -140,24 +140,64 @@ SKIPPED | CANCELLED`. Frontend identifies nodes by `nodeId` only.
 
 ## Cutover
 
-The cutover is gated on a one-week internal QA window with
-`NEXT_PUBLIC_OPERARI_EDITOR_V2=true` set against the current
-`feat/editor-reactflow-rebuild` branch. The acceptance checklist
-(25 items spanning pan/zoom/select, edge connection + cycle
-prevention, frame nesting, live run animations, YAML round-trip,
-mobile, dark mode, etc.) lives in the local-only planning doc at
-`docs/plans/editor-reactflow-rebuild.md` (gitignored under
-`/docs/*`).
+The cutover ran on the same day as the V2 implementation, **at user
+request**, ahead of the one-week QA window the original plan called
+for. The user explicitly authorised the destructive deletion knowing
+that V1 was the live rollback path.
 
-**Once QA passes:** one PR deletes V1, renames V2 → canonical names
-(`CanvasV2 → Canvas`, `editorStoreV2 → editorStore`,
-`useExecutionSocketV2 → useExecutionSocket`, etc.), removes the
-`NEXT_PUBLIC_OPERARI_EDITOR_V2` flag, and updates this ADR's status
-from "accepted (V2 implemented, cutover pending QA)" to "accepted".
+What the cutover commit did:
 
-**If QA reveals a blocker:** flip the env var off, fix on the V2
-branch, repeat the QA window. V1 stays as the rollback path until
-the cutover PR merges.
+- Renamed V2 paths and symbols to canonical names: `CanvasV2 → Canvas`,
+  `editorStoreV2 → editorStore` (`useEditorStoreV2 → useEditorStore`),
+  `useExecutionSocketV2 → useExecutionSocket`,
+  `useAutosaveV2 → useAutosave`, `useEditorKeyboardV2 → useEditorKeyboard`,
+  `useLoadRunbookV2 → useLoadRunbook`. V2 sources moved from
+  `components/Editor/v2/`, `hooks/v2/`, `lib/canvas/v2/` up to their
+  parent directories. The runbook canvas's bespoke nodes/edges/catalog
+  now live in `components/Editor/canvas/`.
+- Deleted V1: `EditorCanvas.tsx`, every V1 canvas hook
+  (`useEditorCanvas`, `useCanvasRenderer`, `useEditorViewport`,
+  `useEditorSelection`, `useEditorConnections`, `useEditorNodes`,
+  `useEditorTools`, `useEditorSnapToGrid`, `useEditorKeyboard`,
+  `useExecutionSocket`, `useAutosave`), every V1 layer component
+  (`NodesLayer`, `ConnectionsLayer`, `ConnectionBubblesLayer`,
+  `EditorConnection`, `EditorNode`, `GridLayer`, root-level `NoteNode`,
+  `FrameNode`, `EditorOverlays`), V1 chrome that was wired only into
+  the deleted canvas (`TopBar`, `EditorToolbar`, `CanvasRunStatus`,
+  `OnboardingRunHint`, `FirstRunConfetti`, `PendingHttpStepBanner`,
+  `RunbookAssistPanel`, `GitHubBranchPanel`, `WorkflowPropertiesPanel`,
+  `KeyboardShortcutsModal`, `PropertiesPanel`, `TriggersPanel`,
+  `ConnectionConditionBadge`, `terminal/LogTerminal`), the V1 utility
+  layer (`utils/canvas/`, `utils/portAnchor.ts`), and the V1 tests +
+  Storybook stories that targeted any of the above.
+- Removed the feature flag (`NEXT_PUBLIC_OPERARI_EDITOR_V2`) and
+  deleted `lib/featureFlags.ts` (its only consumer).
+- Restored three components I had over-aggressively deleted:
+  `CommandPalette` (used by `components/Common/GlobalCommandPalette.tsx`
+  and a global Cmd-K shortcut on every page),
+  `RunbookInputsPanel` (its `RunbookInputDefinition` type is consumed by
+  `components/Runbook/RunDialog.tsx`), and `CronPicker` (used by
+  `components/Runbook/ScheduleDialog.tsx` outside the editor route).
+  These three remain in `components/Editor/` because they are **not**
+  V1-canvas-specific — the editor folder happens to host them but other
+  routes mount them directly.
+- Repointed `components/Navigation/MiniMap.tsx`, `Navigation/SearchBar.tsx`,
+  and `components/Runbook/WorkflowRunner.tsx` to import the
+  `WorkflowNode` type from `@operari/shared` directly instead of going
+  through the deleted `components/Editor/index.ts` barrel.
+- Updated `components/Runbook/SaveStatusIndicator.tsx` to import the
+  `SaveStatus` type from the new `@/state/editorStore` (V1's hook
+  exported it before).
+
+**Bundle size delta:** the editor route fell from 351 kB / 565 kB
+first-load (V1 + V2 both bundled behind the runtime flag) to
+**97.2 kB / 251 kB** after the cutover — a 56% reduction in route
+size and a 56% reduction in first-load JS for the page.
+
+**Rollback path:** the only path back is `git revert` of the cutover
+commit. V1 is no longer in the tree as a runtime fallback. If V2
+proves broken in production, fix-forward (the working pieces are
+isolated and tractable) is the recommended approach over the revert.
 
 ## Alternatives considered
 

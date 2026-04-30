@@ -6,7 +6,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { type MinimapPosition, useVisualization } from '@/context/VisualizationContext';
 
-import { WorkflowNode } from '../Editor';
+import { WorkflowNode } from '@operari/shared';
 
 interface MiniMapProps {
   nodes: WorkflowNode[];

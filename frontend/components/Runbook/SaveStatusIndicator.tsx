@@ -2,16 +2,23 @@
 
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
-import type { SaveStatus } from '../../hooks/useAutosave';
+import type { SaveStatus } from '@/state/editorStore';
 
 interface SaveStatusIndicatorProps {
   saveStatus: SaveStatus;
   lang: 'en' | 'es';
 }
 
+const STATUS_KEYS: Array<Exclude<SaveStatus, 'idle' | 'loading' | 'dirty'>> = [
+  'saving',
+  'saved',
+  'error',
+  'conflict',
+];
+
 export default function SaveStatusIndicator({ saveStatus, lang }: SaveStatusIndicatorProps) {
   const statusConfig: Record<
-    SaveStatus,
+    (typeof STATUS_KEYS)[number],
     {
       icon: typeof Loader2;
       text: string;
@@ -44,6 +51,11 @@ export default function SaveStatusIndicator({ saveStatus, lang }: SaveStatusIndi
       iconClassName: '',
     },
   };
+
+  // The indicator only renders for transient/terminal statuses; idle,
+  // loading, and dirty are intentionally invisible to keep the chrome
+  // quiet during normal editing.
+  if (saveStatus === 'idle' || saveStatus === 'loading' || saveStatus === 'dirty') return null;
 
   const config = statusConfig[saveStatus];
   const Icon = config.icon;

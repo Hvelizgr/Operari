@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, ChevronRight, Plus, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { WorkflowNode } from '../Editor';
+import { WorkflowNode } from '@operari/shared';
 import { CATEGORIES, NODE_TYPES, NodeType } from '../Node';
 
 interface SearchBarProps {

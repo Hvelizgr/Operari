@@ -1,261 +1,116 @@
-/**
- * Hook for managing keyboard shortcuts and navigation in the editor
- * Handles undo/redo, node navigation, selection, and deletion shortcuts
- */
+'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 
-import { WorkflowNode } from '../components/Editor';
-import { EDITOR_CONFIG } from '../config/editor.config';
-import type { DeleteConfirmState, DeleteConnectionConfirmState } from '../types/editor.types';
+import {
+  buildSnapshot,
+  copyToClipboard,
+  readClipboard,
+  remapForPaste,
+} from '@/lib/canvas/clipboard';
+import { useEditorStore } from '@/state/editorStore';
 
-interface UseEditorKeyboardOptions {
-  // Node state
-  nodes: WorkflowNode[];
-  selectedNodes: Set<string>;
-  focusedNodeIndex: number;
-  selectedConnection: string | null;
+const NUDGE_PX = 20;
 
-  // Undo/Redo
-  undo: () => void;
-  redo: () => void;
-  canUndo: boolean;
-  canRedo: boolean;
+const isEditableTarget = (el: EventTarget | null): boolean => {
+  if (!el || !(el instanceof HTMLElement)) return false;
+  if (el.isContentEditable) return true;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+};
 
-  // State setters
-  setSelectedNodes: (nodes: Set<string>) => void;
-  setFocusedNodeIndex: (index: number | ((prev: number) => number)) => void;
-  setDeleteConfirm: (state: DeleteConfirmState) => void;
-  setDeleteConnectionConfirm: (state: DeleteConnectionConfirmState) => void;
+const isMod = (e: KeyboardEvent): boolean => e.metaKey || e.ctrlKey;
 
-  // Delete confirm state (to check if dialog is open)
-  deleteConfirm: DeleteConfirmState;
-  deleteConnectionConfirm: DeleteConnectionConfirmState;
-
-  // Accessibility
-  announceMessage: (message: string) => void;
-  setNodes: (setter: (prevNodes: WorkflowNode[]) => WorkflowNode[]) => void;
-}
-
-export function useEditorKeyboard({
-  nodes,
-  selectedNodes,
-  focusedNodeIndex,
-  selectedConnection,
-  undo,
-  redo,
-  canUndo,
-  canRedo,
-  setSelectedNodes,
-  setFocusedNodeIndex,
-  setDeleteConfirm,
-  setDeleteConnectionConfirm,
-  deleteConfirm,
-  deleteConnectionConfirm,
-  announceMessage,
-  setNodes,
-}: UseEditorKeyboardOptions) {
-  const [clipboard, setClipboard] = useState<WorkflowNode[]>([]);
-
-  // Copy, Cut, Paste shortcuts
+export function useEditorKeyboard() {
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+    const handler = (e: KeyboardEvent) => {
+      if (isEditableTarget(e.target)) return;
 
-      // Copy (Ctrl+C)
-      if (isCtrlOrMeta && e.key === 'c' && selectedNodes.size > 0) {
+      const store = useEditorStore.getState();
+      const selectedIds = store.nodes.filter(n => n.selected).map(n => n.id);
+
+      // Undo / redo first because they shadow Ctrl+Y on some keymaps.
+      if (isMod(e) && (e.key === 'z' || e.key === 'Z')) {
+        if (e.shiftKey) {
+          useEditorStore.temporal.getState().redo();
+        } else {
+          useEditorStore.temporal.getState().undo();
+        }
         e.preventDefault();
-        const copiedNodes = nodes.filter(n => selectedNodes.has(n.id));
-        setClipboard(copiedNodes);
-        announceMessage(`${copiedNodes.length} node${copiedNodes.length > 1 ? 's' : ''} copied.`);
+        return;
+      }
+      if (isMod(e) && (e.key === 'y' || e.key === 'Y')) {
+        useEditorStore.temporal.getState().redo();
+        e.preventDefault();
+        return;
       }
 
-      // Cut (Ctrl+X)
-      else if (isCtrlOrMeta && e.key === 'x' && selectedNodes.size > 0) {
+      if (isMod(e) && (e.key === 'a' || e.key === 'A')) {
+        useEditorStore.setState(s => ({
+          nodes: s.nodes.map(n => (n.selected ? n : { ...n, selected: true })),
+        }));
         e.preventDefault();
-        const cutNodes = nodes.filter(n => selectedNodes.has(n.id));
-        setClipboard(cutNodes);
-        setDeleteConfirm({ open: true, nodeIds: Array.from(selectedNodes) });
-        announceMessage(`${cutNodes.length} node${cutNodes.length > 1 ? 's' : ''} cut.`);
+        return;
       }
 
-      // Paste (Ctrl+V)
-      else if (isCtrlOrMeta && e.key === 'v' && clipboard.length > 0) {
+      if (selectedIds.length === 0) return;
+
+      if (isMod(e) && (e.key === 'c' || e.key === 'C')) {
+        copyToClipboard(buildSnapshot(selectedIds, store.nodes, store.edges));
         e.preventDefault();
-        const newNodes: WorkflowNode[] = [];
-        const newSelectedNodeIds = new Set<string>();
-
-        clipboard.forEach(nodeToPaste => {
-          const newNode: WorkflowNode = {
-            ...nodeToPaste,
-            id: `node-${Date.now()}-${Math.random()}`,
-            position: {
-              x: nodeToPaste.position.x + EDITOR_CONFIG.GRID.SIZE * 2,
-              y: nodeToPaste.position.y + EDITOR_CONFIG.GRID.SIZE * 2,
-            },
-          };
-          newNodes.push(newNode);
-          newSelectedNodeIds.add(newNode.id);
-        });
-
-        setNodes(prevNodes => [...prevNodes, ...newNodes]);
-        setSelectedNodes(newSelectedNodeIds);
-        announceMessage(`${newNodes.length} node${newNodes.length > 1 ? 's' : ''} pasted.`);
+        return;
       }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    nodes,
-    selectedNodes,
-    clipboard,
-    announceMessage,
-    setNodes,
-    setSelectedNodes,
-    setDeleteConfirm,
-  ]);
-
-  // Toggle-enable shortcut
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'e' && selectedNodes.size > 0) {
+      if (isMod(e) && (e.key === 'x' || e.key === 'X')) {
+        copyToClipboard(buildSnapshot(selectedIds, store.nodes, store.edges));
+        store.removeNodes(selectedIds);
         e.preventDefault();
-        setNodes(prevNodes =>
-          prevNodes.map(node =>
-            selectedNodes.has(node.id) ? { ...node, enabled: !(node.enabled ?? true) } : node
-          )
+        return;
+      }
+      if (isMod(e) && (e.key === 'v' || e.key === 'V')) {
+        const snap = readClipboard();
+        if (!snap) return;
+        const { nodes, edges } = remapForPaste(snap);
+        store.appendForPaste(nodes, edges);
+        e.preventDefault();
+        return;
+      }
+      if (isMod(e) && (e.key === 'd' || e.key === 'D')) {
+        const { nodes, edges } = remapForPaste(
+          buildSnapshot(selectedIds, store.nodes, store.edges)
         );
-        const newState = nodes.find(n => selectedNodes.has(n.id))?.enabled ?? true;
-        announceMessage(`Selected nodes ${!newState ? 'enabled' : 'disabled'}.`);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nodes, selectedNodes, setNodes, announceMessage]);
-
-  // Undo/Redo shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        store.appendForPaste(nodes, edges);
         e.preventDefault();
-        undo();
-      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        e.preventDefault();
-        redo();
+        return;
       }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
-
-  // Node navigation and nudging shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (selectedNodes.size > 0) {
-        // Nudging selected nodes
-        let dx = 0;
-        let dy = 0;
-        if (e.key === 'ArrowUp') dy = -1;
-        else if (e.key === 'ArrowDown') dy = 1;
-        else if (e.key === 'ArrowLeft') dx = -1;
-        else if (e.key === 'ArrowRight') dx = 1;
-
-        if (dx !== 0 || dy !== 0) {
-          e.preventDefault();
-          if (e.shiftKey) {
-            // Move faster with shift
-            dx *= 10;
-            dy *= 10;
-          }
-          setNodes(prevNodes =>
-            prevNodes.map(node =>
-              selectedNodes.has(node.id)
-                ? { ...node, position: { x: node.position.x + dx, y: node.position.y + dy } }
-                : node
-            )
-          );
+      if (isMod(e) && (e.key === 'e' || e.key === 'E')) {
+        for (const id of selectedIds) {
+          const node = store.nodes.find(n => n.id === id);
+          if (!node) continue;
+          const enabled = node.data.workflow.enabled !== false;
+          store.updateNodeData(id, {
+            workflow: { ...node.data.workflow, enabled: !enabled },
+          });
         }
-      } else {
-        // Focus navigation
-        // Tab forward
-        if (e.key === 'Tab' && !e.shiftKey && nodes.length > 0) {
-          e.preventDefault();
-          setFocusedNodeIndex(prev => (prev + 1) % nodes.length);
-          announceMessage(`Focused on node ${nodes[(focusedNodeIndex + 1) % nodes.length].title}`);
-        }
-        // Tab backward
-        else if (e.key === 'Tab' && e.shiftKey && nodes.length > 0) {
-          e.preventDefault();
-          setFocusedNodeIndex(prev => (prev - 1 + nodes.length) % nodes.length);
-          announceMessage(
-            `Focused on node ${nodes[(focusedNodeIndex - 1 + nodes.length) % nodes.length].title}`
-          );
-        }
-        // Enter to select
-        else if (e.key === 'Enter' && focusedNodeIndex >= 0) {
-          e.preventDefault();
-          const nodeId = nodes[focusedNodeIndex].id;
-          setSelectedNodes(new Set([nodeId]));
-          announceMessage(`Selected ${nodes[focusedNodeIndex].title}`);
-        }
+        store.setStatus('dirty');
+        e.preventDefault();
+        return;
       }
 
-      // Escape to deselect
-      if (e.key === 'Escape') {
+      // Arrow nudge by one grid cell.
+      const dx = e.key === 'ArrowLeft' ? -NUDGE_PX : e.key === 'ArrowRight' ? NUDGE_PX : 0;
+      const dy = e.key === 'ArrowUp' ? -NUDGE_PX : e.key === 'ArrowDown' ? NUDGE_PX : 0;
+      if (dx !== 0 || dy !== 0) {
+        useEditorStore.setState(s => ({
+          nodes: s.nodes.map(n =>
+            n.selected ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n
+          ),
+          status: 'dirty',
+        }));
         e.preventDefault();
-        setSelectedNodes(new Set());
-        setFocusedNodeIndex(-1);
-        announceMessage('Deselected all nodes');
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    focusedNodeIndex,
-    nodes,
-    selectedNodes,
-    announceMessage,
-    setFocusedNodeIndex,
-    setSelectedNodes,
-    setNodes,
-  ]);
-
-  // Delete shortcuts (Delete, Backspace)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isDeleteKey = EDITOR_CONFIG.SHORTCUTS.DELETE.includes(e.key);
-
-      // Delete selected nodes
-      if (isDeleteKey && selectedNodes.size > 0 && !deleteConfirm.open) {
-        e.preventDefault();
-        setDeleteConfirm({ open: true, nodeIds: Array.from(selectedNodes) });
-      }
-
-      // Delete selected connection
-      if (
-        isDeleteKey &&
-        selectedConnection &&
-        !deleteConnectionConfirm.open &&
-        selectedNodes.size === 0
-      ) {
-        e.preventDefault();
-        setDeleteConnectionConfirm({ open: true, connectionId: selectedConnection });
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
-    selectedNodes,
-    selectedConnection,
-    deleteConfirm.open,
-    deleteConnectionConfirm.open,
-    setDeleteConfirm,
-    setDeleteConnectionConfirm,
-  ]);
-
-  // This hook doesn't return anything - it just sets up event listeners
-  return {};
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 }

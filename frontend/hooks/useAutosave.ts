@@ -1,303 +1,140 @@
-import type { Connection, WorkflowNode } from '@operari/shared';
-import { useCallback, useEffect, useRef, useState } from 'react';
+'use client';
 
-import { AUTOSAVE_DEBOUNCE_MS } from '../constants/timeouts';
-import { storageRead, storageWrite } from '../lib/storage-compat';
-import {
-  nodesToSpec,
-  type RunbookHeader,
-  RunbookYamlError,
-  specToYaml,
-} from '../utils/runbookYaml';
+import type { Connection as WorkflowConnection, WorkflowNode } from '@operari/shared';
+import { useEffect, useRef } from 'react';
+
+import { useEditorStore } from '@/state/editorStore';
+import { nodesToSpec, specToYaml } from '@/utils/runbookYaml';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const DEBOUNCE_MS = 1000;
+const LOCAL_KEY = (id: string) => `operari-workflow-${id}`;
+const LOCAL_TS_KEY = (id: string) => `operari-workflow-${id}-timestamp`;
 
-export type SaveStatus = 'saving' | 'saved' | 'error' | 'conflict';
+const writeLocalFallback = (
+  runbookId: string,
+  payload: { nodes: WorkflowNode[]; connections: WorkflowConnection[] }
+): void => {
+  try {
+    localStorage.setItem(
+      LOCAL_KEY(runbookId),
+      JSON.stringify({
+        nodes: payload.nodes,
+        connections: payload.connections,
+        version: '2',
+        lastModified: Date.now(),
+      })
+    );
+    localStorage.setItem(LOCAL_TS_KEY(runbookId), String(Date.now()));
+  } catch {
+    // Quota or unavailable storage — best-effort.
+  }
+};
 
-interface AutosaveOptions {
-  nodes: WorkflowNode[];
-  connections: Connection[];
-  runbookId: string;
-  /** When provided, autosave will first attempt the canonical YAML
-   * round-trip via PUT /api/runbooks/:id/yaml and only fall back to
-   * the legacy nodes/connections PUT if the YAML serialization or
-   * the YAML endpoint fails. Without it, autosave behaves exactly
-   * like the legacy implementation. */
-  runbookHeader?: RunbookHeader;
-  debounceMs?: number;
-}
+const tryYamlSave = async (
+  runbookId: string,
+  header: { name: string },
+  nodes: WorkflowNode[],
+  connections: WorkflowConnection[]
+): Promise<boolean> => {
+  try {
+    const spec = nodesToSpec(header, nodes, connections);
+    const yaml = specToYaml(spec);
+    const res = await fetch(`${API_BASE}/api/runbooks/${runbookId}/yaml`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ yaml }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
 
-interface WorkflowData {
-  nodes: WorkflowNode[];
-  connections: Connection[];
-  version: string;
-  timestamp: number;
-  runbookId: string;
-}
+const tryJsonSave = async (
+  runbookId: string,
+  payload: { nodes: WorkflowNode[]; connections: WorkflowConnection[] }
+): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE}/api/runbooks/${runbookId}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nodes: payload.nodes,
+        connections: payload.connections,
+        lastModified: Date.now(),
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
 
-export function useAutosave({
-  nodes,
-  connections,
-  runbookId,
-  runbookHeader,
-  debounceMs = AUTOSAVE_DEBOUNCE_MS,
-}: AutosaveOptions) {
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
-  const [enableAutosave, setEnableAutosave] = useState(true);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSavedTimestampRef = useRef<number>(0);
-  const isSavingRef = useRef(false);
+const checkConflict = async (runbookId: string, localSavedAt: number | null): Promise<boolean> => {
+  if (localSavedAt == null) return false;
+  try {
+    const res = await fetch(`${API_BASE}/api/runbooks/${runbookId}/metadata`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return false;
+    const meta = (await res.json()) as { lastModified?: number | string };
+    if (meta.lastModified == null) return false;
+    const remote =
+      typeof meta.lastModified === 'number'
+        ? meta.lastModified
+        : Date.parse(String(meta.lastModified));
+    return Number.isFinite(remote) && remote > localSavedAt;
+  } catch {
+    return false;
+  }
+};
 
-  const saveToLocalStorage = useCallback(
-    (data: WorkflowData) => {
-      try {
-        storageWrite(`operari-workflow-${runbookId}`, JSON.stringify(data));
-        storageWrite(`operari-workflow-${runbookId}-timestamp`, data.timestamp.toString());
-      } catch (error) {
-        console.error('Failed to save to localStorage:', error);
-      }
-    },
-    [runbookId]
-  );
+export function useAutosave() {
+  const runbookId = useEditorStore(s => s.runbookId);
+  const status = useEditorStore(s => s.status);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /**
-   * Try the canonical YAML save path first. Returns true on success,
-   * false if it should fall back to the legacy nodes/connections
-   * save (because nodesToSpec failed, or the YAML endpoint rejected
-   * the body, or the network call errored).
-   */
-  const saveYamlToBackend = useCallback(
-    async (data: WorkflowData): Promise<boolean> => {
-      if (!runbookHeader) return false;
-      try {
-        const spec = nodesToSpec(runbookHeader, data.nodes, data.connections);
-        const yamlBody = specToYaml(spec);
-        const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}/yaml`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ yaml: yamlBody }),
-        });
-        if (!response.ok) {
-          // 4xx is a real spec error — let it surface to the user
-          // (as a generic save error). 5xx might be transient.
-          console.warn('YAML save failed, will fall back to legacy', response.status);
-          return false;
-        }
-        return true;
-      } catch (err) {
-        if (err instanceof RunbookYamlError) {
-          console.warn('YAML serialization failed, falling back to legacy save:', err.message);
-        } else {
-          console.warn('YAML save error, falling back to legacy:', err);
-        }
-        return false;
-      }
-    },
-    [runbookHeader, runbookId]
-  );
+  useEffect(() => {
+    if (!runbookId) return;
+    if (status !== 'dirty') return;
 
-  const saveToBackend = useCallback(
-    async (data: WorkflowData): Promise<boolean> => {
-      // Try YAML first when a header is available — that path keeps
-      // the canonical RunbookSpec in sync on every save, so the YAML
-      // round-trip endpoint and any CLI/git consumer always sees a
-      // current snapshot. If it fails for any reason we fall through
-      // to the legacy nodes/connections save so we never lose data.
-      const yamlOk = await saveYamlToBackend(data);
-      if (yamlOk) {
-        lastSavedTimestampRef.current = data.timestamp;
-        return true;
-      }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(async () => {
+      const store = useEditorStore.getState();
+      if (store.runbookId !== runbookId || store.status !== 'dirty') return;
 
-      try {
-        const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            nodes: data.nodes,
-            connections: data.connections,
-            version: data.version,
-            lastModified: data.timestamp,
-          }),
-        });
-
-        if (!response.ok) {
-          if (response.status === 409) {
-            setSaveStatus('conflict');
-            return false;
-          }
-          const errorText = await response.text();
-          console.error('Backend save failed:', response.status, errorText);
-          throw new Error(`Failed to save to backend: ${response.status}`);
-        }
-
-        const result = await response.json();
-        lastSavedTimestampRef.current = result.timestamp || data.timestamp;
-        return true;
-      } catch (error) {
-        console.error('Backend save error:', error);
-        return false;
-      }
-    },
-    [runbookId, saveYamlToBackend]
-  );
-
-  const checkForConflicts = useCallback(async (): Promise<boolean> => {
-    try {
-      const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}/metadata`);
-
-      // If it's the scratchpad and doesn't exist yet, there's no conflict.
-      if (response.status === 404 && runbookId === 'current-workflow') {
-        return false;
-      }
-
-      if (!response.ok) return false;
-
-      const metadata = await response.json();
-      const serverTimestamp = metadata.lastModified || 0;
-
-      if (lastSavedTimestampRef.current > 0 && serverTimestamp > lastSavedTimestampRef.current) {
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Conflict check error:', error);
-      // If we can't check for conflicts (e.g. network error), we assume no conflict to try to save
-      return false;
-    }
-  }, [runbookId]);
-
-  const performSave = useCallback(async () => {
-    if (isSavingRef.current || !enableAutosave) return;
-
-    isSavingRef.current = true;
-    setSaveStatus('saving');
-
-    const workflowData: WorkflowData = {
-      nodes,
-      connections,
-      version: '1.0',
-      timestamp: Date.now(),
-      runbookId,
-    };
-
-    saveToLocalStorage(workflowData);
-
-    if (navigator.onLine) {
-      const hasConflict = await checkForConflicts();
-
-      if (hasConflict) {
-        setSaveStatus('conflict');
-        isSavingRef.current = false;
+      const conflict = await checkConflict(runbookId, store.savedAt);
+      if (conflict) {
+        store.setStatus(
+          'conflict',
+          'Remote runbook was modified after you loaded it — refresh to merge.'
+        );
         return;
       }
 
-      const success = await saveToBackend(workflowData);
-      setSaveStatus(success ? 'saved' : 'error');
-    } else {
-      setSaveStatus('saved');
-    }
+      const payload = store.getRunbookPayload();
+      const header = store.runbookHeader;
+      store.setStatus('saving');
 
-    isSavingRef.current = false;
-  }, [
-    nodes,
-    connections,
-    runbookId,
-    enableAutosave,
-    saveToLocalStorage,
-    saveToBackend,
-    checkForConflicts,
-  ]);
+      let ok = false;
+      if (header) {
+        ok = await tryYamlSave(runbookId, header, payload.nodes, payload.connections);
+      }
+      if (!ok) ok = await tryJsonSave(runbookId, payload);
 
-  useEffect(() => {
-    if (!enableAutosave) {
-      setSaveStatus('saved');
-      return;
-    }
-
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-
-    debounceTimerRef.current = setTimeout(() => {
-      performSave();
-    }, debounceMs);
+      if (ok) {
+        store.markSaved();
+      } else {
+        writeLocalFallback(runbookId, payload);
+        store.setStatus('error', 'Save failed; kept a local copy. Will retry on the next change.');
+      }
+    }, DEBOUNCE_MS);
 
     return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [nodes, connections, enableAutosave, debounceMs, performSave]);
-
-  useEffect(() => {
-    const handleOnline = () => {
-      if (enableAutosave && saveStatus === 'error') {
-        performSave();
-      }
-    };
-
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, [enableAutosave, saveStatus, performSave]);
-
-  useEffect(() => {
-    const savedPreference = storageRead('operari-autosave-enabled');
-    if (savedPreference !== null) {
-      setEnableAutosave(savedPreference === 'true');
-    }
-  }, []);
-
-  useEffect(() => {
-    storageWrite('operari-autosave-enabled', enableAutosave.toString());
-  }, [enableAutosave]);
-
-  /**
-   * Force-save current state, ignoring any conflict. Called by the UI
-   * when the user explicitly chooses "overwrite server version" after
-   * a conflict is detected. Resets the conflict status so autosave
-   * resumes normally.
-   */
-  const forceOverwrite = useCallback(async () => {
-    if (isSavingRef.current) return;
-    isSavingRef.current = true;
-    setSaveStatus('saving');
-
-    // Reset the timestamp so the conflict check won't fire again
-    lastSavedTimestampRef.current = 0;
-
-    const workflowData: WorkflowData = {
-      nodes,
-      connections,
-      version: '1.0',
-      timestamp: Date.now(),
-      runbookId,
-    };
-
-    saveToLocalStorage(workflowData);
-
-    const success = await saveToBackend(workflowData);
-    setSaveStatus(success ? 'saved' : 'error');
-    isSavingRef.current = false;
-  }, [nodes, connections, runbookId, saveToLocalStorage, saveToBackend]);
-
-  /**
-   * Discard local changes and reload from server. Called when the
-   * user chooses "use server version" after a conflict.
-   */
-  const discardLocal = useCallback(() => {
-    setSaveStatus('saved');
-    lastSavedTimestampRef.current = 0;
-    // The caller (EditorCanvas) should re-fetch the workflow
-  }, []);
-
-  return {
-    saveStatus,
-    enableAutosave,
-    setEnableAutosave,
-    forceOverwrite,
-    discardLocal,
-  };
+  }, [runbookId, status]);
 }
