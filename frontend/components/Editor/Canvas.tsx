@@ -40,6 +40,7 @@ import {
 import Inspector from './Inspector';
 import { nodeTypes } from './canvas/nodeTypes';
 import Palette from './Palette';
+import SearchPalette from './SearchPalette';
 import Toolbar from './Toolbar';
 import UndoRedoPanel from './UndoRedoPanel';
 import ZoomToRunning from './ZoomToRunning';
@@ -168,6 +169,26 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
     position: { x: number; y: number };
   } | null>(null);
 
+  // Cmd+K opens the search palette. Bound here (not in
+  // useEditorKeyboard) because the open/close state is local to the
+  // canvas component. Skip when an input field is focused so the
+  // shortcut doesn't fight inline name edits.
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    if (embedMode) return;
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName ?? '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setSearchOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [embedMode]);
+
   useEffect(() => {
     if (!edgeMenu) return;
     const close = () => setEdgeMenu(null);
@@ -272,6 +293,9 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         {!embedMode ? <UndoRedoPanel lang={lang} /> : null}
         {!embedMode ? (
           <Toolbar lang={lang} lineStyle={lineStyle} onLineStyleToggle={toggleLineStyle} />
+        ) : null}
+        {!embedMode ? (
+          <SearchPalette lang={lang} open={searchOpen} onClose={() => setSearchOpen(false)} />
         ) : null}
         <ZoomToRunning lang={lang} />
         <Controls showInteractive={!embedMode} />

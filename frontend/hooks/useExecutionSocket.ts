@@ -53,6 +53,9 @@ export function useExecutionSocket(executionId: string | null) {
       const store = useEditorStore.getState();
       const node = store.nodes.find(n => n.id === event.nodeId);
       if (!node) return;
+      // First running event during this run kicks the canvas into
+      // trace mode so untouched steps dim while the run unfolds.
+      if (mapped === 'running' && !store.traceMode) store.setTraceMode(true);
 
       // Track timing so the duration footer can show "ran 2.1s" or
       // "running 4s…". Wall-clock from `event.timestamp` if parseable,
@@ -89,7 +92,9 @@ export function useExecutionSocket(executionId: string | null) {
     const handleExecutionStatus = (event: ExecutionStatusEvent) => {
       // When the run terminates, clear `running` flags so the canvas
       // returns to a static state instead of leaving an orb stuck on
-      // the last in-flight edge.
+      // the last in-flight edge. Also drops the trace dim so the
+      // operator can keep editing without the post-run nodes feeling
+      // grayed-out.
       if (event.status === 'RUNNING' || event.status === 'PAUSED') return;
       const store = useEditorStore.getState();
       for (const node of store.nodes) {
@@ -102,6 +107,7 @@ export function useExecutionSocket(executionId: string | null) {
           store.updateEdgeData(edge.id, { status: 'idle' });
         }
       }
+      store.setTraceMode(false);
     };
 
     socket.on('node_status', applyNodeStatus);

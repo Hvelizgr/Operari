@@ -7,6 +7,7 @@ import { memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'reac
 
 import { useNextInPath } from '@/hooks/useNextInPath';
 import type { RfNode } from '@/lib/canvas/adapter';
+import { useEditorStore } from '@/state/editorStore';
 
 import { NODE_CATALOG } from '../catalog';
 import { NodeContextToolbar } from '../NodeContextToolbar';
@@ -69,6 +70,13 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   const expectedOutputs = outputs.length;
   const status: Status = data.status ?? 'idle';
   const isNextInPath = useNextInPath(id);
+  // Trace dim: when a run is live, steps that never ran (still idle)
+  // fade to the background so the operator's eye lands on the path
+  // that actually executed. The single store-level `traceMode` flag
+  // is cheaper than recomputing "is any node running" inside every
+  // node component.
+  const traceMode = useEditorStore(s => s.traceMode);
+  const traceDim = traceMode && status === 'idle';
 
   // Per-node connection counts. `useNodeConnections` is reactive — adds
   // / removes update without re-rendering the whole canvas.
@@ -172,8 +180,9 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
           if (transitionKind != null) setTransitionKind(null);
         }}
         className={[
-          'rb-node group relative min-w-[240px] overflow-hidden rounded-lg border text-[color:var(--rb-node-text)] shadow-lg transition-[transform,box-shadow,border-color] duration-150',
+          'rb-node group relative min-w-[240px] overflow-hidden rounded-lg border text-[color:var(--rb-node-text)] shadow-lg transition-[transform,box-shadow,border-color,opacity] duration-150',
           enabled ? '' : 'rb-disabled-stripes opacity-80',
+          traceDim ? 'opacity-30' : '',
         ].join(' ')}
         style={{
           background: 'var(--rb-node-bg)',

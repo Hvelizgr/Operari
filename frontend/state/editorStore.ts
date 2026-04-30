@@ -38,6 +38,11 @@ type State = {
   status: SaveStatus;
   savedAt: number | null;
   errorMessage: string | null;
+  /** True only while a run is in flight. Set on the first `running`
+   *  node_status event, cleared on the terminal execution_status.
+   *  Drives "trace highlighting" — non-traced steps dim to 30% so the
+   *  operator's eye lands on the executed path. */
+  traceMode: boolean;
 };
 
 type Actions = {
@@ -64,6 +69,7 @@ type Actions = {
   ) => void;
   setRunbookHeader: (patch: Partial<RunbookHeader>) => void;
   setRunbookInputs: (next: RunbookInputDefinition[]) => void;
+  setTraceMode: (active: boolean) => void;
   setStatus: (status: SaveStatus, errorMessage?: string | null) => void;
   markSaved: (savedAt?: number) => void;
   getRunbookPayload: () => { nodes: WorkflowNode[]; connections: WorkflowConnection[] };
@@ -81,6 +87,7 @@ const initialState: State = {
   status: 'idle',
   savedAt: null,
   errorMessage: null,
+  traceMode: false,
 };
 
 export const useEditorStore = create<EditorState>()(
@@ -202,6 +209,8 @@ export const useEditorStore = create<EditorState>()(
         })),
 
       setRunbookInputs: next => set({ runbookInputs: next }),
+
+      setTraceMode: active => set({ traceMode: active }),
 
       setStatus: (status, errorMessage = null) => set({ status, errorMessage }),
 
