@@ -6,27 +6,34 @@ import {
   Bug,
   CalendarClock,
   CheckCircle2,
+  Download,
   FileCode,
   Loader2,
   Moon,
   Play,
+  Route,
   Sparkles,
+  Spline,
   Sun,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
+import { usePngExport } from '@/hooks/usePngExport';
 import { useWorkflowExecution, type ExecuteWorkflowResult } from '@/hooks/useWorkflowExecution';
 import { rfToWorkflow } from '@/lib/canvas/adapter';
 import { useEditorStore } from '@/state/editorStore';
 
 import RunDialog, { type DialogRunResult } from '../Runbook/RunDialog';
 import ScheduleDialog from '../Runbook/ScheduleDialog';
+import type { LineStyle } from './canvas/edgeTypes';
 import YamlViewModal from './YamlViewModal';
 
 interface ToolbarProps {
   lang: 'en' | 'es';
+  lineStyle: LineStyle;
+  onLineStyleToggle: () => void;
 }
 
 type Dialog = 'run' | 'debug' | 'schedule' | 'yaml' | null;
@@ -47,7 +54,7 @@ const mapResult = (result: ExecuteWorkflowResult | undefined): DialogRunResult =
   return { status: 'error', message: result.message };
 };
 
-export default function Toolbar({ lang }: ToolbarProps) {
+export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarProps) {
   const router = useRouter();
   const { theme, cycleTheme } = useTheme();
 
@@ -62,6 +69,7 @@ export default function Toolbar({ lang }: ToolbarProps) {
   const hydrateFromWorkflow = useEditorStore(s => s.hydrateFromWorkflow);
 
   const { executing, executeWorkflow } = useWorkflowExecution(runbookId);
+  const { exportPng, exporting: exportingPng } = usePngExport();
 
   const [dialog, setDialog] = useState<Dialog>(null);
   const [editingName, setEditingName] = useState(false);
@@ -80,6 +88,8 @@ export default function Toolbar({ lang }: ToolbarProps) {
           schedule: 'Programar',
           theme: 'Tema',
           yaml: 'Ver YAML',
+          png: 'Exportar PNG',
+          lineStyle: lineStyle === 'smart' ? 'Aristas curvas' : 'Aristas ortogonales',
           missingId: 'Guardá el runbook antes de ejecutar.',
           launching: 'Iniciando…',
           untitled: 'Sin título',
@@ -91,6 +101,8 @@ export default function Toolbar({ lang }: ToolbarProps) {
           schedule: 'Schedule',
           theme: 'Theme',
           yaml: 'View YAML',
+          png: 'Export PNG',
+          lineStyle: lineStyle === 'smart' ? 'Curved edges' : 'Step edges',
           missingId: 'Save the runbook before running.',
           launching: 'Launching…',
           untitled: 'Untitled',
@@ -274,6 +286,25 @@ export default function Toolbar({ lang }: ToolbarProps) {
           className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
         >
           <FileCode size={14} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => exportPng(`${header?.slug || header?.name || 'runbook'}.png`)}
+          disabled={exportingPng}
+          title={t.png}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {exportingPng ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+        </button>
+
+        <button
+          type="button"
+          onClick={onLineStyleToggle}
+          title={t.lineStyle}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
+        >
+          {lineStyle === 'smart' ? <Spline size={14} /> : <Route size={14} />}
         </button>
 
         <button

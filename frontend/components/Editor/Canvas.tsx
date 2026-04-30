@@ -12,7 +12,7 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
 import { useAutoParent } from '@/hooks/useAutoParent';
@@ -30,15 +30,19 @@ import { defaultConfigForType, NODE_CATALOG } from './canvas/catalog';
 import { dragChannel } from './canvas/dragChannel';
 import { ConnectionLine } from './canvas/edges/ConnectionLine';
 import { EdgeContextMenu } from './canvas/edges/EdgeContextMenu';
-import { DEFAULT_EDGE_TYPE, edgeTypes } from './canvas/edgeTypes';
+import {
+  DEFAULT_EDGE_TYPE,
+  edgeTypes,
+  type LineStyle,
+  readLineStyle,
+  writeLineStyle,
+} from './canvas/edgeTypes';
 import Inspector from './Inspector';
 import { nodeTypes } from './canvas/nodeTypes';
 import Palette from './Palette';
 import Toolbar from './Toolbar';
 import UndoRedoPanel from './UndoRedoPanel';
 import ZoomToRunning from './ZoomToRunning';
-
-const DEFAULT_EDGE_OPTIONS = { type: DEFAULT_EDGE_TYPE } as const;
 
 // MiniMap colors mirror the in-canvas status palette so the operator
 // scanning a 100-step runbook can see at a glance which steps are
@@ -65,9 +69,36 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   const params = useSearchParams();
   const runbookId = params.get('id');
   const executionId = params.get('run');
+  // Read-only embed mode: dashboards / Slack snapshots load with
+  // ?embed=1 and never get edit chrome. Single boolean drives chrome
+  // visibility + RF interaction props so the contract is one read.
+  const embedMode = params.get('embed') === '1';
+
+  // Line style preference (curved vs orthogonal). Persisted in
+  // localStorage because it's a "how I like to read graphs" preference,
+  // not a property of the runbook.
+  const [lineStyle, setLineStyle] = useState<LineStyle>(DEFAULT_EDGE_TYPE);
+  useEffect(() => {
+    setLineStyle(readLineStyle());
+  }, []);
+  const toggleLineStyle = useCallback(() => {
+    setLineStyle(prev => {
+      const next: LineStyle = prev === 'smart' ? 'step' : 'smart';
+      writeLineStyle(next);
+      return next;
+    });
+  }, []);
+  const defaultEdgeOptions = useMemo(() => ({ type: lineStyle }), [lineStyle]);
 
   const nodes = useEditorStore(s => s.nodes);
-  const edges = useEditorStore(s => s.edges);
+  const storedEdges = useEditorStore(s => s.edges);
+  // Override every edge's type with the user's preferred line style so
+  // the toggle applies retroactively to existing edges (the persisted
+  // shape always says `smart`; rendering is a presentation concern).
+  const edges = useMemo(
+    () => storedEdges.map(e => (e.type === lineStyle ? e : { ...e, type: lineStyle })),
+    [storedEdges, lineStyle]
+  );
   const onNodesChange = useEditorStore(s => s.onNodesChange);
   const onEdgesChange = useEditorStore(s => s.onEdgesChange);
   const onConnect = useEditorStore(s => s.onConnect);
@@ -187,14 +218,14 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
 
   return (
     <div className="relative h-full w-full" onDragOver={handleDragOver} onDrop={handleDrop}>
-      <Palette lang={lang} />
+      {!embedMode ? <Palette lang={lang} /> : null}
       <ReactFlow<RfNode, RfEdge>
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         colorMode={colorMode}
-        defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
+        defaultEdgeOptions={defaultEdgeOptions}
         connectionLineComponent={ConnectionLine}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
@@ -205,14 +236,20 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         onNodeDragStart={handleNodeDragStart}
         onNodeDragStop={handleNodeDragStop}
         onNodesDelete={handleNodesDelete}
-        onEdgeContextMenu={handleEdgeContextMenu}
+        onEdgeContextMenu={embedMode ? undefined : handleEdgeContextMenu}
         isValidConnection={isValidConnection}
-        snapToGrid
+        snapToGrid={!embedMode}
         snapGrid={[20, 20]}
-        selectionOnDrag
-        panOnDrag={[1, 2]}
+        selectionOnDrag={!embedMode}
+        panOnDrag={embedMode ? true : [1, 2]}
         multiSelectionKeyCode="Shift"
-        deleteKeyCode={['Delete', 'Backspace']}
+        deleteKeyCode={embedMode ? null : ['Delete', 'Backspace']}
+        nodesDraggable={!embedMode}
+        nodesConnectable={!embedMode}
+        elementsSelectable={!embedMode}
+        edgesFocusable={!embedMode}
+        nodesFocusable={!embedMode}
+        zoomOnDoubleClick={!embedMode}
       >
         {/* Layered background: a coarse line grid for orientation and a
             fine dot grid on top so step alignment reads cleanly at any
@@ -232,13 +269,15 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
           size={1}
           color="color-mix(in oklab, var(--op-moss) 18%, transparent)"
         />
-        <UndoRedoPanel lang={lang} />
-        <Toolbar lang={lang} />
+        {!embedMode ? <UndoRedoPanel lang={lang} /> : null}
+        {!embedMode ? (
+          <Toolbar lang={lang} lineStyle={lineStyle} onLineStyleToggle={toggleLineStyle} />
+        ) : null}
         <ZoomToRunning lang={lang} />
-        <Controls />
+        <Controls showInteractive={!embedMode} />
         <MiniMap pannable zoomable nodeColor={MINIMAP_COLOR} />
       </ReactFlow>
-      {edgeMenu ? (
+      {edgeMenu && !embedMode ? (
         <EdgeContextMenu
           edgeId={edgeMenu.edgeId}
           position={edgeMenu.position}
@@ -246,7 +285,7 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
           onClose={() => setEdgeMenu(null)}
         />
       ) : null}
-      <Inspector lang={lang} />
+      {!embedMode ? <Inspector lang={lang} /> : null}
     </div>
   );
 }
