@@ -10,17 +10,23 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 
 ### 🟡 Plugin loader: tenant-scoped runtime
 
-**Estado:** schema listo (commit `f33efd4`), upsert acepta `tenantId`. **Falta:** la mitad del runtime — cómo carga + ejecuta un plugin que sólo debería existir para un tenant específico.
+**Estado:** decidido y shipped. Schema (`f33efd4`) + scoped upsert + dispatcher tenant-scoped routing (commit pending).
 
-**Bloqueo de diseño** (no decidido):
+**Decisión: opción B (in-process filter)** documentada en [`docs/adr/0006-plugin-runtime-tenant-isolation.md`](docs/adr/0006-plugin-runtime-tenant-isolation.md).
 
-- Opción A — worker pool per tenant: cada tenant tiene su propio proceso Node con su `OPERARI_PLUGINS_DIR/<tenant-id>/`. Aislamiento real, costo por tenant.
-- Opción B — in-process registry filter: el dispatcher rechaza ejecutar un plugin si `webhook.tenantId !== executorRegistry[type].tenantId`. Sin aislamiento real, pero rápido de implementar.
-- Opción C — VM2 / isolated-vm: plugins corren en un V8 isolate con un registry compartido. Aislamiento intermedio.
+**Lo que shipeó:**
 
-**Lift estimado tras decidir:** 1-2 semanas. Incluye endpoint `POST /api/tenants/plugins` (tarball o manifest), tests de aislamiento, UI de install en Settings.
+- `StepExecutor` interface gana `readonly tenantId?: string`
+- Loader scanea `OPERARI_PLUGINS_DIR/tenants/<tenant-id>/<plugin>/` además del top-level
+- Registry usa key compuesta: `${tenantId}::${type}` para tenant-scoped, `${type}` para globales
+- Dispatcher hace lookup tenant-scoped primero, fallback a global; cross-tenant rechazado con `NODE_NOT_FOUND`
+- `upsertPluginNodeTypes` se llama una vez por tenant + una vez para globales
+- Reserved types siguen aplicando (un plugin tenant-scoped no puede claim `shell`)
 
-**Por qué no entró:** sin runtime aislado, un endpoint de install sería UX falso — el catálogo mostraría el step pero el runtime fallaría. Mejor diferir hasta tener decisión de sandboxing.
+**Pendiente para production multi-tenant** (no para self-host):
+
+- Endpoint `POST /api/tenants/plugins/install` con tarball upload (UX, no runtime — runtime ya funciona)
+- Opción A (worker pool) como escape hatch via `OPERARI_PLUGIN_ISOLATION=worker` env (~1 semana cuando cloud beta lo necesite — el ADR documenta el path)
 
 ---
 

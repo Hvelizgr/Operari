@@ -311,6 +311,161 @@ describe('NodeExecutor dispatcher (ADR 0002 step 5)', () => {
       ]);
     });
 
+    it('routes to a tenant-scoped plugin when the run tenant matches (ADR 0006)', async () => {
+      const inst = new NodeExecutor();
+      const calls: string[] = [];
+      // Inject a tenant-scoped executor via the registry the
+      // constructor built. Tests poking private state on this class
+      // is the existing pattern (see other cases in this file); we
+      // accept the type-cast for now.
+      (inst as unknown as { registry: Map<string, unknown> }).registry.set('tenant-A::acme.foo', {
+        type: 'acme.foo',
+        tenantId: 'tenant-A',
+        execute: async () => {
+          calls.push('A');
+          return { success: true, output: { who: 'tenant-A' } };
+        },
+      });
+
+      const result = await inst.execute(
+        {
+          id: 'n-1',
+          type: 'acme.foo',
+          title: 'Acme',
+          position: { x: 0, y: 0 },
+          config: {},
+        },
+        {},
+        'tenant-A',
+        'run-1'
+      );
+
+      // The dispatcher returns the executor's `output` payload, not
+      // its raw `{ success, output }` envelope (see execute() at
+      // node-executor.service.ts ~ line 359).
+      expect(result).toEqual({ who: 'tenant-A' });
+      expect(calls).toEqual(['A']);
+    });
+
+    it('rejects a cross-tenant invocation with NODE_NOT_FOUND', async () => {
+      const inst = new NodeExecutor();
+      (inst as unknown as { registry: Map<string, unknown> }).registry.set('tenant-A::acme.foo', {
+        type: 'acme.foo',
+        tenantId: 'tenant-A',
+        execute: async () => ({ success: true }),
+      });
+
+      await expect(
+        inst.execute(
+          {
+            id: 'n-1',
+            type: 'acme.foo',
+            title: 'Acme',
+            position: { x: 0, y: 0 },
+            config: {},
+          },
+          {},
+          'tenant-B',
+          'run-2'
+        )
+      ).rejects.toThrow(NodeExecutionError);
+
+      try {
+        await inst.execute(
+          {
+            id: 'n-1',
+            type: 'acme.foo',
+            title: 'Acme',
+            position: { x: 0, y: 0 },
+            config: {},
+          },
+          {},
+          'tenant-B',
+          'run-3'
+        );
+      } catch (err) {
+        expect((err as NodeExecutionError).code).toBe(ErrorCode.NODE_NOT_FOUND);
+      }
+    });
+
+    it('falls back to a global executor when no tenant-scoped one exists for the type', async () => {
+      const inst = new NodeExecutor();
+      const calls: string[] = [];
+      (inst as unknown as { registry: Map<string, unknown> }).registry.set('acme.shared', {
+        type: 'acme.shared',
+        // tenantId intentionally undefined → global
+        execute: async () => {
+          calls.push('global');
+          return { success: true };
+        },
+      });
+
+      const result = await inst.execute(
+        {
+          id: 'n-1',
+          type: 'acme.shared',
+          title: 'Shared',
+          position: { x: 0, y: 0 },
+          config: {},
+        },
+        {},
+        'tenant-X',
+        'run-4'
+      );
+
+      expect(result.success).toBe(true);
+      expect(calls).toEqual(['global']);
+    });
+
+    it('a tenant-scoped executor shadows a global with the same type for that tenant', async () => {
+      const inst = new NodeExecutor();
+      const calls: string[] = [];
+      (inst as unknown as { registry: Map<string, unknown> }).registry.set('acme.both', {
+        type: 'acme.both',
+        execute: async () => {
+          calls.push('global');
+          return { success: true };
+        },
+      });
+      (inst as unknown as { registry: Map<string, unknown> }).registry.set('tenant-A::acme.both', {
+        type: 'acme.both',
+        tenantId: 'tenant-A',
+        execute: async () => {
+          calls.push('A');
+          return { success: true };
+        },
+      });
+
+      // Tenant A → tenant-scoped wins
+      await inst.execute(
+        {
+          id: 'n-1',
+          type: 'acme.both',
+          title: 'Both',
+          position: { x: 0, y: 0 },
+          config: {},
+        },
+        {},
+        'tenant-A',
+        'run-5'
+      );
+      // Tenant B → global wins (no scoped match)
+      await inst.execute(
+        {
+          id: 'n-2',
+          type: 'acme.both',
+          title: 'Both',
+          position: { x: 0, y: 0 },
+          config: {},
+        },
+        {},
+        'tenant-B',
+        'run-6'
+      );
+
+      expect(calls).toEqual(['A', 'global']);
+    });
+
     it('does not invoke the resolver when the config has no secret references', async () => {
       const stub = {
         resolve: jest.fn(),

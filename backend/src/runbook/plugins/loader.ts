@@ -70,6 +70,13 @@ interface PluginManifest {
 export interface PluginNodeMetadata {
   type: string;
   source: string;
+  /**
+   * Tenant scope for this plugin. `undefined` means global (loaded
+   * from the top-level OPERARI_PLUGINS_DIR). A string scopes the
+   * plugin to one tenant — discovered under
+   * `OPERARI_PLUGINS_DIR/tenants/<tenant-id>/<plugin>/` per ADR 0006.
+   */
+  tenantId?: string;
   label?: unknown;
   description?: unknown;
   icon?: string;
@@ -82,6 +89,14 @@ export interface PluginNodeMetadata {
 
 interface LoadedPlugin {
   type: string;
+  /**
+   * Tenant ownership for this plugin. `undefined` means global. Set
+   * to a tenant id when the plugin lives under
+   * `OPERARI_PLUGINS_DIR/tenants/<tenant-id>/`. The value flows to the
+   * StepExecutor so the dispatcher can reject cross-tenant invocation
+   * (see ADR 0006).
+   */
+  tenantId?: string;
   schema: { parse: (input: unknown) => unknown };
   execute: (config: unknown, context: PluginContextLike) => Promise<PluginResultLike>;
   source: string;
@@ -209,7 +224,8 @@ function readOperariJson(pluginDir: string): OperariJsonManifest | null {
 function loadPythonDescriptor(
   pluginDir: string,
   pluginName: string,
-  manifest: OperariJsonManifest
+  manifest: OperariJsonManifest,
+  tenantId?: string
 ): LoadedPlugin | null {
   const resolvedEntry = path.resolve(pluginDir, manifest.entry);
   if (!fs.existsSync(resolvedEntry)) {
@@ -242,10 +258,12 @@ function loadPythonDescriptor(
     inputs: Array.isArray(manifest.inputs) ? manifest.inputs : undefined,
     outputs: Array.isArray(manifest.outputs) ? manifest.outputs : undefined,
     properties: Array.isArray(manifest.properties) ? manifest.properties : undefined,
+    tenantId,
   };
 
   return {
     type: manifest.type,
+    tenantId,
     // Schema is a passthrough — the Python runtime validates and
     // emits an `error` in the RESULT line if the config is bad.
     schema: { parse: (input: unknown) => input },
@@ -263,7 +281,11 @@ function loadPythonDescriptor(
   };
 }
 
-function loadDescriptor(manifest: PluginManifest, entry: string): LoadedPlugin | null {
+function loadDescriptor(
+  manifest: PluginManifest,
+  entry: string,
+  tenantId?: string
+): LoadedPlugin | null {
   const resolved = path.resolve(manifest.pluginDir, entry);
   if (!fs.existsSync(resolved)) {
     logger.warn({
@@ -342,10 +364,12 @@ function loadDescriptor(manifest: PluginManifest, entry: string): LoadedPlugin |
     inputs: Array.isArray(descriptor.inputs) ? descriptor.inputs : undefined,
     outputs: Array.isArray(descriptor.outputs) ? descriptor.outputs : undefined,
     properties: Array.isArray(descriptor.properties) ? descriptor.properties : undefined,
+    tenantId,
   };
 
   return {
     type: descriptor.type,
+    tenantId,
     schema: descriptor.configSchema,
     execute: descriptor.execute,
     source,
@@ -361,6 +385,7 @@ function loadDescriptor(manifest: PluginManifest, entry: string): LoadedPlugin |
 function adaptToExecutor(plugin: LoadedPlugin): StepExecutor {
   return {
     type: plugin.type,
+    tenantId: plugin.tenantId,
     async execute(config: unknown, context: ExecutorContext): Promise<ExecutorResult> {
       const startTime = Date.now();
       let parsed: unknown;
@@ -429,6 +454,88 @@ export interface LoadPluginsResult {
   skipped: string[];
 }
 
+/**
+ * Load one plugin directory. Handles both the operari.json (Python)
+ * and the package.json + operari.steps (Node) discovery paths. Tagged
+ * with `tenantId` (undefined for globals) so the resulting executor
+ * knows which tenant scope owns it — the dispatcher reads that field
+ * and rejects cross-tenant invocation per ADR 0006.
+ */
+function loadOnePluginDir(
+  pluginDir: string,
+  tenantId: string | undefined,
+  claimedKeys: Set<string>,
+  dupKey: (tenantId: string | undefined, type: string) => string,
+  result: LoadPluginsResult
+): void {
+  const pluginName = path.basename(pluginDir);
+  const tenantTag = tenantId ? `[tenant=${tenantId}] ` : '';
+
+  // Python (or any non-Node) plugin path: a standalone operari.json
+  // declares language + entry + visual metadata. Read it first so a
+  // directory that has BOTH operari.json and package.json picks the
+  // explicit operari.json declaration.
+  const operariJson = readOperariJson(pluginDir);
+  if (operariJson) {
+    const language = operariJson.language ?? 'node';
+    if (language === 'python') {
+      const loaded = loadPythonDescriptor(pluginDir, pluginName, operariJson, tenantId);
+      if (!loaded) {
+        result.skipped.push(`${tenantTag}${pluginName}:${operariJson.entry}`);
+        return;
+      }
+      const key = dupKey(tenantId, loaded.type);
+      if (claimedKeys.has(key)) {
+        logger.warn({
+          plugin: pluginName,
+          tenantId,
+          type: loaded.type,
+          msg: 'plugin_loader: type already registered for this scope — plugin skipped',
+        });
+        result.skipped.push(`${tenantTag}${pluginName}:${operariJson.entry} (dup:${loaded.type})`);
+        return;
+      }
+      claimedKeys.add(key);
+      result.executors.push(adaptToExecutor(loaded));
+      result.manifests.push(loaded.metadata);
+      result.loaded.push(`${tenantTag}${pluginName}:${loaded.type}`);
+      return;
+    }
+    // Future: language === 'node' via operari.json. For now fall
+    // through to the legacy package.json path below — if the plugin
+    // only has operari.json (no package.json), we skip.
+  }
+
+  const manifest = readManifest(pluginDir);
+  if (!manifest) {
+    result.skipped.push(`${tenantTag}${pluginName}`);
+    return;
+  }
+
+  for (const entry of manifest.entries) {
+    const loaded = loadDescriptor(manifest, entry, tenantId);
+    if (!loaded) {
+      result.skipped.push(`${tenantTag}${manifest.name}:${entry}`);
+      continue;
+    }
+    const key = dupKey(tenantId, loaded.type);
+    if (claimedKeys.has(key)) {
+      logger.warn({
+        plugin: manifest.name,
+        tenantId,
+        type: loaded.type,
+        msg: 'plugin_loader: type already registered for this scope — plugin skipped',
+      });
+      result.skipped.push(`${tenantTag}${manifest.name}:${entry} (dup:${loaded.type})`);
+      continue;
+    }
+    claimedKeys.add(key);
+    result.executors.push(adaptToExecutor(loaded));
+    result.manifests.push(loaded.metadata);
+    result.loaded.push(`${tenantTag}${manifest.name}:${loaded.type}`);
+  }
+}
+
 export function loadPluginsSync(options: LoadPluginsOptions = {}): LoadPluginsResult {
   const dir = options.pluginsDir ?? process.env.OPERARI_PLUGINS_DIR;
   const result: LoadPluginsResult = { executors: [], manifests: [], loaded: [], skipped: [] };
@@ -445,74 +552,54 @@ export function loadPluginsSync(options: LoadPluginsOptions = {}): LoadPluginsRe
     return result;
   }
 
-  const entries = fs
-    .readdirSync(dir, { withFileTypes: true })
-    .filter(e => e.isDirectory())
-    .map(e => path.join(dir, e.name));
+  // Composite (tenantId, type) so a tenant-scoped plugin and a global
+  // plugin can both claim `acme.foo` without colliding. Built-in types
+  // from registeredTypes are global, so they're prefixed with the
+  // global sentinel. The reserved-type guard (`shell`, `operari.*`)
+  // still kicks in earlier in the load path so a tenant can't claim
+  // those even via shadowing.
+  const dupKey = (tenantId: string | undefined, type: string): string =>
+    `${tenantId ?? '__global__'}::${type}`;
+  const claimedKeys = new Set<string>();
+  for (const t of options.registeredTypes ?? []) {
+    claimedKeys.add(dupKey(undefined, t));
+  }
 
-  const claimedTypes = new Set<string>(options.registeredTypes ?? []);
+  const topLevelEntries = fs.readdirSync(dir, { withFileTypes: true }).filter(e => e.isDirectory());
 
-  for (const pluginDir of entries) {
-    const pluginName = path.basename(pluginDir);
+  // Two-pass scan: globals at the top level, then tenant-scoped under
+  // <dir>/tenants/<tenant-id>/<plugin>/. The "tenants" directory name
+  // is reserved — a global plugin can't be named "tenants" (the loader
+  // treats that path as the multi-tenant namespace).
+  const globalPluginDirs: string[] = [];
+  let tenantsRoot: string | null = null;
 
-    // Python (or any non-Node) plugin path: a standalone operari.json
-    // declares language + entry + visual metadata. Read it first so a
-    // directory that has BOTH operari.json and package.json picks the
-    // explicit operari.json declaration.
-    const operariJson = readOperariJson(pluginDir);
-    if (operariJson) {
-      const language = operariJson.language ?? 'node';
-      if (language === 'python') {
-        const loaded = loadPythonDescriptor(pluginDir, pluginName, operariJson);
-        if (!loaded) {
-          result.skipped.push(`${pluginName}:${operariJson.entry}`);
-          continue;
-        }
-        if (claimedTypes.has(loaded.type)) {
-          logger.warn({
-            plugin: pluginName,
-            type: loaded.type,
-            msg: 'plugin_loader: type already registered — plugin skipped',
-          });
-          result.skipped.push(`${pluginName}:${operariJson.entry} (dup:${loaded.type})`);
-          continue;
-        }
-        claimedTypes.add(loaded.type);
-        result.executors.push(adaptToExecutor(loaded));
-        result.manifests.push(loaded.metadata);
-        result.loaded.push(`${pluginName}:${loaded.type}`);
-        continue;
-      }
-      // Future: language === 'node' via operari.json. For now fall
-      // through to the legacy package.json path below — if the
-      // plugin only has operari.json (no package.json), we skip.
+  for (const e of topLevelEntries) {
+    if (e.name === 'tenants') {
+      tenantsRoot = path.join(dir, e.name);
+    } else {
+      globalPluginDirs.push(path.join(dir, e.name));
     }
+  }
 
-    const manifest = readManifest(pluginDir);
-    if (!manifest) {
-      result.skipped.push(pluginName);
-      continue;
-    }
+  for (const pluginDir of globalPluginDirs) {
+    loadOnePluginDir(pluginDir, undefined, claimedKeys, dupKey, result);
+  }
 
-    for (const entry of manifest.entries) {
-      const loaded = loadDescriptor(manifest, entry);
-      if (!loaded) {
-        result.skipped.push(`${manifest.name}:${entry}`);
-        continue;
+  if (tenantsRoot && fs.existsSync(tenantsRoot)) {
+    const tenantDirs = fs
+      .readdirSync(tenantsRoot, { withFileTypes: true })
+      .filter(e => e.isDirectory())
+      .map(e => ({ tenantId: e.name, dir: path.join(tenantsRoot!, e.name) }));
+
+    for (const { tenantId, dir: tenantDir } of tenantDirs) {
+      const tenantPluginDirs = fs
+        .readdirSync(tenantDir, { withFileTypes: true })
+        .filter(e => e.isDirectory())
+        .map(e => path.join(tenantDir, e.name));
+      for (const pluginDir of tenantPluginDirs) {
+        loadOnePluginDir(pluginDir, tenantId, claimedKeys, dupKey, result);
       }
-      if (claimedTypes.has(loaded.type)) {
-        logger.warn({
-          plugin: manifest.name,
-          type: loaded.type,
-          msg: 'plugin_loader: type already registered — plugin skipped',
-        });
-        result.skipped.push(`${manifest.name}:${entry} (dup:${loaded.type})`);
-        continue;
-      }
-      claimedTypes.add(loaded.type);
-      result.executors.push(adaptToExecutor(loaded));
-      result.manifests.push(loaded.metadata);
-      result.loaded.push(`${manifest.name}:${loaded.type}`);
     }
   }
 

@@ -63,18 +63,40 @@ export function createExecutorRegistry(
   // per deployment). The loader catches its own errors so a broken
   // plugin never prevents the core registry from being built; we
   // only skip the offending entry and log it.
+  //
+  // Registry keys for plugins:
+  //   - Global plugin (tenantId === undefined): key is just `${type}`
+  //   - Tenant-scoped plugin: key is `${tenantId}::${type}`
+  // The dispatcher tries the tenant-scoped key first, then falls back
+  // to the global key. Two tenants can independently install a plugin
+  // claiming the same type name without colliding (ADR 0006).
   const registeredTypes = new Set<string>(registry.keys());
   const { executors: pluginExecutors, manifests } = loadPluginsSync({ registeredTypes });
   for (const executor of pluginExecutors) {
-    registry.set(executor.type, executor);
+    const key = executor.tenantId ? `${executor.tenantId}::${executor.type}` : executor.type;
+    registry.set(key, executor);
   }
 
   // Bridge plugin metadata to the editor catalog. Async + fire-and-
   // forget on purpose: a slow / unreachable database must not stall
   // the runtime registry build, and the editor surface comes back
-  // online on the next boot anyway.
+  // online on the next boot anyway. Per-tenant manifests get upserted
+  // with their tenantId so NodeType rows reflect the same scoping.
   if (manifests.length > 0) {
-    void upsertPluginNodeTypes(prisma, manifests).catch(() => undefined);
+    const globals = manifests.filter(m => !m.tenantId);
+    const byTenant = new Map<string, PluginNodeMetadata[]>();
+    for (const m of manifests) {
+      if (!m.tenantId) continue;
+      const list = byTenant.get(m.tenantId) ?? [];
+      list.push(m);
+      byTenant.set(m.tenantId, list);
+    }
+    if (globals.length > 0) {
+      void upsertPluginNodeTypes(prisma, globals).catch(() => undefined);
+    }
+    for (const [tenantId, scoped] of byTenant) {
+      void upsertPluginNodeTypes(prisma, scoped, tenantId).catch(() => undefined);
+    }
   }
   lastLoadedPluginManifests = manifests;
 

@@ -434,4 +434,121 @@ describe('plugin loader', () => {
       expect(result.executors).toHaveLength(0);
     });
   });
+
+  describe('tenant-scoped plugin discovery (ADR 0006)', () => {
+    function makeTenantPlugin(
+      caseDir: string,
+      tenantId: string,
+      pluginName: string,
+      files: Record<string, string>
+    ): string {
+      const root = path.join(RUN_ROOT, caseDir);
+      fs.mkdirSync(root, { recursive: true });
+      const tenantsRoot = path.join(root, 'tenants', tenantId);
+      const pluginRoot = path.join(tenantsRoot, pluginName);
+      fs.mkdirSync(pluginRoot, { recursive: true });
+      for (const [rel, content] of Object.entries(files)) {
+        const full = path.join(pluginRoot, rel);
+        fs.mkdirSync(path.dirname(full), { recursive: true });
+        fs.writeFileSync(full, content);
+      }
+      return root;
+    }
+
+    it('loads a tenant-scoped plugin from <root>/tenants/<id>/<plugin>/', () => {
+      const pluginsDir = makeTenantPlugin('case-tenant-load', 'tenant-A', 'acme-foo', {
+        'package.json': JSON.stringify({
+          name: 'acme-foo',
+          operari: { steps: ['./index.js'] },
+        }),
+        'index.js': `
+          module.exports = {
+            type: 'acme.foo',
+            configSchema: { parse: (x) => x },
+            execute: async () => ({ success: true, output: { who: 'tenant-A' } }),
+          };
+        `,
+      });
+
+      const result = loadPluginsSync({ pluginsDir });
+      expect(result.executors).toHaveLength(1);
+      expect(result.executors[0].type).toBe('acme.foo');
+      expect(result.executors[0].tenantId).toBe('tenant-A');
+      expect(result.manifests[0].tenantId).toBe('tenant-A');
+      expect(result.loaded[0]).toContain('[tenant=tenant-A]');
+    });
+
+    it('lets two tenants both claim the same type without colliding', () => {
+      // Build a plugins root that has globals/, tenants/A/, tenants/B/
+      // each shipping a plugin with type "acme.foo" — three live
+      // executors are loaded with three distinct dup-keys.
+      const root = path.join(RUN_ROOT, 'case-tenant-collide');
+      fs.mkdirSync(root, { recursive: true });
+
+      const writePlugin = (dir: string, output: string) => {
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(
+          path.join(dir, 'package.json'),
+          JSON.stringify({ name: path.basename(dir), operari: { steps: ['./index.js'] } })
+        );
+        fs.writeFileSync(
+          path.join(dir, 'index.js'),
+          `module.exports = {
+            type: 'acme.foo',
+            configSchema: { parse: (x) => x },
+            execute: async () => ({ success: true, output: { who: '${output}' } }),
+          };`
+        );
+      };
+
+      writePlugin(path.join(root, 'global-version'), 'global');
+      writePlugin(path.join(root, 'tenants', 'tenant-A', 'a-version'), 'A');
+      writePlugin(path.join(root, 'tenants', 'tenant-B', 'b-version'), 'B');
+
+      const result = loadPluginsSync({ pluginsDir: root });
+
+      expect(result.executors).toHaveLength(3);
+      const byTenant = new Map<string | undefined, (typeof result.executors)[number]>();
+      for (const ex of result.executors) byTenant.set(ex.tenantId, ex);
+      expect(byTenant.get(undefined)?.type).toBe('acme.foo');
+      expect(byTenant.get('tenant-A')?.type).toBe('acme.foo');
+      expect(byTenant.get('tenant-B')?.type).toBe('acme.foo');
+    });
+
+    it('tags python plugins discovered under tenants/<id>/ with the right tenantId', () => {
+      const pluginsDir = makeTenantPlugin('case-tenant-python', 'tenant-X', 'py-step', {
+        'operari.json': JSON.stringify({
+          type: 'acme.python-only',
+          language: 'python',
+          entry: 'step.py',
+          icon: 'MessageSquare',
+        }),
+        'step.py': '# placeholder\n',
+      });
+
+      const result = loadPluginsSync({ pluginsDir });
+      expect(result.executors).toHaveLength(1);
+      expect(result.executors[0].tenantId).toBe('tenant-X');
+      expect(result.manifests[0].tenantId).toBe('tenant-X');
+    });
+
+    it('a tenant-scoped plugin still cannot claim a reserved type', () => {
+      const pluginsDir = makeTenantPlugin('case-tenant-reserved', 'tenant-A', 'bad', {
+        'package.json': JSON.stringify({
+          name: 'bad',
+          operari: { steps: ['./index.js'] },
+        }),
+        'index.js': `
+          module.exports = {
+            type: 'shell',
+            configSchema: { parse: (x) => x },
+            execute: async () => ({ success: true }),
+          };
+        `,
+      });
+
+      const result = loadPluginsSync({ pluginsDir });
+      expect(result.executors).toHaveLength(0);
+    });
+  });
 });

@@ -232,13 +232,38 @@ export class NodeExecutor {
       nodeType: node.type,
     };
 
-    const executor = this.registry.get(node.type);
+    // Tenant-scoped plugin lookup (ADR 0006). The registry stores
+    // tenant-scoped executors under a composite `${tenantId}::${type}`
+    // key, globals under just `${type}`. Try the tenant-scoped key
+    // first so a tenant's own plugin shadows any global with the
+    // same type name; fall back to the global registration so
+    // built-ins (`shell`, `operari.httpRequest`, etc.) and shared
+    // plugins resolve identically for every tenant.
+    const tenantKey = tenantId ? `${tenantId}::${node.type}` : null;
+    const executor =
+      (tenantKey ? this.registry.get(tenantKey) : undefined) ?? this.registry.get(node.type);
+
     if (!executor) {
       throw new NodeExecutionError({
         ...commonErrorContext,
         message: `Unknown node type: ${node.type}`,
         code: ErrorCode.NODE_NOT_FOUND,
         userMessage: `Node type '${node.type}' is not recognized or supported.`,
+      });
+    }
+
+    // Defense in depth: even if the lookup landed on an executor
+    // with a tenantId, sanity-check it matches. A failure here
+    // means the registry was built with a key/value mismatch —
+    // probably a regression in createExecutorRegistry, not user
+    // input. Globals (executor.tenantId === undefined) skip the
+    // check entirely.
+    if (executor.tenantId !== undefined && executor.tenantId !== tenantId) {
+      throw new NodeExecutionError({
+        ...commonErrorContext,
+        message: `Cross-tenant plugin invocation rejected: type=${node.type} pluginTenant=${executor.tenantId} runTenant=${tenantId ?? 'none'}`,
+        code: ErrorCode.NODE_NOT_FOUND,
+        userMessage: `Step type '${node.type}' is not available for this workspace.`,
       });
     }
 

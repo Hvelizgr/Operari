@@ -67,6 +67,17 @@ export interface ExecutorResult {
 export interface StepExecutor<TConfig = unknown> {
   /** Unique type identifier matching the node "type" field */
   readonly type: string;
+  /**
+   * Optional tenant scope. `undefined` means a global executor —
+   * built-ins (shell, http, etc.) and plugins from the top-level
+   * OPERARI_PLUGINS_DIR. A non-null value scopes the executor to one
+   * tenant: the dispatcher rejects a run with a different `tenantId`.
+   *
+   * See ADR 0006 for the threat model + escape hatch path to a
+   * worker-pool isolation when cloud beta needs real process
+   * isolation between tenants.
+   */
+  readonly tenantId?: string;
   /** Execute the step with the given config and context */
   execute(config: TConfig, context: ExecutorContext): Promise<ExecutorResult>;
 }
