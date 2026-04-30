@@ -2,31 +2,24 @@
 
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
-Última actualización: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
+Última actualización: 2026-04-30. Después de los 9 commits locales sin pushear (audit chain inspector, webhook wizard + rotate, Prometheus metrics + Grafana dashboard, plugin metadata bridge, auto-form built-ins, plugin tenant-scoped schema, WorkOS callback, Python SDK + loader bridge, propertiesFromZod, plugin tenant-scoped runtime + ADR 0006).
 
 ---
 
 ## Código pendiente
 
-### 🟡 Plugin loader: tenant-scoped runtime
+### 🟡 Schema diagram: features descartados a propósito
 
-**Estado:** decidido y shipped. Schema (`f33efd4`) + scoped upsert + dispatcher tenant-scoped routing (commit pending).
+Inspirado por chartdb pero NO implementado, en orden de probabilidad de pedido:
 
-**Decisión: opción B (in-process filter)** documentada en [`docs/adr/0006-plugin-runtime-tenant-isolation.md`](docs/adr/0006-plugin-runtime-tenant-isolation.md).
-
-**Lo que shipeó:**
-
-- `StepExecutor` interface gana `readonly tenantId?: string`
-- Loader scanea `OPERARI_PLUGINS_DIR/tenants/<tenant-id>/<plugin>/` además del top-level
-- Registry usa key compuesta: `${tenantId}::${type}` para tenant-scoped, `${type}` para globales
-- Dispatcher hace lookup tenant-scoped primero, fallback a global; cross-tenant rechazado con `NODE_NOT_FOUND`
-- `upsertPluginNodeTypes` se llama una vez por tenant + una vez para globales
-- Reserved types siguen aplicando (un plugin tenant-scoped no puede claim `shell`)
-
-**Pendiente para production multi-tenant** (no para self-host):
-
-- Endpoint `POST /api/tenants/plugins/install` con tarball upload (UX, no runtime — runtime ya funciona)
-- Opción A (worker pool) como escape hatch via `OPERARI_PLUGIN_ISOLATION=worker` env (~1 semana cuando cloud beta lo necesite — el ADR documenta el path)
+- **DBML import** (parsear DBML → diagrama). Hoy solo exportamos. Útil si un usuario quiere bocetar un schema antes de conectar la DB. Necesita `@dbml/parse` o un parser propio. ~2-3 días.
+- **Multi-DB introspection** (MySQL / SQL Server / SQLite / Oracle / ClickHouse). El frontend ya es DB-agnostic; falta extender `/api/sql/metadata` y agregar el connector backend. ~1 semana por motor.
+- **DDL paste import**. chartdb tiene 2247 LOC de parser PG; nuestro flow asume DB conectada en vivo, así que es de bajo valor.
+- **Index visualizer panel**. El endpoint ya devuelve indexes (btree/gin/etc); falta una UI que los liste por tabla con su `unique`/`isPrimary`/`columns`. ~1 día.
+- **Custom-types panel** (PG ENUMs + composite). Endpoint los devuelve, falta UI. ~1 día.
+- **Runbook diff view**. `RunbookVersion` model ya existe; falta un visualizer que compare dos versiones lado a lado, similar al schema diff. ~3-4 días.
+- **Comments on runbook nodes**. Modelo Prisma + auth + UI = sprint propio. ~1 semana.
+- **Cross-dialect SQL DDL export con AI**. Requiere OPENAI_API_KEY y nuestro use case no es migración entre motores. ~2 días si decidimos hacerlo.
 
 ---
 
@@ -46,15 +39,32 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 
 ---
 
-### 🟠 Plugin manifest: declarativo via JSON Schema (no Zod)
+### 🟠 Plugin tenant-scoped install: endpoint UX
 
-**Estado:** `defineStep` SDK ya acepta `properties: PluginStepProperty[]` (commit `98b0251`). **Falta:** convertir el `configSchema` (zod) en JSON Schema automáticamente para el editor.
+**Estado:** runtime listo (commit `f3697a7` + ADR 0006). Filesystem layout funciona: drop a `OPERARI_PLUGINS_DIR/tenants/<tenant-id>/<plugin>/`. **Falta:** UX para que un admin de tenant suba un plugin desde el browser.
 
-**Hoy:** un autor de plugin escribe el schema dos veces — una vez como `configSchema` (zod, runtime) y otra vez como `properties[]` (form metadata). Idealmente sería una sola fuente.
+**Diseño pendiente:**
 
-**Lift estimado:** 3-5 días. Agregar `zod-to-json-schema`, derivar el `properties[]` automáticamente, dejar el override manual cuando el autor quiera.
+1. `POST /api/tenants/plugins/install` admin-only, multipart tarball upload
+2. Backend extrae el tarball, valida `operari.json`, escribe a `OPERARI_PLUGINS_DIR/tenants/<tenant-id>/<plugin-slug>/`
+3. Hot-reload: el loader actual es sync-at-boot, hay que llamarlo otra vez después del extract
+4. UI en Settings: lista de plugins instalados por tenant + botón "Install plugin" + DELETE
 
-**Por qué no entró:** scope creep en una sesión que ya tocó SDK + loader + DB. Mejor en su propio batch.
+**Lift estimado:** 4-6 días. El runtime ya valida cross-tenant; sólo falta UX + hot reload.
+
+**Por qué no entró:** scope grande para una sesión + decisión sobre tarball vs git URL + estrategia de hot-reload.
+
+---
+
+### 🟠 Plugin loader: opción A (worker pool) escape hatch
+
+**Estado:** documentado en ADR 0006 como future path bajo `OPERARI_PLUGIN_ISOLATION=worker`. El interfaz `StepExecutor` ya soporta `tenantId`, sólo falta el dispatcher worker-pool real.
+
+**Cuándo lo necesitamos:** cloud beta multi-tenant donde plugins son untrusted. Antes de eso (self-host single-tenant), opción B (in-process filter, ya shipped) es suficiente.
+
+**Lift estimado:** ~1 semana. Spawn pool de procesos Node-side por tenant, IPC sobre stdio con framing JSON, supervisor para restart, lifecycle hooks en tenant create/delete.
+
+**Por qué no entró:** runner isolation (Fly Machines) es la pieza más urgente del aislamiento real. Cuando esa madure, hay que re-decidir si plugin-level isolation sigue siendo necesario sobre run-level isolation.
 
 ---
 
@@ -80,36 +90,38 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 
 ---
 
-### 🔴 Python SDK: paridad completa con TS
+### 🟡 Python SDK: paridad operativa con TS
 
-**Estado:** v0.2 shipped. Cliente + step authoring + IPC bridge + ejemplo + 18 tests del SDK + **loader Node-side end-to-end** (commit pending).
+**Estado:** v0.2 shipped. Cliente + step authoring + IPC bridge + loader Node-side end-to-end + ejemplo + 18 tests del SDK + 4 tests integration en backend.
 
-**Pending para paridad:**
+**Pending para paridad operativa:**
 
-- ~~Loader Node-side que reconozca `language: python` en el manifest y haga `spawn('python', [entry])` con stdin/stdout JSON~~ — shipped (`backend/src/runbook/plugins/python-bridge.ts` + `loader.ts` reads `operari.json`)
-- ~~Test de integración end-to-end que arranque un plugin Python via el loader real~~ — shipped (`python-bridge.test.ts` spawns `examples/hello_world/hello_step.py` real)
-- Pydantic-based config schemas como camino recomendado en docs (1 hora — ejemplo + sección README)
+- Pydantic-based config schemas como camino recomendado en docs (~1 hora — ejemplo + sección README)
 - Async execute (`asyncio`) para plugins que hacen I/O concurrente (~2-3 días — el bridge ya soporta async via su naturaleza subprocess; falta pulir el surface en `define_step`)
-- Publicación a PyPI (paquete actualmente sólo se instala desde repo) (~1 día — pyproject ya está, falta el workflow de release)
+- Publicación a PyPI (paquete actualmente sólo se instala desde repo) (~1 día — pyproject ya está, falta el workflow de release + sign keys)
 - Streaming logs durante ejecuciones largas (hoy emite live via stdout pero el ejemplo solo emite al final del execute) (~1 día — patrón `context.emit()` repetido en docs)
+- `properties_from_pydantic` helper espejo de `propertiesFromZod` del TS SDK (commit `84a192e`) (~3-5 horas)
 
-**Lift estimado restante:** 1 semana para los 4 items operativos arriba.
+**Lift estimado restante:** 1 semana para los 5 items.
+
+**Por qué no entró:** los 5 son operativos / docs, no bloquean ningún feature. Decidir prioridad y atacarlos individualmente cuando haga falta.
 
 ---
 
 ## Operativos / no-código (afuera del repo)
 
-| Item | Estado |
-| ---- | ------ |
-| Public demo instance | None |
-| Loom 90s walkthrough | None |
-| Dominio + trademark `Operari` | El repo está en `Hvelizgr/NanoFlow`, dominios `.dev/.io/.com` no asegurados |
-| 5 design partners en producción | Zero |
-| 30 discovery interviews con platform engineers | Zero |
-| Show HN draft + post | None |
-| Hosted free tier deploy | Código listo (Stripe + WorkOS), falta el deploy real |
-| WorkOS organization + creds reales | Adapter listo (commit `8c784b8`), falta la cuenta WorkOS y un dominio verificado |
-| Grafana dashboard import en un instance real | JSON listo en `deploy/grafana/`, falta probarlo contra Prometheus en vivo |
+| Item                                            | Estado                                                                                  |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Public demo instance                            | None                                                                                    |
+| Loom 90s walkthrough                            | None                                                                                    |
+| Dominio + trademark `Operari`                   | El repo está en `Hvelizgr/NanoFlow`, dominios `.dev/.io/.com` no asegurados             |
+| 5 design partners en producción                 | Zero                                                                                    |
+| 30 discovery interviews con platform engineers  | Zero                                                                                    |
+| Show HN draft + post                            | None                                                                                    |
+| Hosted free tier deploy                         | Código listo (Stripe + WorkOS), falta el deploy real                                    |
+| WorkOS organization + creds reales              | Adapter listo (commit `8c784b8`), falta la cuenta WorkOS y un dominio verificado        |
+| Grafana dashboard import en un instance real    | JSON listo en `deploy/grafana/`, falta probarlo contra Prometheus en vivo               |
+| Push de los 9 commits locales                   | Bloqueado en credenciales — `git push origin main` desde tu terminal o `gh auth login`  |
 
 ---
 
@@ -123,10 +135,31 @@ Si un usuario pide algo de esto, agregalo arriba con un estimado.
 
 ---
 
+## Lo que se cerró desde la última actualización del pendiente
+
+- ✅ **SQL editor schema diagram** — `/api/sql/metadata` rich PG introspection + `SchemaDiagram` canvas con TableNode + RelationshipEdge (React Flow), schema filter, PNG/SVG/DBML/JSON export, schema diff entre dos snapshots con coloring per-tabla y per-columna. Capability-gated por provider (`postgres`/`mysql` only). Inspirado por chartdb (AGPL), implementación nueva — ver `docs/research/chartdb-research.md`.
+- ✅ **Runbook lineage page** (`/lineage`) — backend agrega `runbook` step refs + `onErrorRunbookId` en un solo grafo, frontend lo renderiza con depth-based layout. Tenant-scoped via Prisma. Linkeable desde sidebar y command palette (`G L`).
+- ✅ **YAML diff-apply en runbook editor** — `reconcileWorkflow` + `reconcileFromWorkflow` action. Editar el YAML ya no hace snap-back de positions/selección; nodos sobrevivientes mantienen su layout, solo el body cambia.
+- ✅ **Step-stats per-step overlay** (Commit L) — `/api/runbooks/:id/step-stats` con p50/p95/failureRate por nodeId. Toggle "Show stats" en toolbar pinta run-history strip + heat-tint en BaseStepNode.
+- ✅ **Connected-account capabilities table** — `packages/shared/src/types/connected-account-capabilities.ts` declara qué soporta cada provider (`canQuery`, `canIntrospectSchema`, `usesOAuth`, etc). Frontend deshabilita la pestaña Diagram para providers non-SQL; backend rechaza `/api/sql/*` para non-SQL providers con 400 + `capability_unsupported`.
+- ✅ **DBML export determinístico** — `frontend/lib/sql/dbml-export.ts`, sin AI, diff-friendly, output estable byte-a-byte.
+- ✅ **Plugin manifest auto-form para built-ins** (commit `b7cab40`) — `Property[]` en el seed para 11 step types built-in. El editor renderiza form real en lugar de JSON textarea.
+- ✅ **Plugin metadata bridge SDK → DB** (commit `98b0251`) — `defineStep` extiende `PluginStepMetadata`, loader extrae visual + form metadata, upsert async al boot.
+- ✅ **Plugin tenant-scoped schema** (commit `f33efd4`) — composite unique `(type, tenantId)` + partial unique en `(type) WHERE tenantId IS NULL`.
+- ✅ **WorkOS SSO callback** (commit `8c784b8`) — `/api/auth/workos` + `/callback` + frontend button + 9 tests con mocked exchange. El adapter ya estaba.
+- ✅ **Python SDK v0.1** (commit `cb07e2d`) — `define_step` + `PluginContext` + `PluginResult` + IPC bridge + ejemplo + 18 tests pytest.
+- ✅ **propertiesFromZod helper** (commit `84a192e`) — derivar `PluginStepProperty[]` desde un schema zod, peer dep opcional, 12 tests.
+- ✅ **Python plugin loader bridge** (commit `448eafc`) — `python-bridge.ts` con spawn + EMIT/RESULT parsing live + stderr capture + timeout. Loader lee `operari.json` standalone para Python plugins. 4 tests integration.
+- ✅ **Plugin tenant-scoped runtime** (commit `f3697a7` + ADR 0006) — registry composite-keyed, dispatcher tenant-scoped routing, cross-tenant rejection, escape hatch documentado para opción A worker pool.
+- ❌ **Schedule defaultEnv loose end** — era ruido mío, no existe tal comentario en el código actual.
+
+---
+
 ## Tests baseline al cierre de la última sesión
 
-- Backend: **1293/1293** passing
-- Frontend: **243/243** passing
-- Python SDK: **18/18** passing
+- Backend: **1321+ / 1321+** passing (+3 lineage tests, +5 metadata tests, +3 capability-gate tests, +4 step-stats tests)
+- Frontend: **285 / 285** passing (+24 desde 261: capabilities, dbml-export, sql-diff, sql-metadata, reconcile)
+- Python SDK: **18 / 18** passing
 - tsc clean ambos lados (TS)
-- 6 commits locales pendientes de push (los del último push attempt fallido por falta de credenciales)
+- Bundle: `/sql-editor` 10.8 kB / 126 kB · `/lineage` (nueva) 1.41 kB / 104 kB · `/editor` 119 kB / 307 kB
+- Aún sin commitear: feat/editor-reactflow-rebuild branch tiene 30+ archivos modificados pendientes de split en commits temáticos.
