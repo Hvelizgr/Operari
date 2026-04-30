@@ -38,6 +38,9 @@ const prismaMock: any = {
     findMany: jest.fn().mockResolvedValue([]),
     groupBy: jest.fn().mockResolvedValue([]),
   },
+  nodeLog: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
   tenant: {
     findUnique: jest.fn().mockResolvedValue({ plan: 'BUSINESS' }),
   },
@@ -156,6 +159,153 @@ describe('Runbook routes', () => {
       const res = await request(app).get('/workflows/wf-nonexistent');
 
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe('GET /workflows/lineage', () => {
+    it('builds the call graph from `runbook` step refs and onErrorRunbookId', async () => {
+      (prisma.runbook.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'rb-A',
+          name: 'A',
+          slug: 'a',
+          category: null,
+          onErrorRunbookId: 'rb-C',
+          nodes: [
+            { id: 'n1', type: 'runbook', config: { ref: 'rb-B' }, name: 'call B' },
+            { id: 'n2', type: 'http', config: {} },
+          ],
+        },
+        {
+          id: 'rb-B',
+          name: 'B',
+          slug: 'b',
+          category: null,
+          onErrorRunbookId: null,
+          // Resolves a slug to an id.
+          nodes: [{ id: 'n3', type: 'runbook', config: { ref: 'a' }, name: 'call A' }],
+        },
+        {
+          id: 'rb-C',
+          name: 'C',
+          slug: 'c',
+          category: null,
+          onErrorRunbookId: null,
+          nodes: [],
+        },
+      ]);
+
+      const res = await request(app).get('/workflows/lineage');
+
+      expect(res.status).toBe(200);
+      expect(res.body.nodes).toHaveLength(3);
+      const findEdge = (source: string, target: string, kind: string): unknown =>
+        res.body.edges.find(
+          (e: { source: string; target: string; kind: string }) =>
+            e.source === source && e.target === target && e.kind === kind
+        );
+      expect(findEdge('rb-A', 'rb-B', 'runbook-step')).toBeDefined();
+      expect(findEdge('rb-B', 'rb-A', 'runbook-step')).toBeDefined();
+      expect(findEdge('rb-A', 'rb-C', 'on-error')).toBeDefined();
+    });
+
+    it('drops references to runbooks outside the tenant silently', async () => {
+      (prisma.runbook.findMany as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'rb-A',
+          name: 'A',
+          slug: 'a',
+          category: null,
+          // onErrorRunbookId points at a runbook not in the result set
+          // (e.g. another tenant or a deleted runbook). Must not be
+          // emitted as an edge.
+          onErrorRunbookId: 'rb-XYZ',
+          nodes: [{ id: 'n1', type: 'runbook', config: { ref: 'unknown-slug' } }],
+        },
+      ]);
+
+      const res = await request(app).get('/workflows/lineage');
+
+      expect(res.status).toBe(200);
+      expect(res.body.edges).toEqual([]);
+    });
+
+    it('returns 500 when the prisma query throws', async () => {
+      (prisma.runbook.findMany as jest.Mock).mockRejectedValueOnce(new Error('db down'));
+      const res = await request(app).get('/workflows/lineage');
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe('GET /workflows/:id/step-stats', () => {
+    it('returns 404 when the runbook is not in this tenant', async () => {
+      (prisma.runbook.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const res = await request(app).get('/workflows/missing/step-stats');
+
+      expect(res.status).toBe(404);
+      expect(prisma.nodeLog.findMany as jest.Mock).not.toHaveBeenCalled();
+    });
+
+    it('returns an empty stats map when no node logs exist', async () => {
+      (prisma.runbook.findFirst as jest.Mock).mockResolvedValue({ id: 'wf-1' });
+      (prisma.nodeLog.findMany as jest.Mock).mockResolvedValue([]);
+
+      const res = await request(app).get('/workflows/wf-1/step-stats');
+
+      expect(res.status).toBe(200);
+      expect(res.body.runbookId).toBe('wf-1');
+      expect(res.body.stats).toEqual({});
+    });
+
+    it('aggregates per-step success rate, percentiles and recent runs', async () => {
+      (prisma.runbook.findFirst as jest.Mock).mockResolvedValue({ id: 'wf-1' });
+      // 6 logs for node-A (newest first): 5 SUCCESS + 1 FAILED, durations 10..60
+      // 1 log for node-B: SUCCESS
+      const now = Date.now();
+      const logs = [
+        { nodeId: 'A', status: 'SUCCESS', startedAt: new Date(now - 1000), duration: 60 },
+        { nodeId: 'A', status: 'SUCCESS', startedAt: new Date(now - 2000), duration: 50 },
+        { nodeId: 'A', status: 'FAILED', startedAt: new Date(now - 3000), duration: 40 },
+        { nodeId: 'A', status: 'SUCCESS', startedAt: new Date(now - 4000), duration: 30 },
+        { nodeId: 'A', status: 'SUCCESS', startedAt: new Date(now - 5000), duration: 20 },
+        { nodeId: 'A', status: 'SUCCESS', startedAt: new Date(now - 6000), duration: 10 },
+        { nodeId: 'B', status: 'SUCCESS', startedAt: new Date(now - 7000), duration: 100 },
+      ];
+      (prisma.nodeLog.findMany as jest.Mock).mockResolvedValue(logs);
+
+      const res = await request(app).get('/workflows/wf-1/step-stats');
+
+      expect(res.status).toBe(200);
+      const a = res.body.stats.A;
+      expect(a.runs).toBe(6);
+      // 5/6 success ≈ 0.8333
+      expect(a.successRate).toBeCloseTo(5 / 6, 5);
+      expect(a.failureRate).toBeCloseTo(1 / 6, 5);
+      // sorted [10,20,30,40,50,60] — p50 = idx ceil(.5*6)-1 = 2 -> 30
+      expect(a.p50DurationMs).toBe(30);
+      // p95 = idx ceil(.95*6)-1 = 5 -> 60
+      expect(a.p95DurationMs).toBe(60);
+      // recent capped to 5, newest-first
+      expect(a.recent).toHaveLength(5);
+      expect(a.recent[0].duration_ms ?? a.recent[0].durationMs).toBe(60);
+
+      const b = res.body.stats.B;
+      expect(b.runs).toBe(1);
+      expect(b.successRate).toBe(1);
+      expect(b.p50DurationMs).toBe(100);
+      expect(b.p95DurationMs).toBe(100);
+    });
+
+    it('clamps the since window to a 90-day maximum', async () => {
+      (prisma.runbook.findFirst as jest.Mock).mockResolvedValue({ id: 'wf-1' });
+      (prisma.nodeLog.findMany as jest.Mock).mockResolvedValue([]);
+
+      const huge = String(365 * 24 * 60 * 60 * 1000);
+      const res = await request(app).get(`/workflows/wf-1/step-stats?since=${huge}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.sinceMs).toBe(90 * 24 * 60 * 60 * 1000);
     });
   });
 

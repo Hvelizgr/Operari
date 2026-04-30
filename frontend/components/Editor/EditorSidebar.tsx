@@ -15,6 +15,7 @@ import {
   type LucideIcon,
   Menu,
   MessageSquare,
+  Network,
   Settings,
   Share2,
   ShieldCheck,
@@ -155,6 +156,12 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           label: lang === 'en' ? 'SQL Editor' : 'SQL Editor',
           icon: Database,
           href: `/${lang}/sql-editor`,
+        },
+        {
+          id: 'lineage',
+          label: lang === 'en' ? 'Lineage' : 'Lineage',
+          icon: Network,
+          href: `/${lang}/lineage`,
         },
         {
           id: 'agents',

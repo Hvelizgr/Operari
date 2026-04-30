@@ -339,6 +339,99 @@ router.get('/', async (req: AuthRequest, res) => {
  *             example:
  *               error: "Workflow not found"
  */
+/**
+ * GET /workflows/lineage
+ *
+ * Build the cross-runbook call graph for the current tenant. We walk
+ * every runbook's `nodes` JSON looking for two kinds of edges:
+ *
+ *   - `runbook` step nodes whose `config.ref` points at another
+ *     runbook (id or slug). These are sub-run dependencies.
+ *   - The runbook's own `onErrorRunbookId` field. These are
+ *     fire-on-failure handlers.
+ *
+ * Returns a normalized graph the frontend renders with React Flow.
+ * Edges that reference a runbook outside the tenant (or a slug we
+ * can't resolve) are dropped silently — they're either deleted
+ * targets or the user's history of cross-tenant fragments. Surfacing
+ * them as red edges would be noisier than helpful.
+ *
+ * Route order matters: this must be registered BEFORE `/:id` so
+ * Express doesn't treat the literal `lineage` as a runbook id and
+ * 404 us out.
+ */
+router.get('/lineage', async (req: AuthRequest, res) => {
+  try {
+    const tenantId = req.user!.tenantId;
+    const runbooks = await prisma.runbook.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        category: true,
+        nodes: true,
+        onErrorRunbookId: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    const slugToId = new Map<string, string>();
+    for (const r of runbooks) {
+      if (r.slug) slugToId.set(r.slug, r.id);
+    }
+    const idSet = new Set(runbooks.map(r => r.id));
+
+    type LineageEdge = {
+      source: string;
+      target: string;
+      kind: 'runbook-step' | 'on-error';
+      stepId?: string;
+      stepName?: string;
+    };
+    const edges: LineageEdge[] = [];
+
+    for (const runbook of runbooks) {
+      if (runbook.onErrorRunbookId && idSet.has(runbook.onErrorRunbookId)) {
+        edges.push({
+          source: runbook.id,
+          target: runbook.onErrorRunbookId,
+          kind: 'on-error',
+        });
+      }
+      const nodes = Array.isArray(runbook.nodes) ? runbook.nodes : [];
+      for (const node of nodes as Array<Record<string, unknown>>) {
+        if (typeof node !== 'object' || node === null) continue;
+        if (node.type !== 'runbook' && node.type !== 'operari.runbook') continue;
+        const cfg = (node.config ?? {}) as Record<string, unknown>;
+        const ref = typeof cfg.ref === 'string' ? cfg.ref.trim() : '';
+        if (!ref) continue;
+        const targetId = idSet.has(ref) ? ref : (slugToId.get(ref) ?? null);
+        if (!targetId) continue;
+        edges.push({
+          source: runbook.id,
+          target: targetId,
+          kind: 'runbook-step',
+          stepId: typeof node.id === 'string' ? node.id : undefined,
+          stepName: typeof node.name === 'string' ? node.name : undefined,
+        });
+      }
+    }
+
+    const lineageNodes = runbooks.map(r => ({
+      id: r.id,
+      name: r.name,
+      slug: r.slug,
+      category: r.category,
+    }));
+
+    res.json({ nodes: lineageNodes, edges });
+  } catch (error) {
+    req.log.error({ error }, 'Get runbook lineage error');
+    res.status(500).json({ error: 'Failed to build runbook lineage' });
+  }
+});
+
 router.get('/:id', async (req: AuthRequest, res) => {
   try {
     const runbookId = req.params.id as string;
@@ -418,6 +511,134 @@ router.get('/:id/metadata', async (req: AuthRequest, res) => {
   } catch (error) {
     req.log.error({ error }, 'Get runbook metadata error');
     res.status(500).json({ error: 'Failed to get runbook metadata' });
+  }
+});
+
+/**
+ * GET /workflows/:id/step-stats
+ *
+ * Per-step run statistics powering the editor's "Show stats" overlay
+ * (run-history strip + p95 / failure-rate heat coloring on each node).
+ * One round-trip aggregates every NodeLog row in the time window.
+ *
+ * Query params:
+ *   - since: lookback in ms (default 30d, max 90d). Clamped to keep the
+ *     in-memory percentile sort cheap for hot runbooks.
+ *
+ * Response shape, keyed by nodeId:
+ *   {
+ *     nodeId: {
+ *       runs:           total terminal logs in window
+ *       successRate:    SUCCESS / (SUCCESS + FAILED), null if no terminal runs
+ *       failureRate:    1 - successRate
+ *       p50DurationMs:  median of completed-run durations
+ *       p95DurationMs:  95th percentile (Math.ceil indexing)
+ *       recent:         last 5 terminal runs, newest-first
+ *                       [{ status, startedAt, durationMs }]
+ *     }
+ *   }
+ *
+ * SKIPPED / PENDING / RUNNING are excluded — they would skew the
+ * percentile (no duration) and the failure rate (not a real outcome).
+ */
+router.get('/:id/step-stats', async (req: AuthRequest, res) => {
+  try {
+    const runbookId = req.params.id as string;
+    const sinceMs = Math.min(
+      Math.max(parseInt((req.query.since as string) ?? '', 10) || 30 * 24 * 60 * 60 * 1000, 0),
+      90 * 24 * 60 * 60 * 1000
+    );
+    const since = new Date(Date.now() - sinceMs);
+
+    const runbook = await prisma.runbook.findFirst({
+      where: { id: runbookId, tenantId: req.user!.tenantId },
+      select: { id: true },
+    });
+    if (!runbook) {
+      return res.status(404).json({ error: 'Workflow not found' });
+    }
+
+    // Pull every terminal NodeLog in the window. Sorted desc so the
+    // first 5 entries we collect per nodeId are the newest. The
+    // tenantId filter rides the denormalized column so this never
+    // joins through Execution.
+    const logs = await prisma.nodeLog.findMany({
+      where: {
+        tenantId: req.user!.tenantId,
+        execution: { runbookId },
+        status: { in: ['SUCCESS', 'FAILED'] },
+        startedAt: { gte: since },
+      },
+      select: {
+        nodeId: true,
+        status: true,
+        startedAt: true,
+        duration: true,
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    type Bucket = {
+      durations: number[];
+      success: number;
+      failed: number;
+      recent: Array<{ status: string; startedAt: Date; durationMs: number | null }>;
+    };
+    const byNode = new Map<string, Bucket>();
+    for (const log of logs) {
+      let bucket = byNode.get(log.nodeId);
+      if (!bucket) {
+        bucket = { durations: [], success: 0, failed: 0, recent: [] };
+        byNode.set(log.nodeId, bucket);
+      }
+      if (log.status === 'SUCCESS') bucket.success += 1;
+      else if (log.status === 'FAILED') bucket.failed += 1;
+      if (typeof log.duration === 'number') bucket.durations.push(log.duration);
+      if (bucket.recent.length < 5) {
+        bucket.recent.push({
+          status: log.status,
+          startedAt: log.startedAt,
+          durationMs: log.duration ?? null,
+        });
+      }
+    }
+
+    const percentile = (sorted: number[], p: number): number | null => {
+      if (sorted.length === 0) return null;
+      if (sorted.length === 1) return sorted[0]!;
+      const rank = Math.ceil((p / 100) * sorted.length) - 1;
+      return sorted[Math.max(0, Math.min(sorted.length - 1, rank))]!;
+    };
+
+    const stats: Record<
+      string,
+      {
+        runs: number;
+        successRate: number | null;
+        failureRate: number | null;
+        p50DurationMs: number | null;
+        p95DurationMs: number | null;
+        recent: Array<{ status: string; startedAt: Date; durationMs: number | null }>;
+      }
+    > = {};
+    for (const [nodeId, bucket] of byNode) {
+      const terminal = bucket.success + bucket.failed;
+      const sortedDurations = [...bucket.durations].sort((a, b) => a - b);
+      const successRate = terminal > 0 ? bucket.success / terminal : null;
+      stats[nodeId] = {
+        runs: terminal,
+        successRate,
+        failureRate: successRate === null ? null : 1 - successRate,
+        p50DurationMs: percentile(sortedDurations, 50),
+        p95DurationMs: percentile(sortedDurations, 95),
+        recent: bucket.recent,
+      };
+    }
+
+    res.json({ runbookId, sinceMs, stats });
+  } catch (error) {
+    req.log.error({ error }, 'Get runbook step-stats error');
+    res.status(500).json({ error: 'Failed to get runbook step stats' });
   }
 });
 
