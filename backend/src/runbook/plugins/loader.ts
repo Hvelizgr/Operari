@@ -3,6 +3,7 @@ import path from 'path';
 
 import { logger } from '../../config/logger.config';
 import { ExecutorContext, ExecutorResult, StepExecutor } from '../types/executor.types';
+import { spawnPythonStep } from './python-bridge';
 
 /**
  * Plugin loader — turns user-authored `defineStep(...)` bundles on
@@ -130,6 +131,136 @@ function readManifest(pluginDir: string): PluginManifest | null {
     });
     return null;
   }
+}
+
+/**
+ * Standalone Python plugin manifest: `<plugin-dir>/operari.json`.
+ *
+ * Format:
+ * ```json
+ * {
+ *   "type": "myorg.hello-world",
+ *   "language": "python",
+ *   "entry": "hello_step.py",
+ *   "label": { "en": "Hello world", "es": "Hola mundo" },
+ *   "icon": "MessageSquare",
+ *   "color": "bg-emerald-500",
+ *   "category": "custom",
+ *   "properties": [...]
+ * }
+ * ```
+ *
+ * Visual + form metadata lives on the manifest (not on the Python
+ * descriptor) because the loader can't introspect a Python module
+ * without running it. Authors who want auto-form behavior duplicate
+ * the metadata between operari.json (for the loader) and the
+ * Python `define_step` call (for IDE completion + future
+ * --dump-metadata mode). The duplication is small and intentional —
+ * decoupling the loader from the Python runtime keeps boot fast
+ * and avoids a chicken-and-egg failure when Python is missing.
+ */
+interface OperariJsonManifest {
+  type: string;
+  language?: 'python' | 'node';
+  entry: string;
+  label?: unknown;
+  description?: unknown;
+  icon?: unknown;
+  color?: unknown;
+  category?: unknown;
+  inputs?: unknown;
+  outputs?: unknown;
+  properties?: unknown;
+  pythonBin?: string;
+  timeoutMs?: number;
+}
+
+function readOperariJson(pluginDir: string): OperariJsonManifest | null {
+  const manifestPath = path.join(pluginDir, 'operari.json');
+  if (!fs.existsSync(manifestPath)) return null;
+  try {
+    const raw = fs.readFileSync(manifestPath, 'utf8');
+    const json = JSON.parse(raw) as OperariJsonManifest;
+    if (typeof json.type !== 'string' || !json.type) {
+      logger.warn({ pluginDir, msg: 'plugin_loader: operari.json missing type' });
+      return null;
+    }
+    if (typeof json.entry !== 'string' || !json.entry) {
+      logger.warn({ pluginDir, msg: 'plugin_loader: operari.json missing entry' });
+      return null;
+    }
+    return json;
+  } catch (err) {
+    logger.warn({
+      pluginDir,
+      err: err instanceof Error ? err.message : String(err),
+      msg: 'plugin_loader: failed to read operari.json',
+    });
+    return null;
+  }
+}
+
+/**
+ * Build a `LoadedPlugin` for a Python-language plugin. The Python
+ * runtime parses + validates the config (the Python `define_step`
+ * helper enforces it), so the Node-side schema is a passthrough.
+ * `execute` is a thin wrapper around the subprocess bridge.
+ */
+function loadPythonDescriptor(
+  pluginDir: string,
+  pluginName: string,
+  manifest: OperariJsonManifest
+): LoadedPlugin | null {
+  const resolvedEntry = path.resolve(pluginDir, manifest.entry);
+  if (!fs.existsSync(resolvedEntry)) {
+    logger.warn({
+      plugin: pluginName,
+      entry: manifest.entry,
+      msg: 'plugin_loader: python entry file not found',
+    });
+    return null;
+  }
+
+  if (isReservedType(manifest.type)) {
+    logger.error({
+      plugin: pluginName,
+      type: manifest.type,
+      msg: 'plugin_loader: type is reserved by core — python plugin rejected',
+    });
+    return null;
+  }
+
+  const source = `${pluginName}:${manifest.entry}`;
+  const metadata: PluginNodeMetadata = {
+    type: manifest.type,
+    source,
+    label: manifest.label,
+    description: manifest.description,
+    icon: typeof manifest.icon === 'string' ? manifest.icon : undefined,
+    color: typeof manifest.color === 'string' ? manifest.color : undefined,
+    category: typeof manifest.category === 'string' ? manifest.category : undefined,
+    inputs: Array.isArray(manifest.inputs) ? manifest.inputs : undefined,
+    outputs: Array.isArray(manifest.outputs) ? manifest.outputs : undefined,
+    properties: Array.isArray(manifest.properties) ? manifest.properties : undefined,
+  };
+
+  return {
+    type: manifest.type,
+    // Schema is a passthrough — the Python runtime validates and
+    // emits an `error` in the RESULT line if the config is bad.
+    schema: { parse: (input: unknown) => input },
+    execute: async (config, context) => {
+      return spawnPythonStep(config, context, {
+        entry: resolvedEntry,
+        cwd: pluginDir,
+        pythonBin: manifest.pythonBin,
+        timeoutMs: manifest.timeoutMs,
+        env: { OPERARI_PLUGIN_TYPE: manifest.type },
+      });
+    },
+    source,
+    metadata,
+  };
 }
 
 function loadDescriptor(manifest: PluginManifest, entry: string): LoadedPlugin | null {
@@ -322,9 +453,44 @@ export function loadPluginsSync(options: LoadPluginsOptions = {}): LoadPluginsRe
   const claimedTypes = new Set<string>(options.registeredTypes ?? []);
 
   for (const pluginDir of entries) {
+    const pluginName = path.basename(pluginDir);
+
+    // Python (or any non-Node) plugin path: a standalone operari.json
+    // declares language + entry + visual metadata. Read it first so a
+    // directory that has BOTH operari.json and package.json picks the
+    // explicit operari.json declaration.
+    const operariJson = readOperariJson(pluginDir);
+    if (operariJson) {
+      const language = operariJson.language ?? 'node';
+      if (language === 'python') {
+        const loaded = loadPythonDescriptor(pluginDir, pluginName, operariJson);
+        if (!loaded) {
+          result.skipped.push(`${pluginName}:${operariJson.entry}`);
+          continue;
+        }
+        if (claimedTypes.has(loaded.type)) {
+          logger.warn({
+            plugin: pluginName,
+            type: loaded.type,
+            msg: 'plugin_loader: type already registered — plugin skipped',
+          });
+          result.skipped.push(`${pluginName}:${operariJson.entry} (dup:${loaded.type})`);
+          continue;
+        }
+        claimedTypes.add(loaded.type);
+        result.executors.push(adaptToExecutor(loaded));
+        result.manifests.push(loaded.metadata);
+        result.loaded.push(`${pluginName}:${loaded.type}`);
+        continue;
+      }
+      // Future: language === 'node' via operari.json. For now fall
+      // through to the legacy package.json path below — if the
+      // plugin only has operari.json (no package.json), we skip.
+    }
+
     const manifest = readManifest(pluginDir);
     if (!manifest) {
-      result.skipped.push(path.basename(pluginDir));
+      result.skipped.push(pluginName);
       continue;
     }
 

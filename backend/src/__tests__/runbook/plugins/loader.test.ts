@@ -361,4 +361,77 @@ describe('plugin loader', () => {
       expect(m.properties).toBeUndefined();
     });
   });
+
+  describe('python plugin discovery (operari.json)', () => {
+    it('loads a python plugin declared via operari.json language=python', () => {
+      const pluginsDir = makePlugin('case-python-ok/py-plugin', {
+        'operari.json': JSON.stringify({
+          type: 'example.python-ok',
+          language: 'python',
+          entry: 'step.py',
+          icon: 'MessageSquare',
+          color: 'bg-emerald-500',
+          category: 'custom',
+          label: { en: 'Hello python', es: 'Hola python' },
+          properties: [{ name: 'name', displayName: 'Name', type: 'string' }],
+        }),
+        // The script does not need to be runnable for the loader test;
+        // we are pinning that the loader builds an executor without
+        // ever spawning a subprocess. The executor's spawn happens at
+        // run() time, not at load time.
+        'step.py': '# placeholder\n',
+      });
+
+      const result = loadPluginsSync({ pluginsDir });
+      expect(result.executors).toHaveLength(1);
+      expect(result.executors[0].type).toBe('example.python-ok');
+      expect(result.manifests).toHaveLength(1);
+      expect(result.manifests[0]).toMatchObject({
+        type: 'example.python-ok',
+        icon: 'MessageSquare',
+        category: 'custom',
+        label: { en: 'Hello python', es: 'Hola python' },
+      });
+      expect(Array.isArray(result.manifests[0].properties)).toBe(true);
+    });
+
+    it('skips a python plugin whose entry script is missing', () => {
+      const pluginsDir = makePlugin('case-python-missing-entry/no-script', {
+        'operari.json': JSON.stringify({
+          type: 'example.python-missing',
+          language: 'python',
+          entry: 'does_not_exist.py',
+        }),
+      });
+      const result = loadPluginsSync({ pluginsDir });
+      expect(result.executors).toHaveLength(0);
+      expect(result.skipped.some(s => s.includes('no-script'))).toBe(true);
+    });
+
+    it('rejects a python plugin that claims a reserved type', () => {
+      const pluginsDir = makePlugin('case-python-reserved/reserved', {
+        'operari.json': JSON.stringify({
+          type: 'shell',
+          language: 'python',
+          entry: 'step.py',
+        }),
+        'step.py': '# placeholder\n',
+      });
+      const result = loadPluginsSync({ pluginsDir });
+      expect(result.executors).toHaveLength(0);
+    });
+
+    it('skips operari.json without language: skips python branch (falls through to package.json)', () => {
+      // No package.json fallback either → plugin is skipped entirely.
+      const pluginsDir = makePlugin('case-python-no-language/needs-lang', {
+        'operari.json': JSON.stringify({
+          type: 'example.no-language',
+          entry: 'step.py',
+        }),
+        'step.py': '# placeholder\n',
+      });
+      const result = loadPluginsSync({ pluginsDir });
+      expect(result.executors).toHaveLength(0);
+    });
+  });
 });

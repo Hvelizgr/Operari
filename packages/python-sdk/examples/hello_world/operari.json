@@ -1,0 +1,22 @@
+{
+  "type": "myorg.hello-world",
+  "language": "python",
+  "entry": "hello_step.py",
+  "label": { "en": "Hello world", "es": "Hola mundo" },
+  "description": {
+    "en": "Smallest possible Python plugin — emits one log + a greeted output.",
+    "es": "Plugin Python más simple — emite un log + un output greeted."
+  },
+  "icon": "MessageSquare",
+  "color": "bg-emerald-500",
+  "category": "custom",
+  "properties": [
+    {
+      "name": "name",
+      "displayName": "Name to greet",
+      "type": "string",
+      "description": "Supports {{vars.x}} templates from the runbook.",
+      "typeOptions": { "expression": true }
+    }
+  ]
+}

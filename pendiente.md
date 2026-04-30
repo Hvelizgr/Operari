@@ -76,35 +76,25 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 
 ### 🔴 Python SDK: paridad completa con TS
 
-**Estado:** v0.1 shipped (commit `cb07e2d`). Cliente + step authoring + IPC bridge + ejemplo + 18 tests.
+**Estado:** v0.2 shipped. Cliente + step authoring + IPC bridge + ejemplo + 18 tests del SDK + **loader Node-side end-to-end** (commit pending).
 
 **Pending para paridad:**
 
-- Loader Node-side que reconozca `language: python` en el manifest y haga `spawn('python', [entry])` con stdin/stdout JSON
-- Test de integración end-to-end que arranque un plugin Python via el loader real (no mockeado)
-- Pydantic-based config schemas como camino recomendado en docs
-- Async execute (`asyncio`) para plugins que hacen I/O concurrente
-- Publicación a PyPI (paquete actualmente sólo se instala desde repo)
-- Streaming logs durante ejecuciones largas (hoy sólo emite al final del execute)
+- ~~Loader Node-side que reconozca `language: python` en el manifest y haga `spawn('python', [entry])` con stdin/stdout JSON~~ — shipped (`backend/src/runbook/plugins/python-bridge.ts` + `loader.ts` reads `operari.json`)
+- ~~Test de integración end-to-end que arranque un plugin Python via el loader real~~ — shipped (`python-bridge.test.ts` spawns `examples/hello_world/hello_step.py` real)
+- Pydantic-based config schemas como camino recomendado en docs (1 hora — ejemplo + sección README)
+- Async execute (`asyncio`) para plugins que hacen I/O concurrente (~2-3 días — el bridge ya soporta async via su naturaleza subprocess; falta pulir el surface en `define_step`)
+- Publicación a PyPI (paquete actualmente sólo se instala desde repo) (~1 día — pyproject ya está, falta el workflow de release)
+- Streaming logs durante ejecuciones largas (hoy emite live via stdout pero el ejemplo solo emite al final del execute) (~1 día — patrón `context.emit()` repetido en docs)
 
-**Lift estimado:** 1 semana para todo lo de arriba.
-
-**Por qué no entró:** v0.1 es el cierre razonable. Lo demás necesita un loader bridge en el backend que es su propio batch.
-
----
-
-### 🟡 Schedule / cron: defaultEnv loose end
-
-**Estado:** comentario en `backend/src/runbook/services/schedule.service.ts` que menciona "defaultEnv" como tech debt. No se atendió en ninguna sesión.
-
-**Por qué no entró:** sin contexto suficiente — el comment es ambiguo. Próxima vez que alguien toque schedules, vale resolverlo.
+**Lift estimado restante:** 1 semana para los 4 items operativos arriba.
 
 ---
 
 ## Operativos / no-código (afuera del repo)
 
 | Item | Estado |
-|---|---|
+| ---- | ------ |
 | Public demo instance | None |
 | Loom 90s walkthrough | None |
 | Dominio + trademark `Operari` | El repo está en `Hvelizgr/NanoFlow`, dominios `.dev/.io/.com` no asegurados |

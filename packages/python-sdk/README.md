@@ -103,6 +103,44 @@ echo '{"config":{"name":"world"},"context":{"runId":"r","stepId":"s","tenantId":
 
 You should see one `EMIT` line and one `RESULT` line.
 
+### Plugin manifest (`operari.json`)
+
+The Operari backend's plugin loader recognizes Python plugins via a standalone
+`operari.json` manifest file in the plugin directory. The example at
+[`examples/hello_world/`](./examples/hello_world) ships both files side by side:
+
+```json
+{
+  "type": "myorg.hello-world",
+  "language": "python",
+  "entry": "hello_step.py",
+  "label": { "en": "Hello world", "es": "Hola mundo" },
+  "icon": "MessageSquare",
+  "color": "bg-emerald-500",
+  "category": "custom",
+  "properties": [{ "name": "name", "displayName": "Name to greet", "type": "string" }]
+}
+```
+
+Why visual metadata lives on `operari.json` (not on the Python `define_step`
+call): the Node loader cannot introspect a Python module without running it,
+and running every plugin at boot is too slow + fails when Python is missing.
+The duplication between `operari.json` (loader-facing) and `define_step`
+(IDE / future `--dump-metadata` mode) is small and intentional.
+
+Optional manifest fields:
+
+- `pythonBin`: override the Python interpreter (defaults to
+  `OPERARI_PYTHON_BIN` env var, then `python3`). Useful when a plugin needs a
+  venv: `"pythonBin": "/app/plugins/myorg-slack/.venv/bin/python"`.
+- `timeoutMs`: hard kill if the subprocess runs longer than this. Defaults to
+  60000 (60s). Operations that take longer should be backed by a `wait` step
+  with a webhook resume, not a long-running plugin.
+
+To install: drop the directory under `OPERARI_PLUGINS_DIR` and restart the
+backend. The loader picks it up at boot, registers the step type in the
+editor catalog, and spawns one Python subprocess per invocation at run time.
+
 ### IPC contract
 
 The Operari Node loader spawns one subprocess per step invocation and pipes a
