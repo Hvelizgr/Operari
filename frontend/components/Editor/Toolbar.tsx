@@ -15,6 +15,7 @@ import {
   LayoutTemplate,
   Loader2,
   Moon,
+  MoreHorizontal,
   Play,
   Route,
   Sparkles,
@@ -22,7 +23,7 @@ import {
   Sun,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
 import { usePngExport } from '@/hooks/usePngExport';
@@ -44,6 +45,79 @@ interface ToolbarProps {
   lang: 'en' | 'es';
   lineStyle: LineStyle;
   onLineStyleToggle: () => void;
+}
+
+interface MoreMenuItem {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+/**
+ * Overflow dropdown for secondary toolbar actions. Keeps the visible
+ * toolbar focused on Run/Debug/Dry-run + Schedule and stashes the
+ * less-frequent operations (YAML, exports, layout helpers, themes,
+ * templates, snapshots) one click away.
+ *
+ * Click-outside dismiss listens on `mousedown` so the menu doesn't
+ * close mid-pointer-up if the user releases outside.
+ */
+function MoreMenu({ label, items }: { label: string; items: MoreMenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      if (containerRef.current.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        title={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
+      >
+        <MoreHorizontal size={14} />
+      </button>
+      {open ? (
+        <ul
+          role="menu"
+          className="bg-[color:var(--rb-node-bg)]/95 absolute right-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-lg border border-[color:var(--rb-node-border)] py-1 shadow-2xl backdrop-blur"
+        >
+          {items.map((item, idx) => (
+            <li key={idx} role="none">
+              <button
+                type="button"
+                role="menuitem"
+                disabled={item.disabled}
+                onClick={() => {
+                  item.onClick();
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-[color:var(--rb-node-text)] transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="flex h-4 w-4 items-center justify-center text-[color:var(--rb-node-muted)]">
+                  {item.icon}
+                </span>
+                <span>{item.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 type Dialog = 'run' | 'debug' | 'schedule' | 'yaml' | 'templates' | 'snapshots' | null;
@@ -360,88 +434,62 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           ) : null}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setDialog('yaml')}
-          title={t.yaml}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
-        >
-          <FileCode size={14} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => exportImage('png', `${header?.slug || header?.name || 'runbook'}.png`)}
-          disabled={exportingPng}
-          title={t.png}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {exportingPng ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => exportImage('svg', `${header?.slug || header?.name || 'runbook'}.svg`)}
-          disabled={exportingPng}
-          title={t.svg}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <FileImage size={14} />
-        </button>
-
-        <button
-          type="button"
-          onClick={onLineStyleToggle}
-          title={t.lineStyle}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
-        >
-          {lineStyle === 'smart' ? <Spline size={14} /> : <Route size={14} />}
-        </button>
-
-        <button
-          type="button"
-          onClick={handleTidy}
-          title={t.tidy}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
-        >
-          <LayoutGrid size={14} />
-        </button>
-
-        <button
-          type="button"
-          onClick={handleWrap}
-          title={t.wrap}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
-        >
-          <Group size={14} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setDialog('templates')}
-          title={t.templates}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
-        >
-          <LayoutTemplate size={14} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setDialog('snapshots')}
-          title={t.snapshots}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
-        >
-          <Camera size={14} />
-        </button>
-
-        <button
-          type="button"
-          onClick={cycleTheme}
-          title={`${t.theme}: ${theme}`}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
-        >
-          <ThemeIcon size={14} />
-        </button>
+        <MoreMenu
+          label={lang === 'es' ? 'Más acciones' : 'More actions'}
+          items={[
+            {
+              icon: <FileCode size={12} />,
+              label: t.yaml,
+              onClick: () => setDialog('yaml'),
+            },
+            {
+              icon: exportingPng ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Download size={12} />
+              ),
+              label: t.png,
+              disabled: exportingPng,
+              onClick: () => exportImage('png', `${header?.slug || header?.name || 'runbook'}.png`),
+            },
+            {
+              icon: <FileImage size={12} />,
+              label: t.svg,
+              disabled: exportingPng,
+              onClick: () => exportImage('svg', `${header?.slug || header?.name || 'runbook'}.svg`),
+            },
+            {
+              icon: lineStyle === 'smart' ? <Spline size={12} /> : <Route size={12} />,
+              label: t.lineStyle,
+              onClick: onLineStyleToggle,
+            },
+            {
+              icon: <LayoutGrid size={12} />,
+              label: t.tidy,
+              onClick: handleTidy,
+            },
+            {
+              icon: <Group size={12} />,
+              label: t.wrap,
+              onClick: handleWrap,
+            },
+            {
+              icon: <LayoutTemplate size={12} />,
+              label: t.templates,
+              onClick: () => setDialog('templates'),
+            },
+            {
+              icon: <Camera size={12} />,
+              label: t.snapshots,
+              onClick: () => setDialog('snapshots'),
+            },
+            {
+              icon: <ThemeIcon size={12} />,
+              label: `${t.theme}: ${theme}`,
+              onClick: cycleTheme,
+            },
+          ]}
+        />
 
         {saveBadge ? (
           <>

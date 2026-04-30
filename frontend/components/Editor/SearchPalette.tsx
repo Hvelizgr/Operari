@@ -1,9 +1,10 @@
 'use client';
 
 import { Panel, useReactFlow } from '@xyflow/react';
-import { Search, X } from 'lucide-react';
+import { Search, Star, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFavorites } from '@/hooks/useFavorites';
 import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
 import { useEditorStore } from '@/state/editorStore';
 
@@ -28,12 +29,22 @@ interface SearchPaletteProps {
 export default function SearchPalette({ lang, open, onClose }: SearchPaletteProps) {
   const { fitView } = useReactFlow<RfNode, RfEdge>();
   const nodes = useEditorStore(s => s.nodes);
+  const { favorites, isFavorite } = useFavorites();
 
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const matches = useMemo(() => searchNodes(query, nodes), [query, nodes]);
+  // Favorited step types pin to the top of the matches list so an
+  // operator's most-used steps are always one keystroke away,
+  // mirroring the palette and PaneNodeMenu behavior.
+  const matches = useMemo(() => {
+    const all = searchNodes(query, nodes);
+    if (favorites.size === 0) return all;
+    const favs = all.filter(m => favorites.has(m.type));
+    const rest = all.filter(m => !favorites.has(m.type));
+    return [...favs, ...rest];
+  }, [query, nodes, favorites]);
 
   // Reset state on each open so the previous query doesn't bleed in.
   useEffect(() => {
@@ -131,26 +142,39 @@ export default function SearchPalette({ lang, open, onClose }: SearchPaletteProp
       </div>
 
       <ul className="max-h-72 overflow-y-auto py-1 text-sm" role="listbox">
-        {matches.map((match, idx) => (
-          <li
-            key={match.id}
-            role="option"
-            aria-selected={idx === activeIdx}
-            onClick={() => jumpTo(match.id)}
-            onMouseEnter={() => setActiveIdx(idx)}
-            className={[
-              'cursor-pointer px-3 py-1.5 transition-colors',
-              idx === activeIdx ? 'bg-white/10 text-white' : 'text-[color:var(--rb-node-text)]',
-            ].join(' ')}
-          >
-            <div className="truncate font-medium">{match.title || match.type}</div>
-            {match.preview ? (
-              <div className="truncate font-mono text-[11px] text-[color:var(--rb-node-muted)]">
-                {match.preview}
+        {matches.map((match, idx) => {
+          const fav = isFavorite(match.type);
+          return (
+            <li
+              key={match.id}
+              role="option"
+              aria-selected={idx === activeIdx}
+              onClick={() => jumpTo(match.id)}
+              onMouseEnter={() => setActiveIdx(idx)}
+              className={[
+                'flex cursor-pointer items-center gap-2 px-3 py-1.5 transition-colors',
+                idx === activeIdx ? 'bg-white/10 text-white' : 'text-[color:var(--rb-node-text)]',
+              ].join(' ')}
+            >
+              {fav ? (
+                <Star
+                  size={11}
+                  fill="currentColor"
+                  className="shrink-0 text-[color:var(--op-gold)]"
+                  aria-label="favorite"
+                />
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{match.title || match.type}</div>
+                {match.preview ? (
+                  <div className="truncate font-mono text-[11px] text-[color:var(--rb-node-muted)]">
+                    {match.preview}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </li>
-        ))}
+            </li>
+          );
+        })}
         {hint ? <li className="px-3 py-2 text-[color:var(--rb-node-muted)]">{hint}</li> : null}
       </ul>
     </Panel>
