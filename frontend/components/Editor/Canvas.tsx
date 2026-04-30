@@ -14,70 +14,63 @@ import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
-import { useAutoParent } from '@/hooks/v2/useAutoParent';
-import { useAutosaveV2 } from '@/hooks/v2/useAutosaveV2';
-import { useCycleDetection } from '@/hooks/v2/useCycleDetection';
-import { useEditorKeyboardV2 } from '@/hooks/v2/useEditorKeyboardV2';
-import { useExecutionSocketV2 } from '@/hooks/v2/useExecutionSocketV2';
-import { useIsValidConnection } from '@/hooks/v2/useIsValidConnection';
-import { useLoadRunbookV2 } from '@/hooks/v2/useLoadRunbookV2';
-import type { RfEdge, RfNode } from '@/lib/canvas/v2/adapter';
-import { useEditorStoreV2 } from '@/state/editorStoreV2';
+import { useAutoParent } from '@/hooks/useAutoParent';
+import { useAutosave } from '@/hooks/useAutosave';
+import { useCycleDetection } from '@/hooks/useCycleDetection';
+import { useEditorKeyboard } from '@/hooks/useEditorKeyboard';
+import { useExecutionSocket } from '@/hooks/useExecutionSocket';
+import { useIsValidConnection } from '@/hooks/useIsValidConnection';
+import { useLoadRunbook } from '@/hooks/useLoadRunbook';
+import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
+import { useEditorStore } from '@/state/editorStore';
 
-import { defaultConfigForType, NODE_CATALOG } from './catalog';
-import { dragChannel } from './dragChannel';
-import { ConnectionLine } from './edges/ConnectionLine';
-import { EdgeContextMenu } from './edges/EdgeContextMenu';
-import { DEFAULT_EDGE_TYPE, edgeTypes } from './edgeTypes';
-import InspectorV2 from './InspectorV2';
-import { nodeTypes } from './nodeTypes';
-import PaletteV2 from './PaletteV2';
+import { defaultConfigForType, NODE_CATALOG } from './canvas/catalog';
+import { dragChannel } from './canvas/dragChannel';
+import { ConnectionLine } from './canvas/edges/ConnectionLine';
+import { EdgeContextMenu } from './canvas/edges/EdgeContextMenu';
+import { DEFAULT_EDGE_TYPE, edgeTypes } from './canvas/edgeTypes';
+import Inspector from './Inspector';
+import { nodeTypes } from './canvas/nodeTypes';
+import Palette from './Palette';
+import Toolbar from './Toolbar';
+import UndoRedoPanel from './UndoRedoPanel';
 import ZoomToRunning from './ZoomToRunning';
-
-function StatusPill({ lang }: { lang: 'en' | 'es' }) {
-  const status = useEditorStoreV2(s => s.status);
-  const errorMessage = useEditorStoreV2(s => s.errorMessage);
-  const labels = {
-    en: {
-      idle: 'Editor V2',
-      loading: 'Loading…',
-      dirty: 'Unsaved changes',
-      saving: 'Saving…',
-      saved: 'Saved',
-      error: errorMessage ?? 'Error',
-      conflict: errorMessage ?? 'Conflict — refresh',
-    },
-    es: {
-      idle: 'Editor V2',
-      loading: 'Cargando…',
-      dirty: 'Cambios sin guardar',
-      saving: 'Guardando…',
-      saved: 'Guardado',
-      error: errorMessage ?? 'Error',
-      conflict: errorMessage ?? 'Conflicto — recargá',
-    },
-  } as const;
-  return (
-    <div className="pointer-events-none absolute right-4 top-4 z-30 rounded-md bg-black/70 px-3 py-1.5 text-xs text-white">
-      {labels[lang][status]}
-    </div>
-  );
-}
 
 const DEFAULT_EDGE_OPTIONS = { type: DEFAULT_EDGE_TYPE } as const;
 
-function CanvasV2Inner({ lang }: { lang: 'en' | 'es' }) {
+// MiniMap colors mirror the in-canvas status palette so the operator
+// scanning a 100-step runbook can see at a glance which steps are
+// running / failed / skipped without reading every node.
+const MINIMAP_COLOR = (node: RfNode): string => {
+  const status = node.data?.status ?? 'idle';
+  if (node.type === 'custom.frame') return 'rgba(14, 165, 233, 0.4)';
+  if (node.type === 'custom.note') return 'rgba(245, 158, 11, 0.4)';
+  switch (status) {
+    case 'running':
+      return 'var(--op-gold)';
+    case 'success':
+      return 'var(--op-moss)';
+    case 'failed':
+      return 'var(--op-sunset)';
+    case 'skipped':
+      return 'var(--op-fog)';
+    default:
+      return 'var(--op-stone)';
+  }
+};
+
+function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   const params = useSearchParams();
   const runbookId = params.get('id');
   const executionId = params.get('run');
 
-  const nodes = useEditorStoreV2(s => s.nodes);
-  const edges = useEditorStoreV2(s => s.edges);
-  const onNodesChange = useEditorStoreV2(s => s.onNodesChange);
-  const onEdgesChange = useEditorStoreV2(s => s.onEdgesChange);
-  const onConnect = useEditorStoreV2(s => s.onConnect);
-  const addNode = useEditorStoreV2(s => s.addNode);
-  const removeNodes = useEditorStoreV2(s => s.removeNodes);
+  const nodes = useEditorStore(s => s.nodes);
+  const edges = useEditorStore(s => s.edges);
+  const onNodesChange = useEditorStore(s => s.onNodesChange);
+  const onEdgesChange = useEditorStore(s => s.onEdgesChange);
+  const onConnect = useEditorStore(s => s.onConnect);
+  const addNode = useEditorStore(s => s.addNode);
+  const removeNodes = useEditorStore(s => s.removeNodes);
 
   const { screenToFlowPosition } = useReactFlow<RfNode, RfEdge>();
   const isValidConnection = useIsValidConnection();
@@ -89,21 +82,21 @@ function CanvasV2Inner({ lang }: { lang: 'en' | 'es' }) {
   // run the auto-parent rebase on stop, then resume so the diff between
   // pre-drag and post-drag becomes a single zundo entry.
   const handleNodeDragStart = useCallback(() => {
-    useEditorStoreV2.temporal.getState().pause();
+    useEditorStore.temporal.getState().pause();
   }, []);
   const handleNodeDragStop = useCallback(
     (event: React.MouseEvent | React.TouchEvent, node: RfNode) => {
       reparentOnDragStop(event, node);
-      useEditorStoreV2.temporal.getState().resume();
+      useEditorStore.temporal.getState().resume();
     },
     [reparentOnDragStop]
   );
 
-  useLoadRunbookV2(runbookId);
-  useAutosaveV2();
+  useLoadRunbook(runbookId);
+  useAutosave();
   useCycleDetection();
-  useEditorKeyboardV2();
-  useExecutionSocketV2(executionId);
+  useEditorKeyboard();
+  useExecutionSocket(executionId);
 
   const handleNodesDelete = useCallback(
     (deleted: RfNode[]) => {
@@ -168,9 +161,7 @@ function CanvasV2Inner({ lang }: { lang: 'en' | 'es' }) {
 
   return (
     <div className="relative h-full w-full" onDragOver={handleDragOver} onDrop={handleDrop}>
-      <PaletteV2 lang={lang} />
-      <StatusPill lang={lang} />
-      <ZoomToRunning lang={lang} />
+      <Palette lang={lang} />
       <ReactFlow<RfNode, RfEdge>
         nodes={nodes}
         edges={edges}
@@ -195,9 +186,29 @@ function CanvasV2Inner({ lang }: { lang: 'en' | 'es' }) {
         multiSelectionKeyCode="Shift"
         deleteKeyCode={['Delete', 'Backspace']}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+        {/* Layered background: a coarse line grid for orientation and a
+            fine dot grid on top so step alignment reads cleanly at any
+            zoom level. Both fade against the canvas background via
+            color-mix so they never compete with the nodes. */}
+        <Background
+          id="grid"
+          variant={BackgroundVariant.Lines}
+          gap={120}
+          size={1}
+          color="color-mix(in oklab, var(--op-stone) 8%, transparent)"
+        />
+        <Background
+          id="dots"
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1}
+          color="color-mix(in oklab, var(--op-moss) 18%, transparent)"
+        />
+        <UndoRedoPanel lang={lang} />
+        <Toolbar lang={lang} />
+        <ZoomToRunning lang={lang} />
         <Controls />
-        <MiniMap pannable zoomable />
+        <MiniMap pannable zoomable nodeColor={MINIMAP_COLOR} />
       </ReactFlow>
       {edgeMenu ? (
         <EdgeContextMenu
@@ -207,15 +218,15 @@ function CanvasV2Inner({ lang }: { lang: 'en' | 'es' }) {
           onClose={() => setEdgeMenu(null)}
         />
       ) : null}
-      <InspectorV2 lang={lang} />
+      <Inspector lang={lang} />
     </div>
   );
 }
 
-export default function CanvasV2({ lang }: { lang: 'en' | 'es' }) {
+export default function Canvas({ lang }: { lang: 'en' | 'es' }) {
   return (
     <ReactFlowProvider>
-      <CanvasV2Inner lang={lang} />
+      <CanvasInner lang={lang} />
     </ReactFlowProvider>
   );
 }

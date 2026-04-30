@@ -4,20 +4,31 @@
 @tailwind components;
 @tailwind utilities;
 
-/* React Flow V2 edge tokens. The dasharray / animation duration combo
-   (8 6 / 800ms) is calibrated so two consecutive dashes traverse a
-   typical 200–300px edge at the same cadence as the V1 Canvas 2D loop
-   (~25 px/frame). Tweak both together if changing one. */
+/* React Flow edge tokens. Each `--rb-*` resolves to an Operari brand
+   token (`--op-*`, defined a few blocks below). Routing edge styling
+   through this thin alias layer means a future palette change ripples
+   to the canvas without touching any edge component. The dasharray /
+   animation duration combo (8 6 / 800ms) is calibrated so two
+   consecutive dashes traverse a typical 200–300px edge at the same
+   cadence as the V1 Canvas 2D loop (~25 px/frame). Tweak both together
+   if changing one. */
 :root {
-  --rb-edge: rgb(148 163 184 / 0.7);
-  --rb-edge-running: #f59e0b;
-  --rb-edge-success: #10b981;
-  --rb-edge-failed: #f43f5e;
-  --rb-edge-skipped: #64748b;
-  --rb-edge-cyclic: #ef4444;
-  --rb-edge-warning: #f59e0b;
-  --rb-edge-disabled: #475569;
-  --rb-orb: #fde68a;
+  --rb-edge: color-mix(in oklab, var(--op-fog) 70%, transparent);
+  --rb-edge-running: var(--op-gold);
+  --rb-edge-success: var(--op-moss);
+  --rb-edge-failed: var(--op-sunset);
+  --rb-edge-skipped: var(--op-fog);
+  --rb-edge-cyclic: var(--op-sunset);
+  --rb-edge-warning: var(--op-gold);
+  --rb-edge-disabled: color-mix(in oklab, var(--op-fog) 50%, transparent);
+  --rb-orb: color-mix(in oklab, var(--op-gold) 80%, white);
+
+  /* Node chrome */
+  --rb-node-bg: var(--op-graphite);
+  --rb-node-border: color-mix(in oklab, var(--op-snow) 8%, transparent);
+  --rb-node-text: var(--op-snow);
+  --rb-node-muted: var(--op-fog);
+  --rb-node-selected: var(--op-moss);
 }
 
 @keyframes rb-dash {
@@ -26,35 +37,89 @@
   }
 }
 
-/* RF v12 token overrides per theme. We keep the library defaults in
-   light mode and tighten the dark / midnight palettes so the canvas
-   chrome (handles, markers, attribution, controls) reads against the
+@keyframes rb-running-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--op-gold) 60%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--op-gold) 0%, transparent);
+  }
+}
+
+@keyframes rb-selected-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--op-moss) 50%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--op-moss) 0%, transparent);
+  }
+}
+
+/* RF v12 token overrides per theme. Light mode uses the library
+   defaults; dark and midnight tighten the canvas chrome so handles,
+   markers, controls, attribution and the minimap read against the
    Operari background instead of RF's stock blue/white. */
 .dark .react-flow,
 [data-theme='midnight'] .react-flow {
   --xy-background-color: transparent;
-  --xy-edge-stroke-default: rgb(148 163 184 / 0.7);
+  --xy-edge-stroke-default: var(--rb-edge);
   --xy-edge-stroke-selected-default: var(--rb-edge-running);
-  --xy-handle-background-color-default: #1a1a2e;
-  --xy-handle-border-color-default: rgba(255, 255, 255, 0.4);
-  --xy-controls-button-background-color-default: rgba(26, 26, 46, 0.9);
-  --xy-controls-button-background-color-hover-default: rgba(40, 40, 70, 0.95);
-  --xy-controls-button-color-default: #e5e7eb;
-  --xy-controls-button-color-hover-default: #ffffff;
-  --xy-controls-button-border-color-default: rgba(255, 255, 255, 0.1);
-  --xy-minimap-background-color-default: rgba(26, 26, 46, 0.9);
+  --xy-handle-background-color-default: var(--op-graphite);
+  --xy-handle-border-color-default: color-mix(in oklab, var(--op-snow) 35%, transparent);
+  --xy-controls-button-background-color-default: color-mix(
+    in oklab,
+    var(--op-graphite) 92%,
+    transparent
+  );
+  --xy-controls-button-background-color-hover-default: color-mix(
+    in oklab,
+    var(--op-weathered) 96%,
+    transparent
+  );
+  --xy-controls-button-color-default: var(--op-snow);
+  --xy-controls-button-color-hover-default: white;
+  --xy-controls-button-border-color-default: color-mix(in oklab, var(--op-snow) 10%, transparent);
+  --xy-minimap-background-color-default: color-mix(in oklab, var(--op-graphite) 92%, transparent);
   --xy-minimap-mask-background-color-default: rgba(0, 0, 0, 0.55);
   --xy-attribution-background-color-default: transparent;
-  --xy-selection-background-color-default: rgba(55, 145, 245, 0.12);
-  --xy-selection-border-default: 1px dashed rgba(55, 145, 245, 0.7);
+  --xy-selection-background-color-default: color-mix(in oklab, var(--op-moss) 12%, transparent);
+  --xy-selection-border-default: 1px dashed color-mix(in oklab, var(--op-moss) 70%, transparent);
 }
 
-/* Midnight goes one shade darker on the chrome so it doesn't fight
-   the pure-black background. */
+/* Midnight reinforces the chrome to pure black so it doesn't fight
+   the granite background. */
 [data-theme='midnight'] .react-flow {
-  --xy-handle-background-color-default: #050505;
+  --xy-handle-background-color-default: var(--op-granite);
   --xy-controls-button-background-color-default: rgba(0, 0, 0, 0.85);
   --xy-minimap-background-color-default: rgba(0, 0, 0, 0.85);
+}
+
+/* Drag and selection visual feedback. The dragged node lifts visually
+   so the operator sees what they're moving in a busy graph. Selected
+   nodes raise above their neighbors so frames don't occlude them. */
+.react-flow__node.dragging {
+  opacity: 0.92;
+  z-index: 1000;
+  filter: drop-shadow(0 12px 28px rgb(0 0 0 / 0.45));
+}
+.react-flow__node.selected:not(.dragging) {
+  z-index: 10;
+}
+
+/* Disabled-step diagonal hatching. The pattern reads as "muted but
+   present" without resorting to opacity-30 which makes the node hard
+   to read against the canvas background. */
+.rb-disabled-stripes {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 6px,
+    color-mix(in oklab, var(--op-snow) 4%, transparent) 6px,
+    color-mix(in oklab, var(--op-snow) 4%, transparent) 8px
+  );
+  background-color: var(--rb-node-bg);
 }
 
 /* ─────────────────────────────────────────────────────────────

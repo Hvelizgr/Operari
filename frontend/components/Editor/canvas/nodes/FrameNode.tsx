@@ -3,15 +3,18 @@
 import { type NodeProps, NodeResizer } from '@xyflow/react';
 import { memo, useEffect, useRef, useState } from 'react';
 
-import type { RfNode } from '@/lib/canvas/v2/adapter';
-import { useEditorStoreV2 } from '@/state/editorStoreV2';
+import type { RfNode } from '@/lib/canvas/adapter';
+import { useEditorStore } from '@/state/editorStore';
+
+import { NodeContextToolbar } from '../NodeContextToolbar';
 
 const DEFAULT_WIDTH = 360;
 const DEFAULT_HEIGHT = 220;
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 140;
+const DEFAULT_COLOR = 'var(--op-sky)';
 
-function FrameNodeComponent({ id, data, selected }: NodeProps<RfNode>) {
+function FrameNodeComponent({ id, data, selected, parentId }: NodeProps<RfNode>) {
   const config = (data.workflow.config ?? {}) as {
     title?: string;
     color?: string;
@@ -19,7 +22,7 @@ function FrameNodeComponent({ id, data, selected }: NodeProps<RfNode>) {
     height?: number;
   };
   const title = data.workflow.title?.trim() || config.title || 'Section';
-  const color = config.color ?? '#3791f5';
+  const color = config.color ?? DEFAULT_COLOR;
   const width = config.width ?? DEFAULT_WIDTH;
   const height = config.height ?? DEFAULT_HEIGHT;
 
@@ -34,26 +37,34 @@ function FrameNodeComponent({ id, data, selected }: NodeProps<RfNode>) {
   const commitTitle = () => {
     const next = draftTitle.trim() || title;
     if (next !== title) {
-      useEditorStoreV2.getState().updateNodeData(id, {
+      useEditorStore.getState().updateNodeData(id, {
         workflow: { ...data.workflow, title: next },
       });
-      useEditorStoreV2.getState().setStatus('dirty');
+      useEditorStore.getState().setStatus('dirty');
     }
     setEditing(false);
   };
 
   const handleResize = (_event: unknown, params: { width: number; height: number }) => {
-    useEditorStoreV2.getState().updateNodeData(id, {
+    useEditorStore.getState().updateNodeData(id, {
       workflow: {
         ...data.workflow,
         config: { ...config, width: params.width, height: params.height },
       },
     });
-    useEditorStoreV2.getState().setStatus('dirty');
+    useEditorStore.getState().setStatus('dirty');
   };
+
+  // CSS color-mix lets the frame tint pull from the brand `--op-*` tokens
+  // when the user has not picked an explicit hex color.
+  const fillTint =
+    color.startsWith('var(') || color.startsWith('--')
+      ? `color-mix(in oklab, ${color} 12%, transparent)`
+      : `${color}1F`;
 
   return (
     <>
+      <NodeContextToolbar id={id} kind="frame" parentId={parentId} />
       <NodeResizer
         color={color}
         isVisible={selected}
@@ -68,9 +79,11 @@ function FrameNodeComponent({ id, data, selected }: NodeProps<RfNode>) {
         style={{
           width,
           height,
-          background: `${color}15`,
+          background: fillTint,
           borderColor: color,
-          boxShadow: selected ? '0 0 0 2px rgba(255,255,255,0.15)' : undefined,
+          boxShadow: selected
+            ? `0 0 0 2px color-mix(in oklab, ${color} 35%, transparent)`
+            : undefined,
         }}
       >
         <div
