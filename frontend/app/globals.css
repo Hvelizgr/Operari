@@ -57,6 +57,27 @@
   }
 }
 
+/* Drop-target breathing — applied to step nodes while a connection is
+   being drawn anywhere on the canvas. Telegraphs every potential
+   landing spot so the operator can find an input handle on the first
+   try instead of fishing for it. */
+@keyframes rb-target-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--op-moss) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--op-moss) 0%, transparent);
+  }
+}
+
+/* Subtle hover affordance on step nodes — only when not being dragged
+   (RF sets `.dragging` while a node is mid-drag). Lift by 1px so the
+   shadow grows; pure CSS, GPU-accelerated, no React re-render. */
+.rb-node:hover:not(.react-flow__node-dragging *) {
+  transform: translateY(-1px);
+}
+
 /* RF v12 token overrides per theme. Light mode uses the library
    defaults; dark and midnight tighten the canvas chrome so handles,
    markers, controls, attribution and the minimap read against the
