@@ -37,6 +37,7 @@ import {
   readLineStyle,
   writeLineStyle,
 } from './canvas/edgeTypes';
+import AlignmentGuides from './AlignmentGuides';
 import Inspector from './Inspector';
 import { nodeTypes } from './canvas/nodeTypes';
 import Palette from './Palette';
@@ -322,6 +323,7 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
           <SearchPalette lang={lang} open={searchOpen} onClose={() => setSearchOpen(false)} />
         ) : null}
         <ZoomToRunning lang={lang} />
+        {!embedMode ? <AlignmentGuides /> : null}
         <Controls showInteractive={!embedMode} />
         <MiniMap pannable zoomable nodeColor={MINIMAP_COLOR} />
       </ReactFlow>

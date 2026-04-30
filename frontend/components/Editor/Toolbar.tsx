@@ -4,6 +4,7 @@ import { Panel } from '@xyflow/react';
 import {
   AlertCircle,
   Bug,
+  Camera,
   CalendarClock,
   CheckCircle2,
   Download,
@@ -11,6 +12,7 @@ import {
   FileImage,
   Group,
   LayoutGrid,
+  LayoutTemplate,
   Loader2,
   Moon,
   Play,
@@ -24,6 +26,7 @@ import { useEffect, useState } from 'react';
 
 import { useTheme } from '@/context/ThemeContext';
 import { usePngExport } from '@/hooks/usePngExport';
+import { useSnapshots } from '@/hooks/useSnapshots';
 import { useWorkflowExecution, type ExecuteWorkflowResult } from '@/hooks/useWorkflowExecution';
 import { rfToWorkflow } from '@/lib/canvas/adapter';
 import { computeAutoLayout } from '@/lib/canvas/layout';
@@ -32,6 +35,8 @@ import { useEditorStore } from '@/state/editorStore';
 
 import RunDialog, { type DialogRunResult } from '../Runbook/RunDialog';
 import ScheduleDialog from '../Runbook/ScheduleDialog';
+import SnapshotDialog from '../Runbook/SnapshotDialog';
+import TemplateGallery from '../Runbook/TemplateGallery';
 import type { LineStyle } from './canvas/edgeTypes';
 import YamlViewModal from './YamlViewModal';
 
@@ -41,7 +46,7 @@ interface ToolbarProps {
   onLineStyleToggle: () => void;
 }
 
-type Dialog = 'run' | 'debug' | 'schedule' | 'yaml' | null;
+type Dialog = 'run' | 'debug' | 'schedule' | 'yaml' | 'templates' | 'snapshots' | null;
 
 const SAVE_BADGE: Record<
   Exclude<ReturnType<typeof useEditorStore.getState>['status'], 'idle' | 'loading' | 'dirty'>,
@@ -97,6 +102,8 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           svg: 'Exportar SVG',
           tidy: 'Auto-layout',
           wrap: 'Agrupar en frame',
+          templates: 'Plantillas',
+          snapshots: 'Instantáneas',
           lineStyle: lineStyle === 'smart' ? 'Aristas curvas' : 'Aristas ortogonales',
           missingId: 'Guardá el runbook antes de ejecutar.',
           launching: 'Iniciando…',
@@ -113,6 +120,8 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           svg: 'Export SVG',
           tidy: 'Tidy up',
           wrap: 'Wrap in frame',
+          templates: 'Templates',
+          snapshots: 'Snapshots',
           lineStyle: lineStyle === 'smart' ? 'Curved edges' : 'Step edges',
           missingId: 'Save the runbook before running.',
           launching: 'Launching…',
@@ -178,6 +187,48 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
       edges: result.edges,
       status: 'dirty',
     });
+  };
+
+  // Snapshot wiring: in-memory + localStorage history per runbook so
+  // an operator can rewind a destructive edit without leaving the
+  // canvas. Each create / restore round-trips through the workflow
+  // shape, never touching the persisted YAML.
+  const { snapshots, createSnapshot, restoreSnapshot, deleteSnapshot } = useSnapshots(
+    runbookId ?? 'global'
+  );
+  const handleSnapshotCreate = () => {
+    const payload = rfToWorkflow(nodes, edges);
+    createSnapshot(payload.nodes, payload.connections);
+  };
+  const handleSnapshotRestore = (snapshotId: string) => {
+    const restored = restoreSnapshot(snapshotId);
+    if (!restored || !runbookId) return;
+    hydrateFromWorkflow(
+      runbookId,
+      header ?? { name: 'Untitled' },
+      inputs,
+      restored.nodes,
+      restored.connections
+    );
+    setStatus('dirty');
+    setDialog(null);
+  };
+
+  // TemplateGallery hands us workflow-shape arrays via its
+  // onSelectTemplate callback. We forward them through hydrateFromWorkflow
+  // — same pipeline the runbook loader uses, so frame nesting + meta
+  // keys round-trip cleanly.
+  const handleTemplateSelect = (nextNodes: unknown[], nextConnections: unknown[]) => {
+    if (!runbookId) return;
+    hydrateFromWorkflow(
+      runbookId,
+      header ?? { name: 'Untitled' },
+      inputs,
+      nextNodes as never,
+      nextConnections as never
+    );
+    setStatus('dirty');
+    setDialog(null);
   };
 
   const applyYaml = (next: {
@@ -367,6 +418,24 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
 
         <button
           type="button"
+          onClick={() => setDialog('templates')}
+          title={t.templates}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
+        >
+          <LayoutTemplate size={14} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setDialog('snapshots')}
+          title={t.snapshots}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
+        >
+          <Camera size={14} />
+        </button>
+
+        <button
+          type="button"
           onClick={cycleTheme}
           title={`${t.theme}: ${theme}`}
           className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
@@ -435,6 +504,23 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           onApply={applyYaml}
         />
       ) : null}
+
+      <TemplateGallery
+        lang={lang}
+        isOpen={dialog === 'templates'}
+        onOpenChange={open => setDialog(open ? 'templates' : null)}
+        onSelectTemplate={handleTemplateSelect}
+      />
+
+      <SnapshotDialog
+        isOpen={dialog === 'snapshots'}
+        onClose={() => setDialog(null)}
+        snapshots={snapshots}
+        onCreate={handleSnapshotCreate}
+        onRestore={handleSnapshotRestore}
+        onDelete={deleteSnapshot}
+        lang={lang}
+      />
     </>
   );
 }
