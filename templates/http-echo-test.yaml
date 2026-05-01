@@ -1,0 +1,32 @@
+# Operari Template: HTTP echo test
+#
+# Hits httpbin.org/get and verifies the response. Useful as a smoke
+# test for the operari.httpRequest step type and as a quick check
+# that outbound traffic from the runner host actually leaves your
+# VPC.
+#
+# How the assertion works:
+#   `failOnNon2xx: true` (the executor's default, set explicit here
+#   for clarity) marks the step FAILED on any 3xx/4xx/5xx. There is
+#   no separate `condition` step type — assertions live on the step
+#   that produces the value.
+#
+# To extend this template:
+#   - Add a `notify` step after `ping` to announce success
+#   - Use `runIf` / `skipIf` per-step expressions for branching
+#   - Or add a `connected-account` secret and probe an internal URL
+version: 1
+name: HTTP echo test
+slug: http-echo-test
+description: GET httpbin.org/get — outbound smoke test. Step fails on non-2xx.
+category: test
+steps:
+  - id: ping
+    type: operari.httpRequest
+    name: GET httpbin.org/get
+    config:
+      method: GET
+      url: https://httpbin.org/get
+      timeout: 10000
+      followRedirects: true
+      failOnNon2xx: true

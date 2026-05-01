@@ -1,0 +1,18 @@
+# Operari Template: Hello-world test runbook
+#
+# Smallest possible runbook: prints a message to the engine log via a
+# shell echo, then exits. Use this to verify your local install can
+# render, save, and execute a runbook end-to-end before wiring real
+# integrations. No external services touched.
+version: 1
+name: Hello world (test)
+slug: hello-world-test
+description: Smallest runbook that exercises the engine — echo + done.
+category: test
+steps:
+  - id: greet
+    type: shell
+    name: Echo greeting
+    config:
+      command: |
+        echo "Hello from Operari at $(date -u +%FT%TZ)"

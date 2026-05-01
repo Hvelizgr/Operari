@@ -1,0 +1,48 @@
+# Operari Template: Audit chain self-check
+#
+# Calls the audit verifier endpoint to confirm the SHA-256 hash chain
+# is intact (every event references the previous hash, no rows added
+# out-of-band). Run on a schedule; alert on non-zero exit.
+#
+# How it works:
+#   `verify` shells out to curl + jq and reads `.valid` from the JSON
+#   body. If `.valid` is not `true`, the script exits non-zero and the
+#   runbook fails — Operari then records the failure in its own audit
+#   log and (if you set `onErrorRunbookId` on this runbook) dispatches
+#   the configured error-handler runbook with the failure payload.
+#
+#   We keep this as a single shell step on purpose: there is no
+#   `condition` step type — assertions live in the step that produces
+#   the value. The HttpExecutor's `body` is a string, not a parsed
+#   object, so reaching into `.valid` requires a parser anyway.
+#
+# Variables expected:
+#   - api_base   (string) Operari backend URL, e.g. https://operari.local
+#   - api_token  (secret) API key with `audit.read` scope; reference as
+#                         {{secrets.<account>}} once linked, or pass via
+#                         {{vars.api_token}} at trigger time for a
+#                         smoke run.
+version: 1
+name: Audit chain self-check
+slug: audit-self-check
+description: Verifies the audit hash chain via /api/v1/audit/verify. Fails on any tamper.
+category: test
+schedule: '0 */6 * * *'
+steps:
+  - id: verify
+    type: shell
+    name: Verify audit chain
+    config:
+      command: |
+        set -euo pipefail
+        RESPONSE=$(curl -fsSL \
+          -H "Authorization: Bearer {{vars.api_token}}" \
+          "{{vars.api_base}}/api/v1/audit/verify")
+        VALID=$(printf '%s' "$RESPONSE" | jq -r '.valid')
+        if [ "$VALID" != "true" ]; then
+          echo "TAMPER: audit chain failed verification"
+          printf '%s\n' "$RESPONSE"
+          exit 1
+        fi
+        echo "audit chain OK at $(date -u +%FT%TZ)"
+      timeout: 30000

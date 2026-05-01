@@ -1,0 +1,36 @@
+# Operari Template: Slack notify smoke test
+#
+# Sends a single message to a Slack channel via Incoming Webhook. Use
+# this to verify the `slack_webhook` value is valid and the runner
+# can reach Slack from its egress.
+#
+# Why `notify` (not `operari.httpRequest`):
+#   The notify executor knows Slack-specific behaviour — it checks
+#   `response.ok`, treats non-`ok` bodies as failure, and honours
+#   `Retry-After` on 429. Posting to a webhook by hand misses all of
+#   that. For Slack/Discord/generic-webhook smoke tests, `notify` is
+#   always the right executor.
+#
+# Variables expected:
+#   - slack_webhook (string) Incoming-webhook URL. For production,
+#                            promote this to a connected-account
+#                            secret and reference it as
+#                            {{secrets.slack-ops}}.
+#   - channel       (string) Channel display name for the body, optional
+version: 1
+name: Slack notify (test)
+slug: slack-notify-test
+description: Sends a one-line message to a Slack incoming webhook to verify the secret + egress.
+category: test
+steps:
+  - id: notify
+    type: notify
+    name: Post to Slack
+    config:
+      channel: slack
+      webhookUrl: '{{vars.slack_webhook}}'
+      title: Operari smoke test
+      color: good
+      message: |
+        :wave: Operari smoke test reporting in.
+        Channel hint: {{vars.channel}}
