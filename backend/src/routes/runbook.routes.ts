@@ -220,15 +220,24 @@ router.get('/', async (req: AuthRequest, res) => {
     const recentStatusesByWf = new Map<string, string[]>();
     if (ids.length > 0) {
       const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      // `ids` comes from a tenant-scoped runbook.findMany above, so the
+      // executions joined on those ids are already tenant-isolated by
+      // construction. The explicit tenantId here is for the runtime
+      // tenant-scope guard (middleware/tenant-scope-guard.ts) which
+      // refuses any Execution query without an explicit tenant filter
+      // — without it the guard throws under ts-node-dev and kills the
+      // process the next time this list endpoint is hit.
+      const tenantId = req.user!.tenantId;
       const [recentRuns, statusGroups] = await Promise.all([
         prisma.execution.findMany({
-          where: { runbookId: { in: ids } },
+          where: { tenantId, runbookId: { in: ids } },
           orderBy: { startedAt: 'desc' },
           select: { runbookId: true, startedAt: true, status: true },
         }),
         prisma.execution.groupBy({
           by: ['runbookId', 'status'],
           where: {
+            tenantId,
             runbookId: { in: ids },
             startedAt: { gte: since30d },
           },

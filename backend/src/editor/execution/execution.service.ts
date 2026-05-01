@@ -512,7 +512,10 @@ export class ExecutionService {
         orderBy: { version: 'desc' },
       });
 
-      // Create execution record
+      // Create execution record. The dryRun flag must be persisted
+      // so the run-history filter and the run detail page can label
+      // the row distinctly — otherwise every dry-run looks like a
+      // real run in /runs.
       const execution = await this.prisma.execution.create({
         data: {
           runbookId,
@@ -522,6 +525,7 @@ export class ExecutionService {
           status: 'RUNNING',
           parentExecutionId,
           runbookVersionId: latestVersion?.id ?? null,
+          dryRun: dryRun ?? false,
         },
       });
 

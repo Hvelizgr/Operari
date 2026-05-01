@@ -265,4 +265,129 @@ describe('DatabaseExecutor', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('Unknown operation');
   });
+
+  describe('dry-run', () => {
+    it('health: skips pg connection, emits log, returns dryRun-shaped output', async () => {
+      let createdClient = false;
+      const executor = new DatabaseExecutor(() => {
+        createdClient = true;
+        return new FakePgClient() as any;
+      });
+      const events: ExecutorEvent[] = [];
+
+      const result = await executor.execute(
+        dbConfig({ operation: 'health' }),
+        execCtx({ dryRun: true, emit: e => events.push(e) })
+      );
+
+      expect(createdClient).toBe(false);
+      expect(result.success).toBe(true);
+      const output = result.output as any;
+      expect(output.dryRun).toBe(true);
+      expect(output.connected).toBe(false);
+      expect(output.serverVersion).toBe('dry-run');
+      expect(output.latencyMs).toBe(0);
+      expect(
+        events.some(e => e.type === 'log' && e.text.includes('[dry-run] would run health'))
+      ).toBe(true);
+    });
+
+    it('introspect: returns empty tables[] under dry-run', async () => {
+      let createdClient = false;
+      const executor = new DatabaseExecutor(() => {
+        createdClient = true;
+        return new FakePgClient() as any;
+      });
+
+      const result = await executor.execute(
+        dbConfig({ operation: 'introspect' }),
+        execCtx({ dryRun: true })
+      );
+
+      expect(createdClient).toBe(false);
+      expect(result.success).toBe(true);
+      const output = result.output as any;
+      expect(output.dryRun).toBe(true);
+      expect(output.tables).toEqual([]);
+    });
+
+    it('query: resolves SQL template, emits it, returns empty rows', async () => {
+      let createdClient = false;
+      const executor = new DatabaseExecutor(() => {
+        createdClient = true;
+        return new FakePgClient() as any;
+      });
+      const events: ExecutorEvent[] = [];
+
+      const result = await executor.execute(
+        dbConfig({
+          operation: 'query',
+          query: 'SELECT * FROM events WHERE tenant = {{vars.tenant}}',
+        }),
+        execCtx({
+          dryRun: true,
+          variables: { tenant: 'acme' },
+          emit: e => events.push(e),
+        })
+      );
+
+      expect(createdClient).toBe(false);
+      expect(result.success).toBe(true);
+      const output = result.output as any;
+      expect(output.dryRun).toBe(true);
+      expect(output.rows).toEqual([]);
+      expect(output.rowCount).toBe(0);
+      expect(output.fields).toEqual([]);
+      expect(output.sql).toBe('SELECT * FROM events WHERE tenant = acme');
+      expect(events.some(e => e.type === 'log' && e.text.includes('[dry-run] would query'))).toBe(
+        true
+      );
+      expect(events.some(e => e.type === 'log' && e.text.includes('tenant = acme'))).toBe(true);
+    });
+
+    it('skipped tunnel: never opens SSH tunnel even when configured', async () => {
+      let createdClient = false;
+      const executor = new DatabaseExecutor(() => {
+        createdClient = true;
+        return new FakePgClient() as any;
+      });
+      const events: ExecutorEvent[] = [];
+
+      const result = await executor.execute(
+        dbConfig({
+          operation: 'health',
+          sshTunnel: {
+            host: 'bastion.internal',
+            username: 'deploy',
+            sshCredentialId: 'ssh-key-1',
+          },
+        }),
+        execCtx({
+          dryRun: true,
+          // sshCredentialId intentionally NOT in secrets — would fail in real
+          // mode, but dry-run should not even check it.
+          secrets: { 'db-cred-1': 'postgresql://user:pass@db.internal:5432/myapp' },
+          emit: e => events.push(e),
+        })
+      );
+
+      expect(createdClient).toBe(false);
+      expect(result.success).toBe(true);
+      expect(
+        events.some(e => e.type === 'log' && e.text.includes('SSH tunnel bastion.internal'))
+      ).toBe(true);
+    });
+
+    it('still fails when credentialId is missing', async () => {
+      const executor = new DatabaseExecutor(() => new FakePgClient() as any);
+
+      const result = await executor.execute(
+        dbConfig({ credentialId: 'missing-cred' }),
+        execCtx({ dryRun: true })
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Database credential not found');
+    });
+  });
 });

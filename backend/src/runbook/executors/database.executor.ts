@@ -106,6 +106,54 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
       };
     }
 
+    // Dry-run: never open a tunnel, never connect. Emit a log showing
+    // the operation (and for `query`, the resolved SQL) so an operator
+    // can catch a typo or an accidental prod-pointing credential
+    // before any packet leaves the host. Output keeps the same shape
+    // per-operation as the real execution (`rows[]`, `tables[]`,
+    // `connected`) so downstream steps that template against
+    // `{{steps.x.rowCount}}` etc. don't blow up under simulation.
+    if (context.dryRun) {
+      let preview: Record<string, unknown>;
+      switch (config.operation) {
+        case 'health':
+          preview = { connected: false, serverVersion: 'dry-run', latencyMs: 0 };
+          break;
+        case 'introspect':
+          preview = { tables: [] };
+          break;
+        case 'query': {
+          const sql = config.query ? resolveTemplate(config.query, context) : '';
+          context.emit?.({
+            type: 'log',
+            text: `[dry-run] would query: ${sql.slice(0, 500)}`,
+            timestamp: new Date(),
+          });
+          preview = { rows: [], rowCount: 0, fields: [], sql };
+          break;
+        }
+        default:
+          return {
+            success: false,
+            error: `Unknown operation: ${config.operation}`,
+            duration: Date.now() - startTime,
+          };
+      }
+      if (config.operation !== 'query') {
+        const tunnelDesc = config.sshTunnel ? ` over SSH tunnel ${config.sshTunnel.host}` : '';
+        context.emit?.({
+          type: 'log',
+          text: `[dry-run] would run ${config.operation} via credential ${config.credentialId}${tunnelDesc}`,
+          timestamp: new Date(),
+        });
+      }
+      return {
+        success: true,
+        output: { dryRun: true, ...preview },
+        duration: Date.now() - startTime,
+      };
+    }
+
     let tunnel: TunnelResult | null = null;
     let effectiveConnectionString = connectionString;
 

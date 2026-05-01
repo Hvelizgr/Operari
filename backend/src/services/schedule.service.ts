@@ -43,6 +43,7 @@ export class ScheduleService {
       }),
       this.prisma.execution.findFirst({
         where: {
+          tenantId,
           runbookId: job.runbookId,
           trigger: 'SCHEDULED',
         },
