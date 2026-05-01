@@ -1,10 +1,11 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
   Bot,
   CalendarClock,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Database,
@@ -16,6 +17,7 @@ import {
   Menu,
   MessageSquare,
   Network,
+  Send,
   Settings,
   Share2,
   ShieldCheck,
@@ -25,7 +27,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { DNAMark } from '@/components/Brand/DNAMark';
 import GlobalCommandPalette from '@/components/Common/GlobalCommandPalette';
@@ -43,16 +45,23 @@ interface MenuItem {
   href: string;
 }
 
-interface MenuGroup {
+interface MenuSection {
   id: string;
   label: string;
+  defaultOpen: boolean;
   items: MenuItem[];
 }
+
+// localStorage key for which collapsible sections are open. Survives
+// navigations so the user doesn't have to re-expand "Tools" every page load.
+const SECTIONS_STORAGE_KEY = 'operari:sidebar:sections';
 
 export default function EditorSidebar({ lang }: EditorSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { session, logout } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname() ?? '';
 
   async function handleLogout() {
     if (signingOut) return;
@@ -66,14 +75,17 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
     session?.user.email?.split('@')[0] ||
     (lang === 'en' ? 'Anonymous' : 'Anónimo');
   const displayEmail = session?.user.email ?? '';
+  const isAdmin = session?.user.role === 'ADMIN';
+  const isAuthenticated = !!session && session.user.id !== 'anonymous';
+
   // Mobile drawer state — at < 640px the sidebar disappears entirely
-  // and is reachable through a floating hamburger button. Tracks
-  // viewport size with a matchMedia listener so the sidebar reacts
-  // to window resizes without a reload.
+  // and is reachable through a floating hamburger button.
   const [isMobile, setIsMobile] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const router = useRouter();
-  const pathname = usePathname() ?? '';
+
+  // User menu popover anchored at the bottom-left footer row.
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -95,44 +107,69 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
     };
   }, []);
 
-  // Close drawer on route change so the user doesn't have to dismiss it manually
+  // Close drawer + user menu on route change
   useEffect(() => {
     setDrawerOpen(false);
+    setUserMenuOpen(false);
   }, [pathname]);
 
-  // Grouped navigation. OPERATE = what a user hits first during an
-  // incident. EXPLORE = investigative tools (SQL + dev surfaces).
-  // LIBRARY = configuration-time stuff. ADMIN sits at the bottom by
-  // gravity, separate from operational flow.
-  const menuGroups: MenuGroup[] = [
+  // Close user menu on outside click / Escape
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setUserMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [userMenuOpen]);
+
+  // Top-level (always-visible) primary nav. The handful of routes a
+  // user hits first — kept flat so they're one click away.
+  const primaryItems: MenuItem[] = [
     {
-      id: 'operate',
-      label: lang === 'en' ? 'Operate' : 'Operar',
+      id: 'dashboard',
+      label: lang === 'en' ? 'Dashboard' : 'Panel',
+      icon: LayoutDashboard,
+      href: `/${lang}/dashboard`,
+    },
+    {
+      id: 'runbooks',
+      label: 'Runbooks',
+      icon: Share2,
+      href: `/${lang}/runbooks`,
+    },
+    {
+      id: 'runs',
+      label: lang === 'en' ? 'Run history' : 'Historial',
+      icon: History,
+      href: `/${lang}/runs`,
+    },
+    {
+      id: 'inbox',
+      label: lang === 'en' ? 'Inbox' : 'Bandeja',
+      icon: Inbox,
+      href: `/${lang}/inbox`,
+    },
+  ];
+
+  // Collapsible sections. Items here are real surfaces but used less
+  // often than the primary nav, so they hide behind a section toggle
+  // to reduce noise. Tools + Library default closed.
+  const sections: MenuSection[] = [
+    {
+      id: 'observability',
+      label: lang === 'en' ? 'Observability' : 'Observabilidad',
+      defaultOpen: true,
       items: [
-        {
-          id: 'dashboard',
-          label: lang === 'en' ? 'Dashboard' : 'Panel',
-          icon: LayoutDashboard,
-          href: `/${lang}/dashboard`,
-        },
-        {
-          id: 'runbooks',
-          label: 'Runbooks',
-          icon: Share2,
-          href: `/${lang}/runbooks`,
-        },
-        {
-          id: 'runs',
-          label: lang === 'en' ? 'Run history' : 'Historial',
-          icon: History,
-          href: `/${lang}/runs`,
-        },
-        {
-          id: 'inbox',
-          label: lang === 'en' ? 'Inbox' : 'Bandeja',
-          icon: Inbox,
-          href: `/${lang}/inbox`,
-        },
         {
           id: 'monitors',
           label: lang === 'en' ? 'Monitors' : 'Monitores',
@@ -148,20 +185,27 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
       ],
     },
     {
-      id: 'explore',
-      label: lang === 'en' ? 'Explore' : 'Explorar',
+      id: 'tools',
+      label: lang === 'en' ? 'Tools' : 'Herramientas',
+      defaultOpen: false,
       items: [
         {
           id: 'sql',
-          label: lang === 'en' ? 'SQL Editor' : 'SQL Editor',
+          label: 'SQL Editor',
           icon: Database,
           href: `/${lang}/sql-editor`,
         },
         {
           id: 'lineage',
-          label: lang === 'en' ? 'Lineage' : 'Lineage',
+          label: 'Lineage',
           icon: Network,
           href: `/${lang}/lineage`,
+        },
+        {
+          id: 'http-tester',
+          label: lang === 'en' ? 'API Tester' : 'Probador API',
+          icon: Send,
+          href: `/${lang}/http-tester`,
         },
         {
           id: 'agents',
@@ -180,6 +224,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
     {
       id: 'library',
       label: lang === 'en' ? 'Library' : 'Biblioteca',
+      defaultOpen: false,
       items: [
         {
           id: 'schedules',
@@ -188,26 +233,95 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           href: `/${lang}/schedules`,
         },
         {
-          id: 'tools',
+          id: 'utilities',
           label: lang === 'en' ? 'Utilities' : 'Utilidades',
           icon: Wrench,
           href: `/${lang}/utilities`,
         },
       ],
     },
-    {
-      id: 'admin',
-      label: lang === 'en' ? 'Admin' : 'Admin',
-      items: [
-        {
-          id: 'admin',
-          label: lang === 'en' ? 'Admin' : 'Admin',
-          icon: ShieldCheck,
-          href: `/${lang}/admin`,
-        },
-      ],
-    },
   ];
+
+  // Section open/close state, hydrated from localStorage. Auto-opens
+  // any section whose item matches the current route so the user
+  // always sees their active page highlighted.
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    const seed: Record<string, boolean> = {};
+    for (const s of sections) seed[s.id] = s.defaultOpen;
+    return seed;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(SECTIONS_STORAGE_KEY);
+      if (raw) {
+        const stored = JSON.parse(raw) as Record<string, boolean>;
+        setOpenSections(prev => ({ ...prev, ...stored }));
+      }
+    } catch {
+      // ignore corrupt JSON
+    }
+  }, []);
+
+  useEffect(() => {
+    // Force-open any section whose item matches the active route.
+    const matching = sections.find(s => s.items.some(i => pathname.startsWith(i.href)));
+    if (matching && !openSections[matching.id]) {
+      setOpenSections(prev => ({ ...prev, [matching.id]: true }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  const toggleSection = (id: string) => {
+    setOpenSections(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        window.localStorage.setItem(SECTIONS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore quota / privacy mode
+      }
+      return next;
+    });
+  };
+
+  const renderItem = (item: MenuItem, showLabels: boolean) => {
+    const isActive = pathname.startsWith(item.href);
+    const Icon = item.icon;
+    return (
+      <div
+        key={item.id}
+        onClick={() => router.push(item.href)}
+        className={`group relative mx-3 my-1 flex cursor-pointer items-center rounded-xl px-3 py-2.5 transition-all duration-300 ${
+          isActive
+            ? 'bg-[var(--accent-color)]/10 text-[var(--accent-color)]'
+            : 'text-[var(--text-muted)] hover:bg-[var(--panel-elevated)] hover:text-[var(--text-primary)]'
+        }`}
+        title={!showLabels ? item.label : ''}
+      >
+        {isActive && (
+          <motion.div
+            layoutId="active-pill"
+            className="absolute left-0 h-5 w-1 rounded-r-full bg-[var(--accent-color)]"
+          />
+        )}
+        <div
+          className={`flex min-w-[240px] items-center ${!showLabels ? 'min-w-0 justify-center' : ''}`}
+        >
+          <div className="flex w-6 justify-center">
+            <Icon
+              size={18}
+              strokeWidth={isActive ? 2.5 : 2}
+              className={isActive ? 'drop-shadow-[0_0_8px_rgba(62,207,142,0.5)]' : ''}
+            />
+          </div>
+          {showLabels && (
+            <span className="ml-3 text-sm font-bold tracking-tight">{item.label}</span>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   // The actual sidebar content (header, menu, footer). Extracted as
   // a function so the desktop and the mobile-drawer renders share
@@ -230,8 +344,6 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
               </span>
             </motion.div>
           )}
-          {/* Collapsed sidebar still shows the mark so the brand never
-              disappears when the user collapses the rail. */}
           {!showLabels && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mx-auto">
               <DNAMark size={24} primary="var(--op-moss)" />
@@ -256,108 +368,162 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           )}
         </div>
 
-        {/* Menu Groups */}
+        {/* Nav */}
         <div className="custom-scrollbar flex-1 overflow-y-auto py-4">
-          {menuGroups.map((group, groupIdx) => (
-            <div key={group.id} className="mb-6">
-              {showLabels && (
-                <div className="mb-2 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] opacity-50">
-                  {group.label}
+          {/* Primary (flat) */}
+          <div className="mb-4">{primaryItems.map(item => renderItem(item, showLabels))}</div>
+
+          {/* Collapsible sections. In icon-only mode we skip the toggle
+              and render section items flat with a divider, since the
+              chevron has nowhere to go and the section header would
+              collapse to a stub. */}
+          {sections.map((section, idx) => {
+            if (!showLabels) {
+              return (
+                <div key={section.id}>
+                  <div className="mx-4 my-3 border-t border-[var(--panel-border)] opacity-30" />
+                  {section.items.map(item => renderItem(item, false))}
                 </div>
-              )}
-              {!showLabels && groupIdx > 0 && (
-                <div className="mx-4 my-4 border-t border-[var(--panel-border)] opacity-30" />
-              )}
-              {group.items.map(item => {
-                const isActive = pathname.startsWith(item.href);
-                const Icon = item.icon;
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => router.push(item.href)}
-                    className={`group relative mx-3 my-1 flex cursor-pointer items-center rounded-xl px-3 py-2.5 transition-all duration-300 ${
-                      isActive
-                        ? 'bg-[var(--accent-color)]/10 text-[var(--accent-color)]'
-                        : 'text-[var(--text-muted)] hover:bg-[var(--panel-elevated)] hover:text-[var(--text-primary)]'
-                    }`}
-                    title={!showLabels ? item.label : ''}
-                  >
-                    {isActive && (
-                      <motion.div
-                        layoutId="active-pill"
-                        className="absolute left-0 h-5 w-1 rounded-r-full bg-[var(--accent-color)]"
-                      />
-                    )}
-                    <div
-                      className={`flex min-w-[240px] items-center ${!showLabels ? 'min-w-0 justify-center' : ''}`}
+              );
+            }
+            const isOpen = openSections[section.id] ?? section.defaultOpen;
+            return (
+              <div key={section.id} className={idx > 0 ? 'mt-2' : ''}>
+                <button
+                  onClick={() => toggleSection(section.id)}
+                  className="group flex w-full items-center justify-between px-6 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] opacity-60 transition-opacity hover:opacity-100"
+                  aria-expanded={isOpen}
+                >
+                  <span>{section.label}</span>
+                  <ChevronDown
+                    size={12}
+                    className={`transition-transform ${isOpen ? '' : '-rotate-90'}`}
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      key="content"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.18 }}
+                      className="overflow-hidden"
                     >
-                      <div className="flex w-6 justify-center">
-                        <Icon
-                          size={18}
-                          strokeWidth={isActive ? 2.5 : 2}
-                          className={isActive ? 'drop-shadow-[0_0_8px_rgba(62,207,142,0.5)]' : ''}
-                        />
+                      <div className="pt-1">
+                        {section.items.map(item => renderItem(item, true))}
                       </div>
-                      {showLabels && (
-                        <span className="ml-3 text-sm font-bold tracking-tight">{item.label}</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Footer / User */}
-        <div className="border-t border-[var(--panel-border)] bg-[rgba(255,255,255,0.02)] p-4">
-          <div
-            className={`flex items-center ${!showLabels ? 'justify-center' : ''} group cursor-pointer rounded-xl p-2 transition-all hover:bg-[var(--panel-elevated)]`}
-            onClick={() => router.push(`/${lang}/settings`)}
+        {/* Footer / User menu trigger + popover */}
+        <div
+          ref={userMenuRef}
+          className="relative border-t border-[var(--panel-border)] bg-[rgba(255,255,255,0.02)] p-3"
+        >
+          <button
+            onClick={() => setUserMenuOpen(o => !o)}
+            className={`group flex w-full items-center rounded-xl p-2 transition-all hover:bg-[var(--panel-elevated)] ${
+              userMenuOpen ? 'bg-[var(--panel-elevated)]' : ''
+            } ${!showLabels ? 'justify-center' : ''}`}
+            aria-haspopup="menu"
+            aria-expanded={userMenuOpen}
+            title={!showLabels ? displayName : ''}
           >
             <div className="group-hover:border-[var(--accent-color)]/50 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] text-[var(--text-muted)] transition-all group-hover:text-[var(--accent-color)]">
               <User size={18} />
             </div>
             {showLabels && (
-              <div className="ml-3 overflow-hidden">
-                <div className="truncate text-xs font-black text-[var(--text-primary)]">
-                  {displayName}
+              <>
+                <div className="ml-3 flex-1 overflow-hidden text-left">
+                  <div className="truncate text-xs font-black text-[var(--text-primary)]">
+                    {displayName}
+                  </div>
+                  <div className="truncate text-[10px] font-medium text-[var(--text-muted)]">
+                    {displayEmail}
+                  </div>
                 </div>
-                <div className="truncate text-[10px] font-medium text-[var(--text-muted)]">
-                  {displayEmail}
-                </div>
-              </div>
+                <ChevronDown
+                  size={14}
+                  className={`ml-2 text-[var(--text-muted)] transition-transform ${
+                    userMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </>
             )}
-          </div>
+          </button>
 
-          {showLabels && (
-            <div className="mt-4 flex items-center justify-between px-2">
-              <button
-                onClick={() => router.push(`/${lang}/settings`)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] transition-all hover:bg-[var(--panel-elevated)] hover:text-[var(--text-primary)]"
-                title={lang === 'en' ? 'Settings' : 'Configuración'}
+          <AnimatePresence>
+            {userMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.12 }}
+                role="menu"
+                className={`absolute bottom-[72px] z-[60] overflow-hidden rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] shadow-2xl backdrop-blur-xl ${
+                  showLabels ? 'left-3 right-3' : 'left-[60px] w-56'
+                }`}
               >
-                <Settings size={16} />
-              </button>
-              {session && session.user.id !== 'anonymous' && (
+                <div className="border-b border-[var(--panel-border)] px-3 py-2">
+                  <div className="truncate text-xs font-black text-[var(--text-primary)]">
+                    {displayName}
+                  </div>
+                  <div className="truncate text-[10px] font-medium text-[var(--text-muted)]">
+                    {displayEmail}
+                  </div>
+                </div>
                 <button
-                  onClick={handleLogout}
-                  disabled={signingOut}
-                  className="hover:bg-[var(--op-sunset)]/10 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] transition-all hover:text-[var(--op-sunset)] disabled:opacity-50"
-                  title={lang === 'en' ? 'Sign out' : 'Cerrar sesión'}
+                  role="menuitem"
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    router.push(`/${lang}/settings`);
+                  }}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--panel-elevated)]"
                 >
-                  <LogOut size={16} />
+                  <Settings size={16} className="text-[var(--text-muted)]" />
+                  {lang === 'en' ? 'Settings' : 'Configuración'}
                 </button>
-              )}
-            </div>
-          )}
+                {isAdmin && (
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      router.push(`/${lang}/admin`);
+                    }}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--panel-elevated)]"
+                  >
+                    <ShieldCheck size={16} className="text-[var(--text-muted)]" />
+                    Admin
+                  </button>
+                )}
+                {isAuthenticated && (
+                  <>
+                    <div className="border-t border-[var(--panel-border)]" />
+                    <button
+                      role="menuitem"
+                      onClick={handleLogout}
+                      disabled={signingOut}
+                      className="hover:bg-[var(--op-sunset)]/10 flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-bold text-[var(--text-primary)] transition-colors hover:text-[var(--op-sunset)] disabled:opacity-50"
+                    >
+                      <LogOut size={16} />
+                      {lang === 'en' ? 'Sign out' : 'Cerrar sesión'}
+                    </button>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </>
     );
   };
 
-  // Mobile: hamburger + drawer + backdrop. The hamburger lives at
-  // top-left so it doesn't fight with the page TopBars.
   if (isMobile) {
     return (
       <>

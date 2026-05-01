@@ -58,8 +58,18 @@ interface RemoteTemplate {
   yaml: string;
 }
 
+export interface SelectedTemplateMeta {
+  slug: string;
+  name: string;
+  description: string | null;
+}
+
 interface TemplateGalleryProps {
-  onSelectTemplate: (nodes: WorkflowNode[], connections: Connection[]) => void;
+  onSelectTemplate: (
+    nodes: WorkflowNode[],
+    connections: Connection[],
+    meta: SelectedTemplateMeta
+  ) => void;
   lang: 'en' | 'es';
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -127,7 +137,11 @@ export default function TemplateGallery({
     try {
       const spec = yamlToSpec(tpl.yaml);
       const parsed = specToNodes(spec);
-      onSelectTemplate(parsed.nodes, parsed.connections);
+      onSelectTemplate(parsed.nodes, parsed.connections, {
+        slug: tpl.slug,
+        name: tpl.name,
+        description: tpl.description,
+      });
       setParseError(null);
       setIsOpen(false);
     } catch (err) {

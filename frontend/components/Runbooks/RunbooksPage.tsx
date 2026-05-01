@@ -82,6 +82,7 @@ const STRINGS = {
     cancel: 'Cancel',
     run_now: 'Trigger execution',
     new_blank_name: 'Untitled runbook',
+    createError: 'Could not create the runbook',
   },
   es: {
     title: 'Biblioteca de Runbooks',
@@ -112,6 +113,7 @@ const STRINGS = {
     cancel: 'Cancelar',
     run_now: 'Disparar ejecución',
     new_blank_name: 'Runbook sin título',
+    createError: 'No se pudo crear el runbook',
   },
 } as const;
 
@@ -174,14 +176,18 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
     try {
       const params = new URLSearchParams({ limit: '100' });
       if (search) params.set('search', search);
-      const res = await fetch(`${API_BASE}/api/runbooks?${params}`);
+      const res = await fetch(`${API_BASE}/api/runbooks?${params}`, {
+        credentials: 'include',
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setRunbooks(json.runbooks ?? json.workflows ?? []);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'unknown');
+      setError(`${t.loadError} · ${e instanceof Error ? e.message : 'unknown'}`);
     }
+    // t is stable per language; not in deps to avoid re-fetching on render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   useEffect(() => {
@@ -210,32 +216,60 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
     };
   }, [runbooks]);
 
+  // Surface backend errors instead of swallowing them. The previous
+  // silent catch made "click → nothing happens" indistinguishable
+  // from a healthy backend with a CORS issue, a hung request, a
+  // 4xx, or an offline server.
+  const reportCreateError = async (res: Response) => {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.error) {
+        detail = typeof body.error === 'string' ? body.error : JSON.stringify(body.error);
+      }
+    } catch {
+      // body wasn't JSON, fall through to status code
+    }
+    setError(`${t.createError} · ${detail}`);
+  };
+
   const handleCreateBlank = async () => {
+    setError(null);
     try {
       const res = await fetch(`${API_BASE}/api/runbooks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           name: t.new_blank_name,
           nodes: [],
           connections: [],
         }),
       });
-      if (res.ok) {
-        const wf = await res.json();
-        router.push(`/${lang}/editor?id=${wf.id}`);
+      if (!res.ok) {
+        await reportCreateError(res);
+        return;
       }
-    } catch {
-      /* noop */
+      const wf = await res.json();
+      if (!wf?.id) {
+        setError(`${t.createError} · server returned no id`);
+        return;
+      }
+      router.push(`/${lang}/editor?id=${wf.id}`);
+    } catch (err) {
+      setError(`${t.createError} · ${err instanceof Error ? err.message : 'network error'}`);
+    } finally {
+      setShowNewMenu(false);
     }
-    setShowNewMenu(false);
   };
 
   const handleCreateFromTemplate = async (tpl: Template) => {
+    setError(null);
     try {
       const created = await fetch(`${API_BASE}/api/runbooks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           name: tpl.name,
           description: tpl.description,
@@ -243,16 +277,28 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
           connections: [],
         }),
       });
-      if (!created.ok) return;
+      if (!created.ok) {
+        await reportCreateError(created);
+        return;
+      }
       const wf = await created.json();
-      await fetch(`${API_BASE}/api/runbooks/${wf.id}/yaml`, {
+      if (!wf?.id) {
+        setError(`${t.createError} · server returned no id`);
+        return;
+      }
+      const yamlRes = await fetch(`${API_BASE}/api/runbooks/${wf.id}/yaml`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ yaml: tpl.yaml }),
       });
+      if (!yamlRes.ok) {
+        await reportCreateError(yamlRes);
+        return;
+      }
       router.push(`/${lang}/editor?id=${wf.id}`);
-    } catch {
-      /* noop */
+    } catch (err) {
+      setError(`${t.createError} · ${err instanceof Error ? err.message : 'network error'}`);
     }
   };
 
@@ -391,7 +437,7 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
         {error && (
           <div className="border-[var(--op-sunset)]/20 bg-[var(--op-sunset)]/5 mb-6 rounded-xl border p-4 text-sm font-bold text-[var(--op-sunset)]">
             <Activity size={16} className="mb-1" />
-            {t.loadError} · {error}
+            {error}
           </div>
         )}
 

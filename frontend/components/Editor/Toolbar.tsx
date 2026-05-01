@@ -5,8 +5,8 @@ import {
   Activity,
   AlertCircle,
   Bug,
-  Camera,
   CalendarClock,
+  Camera,
   CheckCircle2,
   Download,
   FileCode,
@@ -29,7 +29,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { usePngExport } from '@/hooks/usePngExport';
 import { useSnapshots } from '@/hooks/useSnapshots';
-import { useWorkflowExecution, type ExecuteWorkflowResult } from '@/hooks/useWorkflowExecution';
+import { type ExecuteWorkflowResult, useWorkflowExecution } from '@/hooks/useWorkflowExecution';
 import { rfToWorkflow } from '@/lib/canvas/adapter';
 import { computeAutoLayout } from '@/lib/canvas/layout';
 import { wrapInFrame } from '@/lib/canvas/wrapInFrame';
@@ -38,9 +38,11 @@ import { useEditorStore } from '@/state/editorStore';
 import RunDialog, { type DialogRunResult } from '../Runbook/RunDialog';
 import ScheduleDialog from '../Runbook/ScheduleDialog';
 import SnapshotDialog from '../Runbook/SnapshotDialog';
-import TemplateGallery from '../Runbook/TemplateGallery';
+import TemplateGallery, { type SelectedTemplateMeta } from '../Runbook/TemplateGallery';
 import type { LineStyle } from './canvas/edgeTypes';
 import YamlViewModal from './YamlViewModal';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 interface ToolbarProps {
   lang: 'en' | 'es';
@@ -295,20 +297,54 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
   };
 
   // TemplateGallery hands us workflow-shape arrays via its
-  // onSelectTemplate callback. We forward them through hydrateFromWorkflow
-  // — same pipeline the runbook loader uses, so frame nesting + meta
-  // keys round-trip cleanly.
-  const handleTemplateSelect = (nextNodes: unknown[], nextConnections: unknown[]) => {
-    if (!runbookId) return;
-    hydrateFromWorkflow(
-      runbookId,
-      header ?? { name: 'Untitled' },
-      inputs,
-      nextNodes as never,
-      nextConnections as never
-    );
-    setStatus('dirty');
+  // onSelectTemplate callback. Two cases:
+  //
+  // - Existing runbook (`?id=…`): drop the template into the current
+  //   canvas via hydrateFromWorkflow — same pipeline the runbook loader
+  //   uses, so frame nesting + meta keys round-trip cleanly.
+  // - Blank canvas (no runbookId): create the runbook on the backend
+  //   first, then redirect to /editor?id=…. Mirrors the marketing
+  //   UseTemplateButton flow so both entry points behave identically.
+  const handleTemplateSelect = async (
+    nextNodes: unknown[],
+    nextConnections: unknown[],
+    meta: SelectedTemplateMeta
+  ) => {
+    if (runbookId) {
+      hydrateFromWorkflow(
+        runbookId,
+        header ?? { name: 'Untitled' },
+        inputs,
+        nextNodes as never,
+        nextConnections as never
+      );
+      setStatus('dirty');
+      setDialog(null);
+      return;
+    }
     setDialog(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/runbooks`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: meta.name,
+          description: meta.description ?? `Imported from template: ${meta.slug}`,
+          nodes: nextNodes,
+          connections: nextConnections,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const created = (await res.json()) as { id?: string };
+      if (!created.id) throw new Error('create returned no id');
+      router.push(`/${lang}/editor?id=${encodeURIComponent(created.id)}`);
+    } catch (err) {
+      setStatus(
+        'error',
+        err instanceof Error ? `Template apply failed: ${err.message}` : 'Template apply failed'
+      );
+    }
   };
 
   const applyYaml = (next: {
@@ -436,6 +472,16 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           ) : null}
         </button>
 
+        <button
+          type="button"
+          onClick={() => setDialog('templates')}
+          title={t.templates}
+          className="flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1.5 text-xs font-medium text-[color:var(--rb-node-text)] transition-colors hover:bg-white/5"
+        >
+          <LayoutTemplate size={14} />
+          <span>{t.templates}</span>
+        </button>
+
         <MoreMenu
           label={lang === 'es' ? 'Más acciones' : 'More actions'}
           items={[
@@ -474,11 +520,6 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
               icon: <Group size={12} />,
               label: t.wrap,
               onClick: handleWrap,
-            },
-            {
-              icon: <LayoutTemplate size={12} />,
-              label: t.templates,
-              onClick: () => setDialog('templates'),
             },
             {
               icon: <Camera size={12} />,
