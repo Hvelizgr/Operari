@@ -44,6 +44,34 @@ export class EditorExecutorAdapter<TConfig = any> implements StepExecutor<TConfi
   async execute(config: TConfig, context: ExecutorContext): Promise<ExecutorResult> {
     const startTime = Date.now();
 
+    // Dry-run short-circuit. Native executors (shell, http, notify,
+    // approval, wait, database) check `context.dryRun` themselves and
+    // return a synthetic `{ dryRun: true, ... }` result. The legacy
+    // EditorNodeExecutor interface predates dry-run and never reads it —
+    // so without this guard, an Email/HttpNode/StoreSet on the canvas
+    // would fire its real side effect during a "Simulación" run.
+    //
+    // Skipping at the adapter is correct (and simpler than retrofitting
+    // 15 legacy executors): the editor side has no per-executor dry-run
+    // semantics to preserve, and ADR 0004 will fold this branch into
+    // the native registry where the per-executor checks already live.
+    if (context.dryRun) {
+      context.emit?.({
+        type: 'log',
+        text: `[dry-run] would execute ${this.type} (legacy editor node)`,
+        timestamp: new Date(),
+      });
+      return {
+        success: true,
+        output: {
+          dryRun: true,
+          type: this.type,
+          skipped: 'legacy-editor-executor',
+        },
+        duration: Date.now() - startTime,
+      };
+    }
+
     // Editor executors take a flat ExecutionInput dict. The legacy
     // dispatcher in NodeExecutor.tryRunbookExecutor passed the same
     // `input` object to both context.variables and context.previousOutputs,
