@@ -41,6 +41,7 @@ import {
   writeLineStyle,
 } from './canvas/edgeTypes';
 import { nodeTypes } from './canvas/nodeTypes';
+import EditorRunConsole from './EditorRunConsole';
 import Inspector from './Inspector';
 import Palette from './Palette';
 import PaneNodeMenu from './PaneNodeMenu';
@@ -445,6 +446,7 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         />
       ) : null}
       {!embedMode ? <Inspector lang={lang} /> : null}
+      {!embedMode ? <EditorRunConsole lang={lang} /> : null}
       {paneMenu && !embedMode ? (
         <PaneNodeMenu
           screenX={paneMenu.screenX}
