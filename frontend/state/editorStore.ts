@@ -75,6 +75,14 @@ type Actions = {
   onConnect: (connection: RfConnection) => void;
   reconnectEdge: (oldEdge: RfEdge, newConnection: RfConnection) => void;
   addNode: (node: RfNode) => void;
+  /**
+   * Splice `newNode` into the connection identified by `edgeId`. Removes
+   * the original edge, adds the new node, and creates two replacement
+   * edges (source → newNode, newNode → target). Powers the n8n-style
+   * mid-edge insert affordance — the operator hovers an edge, clicks
+   * `+`, picks a type, and the wiring is done atomically.
+   */
+  insertNodeMidEdge: (edgeId: string, newNode: RfNode) => void;
   removeNodes: (ids: string[]) => void;
   updateNodeData: (id: string, patch: Partial<RfNode['data']>) => void;
   updateEdgeData: (id: string, patch: Partial<NonNullable<RfEdge['data']>>) => void;
@@ -166,6 +174,44 @@ export const useEditorStore = create<EditorState>()(
           nodes: [...state.nodes, node],
           status: 'dirty',
         })),
+
+      insertNodeMidEdge: (edgeId, newNode) =>
+        set(state => {
+          const edge = state.edges.find(e => e.id === edgeId);
+          if (!edge) return state;
+          // Inherit the original edge's type / data shape so the two
+          // halves keep the same condition, lineStyle override, etc.
+          // Only `source`, `target`, and `id` differ. Status is reset
+          // to undefined so a leftover `running`/`success` from a past
+          // run does not leak onto the freshly-spawned hops.
+          const baseEdgeShape = {
+            type: edge.type,
+            sourceHandle: edge.sourceHandle,
+            targetHandle: edge.targetHandle,
+            data: edge.data ? { ...edge.data, status: undefined } : undefined,
+          };
+          const beforeId = `${edgeId}-pre-${newNode.id}`;
+          const afterId = `${edgeId}-post-${newNode.id}`;
+          return {
+            nodes: [...state.nodes, newNode],
+            edges: [
+              ...state.edges.filter(e => e.id !== edgeId),
+              {
+                ...baseEdgeShape,
+                id: beforeId,
+                source: edge.source,
+                target: newNode.id,
+              } as RfEdge,
+              {
+                ...baseEdgeShape,
+                id: afterId,
+                source: newNode.id,
+                target: edge.target,
+              } as RfEdge,
+            ],
+            status: 'dirty',
+          };
+        }),
 
       removeNodes: ids =>
         set(state => {

@@ -6,7 +6,9 @@ import { memo, useMemo } from 'react';
 import type { RfEdge } from '@/lib/canvas/adapter';
 
 import { EdgeDeleteButton } from './EdgeDeleteButton';
+import { EdgeInsertButton } from './EdgeInsertButton';
 import { isRunning, resolveEdgeStroke } from './edgeStyle';
+import { useEdgeSourceDisabled } from './useEdgeSourceDisabled';
 
 /**
  * Orthogonal step edge: same status / animation language as
@@ -30,6 +32,8 @@ const ORB_DURATION_S = 1.6;
 function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
   const {
     id,
+    source,
+    target,
     sourceX,
     sourceY,
     targetX,
@@ -40,6 +44,7 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
     selected,
     markerEnd,
   } = props;
+  const sourceDisabled = useEdgeSourceDisabled(source);
 
   const [path, labelX, labelY] = getSmoothStepPath({
     sourceX,
@@ -52,8 +57,8 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
     offset: 16,
   });
 
-  const stroke = resolveEdgeStroke(data);
-  const running = isRunning(data);
+  const stroke = sourceDisabled ? 'var(--rb-edge-disabled)' : resolveEdgeStroke(data);
+  const running = isRunning(data) && !sourceDisabled;
   const strokeWidth = selected ? 3 : data?.cyclic ? 2.5 : 2;
 
   const badgeLabel = data?.condition ? CONDITION_BADGE_LABEL[data.condition] : '';
@@ -86,14 +91,15 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
       <BaseEdge
         id={pathId}
         path={path}
-        markerEnd={markerEnd}
+        markerEnd={sourceDisabled ? undefined : markerEnd}
         style={{
           stroke: running ? `url(#${gradientId})` : stroke,
           strokeWidth,
-          strokeDasharray: running ? '8 6' : undefined,
-          animation: running ? 'rb-dash 800ms linear infinite' : undefined,
+          strokeDasharray: sourceDisabled ? '4 4' : running ? '8 6' : undefined,
+          animation: !sourceDisabled && running ? 'rb-dash 800ms linear infinite' : undefined,
+          opacity: sourceDisabled ? 0.45 : undefined,
           filter: data?.cyclic ? 'drop-shadow(0 0 4px rgba(239,68,68,0.55))' : undefined,
-          transition: 'stroke 200ms ease',
+          transition: 'stroke 200ms ease, opacity 200ms ease',
         }}
       />
       {running
@@ -125,6 +131,9 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
         </EdgeLabelRenderer>
       ) : null}
       {selected ? <EdgeDeleteButton edgeId={id} x={labelX} y={labelY} /> : null}
+      {!sourceDisabled ? (
+        <EdgeInsertButton edgeId={id} sourceId={source} targetId={target} x={labelX} y={labelY} />
+      ) : null}
     </>
   );
 }

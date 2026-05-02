@@ -7,7 +7,9 @@ import { FLOW_SPEED_MULT, useVisualization } from '@/context/VisualizationContex
 import type { RfEdge } from '@/lib/canvas/adapter';
 
 import { EdgeDeleteButton } from './EdgeDeleteButton';
+import { EdgeInsertButton } from './EdgeInsertButton';
 import { isRunning, resolveEdgeStroke } from './edgeStyle';
+import { useEdgeSourceDisabled } from './useEdgeSourceDisabled';
 
 const CONDITION_BADGE_LABEL: Record<NonNullable<RfEdge['data']>['condition'] & string, string> = {
   complete: '',
@@ -27,6 +29,8 @@ const ORB_DURATION_S = 1.6;
 function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
   const {
     id,
+    source,
+    target,
     sourceX,
     sourceY,
     targetX,
@@ -37,6 +41,10 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
     selected,
     markerEnd,
   } = props;
+  // Disabled-source propagation: if the source step is disabled the
+  // edge mutes + dashes automatically. n8n parity, derived from node
+  // state — no per-edge config knob to forget to toggle.
+  const sourceDisabled = useEdgeSourceDisabled(source);
 
   const [path, labelX, labelY] = getBezierPath({
     sourceX,
@@ -48,8 +56,10 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
     curvature: 0.4,
   });
 
-  const stroke = resolveEdgeStroke(data);
-  const isRunningRaw = isRunning(data);
+  const stroke = sourceDisabled ? 'var(--rb-edge-disabled)' : resolveEdgeStroke(data);
+  // Killing the running animation when the source is disabled avoids
+  // a confusing "muted edge with comet" state during a half-run.
+  const isRunningRaw = isRunning(data) && !sourceDisabled;
   // User-controlled animation gates from Appearance → Connections.
   // `flowAnimationsEnabled` is the master switch; `flowFlavor` picks
   // which of the 3 effects render (gradient/dashes/comet/all/off);
@@ -104,17 +114,23 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
       <BaseEdge
         id={pathId}
         path={path}
-        markerEnd={markerEnd}
+        markerEnd={sourceDisabled ? undefined : markerEnd}
         style={{
           // While running, paint the edge with the sliding gradient on
           // top of the dashed stroke. Once idle/done, fall back to the
-          // flat status color.
+          // flat status color. Source-disabled wins over everything: a
+          // permanent dash + reduced opacity tells the operator the
+          // upstream step won't fire, so this edge is dead weight.
           stroke: showGradient ? `url(#${gradientId})` : stroke,
           strokeWidth,
-          strokeDasharray: showDashes ? '8 6' : undefined,
-          animation: showDashes ? `rb-dash ${dashDurationMs}ms linear infinite` : undefined,
+          strokeDasharray: sourceDisabled ? '4 4' : showDashes ? '8 6' : undefined,
+          animation:
+            !sourceDisabled && showDashes
+              ? `rb-dash ${dashDurationMs}ms linear infinite`
+              : undefined,
+          opacity: sourceDisabled ? 0.45 : undefined,
           filter: data?.cyclic ? 'drop-shadow(0 0 4px rgba(239,68,68,0.55))' : undefined,
-          transition: 'stroke 200ms ease',
+          transition: 'stroke 200ms ease, opacity 200ms ease',
         }}
       />
       {showComet
@@ -146,6 +162,13 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
         </EdgeLabelRenderer>
       ) : null}
       {selected ? <EdgeDeleteButton edgeId={id} x={labelX} y={labelY} /> : null}
+      {/* Mid-edge insert affordance — hover-only via CSS. The button is
+          always mounted so the click target is hot the moment the
+          operator's mouse lands; visibility flips through the
+          `.rb-edge-insert-trigger` opacity rule in globals.css. */}
+      {!sourceDisabled ? (
+        <EdgeInsertButton edgeId={id} sourceId={source} targetId={target} x={labelX} y={labelY} />
+      ) : null}
     </>
   );
 }

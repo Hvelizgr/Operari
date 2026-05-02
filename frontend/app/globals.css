@@ -754,6 +754,24 @@ html[data-node-density-v2='dense'] .rb-node .rb-node-stats {
    absolute-positioned wrapper escapes the node's overflow-hidden
    because it's a sibling of motion.div, anchored to .react-flow__node. */
 
+/* ─────────────────────────────────────────────────────────────────
+   Edges — Tier A.
+   ───────────────────────────────────────────────────────────── */
+
+/* Mid-edge `+` insert affordance: invisible until the operator hovers
+   the React Flow edge group, then fades in. The popover stays visible
+   on its own once toggled — the rule only governs the trigger button.
+   `:focus-within` keeps it visible while the popover is open and the
+   keyboard focus lives inside, so tab-navigation users see it too. */
+.rb-edge-insert-trigger {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.react-flow__edge:hover .rb-edge-insert-trigger,
+.rb-edge-insert:focus-within .rb-edge-insert-trigger {
+  opacity: 1;
+}
+
 html[data-density='compact'] {
   --node-pad-x: 8px;
   --node-pad-y: 6px;
