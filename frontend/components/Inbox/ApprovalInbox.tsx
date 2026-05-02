@@ -10,6 +10,7 @@ import {
   motionFor,
   reducedStaggerChildVariants,
   reducedStaggerContainerVariants,
+  staggerChildInitialStyle,
   staggerChildVariants,
   staggerContainerVariants,
 } from '@/lib/motion';
@@ -276,6 +277,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
             <motion.li
               key={a.id}
               variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
+              style={staggerChildInitialStyle}
               className="rounded-lg border border-zinc-800 bg-zinc-950 p-4"
             >
               <div className="flex items-start justify-between gap-4">

@@ -95,6 +95,27 @@ export const staggerChildVariants: Variants = {
   animate: { opacity: 1, y: 0, transition: { duration: 0.22, ease: 'easeOut' } },
 };
 
+/**
+ * SSR-safe inline style that mirrors `staggerChildVariants.initial`.
+ *
+ * framer-motion serializes a variant's initial state at SSR time using
+ * its own CSS string form (`opacity: "0"`, no transform), while the
+ * client hydrates with a React style object (`opacity: 0`, plus
+ * `transform: translateY(6px)` once the variant is read). React 19
+ * flags the mismatch as a hydration warning even though the visible
+ * result is identical.
+ *
+ * Passing this style explicitly on the motion.div makes the SSR HTML
+ * carry the same opacity + transform the client would produce, so
+ * hydration is a no-op and framer's `animate` step still runs the
+ * entrance animation as intended. Use it on every `motion.div` that
+ * consumes `staggerChildVariants` with `initial="initial"`.
+ */
+export const staggerChildInitialStyle = {
+  opacity: 0,
+  transform: 'translateY(6px)',
+} as const;
+
 /** Reduced-motion container: keep stagger short and opacity-only
  *  children. Still staggers so the sweep direction reads, but
  *  no translate + shorter duration. */

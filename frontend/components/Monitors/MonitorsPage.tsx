@@ -19,6 +19,7 @@ import {
   motionFor,
   reducedStaggerChildVariants,
   reducedStaggerContainerVariants,
+  staggerChildInitialStyle,
   staggerChildVariants,
   staggerContainerVariants,
 } from '@/lib/motion';
@@ -289,6 +290,7 @@ export default function MonitorsPage({ lang }: MonitorsPageProps) {
                 <motion.li
                   key={m.id}
                   variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
+                  style={staggerChildInitialStyle}
                   className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-white/10 bg-[#1a1f2a] px-4 py-3"
                 >
                   <span

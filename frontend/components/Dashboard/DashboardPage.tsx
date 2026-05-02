@@ -21,6 +21,7 @@ import {
   motionFor,
   prefersReducedMotion,
   reducedStaggerChildVariants,
+  staggerChildInitialStyle,
   reducedStaggerContainerVariants,
   staggerChildVariants,
   staggerContainerVariants,
@@ -494,14 +495,20 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
           initial="initial"
           animate="animate"
         >
-          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+          <motion.div
+            variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
+            style={staggerChildInitialStyle}
+          >
             <PulseCard
               icon={<Activity size={16} />}
               label={t.pulseRuns24h}
               value={data ? String(data.pulse.runs24h) : '—'}
             />
           </motion.div>
-          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+          <motion.div
+            variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
+            style={staggerChildInitialStyle}
+          >
             <PulseCard
               icon={<CheckCircle2 size={16} />}
               label={t.pulseSuccess}
@@ -517,14 +524,20 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
               }
             />
           </motion.div>
-          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+          <motion.div
+            variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
+            style={staggerChildInitialStyle}
+          >
             <PulseCard
               icon={<Clock size={16} />}
               label={t.pulseAvg}
               value={data ? formatDuration(data.pulse.avgDurationMs24h) : '—'}
             />
           </motion.div>
-          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+          <motion.div
+            variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
+            style={staggerChildInitialStyle}
+          >
             <PulseCard
               icon={<InboxIcon size={16} />}
               label={t.pulsePending}
