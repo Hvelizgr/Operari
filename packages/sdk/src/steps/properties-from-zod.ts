@@ -47,7 +47,7 @@
  * the rest of the form by hand.
  */
 
-import type { PluginStepProperty } from './types';
+import type { PluginStepProperty } from './types.js';
 
 /** Minimal duck-type for the zod runtime values we touch. */
 interface ZodLikeDef {

@@ -1,5 +1,5 @@
-export { defineStep } from './define-step';
-export { propertiesFromZod } from './properties-from-zod';
+export { defineStep } from './define-step.js';
+export { propertiesFromZod } from './properties-from-zod.js';
 export type {
   DefineStepOptions,
   PluginContext,
@@ -10,4 +10,4 @@ export type {
   PluginStepMetadata,
   PluginStepProperty,
   StepConfigSchema,
-} from './types';
+} from './types.js';

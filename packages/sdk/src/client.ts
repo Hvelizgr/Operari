@@ -13,13 +13,13 @@ import {
   GetLogsOptions,
   GetLogsResponse,
   TailLogsOptions,
-} from './types';
+} from './types.js';
 import {
   OperariError,
   OperariAuthError,
   OperariNotFoundError,
   OperariTimeoutError,
-} from './errors';
+} from './errors.js';
 
 const DEFAULT_BASE_URL = 'https://api.operari.dev';
 

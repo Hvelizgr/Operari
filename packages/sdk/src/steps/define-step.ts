@@ -1,4 +1,4 @@
-import type { DefineStepOptions, PluginContext, PluginResult, PluginStep } from './types';
+import type { DefineStepOptions, PluginContext, PluginResult, PluginStep } from './types.js';
 
 /**
  * Author a custom step executor loaded by Operari at boot.
@@ -80,4 +80,4 @@ export type {
   PluginStepLocalized,
   PluginStepMetadata,
   PluginStepProperty,
-} from './types';
+} from './types.js';

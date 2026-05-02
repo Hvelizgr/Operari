@@ -1,10 +1,10 @@
-export { Operari } from './client';
+export { Operari } from './client.js';
 export {
   OperariError,
   OperariAuthError,
   OperariNotFoundError,
   OperariTimeoutError,
-} from './errors';
+} from './errors.js';
 export type {
   OperariConfig,
   RunbookSummary,
@@ -22,4 +22,4 @@ export type {
   GetLogsOptions,
   GetLogsResponse,
   TailLogsOptions,
-} from './types';
+} from './types.js';
