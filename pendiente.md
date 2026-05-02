@@ -2,7 +2,7 @@
 
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
-Última actualización: 2026-05-02. **14 commits locales sin pushear** (los 9 anteriores + 5 nuevos de la sesión 2026-05-02): dry-run adapter fix, credentials cookie en useWorkflowExecution, node visual personalization V2 (nodeShape + nodeDensityV2 + SRE signals), kubectl native + 5 promociones legacy, hydration fix de staggerChildVariants. **Push bloqueado en credenciales** (`gh auth login` desde la terminal).
+Última actualización: 2026-05-02 (continuación). **20 commits locales sin pushear** (los 9 anteriores + 11 nuevos hoy): dry-run adapter fix, credentials cookie, node visual V2, kubectl native + 5 promociones legacy, hydration fix, edge Tier A/B/C/D (disabled propagation + `+` insert + last-run overlay + branch badge + approval-gated + retry stitch + cross-env + bundle counter), dashboard tenant-scope fix. **Push bloqueado en credenciales** (`gh auth login` desde la terminal).
 
 ---
 
@@ -147,6 +147,8 @@ Si un usuario pide algo de esto, agregalo arriba con un estimado.
   3. **Bundle 3 — SRE-tailored signals:** `NODE_VISUAL_METADATA` per-type con `blastRadius` (readonly/writes/destructive), `idempotent`, `touchesSecrets`. Outline verde/ámbar/rojo, badges key + repeat en header, sparkline bars proporcionales a `durationMs`, status pill "last failed" bajo el nodo.
 - ✅ **kubectl native + 5 promociones legacy → palette** (commit `73e85f6`) — `KubectlExecutor` (~150 LOC + 9 tests) materializa kubeconfig YAML a tempdir mode 0o600 + KUBECONFIG env + cleanup en `finally` (sobrevive runner throw). Email, Switch, StoreGet, StoreSet, Transform agregados al seed + catalog con visual metadata. Restauradas categorías `flow` e `integrations` al CATEGORIES list.
 - ✅ **Hydration mismatch en staggerChildVariants** (commit `7b2912b`) — framer-motion serializa la variant inicial como CSS string en SSR (`opacity: "0"`, sin transform) vs object en client. `staggerChildInitialStyle` exportado de `lib/motion.ts` y aplicado en DashboardPage / ApprovalInbox / MonitorsPage como `style` prop explícito. SSR HTML matchea client; framer anima encima sin warning.
+- ✅ **Edge research + 4 tiers de mejoras visuales** (commits `0e867dc` `f9c1127` `31aa67a` `3f4c8eb`) — disabled-source propagation + mid-edge `+` insert button + last-run overlay + branch-taken badge + approval-gated edge + retry stitch + cross-env labels + bundle counter chip. n8n parity + diferenciadores SRE que ningún competidor tiene. Tier D #10 (click-edge inspector con payload diff) deferido.
+- ✅ **Cascading hang del backend tras hit a `/api/dashboard/overview`** (commit `497ed73`) — `dashboard.routes.ts:214` y `:227` tenían 2 `prisma.execution.findMany()` filtrando solo por `runbookId`, sin `tenantId`. El runtime tenant-scope guard rechazaba la query, throw inside Prisma `$use`, Promise.all surface el reject, Express deja la response colgada, connection pool envenenado → toda request siguiente cuelga eternamente, incluyendo `/api/templates`. Síntoma manifestado como "no inician las simulaciones" — el backend no podía contestar nada después del primer dashboard render. Fix: agregar `tenantId` explícito a ambas queries (mismo patrón que `runbook.routes.ts:230` que ya documentaba el gotcha en un comentario). En prod el guard hace soft-fail (logea + sigue), en dev throws hard — por eso solo aparece local.
 
 ### Sesión anterior (2026-04-30)
 
