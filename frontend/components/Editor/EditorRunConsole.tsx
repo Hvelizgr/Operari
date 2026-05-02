@@ -1,97 +1,346 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Terminal } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eraser, Terminal } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { io, type Socket } from 'socket.io-client';
 
-import ExecutionEventLog from '@/components/Runs/ExecutionEventLog';
 import { useEditorStore } from '@/state/editorStore';
 
 /**
- * In-editor "run console" — a bottom-pinned drawer that surfaces the
- * exact same `ExecutionEventLog` rendered on the dedicated `/runs/:id`
- * page, but inside the canvas so the operator can audit a run without
- * leaving the editor. Mounted by Canvas.tsx alongside the other
- * floating panels (Inspector, Palette, Toolbar).
+ * Editor-specific run console — a self-contained terminal-style panel
+ * that paints each step's status as a console.log line so the operator
+ * can audit a run without leaving the canvas.
  *
- * Visibility rules:
- *   - Hidden when no `?run=<id>` is present in the URL — no run, no
- *     log to render.
- *   - Auto-opens the first time a run id appears, so a Simulación
- *     click immediately reveals the console without an extra step.
- *   - The operator can collapse to a thin bar via the chevron; the
- *     collapsed state is local-only and resets when the run id
- *     changes (a fresh run re-opens the panel).
+ * Why custom instead of reusing `Runs/ExecutionEventLog`:
+ *   - That component speaks the durable event store via
+ *     `/api/runs/:id/events`, which only fills when
+ *     `OPERARI_DURABLE_ENGINE=true`. A self-host setup without that
+ *     flag would render an empty panel forever.
+ *   - It bundles retry-from-step / cancel / follow-tail UI that's
+ *     redundant inside the editor — the operator already has the run
+ *     control buttons in the toolbar.
+ *   - It was written for the V1 RunDetail page; sharing it across both
+ *     surfaces would couple their UX evolutions.
  *
- * Live-tail mode flips on whenever any node on the canvas is in the
- * `running` state. The live flag tells `ExecutionEventLog` to poll
- * `/api/runs/:id/events?afterSeq=...` for the delta; once every node
- * has reached a terminal state, polling stops and the log is a
- * one-shot fetch.
- *
- * Why reuse `ExecutionEventLog` instead of a bespoke editor-only
- * console: the legacy editor's terminal panel was tied to the V1
- * canvas's socket implementation and would have to be rebuilt
- * against the React Flow store. The Runs page already has the
- * filter chips, follow-tail, jump-to-latest pill, and retry-from-step
- * affordances — duplicating that in the editor would just diverge.
+ * This console reads the same data the canvas reads (live socket
+ * events + `/api/runs/:id` mount fetch) and renders them as terminal
+ * lines. No durable-engine dependency. No V1 carry-over. Pure viewer.
  */
+
+type BackendStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'SKIPPED' | 'CANCELLED';
+
+interface ConsoleLine {
+  /** Local-only key — monotonic counter so React reconciles cleanly
+   *  even when two lines arrive in the same millisecond. */
+  key: number;
+  ts: number;
+  level: 'info' | 'success' | 'error' | 'warn' | 'muted';
+  /** Optional step / node id this line belongs to, used to render the
+   *  monospace prefix in the same colour as the level chip. */
+  nodeName?: string;
+  text: string;
+}
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+const STATUS_LEVEL: Record<BackendStatus, ConsoleLine['level']> = {
+  RUNNING: 'info',
+  PAUSED: 'warn',
+  SUCCESS: 'success',
+  FAILED: 'error',
+  CANCELLED: 'warn',
+  SKIPPED: 'muted',
+};
+
+const STATUS_VERB: Record<BackendStatus, string> = {
+  RUNNING: 'started',
+  PAUSED: 'paused',
+  SUCCESS: 'completed',
+  FAILED: 'failed',
+  CANCELLED: 'cancelled',
+  SKIPPED: 'skipped',
+};
+
+const LEVEL_COLOR: Record<ConsoleLine['level'], string> = {
+  info: 'text-sky-400',
+  success: 'text-emerald-400',
+  error: 'text-rose-400',
+  warn: 'text-amber-300',
+  muted: 'text-zinc-500',
+};
+
+const STRINGS = {
+  en: {
+    title: 'Run console',
+    live: 'live',
+    clear: 'Clear',
+    waiting: 'Waiting for events…',
+  },
+  es: {
+    title: 'Consola del run',
+    live: 'en vivo',
+    clear: 'Limpiar',
+    waiting: 'Esperando eventos…',
+  },
+} as const;
+
+function fmtTime(ts: number): string {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}.${String(d.getMilliseconds()).padStart(3, '0')}`;
+}
+
 export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
   const params = useSearchParams();
   const executionId = params.get('run');
-  // Live-tail when at least one node still says it's running. The
-  // store-level selector keeps re-renders narrow — flipping a single
-  // node's status is the only thing that can change `live`.
-  const live = useEditorStore(s => s.nodes.some(n => n.data?.status === 'running'));
-  const [open, setOpen] = useState(true);
+  const t = STRINGS[lang];
 
-  // Re-open on each new run id so a fresh Simulación click always
-  // reveals the console — even if the operator collapsed the previous
-  // run's panel.
+  const [open, setOpen] = useState(true);
+  const [lines, setLines] = useState<ConsoleLine[]>([]);
+  const lineKeyRef = useRef(0);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  // Auto-follow tail. Operator can scroll up to inspect older lines;
+  // a wheel-up takes us out of follow until they scroll back to ~48 px
+  // of the bottom. Same threshold the Runs page uses.
+  const [autoFollow, setAutoFollow] = useState(true);
+  // Live tail flips whenever any node on the canvas reads `running`.
+  // Cheap store selector, narrow re-renders.
+  const live = useEditorStore(s => s.nodes.some(n => n.data?.status === 'running'));
+
+  // Helper: append a line and bump the monotonic key.
+  const append = (line: Omit<ConsoleLine, 'key'>) => {
+    setLines(prev => [...prev, { ...line, key: ++lineKeyRef.current }]);
+  };
+
+  // Reset on each new run id, then backfill from the persisted state
+  // and subscribe to the socket for further events. Mirrors what
+  // `useExecutionSocket` already does at the canvas level — both
+  // consumers run independently because the canvas needs node-keyed
+  // updates and the console needs append-only lines.
   useEffect(() => {
-    if (executionId) setOpen(true);
+    if (!executionId) {
+      setLines([]);
+      return;
+    }
+
+    setLines([]);
+    lineKeyRef.current = 0;
+    setOpen(true);
+
+    const startedAt = Date.now();
+    append({
+      ts: startedAt,
+      level: 'info',
+      text: `> attaching to run ${executionId.slice(0, 8)}…`,
+    });
+
+    // Backfill: the same `/api/runs/:id` the editor backfill uses.
+    // Reading nodeLogs gives us the full per-step status story even
+    // when the run already terminated before we connected.
+    const ctrl = new AbortController();
+    fetch(`${API_BASE}/api/runs/${executionId}`, {
+      credentials: 'include',
+      signal: ctrl.signal,
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then(
+        (
+          data: {
+            status?: BackendStatus;
+            startedAt?: string;
+            completedAt?: string;
+            duration?: number | null;
+            steps?: Array<{
+              stepId: string;
+              name?: string;
+              type?: string;
+              status: BackendStatus;
+              duration?: number | null;
+              error?: string | null;
+            }>;
+          } | null
+        ) => {
+          if (!data) return;
+          const runStartedAt = data.startedAt ? Date.parse(data.startedAt) : startedAt;
+          append({
+            ts: runStartedAt,
+            level: 'muted',
+            text: `run.created  status=${data.status ?? '?'}`,
+          });
+          for (const step of data.steps ?? []) {
+            const level = STATUS_LEVEL[step.status] ?? 'muted';
+            const verb = STATUS_VERB[step.status] ?? step.status;
+            const dur = step.duration != null ? `  ${step.duration}ms` : '';
+            append({
+              ts: runStartedAt,
+              level,
+              nodeName: step.name || step.stepId.slice(0, 8),
+              text: `${verb}${step.type ? `  ${step.type}` : ''}${dur}${step.error ? `  — ${step.error}` : ''}`,
+            });
+          }
+          if (data.completedAt) {
+            const finishedAt = Date.parse(data.completedAt);
+            append({
+              ts: finishedAt,
+              level: data.status === 'FAILED' ? 'error' : 'success',
+              text: `run.${(data.status ?? 'completed').toLowerCase()}  duration=${data.duration ?? '?'}ms`,
+            });
+          }
+        }
+      )
+      .catch(err => {
+        if (err?.name !== 'AbortError') {
+          append({
+            ts: Date.now(),
+            level: 'error',
+            text: `! backfill failed: ${err?.message ?? 'unknown'}`,
+          });
+        }
+      });
+
+    // Live socket. Mirrors useExecutionSocket — we keep this connection
+    // separate so the console renders even on canvases that don't host
+    // a useExecutionSocket call (e.g. an embed that mounts only the
+    // console). Same room semantics, different sink.
+    const socket: Socket = io(API_BASE, {
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+    const join = () => socket.emit('join_execution', executionId);
+    socket.on('connect', join);
+    socket.on('reconnect', join);
+
+    socket.on(
+      'node_status',
+      (event: { nodeId: string; status: BackendStatus; timestamp: string; result?: unknown }) => {
+        const ts = Date.parse(event.timestamp);
+        const store = useEditorStore.getState();
+        const node = store.nodes.find(n => n.id === event.nodeId);
+        const nodeName =
+          node?.data?.workflow?.title ||
+          (node?.type ? `${node.type} (${event.nodeId.slice(0, 6)})` : event.nodeId.slice(0, 8));
+        append({
+          ts: Number.isFinite(ts) ? ts : Date.now(),
+          level: STATUS_LEVEL[event.status] ?? 'muted',
+          nodeName,
+          text: STATUS_VERB[event.status] ?? event.status,
+        });
+      }
+    );
+
+    socket.on('execution_status', (event: { status: BackendStatus; timestamp: string }) => {
+      const ts = Date.parse(event.timestamp);
+      append({
+        ts: Number.isFinite(ts) ? ts : Date.now(),
+        level: event.status === 'FAILED' ? 'error' : 'success',
+        text: `run.${event.status.toLowerCase()}`,
+      });
+    });
+
+    return () => {
+      ctrl.abort();
+      socket.emit('leave_execution', executionId);
+      socket.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [executionId]);
+
+  // Auto-scroll to bottom on new lines unless the operator scrolled up.
+  useEffect(() => {
+    if (!autoFollow) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [lines.length, autoFollow]);
 
   if (!executionId) return null;
 
-  const titleLabel = lang === 'es' ? 'Consola del run' : 'Run console';
-
   return (
     <div
-      className="absolute bottom-4 left-1/2 z-30 w-[min(720px,calc(100%-2rem))] -translate-x-1/2 rounded-lg border border-white/10 bg-[#0e1117]/95 shadow-2xl backdrop-blur"
+      className="absolute bottom-4 left-1/2 z-30 w-[min(820px,calc(100%-2rem))] -translate-x-1/2 rounded-lg border border-white/10 bg-[#0b0e14]/95 shadow-2xl backdrop-blur"
       data-rb-run-console
     >
-      {/* Header row: collapse toggle + run id chip + live indicator. */}
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex w-full items-center justify-between gap-2 rounded-t-lg px-3 py-2 text-xs text-zinc-200 transition-colors hover:bg-white/5"
-      >
-        <span className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 rounded-t-lg border-b border-white/10 px-3 py-2">
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-2 text-xs text-zinc-200 transition-colors hover:text-white"
+        >
           <Terminal size={13} className="text-emerald-400" />
-          <span className="font-medium">{titleLabel}</span>
+          <span className="font-medium">{t.title}</span>
           <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
             {executionId.slice(0, 8)}
           </span>
           {live ? (
             <span className="flex items-center gap-1 rounded bg-rose-500/20 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-rose-300">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
-              live
+              {t.live}
             </span>
           ) : null}
-        </span>
-        <span className="text-zinc-500">
-          {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-        </span>
-      </button>
+        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setLines([]);
+              lineKeyRef.current = 0;
+            }}
+            title={t.clear}
+            aria-label={t.clear}
+            className="rounded p-1 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
+          >
+            <Eraser size={13} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            className="rounded p-1 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
+            aria-label={open ? 'Collapse' : 'Expand'}
+          >
+            {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </button>
+        </div>
+      </div>
       {open ? (
         <div
-          className="max-h-[40vh] overflow-y-auto border-t border-white/10"
+          ref={scrollRef}
+          onScroll={() => {
+            const el = scrollRef.current;
+            if (!el) return;
+            const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
+            setAutoFollow(distanceFromBottom < 48);
+          }}
           // Stop wheel from propagating to React Flow so scrolling the
           // log doesn't accidentally pan/zoom the canvas behind it.
           onWheelCapture={e => e.stopPropagation()}
+          className="max-h-[35vh] overflow-y-auto p-2 font-mono text-[11px] leading-tight"
         >
-          <ExecutionEventLog runId={executionId} lang={lang} live={live} />
+          {lines.length === 0 ? (
+            <div className="px-2 py-4 text-zinc-500">{t.waiting}</div>
+          ) : (
+            lines.map(line => (
+              <div key={line.key} className="flex gap-2 px-2 py-0.5 hover:bg-white/[0.02]">
+                <span className="shrink-0 text-zinc-500">{fmtTime(line.ts)}</span>
+                <span className={`shrink-0 ${LEVEL_COLOR[line.level]}`}>
+                  {line.level === 'success'
+                    ? '✓'
+                    : line.level === 'error'
+                      ? '✗'
+                      : line.level === 'warn'
+                        ? '!'
+                        : line.level === 'muted'
+                          ? '·'
+                          : '►'}
+                </span>
+                {line.nodeName ? (
+                  <span className={`shrink-0 ${LEVEL_COLOR[line.level]}`}>[{line.nodeName}]</span>
+                ) : null}
+                <span className="break-all text-zinc-200">{line.text}</span>
+              </div>
+            ))
+          )}
         </div>
       ) : null}
     </div>
