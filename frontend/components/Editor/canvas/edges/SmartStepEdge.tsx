@@ -8,7 +8,7 @@ import type { RfEdge } from '@/lib/canvas/adapter';
 import { EdgeDeleteButton } from './EdgeDeleteButton';
 import { EdgeInsertButton } from './EdgeInsertButton';
 import { isRunning, resolveEdgeStroke } from './edgeStyle';
-import { useEdgeSourceDisabled } from './useEdgeSourceDisabled';
+import { useEdgeSourceDisabled, useSourceIsMultiOutput } from './useEdgeSourceDisabled';
 
 /**
  * Orthogonal step edge: same status / animation language as
@@ -45,6 +45,9 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
     markerEnd,
   } = props;
   const sourceDisabled = useEdgeSourceDisabled(source);
+  const sourceMultiOutput = useSourceIsMultiOutput(source);
+  const skippedLastRun = data?.status === 'skipped';
+  const branchTakenBadge = sourceMultiOutput && data?.status === 'success';
 
   const [path, labelX, labelY] = getSmoothStepPath({
     sourceX,
@@ -97,7 +100,7 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
           strokeWidth,
           strokeDasharray: sourceDisabled ? '4 4' : running ? '8 6' : undefined,
           animation: !sourceDisabled && running ? 'rb-dash 800ms linear infinite' : undefined,
-          opacity: sourceDisabled ? 0.45 : undefined,
+          opacity: sourceDisabled ? 0.45 : skippedLastRun ? 0.25 : undefined,
           filter: data?.cyclic ? 'drop-shadow(0 0 4px rgba(239,68,68,0.55))' : undefined,
           transition: 'stroke 200ms ease, opacity 200ms ease',
         }}
@@ -127,6 +130,21 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
             title={data!.condition}
           >
             {badgeLabel}
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+      {branchTakenBadge ? (
+        <EdgeLabelRenderer>
+          <div
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-white shadow"
+            style={{
+              left: labelX,
+              top: labelY - 14,
+              background: 'var(--rb-edge-success)',
+            }}
+            title="This branch was taken in the most recent run"
+          >
+            taken
           </div>
         </EdgeLabelRenderer>
       ) : null}

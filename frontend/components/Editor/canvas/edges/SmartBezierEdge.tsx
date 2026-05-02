@@ -9,7 +9,7 @@ import type { RfEdge } from '@/lib/canvas/adapter';
 import { EdgeDeleteButton } from './EdgeDeleteButton';
 import { EdgeInsertButton } from './EdgeInsertButton';
 import { isRunning, resolveEdgeStroke } from './edgeStyle';
-import { useEdgeSourceDisabled } from './useEdgeSourceDisabled';
+import { useEdgeSourceDisabled, useSourceIsMultiOutput } from './useEdgeSourceDisabled';
 
 const CONDITION_BADGE_LABEL: Record<NonNullable<RfEdge['data']>['condition'] & string, string> = {
   complete: '',
@@ -45,6 +45,17 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
   // edge mutes + dashes automatically. n8n parity, derived from node
   // state — no per-edge config knob to forget to toggle.
   const sourceDisabled = useEdgeSourceDisabled(source);
+  const sourceMultiOutput = useSourceIsMultiOutput(source);
+  // Last-run overlay: edges that didn't fire last run (`skipped`
+  // status) fade so the operator's eye lands on the path that
+  // actually executed. Always on — `skipped` is set by the engine
+  // explicitly, so an idle/never-run edge stays at full opacity.
+  const skippedLastRun = data?.status === 'skipped';
+  // "Taken last" branch badge: the winning output of an IF / Switch
+  // gets a small chip mid-edge so a post-mortem reads "this branch
+  // fired" without opening the run timeline. Only renders for
+  // multi-output sources whose status flipped to success.
+  const branchTakenBadge = sourceMultiOutput && data?.status === 'success';
 
   const [path, labelX, labelY] = getBezierPath({
     sourceX,
@@ -128,7 +139,7 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
             !sourceDisabled && showDashes
               ? `rb-dash ${dashDurationMs}ms linear infinite`
               : undefined,
-          opacity: sourceDisabled ? 0.45 : undefined,
+          opacity: sourceDisabled ? 0.45 : skippedLastRun ? 0.25 : undefined,
           filter: data?.cyclic ? 'drop-shadow(0 0 4px rgba(239,68,68,0.55))' : undefined,
           transition: 'stroke 200ms ease, opacity 200ms ease',
         }}
@@ -158,6 +169,21 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
             title={data!.condition}
           >
             {badgeLabel}
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+      {branchTakenBadge ? (
+        <EdgeLabelRenderer>
+          <div
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-white shadow"
+            style={{
+              left: labelX,
+              top: labelY - 14,
+              background: 'var(--rb-edge-success)',
+            }}
+            title="This branch was taken in the most recent run"
+          >
+            taken
           </div>
         </EdgeLabelRenderer>
       ) : null}
