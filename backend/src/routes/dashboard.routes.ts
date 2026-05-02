@@ -211,8 +211,17 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
         where: { id: { in: topWorkflowIds } },
         select: { id: true, slug: true, name: true },
       }),
+      // `topWorkflowIds` came from a tenant-scoped groupBy above, so
+      // joining executions by id is already tenant-isolated by
+      // construction. The explicit `tenantId` here is for the runtime
+      // tenant-scope guard (middleware/tenant-scope-guard.ts) which
+      // refuses any Execution query without a tenant filter — without
+      // it the guard throws inside Prisma's `$use` chain, the unhandled
+      // rejection drains the request, and the connection pool stays
+      // poisoned. Same workaround as runbook.routes.ts:230.
       prisma.execution.findMany({
         where: {
+          tenantId,
           runbookId: { in: topWorkflowIds },
           startedAt: { gte: since7d },
         },
@@ -221,11 +230,12 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       // Per-runbook last-20 fan-out. Prisma doesn't express "top N
       // per group" so we issue one small query per runbook; topN is
       // capped at ~10 upstream so the fan-out is bounded. Same pattern
-      // as computeEtas in runs.routes.ts.
+      // as computeEtas in runs.routes.ts. Each fan-out query also
+      // explicitly carries tenantId for the guard.
       Promise.all(
         topWorkflowIds.map(async runbookId => {
           const rows = await prisma.execution.findMany({
-            where: { runbookId },
+            where: { tenantId, runbookId },
             orderBy: { startedAt: 'desc' },
             take: 20,
             select: { status: true },
