@@ -2,7 +2,7 @@
 
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
-Última actualización: 2026-04-30. Después de los 9 commits locales sin pushear (audit chain inspector, webhook wizard + rotate, Prometheus metrics + Grafana dashboard, plugin metadata bridge, auto-form built-ins, plugin tenant-scoped schema, WorkOS callback, Python SDK + loader bridge, propertiesFromZod, plugin tenant-scoped runtime + ADR 0006).
+Última actualización: 2026-05-02. **14 commits locales sin pushear** (los 9 anteriores + 5 nuevos de la sesión 2026-05-02): dry-run adapter fix, credentials cookie en useWorkflowExecution, node visual personalization V2 (nodeShape + nodeDensityV2 + SRE signals), kubectl native + 5 promociones legacy, hydration fix de staggerChildVariants. **Push bloqueado en credenciales** (`gh auth login` desde la terminal).
 
 ---
 
@@ -137,6 +137,19 @@ Si un usuario pide algo de esto, agregalo arriba con un estimado.
 
 ## Lo que se cerró desde la última actualización del pendiente
 
+### Sesión 2026-05-02
+
+- ✅ **Dry-run en legacy editor executors** (commit `225f7e0`) — `EditorExecutorAdapter` short-circuita en `context.dryRun` con un payload sintético. Cubre los 15 legacy executors a la vez (Email/HTTP/StoreSet/Condition/...) que antes ejecutaban side effects reales durante "Simulación". 2 tests nuevos en `dry-run.test.ts` pinean la regresión.
+- ✅ **Credentials cookie en useWorkflowExecution** (commit `a5bfd18`) — `fetch(...)` faltaba `credentials: 'include'` en los 3 entry points (executeWorkflow, executeFromNode, replayNode). El JWT cookie se caía y algunos browsers dejaban la promesa pending eternamente, freezando el toolbar en "Launching…". Test que itera los 3 + asserta `credentials === 'include'`.
+- ✅ **Node visual personalization V2 + SRE signals** (commit `106e705`) — tres bundles combinados:
+  1. **Bundle 1 — quick wins:** trigger silhouette (pill izq en `data-category="triggers"`), halt-point stripe (4px ámbar en approval/wait/Suspend), branch labels en multi-output handles (n8n parity), disabled polish (dashed + opacity-60).
+  2. **Bundle 2 — nodeShape + nodeDensityV2 user-configurable:** 5 shapes (rounded-rect/pill/hex/circle/rectangle) + 3 densities (comfortable/compact/dense) en Settings → Apariencia → Nodos. Pipeline completo (types → defaults → context → dom → CSS → strings EN+ES → NodesTab → presets).
+  3. **Bundle 3 — SRE-tailored signals:** `NODE_VISUAL_METADATA` per-type con `blastRadius` (readonly/writes/destructive), `idempotent`, `touchesSecrets`. Outline verde/ámbar/rojo, badges key + repeat en header, sparkline bars proporcionales a `durationMs`, status pill "last failed" bajo el nodo.
+- ✅ **kubectl native + 5 promociones legacy → palette** (commit `73e85f6`) — `KubectlExecutor` (~150 LOC + 9 tests) materializa kubeconfig YAML a tempdir mode 0o600 + KUBECONFIG env + cleanup en `finally` (sobrevive runner throw). Email, Switch, StoreGet, StoreSet, Transform agregados al seed + catalog con visual metadata. Restauradas categorías `flow` e `integrations` al CATEGORIES list.
+- ✅ **Hydration mismatch en staggerChildVariants** (commit `7b2912b`) — framer-motion serializa la variant inicial como CSS string en SSR (`opacity: "0"`, sin transform) vs object en client. `staggerChildInitialStyle` exportado de `lib/motion.ts` y aplicado en DashboardPage / ApprovalInbox / MonitorsPage como `style` prop explícito. SSR HTML matchea client; framer anima encima sin warning.
+
+### Sesión anterior (2026-04-30)
+
 - ✅ **SQL editor schema diagram** — `/api/sql/metadata` rich PG introspection + `SchemaDiagram` canvas con TableNode + RelationshipEdge (React Flow), schema filter, PNG/SVG/DBML/JSON export, schema diff entre dos snapshots con coloring per-tabla y per-columna. Capability-gated por provider (`postgres`/`mysql` only). Inspirado por chartdb (AGPL), implementación nueva — ver `docs/research/chartdb-research.md`.
 - ✅ **Runbook lineage page** (`/lineage`) — backend agrega `runbook` step refs + `onErrorRunbookId` en un solo grafo, frontend lo renderiza con depth-based layout. Tenant-scoped via Prisma. Linkeable desde sidebar y command palette (`G L`).
 - ✅ **YAML diff-apply en runbook editor** — `reconcileWorkflow` + `reconcileFromWorkflow` action. Editar el YAML ya no hace snap-back de positions/selección; nodos sobrevivientes mantienen su layout, solo el body cambia.
@@ -155,7 +168,15 @@ Si un usuario pide algo de esto, agregalo arriba con un estimado.
 
 ---
 
-## Tests baseline al cierre de la última sesión
+## Tests baseline al cierre de la sesión 2026-05-02
+
+- Backend: **1330+** passing (+9 kubectl tests, +2 dry-run adapter tests sobre los 1321+ de la sesión anterior)
+- Frontend: **287+** passing (+2 credentials-cookie tests, +35 canvas/visualization tests sin regresión)
+- Python SDK: **18 / 18** passing
+- tsc clean ambos lados (TS)
+- 14 commits locales sin pushear sobre `feat/editor-reactflow-rebuild`.
+
+## Tests baseline al cierre de la sesión 2026-04-30
 
 - Backend: **1321+ / 1321+** passing (+3 lineage tests, +5 metadata tests, +3 capability-gate tests, +4 step-stats tests)
 - Frontend: **285 / 285** passing (+24 desde 261: capabilities, dbml-export, sql-diff, sql-metadata, reconcile)
