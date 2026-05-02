@@ -6,20 +6,26 @@
 // `NODE_TYPES` (rendered as JSX nodes) and `CATEGORIES` (passed by
 // reference for downstream consumers like Navigation/SearchBar).
 import {
+  Anchor,
   Bell,
   Clock,
   Database,
+  Download,
   Folder,
   GitBranch,
   Globe,
   KeyRound,
+  Mail,
   Play,
   Repeat,
   Route,
+  Split,
   Square,
   StickyNote,
   Terminal,
+  Upload,
   UserCheck,
+  Wand2,
   Webhook,
   Zap,
 } from 'lucide-react';
@@ -85,6 +91,18 @@ export const NODE_VISUAL_METADATA: Record<string, NodeVisualMetadata> = {
   notify: { blastRadius: 'writes', idempotent: false, touchesSecrets: true },
   runbook: { blastRadius: 'readonly', idempotent: false, touchesSecrets: false },
   approval: { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
+  // Tier 0 promotions — legacy editor executors now exposed in palette.
+  Transform: { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
+  StoreGet: { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
+  StoreSet: { blastRadius: 'writes', idempotent: false, touchesSecrets: false },
+  Switch: { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
+  Email: { blastRadius: 'writes', idempotent: false, touchesSecrets: false },
+  // kubectl: marked destructive on purpose — `kubectl delete pod`,
+  // `kubectl set image`, `apply -f -` all change cluster state in
+  // ways no rollback button can undo. The amber/red ring at-a-glance
+  // is the point. touchesSecrets=true since the kubeconfig usually
+  // arrives via a connected-account secret.
+  kubectl: { blastRadius: 'destructive', idempotent: false, touchesSecrets: true },
   // `custom.frame` and `custom.note` intentionally omitted — they're
   // visual-only nodes with no executor; metadata would be confusing.
 };
@@ -109,6 +127,18 @@ export const CATEGORIES = [
     color: 'text-green-400',
   },
   { id: 'core', label: { en: 'Core', es: 'Core' }, icon: Zap, color: 'text-primary/70' },
+  {
+    id: 'flow',
+    label: { en: 'Flow control', es: 'Control de flujo' },
+    icon: Route,
+    color: 'text-amber-400',
+  },
+  {
+    id: 'integrations',
+    label: { en: 'Integrations', es: 'Integraciones' },
+    icon: Globe,
+    color: 'text-rose-400',
+  },
   {
     id: 'organization',
     label: { en: 'Organization', es: 'Organización' },
@@ -585,6 +615,126 @@ export const NODE_TYPES: NodeType[] = [
       { name: 'failOnNon2xx', displayName: 'Fail on non-2xx', type: 'boolean', default: true },
       { name: 'followRedirects', displayName: 'Follow redirects', type: 'boolean', default: true },
       { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 30000 },
+    ],
+  },
+
+  // === DEVOPS — kubectl native ===
+  {
+    type: 'kubectl',
+    icon: <Anchor size={18} />,
+    label: { en: 'kubectl', es: 'kubectl' },
+    color: 'bg-blue-700',
+    category: 'devops',
+    description: {
+      en: 'Run kubectl with kubeconfig from a connected account secret',
+      es: 'Ejecutar kubectl con kubeconfig desde un secret de connected account',
+    },
+    inputs: ['main'],
+    outputs: ['main'],
+    properties: [
+      {
+        name: 'command',
+        displayName: 'Command (after `kubectl`)',
+        type: 'string',
+        default: 'get pods',
+      },
+      { name: 'namespace', displayName: 'Namespace', type: 'string', default: '' },
+      { name: 'context', displayName: 'Context', type: 'string', default: '' },
+      { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 60000 },
+    ],
+  },
+
+  // === CORE — legacy editor executors promoted to palette ===
+  {
+    type: 'Transform',
+    icon: <Wand2 size={18} />,
+    label: { en: 'Transform', es: 'Transformar' },
+    color: 'bg-violet-600',
+    category: 'core',
+    description: {
+      en: 'Run a JS expression or apply a key-mapping over the previous step',
+      es: 'Correr una expresión JS o un mapeo sobre el output anterior',
+    },
+    inputs: ['main'],
+    outputs: ['main'],
+    properties: [
+      { name: 'code', displayName: 'JS expression', type: 'string', default: '' },
+      { name: 'mapping', displayName: 'Mapping (JSON)', type: 'string', default: '' },
+    ],
+  },
+  {
+    type: 'StoreGet',
+    icon: <Download size={18} />,
+    label: { en: 'Store: get', es: 'Store: obtener' },
+    color: 'bg-slate-600',
+    category: 'core',
+    description: {
+      en: 'Read a value from the per-tenant key-value scratch store',
+      es: 'Leer un valor del KV scratch per-tenant',
+    },
+    inputs: ['main'],
+    outputs: ['main'],
+    properties: [
+      { name: 'bucketName', displayName: 'Bucket', type: 'string', default: 'default' },
+      { name: 'key', displayName: 'Key', type: 'string', default: '' },
+    ],
+  },
+  {
+    type: 'StoreSet',
+    icon: <Upload size={18} />,
+    label: { en: 'Store: set', es: 'Store: guardar' },
+    color: 'bg-slate-600',
+    category: 'core',
+    description: {
+      en: 'Write a value to the per-tenant key-value scratch store',
+      es: 'Escribir un valor al KV scratch per-tenant',
+    },
+    inputs: ['main'],
+    outputs: ['main'],
+    properties: [
+      { name: 'bucketName', displayName: 'Bucket', type: 'string', default: 'default' },
+      { name: 'key', displayName: 'Key', type: 'string', default: '' },
+      { name: 'value', displayName: 'Value', type: 'string', default: '' },
+    ],
+  },
+
+  // === FLOW — Switch (multi-output) ===
+  {
+    type: 'Switch',
+    icon: <Split size={18} />,
+    label: { en: 'Switch', es: 'Switch' },
+    color: 'bg-amber-600',
+    category: 'flow',
+    description: {
+      en: 'N-way branch on a field value. Each case routes to its own output port.',
+      es: 'Branch de N caminos sobre un campo. Cada case rutea a su propio output.',
+    },
+    inputs: ['main'],
+    outputs: ['case_1', 'case_2', 'default'],
+    properties: [
+      { name: 'field', displayName: 'Field path', type: 'string', default: 'input.status' },
+      { name: 'cases', displayName: 'Cases (JSON)', type: 'string', default: '[]' },
+    ],
+  },
+
+  // === INTEGRATIONS — Email ===
+  {
+    type: 'Email',
+    icon: <Mail size={18} />,
+    label: { en: 'Email', es: 'Correo' },
+    color: 'bg-rose-600',
+    category: 'integrations',
+    description: {
+      en: 'Send an email via the configured SMTP transporter',
+      es: 'Enviar email vía el SMTP configurado',
+    },
+    inputs: ['main'],
+    outputs: ['main'],
+    properties: [
+      { name: 'to', displayName: 'To', type: 'string', default: '' },
+      { name: 'subject', displayName: 'Subject', type: 'string', default: '' },
+      { name: 'body', displayName: 'Body (text)', type: 'string', default: '' },
+      { name: 'html', displayName: 'Body (HTML)', type: 'string', default: '' },
     ],
   },
 

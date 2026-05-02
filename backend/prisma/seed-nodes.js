@@ -491,6 +491,250 @@ const NODES = [
       },
     ],
   },
+  // === devops (kubectl native) ===
+  {
+    type: 'kubectl',
+    category: 'devops',
+    icon: 'Anchor',
+    color: 'bg-blue-700',
+    label: { en: 'kubectl', es: 'kubectl' },
+    description: {
+      en: 'Run a kubectl subcommand against a cluster. Materializes the kubeconfig secret to a tempfile per run.',
+      es: 'Ejecutar un subcomando de kubectl. Materializa el kubeconfig del secret a un tempfile por run.',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'command',
+        displayName: 'Command (after `kubectl`)',
+        type: 'string',
+        default: 'get pods',
+        typeOptions: { rows: 2, expression: true },
+        description: 'Subcommand and args. e.g. `get pods --all-namespaces` or `apply -f -`.',
+      },
+      {
+        name: 'namespace',
+        displayName: 'Namespace',
+        type: 'string',
+        default: '',
+        typeOptions: { expression: true },
+        description: 'Optional. Appended as --namespace=<ns>.',
+      },
+      {
+        name: 'context',
+        displayName: 'Context',
+        type: 'string',
+        default: '',
+        typeOptions: { expression: true },
+        description: 'Optional kubectl context. Appended as --context=<ctx>.',
+      },
+      {
+        name: 'kubeconfigSecret',
+        displayName: 'Kubeconfig secret',
+        type: 'secret',
+        description:
+          'ConnectedAccount holding the kubeconfig YAML. Materialized to a tempfile per run, KUBECONFIG env set.',
+        typeOptions: { provider: 'kubeconfig' },
+      },
+      {
+        name: 'timeout',
+        displayName: 'Timeout (ms)',
+        type: 'number',
+        default: 60000,
+        description: 'Hard kill if kubectl runs longer than this.',
+      },
+    ],
+  },
+
+  // === core (legacy editor executors promoted to palette) ===
+  // These five executors live in backend/src/editor/nodes/ and route
+  // through the EditorExecutorAdapter (ADR 0004 will fold them into
+  // the native registry). They've shipped as code for ages — adding
+  // them to the palette just exposes what's already there.
+  {
+    type: 'Transform',
+    category: 'core',
+    icon: 'Wand2',
+    color: 'bg-violet-600',
+    label: { en: 'Transform', es: 'Transformar' },
+    description: {
+      en: 'Run a JS expression or apply a key-mapping over the previous step output.',
+      es: 'Correr una expresión JS o aplicar un mapeo de claves sobre el output del paso anterior.',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'code',
+        displayName: 'Code (JS expression)',
+        type: 'string',
+        default: '',
+        typeOptions: { rows: 4, expression: true },
+        description: 'Optional JS expression. Has access to `input`. e.g. `input.body.id`.',
+      },
+      {
+        name: 'mapping',
+        displayName: 'Mapping (JSON)',
+        type: 'string',
+        default: '',
+        typeOptions: { rows: 3, expression: true },
+        description: 'Alternative: object whose values are JS expressions resolved against input.',
+      },
+    ],
+  },
+  {
+    type: 'StoreGet',
+    category: 'core',
+    icon: 'Download',
+    color: 'bg-slate-600',
+    label: { en: 'Store: get', es: 'Store: obtener' },
+    description: {
+      en: 'Read a value from the per-tenant key-value store (cross-step scratch space).',
+      es: 'Leer un valor del KV per-tenant (memoria cross-step).',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'bucketName',
+        displayName: 'Bucket',
+        type: 'string',
+        default: 'default',
+        description: 'Logical namespace inside the per-tenant store.',
+      },
+      {
+        name: 'key',
+        displayName: 'Key',
+        type: 'string',
+        default: '',
+        typeOptions: { expression: true },
+        description: 'Key to read. Supports {{vars.x}} templates.',
+      },
+    ],
+  },
+  {
+    type: 'StoreSet',
+    category: 'core',
+    icon: 'Upload',
+    color: 'bg-slate-600',
+    label: { en: 'Store: set', es: 'Store: guardar' },
+    description: {
+      en: 'Write a value to the per-tenant key-value store.',
+      es: 'Escribir un valor al KV per-tenant.',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'bucketName',
+        displayName: 'Bucket',
+        type: 'string',
+        default: 'default',
+      },
+      {
+        name: 'key',
+        displayName: 'Key',
+        type: 'string',
+        default: '',
+        typeOptions: { expression: true },
+      },
+      {
+        name: 'value',
+        displayName: 'Value',
+        type: 'string',
+        default: '',
+        typeOptions: { rows: 3, expression: true },
+        description: 'Stored as-is. Use {{steps.x.output}} to capture upstream output.',
+      },
+    ],
+  },
+
+  // === flow (Switch, multi-output branch) ===
+  {
+    type: 'Switch',
+    category: 'flow',
+    icon: 'Split',
+    color: 'bg-amber-600',
+    label: { en: 'Switch', es: 'Switch' },
+    description: {
+      en: 'N-way branch on a field value. Each case routes to its own output port.',
+      es: 'Branch de N caminos sobre el valor de un campo. Cada case rutea a su propio output.',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [
+      { name: 'case_1', type: 'main' },
+      { name: 'case_2', type: 'main' },
+      { name: 'default', type: 'main' },
+    ],
+    properties: [
+      {
+        name: 'field',
+        displayName: 'Field path',
+        type: 'string',
+        default: 'input.status',
+        typeOptions: { expression: true },
+        description: 'Path into the input shape. e.g. `input.body.code`, `input.status`.',
+      },
+      {
+        name: 'cases',
+        displayName: 'Cases (JSON)',
+        type: 'string',
+        default: '[]',
+        typeOptions: { rows: 4 },
+        description:
+          'JSON array of {value, label?}. The first match wins; unmatched values fall to the default port.',
+      },
+    ],
+  },
+
+  // === integrations (Email) ===
+  {
+    type: 'Email',
+    category: 'integrations',
+    icon: 'Mail',
+    color: 'bg-rose-600',
+    label: { en: 'Email', es: 'Correo' },
+    description: {
+      en: 'Send an email via the configured SMTP transporter. Templates allowed in to/subject/body.',
+      es: 'Enviar email vía el SMTP configurado. Templates en to/subject/body.',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'to',
+        displayName: 'To',
+        type: 'string',
+        default: '',
+        typeOptions: { expression: true },
+        description: 'Recipient. Comma-separate multiple. {{vars.x}} OK.',
+      },
+      {
+        name: 'subject',
+        displayName: 'Subject',
+        type: 'string',
+        default: '',
+        typeOptions: { expression: true },
+      },
+      {
+        name: 'body',
+        displayName: 'Body (text)',
+        type: 'string',
+        default: '',
+        typeOptions: { rows: 4, expression: true },
+      },
+      {
+        name: 'html',
+        displayName: 'Body (HTML)',
+        type: 'string',
+        default: '',
+        typeOptions: { rows: 4, expression: true },
+        description: 'Optional. Wins over body when both are set.',
+      },
+    ],
+  },
+
   {
     type: 'custom.frame',
     category: 'organization',
