@@ -39,16 +39,19 @@ export function useExecutionSocket(executionId: string | null) {
     // Backfill on mount. Dry-runs against a small runbook complete in
     // ~50ms — faster than the Socket.io client can connect, join the
     // execution room, and start receiving events. Without this fetch
-    // the canvas stays idle even though the run already finished, and
-    // the operator sees "como si iniciara y al momento termina".
+    // the canvas stays idle even though the run already finished.
     //
-    // GET /api/runs/:id returns the persisted Execution + per-step
-    // nodeLogs (which write through unconditionally — not gated by
-    // OPERARI_DURABLE_ENGINE). We map each step's status into the
-    // editor store so the canvas paints the final state immediately,
-    // then the live socket subscription catches any subsequent
-    // updates (replay, resume, cancel) that arrive after.
+    // For a real run we apply each step's status as soon as the fetch
+    // resolves so the canvas reflects what the engine actually did.
+    // For a *dry-run* that already completed, we instead replay the
+    // step sequence with a small wall-clock delay between each so the
+    // operator sees the flow animate node-by-node — otherwise the run
+    // is over in 40 ms and the entire graph flashes green at once,
+    // which defeats the "watch how this runbook would work" purpose
+    // of the Simulación affordance.
     const backfillCtrl = new AbortController();
+    let replayTimers: ReturnType<typeof setTimeout>[] = [];
+
     fetch(`${API_BASE}/api/runs/${executionId}`, {
       credentials: 'include',
       signal: backfillCtrl.signal,
@@ -65,37 +68,131 @@ export function useExecutionSocket(executionId: string | null) {
               duration?: number | null;
             }>;
             status?: BackendStatus;
+            dryRun?: boolean;
           } | null
         ) => {
           if (!data?.steps) return;
           const store = useEditorStore.getState();
-          for (const step of data.steps) {
-            const mapped = STATUS_MAP[step.status];
-            if (!mapped) continue;
-            const startedAt = step.startedAt ? Date.parse(step.startedAt) : null;
-            store.updateNodeData(step.stepId, {
-              status: mapped,
-              startedAt: Number.isFinite(startedAt) ? startedAt : null,
-              durationMs:
-                step.duration ??
-                (startedAt != null && step.completedAt
-                  ? Math.max(0, Date.parse(step.completedAt) - startedAt)
-                  : null),
-            });
-          }
-          // Edge propagation: paint incoming edges of every executed step
-          // so the path that fired is visible. Skipped steps fade via
-          // existing logic; success/failed/idle leaves edges idle.
-          for (const step of data.steps) {
-            const mapped = STATUS_MAP[step.status];
-            if (!mapped) continue;
-            for (const edge of store.edges) {
-              if (edge.target !== step.stepId) continue;
-              const edgeStatus = mapped === 'success' || mapped === 'failed' ? mapped : 'idle';
-              if (edge.data?.status !== edgeStatus) {
-                store.updateEdgeData(edge.id, { status: edgeStatus });
+          // Dry-run replay: only when the run terminated (not in
+          // a paused/running state) AND was a dry-run. Real runs
+          // and live dry-runs apply immediately so the canvas
+          // never lies about the engine's actual state.
+          const shouldReplay =
+            data.dryRun === true &&
+            data.status !== 'RUNNING' &&
+            data.status !== 'PAUSED' &&
+            data.steps.length > 0;
+
+          if (!shouldReplay) {
+            for (const step of data.steps) {
+              const mapped = STATUS_MAP[step.status];
+              if (!mapped) continue;
+              const startedAt = step.startedAt ? Date.parse(step.startedAt) : null;
+              store.updateNodeData(step.stepId, {
+                status: mapped,
+                startedAt: Number.isFinite(startedAt) ? startedAt : null,
+                durationMs:
+                  step.duration ??
+                  (startedAt != null && step.completedAt
+                    ? Math.max(0, Date.parse(step.completedAt) - startedAt)
+                    : null),
+              });
+            }
+            for (const step of data.steps) {
+              const mapped = STATUS_MAP[step.status];
+              if (!mapped) continue;
+              for (const edge of store.edges) {
+                if (edge.target !== step.stepId) continue;
+                const edgeStatus = mapped === 'success' || mapped === 'failed' ? mapped : 'idle';
+                if (edge.data?.status !== edgeStatus) {
+                  store.updateEdgeData(edge.id, { status: edgeStatus });
+                }
               }
             }
+            return;
+          }
+
+          // Replay path: paint each step `running` for ~600 ms, then
+          // its actual final status. Edges into the step go `running`
+          // alongside, then settle to success/failed when the step
+          // does. The canvas reads as a real-time animated execution
+          // even though the engine is long done.
+          //
+          // Step timing constants — generous enough that a 5-step
+          // graph plays out over ~3 s, fast enough that a 20-step
+          // graph isn't a 12 s wait. Tuned by feel; can be exposed
+          // as a Visualization preference later if operators want a
+          // slower demo cadence.
+          const STEP_DURATION_MS = 600;
+          const STEP_GAP_MS = 80;
+          const PER_STEP = STEP_DURATION_MS + STEP_GAP_MS;
+
+          // Kick the canvas into trace-dim mode so untouched steps
+          // fade while the playback unfolds — same affordance the
+          // live run path uses. Cleared once the last step settles.
+          store.setTraceMode(true);
+
+          // Alias inside the replay branch so the closures the
+          // setTimeouts capture see a non-optional reference. The
+          // outer `data?.steps` is already narrowed by the early
+          // return above, but TS doesn't propagate that across the
+          // setTimeout closures.
+          const steps = data.steps;
+
+          for (let i = 0; i < steps.length; i++) {
+            const step = steps[i];
+            const mapped = STATUS_MAP[step.status];
+            if (!mapped) continue;
+
+            const startAt = i * PER_STEP;
+            const settleAt = startAt + STEP_DURATION_MS;
+
+            // Mark step as running.
+            replayTimers.push(
+              setTimeout(() => {
+                const liveStore = useEditorStore.getState();
+                liveStore.updateNodeData(step.stepId, {
+                  status: 'running',
+                  startedAt: Date.now(),
+                  durationMs: null,
+                });
+                // Incoming edges flip to running so the orb / dash
+                // animation reads as data flowing into this step.
+                for (const edge of liveStore.edges) {
+                  if (edge.target !== step.stepId) continue;
+                  if (edge.data?.status !== 'running') {
+                    liveStore.updateEdgeData(edge.id, { status: 'running' });
+                  }
+                }
+              }, startAt)
+            );
+
+            // Settle step to its final status.
+            replayTimers.push(
+              setTimeout(() => {
+                const liveStore = useEditorStore.getState();
+                const node = liveStore.nodes.find(n => n.id === step.stepId);
+                const startedAt = node?.data?.startedAt ?? Date.now() - STEP_DURATION_MS;
+                liveStore.updateNodeData(step.stepId, {
+                  status: mapped,
+                  startedAt,
+                  durationMs: STEP_DURATION_MS,
+                });
+                // Incoming edges settle to terminal state.
+                const edgeStatus = mapped === 'success' || mapped === 'failed' ? mapped : 'idle';
+                for (const edge of liveStore.edges) {
+                  if (edge.target !== step.stepId) continue;
+                  if (edge.data?.status !== edgeStatus) {
+                    liveStore.updateEdgeData(edge.id, { status: edgeStatus });
+                  }
+                }
+                // Last step → drop trace dim so the canvas isn't
+                // permanently faded after the playback ends.
+                if (i === steps.length - 1) {
+                  liveStore.setTraceMode(false);
+                }
+              }, settleAt)
+            );
           }
         }
       )
@@ -202,6 +299,12 @@ export function useExecutionSocket(executionId: string | null) {
 
     return () => {
       backfillCtrl.abort();
+      // Cancel any pending replay-step timers so a fast remount
+      // (e.g. operator clicks Simulación again before the previous
+      // playback finishes) doesn't keep painting the prior run on
+      // top of the new one.
+      for (const timer of replayTimers) clearTimeout(timer);
+      replayTimers = [];
       socket.off('node_status', applyNodeStatus);
       socket.off('execution_status', handleExecutionStatus);
       socket.emit('leave_execution', executionId);

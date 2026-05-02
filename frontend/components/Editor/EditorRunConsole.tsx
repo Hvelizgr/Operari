@@ -134,10 +134,19 @@ export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
       text: `> attaching to run ${executionId.slice(0, 8)}…`,
     });
 
-    // Backfill: the same `/api/runs/:id` the editor backfill uses.
+    // Backfill: the same `/api/runs/:id` the canvas backfill uses.
     // Reading nodeLogs gives us the full per-step status story even
     // when the run already terminated before we connected.
+    //
+    // For dry-runs that already completed, we replay the lines with
+    // ~600ms between steps to match the canvas playback pacing — both
+    // the canvas and the console then animate in sync, so the
+    // operator can read each terminal line as the corresponding node
+    // lights up. For real runs we append immediately because the
+    // live socket carries the wall-clock progression.
     const ctrl = new AbortController();
+    const replayTimers: ReturnType<typeof setTimeout>[] = [];
+
     fetch(`${API_BASE}/api/runs/${executionId}`, {
       credentials: 'include',
       signal: ctrl.signal,
@@ -150,6 +159,7 @@ export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
             startedAt?: string;
             completedAt?: string;
             duration?: number | null;
+            dryRun?: boolean;
             steps?: Array<{
               stepId: string;
               name?: string;
@@ -167,25 +177,92 @@ export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
             level: 'muted',
             text: `run.created  status=${data.status ?? '?'}`,
           });
-          for (const step of data.steps ?? []) {
-            const level = STATUS_LEVEL[step.status] ?? 'muted';
-            const verb = STATUS_VERB[step.status] ?? step.status;
-            const dur = step.duration != null ? `  ${step.duration}ms` : '';
-            append({
-              ts: runStartedAt,
-              level,
-              nodeName: step.name || step.stepId.slice(0, 8),
-              text: `${verb}${step.type ? `  ${step.type}` : ''}${dur}${step.error ? `  — ${step.error}` : ''}`,
-            });
+
+          const steps = data.steps ?? [];
+          const shouldReplay =
+            data.dryRun === true &&
+            data.status !== 'RUNNING' &&
+            data.status !== 'PAUSED' &&
+            steps.length > 0;
+
+          // Pacing must match the canvas playback in
+          // useExecutionSocket — both share the constant so the
+          // terminal line and the node animation land at the same
+          // visual instant.
+          const STEP_DURATION_MS = 600;
+          const STEP_GAP_MS = 80;
+          const PER_STEP = STEP_DURATION_MS + STEP_GAP_MS;
+
+          if (!shouldReplay) {
+            for (const step of steps) {
+              const level = STATUS_LEVEL[step.status] ?? 'muted';
+              const verb = STATUS_VERB[step.status] ?? step.status;
+              const dur = step.duration != null ? `  ${step.duration}ms` : '';
+              append({
+                ts: runStartedAt,
+                level,
+                nodeName: step.name || step.stepId.slice(0, 8),
+                text: `${verb}${step.type ? `  ${step.type}` : ''}${dur}${step.error ? `  — ${step.error}` : ''}`,
+              });
+            }
+            if (data.completedAt) {
+              const finishedAt = Date.parse(data.completedAt);
+              append({
+                ts: finishedAt,
+                level: data.status === 'FAILED' ? 'error' : 'success',
+                text: `run.${(data.status ?? 'completed').toLowerCase()}  duration=${data.duration ?? '?'}ms`,
+              });
+            }
+            return;
           }
-          if (data.completedAt) {
-            const finishedAt = Date.parse(data.completedAt);
-            append({
-              ts: finishedAt,
-              level: data.status === 'FAILED' ? 'error' : 'success',
-              text: `run.${(data.status ?? 'completed').toLowerCase()}  duration=${data.duration ?? '?'}ms`,
-            });
+
+          // Replay path: schedule a `started` line at step start and
+          // a `completed/failed/...` line at step settle. Mirrors the
+          // canvas paint sequence so the operator reads "Backup
+          // database started → completed → Show pending migrations
+          // started → completed → ..." line-by-line in time.
+          for (let i = 0; i < steps.length; i++) {
+            const step = steps[i];
+            const finalLevel = STATUS_LEVEL[step.status] ?? 'muted';
+            const finalVerb = STATUS_VERB[step.status] ?? step.status;
+            const startAt = i * PER_STEP;
+            const settleAt = startAt + STEP_DURATION_MS;
+            const nodeLabel = step.name || step.stepId.slice(0, 8);
+
+            replayTimers.push(
+              setTimeout(() => {
+                append({
+                  ts: Date.now(),
+                  level: 'info',
+                  nodeName: nodeLabel,
+                  text: `started${step.type ? `  ${step.type}` : ''}`,
+                });
+              }, startAt)
+            );
+            replayTimers.push(
+              setTimeout(() => {
+                append({
+                  ts: Date.now(),
+                  level: finalLevel,
+                  nodeName: nodeLabel,
+                  text: `${finalVerb}${step.type ? `  ${step.type}` : ''}  ${STEP_DURATION_MS}ms${step.error ? `  — ${step.error}` : ''}`,
+                });
+              }, settleAt)
+            );
           }
+
+          // Final run line lands after the last step settles so the
+          // operator sees the entire arc end-to-end.
+          const finalAt = steps.length * PER_STEP;
+          replayTimers.push(
+            setTimeout(() => {
+              append({
+                ts: Date.now(),
+                level: data.status === 'FAILED' ? 'error' : 'success',
+                text: `run.${(data.status ?? 'completed').toLowerCase()}  duration=${steps.length * STEP_DURATION_MS}ms (simulated)`,
+              });
+            }, finalAt)
+          );
         }
       )
       .catch(err => {
@@ -241,6 +318,9 @@ export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
 
     return () => {
       ctrl.abort();
+      // Cancel any pending replay-step timers so a fast remount
+      // doesn't keep appending lines from the previous playback.
+      for (const timer of replayTimers) clearTimeout(timer);
       socket.emit('leave_execution', executionId);
       socket.disconnect();
     };
