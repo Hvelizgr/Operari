@@ -34,3 +34,15 @@ export const resolveEdgeStroke = (data: RfEdgeData | undefined): string => {
 export const isRunning = (data: RfEdgeData | undefined): boolean => data?.status === 'running';
 
 export const isYetToRun = (data: RfEdgeData | undefined): boolean => data?.status === 'yet-to-run';
+
+/**
+ * Compact ms formatter for edge chips. Mirrors the shape used inside
+ * BaseStepNode (`shortFormat`) so the operator sees the same units in
+ * both places. Kept local to edges/ to avoid pulling in the larger
+ * timer module — this is one branch + one rounding step.
+ */
+export const formatEdgeDuration = (ms: number): string => {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`;
+  return `${Math.round(ms / 60_000)}m`;
+};

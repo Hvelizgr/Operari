@@ -47,6 +47,22 @@ export type RfEdgeData = {
    * edges leave this unset.
    */
   crossEnv?: { source: string; target: string };
+  /**
+   * Bundle counter — number of items that flowed through this hop on
+   * the most recent run. Useful for parallel / loop / fanout edges
+   * where the count carries information; sequential single-item hops
+   * leave this unset so they don't render a noisy `1`. Make-style
+   * post-run signal.
+   */
+  items?: number;
+  /**
+   * Per-hop p50 latency in ms across the recent run window. Renders
+   * alongside the bundle counter when both are present. Backend
+   * computes this from the step-stats endpoint per edge — until the
+   * endpoint exposes it, this stays undefined and the chip omits the
+   * latency token.
+   */
+  p50DurationMs?: number;
 };
 
 export type RfNode = Node<RfNodeData>;

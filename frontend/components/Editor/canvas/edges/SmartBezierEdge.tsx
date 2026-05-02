@@ -9,7 +9,7 @@ import type { RfEdge } from '@/lib/canvas/adapter';
 
 import { EdgeDeleteButton } from './EdgeDeleteButton';
 import { EdgeInsertButton } from './EdgeInsertButton';
-import { isRunning, resolveEdgeStroke } from './edgeStyle';
+import { formatEdgeDuration, isRunning, resolveEdgeStroke } from './edgeStyle';
 import {
   useEdgeSourceDisabled,
   useSourceIsMultiOutput,
@@ -78,6 +78,11 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
   // fanouts during runbook authoring. No-op when the metadata is
   // absent — graceful fallback to default styling.
   const crossEnv = data?.crossEnv;
+  // Bundle counter — Make-style post-run chip showing items processed
+  // (and p50 latency when known). Skipped when items is undefined or 0
+  // so sequential single-item hops never render a noisy `1` label.
+  const itemCount = data?.items ?? 0;
+  const p50 = data?.p50DurationMs;
 
   const [path, labelX, labelY] = getBezierPath({
     sourceX,
@@ -268,6 +273,24 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
             <span>{crossEnv.source}</span>
             <span className="text-white/60">→</span>
             <span>{crossEnv.target}</span>
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+      {itemCount > 0 ? (
+        <EdgeLabelRenderer>
+          <div
+            className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full bg-emerald-700/85 px-2 py-0.5 font-mono text-[9px] text-white shadow"
+            style={{ left: labelX, top: labelY + 32 }}
+            title={
+              p50 != null
+                ? `${itemCount} item${itemCount === 1 ? '' : 's'} · p50 ${formatEdgeDuration(p50)}`
+                : `${itemCount} item${itemCount === 1 ? '' : 's'} processed last run`
+            }
+          >
+            <span>{itemCount}</span>
+            {p50 != null ? (
+              <span className="text-white/70">· {formatEdgeDuration(p50)}</span>
+            ) : null}
           </div>
         </EdgeLabelRenderer>
       ) : null}
