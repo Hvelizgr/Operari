@@ -36,6 +36,77 @@ export function useExecutionSocket(executionId: string | null) {
   useEffect(() => {
     if (!executionId) return;
 
+    // Backfill on mount. Dry-runs against a small runbook complete in
+    // ~50ms — faster than the Socket.io client can connect, join the
+    // execution room, and start receiving events. Without this fetch
+    // the canvas stays idle even though the run already finished, and
+    // the operator sees "como si iniciara y al momento termina".
+    //
+    // GET /api/runs/:id returns the persisted Execution + per-step
+    // nodeLogs (which write through unconditionally — not gated by
+    // OPERARI_DURABLE_ENGINE). We map each step's status into the
+    // editor store so the canvas paints the final state immediately,
+    // then the live socket subscription catches any subsequent
+    // updates (replay, resume, cancel) that arrive after.
+    const backfillCtrl = new AbortController();
+    fetch(`${API_BASE}/api/runs/${executionId}`, {
+      credentials: 'include',
+      signal: backfillCtrl.signal,
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then(
+        (
+          data: {
+            steps?: Array<{
+              stepId: string;
+              status: BackendStatus;
+              startedAt?: string;
+              completedAt?: string;
+              duration?: number | null;
+            }>;
+            status?: BackendStatus;
+          } | null
+        ) => {
+          if (!data?.steps) return;
+          const store = useEditorStore.getState();
+          for (const step of data.steps) {
+            const mapped = STATUS_MAP[step.status];
+            if (!mapped) continue;
+            const startedAt = step.startedAt ? Date.parse(step.startedAt) : null;
+            store.updateNodeData(step.stepId, {
+              status: mapped,
+              startedAt: Number.isFinite(startedAt) ? startedAt : null,
+              durationMs:
+                step.duration ??
+                (startedAt != null && step.completedAt
+                  ? Math.max(0, Date.parse(step.completedAt) - startedAt)
+                  : null),
+            });
+          }
+          // Edge propagation: paint incoming edges of every executed step
+          // so the path that fired is visible. Skipped steps fade via
+          // existing logic; success/failed/idle leaves edges idle.
+          for (const step of data.steps) {
+            const mapped = STATUS_MAP[step.status];
+            if (!mapped) continue;
+            for (const edge of store.edges) {
+              if (edge.target !== step.stepId) continue;
+              const edgeStatus = mapped === 'success' || mapped === 'failed' ? mapped : 'idle';
+              if (edge.data?.status !== edgeStatus) {
+                store.updateEdgeData(edge.id, { status: edgeStatus });
+              }
+            }
+          }
+        }
+      )
+      .catch(err => {
+        // AbortError on unmount is normal; anything else swallows so
+        // a backfill failure never blocks the live socket below.
+        if (err?.name !== 'AbortError') {
+          console.warn('[useExecutionSocket] backfill failed', err);
+        }
+      });
+
     const socket: Socket = io(API_BASE, {
       withCredentials: true,
       reconnection: true,
@@ -130,6 +201,7 @@ export function useExecutionSocket(executionId: string | null) {
     socket.on('execution_status', handleExecutionStatus);
 
     return () => {
+      backfillCtrl.abort();
       socket.off('node_status', applyNodeStatus);
       socket.off('execution_status', handleExecutionStatus);
       socket.emit('leave_execution', executionId);
