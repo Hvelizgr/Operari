@@ -1,9 +1,11 @@
 'use client';
 
-import { Box, Layers, Tag } from 'lucide-react';
+import { Box, Hexagon, Layers, Maximize2, Tag } from 'lucide-react';
 
 import {
   type NodeCorners,
+  type NodeDensityV2,
+  type NodeShape,
   type NodeVariant,
   useVisualization,
 } from '@/context/VisualizationContext';
@@ -82,6 +84,83 @@ export function NodesTab({ t }: { t: Strings }) {
           ]}
         />
       </Section>
+
+      <Section icon={<Hexagon size={14} />} title={t.nodeShapeLabel} hint={t.nodeShapeHint}>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          {(
+            [
+              { id: 'rounded-rect', label: t.nodeShapeRoundedRect },
+              { id: 'pill', label: t.nodeShapePill },
+              { id: 'hex', label: t.nodeShapeHex },
+              { id: 'circle', label: t.nodeShapeCircle },
+              { id: 'rectangle', label: t.nodeShapeRectangle },
+            ] as { id: NodeShape; label: string }[]
+          ).map(opt => {
+            const active = viz.nodeShape === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => viz.setNodeShape(opt.id)}
+                className={`flex flex-col items-center gap-2 rounded-md border p-3 transition-colors ${
+                  active
+                    ? 'border-emerald-500 bg-emerald-500/10'
+                    : 'border-[var(--panel-border)] hover:border-emerald-500/40'
+                }`}
+              >
+                <NodeShapePreview shape={opt.id} />
+                <span className="text-xs text-[var(--text-primary)]">{opt.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+
+      <Section
+        icon={<Maximize2 size={14} />}
+        title={t.nodeDensityV2Label}
+        hint={t.nodeDensityV2Hint}
+      >
+        <PillGroup
+          value={viz.nodeDensityV2}
+          onChange={viz.setNodeDensityV2}
+          options={
+            [
+              { id: 'comfortable', label: t.nodeDensityV2Comfortable },
+              { id: 'compact', label: t.nodeDensityV2Compact },
+              { id: 'dense', label: t.nodeDensityV2Dense },
+            ] as { id: NodeDensityV2; label: string }[]
+          }
+        />
+      </Section>
+    </div>
+  );
+}
+
+/**
+ * Preview tile for each node shape. Hex / circle use clip-path the
+ * same way globals.css does so the user sees the actual silhouette
+ * before applying.
+ */
+function NodeShapePreview({ shape }: { shape: NodeShape }) {
+  const base = 'flex h-12 w-full items-center justify-center bg-emerald-600/80 text-white';
+  const variants: Record<NodeShape, string> = {
+    'rounded-rect': `${base} rounded-md`,
+    pill: `${base} rounded-full`,
+    rectangle: base,
+    hex: base,
+    circle: `${base} aspect-square w-12 self-center rounded-full`,
+  };
+  const style: Record<NodeShape, React.CSSProperties | undefined> = {
+    'rounded-rect': undefined,
+    pill: undefined,
+    rectangle: undefined,
+    hex: { clipPath: 'polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%)' },
+    circle: undefined,
+  };
+  return (
+    <div className={variants[shape]} style={style[shape]}>
+      <span className="font-mono text-[10px]">step</span>
     </div>
   );
 }

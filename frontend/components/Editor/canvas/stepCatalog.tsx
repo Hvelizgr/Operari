@@ -26,6 +26,31 @@ import {
 
 import type { Property } from '@/components/Node/DynamicNodeForm';
 
+/**
+ * SRE-tailored visual metadata. Optional on every node — defaults to
+ * neutral when missing. The visual treatment for each axis lives in
+ * `globals.css` keyed off `data-blast-radius`, `data-idempotent`,
+ * `data-secret-touch`. Centralized in `NODE_VISUAL_METADATA` below
+ * (NOT inlined per type) so it stays one screen of data instead of
+ * sprinkled across the seed.
+ *
+ * - `blastRadius` — what this step touches.
+ *     `readonly`    — observation only (kubectl get, http GET, condition)
+ *     `writes`      — modifies state but reversible (commit, notify, set)
+ *     `destructive` — irreversible without recovery (drop, rm -rf, delete)
+ * - `idempotent`   — running it twice has the same effect as once.
+ *                    Affects retry safety. UI shows a loop icon.
+ * - `touchesSecrets` — reads from the secrets vault. UI shows a key
+ *                      icon so reviewers can spot secret surface area.
+ */
+export type BlastRadius = 'readonly' | 'writes' | 'destructive';
+
+export interface NodeVisualMetadata {
+  blastRadius?: BlastRadius;
+  idempotent?: boolean;
+  touchesSecrets?: boolean;
+}
+
 export interface NodeType {
   type: string;
   icon: React.ReactNode;
@@ -37,6 +62,32 @@ export interface NodeType {
   outputs?: string[]; // e.g. ['main', 'main']
   properties?: Property[]; // Dynamic form schema
 }
+
+/**
+ * Per-type visual metadata. Default to readonly/idempotent/no-secrets
+ * when a key is absent. Separate from NODE_TYPES so it's easy to scan
+ * the SRE story at a glance and tune without touching the catalog
+ * shape. New step types can be added here lazily — anything missing
+ * just gets neutral (readonly) styling.
+ */
+export const NODE_VISUAL_METADATA: Record<string, NodeVisualMetadata> = {
+  shell: { blastRadius: 'destructive', idempotent: false, touchesSecrets: false },
+  ssh: { blastRadius: 'destructive', idempotent: false, touchesSecrets: true },
+  'operari.postgres': { blastRadius: 'writes', idempotent: false, touchesSecrets: true },
+  'operari.database': { blastRadius: 'writes', idempotent: false, touchesSecrets: true },
+  'operari.httpRequest': { blastRadius: 'writes', idempotent: false, touchesSecrets: true },
+  'operari.webhook': { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
+  'operari.cron': { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
+  'operari.if': { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
+  'operari.loop': { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
+  wait: { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
+  'github.commitFile': { blastRadius: 'writes', idempotent: true, touchesSecrets: true },
+  notify: { blastRadius: 'writes', idempotent: false, touchesSecrets: true },
+  runbook: { blastRadius: 'readonly', idempotent: false, touchesSecrets: false },
+  approval: { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
+  // `custom.frame` and `custom.note` intentionally omitted — they're
+  // visual-only nodes with no executor; metadata would be confusing.
+};
 
 // Operari runbook step categories — only categories that have at least
 // one step type with a real backend executor. Categories without

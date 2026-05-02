@@ -76,6 +76,28 @@ export type NodeVariant = 'default' | 'minimal' | 'card' | 'outlined';
 export type NodeCorners = 'sharp' | 'rounded' | 'extra-rounded';
 
 /**
+ * V2 node silhouette. Layered on top of `nodeVariant` + `nodeCorners`,
+ * but `nodeShape` wins on geometry — picking `pill` makes the whole
+ * card a rounded capsule regardless of corner preset, `hex` clips it
+ * to a hexagon, etc. Implemented in globals.css via `data-node-shape`
+ * with `border-radius` (pill, rounded-rect, rectangle) or `clip-path`
+ * (hex, circle). `circle` works best on icon-only nodes — for normal
+ * runbook steps it crops the body, so the user picks it knowing
+ * the trade.
+ */
+export type NodeShape = 'rounded-rect' | 'pill' | 'hex' | 'circle' | 'rectangle';
+
+/**
+ * V2 packing for `.rb-node`. Distinct from the V1 `NodeDensity` above
+ * which targets `.wf_node` — kept separate so the two editors can
+ * have different densities without one stomping the other.
+ *   - comfortable: current sizing (240px min, py-2)
+ *   - compact:     tighter padding, smaller font, 200px min
+ *   - dense:       no preview line, no chips, 160px min — for 100+ node graphs
+ */
+export type NodeDensityV2 = 'comfortable' | 'compact' | 'dense';
+
+/**
  * V2 connection-animation flavor when a step is running.
  *   - all      → gradient slide + marching dashes + comet trail (default)
  *   - gradient → only the sliding gradient stroke
@@ -192,6 +214,10 @@ export interface VisualizationPrefs {
   /** V2: Whether the colored category band atop each node renders.
    *  Off = the node is a flat card with the type icon inline. */
   nodeHeaderBand: boolean;
+  /** V2: Geometric silhouette for `.rb-node`. Wins over corners. */
+  nodeShape: NodeShape;
+  /** V2: Packing for `.rb-node` — comfortable / compact / dense. */
+  nodeDensityV2: NodeDensityV2;
   /** V2: Which connection animation flavor to render on running edges. */
   flowFlavor: FlowFlavor;
 }

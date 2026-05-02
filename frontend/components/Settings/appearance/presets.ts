@@ -185,6 +185,8 @@ export function extractPrefs(source: VisualizationPrefs): VisualizationPrefs {
     nodeVariant: source.nodeVariant,
     nodeCorners: source.nodeCorners,
     nodeHeaderBand: source.nodeHeaderBand,
+    nodeShape: source.nodeShape,
+    nodeDensityV2: source.nodeDensityV2,
     flowFlavor: source.flowFlavor,
   };
 }

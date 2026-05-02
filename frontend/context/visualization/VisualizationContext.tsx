@@ -19,8 +19,10 @@ import type {
   MinimapPosition,
   NodeCorners,
   NodeDensity,
+  NodeDensityV2,
   NodeIconSize,
   NodeShadowPreset,
+  NodeShape,
   NodeStyle,
   NodeVariant,
   RunningPulseVariant,
@@ -87,6 +89,8 @@ interface VisualizationContextValue extends VisualizationPrefs {
   setNodeVariant: (value: NodeVariant) => void;
   setNodeCorners: (value: NodeCorners) => void;
   setNodeHeaderBand: (value: boolean) => void;
+  setNodeShape: (value: NodeShape) => void;
+  setNodeDensityV2: (value: NodeDensityV2) => void;
   setFlowFlavor: (value: FlowFlavor) => void;
   /** Replace every preference in one shot (used by preset apply +
    *  import). Does a deep-merge for nested objects so partial patches
@@ -172,6 +176,8 @@ export function VisualizationProvider({ children }: { children: React.ReactNode 
       setNodeVariant: v => update({ nodeVariant: v }),
       setNodeCorners: v => update({ nodeCorners: v }),
       setNodeHeaderBand: v => update({ nodeHeaderBand: v }),
+      setNodeShape: v => update({ nodeShape: v }),
+      setNodeDensityV2: v => update({ nodeDensityV2: v }),
       setFlowFlavor: v => update({ flowFlavor: v }),
       applyPrefs: next => update(next),
       resetToDefaults: () => update(VISUALIZATION_DEFAULTS),
@@ -226,6 +232,8 @@ export function useVisualization(): VisualizationContextValue {
       setNodeVariant: noop,
       setNodeCorners: noop,
       setNodeHeaderBand: noop,
+      setNodeShape: noop,
+      setNodeDensityV2: noop,
       setFlowFlavor: noop,
       applyPrefs: noop,
       resetToDefaults: noop,

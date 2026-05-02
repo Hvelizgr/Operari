@@ -58,6 +58,20 @@ export const STRINGS = {
     nodeHeaderBandLabel: 'Category header band',
     nodeHeaderBandHint:
       'When on, every step shows a colored band on top with the category icon. When off, the node is a flat card.',
+    nodeShapeLabel: 'Node shape',
+    nodeShapeHint:
+      'Geometric silhouette. Wins over corner radius. Hex and circle clip the body — pair with Dense density for icon-driven runbooks.',
+    nodeShapeRoundedRect: 'Rounded rectangle',
+    nodeShapePill: 'Pill',
+    nodeShapeHex: 'Hexagon',
+    nodeShapeCircle: 'Circle',
+    nodeShapeRectangle: 'Rectangle',
+    nodeDensityV2Label: 'Node density',
+    nodeDensityV2Hint:
+      'Comfortable is the default. Compact tightens padding and font. Dense hides preview, tags and stats — use it on runbooks with 50+ steps.',
+    nodeDensityV2Comfortable: 'Comfortable',
+    nodeDensityV2Compact: 'Compact',
+    nodeDensityV2Dense: 'Dense',
     // Flow (V2 — overrides legacy V1 strings further down)
     flowPreviewLabel: 'Live preview',
     flowPreviewHint:
@@ -271,6 +285,20 @@ export const STRINGS = {
     nodeHeaderBandLabel: 'Banda de categoría',
     nodeHeaderBandHint:
       'Cuando está activa, cada paso muestra una banda de color arriba con el ícono de su categoría. Apagada, el nodo es una tarjeta plana.',
+    nodeShapeLabel: 'Forma del nodo',
+    nodeShapeHint:
+      'Silueta geométrica. Gana sobre el radio de bordes. Hexágono y círculo recortan el contenido — combinalo con densidad Densa para runbooks de íconos.',
+    nodeShapeRoundedRect: 'Rectángulo redondeado',
+    nodeShapePill: 'Píldora',
+    nodeShapeHex: 'Hexágono',
+    nodeShapeCircle: 'Círculo',
+    nodeShapeRectangle: 'Rectángulo',
+    nodeDensityV2Label: 'Densidad de nodos',
+    nodeDensityV2Hint:
+      'Cómoda es el default. Compacta achica padding y fuente. Densa oculta preview, tags y stats — usala en runbooks con 50+ pasos.',
+    nodeDensityV2Comfortable: 'Cómoda',
+    nodeDensityV2Compact: 'Compacta',
+    nodeDensityV2Dense: 'Densa',
     flowPreviewLabel: 'Vista previa en vivo',
     flowPreviewHint:
       'Así se ve exacto una conexión en ejecución dentro del editor — gradiente deslizante, dashes marchando, orbes cometa a lo largo del path.',

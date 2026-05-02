@@ -113,6 +113,8 @@ export function applyToDocument(prefs: VisualizationPrefs): void {
   html.setAttribute('data-node-variant', prefs.nodeVariant);
   html.setAttribute('data-node-corners', prefs.nodeCorners);
   html.setAttribute('data-node-header-band', prefs.nodeHeaderBand ? 'on' : 'off');
+  html.setAttribute('data-node-shape', prefs.nodeShape);
+  html.setAttribute('data-node-density-v2', prefs.nodeDensityV2);
   html.setAttribute('data-flow-flavor', prefs.flowFlavor);
 
   // Reduced-motion is an a11y override on top of animationSpeed: when

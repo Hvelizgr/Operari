@@ -3,13 +3,15 @@
 import { Handle, type NodeProps, Position, useNodeConnections, useStore } from '@xyflow/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle2, Loader2, MinusCircle, XCircle } from 'lucide-react';
-import { memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { KeyRound, Repeat } from 'lucide-react';
+import { Fragment, memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNextInPath } from '@/hooks/useNextInPath';
 import type { RfNode } from '@/lib/canvas/adapter';
 import { useEditorStore } from '@/state/editorStore';
 
 import { NODE_CATALOG } from '../catalog';
+import { NODE_VISUAL_METADATA } from '../stepCatalog';
 import { NodeContextToolbar } from '../NodeContextToolbar';
 import {
   handleTone,
@@ -101,9 +103,24 @@ const SUCCESS_BUMP = {
 const FAIL_SHAKE = { opacity: 1, scale: 1, x: [0, -3, 3, -2, 2, 0] };
 const REST = { opacity: 1, scale: 1 };
 
+/**
+ * Step types that halt the run waiting for an external signal — operator
+ * approval, scheduled wakeup, manual input. The CSS in globals.css keys
+ * off `data-halt-point` to render a yellow left-edge stripe so an SRE
+ * scanning a runbook at 3am can spot every "this will pause and wait"
+ * without reading the YAML. Add new types here when the engine learns
+ * a new pause primitive.
+ */
+const HALT_POINT_TYPES = new Set<string>(['approval', 'wait', 'Suspend']);
+
 function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   const { id, type, data, selected } = props;
   const def = NODE_CATALOG.get(type);
+  // SRE-tailored visual metadata. Drives blast-radius outline, badges,
+  // and any future per-step semantics. Falling back to an empty object
+  // lets future plugin types render without explicit metadata while
+  // still keeping the data-attrs unset (so CSS rules don't fire).
+  const metadata = NODE_VISUAL_METADATA[type] ?? {};
   const workflow = data.workflow;
 
   const title = workflow.title?.trim() || def?.label.en || type;
@@ -253,7 +270,7 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
         }}
         className={[
           'rb-node group relative min-w-[240px] overflow-hidden rounded-lg border text-[color:var(--rb-node-text)] shadow-lg transition-[transform,box-shadow,border-color,opacity] duration-150',
-          enabled ? '' : 'rb-disabled-stripes opacity-80',
+          enabled ? '' : 'rb-disabled-stripes opacity-60',
           traceDim ? 'opacity-30' : '',
         ].join(' ')}
         style={{
@@ -270,6 +287,11 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
         data-node-type={type}
         data-status={status}
         data-next-in-path={isNextInPath || undefined}
+        data-category={def?.category ?? 'unknown'}
+        data-halt-point={HALT_POINT_TYPES.has(type) ? '' : undefined}
+        data-blast-radius={metadata.blastRadius ?? undefined}
+        data-idempotent={metadata.idempotent ? '' : undefined}
+        data-secret-touch={metadata.touchesSecrets ? '' : undefined}
       >
         {/* Header — colored band + per-type pattern + secondary chips.
             `rb-node-header` class lets globals.css gate it via
@@ -296,6 +318,24 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
             ))}
           </span>
           <span className="relative flex items-center gap-1.5">
+            {metadata.touchesSecrets ? (
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-black/30"
+                title="Reads from the secrets vault"
+                aria-label="touches secrets"
+              >
+                <KeyRound size={11} className="text-white/80" />
+              </span>
+            ) : null}
+            {metadata.idempotent ? (
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-black/30"
+                title="Idempotent — safe to retry"
+                aria-label="idempotent"
+              >
+                <Repeat size={11} className="text-white/80" />
+              </span>
+            ) : null}
             {orphanOutputs ? (
               <span
                 className="flex h-5 w-5 items-center justify-center rounded-full bg-black/30"
@@ -328,14 +368,14 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
           <div className="truncate text-sm font-medium">{title}</div>
           {preview ? (
             <div
-              className="mt-1 truncate font-mono text-[11px] text-[color:var(--rb-node-muted)]"
+              className="rb-node-preview mt-1 truncate font-mono text-[11px] text-[color:var(--rb-node-muted)]"
               title={preview}
             >
               {preview}
             </div>
           ) : null}
           {tags.length > 0 ? (
-            <div className="mt-1.5 flex flex-wrap gap-1">
+            <div className="rb-node-tags mt-1.5 flex flex-wrap gap-1">
               {tags.map(tag => (
                 <span
                   key={tag}
@@ -348,34 +388,56 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
           ) : null}
           {showStats && stats ? (
             <div
-              className="mt-1.5 flex items-center justify-between gap-2 font-mono text-[10px] tracking-tight text-[color:var(--rb-node-muted)]"
+              className="rb-node-stats mt-1.5 flex items-center justify-between gap-2 font-mono text-[10px] tracking-tight text-[color:var(--rb-node-muted)]"
               title={
                 stats.failureRate != null
                   ? `${stats.runs} runs · ${(stats.failureRate * 100).toFixed(0)}% fail · p50 ${stats.p50DurationMs ?? '?'}ms · p95 ${stats.p95DurationMs ?? '?'}ms`
                   : `${stats.runs} runs`
               }
             >
-              <span className="flex items-center gap-1">
-                {stats.recent.slice(0, 5).map((entry, idx) => (
-                  <span
-                    key={idx}
-                    className="block h-1.5 w-1.5 rounded-full"
-                    style={{
-                      background:
-                        entry.status === 'SUCCESS'
-                          ? 'var(--rb-edge-success)'
-                          : 'var(--rb-edge-failed)',
-                    }}
-                  />
-                ))}
-                {/* Pad with hollow placeholders to a consistent 5-slot width
-                    so the strip aligns across nodes with different run counts. */}
-                {Array.from({ length: Math.max(0, 5 - stats.recent.length) }).map((_, idx) => (
-                  <span
-                    key={`pad-${idx}`}
-                    className="block h-1.5 w-1.5 rounded-full border border-white/15"
-                  />
-                ))}
+              <span className="flex items-end gap-0.5" aria-label="recent runs">
+                {(() => {
+                  const recent = stats.recent.slice(0, 5);
+                  // Bars heights are proportional to durationMs vs the
+                  // tallest of the visible 5. A null duration (run still
+                  // in flight, or never timed) falls back to half-height
+                  // so the slot is visible but doesn't lie about the
+                  // actual elapsed time. Empty/idle pads stay 4px so
+                  // the row keeps a flat baseline instead of jumping.
+                  const maxDur = Math.max(
+                    1,
+                    ...recent.map(e => e.durationMs ?? 0).filter(d => d > 0)
+                  );
+                  return (
+                    <>
+                      {recent.map((entry, idx) => {
+                        const dur = entry.durationMs ?? 0;
+                        const h = dur > 0 ? Math.max(2, Math.round((dur / maxDur) * 12)) : 6;
+                        return (
+                          <span
+                            key={idx}
+                            className="block w-[3px] rounded-sm"
+                            style={{
+                              height: `${h}px`,
+                              background:
+                                entry.status === 'SUCCESS'
+                                  ? 'var(--rb-edge-success)'
+                                  : 'var(--rb-edge-failed)',
+                            }}
+                            title={`${entry.status}${dur ? ` · ${shortFormat(dur)}` : ''}`}
+                          />
+                        );
+                      })}
+                      {Array.from({ length: Math.max(0, 5 - recent.length) }).map((_, idx) => (
+                        <span
+                          key={`pad-${idx}`}
+                          className="block w-[3px] rounded-sm border border-white/15"
+                          style={{ height: '4px' }}
+                        />
+                      ))}
+                    </>
+                  );
+                })()}
               </span>
               {stats.p95DurationMs != null ? (
                 <span className="text-[color:var(--rb-node-muted)]">
@@ -429,18 +491,54 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
         })}
         {outputs.map((label, idx) => {
           const tone = handleTone(label);
+          // Branch label: only render on multi-output nodes (IF, Switch,
+          // future: parallel/fanout). Sits inside the node bounds at the
+          // right edge — the outer `overflow-hidden` would clip an
+          // external label. n8n shows "true"/"false" next to the IF
+          // node's two output handles; we mirror that for any node
+          // whose definition lists more than one output port.
+          const showLabel = outputs.length > 1;
           return (
-            <Handle
-              key={`out-${idx}`}
-              id={String(idx)}
-              type="source"
-              position={Position.Right}
-              aria-label={`output ${label}`}
-              style={{ top: 32 + idx * 18, ...(tone ? { background: tone } : {}) }}
-            />
+            <Fragment key={`out-${idx}`}>
+              <Handle
+                id={String(idx)}
+                type="source"
+                position={Position.Right}
+                aria-label={`output ${label}`}
+                style={{ top: 32 + idx * 18, ...(tone ? { background: tone } : {}) }}
+              />
+              {showLabel ? (
+                <span
+                  className="pointer-events-none absolute right-3 z-10 max-w-[6rem] truncate rounded bg-black/55 px-1 py-0.5 font-mono text-[9px] leading-none text-white/85"
+                  style={{ top: 32 + idx * 18 - 7 }}
+                  title={label}
+                >
+                  {label}
+                </span>
+              ) : null}
+            </Fragment>
           );
         })}
       </motion.div>
+
+      {/* Under-node status pill (Node-RED inspiration). Renders only
+          when the most-recent run failed AND the stats overlay is on,
+          so it's signal-not-noise — a glance tells the operator "this
+          step's last invocation was bad" without having to open the
+          drawer. Sibling of motion.div on purpose: motion.div's
+          overflow-hidden would clip an in-card pill, and we want it
+          to live just below the node bounds. The .react-flow__node
+          wrapper provides the positioning context. */}
+      {showStats && stats?.recent[0]?.status === 'FAILED' ? (
+        <div
+          className="rb-status-pill pointer-events-none absolute z-10"
+          style={{ top: 'calc(100% + 4px)', left: 0 }}
+        >
+          <span className="bg-[color:var(--rb-edge-failed)]/90 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white shadow-md">
+            last failed
+          </span>
+        </div>
+      ) : null}
     </>
   );
 }

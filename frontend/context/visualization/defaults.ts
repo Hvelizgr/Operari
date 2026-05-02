@@ -59,6 +59,8 @@ export const VISUALIZATION_DEFAULTS: VisualizationPrefs = {
   nodeVariant: 'default',
   nodeCorners: 'rounded',
   nodeHeaderBand: true,
+  nodeShape: 'rounded-rect',
+  nodeDensityV2: 'comfortable',
   flowFlavor: 'all',
 };
 
