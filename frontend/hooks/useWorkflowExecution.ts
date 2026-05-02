@@ -47,8 +47,16 @@ export function useWorkflowExecution(runbookId: string | null) {
             ? { input, dryRun: true }
             : { input };
 
+      // `/api/*` is cookie-authenticated for the web UI; without
+      // `credentials: 'include'` the JWT cookie is dropped and the
+      // backend returns 401. Worse, in some browsers a CORS rejection
+      // on the credentialless request leaves the promise pending
+      // forever, freezing the toolbar in "Launching…" with no error
+      // surface. Every other hook in this app already sends cookies —
+      // this one was the outlier.
       const response = await fetch(endpoint, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -97,6 +105,7 @@ export function useWorkflowExecution(runbookId: string | null) {
       const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const response = await fetch(`${apiBase}/api/executions/${runbookId}/run`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -126,6 +135,7 @@ export function useWorkflowExecution(runbookId: string | null) {
       const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const response = await fetch(`${apiBase}/api/executions/${executionId}/replay`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },

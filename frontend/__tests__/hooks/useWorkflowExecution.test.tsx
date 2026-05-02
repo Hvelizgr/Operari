@@ -116,4 +116,23 @@ describe('useWorkflowExecution.executeWorkflow', () => {
     const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body);
     expect(body.dryRun).toBe(true);
   });
+
+  it('always sends credentials:"include" so the cookie auth reaches /api/*', async () => {
+    // Pin the convention. Without this flag the JWT cookie is dropped
+    // and the editor toolbar froze in "Launching…" because some
+    // browsers leave the credentialless CORS request pending instead
+    // of throwing — there was no error to surface and the executing
+    // state never cleared.
+    fetchMock.mockResolvedValue(stubResponse({ status: 202, body: { id: 'run-c' } }));
+    const { result } = renderHook(() => useWorkflowExecution('wf-1'));
+    await act(async () => {
+      await result.current.executeWorkflow({}, 'run');
+      await result.current.executeWorkflow({}, 'dry-run');
+      await result.current.executeFromNode('node-1', {});
+      await result.current.replayNode('exec-1', 'node-1');
+    });
+    for (const [, opts] of fetchMock.mock.calls) {
+      expect((opts as { credentials?: RequestCredentials }).credentials).toBe('include');
+    }
+  });
 });
