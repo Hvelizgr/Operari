@@ -112,9 +112,20 @@ function PaletteRow({
 export default function Palette({ lang }: PaletteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['devops', 'triggers']));
+  // All categories open by default so every available step type is
+  // visible the moment the operator opens the palette. The first
+  // version only opened 'devops' + 'triggers' which made `core` and
+  // `organization` look empty until the user expanded them — easy to
+  // mistake for "no step types available".
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(['devops', 'triggers', 'core', 'organization'])
+  );
   const { favorites, isFavorite, toggle: toggleFav } = useFavorites();
-  const t = TEXT[lang];
+  // Guard against invalid locales reaching this component — when the
+  // user lands on /editor without a locale prefix, [lang] resolves to
+  // the next segment ("editor") and TEXT[lang] is undefined.
+  const safeLang: 'en' | 'es' = lang === 'es' ? 'es' : 'en';
+  const t = TEXT[safeLang];
 
   const allTypes = useMemo(() => Array.from(NODE_CATALOG.values()), []);
 
@@ -127,9 +138,9 @@ export default function Palette({ lang }: PaletteProps) {
     return rankByQuery(
       q,
       allTypes,
-      def => `${def.label[lang]} ${def.type} ${def.description?.[lang] ?? ''}`
+      def => `${def.label[safeLang]} ${def.type} ${def.description?.[safeLang] ?? ''}`
     ).map(r => r.item);
-  }, [query, allTypes, lang]);
+  }, [query, allTypes, safeLang]);
 
   const favoritesList = useMemo(
     () => allTypes.filter(d => favorites.has(d.type)),
@@ -212,7 +223,7 @@ export default function Palette({ lang }: PaletteProps) {
                       <PaletteRow
                         key={def.type}
                         def={def}
-                        lang={lang}
+                        lang={safeLang}
                         isFavorite={isFavorite(def.type)}
                         onToggleFav={() => toggleFav(def.type)}
                       />
@@ -230,7 +241,7 @@ export default function Palette({ lang }: PaletteProps) {
                         <PaletteRow
                           key={`fav-${def.type}`}
                           def={def}
-                          lang={lang}
+                          lang={safeLang}
                           isFavorite
                           onToggleFav={() => toggleFav(def.type)}
                         />
@@ -250,7 +261,7 @@ export default function Palette({ lang }: PaletteProps) {
                         >
                           {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                           <span className="flex-1 text-xs font-semibold uppercase tracking-wide text-[color:var(--rb-node-muted)]">
-                            {cat.label[lang]}
+                            {cat.label[safeLang]}
                           </span>
                           <span className="rounded-full bg-white/5 px-1.5 py-0.5 text-[10px] text-[color:var(--rb-node-muted)]">
                             {items.length}
@@ -262,7 +273,7 @@ export default function Palette({ lang }: PaletteProps) {
                               <PaletteRow
                                 key={def.type}
                                 def={def}
-                                lang={lang}
+                                lang={safeLang}
                                 isFavorite={isFavorite(def.type)}
                                 onToggleFav={() => toggleFav(def.type)}
                               />

@@ -17,6 +17,7 @@ const PROTECTED_SEGMENTS = new Set([
   'editor',
   'events',
   'inbox',
+  'lineage',
   'monitors',
   'runbooks',
   'runs',
@@ -66,5 +67,11 @@ export default function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/(es|en)/:path*'],
+  // Match all routes except Next.js internals, API routes, and any
+  // path with a file extension. We need non-locale paths (e.g.
+  // /editor) to hit the middleware so next-intl redirects them to
+  // /${DEFAULT_LOCALE}/... — otherwise they render the [lang]/...
+  // route with `lang` set to the next URL segment, breaking every
+  // component that does LABELS[lang].
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)'],
 };

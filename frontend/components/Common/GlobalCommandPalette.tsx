@@ -79,7 +79,11 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const t = LABELS[lang];
+  // Guard against invalid locales reaching this component — when the
+  // user lands on /editor without a locale prefix, [lang] resolves to
+  // the next segment ("editor") and LABELS[lang] is undefined.
+  const safeLang: 'en' | 'es' = lang === 'es' ? 'es' : 'en';
+  const t = LABELS[safeLang];
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -121,7 +125,7 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
       subLabel: t.navigate,
       icon: <LayoutDashboard size={16} />,
       shortcut: ['G', 'H'],
-      action: go(`/${lang}/dashboard`),
+      action: go(`/${safeLang}/dashboard`),
     },
     {
       id: 'nav:runbooks',
@@ -129,14 +133,14 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
       subLabel: t.navigate,
       icon: <Share2 size={16} />,
       shortcut: ['G', 'R'],
-      action: go(`/${lang}/runbooks`),
+      action: go(`/${safeLang}/runbooks`),
     },
     {
       id: 'nav:runs',
       label: t.runs,
       subLabel: t.navigate,
       icon: <History size={16} />,
-      action: go(`/${lang}/runs`),
+      action: go(`/${safeLang}/runs`),
     },
     {
       id: 'nav:inbox',
@@ -144,28 +148,28 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
       subLabel: t.navigate,
       icon: <Inbox size={16} />,
       shortcut: ['G', 'I'],
-      action: go(`/${lang}/inbox`),
+      action: go(`/${safeLang}/inbox`),
     },
     {
       id: 'nav:monitors',
       label: t.monitors,
       subLabel: t.navigate,
       icon: <Activity size={16} />,
-      action: go(`/${lang}/monitors`),
+      action: go(`/${safeLang}/monitors`),
     },
     {
       id: 'nav:events',
       label: t.events,
       subLabel: t.navigate,
       icon: <Zap size={16} />,
-      action: go(`/${lang}/events`),
+      action: go(`/${safeLang}/events`),
     },
     {
       id: 'nav:schedules',
       label: t.schedules,
       subLabel: t.navigate,
       icon: <CalendarClock size={16} />,
-      action: go(`/${lang}/schedules`),
+      action: go(`/${safeLang}/schedules`),
     },
     {
       id: 'nav:sql',
@@ -173,7 +177,7 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
       subLabel: t.navigate,
       icon: <Database size={16} />,
       shortcut: ['G', 'S'],
-      action: go(`/${lang}/sql-editor`),
+      action: go(`/${safeLang}/sql-editor`),
     },
     {
       id: 'nav:lineage',
@@ -181,7 +185,7 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
       subLabel: t.navigate,
       icon: <Network size={16} />,
       shortcut: ['G', 'L'],
-      action: go(`/${lang}/lineage`),
+      action: go(`/${safeLang}/lineage`),
     },
     {
       id: 'nav:http-tester',
@@ -189,42 +193,42 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
       subLabel: t.navigate,
       icon: <Send size={16} />,
       shortcut: ['G', 'A'],
-      action: go(`/${lang}/http-tester`),
+      action: go(`/${safeLang}/http-tester`),
     },
     {
       id: 'nav:agents',
       label: t.agents,
       subLabel: t.navigate,
       icon: <Bot size={16} />,
-      action: go(`/${lang}/agents`),
+      action: go(`/${safeLang}/agents`),
     },
     {
       id: 'nav:chat',
       label: t.chat,
       subLabel: t.navigate,
       icon: <MessageSquare size={16} />,
-      action: go(`/${lang}/chat`),
+      action: go(`/${safeLang}/chat`),
     },
     {
       id: 'nav:utilities',
       label: t.utilities,
       subLabel: t.navigate,
       icon: <Wrench size={16} />,
-      action: go(`/${lang}/utilities`),
+      action: go(`/${safeLang}/utilities`),
     },
     {
       id: 'nav:admin',
       label: t.admin,
       subLabel: t.navigate,
       icon: <ShieldCheck size={16} />,
-      action: go(`/${lang}/admin`),
+      action: go(`/${safeLang}/admin`),
     },
     {
       id: 'nav:settings',
       label: t.settings,
       subLabel: t.navigate,
       icon: <Settings size={16} />,
-      action: go(`/${lang}/settings`),
+      action: go(`/${safeLang}/settings`),
     },
     {
       id: 'help:shortcuts',
@@ -238,8 +242,13 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
 
   return (
     <>
-      <CommandPalette isOpen={open} onClose={() => setOpen(false)} actions={actions} lang={lang} />
-      <ShortcutHelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} lang={lang} />
+      <CommandPalette
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        actions={actions}
+        lang={safeLang}
+      />
+      <ShortcutHelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} lang={safeLang} />
     </>
   );
 }
