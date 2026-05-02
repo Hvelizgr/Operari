@@ -1,10 +1,10 @@
 import {
   DEFAULT_CAPABILITIES,
-  KNOWN_PROVIDERS,
-  PROVIDER_CAPABILITIES,
   getCapabilities,
   hasCapability,
   isKnownProvider,
+  KNOWN_PROVIDERS,
+  PROVIDER_CAPABILITIES,
 } from '@operari/shared';
 
 describe('connected-account capabilities', () => {
