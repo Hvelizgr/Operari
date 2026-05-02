@@ -1,4 +1,4 @@
-import { tableKey, type SqlColumn, type SqlForeignKey, type SqlMetadata } from './metadata';
+import { type SqlColumn, type SqlForeignKey, type SqlMetadata, tableKey } from './metadata';
 
 /**
  * Stage two `SqlMetadata` payloads against each other and produce a

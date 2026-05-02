@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  BookOpen,
   ChevronDown,
   ChevronRight,
   Code2,
@@ -19,6 +20,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { hasCapability } from '@operari/shared';
 import { sqlMetadataSchema, type SqlMetadata } from '@/lib/sql/metadata';
+import { useSqlPrefs } from '@/lib/userPrefs';
+
+import { QUERY_TEMPLATE_CATEGORIES, QUERY_TEMPLATES } from './queryTemplates';
 
 import SQLCodeEditor from './SQLCodeEditor';
 import SQLResultsTable, { type SQLError, type SQLResult } from './SQLResultsTable';
@@ -35,6 +39,39 @@ const SchemaDiagram = dynamic(() => import('./SchemaDiagram'), {
   ),
 });
 
+/**
+ * Strip comments + literal strings from a SQL query so simple regex
+ * checks below can scan the actual statement structure without
+ * tripping on a `-- DELETE` comment or a `'DROP TABLE'` literal.
+ */
+function stripCommentsAndStrings(sql: string): string {
+  return sql
+    .replace(/--[^\n]*/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/'(?:''|[^'])*'/g, "''")
+    .replace(/"(?:""|[^"])*"/g, '""');
+}
+
+/** True when the query top-level is DROP, TRUNCATE, or DELETE/UPDATE
+ *  without a WHERE clause — i.e. the cases worth a confirmation. */
+function isDestructive(rawSql: string): boolean {
+  const sql = stripCommentsAndStrings(rawSql).trim();
+  if (/^\s*(drop|truncate)\b/i.test(sql)) return true;
+  if (/^\s*(delete|update)\b/i.test(sql) && !/\bwhere\b/i.test(sql)) return true;
+  return false;
+}
+
+/** Wrap a SELECT without explicit LIMIT / FETCH FIRST in a LIMIT N
+ *  clause so the user's row-cap pref applies. Other statement kinds
+ *  (DDL, INSERT, etc.) pass through unchanged. */
+function applyDefaultRowLimit(rawSql: string, limit: number): string {
+  const trimmed = rawSql.trim().replace(/;\s*$/, '');
+  const naked = stripCommentsAndStrings(trimmed);
+  if (!/^\s*select\b/i.test(naked)) return rawSql;
+  if (/\blimit\s+\d+/i.test(naked) || /\bfetch\s+first\b/i.test(naked)) return rawSql;
+  return `${trimmed}\nLIMIT ${limit}`;
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 interface SchemaTable {
@@ -50,6 +87,11 @@ interface ConnectedAccount {
 }
 
 export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
+  // User preferences from /settings → SQL editor. Hoisted to the top
+  // so every effect / callback below can read defaults without a
+  // declaration-order trap.
+  const [sqlPrefs] = useSqlPrefs();
+
   // State
   const [query, setQuery] = useState('SELECT 1 AS test;');
   const [credentialId, setCredentialId] = useState<string>('');
@@ -76,6 +118,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   const [metadataError, setMetadataError] = useState<string | null>(null);
   const [isMetadataLoading, setIsMetadataLoading] = useState(false);
   const [hiddenSchemas, setHiddenSchemas] = useState<Set<string>>(() => new Set());
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   const selectedCredential = useMemo(
     () => credentials.find(c => c.id === credentialId) ?? null,
@@ -132,7 +175,9 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   // if the fetch races with a user click; re-running on
   // credentialId changes would re-fetch the whole list for nothing.
   useEffect(() => {
-    fetch(`${API_BASE}/api/connected-accounts?provider=postgres`)
+    fetch(`${API_BASE}/api/connected-accounts?provider=postgres`, {
+      credentials: 'include',
+    })
       .then(r => (r.ok ? r.json() : []))
       .then(data => {
         const accounts = Array.isArray(data) ? data : (data.accounts ?? []);
@@ -152,6 +197,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     try {
       const res = await fetch(`${API_BASE}/api/sql/schema`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credentialId }),
       });
@@ -166,8 +212,19 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   }, [credentialId]);
 
   useEffect(() => {
-    if (credentialId) loadSchema();
-  }, [credentialId, loadSchema]);
+    // The auto-load opt-out is for users with hundreds of tables —
+    // they prefer the explicit refresh button so opening the editor
+    // doesn't pull megabytes of catalog they may not need.
+    if (credentialId && sqlPrefs.autoLoadSchema) loadSchema();
+  }, [credentialId, loadSchema, sqlPrefs.autoLoadSchema]);
+
+  // Apply showSystemSchemas filter on the rendered tree. The fetch
+  // pulls everything; this just hides pg_catalog / information_schema
+  // when the user wants a clean view.
+  const visibleSchemaTree = useMemo(() => {
+    if (sqlPrefs.showSystemSchemas) return schema;
+    return schema.filter(t => t.schema !== 'pg_catalog' && t.schema !== 'information_schema');
+  }, [schema, sqlPrefs.showSystemSchemas]);
 
   // Rich metadata for the diagram. Reset on credential change so the
   // operator never sees one connection's tables on top of another's
@@ -186,6 +243,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     try {
       const res = await fetch(`${API_BASE}/api/sql/metadata`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credentialId }),
       });
@@ -240,14 +298,40 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   // Execute query
   const runQuery = useCallback(async () => {
     if (!credentialId || !query.trim()) return;
+
+    // Confirm-destructive gate. Looks for top-level DROP / TRUNCATE
+    // or DELETE / UPDATE without WHERE. Comments and whitespace are
+    // stripped before the regex so a `-- DELETE` line doesn't trip
+    // the prompt.
+    if (sqlPrefs.confirmDestructive && isDestructive(query)) {
+      const ok = window.confirm(
+        lang === 'es'
+          ? 'Esta query parece destructiva (DROP / TRUNCATE / DELETE-UPDATE sin WHERE). ¿Ejecutar igual?'
+          : 'This query looks destructive (DROP / TRUNCATE / DELETE-UPDATE without WHERE). Run anyway?'
+      );
+      if (!ok) return;
+    }
+
+    // Auto-LIMIT — wrap SELECTs that don't already cap their output.
+    // Skips when the user has explicit LIMIT / FETCH FIRST or when the
+    // query is anything other than a SELECT (DDL, INSERT, etc.). This
+    // is a frontend convenience; the backend still runs whatever we
+    // send so a user can opt out by writing their own LIMIT.
+    const wrappedQuery = applyDefaultRowLimit(query, sqlPrefs.defaultRowLimit);
+
     setIsLoading(true);
     setError(null);
     setResult(null);
     try {
       const res = await fetch(`${API_BASE}/api/sql/query`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credentialId, query }),
+        body: JSON.stringify({
+          credentialId,
+          query: wrappedQuery,
+          timeout: sqlPrefs.queryTimeoutMs,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -259,7 +343,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
       setError({ error: err instanceof Error ? err.message : 'Network error' });
     }
     setIsLoading(false);
-  }, [credentialId, query]);
+  }, [credentialId, query, sqlPrefs, lang]);
 
   // Insert table/column name into editor
   const insertText = useCallback((text: string) => {
@@ -317,7 +401,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
           </div>
         </div>
         <div className="flex-1 overflow-auto text-xs">
-          {schema.length === 0 ? (
+          {visibleSchemaTree.length === 0 ? (
             <div className="flex items-center justify-center gap-2 p-4 text-center text-zinc-600">
               {credentialId ? (
                 isSchemaLoading ? (
@@ -333,7 +417,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               )}
             </div>
           ) : (
-            schema.map(table => {
+            visibleSchemaTree.map(table => {
               const fullName = `${table.schema}.${table.name}`;
               const isExpanded = expandedTables.has(fullName);
               return (
@@ -445,6 +529,56 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               <span className="hidden sm:inline">{t.diagram}</span>
             </button>
           </div>
+
+          {/* Templates dropdown — quick access to canned PG queries
+              (table sizes, active queries, blocking locks, etc.) so
+              the operator doesn't have to remember system-view names
+              under pressure. Click an entry to load it into the
+              editor. */}
+          {view === 'editor' ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setTemplatesOpen(v => !v)}
+                className="flex items-center gap-1 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-800"
+                title={lang === 'es' ? 'Plantillas de query' : 'Query templates'}
+              >
+                <BookOpen size={11} />
+                <span>{lang === 'es' ? 'Plantillas' : 'Templates'}</span>
+              </button>
+              {templatesOpen ? (
+                <div className="absolute right-0 top-full z-30 mt-1 max-h-[60vh] w-80 overflow-auto rounded-lg border border-zinc-700 bg-zinc-900/95 p-2 text-xs shadow-2xl backdrop-blur">
+                  {QUERY_TEMPLATE_CATEGORIES.map(cat => {
+                    const items = QUERY_TEMPLATES.filter(q => q.category === cat.id);
+                    if (items.length === 0) return null;
+                    return (
+                      <div key={cat.id} className="mb-1 last:mb-0">
+                        <div className="px-1 pb-1 pt-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                          {cat.label[lang]}
+                        </div>
+                        {items.map(tpl => (
+                          <button
+                            key={tpl.id}
+                            type="button"
+                            onClick={() => {
+                              setQuery(tpl.sql);
+                              setTemplatesOpen(false);
+                            }}
+                            className="flex w-full flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left transition-colors hover:bg-zinc-800"
+                          >
+                            <span className="text-zinc-200">{tpl.label[lang]}</span>
+                            <span className="text-[10px] text-zinc-500">
+                              {tpl.description[lang]}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* Run button (editor view only — meaningless on diagram tab). */}
           {view === 'editor' ? (

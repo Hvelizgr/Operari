@@ -25,8 +25,10 @@ import { useLoadRunbook } from '@/hooks/useLoadRunbook';
 import { useStepStats } from '@/hooks/useStepStats';
 import { useViewportPersistence } from '@/hooks/useViewportPersistence';
 import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
+import { useEditorPrefs } from '@/lib/userPrefs';
 import { useEditorStore } from '@/state/editorStore';
 
+import AlignmentGuides from './AlignmentGuides';
 import { defaultConfigForType, NODE_CATALOG } from './canvas/catalog';
 import { dragChannel } from './canvas/dragChannel';
 import { ConnectionLine } from './canvas/edges/ConnectionLine';
@@ -38,9 +40,8 @@ import {
   readLineStyle,
   writeLineStyle,
 } from './canvas/edgeTypes';
-import AlignmentGuides from './AlignmentGuides';
-import Inspector from './Inspector';
 import { nodeTypes } from './canvas/nodeTypes';
+import Inspector from './Inspector';
 import Palette from './Palette';
 import PaneNodeMenu from './PaneNodeMenu';
 import SearchPalette from './SearchPalette';
@@ -158,10 +159,25 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   // to see on the strip.
   const showStats = useEditorStore(s => s.showStats);
   const setStepStats = useEditorStore(s => s.setStepStats);
+  const setShowStats = useEditorStore(s => s.setShowStats);
   const { stats: liveStats } = useStepStats(runbookId, showStats);
   useEffect(() => {
     setStepStats(liveStats);
   }, [liveStats, setStepStats]);
+
+  // User preferences from /settings → Runbook editor.
+  // - showStatsByDefault: prime the editor's `showStats` flag once
+  //   per page mount so operators who set the toggle on always land
+  //   in stats-overlay mode.
+  // - confirmDelete: gate Backspace/Delete on a window.confirm().
+  const [editorPrefs] = useEditorPrefs();
+  const primedStatsRef = useRef(false);
+  useEffect(() => {
+    if (!primedStatsRef.current && editorPrefs.showStatsByDefault) {
+      setShowStats(true);
+      primedStatsRef.current = true;
+    }
+  }, [editorPrefs.showStatsByDefault, setShowStats]);
 
   // Reconnect handlers. The success ref guards against `onReconnectEnd`
   // firing after a successful reconnect (would otherwise delete the
@@ -193,6 +209,25 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
     [removeNodes]
   );
 
+  // confirmDelete preference: ask before letting RF remove anything
+  // (nodes or edges). Returning a falsy result tells RF to cancel
+  // the deletion. The window.confirm() is intentionally synchronous
+  // and minimal — RF blocks until it returns. Skip the prompt for
+  // single-edge deletions because those are usually exploratory.
+  const handleBeforeDelete = useCallback(
+    async ({ nodes: deletedNodes }: { nodes: RfNode[]; edges: RfEdge[] }): Promise<boolean> => {
+      if (!editorPrefs.confirmDelete) return true;
+      if (deletedNodes.length === 0) return true;
+      const count = deletedNodes.length;
+      const message =
+        lang === 'es'
+          ? `¿Borrar ${count} nodo${count === 1 ? '' : 's'}? Sus conexiones también se borrarán.`
+          : `Delete ${count} node${count === 1 ? '' : 's'}? Their connections will also be removed.`;
+      return window.confirm(message);
+    },
+    [editorPrefs.confirmDelete, lang]
+  );
+
   const [edgeMenu, setEdgeMenu] = useState<{
     edgeId: string;
     position: { x: number; y: number };
@@ -204,9 +239,25 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   const [paneMenu, setPaneMenu] = useState<{
     screenX: number;
     screenY: number;
-    sourceNodeId: string;
+    sourceNodeId: string | null;
     sourceHandle: string | null;
   } | null>(null);
+
+  // Right-click on empty pane opens the same step picker as the
+  // drop-edge-into-empty-space flow, just without a source to wire
+  // from. Lets an operator add a step exactly where they want without
+  // hunting for the Palette toggle. We preventDefault so the browser
+  // context menu doesn't flash on top of ours.
+  const handlePaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
+    event.preventDefault();
+    const evt = event as MouseEvent;
+    setPaneMenu({
+      screenX: evt.clientX,
+      screenY: evt.clientY,
+      sourceNodeId: null,
+      sourceHandle: null,
+    });
+  }, []);
 
   const handleConnectEnd = useCallback<
     NonNullable<React.ComponentProps<typeof ReactFlow>['onConnectEnd']>
@@ -307,7 +358,6 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
 
   return (
     <div className="relative h-full w-full" onDragOver={handleDragOver} onDrop={handleDrop}>
-      {!embedMode ? <Palette lang={lang} /> : null}
       <ReactFlow<RfNode, RfEdge>
         nodes={nodes}
         edges={edges}
@@ -328,7 +378,9 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         onNodeDrag={handleNodeDrag}
         onNodeDragStop={handleNodeDragStop}
         onNodesDelete={handleNodesDelete}
+        onBeforeDelete={handleBeforeDelete}
         onEdgeContextMenu={embedMode ? undefined : handleEdgeContextMenu}
+        onPaneContextMenu={embedMode ? undefined : handlePaneContextMenu}
         isValidConnection={isValidConnection}
         snapToGrid={!embedMode}
         snapGrid={[20, 20]}
@@ -370,6 +422,7 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
           size={1}
           color="color-mix(in oklab, var(--op-moss) 18%, transparent)"
         />
+        {!embedMode ? <Palette lang={lang} /> : null}
         {!embedMode ? <UndoRedoPanel lang={lang} /> : null}
         {!embedMode ? <SelectionStatusPill lang={lang} /> : null}
         {!embedMode ? (

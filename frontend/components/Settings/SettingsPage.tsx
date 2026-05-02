@@ -19,8 +19,12 @@ import { useEffect, useState } from 'react';
 import { type Theme, THEMES, useTheme } from '@/context/ThemeContext';
 import { storageRead, storageWrite } from '@/lib/storage-compat';
 
+import ApiPrefsPanel from './ApiPrefsPanel';
 import { BillingPanel } from './BillingPanel';
 import ConnectedAccountsPanel from './ConnectedAccountsPanel';
+import EditorPrefsPanel from './EditorPrefsPanel';
+import LineagePrefsPanel from './LineagePrefsPanel';
+import SqlPrefsPanel from './SqlPrefsPanel';
 import { DangerZone } from './DangerZone';
 import { TeamPanel } from './TeamPanel';
 import { UpgradeWelcomeModal } from './UpgradeWelcomeModal';
@@ -244,6 +248,15 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
         >
           <BillingPanel lang={lang} />
         </Section>
+
+        {/* Per-feature preferences. Each panel owns its own
+            localStorage slice via lib/userPrefs hooks; consumers in
+            the editor/sql-editor/http-tester/lineage routes pick
+            them up at render time. */}
+        <SqlPrefsPanel lang={lang} />
+        <ApiPrefsPanel lang={lang} />
+        <EditorPrefsPanel lang={lang} />
+        <LineagePrefsPanel lang={lang} />
 
         {/* Profile placeholder */}
         <Section icon={<User size={16} />} title={t.profileTitle} hint={t.profileHint}>

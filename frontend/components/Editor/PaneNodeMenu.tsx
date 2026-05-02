@@ -17,8 +17,9 @@ interface PaneNodeMenuProps {
   screenX: number;
   screenY: number;
   /** Source node + handle the dropped edge came from. The new node's
-   *  first input handle becomes the target. */
-  sourceNodeId: string;
+   *  first input handle becomes the target. Both null when the menu
+   *  was opened by right-click on empty pane (no edge to wire). */
+  sourceNodeId: string | null;
   sourceHandle: string | null;
   lang: 'en' | 'es';
   onClose: () => void;
@@ -115,26 +116,27 @@ export default function PaneNodeMenu({
         selected: true,
       };
       // Pre-wire the connection from the source handle to the new
-      // node's first input. Goes through `onConnect` so cycle
-      // validation + autosave run normally.
-      const newEdge: RfEdge = {
-        id: newId(),
-        source: sourceNodeId,
-        target: id,
-        type: 'smart',
-        ...(sourceHandle !== null ? { sourceHandle } : {}),
-        targetHandle: '0',
-        data: {},
-      };
-      const store = useEditorStore.getState();
+      // node's first input — only when the menu was opened by an
+      // edge-drop. Right-click-on-pane has no source so we skip the
+      // edge entirely and just add the node.
+      const newEdge: RfEdge | null = sourceNodeId
+        ? {
+            id: newId(),
+            source: sourceNodeId,
+            target: id,
+            type: 'smart',
+            ...(sourceHandle !== null ? { sourceHandle } : {}),
+            targetHandle: '0',
+            data: {},
+          }
+        : null;
       // Deselect previously-selected nodes so the freshly created step
       // is the lone selection (matches the post-drop expectation).
       useEditorStore.setState(s => ({
         nodes: [...s.nodes.map(n => (n.selected ? { ...n, selected: false } : n)), newNode],
-        edges: [...s.edges, newEdge],
+        edges: newEdge ? [...s.edges, newEdge] : s.edges,
         status: 'dirty',
       }));
-      void store; // silence unused-var if linting picks it up
       onClose();
     },
     [lang, onClose, screenToFlowPosition, screenX, screenY, sourceHandle, sourceNodeId]
@@ -171,7 +173,13 @@ export default function PaneNodeMenu({
     [activeIdx, clampIdx, create, matches, onClose]
   );
 
-  const placeholder = lang === 'es' ? 'Conectar a…' : 'Connect to…';
+  const placeholder = sourceNodeId
+    ? lang === 'es'
+      ? 'Conectar a…'
+      : 'Connect to…'
+    : lang === 'es'
+      ? 'Agregar paso…'
+      : 'Add step…';
   const hint = matches.length === 0 ? (lang === 'es' ? 'Sin resultados' : 'No results') : null;
 
   return (

@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import { useDiagramExport } from '@/hooks/useDiagramExport';
+import { useLineagePrefs } from '@/lib/userPrefs';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -91,7 +92,27 @@ interface LineageCanvasProps {
   lang: 'en' | 'es';
 }
 
-function layoutLineage(payload: LineagePayload): {
+/**
+ * Drop edges/nodes the user wants hidden via Lineage prefs.
+ *   - hideOnErrorEdges: filter out the `on-error` edge kind so the
+ *     graph shows only explicit runbook-step calls.
+ *   - groupByCategory is applied at layout time, not here.
+ */
+function applyLineageFilters(
+  payload: LineagePayload,
+  prefs: { hideOnErrorEdges: boolean; groupByCategory: boolean }
+): LineagePayload {
+  if (!prefs.hideOnErrorEdges) return payload;
+  return {
+    nodes: payload.nodes,
+    edges: payload.edges.filter(e => e.kind !== 'on-error'),
+  };
+}
+
+function layoutLineage(
+  payload: LineagePayload,
+  prefs: { groupByCategory: boolean; hideOnErrorEdges: boolean }
+): {
   nodes: RfLineageNode[];
   edges: RfLineageEdge[];
 } {
@@ -138,6 +159,9 @@ function layoutLineage(payload: LineagePayload): {
     if (!depth.has(node.id)) depth.set(node.id, maxDepth + 1);
   }
 
+  // When `groupByCategory` is on we slot nodes by `(depth, category)`
+  // so siblings of the same category sit together in the column.
+  // When off we use a simple `depth` keyed bucket.
   const byColumn = new Map<number, LineageNode[]>();
   for (const node of payload.nodes) {
     const col = depth.get(node.id) ?? 0;
@@ -146,7 +170,16 @@ function layoutLineage(payload: LineagePayload): {
     byColumn.set(col, bucket);
   }
   for (const bucket of byColumn.values()) {
-    bucket.sort((a, b) => a.name.localeCompare(b.name));
+    if (prefs.groupByCategory) {
+      bucket.sort((a, b) => {
+        const ca = a.category ?? 'zzz';
+        const cb = b.category ?? 'zzz';
+        if (ca !== cb) return ca.localeCompare(cb);
+        return a.name.localeCompare(b.name);
+      });
+    } else {
+      bucket.sort((a, b) => a.name.localeCompare(b.name));
+    }
   }
 
   const COL_GAP = 320;
@@ -193,6 +226,7 @@ function LineageCanvasInner({ lang }: LineageCanvasProps) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<RfLineageEdge>([]);
   const { fitView } = useReactFlow();
   const { exportImage, exporting } = useDiagramExport();
+  const [lineagePrefs] = useLineagePrefs();
 
   useEffect(() => {
     let cancelled = false;
@@ -203,7 +237,10 @@ function LineageCanvasInner({ lang }: LineageCanvasProps) {
         const body = (await res.json()) as LineagePayload;
         if (cancelled) return;
         setPayload(body);
-        const laid = layoutLineage(body);
+        // Apply user filters BEFORE layout so the depth math doesn't
+        // include nodes/edges we'll just hide afterwards.
+        const filtered = applyLineageFilters(body, lineagePrefs);
+        const laid = layoutLineage(filtered, lineagePrefs);
         setNodes(laid.nodes);
         setEdges(laid.edges);
         setTimeout(() => fitView({ padding: 0.15, maxZoom: 1 }), 50);
@@ -217,7 +254,7 @@ function LineageCanvasInner({ lang }: LineageCanvasProps) {
     return () => {
       cancelled = true;
     };
-  }, [fitView, setNodes, setEdges]);
+  }, [fitView, setNodes, setEdges, lineagePrefs]);
 
   const counts = useMemo(() => {
     if (!payload) return { runbooks: 0, calls: 0, onError: 0 };
@@ -233,7 +270,9 @@ function LineageCanvasInner({ lang }: LineageCanvasProps) {
       ? {
           title: 'Lineage de runbooks',
           subtitle: `${counts.runbooks} runbooks · ${counts.calls} llamadas · ${counts.onError} on-error`,
-          empty: 'No hay runbooks para mostrar',
+          empty: 'Aún no hay runbooks',
+          emptyHint: 'Creá tu primer runbook desde la lista para ver el grafo de llamadas.',
+          emptyCta: 'Ir a Runbooks',
           loading: 'Cargando lineage…',
           export: 'Exportar PNG',
           legendCall: 'Llamada de runbook',
@@ -242,7 +281,9 @@ function LineageCanvasInner({ lang }: LineageCanvasProps) {
       : {
           title: 'Runbook lineage',
           subtitle: `${counts.runbooks} runbooks · ${counts.calls} calls · ${counts.onError} on-error`,
-          empty: 'No runbooks to show',
+          empty: 'No runbooks yet',
+          emptyHint: 'Create your first runbook from the list to see the call graph.',
+          emptyCta: 'Go to Runbooks',
           loading: 'Loading lineage…',
           export: 'Export PNG',
           legendCall: 'Runbook call',
@@ -260,8 +301,16 @@ function LineageCanvasInner({ lang }: LineageCanvasProps) {
 
   if (!loading && payload && payload.nodes.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center bg-zinc-950 text-sm text-zinc-500">
-        {t.empty}
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-zinc-950 px-6 text-center">
+        <Workflow size={28} className="text-zinc-700" />
+        <div className="text-sm font-semibold text-zinc-300">{t.empty}</div>
+        <div className="max-w-sm text-xs text-zinc-500">{t.emptyHint}</div>
+        <Link
+          href={`/${lang}/runbooks`}
+          className="mt-2 rounded border border-emerald-700 bg-emerald-900/30 px-3 py-1.5 text-[11px] font-medium text-emerald-300 transition-colors hover:bg-emerald-900/60"
+        >
+          {t.emptyCta}
+        </Link>
       </div>
     );
   }

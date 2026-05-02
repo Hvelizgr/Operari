@@ -1,7 +1,9 @@
 'use client';
 
 import { History, PanelLeft, Send, X, Zap } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { useApiPrefs } from '@/lib/userPrefs';
 
 import ConvertToStepButton from './ConvertToStepButton';
 import HistorySidebar, { type HistoryEntry } from './HistorySidebar';
@@ -10,22 +12,30 @@ import ResponseViewer, { type ResponseError, type ResponseResult } from './Respo
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 const HISTORY_KEY = 'operari:httpTesterHistory';
-const HISTORY_CAP = 50;
-
-const DEFAULT_PAYLOAD: RequestPayload = {
-  method: 'GET',
-  url: '',
-  headers: [],
-  body: '',
-};
 
 export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
-  const [payload, setPayload] = useState<RequestPayload>(DEFAULT_PAYLOAD);
+  const [apiPrefs] = useApiPrefs();
+
+  // Default payload reflects the user's preferred method + headers
+  // from /settings → API tester. Memoized so the form initial state
+  // doesn't snap on every prefs refresh.
+  const defaultPayload = useMemo<RequestPayload>(
+    () => ({
+      method: apiPrefs.defaultMethod,
+      url: '',
+      headers: [{ key: 'Accept', value: apiPrefs.defaultAcceptHeader }],
+      body: '',
+    }),
+    [apiPrefs.defaultMethod, apiPrefs.defaultAcceptHeader]
+  );
+
+  const [payload, setPayload] = useState<RequestPayload>(defaultPayload);
   const [result, setResult] = useState<ResponseResult | null>(null);
   const [error, setError] = useState<ResponseError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyOpenMobile, setHistoryOpenMobile] = useState(false);
+  const HISTORY_CAP = apiPrefs.historyCap;
 
   const t =
     lang === 'es'
@@ -88,16 +98,30 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
       if (k) headersObj[k] = value;
     }
 
+    // Apply user prefs from /settings → API tester:
+    //  - timeout aborts the proxied call after the configured budget
+    //  - cookies / redirects / self-signed flags travel as request
+    //    options so the backend respects them when it makes the
+    //    upstream call (server-side fetch can't read them from the
+    //    browser tab).
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), apiPrefs.defaultTimeoutMs);
+
     try {
       const res = await fetch(`${API_BASE}/api/http-tester/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        signal: controller.signal,
         body: JSON.stringify({
           method: payload.method,
           url: payload.url.trim(),
           headers: Object.keys(headersObj).length > 0 ? headersObj : undefined,
           body: payload.body || undefined,
+          timeoutMs: apiPrefs.defaultTimeoutMs,
+          followRedirects: apiPrefs.followRedirects,
+          preserveCookies: apiPrefs.preserveCookies,
+          allowSelfSignedCerts: apiPrefs.allowSelfSignedCerts,
         }),
       });
       const data = await res.json();
@@ -124,12 +148,18 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
     } catch (err) {
       setError({
         status: 0,
-        message: err instanceof Error ? err.message : 'Network error',
+        message:
+          err instanceof Error && err.name === 'AbortError'
+            ? `Request timed out after ${apiPrefs.defaultTimeoutMs}ms`
+            : err instanceof Error
+              ? err.message
+              : 'Network error',
       });
     } finally {
+      window.clearTimeout(timeoutId);
       setIsLoading(false);
     }
-  }, [payload, history, persistHistory]);
+  }, [payload, history, persistHistory, apiPrefs, HISTORY_CAP]);
 
   const loadFromHistory = useCallback((entry: HistoryEntry) => {
     setPayload(entry.payload);

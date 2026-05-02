@@ -1,3 +1,4 @@
+import type { Connection as WorkflowConnection, WorkflowNode } from '@operari/shared';
 import type { Connection as RfConnection } from '@xyflow/react';
 import {
   addEdge,
@@ -7,15 +8,14 @@ import {
   type NodeChange,
   reconnectEdge as rfReconnectEdge,
 } from '@xyflow/react';
-import { create } from 'zustand';
 import { temporal } from 'zundo';
+import { create } from 'zustand';
 
+import type { RunbookInputDefinition } from '@/components/Editor/RunbookInputsPanel';
 import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
 import { rfToWorkflow, workflowToRf } from '@/lib/canvas/adapter';
 import { getDescendantIds, sortNodesForRf } from '@/lib/canvas/graph';
 import { reconcileWorkflow } from '@/lib/canvas/reconcile';
-import type { RunbookInputDefinition } from '@/components/Editor/RunbookInputsPanel';
-import type { Connection as WorkflowConnection, WorkflowNode } from '@operari/shared';
 
 export type SaveStatus = 'idle' | 'loading' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
 

@@ -4,10 +4,11 @@ import type { Connection as WorkflowConnection, WorkflowNode } from '@operari/sh
 import { useEffect, useRef } from 'react';
 
 import { useEditorStore } from '@/state/editorStore';
+import { useEditorPrefs } from '@/lib/userPrefs';
 import { nodesToSpec, specToYaml } from '@/utils/runbookYaml';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-const DEBOUNCE_MS = 1000;
+const DEFAULT_DEBOUNCE_MS = 1000;
 const LOCAL_KEY = (id: string) => `operari-workflow-${id}`;
 const LOCAL_TS_KEY = (id: string) => `operari-workflow-${id}-timestamp`;
 
@@ -95,6 +96,8 @@ const checkConflict = async (runbookId: string, localSavedAt: number | null): Pr
 export function useAutosave() {
   const runbookId = useEditorStore(s => s.runbookId);
   const status = useEditorStore(s => s.status);
+  const [editorPrefs] = useEditorPrefs();
+  const debounceMs = editorPrefs.autosaveIntervalMs || DEFAULT_DEBOUNCE_MS;
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -131,10 +134,10 @@ export function useAutosave() {
         writeLocalFallback(runbookId, payload);
         store.setStatus('error', 'Save failed; kept a local copy. Will retry on the next change.');
       }
-    }, DEBOUNCE_MS);
+    }, debounceMs);
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [runbookId, status]);
+  }, [runbookId, status, debounceMs]);
 }

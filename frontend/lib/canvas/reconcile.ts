@@ -1,10 +1,10 @@
 import type { Connection as WorkflowConnection, WorkflowNode } from '@operari/shared';
 
 import {
-  workflowConnectionToRfEdge,
-  workflowNodeToRfNode,
   type RfEdge,
   type RfNode,
+  workflowConnectionToRfEdge,
+  workflowNodeToRfNode,
 } from './adapter';
 
 /**
