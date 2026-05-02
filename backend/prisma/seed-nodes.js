@@ -93,14 +93,19 @@ const NODES = [
     ],
   },
   {
-    type: 'operari.postgres',
+    // Type-string was historically `operari.postgres`, but the runtime
+    // registry binds the executor to `operari.database`. Renamed here
+    // so the seed agrees with the dispatcher and the frontend palette
+    // — drift between these three would otherwise produce "Unknown
+    // node type" the moment an operator dragged it onto the canvas.
+    type: 'operari.database',
     category: 'devops',
     icon: 'Database',
     color: 'bg-blue-400',
-    label: { en: 'Postgres (migrate)', es: 'Postgres (migrate)' },
+    label: { en: 'Database', es: 'Base de datos' },
     description: {
-      en: 'Run a versioned migration / health probe against Postgres (stub — wire prisma to make it active)',
-      es: 'Migración versionada o health probe contra Postgres (stub — falta wirear prisma)',
+      en: 'Introspect schema, health check, or read-only query against Postgres',
+      es: 'Introspección de esquema, health check o consulta de lectura contra Postgres',
     },
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],

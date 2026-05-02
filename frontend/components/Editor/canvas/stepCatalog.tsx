@@ -194,6 +194,18 @@ export const NODE_TYPES: NodeType[] = [
         default: 'echo "hello from operari"',
       },
       { name: 'cwd', displayName: 'Working directory', type: 'string', default: '' },
+      {
+        name: 'shell',
+        displayName: 'Shell binary',
+        type: 'string',
+        default: 'sh',
+      },
+      {
+        name: 'failOnNonZeroExit',
+        displayName: 'Fail on non-zero exit',
+        type: 'boolean',
+        default: true,
+      },
       { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 60000 },
     ],
   },
@@ -354,6 +366,12 @@ export const NODE_TYPES: NodeType[] = [
         type: 'string',
         default: '',
       },
+      {
+        name: 'timeoutSeconds',
+        displayName: 'Auto-reject after (seconds)',
+        type: 'number',
+        default: 0,
+      },
     ],
   },
   {
@@ -498,37 +516,13 @@ export const NODE_TYPES: NodeType[] = [
       },
     ],
   },
-  {
-    type: 'Switch',
-    icon: <Route size={18} />,
-    label: { en: 'Switch', es: 'Switch' },
-    color: 'bg-primary',
-    category: 'core',
-    description: {
-      en: 'Multi-way branch by matching a field against cases',
-      es: 'Bifurcación múltiple comparando un campo contra casos',
-    },
-    inputs: ['main'],
-    outputs: ['case 0', 'case 1', 'default'],
-    properties: [
-      {
-        name: 'field',
-        displayName: 'Field',
-        type: 'string',
-        default: '',
-        typeOptions: { expression: true },
-        description: 'Path to evaluate (e.g. "status", "vars.action")',
-      },
-      {
-        name: 'cases',
-        displayName: 'Cases (JSON array)',
-        type: 'string',
-        default: '[{"value":"success","label":"success"},{"value":"failure","label":"failure"}]',
-        typeOptions: { rows: 3 },
-        description: 'Array of {value, label} objects. Each case maps to an output port.',
-      },
-    ],
-  },
+  // Switch was duplicated here when the legacy executors got promoted
+  // to the palette — the canonical entry now lives in the FLOW category
+  // below with `case_1/case_2/default` output port names that match
+  // the seed and what the engine dispatches against. Keeping a second
+  // entry under `core` would have shipped two visually-distinct nodes
+  // mapped to the same backend type, confusing the operator about
+  // which one to pick. Removed deliberately.
   {
     type: 'Loop',
     icon: <Repeat size={18} />,
@@ -640,6 +634,18 @@ export const NODE_TYPES: NodeType[] = [
       },
       { name: 'namespace', displayName: 'Namespace', type: 'string', default: '' },
       { name: 'context', displayName: 'Context', type: 'string', default: '' },
+      {
+        name: 'kubeconfigSecret',
+        displayName: 'Kubeconfig secret',
+        type: 'string',
+        default: '',
+      },
+      {
+        name: 'failOnNonZeroExit',
+        displayName: 'Fail on non-zero exit',
+        type: 'boolean',
+        default: true,
+      },
       { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 60000 },
     ],
   },
@@ -652,13 +658,17 @@ export const NODE_TYPES: NodeType[] = [
     color: 'bg-violet-600',
     category: 'core',
     description: {
-      en: 'Run a JS expression or apply a key-mapping over the previous step',
-      es: 'Correr una expresión JS o un mapeo sobre el output anterior',
+      en: 'Apply a key-mapping (JSON) over the previous step output',
+      es: 'Aplicar un mapeo de claves (JSON) sobre el output del paso anterior',
     },
     inputs: ['main'],
     outputs: ['main'],
     properties: [
-      { name: 'code', displayName: 'JS expression', type: 'string', default: '' },
+      // The post-pivot Transform executor only honors `mapping` —
+      // arbitrary JS evaluation was dropped to remove the eval()
+      // surface area. Listing `code` here would be a footgun: the
+      // operator fills it in, the executor silently ignores it, and
+      // the runbook produces unexpected outputs.
       { name: 'mapping', displayName: 'Mapping (JSON)', type: 'string', default: '' },
     ],
   },

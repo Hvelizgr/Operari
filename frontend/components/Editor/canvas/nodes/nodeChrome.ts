@@ -20,6 +20,30 @@ export const PRIMARY_PREVIEW_KEY: Record<string, string> = {
   wait: 'duration',
 };
 
+/**
+ * Maximum preview length before we ellipsize. Tuned so a typical
+ * runbook row doesn't push the canvas card past its 240px min-width.
+ * Anything longer (a multi-line shell command, a deep API URL with
+ * query params) gets truncated here and the full value still lives
+ * in the node's `title` attribute via the BaseStepNode hover tooltip
+ * + the inspector panel — so the operator never loses access, just
+ * the hot-path scanning stays compact.
+ */
+const PREVIEW_MAX_LEN = 60;
+
+/**
+ * Pick the first line of a possibly-multi-line string + trim, then
+ * cap at `PREVIEW_MAX_LEN`. Multi-line shell commands previously
+ * pushed the node taller; by collapsing to the first line we keep
+ * the card on a single body row regardless of script complexity.
+ */
+const compactPreview = (raw: string): string => {
+  const firstLine = raw.split('\n', 1)[0]?.trim() ?? raw;
+  return firstLine.length > PREVIEW_MAX_LEN
+    ? `${firstLine.slice(0, PREVIEW_MAX_LEN - 1)}…`
+    : firstLine;
+};
+
 /** Extract a one-line preview from a node config. */
 export const resolvePreview = (
   type: string,
@@ -28,12 +52,12 @@ export const resolvePreview = (
   if (!config) return null;
   const explicit = PRIMARY_PREVIEW_KEY[type];
   if (explicit && typeof config[explicit] === 'string' && (config[explicit] as string).trim()) {
-    return config[explicit] as string;
+    return compactPreview(config[explicit] as string);
   }
   // Fallback: first non-empty primitive string. Skip meta-keys ("_*").
   for (const [key, value] of Object.entries(config)) {
     if (key.startsWith('_')) continue;
-    if (typeof value === 'string' && value.trim()) return value;
+    if (typeof value === 'string' && value.trim()) return compactPreview(value);
   }
   return null;
 };
@@ -70,8 +94,13 @@ export const resolveSecondaryChips = (
     case 'ssh': {
       const host = typeof config.host === 'string' ? config.host : null;
       const user = typeof config.username === 'string' ? config.username : null;
-      if (host && user) return [`${user}@${host}`];
-      if (host) return [host];
+      // Long internal hostnames (e.g. `internal-k8s-prod-us-east-1.
+      // company.internal`) push the chip past the card width. Keep
+      // the user@host shape intact but cap the host portion at 24
+      // chars so the chip stays inside the header band.
+      const compactHost = host && host.length > 24 ? `${host.slice(0, 23)}…` : host;
+      if (compactHost && user) return [`${user}@${compactHost}`];
+      if (compactHost) return [compactHost];
       return [];
     }
     case 'operari.cron': {
