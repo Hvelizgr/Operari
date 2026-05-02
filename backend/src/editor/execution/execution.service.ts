@@ -1405,8 +1405,16 @@ export class ExecutionService {
 
           // Notify about error if it's high severity
           if ([ErrorSeverity.HIGH, ErrorSeverity.CRITICAL].includes(wrappedError.severity)) {
+            // Tenant-scope guard requires every ExecutionError query to
+            // carry an explicit tenantId — even when scoped by execution
+            // it cannot infer the tenant. Without this, a high-severity
+            // step failure throws a TenantScopeViolationError inside
+            // Prisma's `$use` chain, which surfaces as "Runbook execution
+            // failed: ExecutionError.findFirst() called without a
+            // tenantId filter" and masks the real underlying step error.
             const errorRecord = await this.prisma.executionError.findFirst({
               where: {
+                tenantId,
                 executionId,
                 nodeLogId: nodeLog.id,
                 code: wrappedError.code,
@@ -1599,8 +1607,13 @@ export class ExecutionService {
         wrappedError instanceof CustomError &&
         [ErrorSeverity.HIGH, ErrorSeverity.CRITICAL].includes(wrappedError.severity)
       ) {
+        // Tenant-scope guard same gotcha as above — see comment at the
+        // sibling lookup further up in this file. Without `tenantId`
+        // here, a runbook-level failure during the catch path would
+        // throw the guard error and mask the original cause.
         const errorRecord = await this.prisma.executionError.findFirst({
           where: {
+            tenantId,
             executionId,
             code: wrappedError.code,
           },
