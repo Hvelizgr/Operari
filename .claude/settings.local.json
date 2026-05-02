@@ -28,7 +28,8 @@
       "Bash(rm -rf packages/shared/dist node_modules/@operari node_modules/@nanorun)",
       "Bash(npm install *)",
       "Bash(git restore *)",
-      "Bash(grep -E \"github-commit-file|env\\\\.config\\\\.ts|auth\\\\.routes\\\\.ts|auth-client|auth-context|LoginForm|\\\\\\(auth\\\\\\)/strings|^frontend/Dockerfile$|^docker-compose\\\\.yml$|\\\\.claude/settings|executors/index\\\\.ts|seed-nodes\\\\.js\")"
+      "Bash(grep -E \"github-commit-file|env\\\\.config\\\\.ts|auth\\\\.routes\\\\.ts|auth-client|auth-context|LoginForm|\\\\\\(auth\\\\\\)/strings|^frontend/Dockerfile$|^docker-compose\\\\.yml$|\\\\.claude/settings|executors/index\\\\.ts|seed-nodes\\\\.js\")",
+      "Bash(echo \"exit=$?\")"
     ]
   }
 }
