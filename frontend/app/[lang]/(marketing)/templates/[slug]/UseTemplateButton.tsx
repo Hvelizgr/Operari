@@ -80,7 +80,7 @@ export function UseTemplateButton({
       }
       const created = (await createRes.json()) as { id?: string };
       if (!created.id) throw new Error('create returned no id');
-      router.push(`/${lang}/editor?runbook=${encodeURIComponent(created.id)}`);
+      router.push(`/${lang}/editor?id=${encodeURIComponent(created.id)}`);
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) {
         router.push(`/${lang}/login?redirect=${encodeURIComponent(`/${lang}/templates/${slug}`)}`);
