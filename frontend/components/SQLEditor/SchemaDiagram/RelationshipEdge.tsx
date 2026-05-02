@@ -37,13 +37,23 @@ function RelationshipEdgeComponent({
 
   const onDelete = data?.fk.onDelete;
   const fkDiff = data?.diff;
+  // Stroke color comes from the same V2 CSS vars the runbook editor
+  // uses, so when the user customizes status colors in Appearance,
+  // the schema diagram FK lines change to match. CSS-var lookup
+  // happens at paint time via `getComputedStyle` on the document
+  // root; falling back to a neutral hex when no var is resolved (SSR
+  // / first paint before the bootstrap script runs).
+  const cssVar = (name: string, fallback: string): string => {
+    if (typeof document === 'undefined') return fallback;
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  };
   const stroke = selected
-    ? '#34d399'
+    ? cssVar('--rb-node-selected', '#34d399')
     : fkDiff === 'added'
-      ? '#10b981'
+      ? cssVar('--rb-edge-success', '#10b981')
       : fkDiff === 'removed'
-        ? '#f43f5e'
-        : '#71717a';
+        ? cssVar('--rb-edge-failed', '#f43f5e')
+        : cssVar('--rb-edge', '#71717a');
   const dashArray = fkDiff === 'removed' ? '6 3' : undefined;
 
   return (

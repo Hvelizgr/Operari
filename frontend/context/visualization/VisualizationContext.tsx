@@ -11,16 +11,21 @@ import type {
   BgPattern,
   CompletionFlashVariant,
   EdgeDashPattern,
+  FlowFlavor,
   FlowSpeed,
   FlowStyle,
+  FontScale,
   LineStyle,
   MinimapPosition,
+  NodeCorners,
   NodeDensity,
   NodeIconSize,
   NodeShadowPreset,
   NodeStyle,
+  NodeVariant,
   RunningPulseVariant,
   StatusColors,
+  ThemeMode,
   VisualizationPrefs,
 } from './types';
 
@@ -76,6 +81,13 @@ interface VisualizationContextValue extends VisualizationPrefs {
   setBgGridSize: (value: number) => void;
   setBgGridOpacity: (value: number) => void;
   setMinimapPosition: (value: MinimapPosition) => void;
+  setTheme: (value: ThemeMode) => void;
+  setFontScale: (value: FontScale) => void;
+  setReducedMotion: (value: boolean) => void;
+  setNodeVariant: (value: NodeVariant) => void;
+  setNodeCorners: (value: NodeCorners) => void;
+  setNodeHeaderBand: (value: boolean) => void;
+  setFlowFlavor: (value: FlowFlavor) => void;
   /** Replace every preference in one shot (used by preset apply +
    *  import). Does a deep-merge for nested objects so partial patches
    *  don't wipe the statusColors the caller didn't touch. */
@@ -154,6 +166,13 @@ export function VisualizationProvider({ children }: { children: React.ReactNode 
       setBgGridSize: v => update({ bgGridSize: v }),
       setBgGridOpacity: v => update({ bgGridOpacity: v }),
       setMinimapPosition: v => update({ minimapPosition: v }),
+      setTheme: v => update({ theme: v }),
+      setFontScale: v => update({ fontScale: v }),
+      setReducedMotion: v => update({ reducedMotion: v }),
+      setNodeVariant: v => update({ nodeVariant: v }),
+      setNodeCorners: v => update({ nodeCorners: v }),
+      setNodeHeaderBand: v => update({ nodeHeaderBand: v }),
+      setFlowFlavor: v => update({ flowFlavor: v }),
       applyPrefs: next => update(next),
       resetToDefaults: () => update(VISUALIZATION_DEFAULTS),
     }),
@@ -201,6 +220,13 @@ export function useVisualization(): VisualizationContextValue {
       setBgGridSize: noop,
       setBgGridOpacity: noop,
       setMinimapPosition: noop,
+      setTheme: noop,
+      setFontScale: noop,
+      setReducedMotion: noop,
+      setNodeVariant: noop,
+      setNodeCorners: noop,
+      setNodeHeaderBand: noop,
+      setFlowFlavor: noop,
       applyPrefs: noop,
       resetToDefaults: noop,
     };

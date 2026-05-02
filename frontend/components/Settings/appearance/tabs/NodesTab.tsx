@@ -1,192 +1,123 @@
 'use client';
 
-import { Box as BoxIcon, Check, Palette, Sparkles } from 'lucide-react';
+import { Box, Layers, Tag } from 'lucide-react';
 
 import {
-  ACCENT_HEX,
-  type AccentColor,
-  type NodeDensity,
-  type NodeIconSize,
-  type NodeShadowPreset,
-  type NodeStyle,
+  type NodeCorners,
+  type NodeVariant,
   useVisualization,
 } from '@/context/VisualizationContext';
 
-import { NodeStylePreview } from '../previews';
-import { PillGroup, PreviewCard, Section, SliderRow, StatusColorRow } from '../primitives';
+import { PillGroup, Section } from '../primitives';
 import type { Strings } from '../strings';
 
+/**
+ * V2 node shape personalization. Replaces the V1-only NodesTab that
+ * targeted `.wf_node` (the pre-React-Flow chrome). Every control here
+ * applies to `.rb-node` via data-attributes set in `applyToDocument`
+ * and CSS overrides in `app/globals.css`. No prop drilling.
+ *
+ * The variant + corners + header-band controls are orthogonal so
+ * users can mix `outlined` with `extra-rounded` and `header-band off`
+ * to get a pill-style flat node, or `card` with `header-band on` for
+ * a heavy elevated step. Live preview happens in the editor itself —
+ * the operator sees the change the moment they pick a value.
+ */
 export function NodesTab({ t }: { t: Strings }) {
   const viz = useVisualization();
+
   return (
     <div className="space-y-4">
-      <Section icon={<Palette size={14} />} title={t.accentLabel} hint={t.accentHint}>
-        <div className="flex flex-wrap gap-2">
+      <Section icon={<Box size={14} />} title={t.nodeVariantLabel} hint={t.nodeVariantHint}>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {(
             [
-              { id: 'emerald', label: t.accentEmerald },
-              { id: 'sky', label: t.accentSky },
-              { id: 'violet', label: t.accentViolet },
-              { id: 'amber', label: t.accentAmber },
-              { id: 'rose', label: t.accentRose },
-              { id: 'slate', label: t.accentSlate },
-            ] as { id: AccentColor; label: string }[]
+              { id: 'default', label: t.nodeVariantDefault },
+              { id: 'minimal', label: t.nodeVariantMinimal },
+              { id: 'card', label: t.nodeVariantCard },
+              { id: 'outlined', label: t.nodeVariantOutlined },
+            ] as { id: NodeVariant; label: string }[]
           ).map(opt => {
-            const active = viz.accentColor === opt.id;
+            const active = viz.nodeVariant === opt.id;
             return (
               <button
                 key={opt.id}
-                onClick={() => viz.setAccentColor(opt.id)}
-                className={`group flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+                type="button"
+                onClick={() => viz.setNodeVariant(opt.id)}
+                className={`flex flex-col items-center gap-2 rounded-md border p-3 transition-colors ${
                   active
-                    ? 'bg-[var(--accent-color)]/10 border-[var(--accent-color)] text-[var(--text-primary)]'
-                    : 'hover:border-[var(--accent-color)]/40 border-[var(--panel-border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    ? 'border-emerald-500 bg-emerald-500/10'
+                    : 'border-[var(--panel-border)] hover:border-emerald-500/40'
                 }`}
               >
-                <span
-                  className="inline-block h-4 w-4 rounded-full ring-1 ring-black/20 dark:ring-white/10"
-                  style={{ background: ACCENT_HEX[opt.id] }}
-                />
-                {opt.label}
-                {active && <Check size={12} />}
+                <NodeVariantPreview variant={opt.id} />
+                <span className="text-xs text-[var(--text-primary)]">{opt.label}</span>
               </button>
             );
           })}
         </div>
       </Section>
 
-      <Section icon={<BoxIcon size={14} />} title={t.densityLabel} hint={t.densityHint}>
+      <Section icon={<Layers size={14} />} title={t.nodeCornersLabel} hint={t.nodeCornersHint}>
         <PillGroup
-          value={viz.nodeDensity}
-          onChange={viz.setNodeDensity}
+          value={viz.nodeCorners}
+          onChange={viz.setNodeCorners}
           options={
             [
-              { id: 'compact', label: t.densityCompact },
-              { id: 'comfortable', label: t.densityComfortable },
-              { id: 'spacious', label: t.densitySpacious },
-            ] as { id: NodeDensity; label: string }[]
+              { id: 'sharp', label: t.nodeCornersSharp },
+              { id: 'rounded', label: t.nodeCornersRounded },
+              { id: 'extra-rounded', label: t.nodeCornersExtra },
+            ] as { id: NodeCorners; label: string }[]
           }
         />
       </Section>
 
-      <Section icon={<BoxIcon size={14} />} title={t.nodeStyleLabel} hint={t.nodeStyleHint}>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-          {(
-            [
-              { id: 'modern', label: t.nodeStyleModern },
-              { id: 'minimal', label: t.nodeStyleMinimal },
-              { id: 'bold', label: t.nodeStyleBold },
-              { id: 'neon', label: t.nodeStyleNeon },
-              { id: 'glass', label: t.nodeStyleGlass },
-            ] as { id: NodeStyle; label: string }[]
-          ).map(opt => (
-            <PreviewCard
-              key={opt.id}
-              active={viz.nodeStyle === opt.id}
-              label={opt.label}
-              onClick={() => viz.setNodeStyle(opt.id)}
-            >
-              <NodeStylePreview style={opt.id} accent={ACCENT_HEX[viz.accentColor]} />
-            </PreviewCard>
-          ))}
-        </div>
-      </Section>
-
-      <Section title={t.shadowLabel} hint={t.shadowHint}>
+      <Section icon={<Tag size={14} />} title={t.nodeHeaderBandLabel} hint={t.nodeHeaderBandHint}>
         <PillGroup
-          value={viz.nodeShadowPreset}
-          onChange={viz.setNodeShadowPreset}
-          options={
-            [
-              { id: 'none', label: t.shadowNone },
-              { id: 'sm', label: t.shadowSm },
-              { id: 'md', label: t.shadowMd },
-              { id: 'lg', label: t.shadowLg },
-              { id: 'xl', label: t.shadowXl },
-            ] as { id: NodeShadowPreset; label: string }[]
-          }
+          value={viz.nodeHeaderBand ? 'on' : 'off'}
+          onChange={v => viz.setNodeHeaderBand(v === 'on')}
+          options={[
+            { id: 'on', label: t.on },
+            { id: 'off', label: t.off },
+          ]}
         />
       </Section>
+    </div>
+  );
+}
 
-      <Section title={t.iconSizeLabel} hint={t.iconSizeHint}>
-        <PillGroup
-          value={viz.nodeIconSize}
-          onChange={viz.setNodeIconSize}
-          options={
-            [
-              { id: 'sm', label: t.iconSm },
-              { id: 'md', label: t.iconMd },
-              { id: 'lg', label: t.iconLg },
-            ] as { id: NodeIconSize; label: string }[]
-          }
-        />
-      </Section>
-
-      <SliderRow
-        title={t.radiusLabel}
-        hint={t.radiusHint}
-        value={viz.nodeRadiusBoost}
-        min={0}
-        max={20}
-        step={1}
-        unit="px"
-        onChange={viz.setNodeRadiusBoost}
-      />
-
-      <SliderRow
-        title={t.scaleLabel}
-        hint={t.scaleHint}
-        value={viz.nodeScale}
-        min={0.85}
-        max={1.2}
-        step={0.05}
-        format={v => `${Math.round(v * 100)}%`}
-        onChange={viz.setNodeScale}
-      />
-
-      <SliderRow
-        title={t.glowLabel}
-        hint={t.glowHint}
-        value={viz.glowIntensity}
-        min={0}
-        max={2}
-        step={0.1}
-        format={v => `${v.toFixed(1)}x`}
-        onChange={viz.setGlowIntensity}
-      />
-
-      <Section icon={<Sparkles size={14} />} title={t.statusColorsLabel} hint={t.statusColorsHint}>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <StatusColorRow
-            label={t.statusRunning}
-            statusKey="running"
-            value={viz.statusColors.running}
-            onChange={hex => viz.setStatusColor('running', hex)}
-            resetLabel={t.resetLabel}
-          />
-          <StatusColorRow
-            label={t.statusSuccess}
-            statusKey="success"
-            value={viz.statusColors.success}
-            onChange={hex => viz.setStatusColor('success', hex)}
-            resetLabel={t.resetLabel}
-          />
-          <StatusColorRow
-            label={t.statusFailed}
-            statusKey="failed"
-            value={viz.statusColors.failed}
-            onChange={hex => viz.setStatusColor('failed', hex)}
-            resetLabel={t.resetLabel}
-          />
-          <StatusColorRow
-            label={t.statusIdle}
-            statusKey="idle"
-            value={viz.statusColors.idle}
-            onChange={hex => viz.setStatusColor('idle', hex)}
-            resetLabel={t.resetLabel}
-          />
-        </div>
-      </Section>
+/**
+ * Tiny visual preview of each node variant. Mirrors what `.rb-node`
+ * looks like under each variant so the user can compare without
+ * actually opening the editor.
+ */
+function NodeVariantPreview({ variant }: { variant: NodeVariant }) {
+  const baseClass = 'flex h-14 w-full flex-col overflow-hidden rounded-md text-[10px]';
+  const styles: Record<NodeVariant, { wrapper: string; header?: string; body: string }> = {
+    default: {
+      wrapper: 'border border-zinc-700 bg-zinc-900 shadow-md',
+      header: 'h-1/3 bg-emerald-600 px-1.5 text-white',
+      body: 'flex-1 p-1.5 text-zinc-200',
+    },
+    minimal: {
+      wrapper: 'border border-zinc-700/50 bg-zinc-900',
+      header: 'h-1/3 bg-emerald-600 px-1.5 text-white',
+      body: 'flex-1 p-1.5 text-zinc-200',
+    },
+    card: {
+      wrapper: 'bg-zinc-900 shadow-xl',
+      body: 'flex-1 p-1.5 text-zinc-200',
+    },
+    outlined: {
+      wrapper: 'border-2 border-emerald-500',
+      body: 'flex-1 p-1.5 text-zinc-200',
+    },
+  };
+  const s = styles[variant];
+  return (
+    <div className={`${baseClass} ${s.wrapper}`}>
+      {s.header ? <div className={`flex items-center ${s.header}`}>HTTP</div> : null}
+      <div className={s.body}>my step</div>
     </div>
   );
 }

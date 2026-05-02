@@ -179,5 +179,12 @@ export function extractPrefs(source: VisualizationPrefs): VisualizationPrefs {
     bgGridSize: source.bgGridSize,
     bgGridOpacity: source.bgGridOpacity,
     minimapPosition: source.minimapPosition,
+    theme: source.theme,
+    fontScale: source.fontScale,
+    reducedMotion: source.reducedMotion,
+    nodeVariant: source.nodeVariant,
+    nodeCorners: source.nodeCorners,
+    nodeHeaderBand: source.nodeHeaderBand,
+    flowFlavor: source.flowFlavor,
   };
 }

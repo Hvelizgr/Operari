@@ -54,6 +54,38 @@ export type BgPattern = 'dots' | 'grid' | 'lines' | 'none';
 export type MinimapPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'hidden';
 
 /**
+ * V2-only personalization prefs, added after the React Flow rebuild.
+ * The originals above target V1 chrome (`.wf_node`, etc.); these
+ * apply to the V2 canvas directly via root data-* attributes and
+ * CSS variables consumed by Tailwind utilities.
+ */
+export type ThemeMode = 'dark' | 'light' | 'midnight';
+export type FontScale = 'sm' | 'md' | 'lg' | 'xl';
+
+/**
+ * V2 node variants. Each maps to a CSS data-attribute on <html> and
+ * a set of overrides for the `.rb-node` selector in globals.css.
+ *   - default:  current shape — header band + body, rounded corners
+ *   - minimal:  no shadow, thin border, header band kept
+ *   - card:     elevated shadow, no header band, full-bleed body
+ *   - outlined: 2px accent border, no fill, no shadow
+ */
+export type NodeVariant = 'default' | 'minimal' | 'card' | 'outlined';
+
+/** V2 node corner radius preset. Independent from variant. */
+export type NodeCorners = 'sharp' | 'rounded' | 'extra-rounded';
+
+/**
+ * V2 connection-animation flavor when a step is running.
+ *   - all      → gradient slide + marching dashes + comet trail (default)
+ *   - gradient → only the sliding gradient stroke
+ *   - dashes   → only marching dashes (cleaner, lower-GPU)
+ *   - comet    → only the orb trail riding the path
+ *   - off      → no animation; same as flowAnimationsEnabled=false
+ */
+export type FlowFlavor = 'all' | 'gradient' | 'dashes' | 'comet' | 'off';
+
+/**
  * Per-status color overrides. Each field is a hex string ('#rrggbb')
  * or null to fall back to the built-in palette (emerald for running,
  * pale emerald for success, red for failed, neutral gray for idle).
@@ -141,4 +173,25 @@ export interface VisualizationPrefs {
   bgGridOpacity: number;
   /** Where the minimap is anchored (or hidden). */
   minimapPosition: MinimapPosition;
+  /** V2: Theme variant for the editor + sidebars. Mirrors the
+   *  ThemeContext value so a single store of truth drives both. */
+  theme: ThemeMode;
+  /** V2: Root font-size multiplier. Applied as `--font-scale` on
+   *  <html> and consumed by Tailwind text utilities indirectly via
+   *  the rem unit. */
+  fontScale: FontScale;
+  /** V2: When on, every editor animation freezes regardless of the
+   *  `animationSpeed` setting. Same effect as setting animationSpeed
+   *  to `off` but exposed as a clearer accessibility toggle. */
+  reducedMotion: boolean;
+  /** V2: Visual variant for `.rb-node` (BaseStepNode). */
+  nodeVariant: NodeVariant;
+  /** V2: Corner radius preset for `.rb-node`. Layered on top of
+   *  variant so an operator can mix `outlined` with `extra-rounded`. */
+  nodeCorners: NodeCorners;
+  /** V2: Whether the colored category band atop each node renders.
+   *  Off = the node is a flat card with the type icon inline. */
+  nodeHeaderBand: boolean;
+  /** V2: Which connection animation flavor to render on running edges. */
+  flowFlavor: FlowFlavor;
 }

@@ -20,7 +20,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useDiagramExport } from '@/hooks/useDiagramExport';
 import { exportDbml } from '@/lib/sql/dbml-export';
 import { diffMetadata, type SchemaDiff } from '@/lib/sql/diff';
-import { groupMetadata, sqlMetadataSchema, tableKey, type SqlMetadata } from '@/lib/sql/metadata';
+import { groupMetadata, type SqlMetadata, sqlMetadataSchema, tableKey } from '@/lib/sql/metadata';
 
 import { layoutSchema } from './layout';
 import { RelationshipEdge } from './RelationshipEdge';
@@ -331,7 +331,7 @@ function SchemaDiagramInner({ metadata, visibleSchemas, lang }: SchemaDiagramPro
               markerHeight="8"
               orient="auto-start-reverse"
             >
-              <path d="M 0 1 L 9 5 L 0 9 z" fill="#71717a" />
+              <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--rb-edge, #71717a)" />
             </marker>
           </defs>
         </svg>

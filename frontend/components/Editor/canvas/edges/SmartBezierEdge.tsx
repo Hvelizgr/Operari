@@ -3,6 +3,7 @@
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getBezierPath } from '@xyflow/react';
 import { memo, useMemo } from 'react';
 
+import { FLOW_SPEED_MULT, useVisualization } from '@/context/VisualizationContext';
 import type { RfEdge } from '@/lib/canvas/adapter';
 
 import { EdgeDeleteButton } from './EdgeDeleteButton';
@@ -48,7 +49,21 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
   });
 
   const stroke = resolveEdgeStroke(data);
-  const running = isRunning(data);
+  const isRunningRaw = isRunning(data);
+  // User-controlled animation gates from Appearance → Connections.
+  // `flowAnimationsEnabled` is the master switch; `flowFlavor` picks
+  // which of the 3 effects render (gradient/dashes/comet/all/off);
+  // `flowSpeed` scales every `dur` so all three speed up together
+  // without restarting the React tree.
+  const { flowAnimationsEnabled, flowSpeed, flowFlavor } = useVisualization();
+  const speedMult = FLOW_SPEED_MULT[flowSpeed] ?? 1;
+  const running = isRunningRaw && flowAnimationsEnabled && flowFlavor !== 'off';
+  const showGradient = running && (flowFlavor === 'all' || flowFlavor === 'gradient');
+  const showDashes = running && (flowFlavor === 'all' || flowFlavor === 'dashes');
+  const showComet = running && (flowFlavor === 'all' || flowFlavor === 'comet');
+  const orbDurationS = ORB_DURATION_S / speedMult;
+  const gradientDurationS = 1.6 / speedMult;
+  const dashDurationMs = Math.round(800 / speedMult);
   const strokeWidth = selected ? 3 : data?.cyclic ? 2.5 : 2;
 
   const badgeLabel = data?.condition ? CONDITION_BADGE_LABEL[data.condition] : '';
@@ -76,8 +91,13 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
           <stop offset="0%" stopColor={stroke} stopOpacity={0.2} />
           <stop offset="50%" stopColor={stroke} stopOpacity={1} />
           <stop offset="100%" stopColor={stroke} stopOpacity={0.2} />
-          {running ? (
-            <animate attributeName="x1" values="-100%;100%" dur="1.6s" repeatCount="indefinite" />
+          {showGradient ? (
+            <animate
+              attributeName="x1"
+              values="-100%;100%"
+              dur={`${gradientDurationS}s`}
+              repeatCount="indefinite"
+            />
           ) : null}
         </linearGradient>
       </defs>
@@ -89,21 +109,21 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
           // While running, paint the edge with the sliding gradient on
           // top of the dashed stroke. Once idle/done, fall back to the
           // flat status color.
-          stroke: running ? `url(#${gradientId})` : stroke,
+          stroke: showGradient ? `url(#${gradientId})` : stroke,
           strokeWidth,
-          strokeDasharray: running ? '8 6' : undefined,
-          animation: running ? 'rb-dash 800ms linear infinite' : undefined,
+          strokeDasharray: showDashes ? '8 6' : undefined,
+          animation: showDashes ? `rb-dash ${dashDurationMs}ms linear infinite` : undefined,
           filter: data?.cyclic ? 'drop-shadow(0 0 4px rgba(239,68,68,0.55))' : undefined,
           transition: 'stroke 200ms ease',
         }}
       />
-      {running
+      {showComet
         ? orbs.map(orb => (
             <circle key={orb.key} r={4} fill="var(--rb-orb)">
               <animateMotion
-                dur={`${ORB_DURATION_S}s`}
+                dur={`${orbDurationS}s`}
                 repeatCount="indefinite"
-                begin={`${orb.delay}s`}
+                begin={`${orb.delay * (orbDurationS / ORB_DURATION_S)}s`}
               >
                 <mpath href={`#${pathId}`} />
               </animateMotion>

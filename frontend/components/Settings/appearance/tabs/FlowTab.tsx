@@ -1,76 +1,71 @@
 'use client';
 
-import { Sparkles, Zap as ZapIcon } from 'lucide-react';
+import { Gauge, Sparkles, Wand2, Zap } from 'lucide-react';
 
 import {
   ACCENT_HEX,
-  type AnimationSpeed,
-  type CompletionFlashVariant,
+  FLOW_SPEED_MULT,
+  type FlowFlavor,
   type FlowSpeed,
-  type FlowStyle,
-  type RunningPulseVariant,
   useVisualization,
 } from '@/context/VisualizationContext';
 
-import { FlowStylePreview } from '../previews';
-import { PillGroup, PreviewCard, Section, SliderRow, ToggleRow } from '../primitives';
+import { PillGroup, Section } from '../primitives';
 import type { Strings } from '../strings';
 
+/**
+ * V2 connection-animation controls + a live SVG preview of every
+ * effect the running edge plays in the editor. The preview mirrors
+ * `SmartBezierEdge`'s render pipeline:
+ *   1. Sliding gradient stroke (gradient `<animate>`).
+ *   2. Marching dashes (`stroke-dasharray` + dashoffset animation).
+ *   3. Comet trail — two staggered orbs riding the path.
+ *
+ * All three play together — V2 doesn't expose a "pick a flavor"
+ * toggle (that was V1's `flowStyle`), so the preview shows the
+ * combined effect. Speed picks scale every `dur` proportionally.
+ */
 export function FlowTab({ t }: { t: Strings }) {
   const viz = useVisualization();
   return (
     <div className="space-y-4">
-      <Section icon={<Sparkles size={14} />} title={t.animSpeedLabel} hint={t.animSpeedHint}>
+      <Section icon={<Sparkles size={14} />} title={t.flowPreviewLabel} hint={t.flowPreviewHint}>
+        <FlowPreview
+          enabled={viz.flowAnimationsEnabled}
+          speed={viz.flowSpeed}
+          flavor={viz.flowFlavor}
+          accent={ACCENT_HEX[viz.accentColor]}
+        />
+      </Section>
+
+      <Section icon={<Wand2 size={14} />} title={t.flowFlavorLabel} hint={t.flowFlavorHint}>
         <PillGroup
-          value={viz.animationSpeed}
-          onChange={viz.setAnimationSpeed}
+          value={viz.flowFlavor}
+          onChange={viz.setFlowFlavor}
           options={
             [
-              { id: 'off', label: t.animSpeedOff },
-              { id: 'calm', label: t.animSpeedCalm },
-              { id: 'default', label: t.animSpeedDefault },
-              { id: 'lively', label: t.animSpeedLively },
-            ] as { id: AnimationSpeed; label: string }[]
+              { id: 'all', label: t.flavorAll },
+              { id: 'gradient', label: t.flavorGradient },
+              { id: 'dashes', label: t.flavorDashes },
+              { id: 'comet', label: t.flavorComet },
+              { id: 'off', label: t.flavorOff },
+            ] as { id: FlowFlavor; label: string }[]
           }
         />
       </Section>
 
-      <Section icon={<ZapIcon size={14} />} title={t.flowLabel} hint={t.flowHint}>
-        <ToggleRow
-          label={t.flowEnabled}
-          value={viz.flowAnimationsEnabled}
-          onChange={viz.setFlowAnimationsEnabled}
-          on={t.on}
-          off={t.off}
+      <Section icon={<Zap size={14} />} title={t.flowAnimationsLabel} hint={t.flowAnimationsHint}>
+        <PillGroup
+          value={viz.flowAnimationsEnabled ? 'on' : 'off'}
+          onChange={v => viz.setFlowAnimationsEnabled(v === 'on')}
+          options={[
+            { id: 'on', label: t.on },
+            { id: 'off', label: t.off },
+          ]}
         />
       </Section>
 
-      <Section title={t.flowStyleLabel} hint={t.flowStyleHint}>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          {(
-            [
-              { id: 'orbs', label: t.flowOrbs },
-              { id: 'dashes', label: t.flowDashes },
-              { id: 'pulse', label: t.flowPulse },
-              { id: 'comet', label: t.flowComet },
-              { id: 'particles', label: t.flowParticles },
-              { id: 'gradient', label: t.flowGradient },
-              { id: 'off', label: t.flowOff },
-            ] as { id: FlowStyle; label: string }[]
-          ).map(opt => (
-            <PreviewCard
-              key={opt.id}
-              active={viz.flowStyle === opt.id}
-              label={opt.label}
-              onClick={() => viz.setFlowStyle(opt.id)}
-            >
-              <FlowStylePreview style={opt.id} accent={ACCENT_HEX[viz.accentColor]} />
-            </PreviewCard>
-          ))}
-        </div>
-      </Section>
-
-      <Section title={t.flowSpeedLabel} hint={t.flowSpeedHint}>
+      <Section icon={<Gauge size={14} />} title={t.flowSpeedLabel} hint={t.flowSpeedHint}>
         <PillGroup
           value={viz.flowSpeed}
           onChange={viz.setFlowSpeed}
@@ -83,65 +78,122 @@ export function FlowTab({ t }: { t: Strings }) {
           }
         />
       </Section>
+    </div>
+  );
+}
 
-      {/* Particle size: meaningful whenever a particle-style flow is
-                active. `dashes`, `pulse`, `gradient`, `off` ignore it. */}
-      {(viz.flowStyle === 'particles' || viz.flowStyle === 'comet' || viz.flowStyle === 'orbs') && (
-        <SliderRow
-          title={t.particleSizeLabel}
-          hint={t.particleSizeHint}
-          value={viz.flowParticleSize}
-          min={2}
-          max={6}
-          step={0.5}
-          format={v => `${v.toFixed(1)}px`}
-          onChange={viz.setFlowParticleSize}
-        />
-      )}
+/**
+ * Mini SVG preview of the V2 running edge. Reuses the same animation
+ * primitives `SmartBezierEdge` does (linearGradient with `<animate>`,
+ * a path with marching `stroke-dasharray`, and `<animateMotion>`
+ * orbs) so what the user sees here is exactly what they'll see in
+ * the editor at runtime.
+ */
+function FlowPreview({
+  enabled,
+  speed,
+  flavor,
+  accent,
+}: {
+  enabled: boolean;
+  speed: FlowSpeed;
+  flavor: FlowFlavor;
+  accent: string;
+}) {
+  const mult = FLOW_SPEED_MULT[speed] ?? 1;
+  const gradientDur = (1.6 / mult).toFixed(2);
+  const dashDur = (0.8 / mult).toFixed(2);
+  const orbDur = (1.6 / mult).toFixed(2);
+  const path = 'M20 60 C 100 20, 240 100, 320 60';
+  const pathId = 'flow-preview-path';
+  const gradId = 'flow-preview-grad';
+  const live = enabled && flavor !== 'off';
+  const showGradient = live && (flavor === 'all' || flavor === 'gradient');
+  const showDashes = live && (flavor === 'all' || flavor === 'dashes');
+  const showComet = live && (flavor === 'all' || flavor === 'comet');
 
-      {/* Particle count: only meaningful for `particles` — orbs is
-                always 1, comet has a fixed 4-ghost trail. */}
-      {viz.flowStyle === 'particles' && (
-        <SliderRow
-          title={t.particleCountLabel}
-          hint={t.particleCountHint}
-          value={viz.flowParticleCount}
-          min={1}
-          max={5}
-          step={1}
-          unit="×"
-          onChange={viz.setFlowParticleCount}
-        />
-      )}
+  return (
+    <div className="relative overflow-hidden rounded-md border border-[var(--panel-border)] bg-zinc-950 p-3">
+      <svg viewBox="0 0 340 120" className="h-32 w-full">
+        <defs>
+          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={accent} stopOpacity="0.2" />
+            <stop offset="50%" stopColor={accent} stopOpacity="1" />
+            <stop offset="100%" stopColor={accent} stopOpacity="0.2" />
+            {showGradient ? (
+              <animate
+                attributeName="x1"
+                values="-100%;100%"
+                dur={`${gradientDur}s`}
+                repeatCount="indefinite"
+              />
+            ) : null}
+          </linearGradient>
+        </defs>
 
-      <Section title={t.pulseVariantLabel} hint={t.pulseVariantHint}>
-        <PillGroup
-          value={viz.runningPulseVariant}
-          onChange={viz.setRunningPulseVariant}
-          options={
-            [
-              { id: 'breathe', label: t.pulseBreathe },
-              { id: 'wave', label: t.pulseWave },
-              { id: 'ripple', label: t.pulseRipple },
-              { id: 'none', label: t.pulseNone },
-            ] as { id: RunningPulseVariant; label: string }[]
-          }
+        {/* Source + target node placeholders so the line has anchors. */}
+        <rect
+          x="4"
+          y="48"
+          width="32"
+          height="24"
+          rx="4"
+          fill="#18181b"
+          stroke="#3f3f46"
+          strokeWidth="1"
         />
-      </Section>
+        <rect
+          x="304"
+          y="48"
+          width="32"
+          height="24"
+          rx="4"
+          fill="#18181b"
+          stroke="#3f3f46"
+          strokeWidth="1"
+        />
 
-      <Section title={t.flashVariantLabel} hint={t.flashVariantHint}>
-        <PillGroup
-          value={viz.completionFlashVariant}
-          onChange={viz.setCompletionFlashVariant}
-          options={
-            [
-              { id: 'flash', label: t.flashFlash },
-              { id: 'bounce', label: t.flashBounce },
-              { id: 'none', label: t.flashNone },
-            ] as { id: CompletionFlashVariant; label: string }[]
-          }
-        />
-      </Section>
+        {/* The connection. The 3 effects render or not based on
+            `flavor`: gradient (sliding stroke), dashes (marching
+            offset), comet (orbs riding the path). With `all` they
+            stack the way SmartBezierEdge does in the real editor. */}
+        <path
+          id={pathId}
+          d={path}
+          stroke={showGradient ? `url(#${gradId})` : accent}
+          strokeWidth={2}
+          strokeDasharray={showDashes ? '8 6' : undefined}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {showDashes ? (
+            <animate
+              attributeName="stroke-dashoffset"
+              from="0"
+              to="-28"
+              dur={`${dashDur}s`}
+              repeatCount="indefinite"
+            />
+          ) : null}
+        </path>
+
+        {showComet
+          ? [0, -Number(orbDur) / 2].map((delay, idx) => (
+              <circle key={idx} r={4} fill={accent}>
+                <animateMotion dur={`${orbDur}s`} repeatCount="indefinite" begin={`${delay}s`}>
+                  <mpath href={`#${pathId}`} />
+                </animateMotion>
+              </circle>
+            ))
+          : null}
+      </svg>
+      <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-500">
+        <span className="font-mono uppercase tracking-wider">
+          {live ? `${flavor} × ${speed}` : enabled ? 'flavor: off' : 'animations off'}
+        </span>
+        <span className="font-mono">{live ? `${gradientDur}s / cycle` : 'static'}</span>
+      </div>
     </div>
   );
 }

@@ -20,6 +20,43 @@ import { ACCENT_HEX } from '@/context/VisualizationContext';
    sync with `FlowStyle` unions in VisualizationContext.
    ───────────────────────────────────────────────────────────── */
 
+/**
+ * V2 BaseStepNode look-alike for the LivePreview.
+ *
+ * Carries the exact `rb-node` + `rb-node-header` classes the real
+ * editor uses so the data-* CSS overrides (variant / corners /
+ * header-band) light up here without us having to special-case the
+ * preview. Title + type + a fake config preview line let the user
+ * see "what the node looks like with data" at a glance.
+ */
+export function RealisticNodePreview({
+  accent,
+  title,
+  type,
+}: {
+  accent: string;
+  title: string;
+  type: string;
+}) {
+  return (
+    <div
+      className="rb-node group relative w-[120px] overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 shadow-lg"
+      data-node-type={type.toLowerCase()}
+    >
+      <div
+        className="rb-node-header relative flex items-center gap-1 px-2 py-1 text-[8px] font-semibold uppercase tracking-wide text-white"
+        style={{ background: accent }}
+      >
+        <span className="truncate">{type}</span>
+      </div>
+      <div className="px-2 py-1.5">
+        <div className="truncate text-[9px] font-medium">{title}</div>
+        <div className="truncate font-mono text-[8px] text-zinc-400">https://api.example.com</div>
+      </div>
+    </div>
+  );
+}
+
 export function NodeStylePreview({ style, accent }: { style: NodeStyle; accent: string }) {
   const presets: Record<
     NodeStyle,
@@ -307,119 +344,87 @@ export function LivePreview({ prefs, animsOn }: { prefs: VisualizationPrefs; ani
             </marker>
           </defs>
         )}
-        {prefs.flowStyle === 'gradient' && (
-          <defs>
-            <linearGradient id="live-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={accent} stopOpacity="0.2" />
-              <stop offset="50%" stopColor={accent} stopOpacity="1" />
-              <stop offset="100%" stopColor={accent} stopOpacity="0.2" />
-              {animsOn && (
-                <>
-                  <animate
-                    attributeName="x1"
-                    values="-100%;0%;100%"
-                    dur="1.6s"
-                    repeatCount="indefinite"
-                  />
-                  <animate
-                    attributeName="x2"
-                    values="0%;100%;200%"
-                    dur="1.6s"
-                    repeatCount="indefinite"
-                  />
-                </>
-              )}
-            </linearGradient>
-          </defs>
-        )}
+        {/* V2 connection animations — same gradient + dashes + comet
+            triple as `SmartBezierEdge`, gated by the user's
+            flowFlavor + flowAnimationsEnabled. The path is now drawn
+            HERE between the two RealisticNodePreviews so the live
+            preview shows what a *running* edge looks like in the
+            real editor. */}
+        <defs>
+          <linearGradient id="live-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={accent} stopOpacity="0.2" />
+            <stop offset="50%" stopColor={accent} stopOpacity="1" />
+            <stop offset="100%" stopColor={accent} stopOpacity="0.2" />
+            {animsOn &&
+            prefs.flowAnimationsEnabled &&
+            (prefs.flowFlavor === 'all' || prefs.flowFlavor === 'gradient') ? (
+              <animate attributeName="x1" values="-100%;100%" dur="1.6s" repeatCount="indefinite" />
+            ) : null}
+          </linearGradient>
+        </defs>
         <path
           id="livePath"
           d={path}
-          stroke={prefs.flowStyle === 'gradient' ? 'url(#live-grad)' : accent}
+          stroke={
+            animsOn &&
+            prefs.flowAnimationsEnabled &&
+            (prefs.flowFlavor === 'all' || prefs.flowFlavor === 'gradient')
+              ? 'url(#live-grad)'
+              : accent
+          }
           strokeWidth={strokeWidth}
-          strokeDasharray={prefs.flowStyle === 'dashes' ? '6 7' : dashArray}
+          strokeDasharray={
+            animsOn &&
+            prefs.flowAnimationsEnabled &&
+            (prefs.flowFlavor === 'all' || prefs.flowFlavor === 'dashes')
+              ? '8 6'
+              : dashArray
+          }
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
           markerEnd={prefs.edgeArrowEnabled ? 'url(#preview-arrow)' : undefined}
         >
-          {prefs.flowStyle === 'pulse' && animsOn && (
-            <>
-              <animate
-                attributeName="opacity"
-                values="0.4;1;0.4"
-                dur="1.8s"
-                repeatCount="indefinite"
-              />
-              <animate
-                attributeName="stroke-width"
-                values={`${strokeWidth * 0.7};${strokeWidth * 1.8};${strokeWidth * 0.7}`}
-                dur="1.8s"
-                repeatCount="indefinite"
-              />
-            </>
-          )}
-          {prefs.flowStyle === 'dashes' && animsOn && (
+          {animsOn &&
+          prefs.flowAnimationsEnabled &&
+          (prefs.flowFlavor === 'all' || prefs.flowFlavor === 'dashes') ? (
             <animate
               attributeName="stroke-dashoffset"
               from="0"
-              to="-26"
+              to="-28"
               dur="0.8s"
               repeatCount="indefinite"
             />
-          )}
+          ) : null}
         </path>
-        {prefs.flowStyle === 'orbs' && animsOn && (
-          <circle r={prefs.flowParticleSize} fill={accent}>
-            <animateMotion dur="1.8s" repeatCount="indefinite">
-              <mpath href="#livePath" />
-            </animateMotion>
-          </circle>
-        )}
-        {prefs.flowStyle === 'comet' && animsOn && (
-          <>
-            <circle r={prefs.flowParticleSize * 0.7} fill={accent} opacity={0.3}>
-              <animateMotion dur="1.8s" repeatCount="indefinite" begin="-0.25s">
-                <mpath href="#livePath" />
-              </animateMotion>
-            </circle>
-            <circle r={prefs.flowParticleSize * 0.85} fill={accent} opacity={0.6}>
-              <animateMotion dur="1.8s" repeatCount="indefinite" begin="-0.12s">
-                <mpath href="#livePath" />
-              </animateMotion>
-            </circle>
-            <circle r={prefs.flowParticleSize} fill={accent}>
-              <animateMotion dur="1.8s" repeatCount="indefinite">
-                <mpath href="#livePath" />
-              </animateMotion>
-            </circle>
-          </>
-        )}
-        {prefs.flowStyle === 'particles' &&
-          animsOn &&
-          Array.from({ length: prefs.flowParticleCount }).map((_, i) => (
-            <circle key={i} r={prefs.flowParticleSize * 0.75} fill={accent}>
-              <animateMotion
-                dur="1.8s"
-                repeatCount="indefinite"
-                begin={`-${(i / prefs.flowParticleCount) * 1.8}s`}
-              >
-                <mpath href="#livePath" />
-              </animateMotion>
-            </circle>
-          ))}
+        {animsOn &&
+        prefs.flowAnimationsEnabled &&
+        (prefs.flowFlavor === 'all' || prefs.flowFlavor === 'comet')
+          ? [0, -0.8].map((delay, idx) => (
+              <circle key={idx} r={4} fill={accent}>
+                <animateMotion dur="1.6s" repeatCount="indefinite" begin={`${delay}s`}>
+                  <mpath href="#livePath" />
+                </animateMotion>
+              </circle>
+            ))
+          : null}
       </svg>
+      {/* WYSIWYG V2 nodes — same `.rb-node` class as BaseStepNode so the
+          user's variant / corners / header-band picks apply here in the
+          preview the moment they change them in the Nodes tab. The
+          surrounding CSS rules in globals.css gate everything by
+          data-attrs on <html>. */}
       <div
-        className="absolute left-4 top-1/2"
-        style={{ width: 56, transform: `translateY(-50%) scale(${prefs.nodeScale})` }}
+        className="absolute left-3 top-1/2 -translate-y-1/2"
+        style={{ transform: `translateY(-50%) scale(${prefs.nodeScale})` }}
       >
-        <NodeStylePreview style={prefs.nodeStyle} accent={accent} />
+        <RealisticNodePreview accent={accent} title="Fetch order" type="HTTP" />
       </div>
       <div
-        className="absolute right-4 top-1/2"
-        style={{ width: 56, transform: `translateY(-50%) scale(${prefs.nodeScale})` }}
+        className="absolute right-3 top-1/2 -translate-y-1/2"
+        style={{ transform: `translateY(-50%) scale(${prefs.nodeScale})` }}
       >
-        <NodeStylePreview style={prefs.nodeStyle} accent={accent} />
+        <RealisticNodePreview accent={accent} title="Notify Slack" type="SLACK" />
       </div>
     </div>
   );

@@ -552,6 +552,60 @@ html {
   --node-radius: 8px;
   --node-min-width: 200px;
   --editor-glow: 1;
+  --font-scale: 1;
+}
+
+/* V2 font-scale: multiplies the root font-size so every rem-based
+   text size in Tailwind (text-xs / text-sm / text-base) inherits.
+   Set by `applyToDocument` from VisualizationPrefs.fontScale. */
+html[data-font-scale] {
+  font-size: calc(var(--font-scale, 1) * 16px);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   V2 BaseStepNode (`.rb-node`) personalization.
+   The selectors below override the Tailwind defaults BaseStepNode
+   uses, gated by data-attributes set in `applyToDocument` from the
+   user's Appearance prefs. Single source of truth lives in
+   `context/visualization/dom.ts`.
+   ───────────────────────────────────────────────────────────── */
+
+/* Corner radius. Sharp = no rounding, rounded = default (Tailwind
+   rounded-lg ≈ 0.5rem), extra-rounded = pill-style. */
+html[data-node-corners='sharp'] .rb-node {
+  border-radius: 0;
+}
+html[data-node-corners='extra-rounded'] .rb-node {
+  border-radius: 1.5rem;
+}
+
+/* Variant: minimal — kill the drop shadow, soften the border. */
+html[data-node-variant='minimal'] .rb-node {
+  box-shadow: none;
+  border-color: color-mix(in oklab, var(--rb-node-border) 60%, transparent);
+}
+
+/* Variant: card — heavy elevation, no border. */
+html[data-node-variant='card'] .rb-node {
+  border-color: transparent;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.45),
+    0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Variant: outlined — 2px accent border, no fill, no shadow. */
+html[data-node-variant='outlined'] .rb-node {
+  background: transparent;
+  border-width: 2px;
+  border-color: var(--rb-node-selected);
+  box-shadow: none;
+}
+
+/* Header band toggle — collapse the colored category band so the
+   node looks like a flat card. We zero its height and hide overflow
+   so the rounded-t corners on the body still work. */
+html[data-node-header-band='off'] .rb-node-header {
+  display: none;
 }
 
 html[data-density='compact'] {

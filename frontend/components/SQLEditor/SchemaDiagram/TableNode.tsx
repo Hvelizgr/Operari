@@ -37,13 +37,17 @@ function ColumnRow({
   diffStatus?: 'added' | 'removed' | 'changed' | 'unchanged';
 }) {
   const top = HEADER_HEIGHT + index * ROW_HEIGHT + ROW_HEIGHT / 2;
+  // Diff tints reuse the user's status colors via the same CSS vars
+  // the editor edges read (`--rb-edge-success/failed/running`). The
+  // user's Appearance choices propagate here for free without this
+  // component having to consume the visualization context.
   const rowTint =
     diffStatus === 'added'
-      ? 'bg-emerald-500/10'
+      ? 'line-through-none bg-[color-mix(in_oklab,var(--rb-edge-success)_15%,transparent)]'
       : diffStatus === 'removed'
-        ? 'bg-rose-500/10 line-through opacity-70'
+        ? 'line-through opacity-70 bg-[color-mix(in_oklab,var(--rb-edge-failed)_15%,transparent)]'
         : diffStatus === 'changed'
-          ? 'bg-amber-500/10'
+          ? 'bg-[color-mix(in_oklab,var(--rb-edge-running)_15%,transparent)]'
           : '';
   return (
     <div
@@ -100,14 +104,19 @@ function TableNodeComponent({ data, selected }: NodeProps<SchemaNode>) {
   const diffStatus = diff?.status;
   const columnDiffByName = new Map(diff?.columns.map(c => [c.name, c.status]) ?? []);
 
+  // Border + ring colors come from the same V2 CSS vars the runbook
+  // editor uses, so any Appearance accent / status overrides apply
+  // here automatically. `--rb-node-selected` carries the accent
+  // color the user picked; the per-status edge vars carry their
+  // status overrides.
   const ringClass = selected
-    ? 'border-emerald-400 ring-2 ring-emerald-400/30'
+    ? 'border-[color:var(--rb-node-selected)] ring-2 ring-[color:var(--rb-node-selected)]/30'
     : diffStatus === 'added'
-      ? 'border-emerald-500 ring-1 ring-emerald-500/30'
+      ? 'border-[color:var(--rb-edge-success)] ring-1 ring-[color:var(--rb-edge-success)]/30'
       : diffStatus === 'removed'
-        ? 'border-rose-500 ring-1 ring-rose-500/30'
+        ? 'border-[color:var(--rb-edge-failed)] ring-1 ring-[color:var(--rb-edge-failed)]/30'
         : diffStatus === 'changed'
-          ? 'border-amber-500 ring-1 ring-amber-500/30'
+          ? 'border-[color:var(--rb-edge-running)] ring-1 ring-[color:var(--rb-edge-running)]/30'
           : 'border-zinc-700';
 
   return (
@@ -129,7 +138,10 @@ function TableNodeComponent({ data, selected }: NodeProps<SchemaNode>) {
           className="flex items-center gap-1.5 text-zinc-300 transition-colors hover:text-white"
         >
           {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-          <Icon size={12} className={table.isView ? 'text-indigo-300' : 'text-emerald-400'} />
+          <Icon
+            size={12}
+            className={table.isView ? 'text-indigo-300' : 'text-[color:var(--rb-node-selected)]'}
+          />
           <span className="truncate text-xs font-semibold text-white">{table.name}</span>
         </button>
         <div className="flex items-center gap-1.5 text-[9px] uppercase tracking-wide text-zinc-500">

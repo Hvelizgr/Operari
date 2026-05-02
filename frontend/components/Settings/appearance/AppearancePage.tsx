@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   Grid3x3,
   LayoutDashboard,
+  Monitor,
   Palette,
   Spline,
   Zap as ZapIcon,
@@ -18,12 +19,14 @@ import { LivePreview } from './previews';
 import { TabButton } from './primitives';
 import { STRINGS } from './strings';
 import { CanvasTab } from './tabs/CanvasTab';
+import { ColorsTab } from './tabs/ColorsTab';
 import { ConnectionsTab } from './tabs/ConnectionsTab';
+import { DisplayTab } from './tabs/DisplayTab';
 import { FlowTab } from './tabs/FlowTab';
 import { NodesTab } from './tabs/NodesTab';
 import { PresetsTab } from './tabs/PresetsTab';
 
-type TabId = 'nodes' | 'connections' | 'flow' | 'canvas' | 'presets';
+type TabId = 'display' | 'nodes' | 'colors' | 'connections' | 'flow' | 'canvas' | 'presets';
 
 /**
  * Shell for the Appearance page. Holds the sticky live preview + tab
@@ -34,7 +37,7 @@ type TabId = 'nodes' | 'connections' | 'flow' | 'canvas' | 'presets';
 export default function AppearancePage({ lang }: { lang: 'en' | 'es' }) {
   const t = STRINGS[lang];
   const viz = useVisualization();
-  const [tab, setTab] = useState<TabId>('nodes');
+  const [tab, setTab] = useState<TabId>('display');
 
   return (
     <div className="flex-1 overflow-y-auto bg-[var(--app-bg)] text-[var(--text-primary)]">
@@ -60,11 +63,25 @@ export default function AppearancePage({ lang }: { lang: 'en' | 'es' }) {
           <LivePreview prefs={viz} animsOn={viz.animationSpeed !== 'off'} />
           <div className="mt-4 flex gap-1 overflow-x-auto border-b border-[var(--panel-border)]">
             <TabButton
+              icon={<Monitor size={13} />}
+              active={tab === 'display'}
+              onClick={() => setTab('display')}
+            >
+              {t.tabDisplay}
+            </TabButton>
+            <TabButton
               icon={<BoxIcon size={13} />}
               active={tab === 'nodes'}
               onClick={() => setTab('nodes')}
             >
               {t.tabNodes}
+            </TabButton>
+            <TabButton
+              icon={<Palette size={13} />}
+              active={tab === 'colors'}
+              onClick={() => setTab('colors')}
+            >
+              {t.tabColors}
             </TabButton>
             <TabButton
               icon={<Spline size={13} />}
@@ -97,7 +114,9 @@ export default function AppearancePage({ lang }: { lang: 'en' | 'es' }) {
           </div>
         </div>
 
+        {tab === 'display' && <DisplayTab t={t} />}
         {tab === 'nodes' && <NodesTab t={t} />}
+        {tab === 'colors' && <ColorsTab t={t} />}
         {tab === 'connections' && <ConnectionsTab t={t} />}
         {tab === 'flow' && <FlowTab t={t} />}
         {tab === 'canvas' && <CanvasTab t={t} />}

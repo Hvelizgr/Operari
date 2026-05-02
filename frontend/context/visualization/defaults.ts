@@ -52,6 +52,23 @@ export const VISUALIZATION_DEFAULTS: VisualizationPrefs = {
   bgGridSize: 20,
   bgGridOpacity: 0.55,
   minimapPosition: 'bottom-right',
+  // V2 additions
+  theme: 'dark',
+  fontScale: 'md',
+  reducedMotion: false,
+  nodeVariant: 'default',
+  nodeCorners: 'rounded',
+  nodeHeaderBand: true,
+  flowFlavor: 'all',
+};
+
+/** Font-scale multipliers applied as `--font-scale` on <html>.
+ *  CSS reads `font-size: calc(var(--font-scale, 1) * 1rem)` etc. */
+export const FONT_SCALE_MULT: Record<'sm' | 'md' | 'lg' | 'xl', number> = {
+  sm: 0.875,
+  md: 1,
+  lg: 1.125,
+  xl: 1.25,
 };
 
 /** Hex values keyed by AccentColor. Consumed by applyToDocument (runtime),

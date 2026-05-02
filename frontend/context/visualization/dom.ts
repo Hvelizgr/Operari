@@ -1,4 +1,10 @@
-import { ACCENT_HEX, ANIMATION_SPEED_MULT, FLOW_SPEED_MULT, NODE_SHADOW_HEX } from './defaults';
+import {
+  ACCENT_HEX,
+  ANIMATION_SPEED_MULT,
+  FLOW_SPEED_MULT,
+  FONT_SCALE_MULT,
+  NODE_SHADOW_HEX,
+} from './defaults';
 import type { VisualizationPrefs } from './types';
 
 /**
@@ -75,6 +81,52 @@ export function applyToDocument(prefs: VisualizationPrefs): void {
   // Canvas grid knobs.
   html.style.setProperty('--grid-size', `${prefs.bgGridSize}px`);
   html.style.setProperty('--grid-opacity', String(prefs.bgGridOpacity));
+
+  // ---------------------------------------------------------------
+  // V2 React Flow editor bridge — translate the V1-shaped prefs into
+  // the `--rb-*` / `--op-*` vars the V2 canvas + BaseStepNode read
+  // from. Keeps the user's accent + status overrides effective on
+  // the React Flow editor without consuming the context inside every
+  // node component.
+  // ---------------------------------------------------------------
+
+  // Accent → V2 selected ring + node muted text accent fallback.
+  const accentHex = ACCENT_HEX[prefs.accentColor];
+  html.style.setProperty('--rb-node-selected', accentHex);
+
+  // Status colors → V2 edge stroke vars. When the user clears an
+  // override (null) we removeProperty so the default (--op-*)
+  // resolves through the cascade.
+  bridgeStatusVar(html, '--rb-edge-running', prefs.statusColors.running);
+  bridgeStatusVar(html, '--rb-edge-success', prefs.statusColors.success);
+  bridgeStatusVar(html, '--rb-edge-failed', prefs.statusColors.failed);
+  bridgeStatusVar(html, '--rb-edge-skipped', prefs.statusColors.idle);
+
+  // V2 personalization additions.
+  html.setAttribute('data-theme', prefs.theme);
+  html.setAttribute('data-font-scale', prefs.fontScale);
+  html.style.setProperty('--font-scale', String(FONT_SCALE_MULT[prefs.fontScale] ?? 1));
+
+  // Node shape / variant selectors. CSS rules in globals.css read
+  // these and override `.rb-node` styling without each node having
+  // to consume the visualization context.
+  html.setAttribute('data-node-variant', prefs.nodeVariant);
+  html.setAttribute('data-node-corners', prefs.nodeCorners);
+  html.setAttribute('data-node-header-band', prefs.nodeHeaderBand ? 'on' : 'off');
+  html.setAttribute('data-flow-flavor', prefs.flowFlavor);
+
+  // Reduced-motion is an a11y override on top of animationSpeed: when
+  // on, force every animation off via the existing data-anim hook so
+  // CSS rules that already gate on `html[data-anim="off"]` apply.
+  if (prefs.reducedMotion) {
+    html.setAttribute('data-anim', 'off');
+    html.setAttribute('data-anim-speed', 'off');
+  }
+}
+
+function bridgeStatusVar(html: HTMLElement, name: string, value: string | null): void {
+  if (value) html.style.setProperty(name, value);
+  else html.style.removeProperty(name);
 }
 
 /** Apply a status color CSS var. Uses removeProperty() when value is

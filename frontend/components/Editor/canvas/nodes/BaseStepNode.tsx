@@ -271,10 +271,13 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
         data-status={status}
         data-next-in-path={isNextInPath || undefined}
       >
-        {/* Header — colored band + per-type pattern + secondary chips */}
+        {/* Header — colored band + per-type pattern + secondary chips.
+            `rb-node-header` class lets globals.css gate it via
+            `html[data-node-header-band="off"]` for the user's
+            Appearance preference. */}
         <div
           className={[
-            'relative flex items-center justify-between gap-2 rounded-t-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white',
+            'rb-node-header relative flex items-center justify-between gap-2 rounded-t-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white',
             def?.color ?? 'bg-slate-700',
           ].join(' ')}
         >
