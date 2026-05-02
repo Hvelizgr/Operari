@@ -29,6 +29,24 @@ export type RfEdgeData = {
    *  operator can see what's queued next. */
   status?: 'idle' | 'running' | 'success' | 'failed' | 'skipped' | 'yet-to-run';
   cyclic?: boolean;
+  /**
+   * How many times this hop retried during the most recent run. The
+   * edge renders a small `↻ ×N` chip when > 0, surfacing flakiness at
+   * the *hop* level (vs. the per-node retry policy that lives on
+   * `RetryPolicy`). Populated by the backend from execution events;
+   * absent / 0 means the chip stays hidden. SRE-tailored signal —
+   * neither n8n nor Make show retries on edges.
+   */
+  retries?: number;
+  /**
+   * Cross-environment marker. When the source's connected account is
+   * in a different env than the target's (e.g. prod → staging,
+   * us-east-1 → eu-west-1), the engine fills in both labels and the
+   * edge renders chevron-styled with the labels at each end. Catches
+   * accidental fanouts during runbook authoring. Optional — most
+   * edges leave this unset.
+   */
+  crossEnv?: { source: string; target: string };
 };
 
 export type RfNode = Node<RfNodeData>;

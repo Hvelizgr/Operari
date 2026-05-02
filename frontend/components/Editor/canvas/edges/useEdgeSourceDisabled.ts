@@ -44,3 +44,28 @@ export function useSourceIsMultiOutput(sourceId: string): boolean {
     return (def?.outputs?.length ?? 1) > 1;
   });
 }
+
+/**
+ * Step types whose runtime semantics include "halt and wait for an
+ * external signal" (operator approval, scheduled wakeup, manual
+ * input). Mirrors the same set the BaseStepNode uses to draw the
+ * yellow halt-point stripe — kept in sync intentionally so the node
+ * stripe and the edge lock-bead always tell the same story. The
+ * legacy `Suspend` type stays in the set even though the canonical
+ * type-string casing is unsettled across the codebase.
+ */
+const HALT_POINT_TYPES = new Set<string>(['approval', 'wait', 'Suspend']);
+
+/**
+ * True when the target node of an edge is a halt-point (approval /
+ * wait / Suspend). Edges entering a halt-point render a lock-bead at
+ * the target end + amber tint so an SRE scanning the canvas sees
+ * "this is where the chain pauses" without having to read step types.
+ * Pairs with the existing halt-point stripe on the node side.
+ */
+export function useTargetIsHaltPoint(targetId: string): boolean {
+  return useStore(s => {
+    const node = s.nodeLookup.get(targetId) as RfNode | undefined;
+    return node?.type ? HALT_POINT_TYPES.has(node.type) : false;
+  });
+}

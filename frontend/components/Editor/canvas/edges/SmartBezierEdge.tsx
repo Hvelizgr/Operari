@@ -1,6 +1,7 @@
 'use client';
 
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getBezierPath } from '@xyflow/react';
+import { Lock, Repeat } from 'lucide-react';
 import { memo, useMemo } from 'react';
 
 import { FLOW_SPEED_MULT, useVisualization } from '@/context/VisualizationContext';
@@ -9,7 +10,11 @@ import type { RfEdge } from '@/lib/canvas/adapter';
 import { EdgeDeleteButton } from './EdgeDeleteButton';
 import { EdgeInsertButton } from './EdgeInsertButton';
 import { isRunning, resolveEdgeStroke } from './edgeStyle';
-import { useEdgeSourceDisabled, useSourceIsMultiOutput } from './useEdgeSourceDisabled';
+import {
+  useEdgeSourceDisabled,
+  useSourceIsMultiOutput,
+  useTargetIsHaltPoint,
+} from './useEdgeSourceDisabled';
 
 const CONDITION_BADGE_LABEL: Record<NonNullable<RfEdge['data']>['condition'] & string, string> = {
   complete: '',
@@ -56,6 +61,23 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
   // fired" without opening the run timeline. Only renders for
   // multi-output sources whose status flipped to success.
   const branchTakenBadge = sourceMultiOutput && data?.status === 'success';
+  // Approval-gated edge: anytime the target is a halt-point (approval,
+  // wait, Suspend), we paint the edge amber and put a lock-bead near
+  // the target end so the operator's eye lands on "this is where the
+  // chain pauses". Pairs with the halt-point stripe on the node side.
+  const targetIsHaltPoint = useTargetIsHaltPoint(target);
+  // Retry stitch: when the engine recorded N retries on this hop
+  // during the most recent run, surface that as a small `↻ ×N` chip.
+  // Backend writes `data.retries` from execution events; absent / 0
+  // means the chip stays hidden.
+  const retryCount = data?.retries ?? 0;
+  // Cross-environment edge: when source and target connected accounts
+  // sit in different envs (prod → staging, region-A → region-B), the
+  // engine fills `data.crossEnv = { source, target }` and the edge
+  // renders chevron-styled with the env labels. Catches accidental
+  // fanouts during runbook authoring. No-op when the metadata is
+  // absent — graceful fallback to default styling.
+  const crossEnv = data?.crossEnv;
 
   const [path, labelX, labelY] = getBezierPath({
     sourceX,
@@ -67,7 +89,15 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
     curvature: 0.4,
   });
 
-  const stroke = sourceDisabled ? 'var(--rb-edge-disabled)' : resolveEdgeStroke(data);
+  // Stroke priority order: cyclic > sourceDisabled > halt-point amber
+  // tint > status (running/success/failed) > condition. The earlier
+  // cases override the later because they answer more urgent
+  // questions ("this hangs"  / "this won't run" / "this pauses").
+  const stroke = sourceDisabled
+    ? 'var(--rb-edge-disabled)'
+    : targetIsHaltPoint && data?.status !== 'running' && data?.status !== 'failed'
+      ? 'var(--op-gold, #f5b945)'
+      : resolveEdgeStroke(data);
   // Killing the running animation when the source is disabled avoids
   // a confusing "muted edge with comet" state during a half-run.
   const isRunningRaw = isRunning(data) && !sourceDisabled;
@@ -194,6 +224,52 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
           `.rb-edge-insert-trigger` opacity rule in globals.css. */}
       {!sourceDisabled ? (
         <EdgeInsertButton edgeId={id} sourceId={source} targetId={target} x={labelX} y={labelY} />
+      ) : null}
+      {/* Tier C signals — derived from edge data + target type.
+          All three render at distinct positions to avoid stacking on
+          the midpoint (which already hosts condition badge / delete /
+          insert). */}
+      {targetIsHaltPoint && !sourceDisabled ? (
+        <EdgeLabelRenderer>
+          <div
+            className="pointer-events-none absolute flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-white shadow"
+            style={{
+              // Anchor the lock 18px before the target along a straight
+              // line approximation. For a curve this lands "near the
+              // target" without computing the actual tangent.
+              left: targetX - (targetX - sourceX) * 0.08,
+              top: targetY - (targetY - sourceY) * 0.08,
+              background: 'var(--op-gold, #f5b945)',
+            }}
+            title="Connection enters a halt-point — runs pause here for an external signal"
+          >
+            <Lock size={11} />
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+      {retryCount > 0 ? (
+        <EdgeLabelRenderer>
+          <div
+            className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 font-mono text-[9px] text-amber-200 shadow"
+            style={{ left: labelX, top: labelY + 18 }}
+            title={`This hop retried ${retryCount}× during the most recent run`}
+          >
+            <Repeat size={10} />×{retryCount}
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+      {crossEnv ? (
+        <EdgeLabelRenderer>
+          <div
+            className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-md bg-black/80 px-1.5 py-0.5 font-mono text-[9px] text-amber-200 shadow"
+            style={{ left: labelX, top: labelY - 28 }}
+            title={`Crosses environments — ${crossEnv.source} → ${crossEnv.target}`}
+          >
+            <span>{crossEnv.source}</span>
+            <span className="text-white/60">→</span>
+            <span>{crossEnv.target}</span>
+          </div>
+        </EdgeLabelRenderer>
       ) : null}
     </>
   );

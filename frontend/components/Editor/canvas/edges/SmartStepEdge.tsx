@@ -1,6 +1,7 @@
 'use client';
 
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getSmoothStepPath } from '@xyflow/react';
+import { Lock, Repeat } from 'lucide-react';
 import { memo, useMemo } from 'react';
 
 import type { RfEdge } from '@/lib/canvas/adapter';
@@ -8,7 +9,11 @@ import type { RfEdge } from '@/lib/canvas/adapter';
 import { EdgeDeleteButton } from './EdgeDeleteButton';
 import { EdgeInsertButton } from './EdgeInsertButton';
 import { isRunning, resolveEdgeStroke } from './edgeStyle';
-import { useEdgeSourceDisabled, useSourceIsMultiOutput } from './useEdgeSourceDisabled';
+import {
+  useEdgeSourceDisabled,
+  useSourceIsMultiOutput,
+  useTargetIsHaltPoint,
+} from './useEdgeSourceDisabled';
 
 /**
  * Orthogonal step edge: same status / animation language as
@@ -46,8 +51,11 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
   } = props;
   const sourceDisabled = useEdgeSourceDisabled(source);
   const sourceMultiOutput = useSourceIsMultiOutput(source);
+  const targetIsHaltPoint = useTargetIsHaltPoint(target);
   const skippedLastRun = data?.status === 'skipped';
   const branchTakenBadge = sourceMultiOutput && data?.status === 'success';
+  const retryCount = data?.retries ?? 0;
+  const crossEnv = data?.crossEnv;
 
   const [path, labelX, labelY] = getSmoothStepPath({
     sourceX,
@@ -60,7 +68,11 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
     offset: 16,
   });
 
-  const stroke = sourceDisabled ? 'var(--rb-edge-disabled)' : resolveEdgeStroke(data);
+  const stroke = sourceDisabled
+    ? 'var(--rb-edge-disabled)'
+    : targetIsHaltPoint && data?.status !== 'running' && data?.status !== 'failed'
+      ? 'var(--op-gold, #f5b945)'
+      : resolveEdgeStroke(data);
   const running = isRunning(data) && !sourceDisabled;
   const strokeWidth = selected ? 3 : data?.cyclic ? 2.5 : 2;
 
@@ -151,6 +163,45 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
       {selected ? <EdgeDeleteButton edgeId={id} x={labelX} y={labelY} /> : null}
       {!sourceDisabled ? (
         <EdgeInsertButton edgeId={id} sourceId={source} targetId={target} x={labelX} y={labelY} />
+      ) : null}
+      {targetIsHaltPoint && !sourceDisabled ? (
+        <EdgeLabelRenderer>
+          <div
+            className="pointer-events-none absolute flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-white shadow"
+            style={{
+              left: targetX - (targetX - sourceX) * 0.08,
+              top: targetY - (targetY - sourceY) * 0.08,
+              background: 'var(--op-gold, #f5b945)',
+            }}
+            title="Connection enters a halt-point — runs pause here for an external signal"
+          >
+            <Lock size={11} />
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+      {retryCount > 0 ? (
+        <EdgeLabelRenderer>
+          <div
+            className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 font-mono text-[9px] text-amber-200 shadow"
+            style={{ left: labelX, top: labelY + 18 }}
+            title={`This hop retried ${retryCount}× during the most recent run`}
+          >
+            <Repeat size={10} />×{retryCount}
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+      {crossEnv ? (
+        <EdgeLabelRenderer>
+          <div
+            className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-md bg-black/80 px-1.5 py-0.5 font-mono text-[9px] text-amber-200 shadow"
+            style={{ left: labelX, top: labelY - 28 }}
+            title={`Crosses environments — ${crossEnv.source} → ${crossEnv.target}`}
+          >
+            <span>{crossEnv.source}</span>
+            <span className="text-white/60">→</span>
+            <span>{crossEnv.target}</span>
+          </div>
+        </EdgeLabelRenderer>
       ) : null}
     </>
   );
