@@ -42,6 +42,8 @@ import {
 } from './canvas/edgeTypes';
 import { nodeTypes } from './canvas/nodeTypes';
 import EditorRunConsole from './EditorRunConsole';
+import { SurfaceBoundary } from '@/components/ui/SurfaceBoundary';
+
 import { detectActiveStep, EditorHelpDrawer } from './EditorHelpDrawer';
 import Inspector from './Inspector';
 import Palette from './Palette';
@@ -482,8 +484,16 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
           onClose={() => setEdgeMenu(null)}
         />
       ) : null}
-      {!embedMode ? <Inspector lang={lang} /> : null}
-      {!embedMode ? <EditorRunConsole lang={lang} /> : null}
+      {!embedMode ? (
+        <SurfaceBoundary label="Inspector" resetKeys={[runbookId]}>
+          <Inspector lang={lang} />
+        </SurfaceBoundary>
+      ) : null}
+      {!embedMode ? (
+        <SurfaceBoundary label="Run console" resetKeys={[executionId]}>
+          <EditorRunConsole lang={lang} />
+        </SurfaceBoundary>
+      ) : null}
       {!embedMode ? (
         <EditorHelpDrawer
           open={helpOpen}

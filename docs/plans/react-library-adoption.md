@@ -346,3 +346,13 @@ user-visible features yet, but every subsequent item gets faster.
   6 buttons (Run from here, Duplicate, Disable/Enable, breakpoint,
   Detach, Delete) — `title=` removed in favor of the bubble. Provider
   delays: 200ms hover, 300ms skip-delay across siblings.
+- 2026-05-02 — `react-error-boundary` installed +
+  `components/ui/SurfaceBoundary.tsx` wrapper created. Defaults to a
+  compact dark fallback with a Retry button that calls
+  `resetErrorBoundary`; on error fires a `toast.error` via sonner so
+  the operator notices even if the fallback is below the fold. First
+  surfaces wrapped: Inspector + EditorRunConsole in `Canvas.tsx`
+  (resetKeys: runbookId / executionId so a fresh load gives the
+  subtree another shot). Also added Next.js `error.tsx` for
+  `/sql-editor` and `/http-tester` to match the `/editor` and
+  `/dashboard` ones already in the tree.
