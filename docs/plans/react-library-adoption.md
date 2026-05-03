@@ -643,3 +643,39 @@ complete rather than directionally complete.
 Source map upload still deferred — it needs a Sentry auth token
 plus the `@sentry/nextjs` webpack plugin in `next.config.ts`,
 which is a deploy-infra concern rather than an SDK adoption gap.
+
+## Sprint 5 — first on-demand entry (2026-05-03)
+
+Sprint 5 was framed as "trigger required" — adopt only when concrete
+pain shows up. Two candidates were re-evaluated:
+
+- `xstate` for `editorStore.status`: rejected. The status field is a
+  5-state enum with one consumer (`useAutosave`); replacing 4 if/else
+  branches with a state machine plus ~14KB gz of dependencies fails
+  the cost/benefit test. xstate stays parked until a real transition
+  bug surfaces in `useExecutionSocket` (the original trigger).
+- `react-dropzone` for plugin install UX: accepted. The Plugin
+  install backend ticket is an existing 🟠 item in `pendiente.md`,
+  and tarball upload is the textbook react-dropzone use case.
+
+**Shipped:**
+
+- `react-dropzone` installed (~5KB gz). Created
+  `components/Settings/PluginsPanel.tsx`: drag-and-drop tarball
+  upload, client-side validation (extension + 10MB cap, MIME-type
+  agnostic via `validator` prop because browsers report tarballs
+  inconsistently as `application/x-gzip` / `application/gzip` /
+  empty), installed-plugins list with delete affordance, sonner
+  toasts for success / failure / not-implemented, admin-only gate.
+- Mounted in `SettingsPage` as a new `Plugins` section between
+  Connected accounts and Plan & billing.
+- The backend endpoints (`POST /api/tenants/plugins/install`,
+  `GET /api/tenants/plugins`, `DELETE /api/tenants/plugins/:slug`)
+  are not yet implemented per ADR 0006. The panel handles the
+  501 / 404 responses by surfacing a descriptive toast so admins
+  see the affordance + the contract today; when the backend lands,
+  no front-end change is needed.
+
+Other Sprint 5 candidates (`@git-diff-view/react`, `@react-pdf/renderer`,
+`tremor`, `posthog-js`, `@microsoft/fetch-event-source`) stay parked —
+none of their triggers have fired.

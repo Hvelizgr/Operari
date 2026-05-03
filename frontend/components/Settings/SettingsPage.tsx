@@ -6,6 +6,7 @@ import {
   Grid3x3,
   Languages,
   Link2,
+  Package,
   Palette,
   Save,
   Settings as SettingsIcon,
@@ -24,6 +25,7 @@ import { BillingPanel } from './BillingPanel';
 import ConnectedAccountsPanel from './ConnectedAccountsPanel';
 import EditorPrefsPanel from './EditorPrefsPanel';
 import LineagePrefsPanel from './LineagePrefsPanel';
+import PluginsPanel from './PluginsPanel';
 import SqlPrefsPanel from './SqlPrefsPanel';
 import { DangerZone } from './DangerZone';
 import { TeamPanel } from './TeamPanel';
@@ -234,6 +236,22 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
           title={lang === 'es' ? 'Cuentas conectadas' : 'Connected accounts'}
         >
           <ConnectedAccountsPanel lang={lang} />
+        </Section>
+
+        {/* Tenant-scoped plugins. The runtime layout + registry are
+            already shipped per ADR 0006 — the install endpoint stub
+            returns 501 today; the panel surfaces the upload UX so
+            admins see the affordance and the contract is documented. */}
+        <Section
+          icon={<Package size={16} />}
+          title={lang === 'es' ? 'Plugins' : 'Plugins'}
+          hint={
+            lang === 'es'
+              ? 'Subí plugins custom (.tar.gz) para extender este workspace. Solo admins.'
+              : 'Upload custom plugins (.tar.gz) to extend this workspace. Admins only.'
+          }
+        >
+          <PluginsPanel lang={lang} />
         </Section>
 
         {/* Plan & billing */}
