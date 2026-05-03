@@ -44,6 +44,64 @@ const compactPreview = (raw: string): string => {
     : firstLine;
 };
 
+/**
+ * Field-name chips shown on the collapsed card body. The intent is
+ * "show the operator WHICH properties the node accepts and which are
+ * already configured, without leaking the values" — none of the
+ * leading editors do this (they all leak at least one value), but
+ * it's the per-glance teaching aid Operari runs aim for.
+ *
+ * Keys are the most operator-relevant fields per type. Order in the
+ * array drives chip render order. A chip renders FILLED when the
+ * config has a non-empty / non-default value for that key, OUTLINED
+ * otherwise — so the operator sees which fields are still default.
+ */
+export const PRIMARY_FIELDS: Record<string, string[]> = {
+  shell: ['command', 'shell', 'timeout'],
+  ssh: ['host', 'username', 'command'],
+  'operari.httpRequest': ['method', 'url', 'body'],
+  'operari.database': ['operation', 'credentialId', 'query'],
+  'operari.postgres': ['operation', 'credentialId', 'query'],
+  'operari.cron': ['expression'],
+  'operari.if': ['field', 'operator', 'value'],
+  Condition: ['field', 'operator', 'value'],
+  Switch: ['field', 'cases'],
+  Loop: ['itemsPath', 'items'],
+  'operari.loop': ['itemsPath', 'items'],
+  approval: ['message', 'approvers'],
+  notify: ['channel', 'webhookUrl', 'message'],
+  wait: ['durationMs'],
+  kubectl: ['command', 'namespace', 'kubeconfigSecret'],
+  Email: ['to', 'subject', 'body'],
+  StoreGet: ['bucketName', 'key'],
+  StoreSet: ['bucketName', 'key', 'value'],
+  Transform: ['mapping'],
+  runbook: ['runbookId', 'inputs', 'waitFor'],
+  'github.commitFile': ['repo', 'branch', 'path'],
+};
+
+/**
+ * True when the operator has set a non-default / non-empty value on
+ * `field` of `config`. Used by the field-name chip strip on
+ * BaseStepNode to render the chip filled vs outlined. Treats empty
+ * strings, null/undefined, empty arrays, and the literal string
+ * `"{}"` (default for JSON-shaped fields) as "not configured".
+ */
+export const isFieldConfigured = (
+  config: Record<string, unknown> | undefined,
+  field: string
+): boolean => {
+  if (!config) return false;
+  const v = config[field];
+  if (v == null) return false;
+  if (typeof v === 'string') return v.trim().length > 0 && v.trim() !== '{}' && v.trim() !== '[]';
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'object') return Object.keys(v).length > 0;
+  if (typeof v === 'number') return v !== 0;
+  if (typeof v === 'boolean') return v;
+  return false;
+};
+
 /** Extract a one-line preview from a node config. */
 export const resolvePreview = (
   type: string,
@@ -77,9 +135,11 @@ export const resolveTags = (config: Record<string, unknown> | undefined): string
 
 /**
  * Secondary chip(s) shown next to the node-type label in the header.
- * Surfaces type-specific operational context: the HTTP verb, the SSH
- * destination, the cron expression. Returns an empty array when the
- * type doesn't have a meaningful secondary signal.
+ * Surfaces type-specific operational context — the operation verb,
+ * the destination, the count — at-a-glance without expanding the
+ * card. The intent is "what does this node DO" not "what value does
+ * it use", so chips lean on operations / counts / shapes rather
+ * than full values; long values get truncated.
  */
 export const resolveSecondaryChips = (
   type: string,
@@ -106,6 +166,84 @@ export const resolveSecondaryChips = (
     case 'operari.cron': {
       const expr = typeof config.expression === 'string' ? config.expression : null;
       return expr ? [expr] : [];
+    }
+    case 'operari.if':
+    case 'Condition': {
+      // Condition uses `field operator value` shape. We surface the
+      // operator alone — the field path and value are too noisy for
+      // a chip and live on the inspector form anyway.
+      const op = typeof config.operator === 'string' ? config.operator : null;
+      // Map raw operator strings to compact glyphs / words. The
+      // glyphs match what an SRE writes in a postmortem.
+      const OP_MAP: Record<string, string> = {
+        equals: '==',
+        notEquals: '≠',
+        contains: 'contains',
+        greaterThan: '>',
+        lessThan: '<',
+        isEmpty: 'isEmpty',
+        isNotEmpty: 'isNotEmpty',
+      };
+      return op ? [OP_MAP[op] ?? op] : [];
+    }
+    case 'Switch': {
+      // `cases` is stored as a JSON array in the form (a string in
+      // the textarea, parsed at run time). Count its entries to show
+      // "3 cases" instead of leaking the case values.
+      const raw = config.cases;
+      if (Array.isArray(raw)) return raw.length > 0 ? [`${raw.length} cases`] : [];
+      if (typeof raw === 'string' && raw.trim()) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed.length > 0 ? [`${parsed.length} cases`] : [];
+        } catch {
+          /* malformed JSON — fall through to no chip */
+        }
+      }
+      return [];
+    }
+    case 'Loop':
+    case 'operari.loop': {
+      // Loop reads either an inline `items` array or a path on input
+      // via `itemsPath`. We surface which mode is active so the
+      // operator can tell at-a-glance whether the iteration is
+      // hard-coded or pulled from the previous step.
+      if (typeof config.itemsPath === 'string' && config.itemsPath.trim()) {
+        return ['from input'];
+      }
+      if (Array.isArray(config.items)) {
+        return config.items.length > 0 ? [`${config.items.length} items`] : [];
+      }
+      return [];
+    }
+    case 'notify': {
+      const channel = typeof config.channel === 'string' ? config.channel : null;
+      return channel ? [channel] : [];
+    }
+    case 'wait': {
+      // Duration in ms, formatted compact. The wait executor reads
+      // `durationMs` so we mirror that key exactly.
+      const ms = typeof config.durationMs === 'number' ? config.durationMs : null;
+      if (ms == null || ms <= 0) return [];
+      if (ms < 1000) return [`${ms}ms`];
+      if (ms < 60_000) return [`${Math.round(ms / 100) / 10}s`];
+      if (ms < 3_600_000) return [`${Math.round(ms / 60_000)}m`];
+      return [`${Math.round(ms / 3_600_000)}h`];
+    }
+    case 'kubectl': {
+      // `command` is "get pods" / "apply -f -" / "delete pod foo" — we
+      // pull the first whitespace-delimited token (the verb) so the
+      // chip reads as `get` / `apply` / `delete`. Easier to scan than
+      // the full command which already lives in the preview line.
+      const cmd = typeof config.command === 'string' ? config.command.trim() : '';
+      if (!cmd) return [];
+      const verb = cmd.split(/\s+/, 1)[0];
+      return verb ? [verb] : [];
+    }
+    case 'operari.database':
+    case 'operari.postgres': {
+      const op = typeof config.operation === 'string' ? config.operation : null;
+      return op ? [op] : [];
     }
     default:
       return [];

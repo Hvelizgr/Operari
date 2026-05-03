@@ -22,7 +22,9 @@ import { NODE_VISUAL_METADATA } from '../stepCatalog';
 import { NodeContextToolbar } from '../NodeContextToolbar';
 import {
   handleTone,
+  isFieldConfigured,
   isOrphanOutput,
+  PRIMARY_FIELDS,
   resolvePreview,
   resolveSecondaryChips,
   resolveTags,
@@ -392,6 +394,46 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
           }}
         >
           <div className="truncate text-sm font-medium">{title}</div>
+          {/* Field-name chip strip — visible only when the body is
+              collapsed and the type has a `PRIMARY_FIELDS` entry.
+              Each chip carries the field NAME (never the value); a
+              filled chip means the operator has configured that
+              field, an outlined chip means it's still default.
+              Answers "what does this node ask for and what's still
+              empty" without leaking values. None of the surveyed
+              editors do this exact pattern — they all show at least
+              one value — but for the SRE pedagogical use-case it
+              fits: scan the canvas, see which steps still need
+              attention, click in to fill the gaps.
+
+              Click a chip → Inspector opens (same path as a
+              single-click on the card body) so the operator can
+              fill the field. We don't bother trying to deep-link
+              to the specific field; the inspector form already
+              renders all fields top-to-bottom on a small panel. */}
+          {!bodyExpanded && PRIMARY_FIELDS[type] ? (
+            <div className="rb-node-fields mt-1 flex flex-wrap gap-1">
+              {PRIMARY_FIELDS[type].map(field => {
+                const configured = isFieldConfigured(
+                  workflow.config as Record<string, unknown> | undefined,
+                  field
+                );
+                return (
+                  <span
+                    key={field}
+                    title={configured ? `${field} — configured` : `${field} — not set`}
+                    className={
+                      configured
+                        ? 'rounded bg-emerald-500/20 px-1.5 py-0.5 font-mono text-[9px] tracking-tight text-emerald-300'
+                        : 'rounded border border-white/15 px-1.5 py-0.5 font-mono text-[9px] tracking-tight text-[color:var(--rb-node-muted)]'
+                    }
+                  >
+                    {field}
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
           {/* Preview + tags hidden by default. Operator double-clicks
               the body to expand them. Reduces baseline card height
               from ~80-110px to ~50px so a dense graph reads as a
