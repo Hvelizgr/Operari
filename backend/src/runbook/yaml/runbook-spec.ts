@@ -68,11 +68,17 @@ export interface RunbookStep {
    */
   skipIf?: string;
   /**
-   * Successor step id(s). Omit on the final step. Strings are
-   * resolved as the next step id. The graph form preserves the
-   * original WorkflowConnection ports.
+   * Successor step id(s). Omit on the final step. Four shapes:
+   *   - `string`              — single edge, default port
+   *   - `string[]`            — multiple edges, default port
+   *   - `StepConnection[]`    — explicit per-edge port routing
+   *   - `Record<string, ...>` — branch-label form for multi-output
+   *     steps. Each key is the output port label (e.g. `approved`/
+   *     `rejected` for approval, `true`/`false` for operari.if,
+   *     `case_1`/`case_2`/`default` for Switch). The deserializer
+   *     maps labels to fromPort indices via the catalog.
    */
-  next?: string | string[] | StepConnection[];
+  next?: string | string[] | StepConnection[] | Record<string, string | StepConnection>;
   /** Editor-only metadata, preserved on round-trip. */
   position?: { x: number; y: number };
 }

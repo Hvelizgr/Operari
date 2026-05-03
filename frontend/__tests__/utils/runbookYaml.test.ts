@@ -163,6 +163,99 @@ describe('runbookYaml (frontend)', () => {
         _skipIf: '{{vars.stop}}',
       });
     });
+
+    it('accepts the operari.if branch-label form for next', () => {
+      const out = specToNodes({
+        version: 1,
+        name: 'x',
+        steps: [
+          {
+            id: 'classify',
+            type: 'operari.if',
+            next: { true: 'auto_fix', false: 'ask_human' },
+          },
+          { id: 'auto_fix', type: 'shell' },
+          { id: 'ask_human', type: 'approval' },
+        ],
+      });
+      const classifyId = out.nodes.find(n => n.title === 'classify')?.id ?? '';
+      const branchEdges = out.connections
+        .filter(c => c.source === classifyId)
+        .map(c => ({ target: c.target, port: c.sourcePort }));
+      // `true` is the first label in operari.if's outputs, so port 0;
+      // `false` is port 1.
+      expect(branchEdges).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ port: 0 }),
+          expect.objectContaining({ port: 1 }),
+        ])
+      );
+      expect(branchEdges).toHaveLength(2);
+    });
+
+    it('accepts the approval branch-label form for next', () => {
+      const out = specToNodes({
+        version: 1,
+        name: 'x',
+        steps: [
+          {
+            id: 'gate',
+            type: 'approval',
+            next: { approved: 'apply', rejected: 'escalate' },
+          },
+          { id: 'apply', type: 'shell' },
+          { id: 'escalate', type: 'notify' },
+        ],
+      });
+      const gateId = out.nodes.find(n => n.title === 'gate')?.id ?? '';
+      const branchEdges = out.connections.filter(c => c.source === gateId).map(c => c.sourcePort);
+      // `approved` → port 0, `rejected` → port 1 per stepCatalog.
+      expect(branchEdges.sort()).toEqual([0, 1]);
+    });
+
+    it('handles unknown branch labels by assigning ports in insertion order', () => {
+      // Custom Switch case the operator added by hand. `case_1` and
+      // `default` are known (ports 0 and 2); `case_99` is unknown so
+      // it picks up the first unused index past the known set.
+      const out = specToNodes({
+        version: 1,
+        name: 'x',
+        steps: [
+          {
+            id: 'router',
+            type: 'Switch',
+            next: { case_1: 'a', case_99: 'b', default: 'c' },
+          },
+          { id: 'a', type: 'shell' },
+          { id: 'b', type: 'shell' },
+          { id: 'c', type: 'shell' },
+        ],
+      });
+      const routerId = out.nodes.find(n => n.title === 'router')?.id ?? '';
+      const ports = new Set(
+        out.connections.filter(c => c.source === routerId).map(c => c.sourcePort)
+      );
+      // case_1 = 0, case_99 = 3 (unknown — appended past known length 3),
+      // default = 2. Three distinct ports proves no collisions.
+      expect(ports.size).toBe(3);
+    });
+
+    it('still rejects truly malformed next values', () => {
+      expect(() =>
+        specToNodes({
+          version: 1,
+          name: 'x',
+          steps: [
+            {
+              id: 'a',
+              type: 'shell',
+              // `next: 42` is none of the four accepted shapes.
+              next: 42 as unknown as string,
+            },
+          ],
+        })
+      ).toThrow(/Invalid `next` value/);
+    });
   });
 
   describe('round-trip', () => {

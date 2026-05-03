@@ -188,6 +188,68 @@ describe('runbook-serializer', () => {
       // UUIDs, not friendly ids
       expect(out.nodes[0].id).not.toBe('a');
     });
+
+    it('accepts the operari.if branch-label next form', () => {
+      // Mirrors the templates/decision-then-approve.yaml shape that
+      // previously threw "Invalid `next` value" — the deserializer
+      // now maps `true`/`false` to fromPort 0 / 1 respectively.
+      const out = fromSpec({
+        version: 1,
+        name: 'x',
+        steps: [
+          {
+            id: 'classify',
+            type: 'operari.if',
+            next: { true: 'fix', false: 'human' },
+          },
+          { id: 'fix', type: 'shell' },
+          { id: 'human', type: 'approval' },
+        ],
+      });
+      const classifyId = out.nodes.find(n => n.title === 'classify')?.id;
+      const fromClassify = out.connections.filter(c => c.sourceNodeId === classifyId);
+      expect(fromClassify).toHaveLength(2);
+      const ports = fromClassify.map(c => c.sourcePort).sort();
+      expect(ports).toEqual([0, 1]);
+    });
+
+    it('accepts the approval branch-label next form', () => {
+      const out = fromSpec({
+        version: 1,
+        name: 'x',
+        steps: [
+          {
+            id: 'gate',
+            type: 'approval',
+            next: { approved: 'apply', rejected: 'escalate' },
+          },
+          { id: 'apply', type: 'shell' },
+          { id: 'escalate', type: 'notify' },
+        ],
+      });
+      const gateId = out.nodes.find(n => n.title === 'gate')?.id;
+      const ports = out.connections
+        .filter(c => c.sourceNodeId === gateId)
+        .map(c => c.sourcePort)
+        .sort();
+      expect(ports).toEqual([0, 1]);
+    });
+
+    it('still rejects malformed next values (non-string, non-array, non-object)', () => {
+      expect(() =>
+        fromSpec({
+          version: 1,
+          name: 'x',
+          steps: [
+            {
+              id: 'a',
+              type: 'shell',
+              next: 42 as unknown as string,
+            },
+          ],
+        })
+      ).toThrow(/Invalid `next` value/);
+    });
   });
 
   describe('retry policy', () => {

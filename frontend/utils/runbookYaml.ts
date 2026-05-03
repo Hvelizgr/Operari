@@ -29,7 +29,17 @@ export interface RunbookStep {
   retry?: RetryPolicy;
   runIf?: string;
   skipIf?: string;
-  next?: string | string[] | StepConnection[];
+  /**
+   * Outgoing edges. Four shapes are accepted:
+   *   - `string` — single edge to that step (default port).
+   *   - `string[]` — multiple edges, all on default port.
+   *   - `StepConnection[]` — explicit `to` + ports, for non-default routing.
+   *   - `Record<string, string | StepConnection>` — branch-label form
+   *     used by multi-output steps (`operari.if`, `approval`, `Switch`).
+   *     Each key is the output port label; the value is the target id.
+   *     The parser maps labels to port indices via `BRANCH_OUTPUTS`.
+   */
+  next?: string | string[] | StepConnection[] | Record<string, string | StepConnection>;
   position?: { x: number; y: number };
 }
 
@@ -164,7 +174,7 @@ export function specToNodes(spec: RunbookSpec): ParsedRunbook {
   const connections: Connection[] = [];
   for (const step of spec.steps) {
     if (step.next == null) continue;
-    for (const conn of expandNext(step.next)) {
+    for (const conn of expandNext(step.next, step.type)) {
       const targetUuid = idToUuid.get(conn.to);
       if (!targetUuid) {
         throw new RunbookYamlError(
@@ -280,10 +290,47 @@ function simplifyNext(connections: StepConnection[]): RunbookStep['next'] {
   return connections;
 }
 
-function expandNext(next: NonNullable<RunbookStep['next']>): StepConnection[] {
+/**
+ * Canonical output port labels per multi-output step type. Mirrors
+ * the editor's stepCatalog; kept inline here so the YAML parser
+ * doesn't need to import the visual catalog (which would drag JSX
+ * helpers into a pure parser module).
+ *
+ * For Switch we list the seeded labels but expandNext also accepts
+ * any `case_*` / `default` label and falls back to insertion order
+ * for custom labels operators add by hand.
+ */
+const BRANCH_OUTPUTS: Record<string, string[]> = {
+  approval: ['approved', 'rejected'],
+  'operari.if': ['true', 'false'],
+  Condition: ['true', 'false'],
+  Switch: ['case_1', 'case_2', 'default'],
+};
+
+function expandNext(next: NonNullable<RunbookStep['next']>, stepType?: string): StepConnection[] {
   if (typeof next === 'string') return [{ to: next }];
   if (Array.isArray(next)) {
     return next.map(item => (typeof item === 'string' ? { to: item } : item));
+  }
+  if (next && typeof next === 'object') {
+    // Object-keyed branch form: `{ approved: 'fix', rejected: 'escalate' }`.
+    // Maps each key to a fromPort index using the step type's canonical
+    // outputs; unknown keys (custom Switch cases) get a stable port
+    // assigned by insertion order so round-trips don't reshuffle edges.
+    const known: string[] = stepType ? (BRANCH_OUTPUTS[stepType] ?? []) : [];
+    const entries = Object.entries(next as Record<string, string | StepConnection>);
+    const ports = new Map<string, number>();
+    known.forEach((label, idx) => ports.set(label, idx));
+    let nextPort = known.length;
+    return entries.map(([label, value]) => {
+      let port = ports.get(label);
+      if (port == null) {
+        port = nextPort++;
+        ports.set(label, port);
+      }
+      const base = typeof value === 'string' ? { to: value } : value;
+      return { ...base, fromPort: base.fromPort ?? port };
+    });
   }
   throw new RunbookYamlError('Invalid `next` value', 'invalid_next');
 }
@@ -293,7 +340,7 @@ function topoSort(steps: RunbookStep[]): RunbookStep[] {
   const indeg = new Map<string, number>(steps.map(s => [s.id, 0]));
   for (const step of steps) {
     if (!step.next) continue;
-    for (const conn of expandNext(step.next)) {
+    for (const conn of expandNext(step.next, step.type)) {
       if (byId.has(conn.to)) indeg.set(conn.to, (indeg.get(conn.to) ?? 0) + 1);
     }
   }
@@ -306,7 +353,7 @@ function topoSort(steps: RunbookStep[]): RunbookStep[] {
     if (!step) continue;
     out.push(step);
     if (step.next) {
-      for (const conn of expandNext(step.next)) {
+      for (const conn of expandNext(step.next, step.type)) {
         const nextDeg = (indeg.get(conn.to) ?? 0) - 1;
         indeg.set(conn.to, nextDeg);
         if (nextDeg === 0) queue.push(conn.to);

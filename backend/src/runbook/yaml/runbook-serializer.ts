@@ -208,7 +208,7 @@ export function fromSpec(spec: RunbookSpec): DeserializedRunbook {
   const connections: DeserializedRunbook['connections'] = [];
   for (const step of spec.steps) {
     if (step.next == null) continue;
-    const expanded = expandNext(step.next);
+    const expanded = expandNext(step.next, step.type);
     for (const conn of expanded) {
       const targetUuid = friendlyToUuid.get(conn.to);
       if (!targetUuid) {
@@ -343,10 +343,41 @@ function simplifyNext(connections: StepConnection[]): RunbookStep['next'] {
   return connections;
 }
 
-function expandNext(next: NonNullable<RunbookStep['next']>): StepConnection[] {
+/**
+ * Canonical output port labels per multi-output step type. Mirrors
+ * the editor's stepCatalog; kept inline so the serializer doesn't
+ * import a frontend module.
+ */
+const BRANCH_OUTPUTS: Record<string, string[]> = {
+  approval: ['approved', 'rejected'],
+  'operari.if': ['true', 'false'],
+  Condition: ['true', 'false'],
+  Switch: ['case_1', 'case_2', 'default'],
+};
+
+function expandNext(next: NonNullable<RunbookStep['next']>, stepType?: string): StepConnection[] {
   if (typeof next === 'string') return [{ to: next }];
   if (Array.isArray(next)) {
     return next.map(item => (typeof item === 'string' ? { to: item } : item));
+  }
+  if (next && typeof next === 'object') {
+    // Branch-label form: keys are output port labels mapped to port
+    // indices via BRANCH_OUTPUTS. Unknown labels (custom Switch cases)
+    // are assigned ports by insertion order so round-trips stay stable.
+    const known: string[] = stepType ? (BRANCH_OUTPUTS[stepType] ?? []) : [];
+    const entries = Object.entries(next as Record<string, string | StepConnection>);
+    const ports = new Map<string, number>();
+    known.forEach((label, idx) => ports.set(label, idx));
+    let nextPort = known.length;
+    return entries.map(([label, value]) => {
+      let port = ports.get(label);
+      if (port == null) {
+        port = nextPort++;
+        ports.set(label, port);
+      }
+      const base = typeof value === 'string' ? { to: value } : value;
+      return { ...base, fromPort: base.fromPort ?? port };
+    });
   }
   throw new RunbookSerializerError('Invalid `next` value', 'invalid_next');
 }
@@ -356,7 +387,7 @@ function topoSort(steps: RunbookStep[]): RunbookStep[] {
   const indeg = new Map<string, number>(steps.map(s => [s.id, 0]));
   for (const step of steps) {
     if (!step.next) continue;
-    for (const conn of expandNext(step.next)) {
+    for (const conn of expandNext(step.next, step.type)) {
       if (byId.has(conn.to)) {
         indeg.set(conn.to, (indeg.get(conn.to) ?? 0) + 1);
       }
@@ -373,7 +404,7 @@ function topoSort(steps: RunbookStep[]): RunbookStep[] {
     if (!step) continue;
     out.push(step);
     if (step.next) {
-      for (const conn of expandNext(step.next)) {
+      for (const conn of expandNext(step.next, step.type)) {
         const nextDeg = (indeg.get(conn.to) ?? 0) - 1;
         indeg.set(conn.to, nextDeg);
         if (nextDeg === 0) queue.push(conn.to);
