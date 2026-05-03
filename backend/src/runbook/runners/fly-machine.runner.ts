@@ -1,3 +1,4 @@
+import { resolveMachineResources } from './machine-presets';
 import type { RunChunkBuffer } from './run-chunk-buffer';
 import { Runner, RunnerContext, RunnerError, RunnerResult, RunnerSpec } from './runner.types';
 
@@ -165,8 +166,16 @@ export class FlyMachineRunner implements Runner {
   buildCreateBody(spec: RunnerSpec, context: RunnerContext): Record<string, unknown> {
     const image = spec.image ?? this.defaultImage;
     const shell = spec.shell ?? 'sh';
-    const memoryMb = spec.resources?.memoryMb ?? 256;
-    const cpus = Math.max(1, Math.round((spec.resources?.cpuMillis ?? 1000) / 1000));
+    // Resolve resources via the preset layer: explicit `resources`
+    // always wins, then `machine` preset, finally `small-1x` (the
+    // v1 default of 256MB / 1 vCPU). Same call path the docker
+    // runner will use once it picks up the preset abstraction.
+    const resolved = resolveMachineResources({
+      machine: spec.machine,
+      resources: spec.resources,
+    });
+    const memoryMb = resolved.memoryMb;
+    const cpus = Math.max(1, Math.round(resolved.cpuMillis / 1000));
 
     // Network policy: Fly machines always have an interface. We
     // approximate "none" by attaching no services and disabling

@@ -44,12 +44,26 @@ export interface RunnerSpec {
   allowedHosts?: string[];
   /**
    * Resource limits. LocalRunner ignores. Other runners enforce.
+   * When `machine` is also supplied, an explicit number here wins —
+   * operators that hand-tuned cpu/memory before the preset layer
+   * shipped keep their numbers.
    */
   resources?: {
     cpuMillis?: number;
     memoryMb?: number;
     diskMb?: number;
   };
+  /**
+   * Named machine preset (trigger.dev parity). Resolves to a
+   * cpu/memory pair via `machine-presets.ts`. Authoring as
+   * `machine: 'small-2x'` is more legible in YAML than the raw
+   * numbers and lets us keep the preset table as a single source
+   * of truth for cost / sizing decisions.
+   *
+   * Optional. When absent, runners fall back to `small-1x` (256MB
+   * / 1 vCPU) which matches the v1 default.
+   */
+  machine?: string;
   /**
    * Files to mount into the runner before execution.
    * Map of in-runner-path → file content (utf-8).
