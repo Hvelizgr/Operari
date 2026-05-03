@@ -1,37 +1,46 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 import { authClient, AuthError } from '@/lib/auth';
 
 import { AuthField } from '../_components/AuthField';
 import { type AuthLang, resetStrings } from '../strings';
 
+const schema = z.object({ email: z.string().min(1, 'required').email('invalid') });
+type Values = z.infer<typeof schema>;
+
 export function ForgotPasswordForm({ lang }: { lang: AuthLang }) {
   const t = resetStrings[lang].forgot;
-  const [email, setEmail] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (submitting) return;
+  const {
+    control,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm<Values>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: '' },
+    mode: 'onSubmit',
+  });
+
+  async function onSubmit(values: Values) {
     setError(null);
-    setSubmitting(true);
     try {
-      await authClient.forgotPassword(email);
+      await authClient.forgotPassword(values.email);
       setSent(true);
     } catch (err) {
+      // Backend always 204s; any client-side error is a network failure.
       if (err instanceof AuthError && err.status >= 500) {
         setError(t.networkError);
       } else {
-        // Backend always 204s; any client-side error is a network failure.
         setError(t.networkError);
       }
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -52,15 +61,21 @@ export function ForgotPasswordForm({ lang }: { lang: AuthLang }) {
           {t.sent}
         </div>
       ) : (
-        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
-          <AuthField
-            label={t.email}
-            type="email"
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
+          <Controller
             name="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={setEmail}
+            control={control}
+            render={({ field }) => (
+              <AuthField
+                label={t.email}
+                type="email"
+                autoComplete="email"
+                required
+                value={field.value}
+                onChange={field.onChange}
+                name={field.name}
+              />
+            )}
           />
           {error && (
             <div
@@ -72,10 +87,10 @@ export function ForgotPasswordForm({ lang }: { lang: AuthLang }) {
           )}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={isSubmitting}
             className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 h-11 w-full rounded-lg text-sm font-semibold shadow-md transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? t.submitting : t.submit}
+            {isSubmitting ? t.submitting : t.submit}
           </button>
         </form>
       )}

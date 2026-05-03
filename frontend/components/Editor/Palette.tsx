@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import type { NodeType } from './canvas/stepCatalog';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Panel } from '@xyflow/react';
@@ -111,6 +112,10 @@ function PaletteRow({
  */
 export default function Palette({ lang }: PaletteProps) {
   const [isOpen, setIsOpen] = useState(false);
+  // Auto-animate the scrollable body — favoriting / unfavoriting a
+  // node animates the row in/out of the favorites section, and
+  // expanding / collapsing a category animates its body.
+  const [bodyRef] = useAutoAnimate<HTMLDivElement>();
   const [query, setQuery] = useState('');
   // All categories open by default so every available step type is
   // visible the moment the operator opens the palette. The first
@@ -211,7 +216,7 @@ export default function Palette({ lang }: PaletteProps) {
               </div>
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto p-1">
+            <div ref={bodyRef} className="max-h-[60vh] overflow-y-auto p-1">
               {filtered ? (
                 filtered.length === 0 ? (
                   <div className="p-3 text-center text-xs text-[color:var(--rb-node-muted)]">

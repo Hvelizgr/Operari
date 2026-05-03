@@ -432,3 +432,23 @@ outside a module`). Pinning to v3 also matches backend (which
   email (valid), password (>=8); name is optional. 4 useState
   fields collapse into one `useForm`. Existing
   `RegisterForm.test.tsx` still passes.
+- 2026-05-03 — ForgotPasswordForm + ResetPasswordForm migrated to
+  RHF + zod. ResetPassword uses `.refine` for the cross-field
+  password === confirm check; field errors flow through the same
+  alert region as network errors so the operator doesn't have to
+  look in two places.
+- 2026-05-03 — MFA enroll **deferred**: it's a multi-step state
+  machine (`idle → enrolling → awaiting-code → verifying → disabling`)
+  with QR code generation, not a form. Forcing RHF onto the verify-
+  code step alone would split state across two systems with no win.
+- 2026-05-03 — Auto-animate sweep: added refs to
+  `RunbookInputsPanel`'s rows container (rows slide on add / remove /
+  reorder) and `Palette`'s scrollable body (favorites grow/shrink
+  smoothly when toggling, category bodies animate on expand /
+  collapse).
+- 2026-05-03 — `RunbookInputsPanel` + `RequestForm` evaluated for
+  RHF migration; **kept as-is**. Their state lives in the parent
+  (the editor store / HttpTester history snapshot) and is mirrored
+  on every keystroke, which is the opposite of RHF's "internal
+  state until submit" assumption. Forcing RHF here would split the
+  state across two systems for no validation gain.

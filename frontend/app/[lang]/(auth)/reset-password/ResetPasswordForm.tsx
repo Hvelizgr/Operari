@@ -1,8 +1,11 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 import { authClient, AuthError, useAuth } from '@/lib/auth';
 
@@ -16,10 +19,32 @@ export function ResetPasswordForm({ lang }: { lang: AuthLang }) {
   const { refresh } = useAuth();
   const token = searchParams.get('token');
 
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  // zod schema mirrors the previous imperative validation: password >= 8
+  // and confirm === password. The cross-field `refine` runs after the
+  // primitive checks pass so the operator sees "min 8" before "doesn't
+  // match".
+  const schema = z
+    .object({
+      password: z.string().min(8, t.tooShort),
+      confirm: z.string().min(8, t.tooShort),
+    })
+    .refine(d => d.password === d.confirm, {
+      path: ['confirm'],
+      message: t.mismatch,
+    });
+  type Values = z.infer<typeof schema>;
+
   const [error, setError] = useState<string | null>(null);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { isSubmitting, errors },
+  } = useForm<Values>({
+    resolver: zodResolver(schema),
+    defaultValues: { password: '', confirm: '' },
+    mode: 'onSubmit',
+  });
 
   if (!token) {
     return (
@@ -36,21 +61,10 @@ export function ResetPasswordForm({ lang }: { lang: AuthLang }) {
     );
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (submitting) return;
+  async function onSubmit(values: Values) {
     setError(null);
-    if (password.length < 8) {
-      setError(t.tooShort);
-      return;
-    }
-    if (password !== confirm) {
-      setError(t.mismatch);
-      return;
-    }
-    setSubmitting(true);
     try {
-      await authClient.resetPassword(token!, password);
+      await authClient.resetPassword(token!, values.password);
       await refresh();
       router.replace(`/${lang}/dashboard`);
     } catch (err) {
@@ -59,9 +73,14 @@ export function ResetPasswordForm({ lang }: { lang: AuthLang }) {
       } else {
         setError(t.networkError);
       }
-      setSubmitting(false);
     }
   }
+
+  // Field-level validation errors (mismatch / too short) display
+  // through the same alert region as network errors so the operator
+  // doesn't need to look in two places.
+  const fieldError = errors.password?.message ?? errors.confirm?.message;
+  const displayError = error ?? fieldError ?? null;
 
   return (
     <div className="border-border/60 bg-card/40 rounded-2xl border p-6 shadow-xl shadow-black/10 sm:p-8">
@@ -75,41 +94,53 @@ export function ResetPasswordForm({ lang }: { lang: AuthLang }) {
       <h1 className="text-foreground text-3xl font-bold leading-tight tracking-tight">{t.title}</h1>
       <p className="text-muted-foreground mt-2 text-sm">{t.subtitle}</p>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
-        <AuthField
-          label={t.password}
-          type="password"
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
+        <Controller
           name="password"
-          autoComplete="new-password"
-          required
-          minLength={8}
-          value={password}
-          onChange={setPassword}
+          control={control}
+          render={({ field }) => (
+            <AuthField
+              label={t.password}
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={field.value}
+              onChange={field.onChange}
+              name={field.name}
+            />
+          )}
         />
-        <AuthField
-          label={t.confirm}
-          type="password"
+        <Controller
           name="confirm"
-          autoComplete="new-password"
-          required
-          minLength={8}
-          value={confirm}
-          onChange={setConfirm}
+          control={control}
+          render={({ field }) => (
+            <AuthField
+              label={t.confirm}
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={field.value}
+              onChange={field.onChange}
+              name={field.name}
+            />
+          )}
         />
-        {error && (
+        {displayError && (
           <div
             role="alert"
             className="text-destructive bg-destructive/10 border-destructive/30 rounded-md border px-3 py-2 text-xs"
           >
-            {error}
+            {displayError}
           </div>
         )}
         <button
           type="submit"
-          disabled={submitting}
+          disabled={isSubmitting}
           className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 h-11 w-full rounded-lg text-sm font-semibold shadow-md transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {submitting ? t.submitting : t.submit}
+          {isSubmitting ? t.submitting : t.submit}
         </button>
       </form>
     </div>

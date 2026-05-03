@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { GripVertical, Plus, Terminal, Trash2 } from 'lucide-react';
 import { useCallback } from 'react';
 
@@ -106,6 +107,10 @@ function coerceDefault(
  */
 export default function RunbookInputsPanel({ lang, inputs, onChange }: RunbookInputsPanelProps) {
   const t = STRINGS[lang];
+  // Auto-animate the inputs list — adding / removing / reordering
+  // rows now slides smoothly. Single ref on the container; the lib
+  // detects child mount/unmount and applies the transition.
+  const [inputsListRef] = useAutoAnimate<HTMLDivElement>();
 
   const updateAt = useCallback(
     (idx: number, patch: Partial<RunbookInputDefinition>) => {
@@ -143,7 +148,7 @@ export default function RunbookInputsPanel({ lang, inputs, onChange }: RunbookIn
           {t.empty}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div ref={inputsListRef} className="space-y-3">
           {inputs.map((input, idx) => (
             <InputCard
               key={idx}
