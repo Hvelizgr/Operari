@@ -1,8 +1,14 @@
 'use client';
 
-import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getBezierPath } from '@xyflow/react';
+import {
+  BaseEdge,
+  EdgeLabelRenderer,
+  type EdgeProps,
+  getBezierPath,
+  useStore,
+} from '@xyflow/react';
 import { Lock, Repeat } from 'lucide-react';
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 
 import { FLOW_SPEED_MULT, useVisualization } from '@/context/VisualizationContext';
 import type { RfEdge } from '@/lib/canvas/adapter';
@@ -120,7 +126,15 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
   const orbDurationS = ORB_DURATION_S / speedMult;
   const gradientDurationS = 1.6 / speedMult;
   const dashDurationMs = Math.round(800 / speedMult);
-  const strokeWidth = selected ? 3 : data?.cyclic ? 2.5 : 2;
+  // Zoom-compensated stroke: at low zoom (< 0.7) the visible 2px
+  // stroke vanishes into hairlines that an SRE's eye can't follow at
+  // a glance. Divide by the current viewport zoom to preserve the
+  // visible thickness, with a clamp so we don't paint a 50px line
+  // at extreme zoom-outs. n8n parity (their CanvasEdge stroke also
+  // multiplies by `zoom-compensation-factor`).
+  const zoom = useStore(s => s.transform[2]);
+  const baseStrokeWidth = selected ? 3 : data?.cyclic ? 2.5 : 2;
+  const strokeWidth = Math.min(4, baseStrokeWidth / Math.max(0.4, zoom));
 
   const badgeLabel = data?.condition ? CONDITION_BADGE_LABEL[data.condition] : '';
   const showBadge = badgeLabel && data?.condition && data.condition !== 'complete';
@@ -137,8 +151,37 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
     []
   );
 
+  // Hover-with-grace: pointerenter shows the toolbar; pointerleave
+  // arms a 600ms timer before hiding so the operator can move the
+  // cursor between the edge and the floating delete button without
+  // flicker. n8n parity (their CanvasEdge uses 600ms too).
+  const [hovered, setHovered] = useState(false);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    };
+  }, []);
+  const handlePointerEnter = () => {
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
+    setHovered(true);
+  };
+  const handlePointerLeave = () => {
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = setTimeout(() => setHovered(false), 600);
+  };
+  const showDelete = selected || hovered;
+
   return (
-    <>
+    // Pointer handlers on a wrapping <g> so the BaseEdge's 40px
+    // interactionWidth band feeds hover state up. The defs +
+    // EdgeLabelRenderer portals stay outside any visual group, but
+    // wrapping them is harmless because <defs> doesn't paint and
+    // EdgeLabelRenderer escapes via portal.
+    <g onPointerEnter={handlePointerEnter} onPointerLeave={handlePointerLeave}>
       {/* Defs are local to the edge — RF mounts each edge in its own
           <g>, and IDs include the edge id, so duplication across edges
           is impossible. */}
@@ -226,7 +269,7 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
           </div>
         </EdgeLabelRenderer>
       ) : null}
-      {selected ? <EdgeDeleteButton edgeId={id} x={labelX} y={labelY} /> : null}
+      {showDelete ? <EdgeDeleteButton edgeId={id} x={labelX} y={labelY} /> : null}
       {/* Mid-edge insert affordance — hover-only via CSS. The button is
           always mounted so the click target is hot the moment the
           operator's mouse lands; visibility flips through the
@@ -298,7 +341,7 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
           </div>
         </EdgeLabelRenderer>
       ) : null}
-    </>
+    </g>
   );
 }
 

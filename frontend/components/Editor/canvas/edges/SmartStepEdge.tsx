@@ -1,8 +1,14 @@
 'use client';
 
-import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getSmoothStepPath } from '@xyflow/react';
+import {
+  BaseEdge,
+  EdgeLabelRenderer,
+  type EdgeProps,
+  getSmoothStepPath,
+  useStore,
+} from '@xyflow/react';
 import { Lock, Repeat } from 'lucide-react';
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { RfEdge } from '@/lib/canvas/adapter';
 
@@ -76,7 +82,11 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
       ? 'var(--op-gold, #f5b945)'
       : resolveEdgeStroke(data);
   const running = isRunning(data) && !sourceDisabled;
-  const strokeWidth = selected ? 3 : data?.cyclic ? 2.5 : 2;
+  // Zoom-compensated stroke — see SmartBezierEdge for the rationale.
+  // Same formula so the two edge variants stay visually consistent.
+  const zoom = useStore(s => s.transform[2]);
+  const baseStrokeWidth = selected ? 3 : data?.cyclic ? 2.5 : 2;
+  const strokeWidth = Math.min(4, baseStrokeWidth / Math.max(0.4, zoom));
 
   const badgeLabel = data?.condition ? CONDITION_BADGE_LABEL[data.condition] : '';
   const showBadge = badgeLabel && data?.condition && data.condition !== 'complete';
@@ -93,8 +103,31 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
     []
   );
 
+  // Hover-with-grace: same 600ms delayed hide as SmartBezierEdge so
+  // the operator can move the cursor between edge and floating
+  // delete button without flicker.
+  const [hovered, setHovered] = useState(false);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    };
+  }, []);
+  const handlePointerEnter = () => {
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
+    setHovered(true);
+  };
+  const handlePointerLeave = () => {
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = setTimeout(() => setHovered(false), 600);
+  };
+  const showDelete = selected || hovered;
+
   return (
-    <>
+    <g onPointerEnter={handlePointerEnter} onPointerLeave={handlePointerLeave}>
       <defs>
         <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor={stroke} stopOpacity={0.2} />
@@ -165,7 +198,7 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
           </div>
         </EdgeLabelRenderer>
       ) : null}
-      {selected ? <EdgeDeleteButton edgeId={id} x={labelX} y={labelY} /> : null}
+      {showDelete ? <EdgeDeleteButton edgeId={id} x={labelX} y={labelY} /> : null}
       {!sourceDisabled ? (
         <EdgeInsertButton edgeId={id} sourceId={source} targetId={target} x={labelX} y={labelY} />
       ) : null}
@@ -226,7 +259,7 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
           </div>
         </EdgeLabelRenderer>
       ) : null}
-    </>
+    </g>
   );
 }
 
