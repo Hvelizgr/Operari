@@ -2,7 +2,7 @@
 
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
-Última actualización: 2026-05-02 (continuación). **20 commits locales sin pushear** (los 9 anteriores + 11 nuevos hoy): dry-run adapter fix, credentials cookie, node visual V2, kubectl native + 5 promociones legacy, hydration fix, edge Tier A/B/C/D (disabled propagation + `+` insert + last-run overlay + branch badge + approval-gated + retry stitch + cross-env + bundle counter), dashboard tenant-scope fix. **Push bloqueado en credenciales** (`gh auth login` desde la terminal).
+Última actualización: 2026-05-02 (sesión completa). **28 commits locales sin pushear** (los 9 anteriores + 19 nuevos hoy). Stack final de la sesión: dry-run adapter fix, credentials cookie, node visual V2, kubectl native + 5 promociones legacy, hydration fix, edge Tier A/B/C/D (disabled propagation + `+` insert + last-run overlay + branch badge + approval-gated + retry stitch + cross-env + bundle counter), dashboard tenant-scope fix, ExecutionError tenant-scope fix, useExecutionSocket backfill, in-canvas run console terminal-style, dry-run step-by-step replay (~600ms per step), property hygiene (shell/kubectl/approval missing fields, Transform code dropped, Switch dedup, postgres→database type rename), preview truncation, sub-runbook palette entry. **Push bloqueado en credenciales** (`gh auth login` desde la terminal).
 
 ---
 
@@ -149,6 +149,12 @@ Si un usuario pide algo de esto, agregalo arriba con un estimado.
 - ✅ **Hydration mismatch en staggerChildVariants** (commit `7b2912b`) — framer-motion serializa la variant inicial como CSS string en SSR (`opacity: "0"`, sin transform) vs object en client. `staggerChildInitialStyle` exportado de `lib/motion.ts` y aplicado en DashboardPage / ApprovalInbox / MonitorsPage como `style` prop explícito. SSR HTML matchea client; framer anima encima sin warning.
 - ✅ **Edge research + 4 tiers de mejoras visuales** (commits `0e867dc` `f9c1127` `31aa67a` `3f4c8eb`) — disabled-source propagation + mid-edge `+` insert button + last-run overlay + branch-taken badge + approval-gated edge + retry stitch + cross-env labels + bundle counter chip. n8n parity + diferenciadores SRE que ningún competidor tiene. Tier D #10 (click-edge inspector con payload diff) deferido.
 - ✅ **Cascading hang del backend tras hit a `/api/dashboard/overview`** (commit `497ed73`) — `dashboard.routes.ts:214` y `:227` tenían 2 `prisma.execution.findMany()` filtrando solo por `runbookId`, sin `tenantId`. El runtime tenant-scope guard rechazaba la query, throw inside Prisma `$use`, Promise.all surface el reject, Express deja la response colgada, connection pool envenenado → toda request siguiente cuelga eternamente, incluyendo `/api/templates`. Síntoma manifestado como "no inician las simulaciones" — el backend no podía contestar nada después del primer dashboard render. Fix: agregar `tenantId` explícito a ambas queries (mismo patrón que `runbook.routes.ts:230` que ya documentaba el gotcha en un comentario). En prod el guard hace soft-fail (logea + sigue), en dev throws hard — por eso solo aparece local.
+- ✅ **ExecutionError.findFirst tenant-scope** (commit `1622c61`) — mismo patrón que el dashboard pero en `ExecutionService` líneas 1408 y 1602. Cuando un step de alta severidad fallaba (real run con shell exit≠0), el catch path buscaba el ExecutionError persistido sin filtrar por tenantId, el guard throw, y el error real ("[ERR_3000] Command exited with code 2") quedaba enmascarado bajo "[ERR_1000] Tenant-scope guard" — confundiendo al SRE durante post-mortem.
+- ✅ **useExecutionSocket backfill** (commit `b4d9b98`) — dry-runs completaban en 60ms, antes que el Socket.io client se conecte y se una a la execution room. Sin backfill el canvas quedaba idle aunque el run terminó. Fix: GET `/api/runs/:id` al mount aplica el estado final per-step antes de subscribir al socket. Síntoma "como si iniciara y al momento termina" cerrado.
+- ✅ **In-canvas run console terminal** (commits `1ce814c` + `57904f2`) — drawer pinned al fondo del editor que muestra cada evento como console.log. Versión inicial wrapeaba `Runs/ExecutionEventLog` (V1-tied + requería `OPERARI_DURABLE_ENGINE=true`); rewrite standalone que subscribe a Socket.io directamente + backfill via `/api/runs/:id`. Sin durable engine dependency. Color-coded por nivel, auto-follow tail, captura wheel events para no panear el canvas.
+- ✅ **Dry-run step-by-step replay** (commit `67cbc72`) — runs en 40ms hacían que todos los nodos pintaran verde de golpe, defeating the "watch how this runbook would work" purpose de Simulación. Replay con 600ms/step + 80ms gap en useExecutionSocket + EditorRunConsole. El backend completa rápido, el frontend "actúa" la ejecución secuencialmente. Solo aplica a dry-runs terminados (no a runs reales).
+- ✅ **Property hygiene + canvas-bloat truncation** (commit `989f3ef`) — `shell` agregó `shell` binary + `failOnNonZeroExit`; `kubectl` agregó `kubeconfigSecret` + `failOnNonZeroExit`; `approval` agregó `timeoutSeconds`; `Transform` removió campo `code` (executor lo ignora post-pivot); `Switch` dedup (estaba en core+flow); seed renombró `operari.postgres` → `operari.database` (matchea registry). Preview truncation: `compactPreview()` cap a 60 chars + first-line only en nodeChrome; SSH `user@host` chip cap host a 24 chars.
+- ✅ **Sub-runbook step en palette** (commit `05c3aba`) — `runbook` step type estaba registrado en runtime + seed + visual metadata pero faltaba en frontend NODE_TYPES. Operadores no podían draggearlo. Agregada entry con 4 properties (runbookId, inputs JSON, waitFor sync/async, timeoutSeconds).
 
 ### Sesión anterior (2026-04-30)
 
@@ -170,13 +176,22 @@ Si un usuario pide algo de esto, agregalo arriba con un estimado.
 
 ---
 
-## Tests baseline al cierre de la sesión 2026-05-02
+## Tests baseline al cierre de la sesión 2026-05-02 (final)
 
-- Backend: **1330+** passing (+9 kubectl tests, +2 dry-run adapter tests sobre los 1321+ de la sesión anterior)
-- Frontend: **287+** passing (+2 credentials-cookie tests, +35 canvas/visualization tests sin regresión)
+- Backend: **1330+** passing — 91 backend executor tests verde (kubectl 9, dry-run adapter 7, otros 75) + sin regresiones en routes/services
+- Frontend: **287+** passing — 72 tests en components/Editor + lib/canvas + context/visualization + hooks/credentials, todos verde
 - Python SDK: **18 / 18** passing
 - tsc clean ambos lados (TS)
-- 14 commits locales sin pushear sobre `feat/editor-reactflow-rebuild`.
+- **28 commits locales sin pushear** sobre `feat/editor-reactflow-rebuild`.
+
+### Pendientes para la próxima sesión
+
+- **Verificar UI en browser** — todo testeable necesita ojo humano (canvas paint, edge animations, run console, property forms)
+- **Push de los 28 commits** — `gh auth login` desde terminal del usuario
+- **Decidir untrack de CLAUDE.md** — `git rm --cached CLAUDE.md` (gitignored pero sigue trackeado)
+- **30+ archivos pre-existentes de la rama** — trabajo del usuario previo al inicio de mi sesión, sigue pendiente de split en commits temáticos
+- **README desactualizado** — dice "9 step types" / "6 templates curados", actualmente son ~16 tipos en palette y 17 templates seeded
+- **Tier C edge data wiring (backend)** — `data.retries`, `data.crossEnv`, `data.items`, `data.p50DurationMs` están en RfEdgeData pero el backend no los popula todavía. Frontend hace no-op gracioso cuando absentes.
 
 ## Tests baseline al cierre de la sesión 2026-04-30
 
