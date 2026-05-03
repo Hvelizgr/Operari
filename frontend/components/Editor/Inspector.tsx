@@ -8,6 +8,7 @@ import { rfToWorkflow } from '@/lib/canvas/adapter';
 import { useEditorStore } from '@/state/editorStore';
 
 import { NODE_CATALOG } from './canvas/catalog';
+import { SpanTimeline } from './SpanTimeline';
 import { StepDurationSparkline } from './StepDurationSparkline';
 import { WebhookUrlPanel } from './WebhookUrlPanel';
 
@@ -102,6 +103,13 @@ export default function Inspector({ lang }: { lang: 'en' | 'es' }) {
           />
           <span>{workflow.enabled === false ? t.disabled : t.enabled}</span>
         </label>
+        {target.data?.startedAt != null ? (
+          <SpanTimeline
+            startedAt={target.data.startedAt}
+            durationMs={target.data.durationMs}
+            lang={lang}
+          />
+        ) : null}
         {selectedStats && selectedStats.runs > 0 && (
           <StepDurationSparkline stats={selectedStats} lang={lang} />
         )}
