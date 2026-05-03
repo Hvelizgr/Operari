@@ -2,7 +2,30 @@
 
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
-Última actualización: 2026-05-02 (sesión completa). **28 commits locales sin pushear** (los 9 anteriores + 19 nuevos hoy). Stack final de la sesión: dry-run adapter fix, credentials cookie, node visual V2, kubectl native + 5 promociones legacy, hydration fix, edge Tier A/B/C/D (disabled propagation + `+` insert + last-run overlay + branch badge + approval-gated + retry stitch + cross-env + bundle counter), dashboard tenant-scope fix, ExecutionError tenant-scope fix, useExecutionSocket backfill, in-canvas run console terminal-style, dry-run step-by-step replay (~600ms per step), property hygiene (shell/kubectl/approval missing fields, Transform code dropped, Switch dedup, postgres→database type rename), preview truncation, sub-runbook palette entry. **Push bloqueado en credenciales** (`gh auth login` desde la terminal).
+Última actualización: 2026-05-02 (sesión final 17:30+). **37 commits locales sin pushear** (9 anteriores + 28 nuevos hoy). Push bloqueado en credenciales (`gh auth login` desde la terminal).
+
+Stack acumulado de la sesión, en orden cronológico:
+
+1. **Dry-run adapter fix** (`225f7e0`) — short-circuit en EditorExecutorAdapter cubre los 15 legacy executors.
+2. **Credentials cookie** (`a5bfd18`) — `credentials: 'include'` en useWorkflowExecution destrabó el "Launching…" eterno.
+3. **Node visual V2** (`106e705`) — 3 bundles combinados: trigger silhouette + halt-point stripe + branch labels + nodeShape/nodeDensityV2 user-config + blast-radius outlines + secret/idempotent badges + sparkline bars + status pill.
+4. **kubectl native + 5 promociones legacy** (`73e85f6`) — KubectlExecutor (~150 LOC + 9 tests) + Email/Switch/StoreGet/StoreSet/Transform al palette.
+5. **Hydration fix** (`7b2912b`) — staggerChildVariants SSR mismatch resuelto via `staggerChildInitialStyle`.
+6. **Edge Tier A/B/C/D** (`0e867dc` `f9c1127` `31aa67a` `3f4c8eb`) — disabled propagation + `+` insert + last-run overlay + branch-taken badge + approval-gated lock-bead + retry stitch + cross-env + bundle counter.
+7. **Dashboard tenant-scope fix** (`497ed73`) — cascading hang resuelto.
+8. **ExecutionError tenant-scope fix** (`1622c61`) — error real ya no enmascarado por guard violation.
+9. **useExecutionSocket backfill** (`b4d9b98`) — runs cortos pintan estado final via GET `/api/runs/:id`.
+10. **In-canvas run console** (`1ce814c` + `57904f2`) — terminal-style standalone, no requiere durable engine.
+11. **Step-by-step replay** (`67cbc72`) — dry-runs animan a 600ms/step para ver el flujo.
+12. **Property hygiene** (`989f3ef`) — shell/kubectl/approval missing fields + Transform `code` removed + Switch dedup + postgres→database rename + preview truncation.
+13. **Sub-runbook en palette** (`05c3aba`) — entry agregada con runbookId/inputs/waitFor/timeoutSeconds.
+14. **Templates con bucles/decisiones/preguntas** (`91f2aee`) — branch-on-environment, iterate-services-healthcheck, decision-then-approve.
+15. **Dashboard React key fix** (`10d6080` + `1182d04`) — runbook id como key + fallback defensivo.
+16. **Collapsed-by-default cards** (`277abda`) — title + footer + chevron por default; doble-click expande preview/tags.
+17. **Field-name chips + secondary chip extension** (`65daa02`) — chips por property con filled/outlined state + operator/cases/items chips para if/Switch/Loop/notify/wait/kubectl/database.
+18. **Louder run animations** (`4c83bf7`) — SUCCESS_BUMP scale 4→8% + glow brillante; FAIL_SHAKE 3→8px shake + scale + red glow; STEP_GAP 80→250ms; demo template `test-fail-animation`.
+19. **RunDialog empty-state placeholder** (`d81275a`) — `{ "key": "value" }` literal movido a `placeholder` (gris) + parse vacío como `{}`.
+20. **Debug button = post-hoc inspect bubbles** (`de60827`) — Option A del research debug. RfNodeData.output/error backfilleado, BaseStepNode renderea inspect panel cuando expandido. `?debug=1` URL auto-expande todos los nodos.
 
 ---
 

@@ -60,7 +60,7 @@ This list is conservative and hand-verified against the test suite, not the road
 
 **Execution**
 
-- 10 step types with real executors today: `shell`, `operari.httpRequest`, `approval`, `notify`, `wait`, `operari.cron` (trigger), `operari.webhook` (trigger), `operari.database` (Postgres health / introspect / read-only query, with optional SSH tunnel via bastion), plus `custom.frame` and `custom.note` for organization. Earlier drafts of this README listed 20 types — that was vapor inherited from the n8n-era. The other ones (`switch`, `loop`, `github`, `docker`, `awsS3`, `agent`, `set`) have no backend executor and have been removed from the editor palette to avoid promising what we cannot run.
+- ~17 step types with real executors today: `shell`, `ssh`, `operari.httpRequest`, `operari.database` (Postgres health / introspect / read-only query, with optional SSH tunnel via bastion), `kubectl` (kubeconfig from a connected-account secret, materialised to a per-run tempfile then unlinked), `approval`, `notify`, `wait`, `operari.cron` (trigger), `operari.webhook` (trigger), `github.commitFile`, `runbook` (sub-runbook composition with sync/async modes, cycle detection, 5-level depth cap), plus the legacy editor executors promoted to the palette (`Email`, `Switch`, `Loop` / `operari.loop`, `Condition` / `operari.if`, `Transform`, `StoreGet`, `StoreSet`), and `custom.frame` / `custom.note` for visual organization. Earlier drafts of this README listed 20 types — that was vapor inherited from the n8n-era. The remaining n8n vapor (`docker`, `awsS3`, `agent`, `set`) still has no backend executor and stays out of the palette to avoid promising what we cannot run.
 - Sandboxed runners with three backends: local process, Docker container, Fly.io machine
 - Real-time stdout / stderr streaming over Socket.IO + durable Redis stream backing
 - Human approval gates that suspend the run and resume on `grant`/`reject`
@@ -123,7 +123,7 @@ This list is conservative and hand-verified against the test suite, not the road
 
 **Templates (new)**
 
-- Public, unauthenticated `/templates` gallery + `/templates/:slug` detail pages. Indexable for SEO. 6 curated YAMLs shipped today
+- Public, unauthenticated `/templates` gallery + `/templates/:slug` detail pages. Indexable for SEO. 20 curated YAMLs shipped today, including pedagogical ones for `Switch` / `Loop` / `Condition + Approval` so operators can drop a working sample of each control-flow construct onto the canvas
 - "Use this runbook" button: logged-in users get a one-click import (YAML → canvas-native nodes via the existing serializer); logged-out users go through register with the template slug preserved
 
 **Operator experience (new)**
