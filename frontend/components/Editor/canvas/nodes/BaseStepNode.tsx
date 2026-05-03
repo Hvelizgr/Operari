@@ -382,6 +382,12 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
                 : 'var(--rb-node-border)'
               : ringColor,
           boxShadow: '0 0 0 0 transparent',
+          // Grow the node when it has many output handles so each
+          // port has ~24px of vertical space — without this, a Switch
+          // with 5+ cases packs handles too tightly and the dots
+          // visually overlap. Single-output nodes (the vast majority)
+          // get no min-height override; their natural height wins.
+          minHeight: outputs.length > 1 ? Math.max(96, outputs.length * 24 + 48) : undefined,
           animation: animationName,
         }}
         data-node-type={type}
