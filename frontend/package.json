@@ -21,6 +21,8 @@
     "@ai-sdk/react": "^3.0.151",
     "@operari/shared": "^1.0.0",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@tanstack/react-query": "^5.100.8",
+    "@tanstack/react-query-devtools": "^5.100.8",
     "@types/dagre": "^0.7.54",
     "@types/js-yaml": "^4.0.9",
     "@types/qrcode": "^1.5.6",

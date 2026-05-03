@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -34,56 +35,53 @@ interface UseStepStatsResult {
 }
 
 /**
- * Pulls per-step run statistics from `/api/runbooks/:id/step-stats`
- * when the editor's "Show stats" toggle is on. Stays idle when
- * disabled — the hook's enabled gate prevents an extra round-trip
- * for operators who never open the overlay.
+ * Per-runbook step statistics — Sprint 1 pilot for `@tanstack/react-query`.
  *
- * `refresh()` is exposed so the canvas can re-fetch after a run
- * terminates (a fresh NodeLog row has just landed and the operator
- * almost certainly wants to see it). Bumping the internal `tick`
- * counter retriggers the effect without needing a SWR-style cache.
+ * Why this hook for the pilot: it's the simplest data-fetch surface
+ * we have (one GET, no socket interaction, no optimistic mutations),
+ * which lets the migration prove the pattern without compounding risk
+ * with `useExecutionSocket`'s in-flight backfill+socket dance. Once
+ * this lands cleanly, the rest of the read-only fetches (account list,
+ * schema metadata, runbook GET, dashboard overview) follow the same
+ * recipe.
+ *
+ * Behavior preserved exactly: same return shape (`{ stats, loading,
+ * refresh }`), same `enabled` gate that suppresses the round-trip when
+ * the operator hasn't opened the overlay, same default `sinceMs` of
+ * 30 days. The `refresh()` function now invalidates the query (rather
+ * than bumping a tick counter), which lets the canvas force a refetch
+ * after a run terminates without re-implementing cache busting by hand.
  */
 export function useStepStats(
   runbookId: string | null,
   enabled: boolean,
   sinceMs: number = 30 * 24 * 60 * 60 * 1000
 ): UseStepStatsResult {
-  const [stats, setStats] = useState<StepStatsMap>({});
-  const [loading, setLoading] = useState(false);
-  const [tick, setTick] = useState(0);
+  const queryClient = useQueryClient();
+  const queryKey = ['step-stats', runbookId, sinceMs] as const;
 
-  useEffect(() => {
-    if (!enabled || !runbookId) {
-      setStats({});
-      return;
-    }
-    const controller = new AbortController();
-    setLoading(true);
-    (async () => {
-      try {
-        const url = `${API_BASE}/api/runbooks/${runbookId}/step-stats?since=${sinceMs}`;
-        const res = await fetch(url, {
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          setStats({});
-          return;
-        }
-        const body = (await res.json()) as ApiResponse;
-        setStats(body.stats ?? {});
-      } catch (err) {
-        if ((err as { name?: string })?.name === 'AbortError') return;
-        setStats({});
-      } finally {
-        setLoading(false);
-      }
-    })();
-    return () => controller.abort();
-  }, [runbookId, enabled, sinceMs, tick]);
+  const { data, isFetching } = useQuery({
+    queryKey,
+    enabled: enabled && !!runbookId,
+    queryFn: async ({ signal }) => {
+      const url = `${API_BASE}/api/runbooks/${runbookId}/step-stats?since=${sinceMs}`;
+      const res = await fetch(url, { credentials: 'include', signal });
+      if (!res.ok) return {};
+      const body = (await res.json()) as ApiResponse;
+      return body.stats ?? {};
+    },
+  });
 
-  const refresh = useCallback(() => setTick(t => t + 1), []);
+  const refresh = useCallback(() => {
+    // Invalidate marks the query stale; the next render with the
+    // hook mounted refetches. If the hook is currently mounted, the
+    // refetch fires immediately. Either way, no manual tick state.
+    queryClient.invalidateQueries({ queryKey });
+  }, [queryClient, queryKey]);
 
-  return { stats, loading, refresh };
+  return {
+    stats: data ?? {},
+    loading: isFetching,
+    refresh,
+  };
 }

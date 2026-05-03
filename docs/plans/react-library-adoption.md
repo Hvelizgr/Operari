@@ -374,3 +374,15 @@ user-visible features yet, but every subsequent item gets faster.
   unify the active-state foreground tint per tone so a "remove
   breakpoint" toggle and a delete button share the same red
   semantics without duplicating Tailwind classes.
+- 2026-05-02 — `@tanstack/react-query` + `@tanstack/react-query-devtools`
+  installed. `lib/react-query/QueryProvider.tsx` mounts a single
+  QueryClient with tuned defaults (30s stale, 5min gc, no
+  refetch-on-focus, 1 retry). Devtools render dev-only at
+  bottom-left so they don't fight the editor's run console. Pilot
+  migration: `useStepStats` — same return shape (`{ stats, loading,
+refresh }`) and same `enabled` gate, but the manual
+  `useEffect + AbortController + tick counter` is gone. `refresh()`
+  now calls `queryClient.invalidateQueries`. Sprint 1 ✅ done; the
+  remaining read-only fetches (account list, schema metadata,
+  runbook GET, dashboard overview) follow the same recipe in
+  Sprint 2.
