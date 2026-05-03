@@ -277,8 +277,16 @@ function splitMeta(config: Record<string, unknown>): {
     [RETRY_KEY]: rawRetry,
     [RUN_IF_KEY]: rawRunIf,
     [SKIP_IF_KEY]: rawSkipIf,
+    // Pinned output is editor-author state, not part of the canonical
+    // runbook definition — strip it from YAML so a `git diff` of a
+    // shared YAML file doesn't churn on whatever the last author had
+    // pinned locally. Pins live in the database (the editor saves
+    // node.config in full) but never round-trip through YAML.
+    __pinnedOutput: _pin,
     ...rest
   } = config;
+  // _pin is intentionally read-and-discarded
+  void _pin;
 
   let retry: RetryPolicy | undefined;
   if (rawRetry && typeof rawRetry === 'object') {

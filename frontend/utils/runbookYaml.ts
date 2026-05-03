@@ -241,8 +241,12 @@ function splitMeta(config: Record<string, unknown>): {
     [RETRY_KEY]: rawRetry,
     [RUN_IF_KEY]: rawRunIf,
     [SKIP_IF_KEY]: rawSkipIf,
+    // Pinned output is editor-author state, not part of the canonical
+    // runbook YAML — strip it so YAML round-trips stay clean.
+    __pinnedOutput: _pin,
     ...rest
   } = config;
+  void _pin;
 
   let retry: RetryPolicy | undefined;
   if (rawRetry && typeof rawRetry === 'object') {

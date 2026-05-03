@@ -73,6 +73,24 @@ describe('runbookYaml (frontend)', () => {
       expect(spec.steps[2].next).toBeUndefined();
     });
 
+    it('strips __pinnedOutput from the YAML so pins do not pollute round-trips', () => {
+      const pinnedNodes: WorkflowNode[] = [
+        {
+          ...nodes[0],
+          config: {
+            command: 'echo hi',
+            __pinnedOutput: { stdout: 'fake-fixture', exitCode: 0 },
+          },
+        },
+      ];
+      const spec = nodesToSpec(header, pinnedNodes, []);
+      // The step's serialized config must NOT carry the editor-only
+      // pin marker. Pins live in the live runbook row only.
+      expect(spec.steps[0].config).toEqual({ command: 'echo hi' });
+      expect(JSON.stringify(spec)).not.toContain('__pinnedOutput');
+      expect(JSON.stringify(spec)).not.toContain('fake-fixture');
+    });
+
     it('promotes config._retry to top-level retry', () => {
       const retryNodes: WorkflowNode[] = [
         {

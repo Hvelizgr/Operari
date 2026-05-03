@@ -1,7 +1,7 @@
 'use client';
 
-import { X } from 'lucide-react';
-import { useMemo } from 'react';
+import { Pin, PinOff, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 import DynamicNodeForm from '@/components/Node/DynamicNodeForm';
 import { rfToWorkflow } from '@/lib/canvas/adapter';
@@ -123,6 +123,127 @@ export default function Inspector({ lang }: { lang: 'en' | 'es' }) {
         ) : (
           <p className="text-xs italic text-gray-500">No configurable properties.</p>
         )}
+        <PinnedOutputPanel
+          lang={lang}
+          pinned={config.__pinnedOutput}
+          onSave={value => handleConfigChange('__pinnedOutput', value)}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface PinnedOutputPanelProps {
+  lang: 'en' | 'es';
+  pinned: unknown;
+  onSave: (value: unknown) => void;
+}
+
+const PIN_STRINGS = {
+  en: {
+    title: 'Pinned output',
+    hint: 'Freeze this step’s output. The engine returns the value below instead of running the executor — useful for iterating on downstream steps without spending API calls. Stripped from YAML round-trips.',
+    placeholder: '{ "items": [1, 2, 3] }',
+    setPin: 'Pin output',
+    update: 'Update pin',
+    clear: 'Clear pin',
+    invalidJson: 'Not valid JSON',
+    pinned: 'Pinned',
+  },
+  es: {
+    title: 'Salida fijada',
+    hint: 'Congelá la salida de este paso. El motor devuelve el valor de abajo en lugar de ejecutar el step — útil para iterar pasos downstream sin gastar llamadas a APIs. Se filtra del YAML round-trip.',
+    placeholder: '{ "items": [1, 2, 3] }',
+    setPin: 'Fijar salida',
+    update: 'Actualizar pin',
+    clear: 'Quitar pin',
+    invalidJson: 'JSON inválido',
+    pinned: 'Fijado',
+  },
+} as const;
+
+/**
+ * Pin-output editor (n8n parity). Operator pastes a JSON value;
+ * once pinned, every run returns it instead of invoking the
+ * executor for this step. Surfaces a chip in the read-only state
+ * so the operator never forgets the step is short-circuited.
+ */
+function PinnedOutputPanel({ lang, pinned, onSave }: PinnedOutputPanelProps) {
+  const t = PIN_STRINGS[lang] ?? PIN_STRINGS.en;
+  const isPinned = pinned !== undefined;
+  const [draft, setDraft] = useState<string>(() =>
+    pinned === undefined ? '' : JSON.stringify(pinned, null, 2)
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  const commit = () => {
+    if (!draft.trim()) {
+      onSave(undefined);
+      setError(null);
+      return;
+    }
+    try {
+      const value = JSON.parse(draft);
+      onSave(value);
+      setError(null);
+    } catch {
+      setError(t.invalidJson);
+    }
+  };
+
+  const clear = () => {
+    setDraft('');
+    onSave(undefined);
+    setError(null);
+  };
+
+  return (
+    <div className="mt-4 space-y-2 border-t border-white/10 pt-3">
+      <div className="flex items-center gap-2">
+        {isPinned ? (
+          <Pin size={12} className="text-amber-400" />
+        ) : (
+          <PinOff size={12} className="text-gray-500" />
+        )}
+        <span className="text-[11px] font-bold uppercase tracking-wide text-gray-300">
+          {t.title}
+        </span>
+        {isPinned ? (
+          <span className="ml-auto rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] uppercase text-amber-300">
+            {t.pinned}
+          </span>
+        ) : null}
+      </div>
+      <p className="text-[10px] leading-snug text-gray-500">{t.hint}</p>
+      <textarea
+        value={draft}
+        onChange={e => {
+          setDraft(e.target.value);
+          if (error) setError(null);
+        }}
+        placeholder={t.placeholder}
+        rows={5}
+        className="w-full resize-y rounded border border-white/10 bg-black/40 p-2 font-mono text-[11px] text-gray-200 outline-none focus:border-amber-500/50"
+        spellCheck={false}
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={commit}
+          className="rounded border border-amber-500/40 bg-amber-500/5 px-2 py-1 text-[11px] text-amber-300 transition-colors hover:border-amber-400 hover:text-amber-200"
+        >
+          {isPinned ? t.update : t.setPin}
+        </button>
+        {isPinned ? (
+          <button
+            type="button"
+            onClick={clear}
+            className="rounded border border-white/10 px-2 py-1 text-[11px] text-gray-400 transition-colors hover:text-white"
+          >
+            {t.clear}
+          </button>
+        ) : null}
+        {error ? <span className="text-[10px] text-rose-400">{error}</span> : null}
       </div>
     </div>
   );

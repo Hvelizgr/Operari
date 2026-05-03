@@ -232,6 +232,25 @@ export class NodeExecutor {
       nodeType: node.type,
     };
 
+    // Pinned output short-circuit (n8n parity). When the operator has
+    // frozen this step's output via the inspector, return that value
+    // directly without invoking the executor — no HTTP, no shell, no
+    // side effects. Useful for iterating on downstream steps without
+    // spending API calls re-fetching the upstream payload, or for
+    // testing branch logic against a known-good fixture.
+    //
+    // The pin lives under `node.config.__pinnedOutput` as a JSON
+    // value. The double-underscore prefix matches the convention for
+    // editor-only metadata (the YAML serializer filters keys with
+    // this shape) and makes it easy for the UI to grep for.
+    //
+    // Pins are honoured in both real and dry-run modes — the whole
+    // point is to substitute the value, regardless of run kind.
+    const pinned = (node.config as { __pinnedOutput?: unknown } | undefined)?.__pinnedOutput;
+    if (pinned !== undefined) {
+      return pinned as NodeExecutionResult;
+    }
+
     // Tenant-scoped plugin lookup (ADR 0006). The registry stores
     // tenant-scoped executors under a composite `${tenantId}::${type}`
     // key, globals under just `${type}`. Try the tenant-scoped key

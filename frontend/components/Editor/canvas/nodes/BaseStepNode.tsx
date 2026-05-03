@@ -11,7 +11,7 @@ import {
   MinusCircle,
   XCircle,
 } from 'lucide-react';
-import { KeyRound, PlayCircle, Repeat } from 'lucide-react';
+import { KeyRound, Pin, PlayCircle, Repeat } from 'lucide-react';
 import { Fragment, memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { JsonInspect } from '@/components/ui/JsonInspect';
@@ -472,6 +472,15 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
                 aria-label="output not connected"
               >
                 <AlertTriangle size={12} className="text-[color:var(--op-gold)]" />
+              </span>
+            ) : null}
+            {config.__pinnedOutput !== undefined ? (
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/30 ring-1 ring-amber-400/60"
+                title="Pinned output — engine returns this fixture instead of running the step"
+                aria-label="pinned output"
+              >
+                <Pin size={11} className="text-amber-200" />
               </span>
             ) : null}
             <AnimatePresence mode="wait">
