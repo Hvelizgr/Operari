@@ -13,6 +13,7 @@ import {
   toSpec,
   yamlToSpec,
 } from '../runbook/yaml/runbook-serializer';
+import { extractAccountRefs } from '../runbook/utils/extract-account-refs';
 import { validateRunbookSpec } from '../runbook/yaml/schema-validator';
 import { prisma } from '../server';
 import { RunbookValidatorService } from '../services/runbook-validator.service';
@@ -462,12 +463,104 @@ router.get('/:id', async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Workflow not found' });
     }
 
-    res.json(runbook);
+    // Tier C edge data — derive cross-environment markers per
+    // connection so the canvas can chevron-style edges that span
+    // envs (prod → staging fanouts caught at author time). We
+    // walk each node's config to collect connected-account ids,
+    // pull `metadata.env` from those accounts in one batched
+    // query, and stamp `crossEnv` onto any connection whose
+    // source/target sides resolve to different envs. Skipped
+    // entirely when nothing references an account or no account
+    // has an env tag — frontend renders the chip only when the
+    // field is populated.
+    const augmented = await augmentConnectionsWithCrossEnv(runbook, req.user!.tenantId).catch(
+      err => {
+        req.log.warn({ err, runbookId }, 'crossEnv derivation failed; falling back');
+        return runbook;
+      }
+    );
+
+    res.json(augmented);
   } catch (error) {
     req.log.error({ error }, 'Get runbook error');
     res.status(500).json({ error: 'Failed to get runbook' });
   }
 });
+
+type RunbookLike = {
+  nodes?: unknown;
+  connections?: unknown;
+} & Record<string, unknown>;
+
+async function augmentConnectionsWithCrossEnv(
+  runbook: RunbookLike,
+  tenantId: string
+): Promise<RunbookLike> {
+  const nodes = Array.isArray(runbook.nodes)
+    ? (runbook.nodes as Array<Record<string, unknown>>)
+    : [];
+  const connections = Array.isArray(runbook.connections)
+    ? (runbook.connections as Array<Record<string, unknown>>)
+    : [];
+  if (nodes.length === 0 || connections.length === 0) return runbook;
+
+  const refsByNodeId = new Map<string, string[]>();
+  const allRefs = new Set<string>();
+  for (const node of nodes) {
+    const id = typeof node.id === 'string' ? node.id : null;
+    if (!id) continue;
+    const refs = extractAccountRefs(node.config);
+    if (refs.length > 0) {
+      refsByNodeId.set(id, refs);
+      for (const r of refs) allRefs.add(r);
+    }
+  }
+  if (allRefs.size === 0) return runbook;
+
+  const accounts = await prisma.connectedAccount.findMany({
+    where: { tenantId, id: { in: [...allRefs] } },
+    select: { id: true, metadata: true },
+  });
+  const envByAccountId = new Map<string, string>();
+  for (const acc of accounts) {
+    const meta = acc.metadata as { env?: unknown } | null;
+    const env = meta && typeof meta.env === 'string' ? meta.env.trim() : '';
+    if (env.length > 0) envByAccountId.set(acc.id, env);
+  }
+  if (envByAccountId.size === 0) return runbook;
+
+  const envsForNode = (nodeId: string): Set<string> => {
+    const refs = refsByNodeId.get(nodeId) ?? [];
+    const envs = new Set<string>();
+    for (const r of refs) {
+      const env = envByAccountId.get(r);
+      if (env) envs.add(env);
+    }
+    return envs;
+  };
+
+  let mutated = false;
+  const nextConnections = connections.map(conn => {
+    const source = typeof conn.source === 'string' ? conn.source : null;
+    const target = typeof conn.target === 'string' ? conn.target : null;
+    if (!source || !target) return conn;
+    const srcEnvs = envsForNode(source);
+    const tgtEnvs = envsForNode(target);
+    if (srcEnvs.size === 0 || tgtEnvs.size === 0) return conn;
+    // Connection is cross-env when the two sides have NO env in
+    // common — picking the first deterministic-sorted env on each
+    // side gives a stable label even when a node references several
+    // accounts in the same environment.
+    for (const e of srcEnvs) if (tgtEnvs.has(e)) return conn;
+    const srcLabel = [...srcEnvs].sort()[0];
+    const tgtLabel = [...tgtEnvs].sort()[0];
+    mutated = true;
+    return { ...conn, crossEnv: { source: srcLabel, target: tgtLabel } };
+  });
+
+  if (!mutated) return runbook;
+  return { ...runbook, connections: nextConnections };
+}
 
 /**
  * @swagger

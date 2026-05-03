@@ -175,6 +175,10 @@ export const workflowConnectionToRfEdge = (connection: WorkflowConnection): RfEd
     ...(connection.condition !== undefined ? { condition: connection.condition } : {}),
     ...(connection.sourcePort !== undefined ? { sourcePort: connection.sourcePort } : {}),
     ...(connection.targetPort !== undefined ? { targetPort: connection.targetPort } : {}),
+    // Static cross-env marker derived by the backend at fetch time
+    // (see runbook.routes.ts augmentConnectionsWithCrossEnv). Pass
+    // through verbatim — the canvas chip renders only when present.
+    ...(connection.crossEnv !== undefined ? { crossEnv: connection.crossEnv } : {}),
   },
 });
 

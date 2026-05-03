@@ -54,6 +54,18 @@ export interface Connection {
   sourcePort?: number;
   targetPort?: number;
   condition?: ConnectionCondition; // Default: 'complete' - always executes
+  /**
+   * Static cross-environment marker. Derived at fetch time by walking
+   * each connection's source/target nodes, collecting their referenced
+   * connected-account ids, and reading `metadata.env` on each. When
+   * the source side references accounts in env A and the target side
+   * references accounts in env B (and A !== B), the canvas paints a
+   * chevron-style edge with the labels at each end so the operator
+   * spots accidental prod→staging fanouts during authoring. Stays
+   * undefined when both sides land in the same env, or when no
+   * accounts have an `env` value in their metadata yet.
+   */
+  crossEnv?: { source: string; target: string };
 }
 
 // =============================================================================
