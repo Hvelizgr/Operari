@@ -386,3 +386,19 @@ refresh }`) and same `enabled` gate, but the manual
   remaining read-only fetches (account list, schema metadata,
   runbook GET, dashboard overview) follow the same recipe in
   Sprint 2.
+- 2026-05-02 — Sprint 2 begins. `@formkit/auto-animate` installed.
+  Pilot: `RequestForm` HTTP headers list — single ref via
+  `useAutoAnimate` makes adding/removing rows slide instead of
+  snap. Zero per-row code change.
+- 2026-05-02 — `date-fns` installed. Pilot: `HistorySidebar`
+  `relativeTime()` migrated from a hand-rolled "X ago" ladder to
+  `formatDistanceToNow` with locale (en/es). Same callsite signature
+  preserved. RunDetail / RunHistory / EventsPage / Approval inbox /
+  AuditChain / etc still hand-roll timestamps; subsequent commits
+  will move them over with the same recipe.
+- 2026-05-02 — `@uiw/react-json-view` installed. Built
+  `components/ui/JsonInspect.tsx` wrapper (dark theme, narrow
+  indent, collapse-at-depth-1 default, scalar fallback). Pilot:
+  `BaseStepNode` input + output inspect bubbles replace the old
+  `<pre>JSON.stringify(...)</pre>` with a collapsible viewer.
+  ResponseViewer migration follows.

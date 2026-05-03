@@ -1,5 +1,6 @@
 'use client';
 
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -33,6 +34,11 @@ type Tab = 'headers' | 'body';
 
 export default function RequestForm({ payload, onChange, lang }: Props) {
   const [tab, setTab] = useState<Tab>('headers');
+  // Auto-animate the headers list — adding / removing rows now slides
+  // smoothly instead of snapping. Single ref on the container; the lib
+  // detects child mount/unmount and applies the transition. Zero
+  // per-row code change.
+  const [headersListRef] = useAutoAnimate<HTMLDivElement>();
   const t =
     lang === 'es'
       ? {
@@ -117,7 +123,7 @@ export default function RequestForm({ payload, onChange, lang }: Props) {
 
       <div className="min-h-0 flex-1">
         {tab === 'headers' ? (
-          <div className="space-y-1.5">
+          <div ref={headersListRef} className="space-y-1.5">
             {payload.headers.map((h, idx) => (
               <div key={idx} className="flex items-center gap-1.5">
                 <input

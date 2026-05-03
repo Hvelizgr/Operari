@@ -1,5 +1,7 @@
 'use client';
 
+import { formatDistanceToNow } from 'date-fns';
+import { enUS, es } from 'date-fns/locale';
 import { Trash2 } from 'lucide-react';
 
 import type { RequestPayload } from './RequestForm';
@@ -39,15 +41,15 @@ function statusTone(status: number): string {
 }
 
 function relativeTime(ts: number, lang: 'en' | 'es'): string {
-  const diff = Date.now() - ts;
-  const sec = Math.round(diff / 1000);
-  if (sec < 60) return lang === 'es' ? `hace ${sec}s` : `${sec}s ago`;
-  const min = Math.round(sec / 60);
-  if (min < 60) return lang === 'es' ? `hace ${min}m` : `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return lang === 'es' ? `hace ${hr}h` : `${hr}h ago`;
-  const day = Math.round(hr / 24);
-  return lang === 'es' ? `hace ${day}d` : `${day}d ago`;
+  // Sprint 2 — date-fns replaces the bespoke "X ago" ladder. We keep
+  // the function name + signature so callers don't change; date-fns
+  // gives us locale-aware output (`hace 2 minutos` / `2 minutes ago`)
+  // and respects locale-specific units like "casi una hora" without
+  // us hand-rolling the thresholds.
+  return formatDistanceToNow(ts, {
+    addSuffix: true,
+    locale: lang === 'es' ? es : enUS,
+  });
 }
 
 export default function HistorySidebar({ entries, onLoad, onClear, lang }: Props) {

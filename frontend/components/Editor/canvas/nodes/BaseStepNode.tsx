@@ -14,6 +14,7 @@ import {
 import { KeyRound, PlayCircle, Repeat } from 'lucide-react';
 import { Fragment, memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
+import { JsonInspect } from '@/components/ui/JsonInspect';
 import { useNextInPath } from '@/hooks/useNextInPath';
 import type { RfNode } from '@/lib/canvas/adapter';
 import { useEditorStore } from '@/state/editorStore';
@@ -580,18 +581,10 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
               className="rb-node-input mt-1.5 max-h-24 overflow-y-auto rounded border border-white/10 bg-black/20 p-1.5 font-mono text-[10px] leading-snug text-zinc-400"
               onWheelCapture={e => e.stopPropagation()}
             >
-              <div className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
+              <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
                 input
               </div>
-              <pre className="whitespace-pre-wrap break-all text-zinc-400">
-                {(() => {
-                  try {
-                    return JSON.stringify(data.input, null, 2);
-                  } catch {
-                    return String(data.input);
-                  }
-                })()}
-              </pre>
+              <JsonInspect value={data.input} />
             </div>
           ) : null}
           {isExpanded && data.output !== undefined && data.output !== null ? (
@@ -599,18 +592,10 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
               className="rb-node-output mt-1.5 max-h-32 overflow-y-auto rounded border border-white/10 bg-black/30 p-1.5 font-mono text-[10px] leading-snug text-zinc-300"
               onWheelCapture={e => e.stopPropagation()}
             >
-              <div className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
+              <div className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
                 output
               </div>
-              <pre className="whitespace-pre-wrap break-all text-zinc-300">
-                {(() => {
-                  try {
-                    return JSON.stringify(data.output, null, 2);
-                  } catch {
-                    return String(data.output);
-                  }
-                })()}
-              </pre>
+              <JsonInspect value={data.output} />
             </div>
           ) : null}
           {/* Replay desde aquí — exposes the existing replayExecution
