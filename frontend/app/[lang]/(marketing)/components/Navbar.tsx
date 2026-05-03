@@ -29,18 +29,26 @@ export default function Navbar({ content, lang }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    // 60px threshold ≈ "I scrolled past the hero badge". Below that
+    // the navbar stays full-height + transparent so the hero owns
+    // the first paint; above it the navbar collapses into a
+    // compact pill the rest of the page can scroll under.
+    const handleScroll = () => setIsScrolled(window.scrollY > 60);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
     <motion.header className="fixed left-0 right-0 top-0 z-50 flex items-center justify-center px-3 pt-3 sm:px-4 sm:pt-4">
+      {/* Outer container shrinks the max-width slightly when scrolled
+          so the navbar reads as a pill, not a strip. The transition
+          covers max-width + padding + height + visual chrome on a
+          single 500ms ease so the collapse feels coherent. */}
       <div
-        className={`flex w-full max-w-6xl items-center justify-between rounded-xl px-4 py-3 transition-[background,border,box-shadow,backdrop-filter] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:rounded-2xl sm:px-5 ${
+        className={`flex w-full items-center justify-between rounded-xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:rounded-2xl ${
           isScrolled
-            ? 'bg-background/70 border-border/60 border shadow-[0_10px_40px_-12px_rgba(0,0,0,0.5)] backdrop-blur-2xl'
-            : 'border border-transparent bg-transparent'
+            ? 'bg-background/75 border-border/60 max-w-5xl border px-3 py-2 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:px-4'
+            : 'max-w-6xl border border-transparent bg-transparent px-4 py-3 sm:px-5'
         }`}
       >
         {/* Logo */}
@@ -48,8 +56,12 @@ export default function Navbar({ content, lang }: NavbarProps) {
           href={`/${lang}`}
           className="text-foreground group flex items-center gap-2.5 text-lg font-bold tracking-tight"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-md border border-emerald-500/30 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-[-4deg] group-hover:scale-[1.04]">
-            <DNAMark size={20} />
+          <div
+            className={`flex items-center justify-center rounded-md border border-emerald-500/30 bg-emerald-500/10 shadow-lg shadow-emerald-500/10 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:rotate-[-4deg] group-hover:scale-[1.04] ${
+              isScrolled ? 'h-7 w-7' : 'h-8 w-8'
+            }`}
+          >
+            <DNAMark size={isScrolled ? 18 : 20} />
           </div>
           Operari
         </Link>

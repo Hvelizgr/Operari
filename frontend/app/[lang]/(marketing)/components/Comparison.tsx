@@ -139,7 +139,7 @@ export default function Comparison({ content }: ComparisonProps) {
                   <tr
                     key={row.feature}
                     data-cmp-row
-                    className={`border-border/30 border-b last:border-0 ${rowIdx % 2 === 0 ? 'bg-background/[0.015]' : ''}`}
+                    className={`cmp-row-sweep border-border/30 border-b last:border-0 ${rowIdx % 2 === 0 ? 'bg-background/[0.015]' : ''}`}
                   >
                     <td className="text-foreground/90 px-4 py-4 text-sm font-medium md:px-5">
                       {row.feature}
@@ -158,6 +158,40 @@ export default function Comparison({ content }: ComparisonProps) {
             </table>
           </div>
         </motion.div>
+
+        {/* Hover-sweep gradient on each comparison row. Implemented in
+            CSS rather than JS so the GPU compositor handles it on
+            hover without a single React re-render. The sweep uses a
+            wide linear-gradient (200% bg-size) translated via
+            background-position; the transition animates over 600ms,
+            giving a left-to-right pass that highlights the row
+            without changing its content. Honors prefers-reduced-
+            motion via the @media query. */}
+        <style jsx>{`
+          :global(.cmp-row-sweep) {
+            background-image: linear-gradient(
+              90deg,
+              transparent 0%,
+              rgba(63, 207, 142, 0.07) 50%,
+              transparent 100%
+            );
+            background-size: 200% 100%;
+            background-position: 100% 0;
+            background-repeat: no-repeat;
+            transition: background-position 600ms cubic-bezier(0.22, 1, 0.36, 1);
+          }
+          :global(.cmp-row-sweep:hover) {
+            background-position: -100% 0;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            :global(.cmp-row-sweep) {
+              transition: none;
+            }
+            :global(.cmp-row-sweep:hover) {
+              background-position: 50% 0;
+            }
+          }
+        `}</style>
 
         {/* Honest footnote + closing CTA. The CTA is the missing button
             from the previous version — without it, the section ended in

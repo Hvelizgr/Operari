@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import ScrambleText from './ScrambleText';
+
 export default function LanguageSwitcher({ lang }: { lang: string }) {
   const pathname = usePathname();
 
@@ -29,10 +31,15 @@ export default function LanguageSwitcher({ lang }: { lang: string }) {
                   transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 />
               )}
+              {/* Scramble both labels on mount so each language toggle
+                  navigation gives a quick decode effect (~80ms for
+                  2 chars). Faster tick / 1-char settle keeps it
+                  subtle — same vocabulary as the Hero headline but
+                  shorter so it never feels like a loading state. */}
               <span
                 className={`relative z-10 ${isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                {locale.toUpperCase()}
+                <ScrambleText text={locale.toUpperCase()} tickMs={20} settleEvery={1} />
               </span>
             </div>
           </Link>
