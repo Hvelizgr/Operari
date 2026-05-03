@@ -1,7 +1,7 @@
 'use client';
 
 import { NodeToolbar, Position } from '@xyflow/react';
-import { CircleDot, Copy, Play, Power, Trash2, Unlink } from 'lucide-react';
+import { CircleDot, Copy, Palette, Play, Power, Trash2, Unlink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -113,6 +113,31 @@ export function NodeContextToolbar({
     useEditorStore.getState().toggleBreakpoint(id);
   };
 
+  const setColor = (color: string) => {
+    const node = useEditorStore.getState().nodes.find(n => n.id === id);
+    if (!node) return;
+    useEditorStore.getState().updateNodeData(id, {
+      workflow: {
+        ...node.data.workflow,
+        config: { ...(node.data.workflow.config ?? {}), color },
+      },
+    });
+    useEditorStore.getState().setStatus('dirty');
+  };
+
+  // Palette mirrors n8n's sticky-note swatches but uses the Operari
+  // brand tokens so a future palette tweak is a one-file edit. Order
+  // matches the visual flow (warm → cool) so the picker reads as a
+  // gradient strip rather than a random grid.
+  const STICKY_COLORS: ReadonlyArray<{ token: string; cssVar: string; label: string }> = [
+    { token: 'gold', cssVar: 'var(--op-gold)', label: 'Yellow' },
+    { token: 'sunset', cssVar: 'var(--op-sunset)', label: 'Coral' },
+    { token: 'moss', cssVar: 'var(--op-moss)', label: 'Green' },
+    { token: 'sky', cssVar: 'var(--op-sky)', label: 'Blue' },
+    { token: 'ice', cssVar: 'var(--op-ice)', label: 'Ice' },
+    { token: 'stone', cssVar: 'var(--op-stone)', label: 'Gray' },
+  ];
+
   return (
     <NodeToolbar
       isVisible={undefined /* default: visible while selected */}
@@ -179,6 +204,29 @@ export function NodeContextToolbar({
             <Unlink size={14} />
           </button>
         </HoverTooltip>
+      ) : null}
+      {kind === 'note' || kind === 'frame' ? (
+        <>
+          <div className="mx-1 h-4 w-px bg-white/10" />
+          {/* Inline palette swatches. Six is the n8n count and fits the
+              toolbar without overflowing on narrow zoomed-out canvases. */}
+          <HoverTooltip label="Color">
+            <div className="flex items-center gap-0.5 px-1" aria-label="Color">
+              <Palette size={12} className="mr-0.5 text-white/50" />
+              {STICKY_COLORS.map(({ token, cssVar, label }) => (
+                <button
+                  key={token}
+                  type="button"
+                  onClick={() => setColor(cssVar)}
+                  aria-label={`Set color to ${label}`}
+                  title={label}
+                  className="h-3.5 w-3.5 rounded-full border border-white/20 transition-transform hover:scale-110"
+                  style={{ background: cssVar }}
+                />
+              ))}
+            </div>
+          </HoverTooltip>
+        </>
       ) : null}
       <div className="mx-1 h-4 w-px bg-white/10" />
       <HoverTooltip label="Delete">
