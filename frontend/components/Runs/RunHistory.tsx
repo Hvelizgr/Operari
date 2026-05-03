@@ -1,8 +1,25 @@
 'use client';
 
-import { Ban, CheckCircle2, Loader2, Pause, XCircle } from 'lucide-react';
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useReactTable,
+} from '@tanstack/react-table';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Ban,
+  CheckCircle2,
+  Loader2,
+  Pause,
+  XCircle,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { List as VirtualList } from 'react-window';
 
 import { formatDateTime } from '@/lib/datetime';
@@ -272,29 +289,115 @@ function RunsVirtualTable({
   t: Record<string, string>;
   onOpen: (runId: string) => void;
 }) {
+  // Sort state lives in the parent so the column header click can
+  // toggle asc/desc/off without losing it on data refresh. Sprint 2
+  // pilot for `@tanstack/react-table` — the column model lives here,
+  // react-window keeps doing the rendering (10k+ rows perform fine).
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const columns = useMemo<ColumnDef<Run>[]>(
+    () => [
+      {
+        id: 'status',
+        accessorKey: 'status',
+        header: 'Status',
+        size: 128,
+        enableSorting: true,
+      },
+      {
+        id: 'runbook',
+        accessorFn: r => r.runbook.name,
+        header: t.runbook,
+        enableSorting: true,
+      },
+      { id: 'trigger', accessorKey: 'trigger', header: t.trigger, size: 112, enableSorting: true },
+      {
+        id: 'startedAt',
+        accessorKey: 'startedAt',
+        header: t.started,
+        size: 176,
+        enableSorting: true,
+        sortingFn: 'datetime',
+      },
+      {
+        id: 'duration',
+        accessorKey: 'duration',
+        header: t.duration,
+        size: 96,
+        enableSorting: true,
+      },
+      // ID intentionally not sortable — UUIDs are random; sorting by
+      // them surfaces no useful order.
+      { id: 'id', accessorKey: 'id', header: 'ID', size: 96, enableSorting: false },
+    ],
+    [t]
+  );
+
+  const table = useReactTable({
+    data: runs,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  // Sorted rows feed react-window. `original` is the typed Run row;
+  // RunRow keeps reading from `runs[index]` so we hand it the sorted
+  // array, not the unsorted prop.
+  const sortedRuns = useMemo(() => table.getRowModel().rows.map(r => r.original), [table, sorting]);
+
   // Cap the visible viewport so the list does not push the rest of
   // the page off-screen on tall viewports. 12 rows is a comfortable
   // window — react-window handles tens of thousands behind it.
-  const VIEW_ROWS = Math.min(runs.length, 12);
+  const VIEW_ROWS = Math.min(sortedRuns.length, 12);
   const listHeight = VIEW_ROWS * ROW_HEIGHT;
 
   return (
     <div className="overflow-hidden rounded-lg border border-zinc-800">
-      {/* Sticky header — same column widths as the rows below */}
+      {/* Sortable header — react-table manages the toggle cycle
+          (asc → desc → off). Column widths mirror the row template
+          via the size accessor so the visual contract is unchanged. */}
       <div className="flex border-b border-zinc-800 bg-zinc-950 text-xs uppercase text-zinc-500">
-        <div className="w-32 px-4 py-3">Status</div>
-        <div className="flex-1 px-4 py-3">{t.runbook}</div>
-        <div className="w-28 px-4 py-3">{t.trigger}</div>
-        <div className="w-44 px-4 py-3">{t.started}</div>
-        <div className="w-24 px-4 py-3">{t.duration}</div>
-        <div className="w-24 px-4 py-3">ID</div>
+        {table.getHeaderGroups().map(group =>
+          group.headers.map(header => {
+            const sortable = header.column.getCanSort();
+            const dir = header.column.getIsSorted();
+            const SortIcon = dir === 'asc' ? ArrowUp : dir === 'desc' ? ArrowDown : ArrowUpDown;
+            const widthClass =
+              header.column.id === 'runbook'
+                ? 'flex-1'
+                : header.column.id === 'status'
+                  ? 'w-32'
+                  : header.column.id === 'trigger'
+                    ? 'w-28'
+                    : header.column.id === 'startedAt'
+                      ? 'w-44'
+                      : 'w-24';
+            return (
+              <button
+                key={header.id}
+                type="button"
+                onClick={header.column.getToggleSortingHandler()}
+                disabled={!sortable}
+                className={`flex items-center gap-1 px-4 py-3 text-left ${widthClass} ${
+                  sortable
+                    ? 'cursor-pointer transition-colors hover:bg-zinc-900 hover:text-zinc-300'
+                    : 'cursor-default'
+                } ${dir ? 'text-zinc-200' : ''}`}
+              >
+                {flexRender(header.column.columnDef.header, header.getContext())}
+                {sortable ? <SortIcon size={11} className="opacity-60" /> : null}
+              </button>
+            );
+          })
+        )}
       </div>
       <VirtualList<RunRowExtra>
         style={{ height: listHeight }}
-        rowCount={runs.length}
+        rowCount={sortedRuns.length}
         rowHeight={ROW_HEIGHT}
         rowComponent={RunRow}
-        rowProps={{ runs, lang, onOpen }}
+        rowProps={{ runs: sortedRuns, lang, onOpen }}
       />
     </div>
   );

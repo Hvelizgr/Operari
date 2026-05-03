@@ -452,3 +452,11 @@ outside a module`). Pinning to v3 also matches backend (which
   on every keystroke, which is the opposite of RHF's "internal
   state until submit" assumption. Forcing RHF here would split the
   state across two systems for no validation gain.
+- 2026-05-03 — `@tanstack/react-table` real pilot landed in
+  `RunHistory`. Sortable column headers (status / runbook /
+  trigger / startedAt / duration), with the 'datetime' sortingFn
+  for the start-time column. Sort state lives in the parent so it
+  survives data refreshes; the column model lives in `useReactTable`,
+  rendering still goes through `react-window` for virtualization
+  (10k+ rows perform fine). ID column intentionally non-sortable
+  since UUIDs are random. Sprint 2 ✅ closed.
