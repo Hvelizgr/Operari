@@ -1,7 +1,7 @@
 'use client';
 
 import { ShieldCheck } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Audit-hash ticker — narrow strip in the footer that scrolls fake
@@ -51,11 +51,18 @@ interface AuditHashTickerProps {
 }
 
 export default function AuditHashTicker({ lang }: AuditHashTickerProps) {
-  // Generate once on mount so the chain stays visually stable for
-  // the duration of the page view. The marquee animation is CSS
-  // only — no JS frame loop.
-  const chain = useMemo(() => generateChain(12), []);
+  // Generated client-side AFTER mount — Math.random() in useMemo
+  // would run during SSR with a different sequence than the client
+  // hydration pass, producing a hydration mismatch. Defer to a
+  // useEffect so the hashes are minted exactly once per page view
+  // on the browser side. Until then we render nothing (the strip
+  // is decorative, popping in is fine).
+  const [chain, setChain] = useState<Array<{ prev: string; next: string }> | null>(null);
   const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    setChain(generateChain(12));
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -82,7 +89,14 @@ export default function AuditHashTicker({ lang }: AuditHashTickerProps) {
           {t.eyebrow}
         </span>
         <div className="audit-ticker-mask relative my-2 min-w-0 flex-1">
-          {reduced ? (
+          {/* Render-gate: the chain is generated client-side post-
+              mount (Math.random in SSR is non-deterministic and would
+              hydrate-mismatch). Until the first render-after-mount
+              we show an empty fixed-height strip so the layout
+              doesn't jump when the chain pops in. */}
+          {chain == null ? (
+            <div className="font-mono text-[11px] text-transparent">—</div>
+          ) : reduced ? (
             // Static fallback — first 4 entries, no marquee. Same
             // visual density as the live row so the layout doesn't
             // jump for users who toggle the OS-level setting.
