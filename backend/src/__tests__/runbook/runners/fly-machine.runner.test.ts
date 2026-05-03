@@ -138,6 +138,132 @@ describe('FlyMachineRunner.buildCreateBody', () => {
   });
 });
 
+describe('FlyMachineRunner sidecar wiring', () => {
+  const { RunChunkBuffer } = jest.requireActual<
+    typeof import('../../../runbook/runners/run-chunk-buffer')
+  >('../../../runbook/runners/run-chunk-buffer');
+
+  const buildSidecarRunner = (chunkBuffer: InstanceType<typeof RunChunkBuffer>) =>
+    new FlyMachineRunner({
+      apiToken: 'fly-test-token',
+      appName: 'operari-runners',
+      apiBase: 'https://api.machines.test',
+      fetchImpl: buildFetch([]).fn,
+      chunkBuffer,
+      chunkCallbackUrl: 'https://api.operari.test/api/internal/run-chunks',
+      chunkSecret: 'sidecar-shared-secret',
+    });
+
+  it('reports sidecarEnabled only when all three options are set', () => {
+    const buf = new RunChunkBuffer();
+    const without = new FlyMachineRunner({
+      apiToken: 't',
+      appName: 'a',
+      fetchImpl: buildFetch([]).fn,
+      apiBase: 'https://x',
+    });
+    expect(without.sidecarEnabled).toBe(false);
+
+    const partial = new FlyMachineRunner({
+      apiToken: 't',
+      appName: 'a',
+      fetchImpl: buildFetch([]).fn,
+      apiBase: 'https://x',
+      chunkBuffer: buf,
+      // missing chunkCallbackUrl + chunkSecret
+    });
+    expect(partial.sidecarEnabled).toBe(false);
+
+    expect(buildSidecarRunner(buf).sidecarEnabled).toBe(true);
+  });
+
+  it('replaces init.exec with the operari-tee wrapper when sidecar is enabled', () => {
+    const buf = new RunChunkBuffer();
+    const runner = buildSidecarRunner(buf);
+    const body = runner.buildCreateBody({ command: 'echo hi && false' }, ctx()) as {
+      config: { init: { exec: string[] }; env: Record<string, string> };
+    };
+    expect(body.config.init.exec).toEqual(['operari-tee', 'echo hi && false']);
+  });
+
+  it('injects OPERARI_CALLBACK_URL + OPERARI_CALLBACK_SECRET into env', () => {
+    const buf = new RunChunkBuffer();
+    const runner = buildSidecarRunner(buf);
+    const body = runner.buildCreateBody({ command: 'true' }, ctx()) as {
+      config: { env: Record<string, string> };
+    };
+    expect(body.config.env.OPERARI_CALLBACK_URL).toBe(
+      'https://api.operari.test/api/internal/run-chunks'
+    );
+    expect(body.config.env.OPERARI_CALLBACK_SECRET).toBe('sidecar-shared-secret');
+  });
+
+  it('user env cannot override the reserved callback vars', () => {
+    const buf = new RunChunkBuffer();
+    const runner = buildSidecarRunner(buf);
+    const body = runner.buildCreateBody(
+      {
+        command: 'true',
+        env: { OPERARI_CALLBACK_URL: 'attacker-url', OPERARI_CALLBACK_SECRET: 'leaked' },
+      },
+      ctx()
+    ) as { config: { env: Record<string, string> } };
+    expect(body.config.env.OPERARI_CALLBACK_URL).toBe(
+      'https://api.operari.test/api/internal/run-chunks'
+    );
+    expect(body.config.env.OPERARI_CALLBACK_SECRET).toBe('sidecar-shared-secret');
+  });
+
+  it('keeps the v1 exec shape when the sidecar is not configured', () => {
+    const without = new FlyMachineRunner({
+      apiToken: 't',
+      appName: 'a',
+      fetchImpl: buildFetch([]).fn,
+      apiBase: 'https://x',
+    });
+    const body = without.buildCreateBody({ command: 'echo hi' }, ctx()) as {
+      config: { init: { exec: string[] }; env: Record<string, string> };
+    };
+    expect(body.config.init.exec).toEqual(['sh', '-c', 'echo hi']);
+    expect(body.config.env.OPERARI_CALLBACK_URL).toBeUndefined();
+    expect(body.config.env.OPERARI_CALLBACK_SECRET).toBeUndefined();
+  });
+
+  it('drains the chunk buffer at finish and surfaces the captured stdout/stderr', async () => {
+    const buf = new RunChunkBuffer();
+    // Pre-seed chunks as if the sidecar had already POSTed them
+    // before the runner reached its state-read step.
+    buf.append({ machineId: 'machine-xyz', stream: 'stdout', text: 'hello\n' });
+    buf.append({ machineId: 'machine-xyz', stream: 'stderr', text: 'warn: foo\n' });
+
+    const { fn } = buildFetch([
+      { status: 200, body: { id: 'machine-xyz', state: 'created' } },
+      { status: 200, body: { id: 'machine-xyz', state: 'stopped' } },
+      {
+        status: 200,
+        body: { id: 'machine-xyz', state: 'stopped', state_obj: { exit_code: 0 } },
+      },
+      { status: 200, body: { ok: true } },
+    ]);
+    const runner = new FlyMachineRunner({
+      apiToken: 't',
+      appName: 'a',
+      apiBase: 'https://api.machines.test',
+      fetchImpl: fn,
+      chunkBuffer: buf,
+      chunkCallbackUrl: 'https://api.operari.test/api/internal/run-chunks',
+      chunkSecret: 's',
+    });
+    const result = await runner.run({ command: 'echo hi' }, ctx());
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe('hello\n');
+    expect(result.stderr).toBe('warn: foo\n');
+    // Buffer must be empty after the drain so a re-used machineId
+    // would not leak chunks across runs.
+    expect(buf.size).toBe(0);
+  });
+});
+
 describe('FlyMachineRunner.extractExitCode', () => {
   it('reads state_obj.exit_code', () => {
     expect(

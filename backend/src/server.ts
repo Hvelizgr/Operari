@@ -69,8 +69,10 @@ import v1RunbookRoutes from './routes/v1/runbooks.routes';
 import v1RunRoutes from './routes/v1/runs.routes';
 import v1WebhookRoutes from './routes/v1/webhooks.routes';
 import webhookRoutes from './routes/webhook.routes';
+import { createRunChunksRouter } from './routes/internal/run-chunks.routes';
 import metricsRoutes from './routes/metrics.routes';
 import webhooksAdminRoutes from './routes/webhooks-admin.routes';
+import { getRunChunkBuffer } from './runbook/runners';
 import runbookJsonSchema from './runbook/yaml/runbook.schema.json';
 import { MonitorService } from './services/monitor.service';
 import { computeRoles } from './services/roles';
@@ -178,6 +180,20 @@ app.use('/api/sql', standardRateLimiter, sqlRoutes);
 app.use('/api/http-tester', executionRateLimiter, httpTesterRoutes);
 app.use('/api/github', standardRateLimiter, githubExplorerRoutes);
 app.use('/api/contact', standardRateLimiter, contactRoutes);
+
+// Internal log-chunk receiver for the Fly Machine sidecar. The
+// route is unauthenticated; the only auth signal is the HMAC
+// signature using OPERARI_RUN_CHUNK_SECRET. Mounted under /api/internal
+// so a future reverse-proxy rule can block it from the public
+// internet if needed (the runner image POSTs from inside Fly's
+// network, so an internal-only path works fine).
+app.use(
+  '/api/internal/run-chunks',
+  createRunChunksRouter({
+    buffer: getRunChunkBuffer(),
+    secret: process.env.OPERARI_RUN_CHUNK_SECRET ?? '',
+  })
+);
 
 // Prometheus scrape endpoint, gated behind OPERARI_METRICS_ENABLED.
 // Mounted outside /api/* so a Prometheus scrape rule does not need

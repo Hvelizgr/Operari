@@ -1,11 +1,13 @@
 import { DockerRunner, DockerRunnerOptions } from './docker.runner';
 import { FlyMachineRunner, FlyMachineRunnerOptions } from './fly-machine.runner';
 import { LocalRunner } from './local.runner';
+import { RunChunkBuffer } from './run-chunk-buffer';
 import { Runner, RunnerError } from './runner.types';
 
 export { DockerRunner } from './docker.runner';
 export { FlyMachineRunner } from './fly-machine.runner';
 export { LocalRunner, localRunner } from './local.runner';
+export { RunChunkBuffer } from './run-chunk-buffer';
 export * from './runner.types';
 
 export type RunnerType = 'local' | 'docker' | 'fly';
@@ -55,11 +57,23 @@ export function createRunner(options: RunnerRegistryOptions): Runner {
  *   FLY_API_TOKEN          = ...                          (required if "fly")
  *   FLY_APP_NAME           = ...                          (required if "fly")
  *   FLY_REGION             = "iad" | "sjc" | ...          (optional)
+ *
+ * Sidecar (Fly only — log capture via the operari-tee wrapper):
+ *   OPERARI_RUN_CHUNK_SECRET        HMAC shared secret. When unset
+ *                                   the sidecar is disabled and stdout
+ *                                   /stderr come back empty (v1).
+ *   OPERARI_RUN_CHUNK_CALLBACK_URL  Public URL of the chunk endpoint
+ *                                   (e.g. https://api.operari.dev/api/internal/run-chunks).
+ *                                   The Fly machine POSTs each line
+ *                                   here, so it must be reachable from
+ *                                   the Fly network.
  */
 export function runnerOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): RunnerRegistryOptions {
   const type = (env.OPERARI_RUNNER ?? 'local') as RunnerType;
 
   if (type === 'fly') {
+    const chunkSecret = env.OPERARI_RUN_CHUNK_SECRET;
+    const chunkCallbackUrl = env.OPERARI_RUN_CHUNK_CALLBACK_URL;
     return {
       type: 'fly',
       fly: {
@@ -67,6 +81,13 @@ export function runnerOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): Runn
         appName: env.FLY_APP_NAME ?? '',
         region: env.FLY_REGION,
         defaultImage: env.OPERARI_RUNNER_IMAGE,
+        ...(chunkSecret && chunkCallbackUrl
+          ? {
+              chunkBuffer: getRunChunkBuffer(),
+              chunkCallbackUrl,
+              chunkSecret,
+            }
+          : {}),
       },
     };
   }
@@ -110,4 +131,25 @@ export function setRunnerForTest(runner: Runner): void {
 
 export function resetRunnerForTest(): void {
   runnerSingleton = null;
+}
+
+/**
+ * Process-wide RunChunkBuffer singleton. Lazily constructed the first
+ * time it is requested so installs without the sidecar configured pay
+ * zero memory. Both `runnerOptionsFromEnv` (which feeds the
+ * FlyMachineRunner) and the chunk endpoint (which feeds the buffer
+ * from the receiving side) read this so the same buffer instance is
+ * on both ends.
+ */
+let chunkBufferSingleton: RunChunkBuffer | null = null;
+
+export function getRunChunkBuffer(): RunChunkBuffer {
+  if (!chunkBufferSingleton) {
+    chunkBufferSingleton = new RunChunkBuffer();
+  }
+  return chunkBufferSingleton;
+}
+
+export function resetRunChunkBufferForTest(): void {
+  chunkBufferSingleton = null;
 }
