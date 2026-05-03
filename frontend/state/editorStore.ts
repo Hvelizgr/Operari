@@ -15,6 +15,10 @@ import { NODE_TYPES } from '@/components/Editor/canvas/stepCatalog';
 import type { RunbookInputDefinition } from '@/components/Editor/RunbookInputsPanel';
 import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
 import { rfToWorkflow, workflowToRf } from '@/lib/canvas/adapter';
+import {
+  captureSnapshot as captureDirtinessSnapshot,
+  type NodeFingerprint,
+} from '@/lib/canvas/dirtiness';
 import { getDescendantIds, sortNodesForRf } from '@/lib/canvas/graph';
 import { reconcileWorkflow } from '@/lib/canvas/reconcile';
 
@@ -70,6 +74,13 @@ type State = {
    *  Inspector's own close button + node deletion. Not persisted —
    *  it's pure UI state per session. */
   inspectorNodeId: string | null;
+  /** Per-node fingerprints captured at the start of the most recent
+   *  run. Compared against the current canvas to compute dirtiness
+   *  — the chip on `BaseStepNode` reads off this. Populated by
+   *  `useExecutionSocket` when a run starts and cleared on
+   *  hydration of a different runbook. Empty `{}` means "no run
+   *  has happened yet on this canvas" → no dirtiness signal. */
+  lastRunFingerprints: Record<string, NodeFingerprint>;
   /** When true, BaseStepNode renders the run-history strip + heat
    *  tint sourced from the per-step stats endpoint. Toggled from the
    *  toolbar; not persisted (operators turn it on for diagnosis,
@@ -159,6 +170,11 @@ type Actions = {
   setStepStats: (next: State['stepStats']) => void;
   setStatus: (status: SaveStatus, errorMessage?: string | null) => void;
   markSaved: (savedAt?: number) => void;
+  /** Capture the current canvas's fingerprints. Call at run-start
+   *  so dirtiness propagation can compare subsequent edits against
+   *  this snapshot. Pass `clear: true` to drop the snapshot
+   *  (called when hydrating a different runbook). */
+  captureRunFingerprints: (clear?: boolean) => void;
   getRunbookPayload: () => { nodes: WorkflowNode[]; connections: WorkflowConnection[] };
   reset: () => void;
 };
@@ -180,6 +196,7 @@ const initialState: State = {
   stepStats: {},
   breakpoints: [],
   inspectorNodeId: null,
+  lastRunFingerprints: {},
 };
 
 export const useEditorStore = create<EditorState>()(
@@ -420,6 +437,12 @@ export const useEditorStore = create<EditorState>()(
       setStatus: (status, errorMessage = null) => set({ status, errorMessage }),
 
       markSaved: (savedAt = Date.now()) => set({ status: 'saved', savedAt, errorMessage: null }),
+
+      captureRunFingerprints: (clear = false) =>
+        set(state => {
+          if (clear) return { lastRunFingerprints: {} };
+          return { lastRunFingerprints: captureDirtinessSnapshot(state.nodes, state.edges) };
+        }),
 
       replaceNodeType: (id, nextType, nextDefaultConfig, nextDefaultTitle) =>
         set(state => {

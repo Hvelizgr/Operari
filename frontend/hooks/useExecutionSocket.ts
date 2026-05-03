@@ -65,6 +65,13 @@ export function useExecutionSocket(executionId: string | null) {
   useEffect(() => {
     if (!executionId) return;
 
+    // Capture per-node fingerprints at run-start so subsequent
+    // edits (params, wiring, pin) light up the dirtiness chip on
+    // the affected nodes + cascade to descendants. n8n parity —
+    // their canvas marks a node "subject to change" the moment
+    // the operator edits a setting after the run finished.
+    useEditorStore.getState().captureRunFingerprints();
+
     // Backfill on mount. Dry-runs against a small runbook complete in
     // ~50ms — faster than the Socket.io client can connect, join the
     // execution room, and start receiving events. Without this fetch

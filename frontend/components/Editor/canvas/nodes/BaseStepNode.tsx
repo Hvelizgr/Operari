@@ -11,10 +11,11 @@ import {
   MinusCircle,
   XCircle,
 } from 'lucide-react';
-import { KeyRound, Pin, PlayCircle, Repeat } from 'lucide-react';
+import { History, KeyRound, Pin, PlayCircle, Repeat } from 'lucide-react';
 import { Fragment, memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { JsonInspect } from '@/components/ui/JsonInspect';
+import { useNodeDirtiness } from '@/hooks/useDirtiness';
 import { useNextInPath } from '@/hooks/useNextInPath';
 import type { RfNode } from '@/lib/canvas/adapter';
 import { resolveStepOutputs } from '@/lib/canvas/portLabels';
@@ -144,9 +145,17 @@ const REST = { opacity: 1, scale: 1 };
  */
 const HALT_POINT_TYPES = new Set<string>(['approval', 'wait', 'Suspend']);
 
+const DIRTINESS_LABEL: Record<string, string> = {
+  'parameters-updated': 'Edited since last run',
+  'incoming-connections-updated': 'Wiring changed since last run',
+  'pinned-data-updated': 'Pin changed since last run',
+  'upstream-dirty': 'Upstream step changed since last run',
+};
+
 function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   const { id, type, data, selected } = props;
   const def = NODE_CATALOG.get(type);
+  const dirtiness = useNodeDirtiness(id);
   // SRE-tailored visual metadata. Drives blast-radius outline, badges,
   // and any future per-step semantics. Falling back to an empty object
   // lets future plugin types render without explicit metadata while
@@ -481,6 +490,15 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
                 aria-label="pinned output"
               >
                 <Pin size={11} className="text-amber-200" />
+              </span>
+            ) : null}
+            {dirtiness ? (
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/20 ring-1 ring-amber-400/40"
+                title={DIRTINESS_LABEL[dirtiness] ?? 'Subject to change since last run'}
+                aria-label={`dirty: ${dirtiness}`}
+              >
+                <History size={11} className="text-amber-300" />
               </span>
             ) : null}
             <AnimatePresence mode="wait">
