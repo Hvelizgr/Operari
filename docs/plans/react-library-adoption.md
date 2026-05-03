@@ -363,3 +363,14 @@ user-visible features yet, but every subsequent item gets faster.
   gating is built-in. `Ctrl/Cmd+Enter` in the HTTP tester also
   migrated (with `enableOnFormTags: true` since that chord intentionally
   fires from inputs).
+- 2026-05-02 — `class-variance-authority` installed. Created
+  `components/ui/buttonVariants.ts` with two helpers: `iconButton`
+  (square 7×7 buttons that line floating toolbars; tones: neutral /
+  primary / destructive; supports `active: true` for engaged toggles)
+  and `chipButton` (bordered text+icon buttons in toolbar headers;
+  tones: neutral / primary). First migration: NodeContextToolbar's
+  6 buttons — replaced the `${buttonClass} hover:bg-...` ternary
+  scaffolding with `iconButton({ tone, active })`. Compound variants
+  unify the active-state foreground tint per tone so a "remove
+  breakpoint" toggle and a delete button share the same red
+  semantics without duplicating Tailwind classes.

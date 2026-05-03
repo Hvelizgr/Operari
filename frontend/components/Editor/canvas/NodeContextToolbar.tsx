@@ -5,6 +5,7 @@ import { CircleDot, Copy, Play, Power, Trash2, Unlink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { iconButton } from '@/components/ui/buttonVariants';
 import { HoverTooltip } from '@/components/ui/Tooltip';
 import { buildSnapshot, remapForPaste } from '@/lib/canvas/clipboard';
 import { useEditorStore } from '@/state/editorStore';
@@ -48,9 +49,6 @@ interface NodeContextToolbarProps {
   enabled?: boolean;
   parentId?: string;
 }
-
-const buttonClass =
-  'flex h-7 w-7 items-center justify-center rounded transition-colors text-[color:var(--rb-node-text)] hover:bg-white/10';
 
 /**
  * Floating per-node action bar that React Flow auto-positions in screen
@@ -129,14 +127,14 @@ export function NodeContextToolbar({
             onClick={runHere}
             disabled={running}
             aria-label="Run from here"
-            className={`${buttonClass} hover:bg-[color:var(--op-moss)]/15 hover:text-[color:var(--op-moss)] disabled:cursor-not-allowed disabled:opacity-40`}
+            className={iconButton({ tone: 'primary' })}
           >
             <Play size={14} />
           </button>
         </HoverTooltip>
       ) : null}
       <HoverTooltip label="Duplicate">
-        <button type="button" onClick={duplicate} aria-label="Duplicate" className={buttonClass}>
+        <button type="button" onClick={duplicate} aria-label="Duplicate" className={iconButton()}>
           <Copy size={14} />
         </button>
       </HoverTooltip>
@@ -146,10 +144,9 @@ export function NodeContextToolbar({
             type="button"
             onClick={toggleEnabled}
             aria-label={enabled ? 'Disable step' : 'Enable step'}
-            className={buttonClass}
-            data-active={!enabled}
+            className={iconButton({ tone: 'destructive', active: !enabled })}
           >
-            <Power size={14} className={enabled ? '' : 'text-[color:var(--rb-edge-failed)]'} />
+            <Power size={14} />
           </button>
         </HoverTooltip>
       ) : null}
@@ -165,13 +162,9 @@ export function NodeContextToolbar({
             type="button"
             onClick={toggleBreakpoint}
             aria-label={isBreakpoint ? 'Remove breakpoint' : 'Set breakpoint'}
-            className={buttonClass}
-            data-active={isBreakpoint}
+            className={iconButton({ tone: 'destructive', active: isBreakpoint })}
           >
-            <CircleDot
-              size={14}
-              className={isBreakpoint ? 'text-[color:var(--rb-edge-failed)]' : ''}
-            />
+            <CircleDot size={14} />
           </button>
         </HoverTooltip>
       ) : null}
@@ -181,7 +174,7 @@ export function NodeContextToolbar({
             type="button"
             onClick={detach}
             aria-label="Detach from frame"
-            className={buttonClass}
+            className={iconButton()}
           >
             <Unlink size={14} />
           </button>
@@ -193,7 +186,7 @@ export function NodeContextToolbar({
           type="button"
           onClick={remove}
           aria-label="Delete"
-          className={`${buttonClass} hover:bg-[color:var(--rb-edge-failed)]/20 hover:text-[color:var(--rb-edge-failed)]`}
+          className={iconButton({ tone: 'destructive' })}
         >
           <Trash2 size={14} />
         </button>
