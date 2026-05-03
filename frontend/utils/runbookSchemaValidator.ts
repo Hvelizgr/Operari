@@ -131,12 +131,18 @@ export const FALLBACK_SCHEMA = {
         },
         next: {
           description:
-            'Successor step id(s). Omit on the final step. Strings reference another step by id. The structured form preserves source/target port indexes for non-default branching.',
+            'Successor step id(s). Omit on the final step. Strings reference another step by id. The structured array form preserves source/target port indexes for non-default branching. The object form keys edges by branch label (e.g. `true`/`false` for operari.if, `approved`/`rejected` for approval, `case_1`/`default` for Switch) — value is either a step id string or a StepConnection.',
           oneOf: [
             { type: 'string' },
             {
               type: 'array',
               items: { oneOf: [{ type: 'string' }, { $ref: '#/definitions/StepConnection' }] },
+            },
+            {
+              type: 'object',
+              additionalProperties: {
+                oneOf: [{ type: 'string' }, { $ref: '#/definitions/StepConnection' }],
+              },
             },
           ],
         },

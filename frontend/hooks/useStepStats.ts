@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -34,6 +34,15 @@ interface UseStepStatsResult {
   refresh: () => void;
 }
 
+// Stable empty-stats sentinel. Returning `{}` inline from `stats: data
+// ?? {}` would mint a fresh object reference on every render of the
+// hook — Canvas.tsx then has a `useEffect(() => setStepStats(stats),
+// [stats, ...])` that would re-fire every render, hit Zustand,
+// trigger another render, and loop until React bails out with
+// "Maximum update depth exceeded". Pinning a module-level singleton
+// keeps the reference stable until react-query actually has data.
+const EMPTY_STATS: StepStatsMap = {};
+
 /**
  * Per-runbook step statistics — Sprint 1 pilot for `@tanstack/react-query`.
  *
@@ -58,7 +67,11 @@ export function useStepStats(
   sinceMs: number = 30 * 24 * 60 * 60 * 1000
 ): UseStepStatsResult {
   const queryClient = useQueryClient();
-  const queryKey = ['step-stats', runbookId, sinceMs] as const;
+  // Memoised so `refresh`'s `useCallback` doesn't see a new key tuple
+  // every render (which would also force consumers using `refresh` in
+  // their own effect deps to re-fire). The key contents only change
+  // when runbookId or sinceMs change.
+  const queryKey = useMemo(() => ['step-stats', runbookId, sinceMs] as const, [runbookId, sinceMs]);
 
   const { data, isFetching } = useQuery({
     queryKey,
@@ -80,7 +93,11 @@ export function useStepStats(
   }, [queryClient, queryKey]);
 
   return {
-    stats: data ?? {},
+    // Module-level EMPTY_STATS singleton when react-query hasn't
+    // resolved yet — see the comment on the constant for why this
+    // matters. Once `data` exists it's already a stable reference
+    // owned by react-query's cache.
+    stats: data ?? EMPTY_STATS,
     loading: isFetching,
     refresh,
   };
