@@ -458,7 +458,14 @@ export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
           // Stop wheel from propagating to React Flow so scrolling the
           // log doesn't accidentally pan/zoom the canvas behind it.
           onWheelCapture={e => e.stopPropagation()}
-          className="max-h-[35vh] overflow-y-auto p-2 font-mono text-[11px] leading-tight"
+          // Fixed height (240px) so a long run doesn't push the
+          // console over a third of the viewport — operators with
+          // 100-step runbooks were hitting `max-h-[35vh]` and burying
+          // the canvas. New content scrolls inside this box; the
+          // box itself never grows. Falls back to `28vh` on very
+          // short screens so the console isn't taller than the
+          // remaining canvas height.
+          className="h-[min(240px,28vh)] overflow-y-auto p-2 font-mono text-[11px] leading-tight"
         >
           {lines.length === 0 ? (
             <div className="px-2 py-4 text-zinc-500">{t.waiting}</div>

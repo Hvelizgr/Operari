@@ -53,6 +53,14 @@ type State = {
    *  via the standard PUT autosave path. Empty array on a fresh
    *  runbook — operators opt in per-step from the canvas. */
   breakpoints: string[];
+  /** Node id whose Inspector panel is currently open. Decoupled from
+   *  React Flow's `selected` flag so single-click can still own
+   *  keyboard ops (delete / duplicate / arrow-nudge) without
+   *  popping the property panel every time the operator picks a
+   *  node. Set by `onNodeDoubleClick`; cleared by pane click + the
+   *  Inspector's own close button + node deletion. Not persisted —
+   *  it's pure UI state per session. */
+  inspectorNodeId: string | null;
   /** When true, BaseStepNode renders the run-history strip + heat
    *  tint sourced from the per-step stats endpoint. Toggled from the
    *  toolbar; not persisted (operators turn it on for diagnosis,
@@ -106,6 +114,8 @@ type Actions = {
     breakpoints?: string[]
   ) => void;
   toggleBreakpoint: (stepId: string) => void;
+  openInspector: (nodeId: string) => void;
+  closeInspector: () => void;
   setBreakpoints: (next: string[]) => void;
   /** Incremental version of `hydrateFromWorkflow`: nodes that exist
    *  in both the current canvas and the incoming workflow keep their
@@ -147,6 +157,7 @@ const initialState: State = {
   showStats: false,
   stepStats: {},
   breakpoints: [],
+  inspectorNodeId: null,
 };
 
 export const useEditorStore = create<EditorState>()(
@@ -235,6 +246,13 @@ export const useEditorStore = create<EditorState>()(
             nodes: state.nodes.filter(n => !all.has(n.id)),
             edges: state.edges.filter(e => !all.has(e.source) && !all.has(e.target)),
             status: 'dirty',
+            // Close the Inspector if its target just got deleted —
+            // otherwise the panel stays open against a stale id and
+            // returns null on next render anyway.
+            inspectorNodeId:
+              state.inspectorNodeId && all.has(state.inspectorNodeId)
+                ? null
+                : state.inspectorNodeId,
           };
         }),
 
@@ -311,6 +329,12 @@ export const useEditorStore = create<EditorState>()(
         }),
 
       setBreakpoints: next => set({ breakpoints: next, status: 'dirty' }),
+
+      // Inspector open / close — see the inspectorNodeId field comment
+      // for why this is decoupled from React Flow's `selected` flag.
+      // Unrelated to dirty status (UI-only state).
+      openInspector: nodeId => set({ inspectorNodeId: nodeId }),
+      closeInspector: () => set({ inspectorNodeId: null }),
 
       reconcileFromWorkflow: (header, inputs, nodes, connections) => {
         const state = get();

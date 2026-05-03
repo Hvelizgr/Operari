@@ -15,40 +15,51 @@ export default function Inspector({ lang }: { lang: 'en' | 'es' }) {
   const edges = useEditorStore(s => s.edges);
   const updateNodeData = useEditorStore(s => s.updateNodeData);
   const stepStats = useEditorStore(s => s.stepStats);
+  // Inspector is now driven by the dedicated `inspectorNodeId` flag
+  // set on `onNodeDoubleClick`. Single-click still selects a node
+  // for keyboard ops (delete, duplicate) but no longer pops this
+  // panel — operators kept losing focus on the canvas every time
+  // they bumped a node by accident.
+  const inspectorNodeId = useEditorStore(s => s.inspectorNodeId);
+  const closeInspector = useEditorStore(s => s.closeInspector);
 
-  const selected = useMemo(() => nodes.find(n => n.selected), [nodes]);
+  const target = useMemo(
+    () => (inspectorNodeId ? (nodes.find(n => n.id === inspectorNodeId) ?? null) : null),
+    [nodes, inspectorNodeId]
+  );
   const workflowSnapshot = useMemo(() => rfToWorkflow(nodes, edges), [nodes, edges]);
 
-  if (!selected) return null;
-  const selectedStats = stepStats[selected.id];
+  if (!target) return null;
+  const selectedStats = stepStats[target.id];
 
-  const def = NODE_CATALOG.get(selected.type ?? '');
-  const workflow = selected.data.workflow;
+  const def = NODE_CATALOG.get(target.type ?? '');
+  const workflow = target.data.workflow;
   const config = (workflow.config ?? {}) as Record<string, unknown>;
 
   const handleConfigChange = (key: string, value: unknown) => {
-    updateNodeData(selected.id, {
+    updateNodeData(target.id, {
       workflow: { ...workflow, config: { ...config, [key]: value } },
     });
     useEditorStore.getState().setStatus('dirty');
   };
 
   const handleTitleChange = (next: string) => {
-    updateNodeData(selected.id, { workflow: { ...workflow, title: next } });
+    updateNodeData(target.id, { workflow: { ...workflow, title: next } });
     useEditorStore.getState().setStatus('dirty');
   };
 
   const handleEnabledToggle = () => {
-    updateNodeData(selected.id, {
+    updateNodeData(target.id, {
       workflow: { ...workflow, enabled: workflow.enabled === false ? true : false },
     });
     useEditorStore.getState().setStatus('dirty');
   };
 
+  // Close the panel without touching the node's `selected` flag —
+  // keyboard ops (Backspace to delete, ⌘D to duplicate) should still
+  // act on the node the operator was inspecting.
   const handleClose = () => {
-    useEditorStore.setState(s => ({
-      nodes: s.nodes.map(n => (n.id === selected.id ? { ...n, selected: false } : n)),
-    }));
+    closeInspector();
   };
 
   const labels = {
@@ -62,7 +73,7 @@ export default function Inspector({ lang }: { lang: 'en' | 'es' }) {
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
         <div className="flex flex-col">
           <span className="text-[10px] uppercase tracking-wide text-gray-400">{t.title}</span>
-          <span className="text-sm font-semibold">{def?.label[lang] ?? selected.type}</span>
+          <span className="text-sm font-semibold">{def?.label[lang] ?? target.type}</span>
         </div>
         <button
           onClick={handleClose}

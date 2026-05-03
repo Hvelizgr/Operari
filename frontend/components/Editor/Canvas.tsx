@@ -143,6 +143,12 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   const reconnectEdgeAction = useEditorStore(s => s.reconnectEdge);
   const addNode = useEditorStore(s => s.addNode);
   const removeNodes = useEditorStore(s => s.removeNodes);
+  // Inspector is opened explicitly on double-click (was: every single
+  // selection auto-popped the panel, which fought operators trying to
+  // select-and-keyboard-delete). Pane click closes it. The store
+  // owns the id so the panel survives re-renders.
+  const openInspector = useEditorStore(s => s.openInspector);
+  const closeInspector = useEditorStore(s => s.closeInspector);
 
   const { screenToFlowPosition } = useReactFlow<RfNode, RfEdge>();
   const isValidConnection = useIsValidConnection();
@@ -400,6 +406,8 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         onReconnectStart={handleReconnectStart}
         onReconnectEnd={handleReconnectEnd}
         onEdgeDoubleClick={handleEdgeDoubleClick}
+        onNodeDoubleClick={(_event, node) => openInspector(node.id)}
+        onPaneClick={() => closeInspector()}
         onNodeDragStart={handleNodeDragStart}
         onNodeDrag={handleNodeDrag}
         onNodeDragStop={handleNodeDragStop}
