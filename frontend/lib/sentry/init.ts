@@ -17,12 +17,15 @@ import * as Sentry from '@sentry/react';
  *     and `NEXT_PUBLIC_OPERARI_ENV` (defaults to `development`).
  *
  * What's NOT wired in this commit:
- *   - Source map upload at build time (needs the @sentry/nextjs
- *     webpack plugin + auth token; deferred to deploy infra).
- *   - Server-side instrumentation (would need sentry.server.config.ts
- *     at the project root and the @sentry/nextjs `withSentryConfig`
- *     wrapper around next.config.ts).
  *   - User context binding from AuthProvider (next commit).
+ *
+ * Source map upload + server/edge instrumentation are wired:
+ *   - `next.config.ts` is wrapped with `withSentryConfig()` which
+ *     uploads source maps when `SENTRY_AUTH_TOKEN` is present at
+ *     build time. Without the token the plugin silently no-ops.
+ *   - `instrumentation.ts` forwards to `sentry.server.config.ts` and
+ *     `sentry.edge.config.ts` so RSC / route handler / middleware
+ *     errors land on the same dashboard as browser exceptions.
  *
  * `SurfaceBoundary`'s `onError` already calls `console.error`; we
  * extend that to forward to Sentry so subtree crashes show up in the
