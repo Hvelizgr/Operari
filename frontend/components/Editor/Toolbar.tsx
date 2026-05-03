@@ -12,6 +12,7 @@ import {
   FileCode,
   FileImage,
   Group,
+  HelpCircle,
   LayoutGrid,
   LayoutTemplate,
   Loader2,
@@ -48,6 +49,10 @@ interface ToolbarProps {
   lang: 'en' | 'es';
   lineStyle: LineStyle;
   onLineStyleToggle: () => void;
+  /** Opens the runbook help drawer. Wired by Canvas — the drawer
+   *  itself lives outside this toolbar so the toggle is a callback
+   *  rather than local state. */
+  onOpenHelp?: () => void;
 }
 
 interface MoreMenuItem {
@@ -141,7 +146,7 @@ const mapResult = (result: ExecuteWorkflowResult | undefined): DialogRunResult =
   return { status: 'error', message: result.message };
 };
 
-export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarProps) {
+export default function Toolbar({ lang, lineStyle, onLineStyleToggle, onOpenHelp }: ToolbarProps) {
   const router = useRouter();
   const { theme, cycleTheme } = useTheme();
 
@@ -186,6 +191,7 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           snapshots: 'Instantáneas',
           lineStyle: lineStyle === 'smart' ? 'Aristas curvas' : 'Aristas ortogonales',
           stats: showStats ? 'Ocultar estadísticas' : 'Ver estadísticas',
+          help: 'Ayuda',
           missingId: 'Guardá el runbook antes de ejecutar.',
           launching: 'Iniciando…',
           untitled: 'Sin título',
@@ -205,6 +211,7 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
           snapshots: 'Snapshots',
           lineStyle: lineStyle === 'smart' ? 'Curved edges' : 'Step edges',
           stats: showStats ? 'Hide stats' : 'Show stats',
+          help: 'Help',
           missingId: 'Save the runbook before running.',
           launching: 'Launching…',
           untitled: 'Untitled',
@@ -547,6 +554,15 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
               label: `${t.theme}: ${theme}`,
               onClick: cycleTheme,
             },
+            ...(onOpenHelp
+              ? [
+                  {
+                    icon: <HelpCircle size={12} />,
+                    label: `${t.help}  (?)`,
+                    onClick: onOpenHelp,
+                  },
+                ]
+              : []),
           ]}
         />
 

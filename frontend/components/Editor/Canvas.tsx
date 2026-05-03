@@ -42,6 +42,7 @@ import {
 } from './canvas/edgeTypes';
 import { nodeTypes } from './canvas/nodeTypes';
 import EditorRunConsole from './EditorRunConsole';
+import { detectActiveStep, EditorHelpDrawer } from './EditorHelpDrawer';
 import Inspector from './Inspector';
 import Palette from './Palette';
 import PaneNodeMenu from './PaneNodeMenu';
@@ -88,6 +89,37 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   useEffect(() => {
     setLineStyle(readLineStyle());
   }, []);
+
+  // Cheatsheet drawer for the runbook editor. Toggled from the
+  // Toolbar overflow menu and the `?` keyboard shortcut. Lives in
+  // Canvas (not Toolbar) so the drawer overlays the whole canvas
+  // and Esc / backdrop close work without bubbling through the
+  // toolbar's popover stack.
+  const [helpOpen, setHelpOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '?' || e.altKey || e.ctrlKey || e.metaKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        const editable = target.isContentEditable;
+        if (editable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      }
+      e.preventDefault();
+      setHelpOpen(o => !o);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  // Selected step type drives the auto-jump topic. Reading the
+  // selected node out of the same store the rest of the canvas
+  // subscribes to keeps this in sync without a separate signal.
+  // RfNode's `type` mirrors WorkflowNode.type so the step type is
+  // already on the top-level node — no need to dig into `data`.
+  const selectedStepType = useEditorStore(s => {
+    const sel = s.nodes.find(n => n.selected);
+    return sel?.type ?? null;
+  });
   const toggleLineStyle = useCallback(() => {
     setLineStyle(prev => {
       const next: LineStyle = prev === 'smart' ? 'step' : 'smart';
@@ -427,7 +459,12 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         {!embedMode ? <UndoRedoPanel lang={lang} /> : null}
         {!embedMode ? <SelectionStatusPill lang={lang} /> : null}
         {!embedMode ? (
-          <Toolbar lang={lang} lineStyle={lineStyle} onLineStyleToggle={toggleLineStyle} />
+          <Toolbar
+            lang={lang}
+            lineStyle={lineStyle}
+            onLineStyleToggle={toggleLineStyle}
+            onOpenHelp={() => setHelpOpen(true)}
+          />
         ) : null}
         {!embedMode ? (
           <SearchPalette lang={lang} open={searchOpen} onClose={() => setSearchOpen(false)} />
@@ -447,6 +484,16 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
       ) : null}
       {!embedMode ? <Inspector lang={lang} /> : null}
       {!embedMode ? <EditorRunConsole lang={lang} /> : null}
+      {!embedMode ? (
+        <EditorHelpDrawer
+          open={helpOpen}
+          onClose={() => setHelpOpen(false)}
+          lang={lang}
+          // Auto-jump uses the currently selected node's step type;
+          // null falls back to the drawer's default landing topic.
+          initialTopicId={detectActiveStep(selectedStepType)}
+        />
+      ) : null}
       {paneMenu && !embedMode ? (
         <PaneNodeMenu
           screenX={paneMenu.screenX}
