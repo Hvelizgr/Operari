@@ -402,3 +402,18 @@ refresh }`) and same `enabled` gate, but the manual
   `BaseStepNode` input + output inspect bubbles replace the old
   `<pre>JSON.stringify(...)</pre>` with a collapsible viewer.
   ResponseViewer migration follows.
+- 2026-05-02 — `react-hook-form` + `@hookform/resolvers` + `zod`
+  installed. **`zod` pinned to `^3.25` (not v4)**: zod v4 is
+  pure-ESM and broke Jest's CommonJS resolution across the entire
+  test suite (173/173 failed on `Cannot use import statement
+outside a module`). Pinning to v3 also matches backend (which
+  uses zod v3.24), which sets up future schema sharing via
+  `@operari/shared`. Pilot: `LoginForm` migrated. 4 useState fields
+  collapsed into one `useForm<LoginValues>`. Schema is lenient on
+  purpose (auth servers do real validation; we only catch obvious
+  empties / malformed-shape submissions client-side). Test suite
+  still green (310/310).
+- 2026-05-02 — `@tanstack/react-table` installed (no migration in
+  this commit). Real pilot — `/runs` history with sort + filter +
+  pagination — needs ~4–6h of UI work and will land in its own
+  commit; shipping a half-baked migration now would be churn.

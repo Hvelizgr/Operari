@@ -1,8 +1,11 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 import { AuthError, useAuth } from '@/lib/auth';
 
@@ -17,21 +20,54 @@ const GITHUB_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GITHUB === 'true';
 const WORKOS_ENABLED = process.env.NEXT_PUBLIC_OAUTH_WORKOS === 'true';
 const DEV_MODE_ENABLED = process.env.NEXT_PUBLIC_DEV_LOGIN_ENABLED === 'true';
 
+/**
+ * Sprint 2 pilot for `react-hook-form` + `zod` adoption.
+ *
+ * Why this form: the smallest meaningful auth surface (3 fields max
+ * including the conditional TOTP), bounded behaviour (login + MFA
+ * branch + dev shortcut), and an existing test suite that pins the
+ * external surface so the refactor is visible to the reviewer
+ * (`LoginForm.test.tsx`). signup / forgot-password / reset / MFA
+ * enrollment follow the same recipe in subsequent commits.
+ */
+
+const loginSchema = z.object({
+  // Lenient on purpose — auth servers do their own real validation.
+  // We only catch obviously-empty / malformed-shape submissions
+  // client-side so the operator gets an instant red flag instead of
+  // round-tripping to the backend.
+  email: z.string().min(1, 'required').email('invalid'),
+  password: z.string().min(1, 'required'),
+  totpCode: z.string().optional(),
+});
+
+type LoginValues = z.infer<typeof loginSchema>;
+
 export function LoginForm({ lang }: { lang: AuthLang }) {
   const t = authStrings[lang].login;
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, continueAsDev } = useAuth();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [totpCode, setTotpCode] = useState('');
   const [mfaStep, setMfaStep] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(() => {
     const qerr = searchParams.get('error');
     if (qerr && qerr.startsWith('oauth_')) return t.oauthError;
     return null;
+  });
+
+  const {
+    control,
+    handleSubmit,
+    getValues,
+    formState: { isSubmitting },
+  } = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '', totpCode: '' },
+    // Validate only on submit so the operator isn't yelled at while
+    // typing — auth UX is forgiving by convention. Errors switch to
+    // onChange after the first failed submit (RHF default).
+    mode: 'onSubmit',
   });
 
   async function onContinueAsDev() {
@@ -46,22 +82,17 @@ export function LoginForm({ lang }: { lang: AuthLang }) {
     router.replace(target);
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (submitting) return;
+  async function onSubmit(values: LoginValues) {
     setError(null);
-    setSubmitting(true);
     try {
       const result = await login({
-        email,
-        password,
-        totpCode: mfaStep && totpCode ? totpCode : undefined,
+        email: values.email,
+        password: values.password,
+        totpCode: mfaStep && values.totpCode ? values.totpCode : undefined,
       });
       // Tenant-wide MFA policy: when the admin requires MFA and
-      // this user has not enrolled, skip the normal redirect
-      // and route them to the security page so they enroll
-      // before anything else renders. The session cookie is
-      // already set so the enrollment page can read /auth/me.
+      // this user has not enrolled, route them to /settings?mfa=enroll
+      // before anything else renders.
       if (result.mfaEnrollmentRequired) {
         router.replace(`/${lang}/settings?mfa=enroll`);
         return;
@@ -71,20 +102,18 @@ export function LoginForm({ lang }: { lang: AuthLang }) {
       router.replace(target);
     } catch (err) {
       if (err instanceof AuthError) {
-        // MFA-required is a distinct UX path: reveal the TOTP
-        // field instead of bouncing back to "invalid creds".
         if (err.mfaRequired) {
           setMfaStep(true);
-          // Clear error only if the caller already entered
-          // a code (i.e. wrong code) — otherwise no error yet.
-          setError(totpCode ? t.genericError : null);
+          // Only flag the existing TOTP entry as wrong when the
+          // operator already typed one — first-time MFA prompt has
+          // no error.
+          setError(getValues('totpCode') ? t.genericError : null);
         } else {
           setError(err.status >= 500 ? t.networkError : t.genericError);
         }
       } else {
         setError(t.networkError);
       }
-      setSubmitting(false);
     }
   }
 
@@ -127,43 +156,61 @@ export function LoginForm({ lang }: { lang: AuthLang }) {
         workos={t.workos}
       />
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
-        <AuthField
-          label={t.email}
-          type="email"
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
+        <Controller
           name="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={setEmail}
+          control={control}
+          render={({ field }) => (
+            <AuthField
+              label={t.email}
+              type="email"
+              autoComplete="email"
+              required
+              value={field.value}
+              onChange={field.onChange}
+              name={field.name}
+            />
+          )}
         />
-        <AuthField
-          label={t.password}
-          type="password"
+        <Controller
           name="password"
-          autoComplete="current-password"
-          required
-          minLength={8}
-          value={password}
-          onChange={setPassword}
+          control={control}
+          render={({ field }) => (
+            <AuthField
+              label={t.password}
+              type="password"
+              autoComplete="current-password"
+              required
+              minLength={8}
+              value={field.value}
+              onChange={field.onChange}
+              name={field.name}
+            />
+          )}
         />
 
         {mfaStep && (
-          <AuthField
-            label={lang === 'es' ? 'Código de autenticación' : 'Authentication code'}
-            hint={
-              lang === 'es'
-                ? 'Abre tu app de autenticador y pegá el código de 6 dígitos.'
-                : 'Open your authenticator app and enter the 6-digit code.'
-            }
-            type="text"
+          <Controller
             name="totpCode"
-            autoComplete="one-time-code"
-            inputMode="numeric"
-            pattern="[0-9]{6}"
-            required
-            value={totpCode}
-            onChange={setTotpCode}
+            control={control}
+            render={({ field }) => (
+              <AuthField
+                label={lang === 'es' ? 'Código de autenticación' : 'Authentication code'}
+                hint={
+                  lang === 'es'
+                    ? 'Abre tu app de autenticador y pegá el código de 6 dígitos.'
+                    : 'Open your authenticator app and enter the 6-digit code.'
+                }
+                type="text"
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                required
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                name={field.name}
+              />
+            )}
           />
         )}
 
@@ -187,10 +234,10 @@ export function LoginForm({ lang }: { lang: AuthLang }) {
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={isSubmitting}
           className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 h-11 w-full rounded-lg text-sm font-semibold shadow-md transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {submitting ? t.submitting : t.submit}
+          {isSubmitting ? t.submitting : t.submit}
         </button>
       </form>
 
