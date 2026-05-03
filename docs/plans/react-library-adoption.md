@@ -475,3 +475,11 @@ outside a module`). Pinning to v3 also matches backend (which
   each domain's `Code` helper passes its `syntax` (sql / yaml /
   http). Plain `<pre>` fallback while shiki resolves; the dark
   background stays so there's no flash of light text.
+- 2026-05-03 — `cmdk` installed. Migrated `CommandPalette.tsx` —
+  the shared widget that powers `GlobalCommandPalette` (Cmd+K from
+  any page). Public API unchanged (`actions`, `isOpen`, `onClose`,
+  `lang`); cmdk owns query / fuzzy filter / keyboard nav / a11y;
+  framer-motion overlay + brand chrome stays. `value` prop on each
+  Item concatenates `label + subLabel` so the operator can fuzzy-
+  match against both. ~50 LOC of hand-rolled keyboard / filter
+  logic dropped in favor of the lib.
