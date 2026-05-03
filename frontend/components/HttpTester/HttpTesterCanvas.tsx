@@ -3,6 +3,7 @@
 import { HelpCircle, History, PanelLeft, Send, X, Zap } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { Group, Panel, Separator } from 'react-resizable-panels';
 
 import { useApiPrefs } from '@/lib/userPrefs';
 
@@ -275,11 +276,12 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div
-            className="flex flex-col border-b border-zinc-800"
-            style={{ minHeight: '240px', maxHeight: '55%' }}
-          >
+        <Group
+          orientation="vertical"
+          id="operari-http-tester-request-response"
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <Panel defaultSize={45} minSize={20} className="flex flex-col border-b border-zinc-800">
             <div className="flex items-center justify-between border-b border-zinc-800/50 px-3 py-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">
                 {t.request}
@@ -289,9 +291,11 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
             <div className="flex-1 overflow-auto p-3">
               <RequestForm payload={payload} onChange={setPayload} lang={lang} />
             </div>
-          </div>
+          </Panel>
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <Separator className="group h-1 cursor-row-resize bg-zinc-800/50 transition-colors hover:bg-emerald-700/40 data-[dragging]:bg-emerald-600" />
+
+          <Panel defaultSize={55} minSize={15} className="flex min-h-0 flex-col overflow-hidden">
             <div className="flex shrink-0 items-center gap-2 border-b border-zinc-800/50 px-3 py-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">
                 {t.response}
@@ -312,8 +316,8 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
                 <ResponseViewer result={result} error={error} lang={lang} />
               )}
             </div>
-          </div>
-        </div>
+          </Panel>
+        </Group>
       </div>
       <HttpHelpDrawer
         open={helpOpen}

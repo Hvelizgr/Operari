@@ -19,6 +19,7 @@ import {
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { Group, Panel, Separator } from 'react-resizable-panels';
 
 import { hasCapability } from '@operari/shared';
 import { sqlMetadataSchema, type SqlMetadata } from '@/lib/sql/metadata';
@@ -633,11 +634,12 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
             CSS-hiding it) when not active so React Flow doesn't run
             its layout / measure loop in the background. */}
         {view === 'editor' ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div
-              className="flex flex-col border-b border-zinc-800"
-              style={{ minHeight: '200px', maxHeight: '50%' }}
-            >
+          <Group
+            orientation="vertical"
+            id="operari-sql-editor-editor-results"
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <Panel defaultSize={50} minSize={20} className="flex flex-col border-b border-zinc-800">
               <div className="border-b border-zinc-800/50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-600">
                 {t.editor}
               </div>
@@ -649,9 +651,11 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                   minHeight="160px"
                 />
               </div>
-            </div>
+            </Panel>
 
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <Separator className="group h-1 cursor-row-resize bg-zinc-800/50 transition-colors hover:bg-emerald-700/40 data-[dragging]:bg-emerald-600" />
+
+            <Panel defaultSize={50} minSize={15} className="flex min-h-0 flex-col overflow-hidden">
               <div className="shrink-0 border-b border-zinc-800/50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-600">
                 {t.results}
               </div>
@@ -664,8 +668,8 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                   onRetry={runQuery}
                 />
               </div>
-            </div>
-          </div>
+            </Panel>
+          </Group>
         ) : (
           <div className="relative flex min-h-0 flex-1">
             {metadataError ? (

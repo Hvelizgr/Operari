@@ -460,3 +460,10 @@ outside a module`). Pinning to v3 also matches backend (which
   rendering still goes through `react-window` for virtualization
   (10k+ rows perform fine). ID column intentionally non-sortable
   since UUIDs are random. Sprint 2 ✅ closed.
+- 2026-05-03 — Sprint 3 begins. `react-resizable-panels` v4
+  installed. v4 renamed exports from previous docs: `PanelGroup` →
+  `Group`, `PanelResizeHandle` → `Separator`, `direction` →
+  `orientation`. Migrated SQLEditorCanvas (editor / results) and
+  HttpTesterCanvas (request / response) from fixed-percentage
+  splits to drag-resizable panels with `minSize` clamps. The
+  separator turns emerald on drag.
