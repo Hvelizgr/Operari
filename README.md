@@ -434,7 +434,7 @@ operari/
 │   ├── sdk/                     ← @operari/sdk (npm, MIT)
 │   └── cli/                     ← @operari/cli (npm, MIT)
 │
-├── templates/                   ← 5 production-shaped runbooks
+├── templates/                   ← 20 production-shaped runbooks (k8s, db, cache, secrets, …)
 └── docs/
     ├── adr/                     ← architectural decision records
     ├── audit-event-coverage.md
