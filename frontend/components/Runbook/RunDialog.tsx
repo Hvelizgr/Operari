@@ -77,7 +77,13 @@ export default function RunDialog({
   inputs = [],
 }: RunDialogProps) {
   const hasInputs = inputs.length > 0;
-  const [jsonInput, setJsonInput] = useState(`{\n  "key": "value"\n}`);
+  // Default the freeform JSON textarea to empty so the operator sees
+  // a blank field with a gray placeholder hint instead of a literal
+  // `{ "key": "value" }` seed they have to delete (and that the
+  // backend would otherwise validate against the runbook's inputs
+  // schema, producing a "missing key" error on what was meant as a
+  // starter example). Empty submits parse as `{}` further down.
+  const [jsonInput, setJsonInput] = useState('');
   const [formValues, setFormValues] = useState<Record<string, unknown>>(() => defaultsFor(inputs));
   const [error, setError] = useState<string | null>(null);
   /** Per-field server-reported validation issues.
@@ -173,7 +179,13 @@ export default function RunDialog({
       return;
     }
     try {
-      const parsedInput = JSON.parse(jsonInput);
+      // Empty / whitespace-only textarea = "no extra inputs" — parse
+      // as the empty object so the runbook dispatches with the same
+      // payload it would have under a declared-but-empty inputs
+      // schema. Lets the operator skip the JSON ceremony when the
+      // runbook doesn't actually need anything.
+      const trimmed = jsonInput.trim();
+      const parsedInput = trimmed === '' ? {} : JSON.parse(trimmed);
       setError(null);
       setFieldErrors({});
       handleRunResult(await onRun(parsedInput));
@@ -325,12 +337,24 @@ export default function RunDialog({
                         ))}
                     </div>
                   ) : (
-                    <textarea
-                      value={jsonInput}
-                      onChange={e => setJsonInput(e.target.value)}
-                      className="h-48 w-full resize-none rounded-lg border border-[var(--border-color)] bg-[rgba(0,0,0,0.3)] p-3 font-mono text-sm text-[var(--body-text-color)] shadow-inner transition-colors focus:border-[var(--highlight-color)] focus:outline-none"
-                      spellCheck="false"
-                    />
+                    <div className="space-y-2">
+                      <div className="text-xs text-[var(--rb-node-muted,#94a3b8)]">
+                        {lang === 'es'
+                          ? 'Este runbook no declara inputs. Dejalo vacío para correr con payload {}, o pegá un JSON con vars extras.'
+                          : 'This runbook declares no inputs. Leave blank to dispatch with `{}`, or paste JSON for extra vars.'}
+                      </div>
+                      <textarea
+                        value={jsonInput}
+                        onChange={e => setJsonInput(e.target.value)}
+                        // Placeholder shows the example shape in muted
+                        // gray; the textarea itself stays empty so the
+                        // example never reaches the backend unless the
+                        // operator actually types over it.
+                        placeholder={'{\n  "key": "value"\n}'}
+                        className="h-48 w-full resize-none rounded-lg border border-[var(--border-color)] bg-[rgba(0,0,0,0.3)] p-3 font-mono text-sm text-[var(--body-text-color)] shadow-inner transition-colors focus:border-[var(--highlight-color)] focus:outline-none"
+                        spellCheck="false"
+                      />
+                    </div>
                   )}
                   {error && (
                     <div className="flex items-center gap-2 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
