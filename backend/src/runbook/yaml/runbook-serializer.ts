@@ -101,7 +101,7 @@ export function toSpec(
       if (skipIf) step.skipIf = skipIf;
     }
     if (outgoing.length > 0) {
-      step.next = simplifyNext(outgoing);
+      step.next = simplifyNext(outgoing, step);
     }
     step.position = { x: node.positionX, y: node.positionY };
     return step;
@@ -208,7 +208,7 @@ export function fromSpec(spec: RunbookSpec): DeserializedRunbook {
   const connections: DeserializedRunbook['connections'] = [];
   for (const step of spec.steps) {
     if (step.next == null) continue;
-    const expanded = expandNext(step.next, step.type);
+    const expanded = expandNext(step.next, step);
     for (const conn of expanded) {
       const targetUuid = friendlyToUuid.get(conn.to);
       if (!targetUuid) {
@@ -332,39 +332,100 @@ function slugify(input: string): string {
     .slice(0, 60);
 }
 
-function simplifyNext(connections: StepConnection[]): RunbookStep['next'] {
+function simplifyNext(
+  connections: StepConnection[],
+  sourceStep?: { type?: string; config?: unknown }
+): RunbookStep['next'] {
   // If every connection uses default ports, collapse to a string or
-  // string[] for readability. Otherwise emit the explicit form.
+  // string[] for readability. Otherwise try the labeled object form
+  // for known multi-output step types so the YAML stays human-
+  // readable; fall back to the explicit array form for everything
+  // else.
   const allDefault = connections.every(c => (c.fromPort ?? 0) === 0 && (c.toPort ?? 0) === 0);
   if (allDefault) {
     if (connections.length === 1) return connections[0].to;
     return connections.map(c => c.to);
   }
+  if (sourceStep) {
+    const labels = resolvePortLabels(sourceStep);
+    if (labels.length > 0) {
+      const usedLabels = new Set<string>();
+      const labeled: Record<string, string | StepConnection> = {};
+      let allLabelable = true;
+      for (const conn of connections) {
+        const port = conn.fromPort ?? 0;
+        const label = labels[port];
+        if (label == null || usedLabels.has(label) || (conn.toPort ?? 0) !== 0) {
+          allLabelable = false;
+          break;
+        }
+        usedLabels.add(label);
+        labeled[label] = conn.to;
+      }
+      if (allLabelable) return labeled;
+    }
+  }
   return connections;
 }
 
 /**
- * Canonical output port labels per multi-output step type. Mirrors
- * the editor's stepCatalog; kept inline so the serializer doesn't
- * import a frontend module.
+ * Static output port labels per multi-output step type. Mirrors
+ * `STATIC_BRANCH_OUTPUTS` in the frontend's `lib/canvas/portLabels`;
+ * kept inline so the backend serializer doesn't reach into a UI
+ * module.
+ *
+ * `Switch` is intentionally absent — its labels are derived from the
+ * step's own `config.cases` at parse / serialize time.
  */
-const BRANCH_OUTPUTS: Record<string, string[]> = {
+const STATIC_BRANCH_OUTPUTS: Record<string, string[]> = {
   approval: ['approved', 'rejected'],
   'operari.if': ['true', 'false'],
   Condition: ['true', 'false'],
-  Switch: ['case_1', 'case_2', 'default'],
 };
 
-function expandNext(next: NonNullable<RunbookStep['next']>, stepType?: string): StepConnection[] {
+function deriveSwitchOutputsFromConfig(config: unknown): string[] {
+  let cases: Array<{ label?: string; value?: string }> = [];
+  if (config && typeof config === 'object') {
+    const raw = (config as { cases?: unknown }).cases;
+    if (Array.isArray(raw)) {
+      cases = raw as Array<{ label?: string; value?: string }>;
+    } else if (typeof raw === 'string' && raw.trim().length > 0) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) cases = parsed;
+      } catch {
+        /* fall through */
+      }
+    }
+  }
+  const labels = cases
+    .map(c => (c && typeof c === 'object' ? (c.label ?? c.value ?? null) : null))
+    .filter((s): s is string => typeof s === 'string' && s.length > 0);
+  return [...labels, 'default'];
+}
+
+function resolvePortLabels(step: { type?: string; config?: unknown }): string[] {
+  const type = step.type;
+  if (!type) return [];
+  if (type === 'Switch') return deriveSwitchOutputsFromConfig(step.config);
+  return STATIC_BRANCH_OUTPUTS[type] ?? [];
+}
+
+function expandNext(
+  next: NonNullable<RunbookStep['next']>,
+  step?: { type?: string; config?: unknown }
+): StepConnection[] {
   if (typeof next === 'string') return [{ to: next }];
   if (Array.isArray(next)) {
     return next.map(item => (typeof item === 'string' ? { to: item } : item));
   }
   if (next && typeof next === 'object') {
     // Branch-label form: keys are output port labels mapped to port
-    // indices via BRANCH_OUTPUTS. Unknown labels (custom Switch cases)
-    // are assigned ports by insertion order so round-trips stay stable.
-    const known: string[] = stepType ? (BRANCH_OUTPUTS[stepType] ?? []) : [];
+    // indices via the step's resolved labels (static for
+    // approval/operari.if/Condition, dynamic for Switch via
+    // config.cases). Unknown labels are assigned ports by insertion
+    // order so round-trips stay stable.
+    const known: string[] = step ? resolvePortLabels(step) : [];
     const entries = Object.entries(next as Record<string, string | StepConnection>);
     const ports = new Map<string, number>();
     known.forEach((label, idx) => ports.set(label, idx));
@@ -387,7 +448,7 @@ function topoSort(steps: RunbookStep[]): RunbookStep[] {
   const indeg = new Map<string, number>(steps.map(s => [s.id, 0]));
   for (const step of steps) {
     if (!step.next) continue;
-    for (const conn of expandNext(step.next, step.type)) {
+    for (const conn of expandNext(step.next, step)) {
       if (byId.has(conn.to)) {
         indeg.set(conn.to, (indeg.get(conn.to) ?? 0) + 1);
       }
@@ -404,7 +465,7 @@ function topoSort(steps: RunbookStep[]): RunbookStep[] {
     if (!step) continue;
     out.push(step);
     if (step.next) {
-      for (const conn of expandNext(step.next, step.type)) {
+      for (const conn of expandNext(step.next, step)) {
         const nextDeg = (indeg.get(conn.to) ?? 0) - 1;
         indeg.set(conn.to, nextDeg);
         if (nextDeg === 0) queue.push(conn.to);

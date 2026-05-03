@@ -109,7 +109,11 @@ export function nodesToSpec(
       if (runIf) step.runIf = runIf;
       if (skipIf) step.skipIf = skipIf;
     }
-    if (outgoing.length > 0) step.next = simplifyNext(outgoing);
+    // Pass `step` so `simplifyNext` can emit the labeled object form
+    // (`next: { prod: foo, staging: bar }`) for multi-output step
+    // types instead of the index-based array (`next: [{to: foo,
+    // fromPort: 0}, ...]`). Preserves the YAML the operator wrote.
+    if (outgoing.length > 0) step.next = simplifyNext(outgoing, step);
     if (node.position) {
       step.position = { x: node.position.x, y: node.position.y };
     }
@@ -174,7 +178,7 @@ export function specToNodes(spec: RunbookSpec): ParsedRunbook {
   const connections: Connection[] = [];
   for (const step of spec.steps) {
     if (step.next == null) continue;
-    for (const conn of expandNext(step.next, step.type)) {
+    for (const conn of expandNext(step.next, step)) {
       const targetUuid = idToUuid.get(conn.to);
       if (!targetUuid) {
         throw new RunbookYamlError(
@@ -281,43 +285,105 @@ function slugify(input: string): string {
     .slice(0, 60);
 }
 
-function simplifyNext(connections: StepConnection[]): RunbookStep['next'] {
+function simplifyNext(
+  connections: StepConnection[],
+  sourceStep?: { type?: string; config?: unknown }
+): RunbookStep['next'] {
   const allDefault = connections.every(c => (c.fromPort ?? 0) === 0 && (c.toPort ?? 0) === 0);
   if (allDefault) {
     if (connections.length === 1) return connections[0].to;
     return connections.map(c => c.to);
   }
+  // Multi-output step types — try the labeled object form so the
+  // YAML stays human-readable (`next: { approved: foo, rejected:
+  // bar }`) instead of the index-based array. Only kicks in when
+  // every connection's fromPort maps to a known label AND no two
+  // connections share the same label.
+  if (sourceStep) {
+    const labels = resolvePortLabels(sourceStep);
+    if (labels.length > 0) {
+      const usedLabels = new Set<string>();
+      const labeled: Record<string, string | StepConnection> = {};
+      let allLabelable = true;
+      for (const conn of connections) {
+        const port = conn.fromPort ?? 0;
+        const label = labels[port];
+        if (label == null || usedLabels.has(label) || (conn.toPort ?? 0) !== 0) {
+          allLabelable = false;
+          break;
+        }
+        usedLabels.add(label);
+        // Bare string when only `to` differs — matches the form
+        // operators write by hand.
+        labeled[label] = conn.to;
+      }
+      if (allLabelable) return labeled;
+    }
+  }
   return connections;
 }
 
 /**
- * Canonical output port labels per multi-output step type. Mirrors
- * the editor's stepCatalog; kept inline here so the YAML parser
- * doesn't need to import the visual catalog (which would drag JSX
- * helpers into a pure parser module).
+ * Resolve the source step's port labels. For most step types the
+ * answer is the static catalog list; for `Switch` the labels come
+ * from the step's own `config.cases` (each operator-defined case
+ * gets its own port, plus an implicit `default` at the end).
+ * Returns an empty array when the step has no multi-output config —
+ * callers fall back to insertion order in that case.
  *
- * For Switch we list the seeded labels but expandNext also accepts
- * any `case_*` / `default` label and falls back to insertion order
- * for custom labels operators add by hand.
+ * Mirrors `lib/canvas/portLabels.ts` but kept inline so the YAML
+ * parser doesn't have to import a UI module.
  */
-const BRANCH_OUTPUTS: Record<string, string[]> = {
+const STATIC_BRANCH_OUTPUTS: Record<string, string[]> = {
   approval: ['approved', 'rejected'],
   'operari.if': ['true', 'false'],
   Condition: ['true', 'false'],
-  Switch: ['case_1', 'case_2', 'default'],
 };
 
-function expandNext(next: NonNullable<RunbookStep['next']>, stepType?: string): StepConnection[] {
+function deriveSwitchOutputsFromConfig(config: unknown): string[] {
+  let cases: Array<{ label?: string; value?: string }> = [];
+  if (config && typeof config === 'object') {
+    const raw = (config as { cases?: unknown }).cases;
+    if (Array.isArray(raw)) {
+      cases = raw as Array<{ label?: string; value?: string }>;
+    } else if (typeof raw === 'string' && raw.trim().length > 0) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) cases = parsed;
+      } catch {
+        /* mid-edit string — fall through */
+      }
+    }
+  }
+  const labels = cases
+    .map(c => (c && typeof c === 'object' ? (c.label ?? c.value ?? null) : null))
+    .filter((s): s is string => typeof s === 'string' && s.length > 0);
+  return [...labels, 'default'];
+}
+
+function resolvePortLabels(step: { type?: string; config?: unknown }): string[] {
+  const type = step.type;
+  if (!type) return [];
+  if (type === 'Switch') return deriveSwitchOutputsFromConfig(step.config);
+  return STATIC_BRANCH_OUTPUTS[type] ?? [];
+}
+
+function expandNext(
+  next: NonNullable<RunbookStep['next']>,
+  step?: { type?: string; config?: unknown }
+): StepConnection[] {
   if (typeof next === 'string') return [{ to: next }];
   if (Array.isArray(next)) {
     return next.map(item => (typeof item === 'string' ? { to: item } : item));
   }
   if (next && typeof next === 'object') {
-    // Object-keyed branch form: `{ approved: 'fix', rejected: 'escalate' }`.
-    // Maps each key to a fromPort index using the step type's canonical
-    // outputs; unknown keys (custom Switch cases) get a stable port
-    // assigned by insertion order so round-trips don't reshuffle edges.
-    const known: string[] = stepType ? (BRANCH_OUTPUTS[stepType] ?? []) : [];
+    // Object-keyed branch form: `{ approved: 'fix', rejected: 'escalate' }`
+    // or `{ prod: deploy_prod, staging: deploy_staging }` for Switch.
+    // Maps each key to a fromPort index using the step's resolved
+    // labels (static for approval/operari.if/Condition, dynamic for
+    // Switch via config.cases). Unknown keys get a stable port
+    // assigned by insertion order so round-trips don't reshuffle.
+    const known: string[] = step ? resolvePortLabels(step) : [];
     const entries = Object.entries(next as Record<string, string | StepConnection>);
     const ports = new Map<string, number>();
     known.forEach((label, idx) => ports.set(label, idx));
@@ -340,7 +406,7 @@ function topoSort(steps: RunbookStep[]): RunbookStep[] {
   const indeg = new Map<string, number>(steps.map(s => [s.id, 0]));
   for (const step of steps) {
     if (!step.next) continue;
-    for (const conn of expandNext(step.next, step.type)) {
+    for (const conn of expandNext(step.next, step)) {
       if (byId.has(conn.to)) indeg.set(conn.to, (indeg.get(conn.to) ?? 0) + 1);
     }
   }
@@ -353,7 +419,7 @@ function topoSort(steps: RunbookStep[]): RunbookStep[] {
     if (!step) continue;
     out.push(step);
     if (step.next) {
-      for (const conn of expandNext(step.next, step.type)) {
+      for (const conn of expandNext(step.next, step)) {
         const nextDeg = (indeg.get(conn.to) ?? 0) - 1;
         indeg.set(conn.to, nextDeg);
         if (nextDeg === 0) queue.push(conn.to);

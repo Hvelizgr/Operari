@@ -17,6 +17,7 @@ import { Fragment, memo, type ReactNode, useEffect, useMemo, useRef, useState } 
 import { JsonInspect } from '@/components/ui/JsonInspect';
 import { useNextInPath } from '@/hooks/useNextInPath';
 import type { RfNode } from '@/lib/canvas/adapter';
+import { resolveStepOutputs } from '@/lib/canvas/portLabels';
 import { useEditorStore } from '@/state/editorStore';
 
 import { NODE_CATALOG } from '../catalog';
@@ -214,7 +215,13 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   const title = workflow.title?.trim() || def?.label.en || type;
   const enabled = workflow.enabled !== false;
   const inputs = def?.inputs ?? ['main'];
-  const outputs = def?.outputs ?? ['main'];
+  // Outputs may be dynamic (Switch reads its own `config.cases`) so
+  // the static catalog list is wrong for that one step type. The
+  // helper short-circuits to `def?.outputs` for everything else.
+  const outputs = useMemo(
+    () => resolveStepOutputs(type, workflow.config, def?.outputs ?? ['main']),
+    [type, workflow.config, def?.outputs]
+  );
   const expectedOutputs = outputs.length;
   const status: Status = data.status ?? 'idle';
   const isNextInPath = useNextInPath(id);
@@ -733,6 +740,13 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
 
         {inputs.map((label, idx) => {
           const tone = handleTone(label);
+          // Distribute handles as percentages so they follow the
+          // node's actual height instead of stacking near the top
+          // (was: `top: 32 + idx*18`px). Single port → 50% (centred
+          // on the node midline). N ports → evenly spaced at
+          // (i+1)/(N+1), so 3 ports land at 25/50/75%. translate-y
+          // centres the handle dot on its computed line.
+          const top = `${((idx + 1) / (inputs.length + 1)) * 100}%`;
           return (
             <Handle
               key={`in-${idx}`}
@@ -740,7 +754,7 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
               type="target"
               position={Position.Left}
               aria-label={`input ${label}`}
-              style={{ top: 32 + idx * 18, ...(tone ? { background: tone } : {}) }}
+              style={{ top, transform: 'translateY(-50%)', ...(tone ? { background: tone } : {}) }}
             />
           );
         })}
@@ -753,6 +767,7 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
           // node's two output handles; we mirror that for any node
           // whose definition lists more than one output port.
           const showLabel = outputs.length > 1;
+          const top = `${((idx + 1) / (outputs.length + 1)) * 100}%`;
           return (
             <Fragment key={`out-${idx}`}>
               <Handle
@@ -760,12 +775,16 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
                 type="source"
                 position={Position.Right}
                 aria-label={`output ${label}`}
-                style={{ top: 32 + idx * 18, ...(tone ? { background: tone } : {}) }}
+                style={{
+                  top,
+                  transform: 'translateY(-50%)',
+                  ...(tone ? { background: tone } : {}),
+                }}
               />
               {showLabel ? (
                 <span
-                  className="pointer-events-none absolute right-3 z-10 max-w-[6rem] truncate rounded bg-black/55 px-1 py-0.5 font-mono text-[9px] leading-none text-white/85"
-                  style={{ top: 32 + idx * 18 - 7 }}
+                  className="pointer-events-none absolute right-3 z-10 max-w-[6rem] -translate-y-1/2 truncate rounded bg-black/55 px-1 py-0.5 font-mono text-[9px] leading-none text-white/85"
+                  style={{ top }}
                   title={label}
                 >
                   {label}
