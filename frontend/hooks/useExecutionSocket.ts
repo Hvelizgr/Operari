@@ -63,6 +63,7 @@ export function useExecutionSocket(executionId: string | null) {
             steps?: Array<{
               stepId: string;
               status: BackendStatus;
+              type?: string;
               startedAt?: string;
               completedAt?: string;
               duration?: number | null;
@@ -71,6 +72,10 @@ export function useExecutionSocket(executionId: string | null) {
               output?: unknown;
               /** Per-step error message when the step failed. */
               error?: string | null;
+              /** Tier C edge data — count of failed attempts for this
+               *  step during this run. Backend computes from
+               *  ExecutionError rows; absent = 0. */
+              retries?: number;
             }>;
             status?: BackendStatus;
             dryRun?: boolean;
@@ -109,14 +114,46 @@ export function useExecutionSocket(executionId: string | null) {
                 error: (step as { error?: string | null }).error ?? null,
               });
             }
+            // Tier C edge data — populate retries (incoming edges of the
+            // step) and items (outgoing edges of Loop steps) from the
+            // backfill response. Frontend already renders these chips
+            // when present; before this wiring the data fields stayed
+            // undefined and the chips never showed.
+            const isLoopType = (t: string | undefined) =>
+              t === 'Loop' || t === 'Iterator' || t === 'operari.loop';
+            const loopCountFor = (step: { type?: string; output?: unknown }): number | null => {
+              if (!isLoopType(step.type)) return null;
+              const out = step.output;
+              if (!out || typeof out !== 'object') return null;
+              const count = (out as { count?: unknown }).count;
+              if (typeof count === 'number' && Number.isFinite(count) && count > 0) {
+                return count;
+              }
+              const items = (out as { items?: unknown }).items;
+              if (Array.isArray(items) && items.length > 0) return items.length;
+              return null;
+            };
+
             for (const step of data.steps) {
               const mapped = STATUS_MAP[step.status];
               if (!mapped) continue;
+              const retries = step.retries && step.retries > 0 ? step.retries : undefined;
+              const loopItems = loopCountFor(step);
               for (const edge of store.edges) {
-                if (edge.target !== step.stepId) continue;
-                const edgeStatus = mapped === 'success' || mapped === 'failed' ? mapped : 'idle';
-                if (edge.data?.status !== edgeStatus) {
-                  store.updateEdgeData(edge.id, { status: edgeStatus });
+                const isIncoming = edge.target === step.stepId;
+                const isOutgoing = edge.source === step.stepId;
+                if (!isIncoming && !isOutgoing) continue;
+                const patch: Partial<RfEdgeData> = {};
+                if (isIncoming) {
+                  const edgeStatus = mapped === 'success' || mapped === 'failed' ? mapped : 'idle';
+                  if (edge.data?.status !== edgeStatus) patch.status = edgeStatus;
+                  if (retries !== edge.data?.retries) patch.retries = retries;
+                }
+                if (isOutgoing && loopItems != null && edge.data?.items !== loopItems) {
+                  patch.items = loopItems;
+                }
+                if (Object.keys(patch).length > 0) {
+                  store.updateEdgeData(edge.id, patch);
                 }
               }
             }

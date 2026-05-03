@@ -26,6 +26,7 @@ Stack acumulado de la sesión, en orden cronológico:
 18. **Louder run animations** (`4c83bf7`) — SUCCESS_BUMP scale 4→8% + glow brillante; FAIL_SHAKE 3→8px shake + scale + red glow; STEP_GAP 80→250ms; demo template `test-fail-animation`.
 19. **RunDialog empty-state placeholder** (`d81275a`) — `{ "key": "value" }` literal movido a `placeholder` (gris) + parse vacío como `{}`.
 20. **Debug button = post-hoc inspect bubbles** (`de60827`) — Option A del research debug. RfNodeData.output/error backfilleado, BaseStepNode renderea inspect panel cuando expandido. `?debug=1` URL auto-expande todos los nodos.
+21. **Tier C edge data wiring (3/4)** — `runs.routes.ts` cuenta ExecutionError por `nodeLogId` y devuelve `retries` por step; `useExecutionSocket` propaga retries a edges entrantes y Loop `output.count` a edges salientes; `editorStore.setStepStats` patcha `p50DurationMs` (target.p50) en una sola pasada. `crossEnv` queda pending en pendiente — necesita `env` metadata en ConnectedAccount.
 
 ---
 
@@ -214,7 +215,7 @@ Si un usuario pide algo de esto, agregalo arriba con un estimado.
 - **Decidir untrack de CLAUDE.md** — `git rm --cached CLAUDE.md` (gitignored pero sigue trackeado)
 - **30+ archivos pre-existentes de la rama** — trabajo del usuario previo al inicio de mi sesión, sigue pendiente de split en commits temáticos
 - **README desactualizado** — dice "9 step types" / "6 templates curados", actualmente son ~16 tipos en palette y 17 templates seeded
-- **Tier C edge data wiring (backend)** — `data.retries`, `data.crossEnv`, `data.items`, `data.p50DurationMs` están en RfEdgeData pero el backend no los popula todavía. Frontend hace no-op gracioso cuando absentes.
+- **Tier C edge data wiring (parcial)** — `data.retries` (backfill desde `ExecutionError` por `nodeLogId`), `data.items` (Loop `output.count`), `data.p50DurationMs` (mirror del target step en `setStepStats`) wired en sesión post-2026-05-02. **Falta `data.crossEnv`** — necesita `env` metadata en `ConnectedAccount` (no existe en schema hoy) + derivación static-analysis al guardar runbook. Frontend ya renderiza el chip cuando los 4 vienen seteados.
 
 ## Tests baseline al cierre de la sesión 2026-04-30
 

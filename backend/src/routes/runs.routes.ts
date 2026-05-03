@@ -310,6 +310,23 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     return res.status(404).json({ error: 'Run not found', code: 'run_not_found' });
   }
 
+  // Per-step retry counts feed Tier C edge visuals (`data.retries` chip).
+  // One ExecutionError row is written per failed attempt with a non-null
+  // nodeLogId; counting them gives the number of retries the step
+  // burned during this run. Skipping the lookup when there are no
+  // failures keeps the happy path free of an extra query.
+  const retriesByNodeLogId = new Map<string, number>();
+  if (run.nodeLogs.some(l => l.status === 'FAILED' || l.status === 'SUCCESS')) {
+    const errors = await prisma.executionError.findMany({
+      where: { executionId: run.id, tenantId, nodeLogId: { not: null } },
+      select: { nodeLogId: true },
+    });
+    for (const err of errors) {
+      if (!err.nodeLogId) continue;
+      retriesByNodeLogId.set(err.nodeLogId, (retriesByNodeLogId.get(err.nodeLogId) ?? 0) + 1);
+    }
+  }
+
   res.json({
     id: run.id,
     runbook: run.runbook,
@@ -331,6 +348,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       duration: log.duration,
       output: log.output,
       error: log.error,
+      retries: retriesByNodeLogId.get(log.id) ?? 0,
     })),
   });
 });

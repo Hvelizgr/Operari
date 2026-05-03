@@ -327,7 +327,26 @@ export const useEditorStore = create<EditorState>()(
           stepStats: active ? state.stepStats : {},
         })),
 
-      setStepStats: next => set({ stepStats: next }),
+      setStepStats: next =>
+        set(state => {
+          // Tier C edge data: each edge's `p50DurationMs` mirrors its
+          // target step's p50 — the time the run "spends" in that hop
+          // is dominated by the next step's execution. Patching edges
+          // alongside the stats map keeps the source of truth in one
+          // place and avoids a second effect that fires on every stats
+          // refresh. Done in a single set() so we rebuild `edges` once
+          // instead of once per edge.
+          const edges = state.edges.map(e => {
+            const targetP50 = next[e.target]?.p50DurationMs ?? undefined;
+            const currentP50 = e.data?.p50DurationMs;
+            if (currentP50 === targetP50) return e;
+            const nextData = { ...(e.data ?? {}) } as NonNullable<RfEdge['data']>;
+            if (targetP50 == null) delete nextData.p50DurationMs;
+            else nextData.p50DurationMs = targetP50;
+            return { ...e, data: nextData };
+          });
+          return { stepStats: next, edges };
+        }),
 
       setStatus: (status, errorMessage = null) => set({ status, errorMessage }),
 
