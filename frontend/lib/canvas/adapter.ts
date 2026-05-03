@@ -12,6 +12,22 @@ export type RfNodeData = {
    *  Null while running so the footer renders the live elapsed value
    *  computed from `startedAt`. */
   durationMs?: number | null;
+  /**
+   * Last-run output JSON. Populated by `useExecutionSocket`'s
+   * `/api/runs/:id` backfill from `nodeLogs.output`. Visible in the
+   * expanded card body when the operator opens the inspect panel
+   * (Depurar mode auto-expands every node; outside debug, manual
+   * double-click surfaces it). Stays undefined until a run captures
+   * something for this step.
+   */
+  output?: unknown;
+  /**
+   * Last-run error message from `nodeLogs.error`. Renders red in the
+   * inspect panel ahead of the output to mirror what an SRE actually
+   * scans for. Undefined when the step succeeded, was skipped, or
+   * never ran.
+   */
+  error?: string | null;
 };
 
 export type RfEdgeData = {

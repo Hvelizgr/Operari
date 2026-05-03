@@ -228,6 +228,10 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
     if (result?.kind === 'ok') {
       const url = new URL(window.location.href);
       url.searchParams.set('run', result.executionId);
+      // Clear any leftover debug=1 from a prior session — Simulación
+      // cards stay collapsed by default; the operator opts into the
+      // inspect panel via double-click on the dry-run replay.
+      url.searchParams.delete('debug');
       router.replace(`${url.pathname}${url.search}`);
     } else if (result?.kind === 'error') {
       setStatus('error', result.message);
@@ -241,6 +245,13 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle }: ToolbarP
     if (mapped.status === 'ok' && result?.kind === 'ok') {
       const url = new URL(window.location.href);
       url.searchParams.set('run', result.executionId);
+      // Stamp the URL with `debug=1` so BaseStepNode auto-expands every
+      // card to its inspect panel (input/output JSON, error preview).
+      // Falling back to a clear when the operator dispatches a normal
+      // Run from the same session keeps debug from leaking across
+      // unrelated runs.
+      if (mode === 'debug') url.searchParams.set('debug', '1');
+      else url.searchParams.delete('debug');
       router.replace(`${url.pathname}${url.search}`);
       setDialog(null);
     }

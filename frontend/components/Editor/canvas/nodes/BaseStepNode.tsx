@@ -2,6 +2,7 @@
 
 import { Handle, type NodeProps, Position, useNodeConnections, useStore } from '@xyflow/react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -157,6 +158,19 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   // not per-runbook, so persisting it would just clutter the
   // workflow YAML round-trip.
   const [bodyExpanded, setBodyExpanded] = useState(false);
+
+  // Debug mode auto-expansion: when the URL carries `?debug=1`
+  // (set by Toolbar.handleDebug), every node renders its inspect
+  // panel automatically once a run finishes — input/output JSON +
+  // error message — so the operator doesn't have to click into each
+  // step to see what happened. Outside debug, the body stays
+  // collapsed by default and the operator opts in via double-click.
+  const params = useSearchParams();
+  const debugMode = params.get('debug') === '1';
+  // Effective expansion: explicit local toggle wins over the debug
+  // auto-expand so the operator can collapse a noisy step they
+  // already inspected without leaving the debug session.
+  const isExpanded = bodyExpanded || debugMode;
 
   const title = workflow.title?.trim() || def?.label.en || type;
   const enabled = workflow.enabled !== false;
@@ -429,7 +443,7 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
               fill the field. We don't bother trying to deep-link
               to the specific field; the inspector form already
               renders all fields top-to-bottom on a small panel. */}
-          {!bodyExpanded && PRIMARY_FIELDS[type] ? (
+          {!isExpanded && PRIMARY_FIELDS[type] ? (
             <div className="rb-node-fields mt-1 flex flex-wrap gap-1">
               {PRIMARY_FIELDS[type].map(field => {
                 const configured = isFieldConfigured(
@@ -457,7 +471,7 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
               from ~80-110px to ~50px so a dense graph reads as a
               connection map first, with config detail on demand —
               same pattern n8n's "compact" view uses on hover. */}
-          {bodyExpanded && preview ? (
+          {isExpanded && preview ? (
             <div
               className="rb-node-preview mt-1 truncate font-mono text-[11px] text-[color:var(--rb-node-muted)]"
               title={preview}
@@ -465,7 +479,7 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
               {preview}
             </div>
           ) : null}
-          {bodyExpanded && tags.length > 0 ? (
+          {isExpanded && tags.length > 0 ? (
             <div className="rb-node-tags mt-1.5 flex flex-wrap gap-1">
               {tags.map(tag => (
                 <span
@@ -475,6 +489,48 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
                   {tag}
                 </span>
               ))}
+            </div>
+          ) : null}
+          {/* Inspect panel — Make/Retool-style payload bubbles. Shows
+              the captured error first (when failed) and the output
+              JSON below. Only renders when the body is expanded AND
+              the engine actually captured something for this step,
+              so a fresh canvas with no run history stays clean.
+              Backfilled by useExecutionSocket from `/api/runs/:id`
+              so the data is the same the run-detail page shows.
+
+              Debug mode (`?debug=1` in the URL) auto-expands every
+              card so the inspect panel surfaces without per-node
+              clicks — the equivalent of n8n's "Debug in Editor" but
+              keeping the operator on the canvas. */}
+          {isExpanded && data.error ? (
+            <div
+              className="rb-node-error mt-1.5 max-h-24 overflow-y-auto rounded border border-red-500/30 bg-red-500/10 p-1.5 font-mono text-[10px] leading-snug text-red-200"
+              title={data.error}
+            >
+              <div className="text-[9px] font-semibold uppercase tracking-wider text-red-400">
+                error
+              </div>
+              <div className="break-all">{data.error}</div>
+            </div>
+          ) : null}
+          {isExpanded && data.output !== undefined && data.output !== null ? (
+            <div
+              className="rb-node-output mt-1.5 max-h-32 overflow-y-auto rounded border border-white/10 bg-black/30 p-1.5 font-mono text-[10px] leading-snug text-zinc-300"
+              onWheelCapture={e => e.stopPropagation()}
+            >
+              <div className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
+                output
+              </div>
+              <pre className="whitespace-pre-wrap break-all text-zinc-300">
+                {(() => {
+                  try {
+                    return JSON.stringify(data.output, null, 2);
+                  } catch {
+                    return String(data.output);
+                  }
+                })()}
+              </pre>
             </div>
           ) : null}
           {showStats && stats ? (
@@ -553,10 +609,8 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
               {preview || tags.length > 0 ? (
                 <span
                   className="ml-1 cursor-pointer rounded text-[color:var(--rb-node-muted)] transition-transform hover:text-white/80"
-                  style={{ transform: bodyExpanded ? 'rotate(180deg)' : 'rotate(0)' }}
-                  title={
-                    bodyExpanded ? 'Hide details (double-click)' : 'Show details (double-click)'
-                  }
+                  style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}
+                  title={isExpanded ? 'Hide details (double-click)' : 'Show details (double-click)'}
                   onDoubleClick={event => {
                     event.stopPropagation();
                     setBodyExpanded(prev => !prev);

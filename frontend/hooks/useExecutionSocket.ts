@@ -66,6 +66,11 @@ export function useExecutionSocket(executionId: string | null) {
               startedAt?: string;
               completedAt?: string;
               duration?: number | null;
+              /** Per-step output captured by the engine. Shape varies
+               *  by step type. The inspect panel renders this as JSON. */
+              output?: unknown;
+              /** Per-step error message when the step failed. */
+              error?: string | null;
             }>;
             status?: BackendStatus;
             dryRun?: boolean;
@@ -96,6 +101,12 @@ export function useExecutionSocket(executionId: string | null) {
                   (startedAt != null && step.completedAt
                     ? Math.max(0, Date.parse(step.completedAt) - startedAt)
                     : null),
+                // Hand the per-step output + error onto the canvas
+                // so the inspect panel in BaseStepNode can render
+                // them without a second fetch. Undefined when absent
+                // — the panel renders only when these are set.
+                output: (step as { output?: unknown }).output,
+                error: (step as { error?: string | null }).error ?? null,
               });
             }
             for (const step of data.steps) {
