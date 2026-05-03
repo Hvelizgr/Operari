@@ -356,3 +356,10 @@ user-visible features yet, but every subsequent item gets faster.
   subtree another shot). Also added Next.js `error.tsx` for
   `/sql-editor` and `/http-tester` to match the `/editor` and
   `/dashboard` ones already in the tree.
+- 2026-05-02 — `react-hotkeys-hook` installed. Migrated 4 ad-hoc
+  keyboard listeners: `?` toggles HelpDrawer in 3 surfaces (editor /
+  sql-editor / http-tester) — replaced ~15 LOC of useEffect boilerplate
+  with one-line `useHotkeys('shift+/', ...)` per site. Form-tag
+  gating is built-in. `Ctrl/Cmd+Enter` in the HTTP tester also
+  migrated (with `enableOnFormTags: true` since that chord intentionally
+  fires from inputs).

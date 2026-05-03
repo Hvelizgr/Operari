@@ -42,6 +42,8 @@ import {
 } from './canvas/edgeTypes';
 import { nodeTypes } from './canvas/nodeTypes';
 import EditorRunConsole from './EditorRunConsole';
+import { useHotkeys } from 'react-hotkeys-hook';
+
 import { SurfaceBoundary } from '@/components/ui/SurfaceBoundary';
 
 import { detectActiveStep, EditorHelpDrawer } from './EditorHelpDrawer';
@@ -96,23 +98,11 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   // Toolbar overflow menu and the `?` keyboard shortcut. Lives in
   // Canvas (not Toolbar) so the drawer overlays the whole canvas
   // and Esc / backdrop close work without bubbling through the
-  // toolbar's popover stack.
+  // toolbar's popover stack. `?` is shift+/; react-hotkeys-hook
+  // skips form tags by default so the operator can still type a
+  // literal `?` inside a property field.
   const [helpOpen, setHelpOpen] = useState(false);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== '?' || e.altKey || e.ctrlKey || e.metaKey) return;
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        const editable = target.isContentEditable;
-        if (editable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      }
-      e.preventDefault();
-      setHelpOpen(o => !o);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  useHotkeys('shift+/', () => setHelpOpen(o => !o), { preventDefault: true });
   // Selected step type drives the auto-jump topic. Reading the
   // selected node out of the same store the rest of the canvas
   // subscribes to keeps this in sync without a separate signal.

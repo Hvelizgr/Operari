@@ -2,6 +2,7 @@
 
 import { HelpCircle, History, PanelLeft, Send, X, Zap } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 
 import { useApiPrefs } from '@/lib/userPrefs';
 
@@ -41,24 +42,10 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const HISTORY_CAP = apiPrefs.historyCap;
 
-  // `?` toggles the help drawer (modeled on GitHub's keyboard
-  // shortcut picker). Bypassed when an editable target has focus so
-  // the operator can still type a literal `?` inside an input.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== '?' || e.altKey || e.ctrlKey || e.metaKey) return;
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        const editable = target.isContentEditable;
-        if (editable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      }
-      e.preventDefault();
-      setHelpOpen(o => !o);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  // `?` toggles the help drawer (GitHub-style). react-hotkeys-hook
+  // skips form tags by default so the operator can still type a
+  // literal `?` inside an input.
+  useHotkeys('shift+/', () => setHelpOpen(o => !o), { preventDefault: true });
 
   const t =
     lang === 'es'
@@ -193,17 +180,14 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
     persistHistory([]);
   }, [persistHistory]);
 
-  // Ctrl/Cmd+Enter to send — same chord as the SQL editor for muscle memory.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        sendRequest();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [sendRequest]);
+  // Ctrl/Cmd+Enter to send — same chord as the SQL editor for muscle
+  // memory. enableOnFormTags lets the chord fire even when a header
+  // input is focused, which is exactly what the operator wants here
+  // (chord submits the form, no need to blur first).
+  useHotkeys(['ctrl+enter', 'meta+enter'], () => sendRequest(), {
+    enableOnFormTags: true,
+    preventDefault: true,
+  });
 
   return (
     <div className="flex h-screen w-full bg-zinc-950 text-zinc-200">

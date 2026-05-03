@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 
 import { hasCapability } from '@operari/shared';
 import { sqlMetadataSchema, type SqlMetadata } from '@/lib/sql/metadata';
@@ -356,26 +357,11 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     setQuery(prev => prev + text);
   }, []);
 
-  // `?` toggles the SQL help drawer (modeled on GitHub's keyboard
-  // shortcut picker). We require Shift+/ produced by a non-input
-  // target so the operator can still type a literal `?` inside the
-  // editor or any text input. Esc handling lives inside the drawer
-  // itself so this listener stays single-purpose.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== '?' || e.altKey || e.ctrlKey || e.metaKey) return;
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        const editable = target.isContentEditable;
-        if (editable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      }
-      e.preventDefault();
-      setHelpOpen(open => !open);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  // `?` toggles the SQL help drawer (GitHub-style). react-hotkeys-hook
+  // skips form tags by default so the operator can still type a literal
+  // `?` inside the editor or any text input. Esc handling lives inside
+  // the drawer.
+  useHotkeys('shift+/', () => setHelpOpen(open => !open), { preventDefault: true });
 
   const toggleTable = (tableName: string) => {
     setExpandedTables(prev => {
