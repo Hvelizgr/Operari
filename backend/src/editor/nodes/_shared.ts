@@ -34,13 +34,54 @@ export interface NodeErrorContext {
  * shipped with and we deliberately do NOT throw, so a typo in a template
  * surfaces as missing output rather than a hard failure that masks the
  * real problem.
+ *
+ * Built-in helpers (n8n parity) — paths that start with `$`:
+ *   - `$now`             ISO-8601 timestamp at template-resolution time
+ *   - `$now.iso`         same as `$now`
+ *   - `$now.unixMs`      epoch ms as a string
+ *   - `$now.unixSec`     epoch seconds as a string
+ *   - `$env.NAME`        process.env value (for self-host runners; SaaS
+ *                        runners scope this through the Runner spec)
+ *   - `$workflow.{id,name,slug}`  populated by the engine via
+ *                        `getNodeInput`; missing in tests/unit calls
+ *   - `$run.{id,startedAt,trigger}`  populated by the engine
+ *
+ * The helpers are evaluated BEFORE the regular nested lookup so a
+ * runbook variable named `$now` does not shadow them. Authors that
+ * really do want a literal `$` should escape it as `\$`; the parser
+ * keeps any non-matching `\` untouched.
  */
 export function resolveTemplate(template: string, context: ExecutionInput): string {
   if (typeof template !== 'string') return String(template);
-  return template.replace(/\{\{([^}]+)\}\}/g, (_, path) => {
-    const value = getNestedValue(context, String(path).trim());
+  return template.replace(/\{\{([^}]+)\}\}/g, (_, raw) => {
+    const path = String(raw).trim();
+    if (path.startsWith('$now')) {
+      return resolveNowHelper(path);
+    }
+    if (path.startsWith('$env.')) {
+      const key = path.slice(5);
+      const value = process.env[key];
+      return value !== undefined ? String(value) : '';
+    }
+    const value = getNestedValue(context, path);
     return value !== undefined ? String(value) : '';
   });
+}
+
+function resolveNowHelper(path: string): string {
+  const now = new Date();
+  if (path === '$now' || path === '$now.iso') {
+    return now.toISOString();
+  }
+  if (path === '$now.unixMs') {
+    return String(now.getTime());
+  }
+  if (path === '$now.unixSec') {
+    return String(Math.floor(now.getTime() / 1000));
+  }
+  // Unknown $now subkey — empty string so the typo behaves like any
+  // other missing path. Authors should reach for the documented set.
+  return '';
 }
 
 /**

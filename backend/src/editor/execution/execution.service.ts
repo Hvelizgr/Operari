@@ -1142,7 +1142,20 @@ export class ExecutionService {
           return;
         }
 
-        const nodeInput = this.getNodeInput(currentNode.id, connections, nodeOutputs, input);
+        const nodeInput = this.getNodeInput(currentNode.id, connections, nodeOutputs, input, {
+          workflow: {
+            id: runbook.id,
+            name: runbook.name,
+            ...((runbook as unknown as { slug?: string }).slug
+              ? { slug: (runbook as unknown as { slug: string }).slug }
+              : {}),
+          },
+          run: {
+            id: executionId,
+            startedAt: new Date(startTime).toISOString(),
+            ...(executionContext.trigger ? { trigger: String(executionContext.trigger) } : {}),
+          },
+        });
 
         const nodeLog = await this.prisma.nodeLog.create({
           data: {
@@ -1809,22 +1822,50 @@ export class ExecutionService {
     nodeId: string,
     connections: WorkflowConnection[],
     nodeOutputs: Record<string, ExecutionOutput>,
-    initialInput: ExecutionInput
+    initialInput: ExecutionInput,
+    runtime?: RuntimeAmbient
   ): ExecutionInput {
     const incomingConnections = connections.filter(c => c.target === nodeId);
 
+    let input: ExecutionInput;
     if (incomingConnections.length === 0) {
-      return initialInput;
+      input = { ...initialInput };
+    } else {
+      input = {};
+      for (const conn of incomingConnections) {
+        if (nodeOutputs[conn.source]) {
+          Object.assign(input, nodeOutputs[conn.source]);
+        }
+      }
     }
 
-    const input: ExecutionInput = {};
-
-    for (const conn of incomingConnections) {
-      if (nodeOutputs[conn.source]) {
-        Object.assign(input, nodeOutputs[conn.source]);
+    // Inject the `$workflow` and `$run` ambient helpers for template
+    // resolution (n8n parity). The engine knows the runbook id/name
+    // and the execution id/start-time/trigger; surfacing them under
+    // reserved keys lets executors that call `resolveTemplate` pick
+    // them up via the same nested-path mechanic without a signature
+    // change. `$now` is implemented inside `resolveTemplate` itself
+    // so it stays current per-template-call rather than per-node.
+    if (runtime) {
+      if (runtime.workflow) {
+        (input as Record<string, unknown>).$workflow = { ...runtime.workflow };
+      }
+      if (runtime.run) {
+        (input as Record<string, unknown>).$run = { ...runtime.run };
       }
     }
 
     return input;
   }
+}
+
+/**
+ * Per-execution helpers injected into every node's input under
+ * reserved `$workflow` / `$run` keys so `resolveTemplate` can pick
+ * them up via the existing nested-path mechanic. See `_shared.ts`
+ * for the user-facing template syntax.
+ */
+interface RuntimeAmbient {
+  workflow?: { id: string; name: string; slug?: string };
+  run?: { id: string; startedAt: string; trigger?: string };
 }
