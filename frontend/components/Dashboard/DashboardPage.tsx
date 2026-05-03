@@ -81,6 +81,7 @@ interface DashboardOverview {
     runsDelta: { current: number; prior: number; change: number };
   };
   topRunbooks: Array<{
+    id: string;
     slug: string | null;
     name: string;
     runs: number;
@@ -697,7 +698,7 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
             <ul className="text-sm">
               {data.topRunbooks.map(rb => (
                 <li
-                  key={rb.slug ?? rb.name}
+                  key={rb.id}
                   className="flex items-center gap-3 border-b border-white/5 py-2 last:border-0"
                 >
                   <span className="flex-1 truncate text-gray-300">{rb.name}</span>

@@ -192,6 +192,10 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
   // Top runbooks: hydrate names + success rate + avg duration in one extra query
   const topWorkflowIds = topRunbooksRaw.map(r => r.runbookId);
   const topRunbooks: Array<{
+    /** Runbook UUID. Carried so the dashboard can render a stable
+     *  React key per row even when multiple runbooks share a name +
+     *  null slug (template-imported copies). */
+    id: string;
     slug: string | null;
     name: string;
     runs: number;
@@ -254,6 +258,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       const success = execs.filter(e => e.status === 'SUCCESS').length;
       const finished = execs.filter(e => e.duration != null);
       topRunbooks.push({
+        id: wf.id,
         slug: wf.slug,
         name: wf.name,
         runs: row._count._all,
