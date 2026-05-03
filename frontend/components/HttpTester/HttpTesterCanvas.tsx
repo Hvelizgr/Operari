@@ -1,12 +1,13 @@
 'use client';
 
-import { History, PanelLeft, Send, X, Zap } from 'lucide-react';
+import { HelpCircle, History, PanelLeft, Send, X, Zap } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useApiPrefs } from '@/lib/userPrefs';
 
 import ConvertToStepButton from './ConvertToStepButton';
 import HistorySidebar, { type HistoryEntry } from './HistorySidebar';
+import { detectActiveMethod, HttpHelpDrawer } from './HttpHelpDrawer';
 import RequestForm, { type RequestPayload } from './RequestForm';
 import ResponseViewer, { type ResponseError, type ResponseResult } from './ResponseViewer';
 
@@ -35,7 +36,29 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyOpenMobile, setHistoryOpenMobile] = useState(false);
+  // Cheatsheet drawer — slide-in panel mirroring the SQL editor's
+  // help affordance. Toggled via the toolbar button and the `?` key.
+  const [helpOpen, setHelpOpen] = useState(false);
   const HISTORY_CAP = apiPrefs.historyCap;
+
+  // `?` toggles the help drawer (modeled on GitHub's keyboard
+  // shortcut picker). Bypassed when an editable target has focus so
+  // the operator can still type a literal `?` inside an input.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '?' || e.altKey || e.ctrlKey || e.metaKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        const editable = target.isContentEditable;
+        if (editable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      }
+      e.preventDefault();
+      setHelpOpen(o => !o);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const t =
     lang === 'es'
@@ -234,6 +257,27 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
 
           <ConvertToStepButton payload={payload} lang={lang} disabled={!payload.url.trim()} />
 
+          {/* Help drawer toggle — slide-in cheatsheet covering HTTP
+              methods, status codes, auth patterns, and body shapes.
+              Keyboard: `?`. */}
+          <button
+            type="button"
+            onClick={() => setHelpOpen(o => !o)}
+            className={`flex items-center gap-1 rounded border px-2 py-1 text-[11px] transition-colors ${
+              helpOpen
+                ? 'border-emerald-700 bg-emerald-900/30 text-emerald-200'
+                : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+            }`}
+            title={lang === 'es' ? 'Ayuda API  (?)' : 'API help  (?)'}
+            aria-label={lang === 'es' ? 'Abrir ayuda API' : 'Open API help'}
+          >
+            <HelpCircle size={11} />
+            <span className="hidden sm:inline">{lang === 'es' ? 'Ayuda' : 'Help'}</span>
+            <kbd className="hidden rounded bg-zinc-800 px-1 font-mono text-[9px] text-zinc-400 sm:inline">
+              ?
+            </kbd>
+          </button>
+
           <button
             onClick={sendRequest}
             disabled={isLoading || !payload.url.trim()}
@@ -287,6 +331,44 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
           </div>
         </div>
       </div>
+      <HttpHelpDrawer
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        lang={lang}
+        // Auto-jump to the methods topic when the operator has a
+        // recognised method selected. Status / auth topics aren't
+        // tied to the form state so they stay reachable via the
+        // top nav chips.
+        initialTopicId={detectActiveMethod(payload.method)}
+        onInsertSnippet={snippet => {
+          // Snippets like `Authorization: Bearer {{secrets...}}` are
+          // headers. Append a new header row by parsing `Key: Value`
+          // shapes; everything else lands in the body so the operator
+          // sees the snippet land somewhere meaningful instead of
+          // silently doing nothing.
+          const trimmed = snippet.trim();
+          const headerMatch = trimmed.match(/^([A-Za-z][A-Za-z0-9-]*)\s*:\s*(.+)$/m);
+          if (headerMatch && !trimmed.includes('\n\n') && !trimmed.startsWith('{')) {
+            // Multi-line header sets (e.g. the auth examples) parse
+            // each line as its own header.
+            const headers = trimmed
+              .split(/\r?\n/)
+              .map(line => line.match(/^([A-Za-z][A-Za-z0-9-]*)\s*:\s*(.+)$/))
+              .filter((m): m is RegExpMatchArray => !!m)
+              .map(m => ({ key: m[1].trim(), value: m[2].trim() }));
+            if (headers.length > 0) {
+              setPayload(prev => ({ ...prev, headers: [...prev.headers, ...headers] }));
+              setHelpOpen(false);
+              return;
+            }
+          }
+          setPayload(prev => ({
+            ...prev,
+            body: prev.body ? `${prev.body}\n\n${snippet}` : snippet,
+          }));
+          setHelpOpen(false);
+        }}
+      />
     </div>
   );
 }
