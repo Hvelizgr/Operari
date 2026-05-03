@@ -1,5 +1,7 @@
 # Pendiente
 
+> **Heads-up:** plan de adopción de librerías React (react-query, Radix, sonner, react-hook-form, CodeMirror, …) vive en [`docs/plans/react-library-adoption.md`](./docs/plans/react-library-adoption.md). 4 sprints. Sprint 1 en curso.
+
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
 Última actualización: 2026-05-02 (sesión final 17:30+). **37 commits locales sin pushear** (9 anteriores + 28 nuevos hoy). Push bloqueado en credenciales (`gh auth login` desde la terminal).

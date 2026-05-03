@@ -80,6 +80,7 @@ backend/prisma/*.db-journal
 /docs/*
 !/docs/adr/
 !/docs/research/
+!/docs/plans/
 !/docs/audit-event-coverage.md
 !/docs/rebranding-and-editor-audit.md
 !/docs/OPS.md
@@ -91,3 +92,5 @@ backend/prisma/*.db-journal
 # Internal documentation (local only)
 /doc/
 /PENDIENTE.md
+backend/src/__tests__/setup.ts
+CLAUDE.md
