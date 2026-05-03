@@ -2,7 +2,14 @@
 
 import { Handle, type NodeProps, Position, useNodeConnections, useStore } from '@xyflow/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, CheckCircle2, Loader2, MinusCircle, XCircle } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  Loader2,
+  MinusCircle,
+  XCircle,
+} from 'lucide-react';
 import { KeyRound, Repeat } from 'lucide-react';
 import { Fragment, memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -122,6 +129,14 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   // still keeping the data-attrs unset (so CSS rules don't fire).
   const metadata = NODE_VISUAL_METADATA[type] ?? {};
   const workflow = data.workflow;
+
+  // Card body density: collapsed (default) shows just the title +
+  // status chrome + connection counts; expanded surfaces the preview
+  // line and the operator-defined tags. Double-click on the card body
+  // toggles. Local state on purpose — the preference is per-glance,
+  // not per-runbook, so persisting it would just clutter the
+  // workflow YAML round-trip.
+  const [bodyExpanded, setBodyExpanded] = useState(false);
 
   const title = workflow.title?.trim() || def?.label.en || type;
   const enabled = workflow.enabled !== false;
@@ -363,10 +378,26 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
           </span>
         </div>
 
-        {/* Body — title + preview + tags + meta footer */}
-        <div className="px-3 py-2.5">
+        {/* Body — title + (collapsible) preview + tags + meta footer.
+            Double-click anywhere on the body toggles the collapsed
+            state. `nodrag` (React Flow class) is set so the dbl-click
+            doesn't get intercepted as the start of a drag, and the
+            handler stops propagation so it doesn't bubble up into
+            the canvas pane double-click. */}
+        <div
+          className="nodrag px-3 py-2.5"
+          onDoubleClick={event => {
+            event.stopPropagation();
+            setBodyExpanded(prev => !prev);
+          }}
+        >
           <div className="truncate text-sm font-medium">{title}</div>
-          {preview ? (
+          {/* Preview + tags hidden by default. Operator double-clicks
+              the body to expand them. Reduces baseline card height
+              from ~80-110px to ~50px so a dense graph reads as a
+              connection map first, with config detail on demand —
+              same pattern n8n's "compact" view uses on hover. */}
+          {bodyExpanded && preview ? (
             <div
               className="rb-node-preview mt-1 truncate font-mono text-[11px] text-[color:var(--rb-node-muted)]"
               title={preview}
@@ -374,7 +405,7 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
               {preview}
             </div>
           ) : null}
-          {tags.length > 0 ? (
+          {bodyExpanded && tags.length > 0 ? (
             <div className="rb-node-tags mt-1.5 flex flex-wrap gap-1">
               {tags.map(tag => (
                 <span
@@ -455,6 +486,25 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
               >
                 ↑ {outgoing.length}
               </span>
+              {/* Expand affordance — only render when there's actually
+                  something to reveal (a preview line or tags). Without
+                  this gate the chevron would also show on visual-only
+                  nodes (frame, note) where double-click does nothing. */}
+              {preview || tags.length > 0 ? (
+                <span
+                  className="ml-1 cursor-pointer rounded text-[color:var(--rb-node-muted)] transition-transform hover:text-white/80"
+                  style={{ transform: bodyExpanded ? 'rotate(180deg)' : 'rotate(0)' }}
+                  title={
+                    bodyExpanded ? 'Hide details (double-click)' : 'Show details (double-click)'
+                  }
+                  onDoubleClick={event => {
+                    event.stopPropagation();
+                    setBodyExpanded(prev => !prev);
+                  }}
+                >
+                  <ChevronDown size={10} />
+                </span>
+              ) : null}
             </span>
             {footerDuration ? (
               <span
