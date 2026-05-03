@@ -493,3 +493,34 @@ outside a module`). Pinning to v3 also matches backend (which
   multi-cursor, search/replace. `YamlViewModal` migrated to
   CodeMirror with the YAML language pack (line numbers, fold
   gutter, indent guides). Sprint 3 ✅ closed.
+- 2026-05-03 — Sprint 4 begins. `cronstrue` installed (no
+  `react-js-cron` — the existing CronPicker has clean preset +
+  custom UX that doesn't benefit from a parallel visual builder).
+  Added a human-readable explanation under the cron field
+  ("Every Monday at 9:00 AM" / "Cada lunes a las 09:00") with
+  locale-aware translation.
+- 2026-05-03 — `@dnd-kit/core` + `@dnd-kit/sortable` +
+  `@dnd-kit/utilities` installed. `RunbookInputsPanel` rows are
+  now drag-reorderable. `SortableInputCard` wraps the existing
+  `InputCard` with `useSortable`; the grip becomes the actual drag
+  handle. PointerSensor with 4px activation distance prevents
+  accidental drags from clicks; KeyboardSensor lets screen-reader
+  users reorder via Space + arrows. `arrayMove` swaps elements on
+  drag end and the parent persists.
+- 2026-05-03 — `recharts` installed. Migrated dashboard's `Trend7d`
+  stacked-bar chart from divs-with-percent-heights to a real
+  `BarChart` with hover tooltip (exact day-level counts), y-axis
+  ticks, and proper accessibility. Same colour palette (emerald /
+  red / zinc) so the visual contract is unchanged. Sparkline tiles
+  in cards stay as-is — they're discrete categorical data where
+  the existing tile approach reads better than a continuous chart.
+- 2026-05-03 — `@sentry/react` + `@sentry/nextjs` installed.
+  `lib/sentry/init.ts` initialises the client SDK gated on
+  `NEXT_PUBLIC_SENTRY_DSN`; without that env var the call is a
+  no-op so self-hosted installs pay zero overhead. `SentryBootstrap`
+  client component mounts at the root layout; `SurfaceBoundary`'s
+  `onError` now forwards to Sentry alongside toast + console.
+  Browser tracing at 0.1 sample rate, replay-on-error at 0.1.
+  Server-side instrumentation + source map upload deferred to
+  deploy infra (needs auth token + webpack plugin). Sprint 4 ✅
+  closed.

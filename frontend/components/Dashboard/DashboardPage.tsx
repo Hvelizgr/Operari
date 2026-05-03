@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { useAuth } from '@/lib/auth';
 import {
@@ -887,44 +888,58 @@ function Trend7d({
 }: {
   data: Array<{ date: string; success: number; failed: number; cancelled: number }>;
 }) {
-  const max = Math.max(1, ...data.map(d => d.success + d.failed + d.cancelled));
-  const reduced = prefersReducedMotion();
-  // Bars grow from 0 to their true height on mount. Each day is
-  // staggered by 40 ms so the 7 bars sweep left→right in ~280 ms —
-  // long enough to read as intentional, short enough not to delay
-  // the actual data. Reduced-motion skips the animation entirely
-  // and renders final heights immediately.
+  // Sprint 4 — recharts replaces the hand-rolled stacked bars.
+  // What's better:
+  //   - Hover tooltip with exact day-level counts (success / failed /
+  //     cancelled) instead of "guess from the height".
+  //   - Built-in y-axis tick labels so the operator can read run
+  //     totals without comparing relative heights.
+  //   - Legend renders for free; respects responsive container.
+  // What's preserved:
+  //   - 7 stacked bars per day, same color palette (emerald / red /
+  //     zinc), same x-axis labels (weekday).
+  const formatted = data.map(d => ({
+    date: d.date,
+    label: new Date(d.date).toLocaleDateString(undefined, { weekday: 'short' }),
+    success: d.success,
+    failed: d.failed,
+    cancelled: d.cancelled,
+  }));
   return (
-    <div className="flex h-24 items-end gap-2">
-      {data.map((d, i) => {
-        const total = d.success + d.failed + d.cancelled;
-        const heightPct = (total / max) * 100;
-        const successPct = total > 0 ? (d.success / total) * 100 : 0;
-        const failedPct = total > 0 ? (d.failed / total) * 100 : 0;
-        return (
-          <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
-            <motion.div
-              className="w-full overflow-hidden rounded-t-sm bg-white/5"
-              initial={reduced ? false : { height: 0 }}
-              animate={{ height: `${heightPct}%` }}
-              transition={{
-                duration: reduced ? 0 : 0.34,
-                delay: reduced ? 0 : i * 0.04,
-                ease: 'easeOut',
-              }}
-              style={{ minHeight: '4px' }}
-            >
-              <div className="bg-emerald-500" style={{ height: `${successPct}%` }} />
-              <div className="bg-red-500" style={{ height: `${failedPct}%` }} />
-            </motion.div>
-            <span className="text-[10px] text-gray-500">
-              {new Date(d.date).toLocaleDateString(undefined, {
-                weekday: 'short',
-              })}
-            </span>
-          </div>
-        );
-      })}
+    <div className="h-32">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={formatted} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
+          <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
+          <XAxis
+            dataKey="label"
+            stroke="#71717a"
+            tick={{ fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <YAxis
+            allowDecimals={false}
+            stroke="#71717a"
+            tick={{ fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={28}
+          />
+          <Tooltip
+            cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+            contentStyle={{
+              background: '#0b0e14',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 6,
+              fontSize: 11,
+            }}
+            labelStyle={{ color: '#a1a1aa' }}
+          />
+          <Bar dataKey="success" stackId="runs" fill="#10b981" radius={[2, 2, 0, 0]} />
+          <Bar dataKey="failed" stackId="runs" fill="#ef4444" />
+          <Bar dataKey="cancelled" stackId="runs" fill="#71717a" />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

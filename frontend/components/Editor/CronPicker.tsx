@@ -1,5 +1,7 @@
 'use client';
 
+import cronstrue from 'cronstrue';
+import 'cronstrue/locales/es';
 import { Clock } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -85,6 +87,27 @@ export default function CronPicker({ lang, value, onChange }: CronPickerProps) {
 
   const isValid = preset === 'custom' ? validateCron(customExpr) : true;
 
+  // Human-readable explanation of the cron expression. cronstrue
+  // throws on malformed input; the validator above already gates
+  // that case so we only call it when isValid + non-empty.
+  const humanReadable = useMemo(() => {
+    if (preset === 'custom') {
+      if (!customExpr || !isValid) return null;
+      try {
+        return cronstrue.toString(customExpr, { locale: lang });
+      } catch {
+        return null;
+      }
+    }
+    const found = PRESETS.find(p => p.key === preset);
+    if (!found || !found.expr || found.expr === 'CUSTOM') return null;
+    try {
+      return cronstrue.toString(found.expr, { locale: lang });
+    } catch {
+      return null;
+    }
+  }, [preset, customExpr, isValid, lang]);
+
   const selectPreset = (key: string) => {
     setPreset(key);
     const found = PRESETS.find(p => p.key === key);
@@ -149,6 +172,12 @@ export default function CronPicker({ lang, value, onChange }: CronPickerProps) {
             </p>
           )}
         </div>
+      )}
+
+      {humanReadable && (
+        <p className="mt-2 rounded border border-slate-800 bg-black/20 px-2 py-1.5 text-[11px] italic text-slate-400">
+          {humanReadable}
+        </p>
       )}
     </div>
   );

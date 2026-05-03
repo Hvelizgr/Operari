@@ -6,6 +6,7 @@ import { Inter } from 'next/font/google';
 import { Toaster } from 'sonner';
 
 import { QuotaExceededModal, QuotaInterceptor } from '@/components/Common/QuotaExceededModal';
+import { SentryBootstrap } from '@/components/Common/SentryBootstrap';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { themeBootstrapScript } from '@/context/visualization/bootstrap';
 import { VisualizationProvider } from '@/context/VisualizationContext';
@@ -83,6 +84,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   in dev. See lib/react-query/QueryProvider for tuned
                   defaults (30s stale, no focus refetch, retry once). */}
               <QueryProvider>
+                <SentryBootstrap />
                 <AuthProvider>
                   <QuotaInterceptor />
                   {/* Default to English for the modal; the locale-aware

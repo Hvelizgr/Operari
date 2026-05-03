@@ -5,6 +5,8 @@ import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { type ReactNode } from 'react';
 import { toast } from 'sonner';
 
+import { captureError } from '@/lib/sentry/init';
+
 /**
  * SurfaceBoundary — `react-error-boundary` wrapper for any sub-tree
  * we want to keep alive when a sibling component throws.
@@ -74,12 +76,15 @@ export function SurfaceBoundary({ children, label, fallback, resetKeys }: Surfac
       FallbackComponent={FallbackComponent}
       resetKeys={resetKeys ? [...resetKeys] : undefined}
       onError={error => {
-        // Best-effort surface to the toast system in dev. In prod
-        // we'd also forward this to Sentry once that lands (Sprint 4).
+        // Surface to toast (operator visibility) + console (dev) +
+        // Sentry (prod). Sentry no-ops when NEXT_PUBLIC_SENTRY_DSN
+        // is unset so self-hosted installs without Sentry pay
+        // nothing.
         const message = error instanceof Error ? error.message : 'Unknown error';
         toast.error(`${label} crashed: ${message.slice(0, 80)}`);
         // eslint-disable-next-line no-console
         console.error(`[SurfaceBoundary:${label}]`, error);
+        captureError(error, { surface: label });
       }}
     >
       {children}

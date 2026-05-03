@@ -1,8 +1,25 @@
 'use client';
 
+import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { GripVertical, Plus, Terminal, Trash2 } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 export type RunbookInputType = 'text' | 'number' | 'boolean' | 'select';
 
@@ -107,10 +124,41 @@ function coerceDefault(
  */
 export default function RunbookInputsPanel({ lang, inputs, onChange }: RunbookInputsPanelProps) {
   const t = STRINGS[lang];
-  // Auto-animate the inputs list — adding / removing / reordering
-  // rows now slides smoothly. Single ref on the container; the lib
-  // detects child mount/unmount and applies the transition.
+  // Auto-animate covers the simple add/remove animation; @dnd-kit
+  // owns the drag-reorder lifecycle. Both can coexist because
+  // auto-animate skips elements with `data-dragging` (which dnd-kit
+  // sets) so it doesn't fight the transform during a drag.
   const [inputsListRef] = useAutoAnimate<HTMLDivElement>();
+
+  // Stable ids for sortable context. Using `name` would be stable
+  // until the operator renames a row mid-drag (rare but real); a
+  // sidecar derived from `${name}::${idx}` keeps each row uniquely
+  // identifiable while still anchoring on the user-visible name.
+  // This ID lives only inside dnd-kit's drag state — never persisted.
+  const sortableIds = useMemo(
+    () => inputs.map((input, idx) => `${input.name || 'input'}::${idx}`),
+    [inputs]
+  );
+
+  // PointerSensor with a small activation distance so a click on
+  // the grip doesn't accidentally start a drag, plus KeyboardSensor
+  // so screen-reader / keyboard users can reorder via Space + arrows.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIdx = sortableIds.indexOf(String(active.id));
+      const newIdx = sortableIds.indexOf(String(over.id));
+      if (oldIdx === -1 || newIdx === -1) return;
+      onChange(arrayMove(inputs, oldIdx, newIdx));
+    },
+    [inputs, onChange, sortableIds]
+  );
 
   const updateAt = useCallback(
     (idx: number, patch: Partial<RunbookInputDefinition>) => {
@@ -148,18 +196,23 @@ export default function RunbookInputsPanel({ lang, inputs, onChange }: RunbookIn
           {t.empty}
         </div>
       ) : (
-        <div ref={inputsListRef} className="space-y-3">
-          {inputs.map((input, idx) => (
-            <InputCard
-              key={idx}
-              input={input}
-              idx={idx}
-              t={t}
-              onChange={patch => updateAt(idx, patch)}
-              onRemove={() => removeAt(idx)}
-            />
-          ))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+            <div ref={inputsListRef} className="space-y-3">
+              {inputs.map((input, idx) => (
+                <SortableInputCard
+                  key={sortableIds[idx]}
+                  id={sortableIds[idx]}
+                  input={input}
+                  idx={idx}
+                  t={t}
+                  onChange={patch => updateAt(idx, patch)}
+                  onRemove={() => removeAt(idx)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       <button
@@ -173,6 +226,50 @@ export default function RunbookInputsPanel({ lang, inputs, onChange }: RunbookIn
   );
 }
 
+/**
+ * Wraps `InputCard` with `useSortable` so each row participates in
+ * the drag-and-drop lifecycle. The grip handle gets `attributes` +
+ * `listeners`; the rest of the card stays interactive (clicking a
+ * field doesn't start a drag because of the activationConstraint).
+ */
+function SortableInputCard({
+  id,
+  input,
+  idx,
+  t,
+  onChange,
+  onRemove,
+}: {
+  id: string;
+  input: RunbookInputDefinition;
+  idx: number;
+  t: InputsStrings;
+  onChange: (patch: Partial<RunbookInputDefinition>) => void;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 20 : 'auto',
+  } as const;
+  return (
+    <div ref={setNodeRef} style={style}>
+      <InputCard
+        input={input}
+        idx={idx}
+        t={t}
+        onChange={onChange}
+        onRemove={onRemove}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+    </div>
+  );
+}
+
 type InputsStrings = (typeof STRINGS)['en'] | (typeof STRINGS)['es'];
 
 function InputCard({
@@ -181,12 +278,16 @@ function InputCard({
   t,
   onChange,
   onRemove,
+  dragHandleProps,
 }: {
   input: RunbookInputDefinition;
   idx: number;
   t: InputsStrings;
   onChange: (patch: Partial<RunbookInputDefinition>) => void;
   onRemove: () => void;
+  /** Spread onto the grip element to make it the drag handle. The
+   *  rest of the card stays interactive. */
+  dragHandleProps?: React.HTMLAttributes<HTMLElement>;
 }) {
   const fieldCls =
     'w-full bg-black/30 border border-[var(--border-color)] rounded px-2 py-1.5 text-xs text-[var(--body-text-color)] focus:outline-none focus:border-[var(--highlight-color)] transition-colors';
@@ -196,7 +297,14 @@ function InputCard({
   return (
     <div className="space-y-2.5 rounded border border-slate-700 bg-slate-900/40 p-3">
       <div className="flex items-start gap-2">
-        <GripVertical size={14} className="mt-2 shrink-0 text-slate-600" />
+        <button
+          type="button"
+          aria-label="Reorder input"
+          className="mt-1 shrink-0 cursor-grab rounded p-1 text-slate-600 hover:bg-white/5 hover:text-slate-400 active:cursor-grabbing"
+          {...(dragHandleProps ?? {})}
+        >
+          <GripVertical size={14} />
+        </button>
         <div className="grid flex-1 grid-cols-2 gap-2">
           <div>
             <label className={labelCls}>{t.name}</label>
