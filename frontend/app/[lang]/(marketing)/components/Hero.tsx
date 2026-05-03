@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
+import { useMagnetic } from '@/hooks/useMagnetic';
 
 import AuroraBackground from './AuroraBackground';
 import GithubStarsChip from './GithubStarsChip';
@@ -60,6 +61,12 @@ export default function Hero({ content }: HeroProps) {
   });
   const terminalY = useTransform(scrollYProgress, [0, 1], reduceMotion ? [0, 0] : [0, -60]);
   const terminalOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.6]);
+
+  // Magnetic primary CTA — the button drifts toward the cursor when
+  // the cursor enters a 110px radius. radius + strength tuned by feel
+  // (35% of cursor offset, snap-back via 280ms easeOutCubic). Skipped
+  // under prefers-reduced-motion or coarse pointers (touch).
+  const magneticCtaRef = useMagnetic<HTMLAnchorElement>({ radius: 110, strength: 0.32 });
 
   const copyEndpoint = () => {
     void navigator.clipboard
@@ -178,8 +185,9 @@ export default function Hero({ content }: HeroProps) {
                   "get-api-key" waitlist) still exists but is linked
                   from the footer for hosted-API early-access. */}
               <Link
+                ref={magneticCtaRef}
                 href={`/${lang}/register`}
-                className="shimmer-hover bg-primary text-primary-foreground shadow-primary/20 hover:shadow-primary/30 hover:bg-primary/90 group relative flex h-14 w-full items-center justify-center gap-3 overflow-hidden rounded-xl px-6 text-sm font-semibold shadow-xl transition-all hover:shadow-2xl active:scale-[0.98] sm:w-auto md:text-base"
+                className="shimmer-hover bg-primary text-primary-foreground shadow-primary/20 hover:shadow-primary/30 hover:bg-primary/90 group relative flex h-14 w-full items-center justify-center gap-3 overflow-hidden rounded-xl px-6 text-sm font-semibold shadow-xl hover:shadow-2xl active:scale-[0.98] sm:w-auto md:text-base"
               >
                 <span className="relative z-[1]">{content.ctaPrimary}</span>
                 <ArrowRight className="relative z-[1] h-4 w-4 transition-transform group-hover:translate-x-0.5" />

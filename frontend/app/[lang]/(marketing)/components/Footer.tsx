@@ -8,6 +8,8 @@ import { content } from '@/app/[lang]/content/en';
 import { DNAMark } from '@/components/Brand/DNAMark';
 import { repo } from '@/config/repo.config';
 
+import AuditHashTicker from './AuditHashTicker';
+
 interface FooterProps {
   content: typeof content.footer;
 }
@@ -27,8 +29,9 @@ export default function Footer({ content }: FooterProps) {
   const lang = (params?.lang as string) || 'en';
 
   return (
-    <footer className="bg-background border-border/60 border-t pb-8 pt-16">
-      <div className="container mx-auto max-w-6xl px-4 md:px-6">
+    <footer className="bg-background border-border/60 border-t">
+      <AuditHashTicker lang={lang === 'es' ? 'es' : 'en'} />
+      <div className="container mx-auto max-w-6xl px-4 pb-8 pt-16 md:px-6">
         <div className="mb-12 grid grid-cols-2 gap-8 md:grid-cols-5">
           {/* Brand block */}
           <div className="col-span-2">

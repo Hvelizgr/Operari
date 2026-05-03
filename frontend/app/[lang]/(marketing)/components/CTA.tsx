@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
+import { useMagnetic } from '@/hooks/useMagnetic';
 
 import AuroraBackground from './AuroraBackground';
 
@@ -26,6 +27,12 @@ type CTAProps = {
  */
 export default function CTA({ content }: CTAProps) {
   const [copied, setCopied] = useState(false);
+  // Magnetic primary CTA — same hook as the Hero's primary button so
+  // the gesture vocabulary stays consistent (≈30% offset, 110px
+  // radius). Only the README CTA gets it; the "what does NOT work"
+  // secondary stays static so the magnet always points at the
+  // confidence-building action.
+  const magneticPrimaryRef = useMagnetic<HTMLAnchorElement>({ radius: 110, strength: 0.32 });
 
   const copyAll = () => {
     void navigator.clipboard.writeText(content.code).then(() => {
@@ -130,10 +137,11 @@ export default function CTA({ content }: CTAProps) {
           {/* Two CTAs — primary readme, secondary "what does NOT work" */}
           <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
             <Link
+              ref={magneticPrimaryRef}
               href={repo.readme}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 flex h-12 items-center justify-center gap-2 rounded-xl px-5 font-semibold shadow-lg transition-all active:scale-[0.98] sm:px-6"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 flex h-12 items-center justify-center gap-2 rounded-xl px-5 font-semibold shadow-lg active:scale-[0.98] sm:px-6"
             >
               {content.primary}
               <ExternalLink className="h-4 w-4 opacity-70" />

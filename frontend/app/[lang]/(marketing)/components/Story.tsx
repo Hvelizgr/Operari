@@ -1,6 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 
 import { content } from '@/app/[lang]/content/en';
 
@@ -19,8 +20,47 @@ type StoryProps = {
  * needing real screenshots.
  */
 export default function Story({ content }: StoryProps) {
+  const sectionRef = useRef<HTMLElement>(null);
+  // Scroll progress 0..1 across the whole Story section. Drives:
+  //   - the rail's accent dot fill on the left side (lg+ only)
+  //   - the parallax offset on each mockup
+  // Mobile/tablet ignore both since the rail is hidden there and
+  // the parallax range is small enough that a viewport-height
+  // section barely benefits from it.
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start end', 'end start'],
+  });
+
+  // Track the current "active" block (0..2) via IntersectionObserver
+  // so the rail can highlight which storybeat is in view. Used only
+  // for the discrete dot fill — the continuous progress bar uses
+  // scrollYProgress directly.
+  const [activeBlock, setActiveBlock] = useState(0);
+  const blockRefs = useRef<Array<HTMLDivElement | null>>([]);
+
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      entries => {
+        // Pick the most-visible block. We sort by intersectionRatio
+        // descending and take the first that's actually intersecting.
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible.length === 0) return;
+        const idx = blockRefs.current.indexOf(visible[0].target as HTMLDivElement);
+        if (idx >= 0) setActiveBlock(idx);
+      },
+      // Threshold list — fire on each 25% bucket so the active block
+      // updates smoothly as the user scrolls between two blocks.
+      { threshold: [0.25, 0.5, 0.75], rootMargin: '-20% 0px -20% 0px' }
+    );
+    blockRefs.current.forEach(b => b && io.observe(b));
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <section className="relative overflow-hidden py-24 sm:py-32">
+    <section ref={sectionRef} className="relative overflow-hidden py-24 sm:py-32">
       <AuroraBackground
         orbs={[
           {
@@ -77,10 +117,25 @@ export default function Story({ content }: StoryProps) {
           </motion.p>
         </div>
 
-        {/* Three blocks, alternating mockup side */}
-        <div className="space-y-20 sm:space-y-28 lg:space-y-32">
+        {/* Three blocks, alternating mockup side. On lg+ we anchor a
+            scroll-progress rail to the left edge of the column so the
+            visitor can see "I'm on storybeat 02 of 03" at a glance. */}
+        <div className="relative space-y-20 sm:space-y-28 lg:space-y-32">
+          <ScrollProgressRail
+            progress={scrollYProgress}
+            activeBlock={activeBlock}
+            blocks={content.blocks}
+          />
           {content.blocks.map((block, idx) => (
-            <StoryBlock key={block.number} block={block} index={idx} />
+            <StoryBlock
+              key={block.number}
+              block={block}
+              index={idx}
+              progress={scrollYProgress}
+              registerRef={el => {
+                blockRefs.current[idx] = el;
+              }}
+            />
           ))}
         </div>
       </div>
@@ -88,16 +143,84 @@ export default function Story({ content }: StoryProps) {
   );
 }
 
+/**
+ * Vertical rail anchored to the left edge of the Story column on lg+.
+ * Three dots — the active one filled with the accent, others muted —
+ * plus a continuous progress line that fills from top to bottom as
+ * the section scrolls past. Hidden on mobile and tablet because the
+ * column is full-width there and the rail would overlap the copy.
+ *
+ * `aria-hidden` because the rail is a visual cue, not a navigation
+ * affordance — the section already has a heading hierarchy that
+ * keyboard users follow.
+ */
+function ScrollProgressRail({
+  progress,
+  activeBlock,
+  blocks,
+}: {
+  progress: import('framer-motion').MotionValue<number>;
+  activeBlock: number;
+  blocks: typeof content.story.blocks;
+}) {
+  // Map the section progress (0..1) to the rail's fill height. The
+  // rail spans the inner blocks area, so 100% progress = full bar.
+  const fillHeight = useTransform(progress, [0.05, 0.95], ['0%', '100%']);
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute -left-2 top-0 hidden h-full lg:block"
+    >
+      {/* Rail line — muted background + accent fill that grows with
+          scroll progress. Uses a motion height so the fill animates
+          in lockstep with the user's scroll. */}
+      <div className="border-border/50 relative h-full w-px border-l">
+        <motion.div
+          className="bg-primary/70 absolute left-[-1px] top-0 w-px"
+          style={{ height: fillHeight }}
+        />
+      </div>
+      {/* Three dots — equally spaced down the rail. Active dot is
+          larger and emerald; the rest are muted. */}
+      <div className="absolute inset-y-0 left-[-3px] flex flex-col justify-around">
+        {blocks.map((_, i) => (
+          <span
+            key={i}
+            className={`block rounded-full border transition-all duration-300 ${
+              i === activeBlock
+                ? 'bg-primary border-primary/70 h-2.5 w-2.5 shadow-[0_0_12px_rgba(63,207,142,0.45)]'
+                : 'border-border/70 bg-background h-1.5 w-1.5'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StoryBlock({
   block,
   index,
+  progress,
+  registerRef,
 }: {
   block: (typeof content.story.blocks)[number];
   index: number;
+  progress: import('framer-motion').MotionValue<number>;
+  registerRef: (el: HTMLDivElement | null) => void;
 }) {
   const reverse = index % 2 === 1;
+  // Subtle parallax — each mockup translates a bit on Y as the
+  // section scrolls past. Range scaled by index so the three blocks
+  // don't drift in lockstep. Disabled on mobile via the wrapper's
+  // `lg:` className but the transform on a non-visible parent costs
+  // nothing.
+  const parallaxRange = 24 + index * 6;
+  const mockupY = useTransform(progress, [0, 1], [parallaxRange, -parallaxRange]);
+
   return (
     <motion.div
+      ref={registerRef}
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
@@ -119,14 +242,16 @@ function StoryBlock({
         </div>
       </div>
 
-      {/* Mockup side — different per block. min-w-0 again so the
-          mockup respects its column width on desktop, and full-width
-          containment on mobile. */}
-      <div className="relative min-w-0">
+      {/* Mockup side — different per block. The motion wrapper drives
+          a small parallax offset as the section scrolls past, so each
+          mockup gently drifts against its copy column instead of
+          sitting flat. min-w-0 so the mockup respects its column
+          width on desktop. */}
+      <motion.div className="relative min-w-0" style={{ y: mockupY }}>
         {index === 0 && <CanvasMockup />}
         {index === 1 && <YamlDiffMockup />}
         {index === 2 && <RunTimelineMockup />}
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
