@@ -31,6 +31,58 @@ interface SQLHelpDrawerProps {
    * when omitted (lets the drawer be reused outside the editor flow).
    */
   onInsertSnippet?: (sql: string) => void;
+  /**
+   * Topic id to scroll to on open / when changed while open. Lets
+   * the editor jump straight to "INSERT" when the operator opens the
+   * drawer while typing an INSERT. Null = land on the first topic.
+   */
+  initialTopicId?: string | null;
+}
+
+/**
+ * Extracts the dominant SQL verb from the query text so the drawer
+ * can auto-jump to the matching topic. Heuristic, not a parser:
+ *
+ *   1. Strip line + block comments — operators paste examples that
+ *      lead with `-- foo` and we don't want the next keyword shadowed
+ *      by them.
+ *   2. Pick the LAST statement (split on `;`). When the operator is
+ *      mid-edit on a multi-statement script, the trailing statement
+ *      is almost always the one they're working on.
+ *   3. Read the first SQL keyword of that statement. Maps to the
+ *      drawer topic; unknowns return null and the drawer falls back
+ *      to its default landing topic.
+ *
+ * Exported so SQLEditorCanvas can call it on every onChange without
+ * pulling in the rest of the drawer module.
+ */
+export function detectActiveVerb(query: string): string | null {
+  if (!query) return null;
+  const stripped = query
+    .replace(/--[^\n]*/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .trim();
+  if (!stripped) return null;
+  const statements = stripped
+    .split(';')
+    .map(s => s.trim())
+    .filter(Boolean);
+  const last = statements[statements.length - 1];
+  if (!last) return null;
+  const firstWord = last.split(/\s+/)[0]?.toUpperCase();
+  switch (firstWord) {
+    case 'SELECT':
+    case 'WITH':
+      return 'select';
+    case 'INSERT':
+      return 'insert';
+    case 'UPDATE':
+      return 'update';
+    case 'DELETE':
+      return 'delete';
+    default:
+      return null;
+  }
 }
 
 interface Topic {
@@ -473,10 +525,43 @@ LIMIT 20;`}</Code>
   ];
 };
 
-export function SQLHelpDrawer({ open, onClose, lang, onInsertSnippet }: SQLHelpDrawerProps) {
+export function SQLHelpDrawer({
+  open,
+  onClose,
+  lang,
+  onInsertSnippet,
+  initialTopicId,
+}: SQLHelpDrawerProps) {
   const topics = useMemo(() => buildTopics(lang, onInsertSnippet), [lang, onInsertSnippet]);
-  const [activeId, setActiveId] = useState<string>(topics[0]?.id ?? '');
+  const [activeId, setActiveId] = useState<string>(
+    initialTopicId && topics.some(t => t.id === initialTopicId)
+      ? initialTopicId
+      : (topics[0]?.id ?? '')
+  );
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // When the drawer opens (or the detected verb changes while the
+  // drawer is already open), jump to the matching topic. Tied to a
+  // ref-keyed effect so a manual click on a different topic chip
+  // doesn't get clobbered by the next render — only verb *changes*
+  // re-anchor.
+  const lastInitialRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    if (!initialTopicId) return;
+    if (lastInitialRef.current === initialTopicId) return;
+    lastInitialRef.current = initialTopicId;
+    if (!topics.some(t => t.id === initialTopicId)) return;
+    setActiveId(initialTopicId);
+    // Defer the scroll so the drawer DOM exists when the query runs.
+    // requestAnimationFrame lands after the paint that opens the
+    // drawer; setTimeout(0) sometimes fires too early.
+    const id = requestAnimationFrame(() => {
+      const el = scrollRef.current?.querySelector<HTMLElement>(`[data-topic="${initialTopicId}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open, initialTopicId, topics]);
 
   // Esc closes — same affordance as the schema sidebar's mobile drawer.
   // Body keydown listener attached only while the drawer is open so we

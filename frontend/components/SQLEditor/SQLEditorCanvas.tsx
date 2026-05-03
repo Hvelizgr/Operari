@@ -24,7 +24,7 @@ import { sqlMetadataSchema, type SqlMetadata } from '@/lib/sql/metadata';
 import { useSqlPrefs } from '@/lib/userPrefs';
 
 import { QUERY_TEMPLATE_CATEGORIES, QUERY_TEMPLATES } from './queryTemplates';
-import { SQLHelpDrawer } from './SQLHelpDrawer';
+import { detectActiveVerb, SQLHelpDrawer } from './SQLHelpDrawer';
 
 import SQLCodeEditor from './SQLCodeEditor';
 import SQLResultsTable, { type SQLError, type SQLResult } from './SQLResultsTable';
@@ -736,6 +736,12 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
         open={helpOpen}
         onClose={() => setHelpOpen(false)}
         lang={lang}
+        // Auto-jump: detect the verb of the current query and surface
+        // the matching topic when the operator opens the drawer. The
+        // detector is heuristic (no parser) so unknown text falls
+        // back to the drawer's default landing topic without surfacing
+        // a wrong section.
+        initialTopicId={detectActiveVerb(query)}
         onInsertSnippet={sql => {
           // Bridge to the editor's existing insert path. Newlines
           // sandwich the snippet so it lands as a separate stanza
