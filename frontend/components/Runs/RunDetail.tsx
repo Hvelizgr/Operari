@@ -16,6 +16,8 @@ import {
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
+import { formatDateTime } from '@/lib/datetime';
+
 import ExecutionEventLog from './ExecutionEventLog';
 
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
@@ -332,7 +334,7 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
           </div>
           <div>
             <div className="text-[10px] uppercase text-zinc-500">{t.started}</div>
-            <div>{new Date(run.startedAt).toLocaleString()}</div>
+            <div>{formatDateTime(run.startedAt, lang)}</div>
           </div>
           <div>
             <div className="text-[10px] uppercase text-zinc-500">{t.duration}</div>

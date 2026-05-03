@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
+import { formatDateTime } from '@/lib/datetime';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 interface AuditChainInspectorProps {
@@ -251,7 +253,7 @@ export function AuditChainInspector({ lang, viewerRole }: AuditChainInspectorPro
                       {ev.hash.slice(0, 12)}…
                     </td>
                     <td className="px-3 py-2 text-[11px] text-[var(--text-muted)]">
-                      {new Date(ev.createdAt).toLocaleString()}
+                      {formatDateTime(ev.createdAt, lang)}
                     </td>
                   </tr>
                 ))}

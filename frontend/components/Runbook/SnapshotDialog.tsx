@@ -3,6 +3,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Camera, History, RotateCcw, Trash2, X } from 'lucide-react';
 
+import { formatDateTime } from '@/lib/datetime';
+
 import { Snapshot } from '../../hooks/useSnapshots';
 
 interface SnapshotDialogProps {
@@ -121,7 +123,7 @@ export default function SnapshotDialog({
                       <div className="flex flex-col">
                         <span className="text-sm font-medium text-gray-200">{snap.name}</span>
                         <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                          <span>{new Date(snap.timestamp).toLocaleString()}</span>
+                          <span>{formatDateTime(snap.timestamp, lang)}</span>
                           <span className="h-1 w-1 rounded-full bg-gray-600" />
                           <span>
                             {snap.nodes.length} {text.nodes}

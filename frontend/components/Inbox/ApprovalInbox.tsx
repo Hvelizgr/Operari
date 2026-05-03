@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import { HelixSpinner } from '@/components/Brand/HelixSpinner';
+import { formatDateTime } from '@/lib/datetime';
 import {
   motionFor,
   reducedStaggerChildVariants,
@@ -288,7 +289,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
                       {a.status}
                     </span>
                     <span className="text-xs text-zinc-500">
-                      {new Date(a.createdAt).toLocaleString()}
+                      {formatDateTime(a.createdAt, lang)}
                     </span>
                   </div>
                   <div className="mt-2 text-sm font-medium text-white">

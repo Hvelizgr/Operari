@@ -3,6 +3,8 @@
 import { AlertTriangle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { JsonInspect } from '@/components/ui/JsonInspect';
+
 export interface ResponseResult {
   status: number;
   statusText: string;
@@ -69,6 +71,19 @@ export default function ResponseViewer({ result, error, lang }: Props) {
         };
 
   const pretty = useMemo(() => (result ? tryPrettyJson(result.body) : null), [result]);
+  // Parsed JSON for the JsonInspect tree view. We try to parse the
+  // body as JSON; non-JSON responses (HTML, plain text, binary) fall
+  // through to `null` and the body tab renders the prettified string.
+  const parsedBody = useMemo(() => {
+    if (!result?.body) return null;
+    const trimmed = result.body.trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      return null;
+    }
+  }, [result]);
 
   if (error) {
     return (
@@ -128,13 +143,20 @@ export default function ResponseViewer({ result, error, lang }: Props) {
 
       <div className="min-h-0 flex-1 overflow-auto">
         {tab === 'body' && (
-          <pre className="whitespace-pre-wrap break-words p-3 font-mono text-[11px] text-zinc-200">
+          <div className="p-3 font-mono text-[11px] text-zinc-200">
             {result.body ? (
-              (pretty ?? result.body)
+              parsedBody ? (
+                // JSON body — JsonInspect renders a collapsible tree
+                // (search by key, click to copy, expand on demand).
+                // The Raw tab still shows the unparsed string.
+                <JsonInspect value={parsedBody} collapseDepth={2} />
+              ) : (
+                <pre className="whitespace-pre-wrap break-words">{pretty ?? result.body}</pre>
+              )
             ) : (
               <span className="text-zinc-600">{t.empty}</span>
             )}
-          </pre>
+          </div>
         )}
         {tab === 'headers' && (
           <div className="divide-y divide-zinc-800/50 font-mono text-[11px]">

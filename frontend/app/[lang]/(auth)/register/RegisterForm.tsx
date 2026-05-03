@@ -1,8 +1,11 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 import { AuthError, useAuth } from '@/lib/auth';
 
@@ -20,31 +23,55 @@ const WORKOS_ENABLED = process.env.NEXT_PUBLIC_OAUTH_WORKOS === 'true';
 // redirect target past us.
 const SAFE_TEMPLATE_SLUG = /^[a-z0-9][a-z0-9-]{0,80}$/i;
 
+/**
+ * Sprint 2 — react-hook-form + zod migration mirrors LoginForm.
+ *
+ * Schema rules: tenantName + email + password are required (auth
+ * server enforces real validation; client-side we just block obvious
+ * empties). password >= 8 to match the input's minLength. name is
+ * optional. The 4 useState fields collapse into one useForm call
+ * plus one UI-only useState for the error.
+ */
+
+const registerSchema = z.object({
+  tenantName: z.string().min(2, 'min 2 chars'),
+  name: z.string().optional(),
+  email: z.string().min(1, 'required').email('invalid'),
+  password: z.string().min(8, 'min 8 chars'),
+});
+
+type RegisterValues = z.infer<typeof registerSchema>;
+
 export function RegisterForm({ lang }: { lang: AuthLang }) {
   const t = authStrings[lang].register;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { register } = useAuth();
+  const { register: registerUser } = useAuth();
 
-  const [name, setName] = useState('');
-  const [tenantName, setTenantName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (submitting) return;
+  const {
+    control,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm<RegisterValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { tenantName: '', name: '', email: '', password: '' },
+    mode: 'onSubmit',
+  });
+
+  async function onSubmit(values: RegisterValues) {
     setError(null);
-    setSubmitting(true);
     try {
-      await register({ email, password, tenantName, name: name || undefined });
+      await registerUser({
+        email: values.email,
+        password: values.password,
+        tenantName: values.tenantName,
+        name: values.name?.trim() || undefined,
+      });
       // Signup handoff: if the user arrived from a template detail
-      // page, send them back there so the "Use this runbook"
-      // button can complete the create now that a session exists.
-      // If they came from the pricing page's upgrade CTA, drop
-      // them in settings so the billing panel is one click away.
+      // page, send them back there. From pricing page upgrade CTA,
+      // drop them in settings so billing is one click away.
       const templateSlug = searchParams.get('template');
       const plan = searchParams.get('plan');
       if (templateSlug && SAFE_TEMPLATE_SLUG.test(templateSlug)) {
@@ -60,7 +87,6 @@ export function RegisterForm({ lang }: { lang: AuthLang }) {
       } else {
         setError(t.networkError);
       }
-      setSubmitting(false);
     }
   }
 
@@ -87,36 +113,66 @@ export function RegisterForm({ lang }: { lang: AuthLang }) {
         workos={t.workos}
       />
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
-        <AuthField
-          label={t.tenantName}
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
+        <Controller
           name="tenantName"
-          autoComplete="organization"
-          required
-          minLength={2}
-          value={tenantName}
-          onChange={setTenantName}
+          control={control}
+          render={({ field }) => (
+            <AuthField
+              label={t.tenantName}
+              autoComplete="organization"
+              required
+              minLength={2}
+              value={field.value}
+              onChange={field.onChange}
+              name={field.name}
+            />
+          )}
         />
-        <AuthField label={t.name} name="name" autoComplete="name" value={name} onChange={setName} />
-        <AuthField
-          label={t.email}
-          type="email"
+        <Controller
+          name="name"
+          control={control}
+          render={({ field }) => (
+            <AuthField
+              label={t.name}
+              autoComplete="name"
+              value={field.value ?? ''}
+              onChange={field.onChange}
+              name={field.name}
+            />
+          )}
+        />
+        <Controller
           name="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={setEmail}
+          control={control}
+          render={({ field }) => (
+            <AuthField
+              label={t.email}
+              type="email"
+              autoComplete="email"
+              required
+              value={field.value}
+              onChange={field.onChange}
+              name={field.name}
+            />
+          )}
         />
-        <AuthField
-          label={t.password}
-          hint={t.passwordHint}
-          type="password"
+        <Controller
           name="password"
-          autoComplete="new-password"
-          required
-          minLength={8}
-          value={password}
-          onChange={setPassword}
+          control={control}
+          render={({ field }) => (
+            <AuthField
+              label={t.password}
+              hint={t.passwordHint}
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={field.value}
+              onChange={field.onChange}
+              name={field.name}
+            />
+          )}
         />
 
         {error && (
@@ -130,10 +186,10 @@ export function RegisterForm({ lang }: { lang: AuthLang }) {
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={isSubmitting}
           className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 h-11 w-full rounded-lg text-sm font-semibold shadow-md transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {submitting ? t.submitting : t.submit}
+          {isSubmitting ? t.submitting : t.submit}
         </button>
 
         <p className="text-muted-foreground/80 text-[11px] leading-relaxed">

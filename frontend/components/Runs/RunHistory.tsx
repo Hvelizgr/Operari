@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { List as VirtualList } from 'react-window';
 
+import { formatDateTime } from '@/lib/datetime';
+
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 
 interface Run {
@@ -247,7 +249,7 @@ function RunRow({
       <div className="flex-1 truncate px-4 text-zinc-200">{r.runbook.name}</div>
       <div className="w-28 truncate px-4 text-xs text-zinc-400">{r.trigger || '—'}</div>
       <div className="w-44 truncate px-4 text-xs text-zinc-400">
-        {new Date(r.startedAt).toLocaleString()}
+        {formatDateTime(r.startedAt, lang)}
       </div>
       <div className="w-24 px-4 text-xs text-zinc-400">
         {r.status === 'RUNNING' && r.etaMs != null

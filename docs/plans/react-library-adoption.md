@@ -417,3 +417,18 @@ outside a module`). Pinning to v3 also matches backend (which
   this commit). Real pilot — `/runs` history with sort + filter +
   pagination — needs ~4–6h of UI work and will land in its own
   commit; shipping a half-baked migration now would be churn.
+- 2026-05-03 — Sprint 2 follow-ups: `ResponseViewer` (HttpTester) JSON
+  body now uses `JsonInspect` (collapsible tree at depth 2) when the
+  response body parses as JSON; falls back to the prettified `<pre>`
+  for non-JSON bodies. Raw tab still shows the unparsed string.
+- 2026-05-03 — Built `lib/datetime.ts` (`formatDateTime`,
+  `formatRelative`) and migrated 6 sites from `toLocaleString()` to
+  `formatDateTime(ts, lang)`: RunDetail, RunHistory, EventsPage,
+  ApprovalInbox, AuditChainInspector, AgentsPage, SnapshotDialog.
+  AgentsPage's `AgentCard` had to receive a `lang` prop since it's
+  a separate function — same surface, deeper plumbing.
+- 2026-05-03 — RegisterForm migrated to `react-hook-form` + `zod`
+  mirroring LoginForm. zod schema requires tenantName (>=2),
+  email (valid), password (>=8); name is optional. 4 useState
+  fields collapse into one `useForm`. Existing
+  `RegisterForm.test.tsx` still passes.

@@ -3,6 +3,8 @@
 import { AlertCircle, Bot, CheckCircle2, PlayCircle, Plus, Power, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { formatDateTime } from '@/lib/datetime';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 type MatcherType = 'jsonpath' | 'llm' | 'always';
@@ -279,6 +281,7 @@ export default function AgentsPage({ lang }: AgentsPageProps) {
                 expanded={expandedId === a.id}
                 executions={executions[a.id] ?? null}
                 t={t}
+                lang={lang}
                 onToggleExpand={() => toggleExpand(a.id)}
                 onToggleEnabled={() => handleToggleEnabled(a)}
                 onEdit={() => openEdit(a)}
@@ -311,6 +314,7 @@ function AgentCard({
   expanded,
   executions,
   t,
+  lang,
   onToggleExpand,
   onToggleEnabled,
   onEdit,
@@ -320,6 +324,7 @@ function AgentCard({
   expanded: boolean;
   executions: Execution[] | null;
   t: (typeof STRINGS)[keyof typeof STRINGS];
+  lang: 'en' | 'es';
   onToggleExpand: () => void;
   onToggleEnabled: () => void;
   onEdit: () => void;
@@ -357,7 +362,7 @@ function AgentCard({
             <span>·</span>
             <span>
               {t.lastFired}:{' '}
-              {agent.lastTriggeredAt ? new Date(agent.lastTriggeredAt).toLocaleString() : t.never}
+              {agent.lastTriggeredAt ? formatDateTime(agent.lastTriggeredAt, lang) : t.never}
             </span>
           </div>
         </div>

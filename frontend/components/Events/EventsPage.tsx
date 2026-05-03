@@ -3,6 +3,8 @@
 import { ChevronDown, ChevronRight, Search, ShieldCheck, Zap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
+import { formatDateTime } from '@/lib/datetime';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 interface Event {
@@ -243,7 +245,7 @@ export default function EventsPage({ lang }: EventsPageProps) {
                       {ev.actorType}/{ev.actorId?.slice(0, 8) ?? '—'}
                     </span>
                     <span className="w-32 text-right text-[10px] text-gray-600">
-                      {new Date(ev.createdAt).toLocaleString()}
+                      {formatDateTime(ev.createdAt, lang)}
                     </span>
                   </button>
                   {expandedId === ev.id && (
