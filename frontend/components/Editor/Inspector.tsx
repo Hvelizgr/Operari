@@ -8,16 +8,19 @@ import { rfToWorkflow } from '@/lib/canvas/adapter';
 import { useEditorStore } from '@/state/editorStore';
 
 import { NODE_CATALOG } from './canvas/catalog';
+import { StepDurationSparkline } from './StepDurationSparkline';
 
 export default function Inspector({ lang }: { lang: 'en' | 'es' }) {
   const nodes = useEditorStore(s => s.nodes);
   const edges = useEditorStore(s => s.edges);
   const updateNodeData = useEditorStore(s => s.updateNodeData);
+  const stepStats = useEditorStore(s => s.stepStats);
 
   const selected = useMemo(() => nodes.find(n => n.selected), [nodes]);
   const workflowSnapshot = useMemo(() => rfToWorkflow(nodes, edges), [nodes, edges]);
 
   if (!selected) return null;
+  const selectedStats = stepStats[selected.id];
 
   const def = NODE_CATALOG.get(selected.type ?? '');
   const workflow = selected.data.workflow;
@@ -87,6 +90,9 @@ export default function Inspector({ lang }: { lang: 'en' | 'es' }) {
           />
           <span>{workflow.enabled === false ? t.disabled : t.enabled}</span>
         </label>
+        {selectedStats && selectedStats.runs > 0 && (
+          <StepDurationSparkline stats={selectedStats} lang={lang} />
+        )}
       </div>
 
       <div className="max-h-[50vh] overflow-y-auto border-t border-white/10 px-4 py-3">

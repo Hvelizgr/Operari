@@ -11,6 +11,8 @@ import {
   useState,
 } from 'react';
 
+import { setSentryTenant, setSentryUser } from '@/lib/sentry/init';
+
 import { authClient, AuthError, type LoginInput, type RegisterInput } from './auth-client';
 import type { AuthSession } from './types';
 
@@ -86,6 +88,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mounted.current) setLoading(false);
     });
   }, [refresh]);
+
+  // Forward the active session to Sentry's scope so error reports
+  // carry user + tenant context. Anonymous sessions are skipped (the
+  // landing page anonymous shim has id 'anonymous' which would muddy
+  // the dashboard's user grouping). All calls no-op when the SDK is
+  // not initialised.
+  useEffect(() => {
+    if (!session || session.user.id === 'anonymous') {
+      setSentryUser(null);
+      setSentryTenant(null);
+      return;
+    }
+    setSentryUser({
+      id: session.user.id,
+      email: session.user.email,
+      username: session.user.name ?? undefined,
+    });
+    setSentryTenant(session.tenant.id);
+  }, [session]);
 
   const login = useCallback(async (input: LoginInput): Promise<LoginResult> => {
     const result = await authClient.login(input);

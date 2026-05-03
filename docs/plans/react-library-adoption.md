@@ -524,3 +524,122 @@ outside a module`). Pinning to v3 also matches backend (which
   Server-side instrumentation + source map upload deferred to
   deploy infra (needs auth token + webpack plugin). Sprint 4 ✅
   closed.
+
+## Gap-closing pass (2026-05-03)
+
+After the initial sprint 1–4 close, an honest audit ("del 1, 2, 3 y 4
+no falta nada?") flagged a handful of items that had been planned but
+weren't actually done. This pass closes them so the adoption is
+complete rather than directionally complete.
+
+**Sprint 1 follow-ups:**
+
+- `HttpTester` now fires sonner toasts on 4xx/5xx upstream responses,
+  network errors, and blocked requests. The inline `<ResponseViewer>`
+  error UI stays as primary affordance — toasts augment so the
+  operator sees the failure even when their eye is on the request
+  pane. Was the original Sprint 1 pilot target.
+- `useExecutionSocket` initial backfill now goes through
+  `queryClient.fetchQuery({ queryKey: queryKeys.run(id) })` so the
+  result lands in the shared react-query cache. Other surfaces
+  (`RunDetail`, run history) reading the same key benefit from a
+  warm cache and the socket's `execution_status` handler invalidates
+  on terminal status so consumers refetch automatically.
+  Centralised key factory at `lib/react-query/queryKeys.ts`.
+- `@radix-ui/react-dialog`, `@radix-ui/react-popover`, and
+  `@radix-ui/react-dropdown-menu` installed. `ConfirmDialog` is now
+  Radix `Dialog` (focus trap, ESC, return-focus on close come for
+  free); `Toolbar`'s overflow `MoreMenu` is `DropdownMenu`
+  (keyboard arrow navigation, outside click, ESC); `EditorSidebar`'s
+  user menu is `Popover` (replaces a hand-rolled mousedown listener
+  plus AnimatePresence flow). `tailwindcss-animate` already present so
+  `data-[state]` driven `animate-in / animate-out` utilities work
+  out of the box.
+- `cva` extended to a third surface: `EdgeInsertButton`'s quick-step
+  popover items use `iconButton({ tone: 'neutral' })`; `chipButton`
+  applied to `HttpTesterCanvas` + `SQLEditorCanvas` Help / Templates
+  toggles. The two ternary-string-class palettes that lived in those
+  files are gone.
+
+**Sprint 2 follow-ups:**
+
+- `AuditChainInspector` migrated to `@tanstack/react-table` —
+  sortable seq, type, and createdAt columns; hash + actor stay
+  unsorted. Pagination remains server-side cursor based (the audit
+  endpoint doesn't expose a sort param) so sorting is in-page only.
+- `ConnectedAccountsPanel` rewrote the `<ul>` list as a
+  react-table with sortable provider / name / linkedAt columns and
+  a non-sortable actions column. Useful when an org has 20+
+  connected accounts. Defensive `Number.isNaN(d.getTime())` guard
+  on the createdAt cell so test fixtures with sentinel strings
+  don't crash the row.
+- `TeamPanel` invite form migrated to RHF + zod — the previous
+  `<input type="email" required>` only checked presence so typos
+  like `me@company` slipped to the API as 400s. zod's `.email()`
+  refinement catches them on the client.
+
+**Sprint 3 follow-ups:**
+
+- `@codemirror/legacy-modes` installed. Created
+  `components/Editor/ShellCodeEditor.tsx` mirroring the
+  SQLCodeEditor shape but loading the legacy `shell` mode. Added a
+  new `'shell'` field type to `DynamicNodeForm` and switched the
+  shell + ssh step `command` properties from `'string'` to
+  `'shell'` — operators editing a Bash one-liner now get quoting,
+  variable expansion, and pipe highlighting.
+- shiki was already adopted in `HelpDrawer`. Extracted the lazy
+  highlighter into `lib/shiki/highlight.ts` so other surfaces can
+  reuse the same singleton without re-downloading the grammars.
+  Built `components/ui/CodeHighlight.tsx` and used it in
+  `ExecutionEventLog` so expanding an audit event row renders the
+  payload JSON colorised instead of a flat `<pre>`.
+- `cmdk` installed. `SearchPalette` (Cmd+K canvas search)
+  rewritten on `Command` / `Command.Input` / `Command.List` /
+  `Command.Item`. Keyboard navigation, focus management, and
+  empty-state are all delegated to cmdk; favourite-ranked
+  ordering preserved by setting `shouldFilter={false}` and
+  feeding cmdk our pre-ranked list.
+- Editor splits **intentionally skipped** — the Inspector and
+  RunConsole are floating overlays by design (full-canvas
+  authoring with contextual panels), not split panes. Converting
+  them to docked splits would shrink the authoring surface and
+  regress the canvas UX. `react-resizable-panels` adoption
+  already proved out in `SQLEditorCanvas` + `HttpTesterCanvas`.
+
+**Sprint 4 follow-ups:**
+
+- `recharts` reused beyond the dashboard `Trend7d` chart. Built
+  `components/Editor/StepDurationSparkline.tsx`: a 12-bar recent
+  duration sparkline with horizontal reference lines at p50 and
+  p95, color-coded per status (success / failure). Mounted in the
+  editor `Inspector` so selecting a step with stats shows its
+  recent run pattern without leaving the canvas.
+- `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities`
+  installed. `RequestForm` HTTP headers now reorderable via grip
+  handles — order matters for transport (some servers parse
+  duplicate keys positionally). Stable client-side ids generated
+  on add and stored in a `useRef<string[]>` parallel to the
+  payload (the persisted `RequestPayload` type stays
+  `{ key, value }[]`). Kept the existing `useAutoAnimate` for
+  add / remove transitions; dnd-kit owns reorder.
+- `BreakpointsPanel` floating panel added to the canvas — shows
+  all currently armed breakpoints with click-to-jump,
+  click-to-remove, and drag-to-reorder via @dnd-kit. Hidden when
+  no breakpoints are armed so the canvas stays clean. Reorder is
+  cosmetic (engine pauses at any armed breakpoint regardless of
+  position) — surfaces the operator's mental model when
+  juggling multiple debug points.
+- Sentry server-side instrumentation: created
+  `sentry.server.config.ts`, `sentry.edge.config.ts`, and
+  `instrumentation.ts` (Next.js' instrumentation hook) so server
+  and edge runtime errors propagate to the same dashboard as
+  client crashes. All DSN-gated.
+- Sentry user context binding: `lib/sentry/init.ts` now exports
+  `setSentryUser` + `setSentryTenant`. `AuthProvider`'s session
+  effect binds them on login (skipping the anonymous shim) and
+  clears them on logout. Tenant id ships as a Sentry tag so
+  reports are sliceable per-workspace.
+
+Source map upload still deferred — it needs a Sentry auth token
+plus the `@sentry/nextjs` webpack plugin in `next.config.ts`,
+which is a deploy-infra concern rather than an SDK adoption gap.

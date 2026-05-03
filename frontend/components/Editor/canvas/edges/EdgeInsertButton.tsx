@@ -4,6 +4,7 @@ import { EdgeLabelRenderer, useReactFlow } from '@xyflow/react';
 import { Bell, Plus, Terminal, Timer, UserCheck } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { iconButton } from '@/components/ui/buttonVariants';
 import type { RfNode } from '@/lib/canvas/adapter';
 import { useEditorStore } from '@/state/editorStore';
 
@@ -137,7 +138,7 @@ export function EdgeInsertButton({
                 onClick={() => insert(step.type)}
                 title={step.label}
                 aria-label={`Insert ${step.label}`}
-                className="flex h-7 w-7 items-center justify-center rounded text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                className={iconButton({ tone: 'neutral', size: 'md' })}
               >
                 <step.icon size={13} />
               </button>

@@ -6,11 +6,12 @@ import ExpressionBuilder from './ExpressionBuilder';
 import SecretPicker from './SecretPicker';
 
 const SQLCodeEditor = lazy(() => import('../SQLEditor/SQLCodeEditor'));
+const ShellCodeEditor = lazy(() => import('../Editor/ShellCodeEditor'));
 
 export interface Property {
   name: string;
   displayName: string;
-  type: 'string' | 'boolean' | 'options' | 'number' | 'secret' | 'sql' | 'color';
+  type: 'string' | 'boolean' | 'options' | 'number' | 'secret' | 'sql' | 'shell' | 'color';
   default?: unknown;
   description?: string;
   options?: { name: string; value: string }[];
@@ -150,6 +151,26 @@ export default function DynamicNodeForm({
                   onChange={v => onChange(prop.name, v)}
                   minHeight={`${(prop.typeOptions?.rows ?? 4) * 24}px`}
                   placeholder="SELECT * FROM ..."
+                />
+              </Suspense>
+            )}
+
+            {prop.type === 'shell' && (
+              <Suspense
+                fallback={
+                  <textarea
+                    value={stringValue}
+                    onChange={e => onChange(prop.name, e.target.value)}
+                    className={`${inputClass} font-mono`}
+                    rows={prop.typeOptions?.rows ?? 4}
+                    placeholder="echo ..."
+                  />
+                }
+              >
+                <ShellCodeEditor
+                  value={stringValue}
+                  onChange={v => onChange(prop.name, v)}
+                  minHeight={`${(prop.typeOptions?.rows ?? 4) * 24}px`}
                 />
               </Suspense>
             )}

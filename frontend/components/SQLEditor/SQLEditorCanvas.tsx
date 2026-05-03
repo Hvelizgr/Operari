@@ -22,6 +22,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
 import { hasCapability } from '@operari/shared';
+import { chipButton } from '@/components/ui/buttonVariants';
 import { sqlMetadataSchema, type SqlMetadata } from '@/lib/sql/metadata';
 import { useSqlPrefs } from '@/lib/userPrefs';
 
@@ -554,7 +555,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               <button
                 type="button"
                 onClick={() => setTemplatesOpen(v => !v)}
-                className="flex items-center gap-1 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-800"
+                className={chipButton({ tone: 'neutral' })}
                 title={lang === 'es' ? 'Plantillas de query' : 'Query templates'}
               >
                 <BookOpen size={11} />
@@ -600,11 +601,7 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
           <button
             type="button"
             onClick={() => setHelpOpen(o => !o)}
-            className={`flex items-center gap-1 rounded border px-2 py-1 text-[11px] transition-colors ${
-              helpOpen
-                ? 'border-emerald-700 bg-emerald-900/30 text-emerald-200'
-                : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
-            }`}
+            className={chipButton({ tone: helpOpen ? 'primary' : 'neutral' })}
             title={lang === 'es' ? 'Ayuda SQL  (?)' : 'SQL help  (?)'}
             aria-label={lang === 'es' ? 'Abrir ayuda SQL' : 'Open SQL help'}
           >

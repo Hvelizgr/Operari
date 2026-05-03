@@ -16,6 +16,7 @@ import {
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
+import { CodeHighlight } from '@/components/ui/CodeHighlight';
 import {
   bannerVariants,
   listRowVariants,
@@ -535,9 +536,11 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
                 </button>
                 {isOpen && (
                   <>
-                    <pre className="overflow-x-auto whitespace-pre-wrap px-8 pb-2 pt-1 text-[11px] text-zinc-400">
-                      {JSON.stringify(e.payload, null, 2)}
-                    </pre>
+                    <CodeHighlight
+                      code={JSON.stringify(e.payload, null, 2)}
+                      syntax="json"
+                      className="overflow-x-auto px-8 pb-2 pt-1 text-[11px]"
+                    />
                     {/* Inline retry action on step.failed rows. Uses the
                       existing /replay endpoint with the failed nodeId
                       so the runtime re-executes from that step forward.

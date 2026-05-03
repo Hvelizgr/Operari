@@ -56,40 +56,10 @@ interface SyntaxBlockProps {
   syntax?: string;
 }
 
-/** Languages we ship in the shiki highlighter bundle. Adding a new
- *  one here is the only change needed for new help-drawer surfaces.
- *  Kept narrow on purpose — every extra language is ~50KB of grammar
- *  data lazy-loaded on first highlight. */
-const SHIKI_LANGS = ['sql', 'yaml', 'json', 'bash', 'http', 'plaintext'] as const;
-type ShikiLang = (typeof SHIKI_LANGS)[number];
-
-/**
- * Lazy shiki highlighter. Loaded on first call, reused for the rest
- * of the session. The dynamic `import('shiki')` keeps shiki off the
- * critical bundle — it only ships when the operator actually opens
- * a help drawer with a code block.
- */
-type ShikiRender = (code: string, lang: ShikiLang) => string;
-
-let highlighterPromise: Promise<ShikiRender> | null = null;
-
-function loadHighlighter(): Promise<ShikiRender> {
-  if (!highlighterPromise) {
-    highlighterPromise = import('shiki').then(async shiki => {
-      const highlighter = await shiki.createHighlighter({
-        themes: ['github-dark-default'],
-        langs: SHIKI_LANGS as unknown as string[],
-      });
-      const render: ShikiRender = (code, lang) =>
-        highlighter.codeToHtml(code, {
-          lang,
-          theme: 'github-dark-default',
-        });
-      return render;
-    });
-  }
-  return highlighterPromise;
-}
+/** Languages the help drawer accepts on `<SyntaxBlock syntax="…">`.
+ *  The actual shiki bundle (and grammar list) lives in
+ *  `@/lib/shiki/highlight` and is shared with other surfaces. */
+import { isShikiLang, loadHighlighter, type ShikiLang } from '@/lib/shiki/highlight';
 
 /**
  * Code snippet box with copy + insert affordances + lazy shiki
@@ -106,9 +76,7 @@ function loadHighlighter(): Promise<ShikiRender> {
 export function SyntaxBlock({ code, onInsert, lang, syntax }: SyntaxBlockProps) {
   const [copied, setCopied] = useState(false);
   const [html, setHtml] = useState<string | null>(null);
-  const requestedLang: ShikiLang = (
-    syntax && (SHIKI_LANGS as readonly string[]).includes(syntax) ? syntax : 'plaintext'
-  ) as ShikiLang;
+  const requestedLang: ShikiLang = syntax && isShikiLang(syntax) ? syntax : 'plaintext';
 
   useEffect(() => {
     let cancelled = false;

@@ -1,7 +1,10 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Send, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 import { useAuth } from '@/lib/auth';
 
@@ -96,12 +99,31 @@ export function TeamPanel({ lang }: { lang: 'en' | 'es' }) {
   const [members, setMembers] = useState<Member[] | null>(null);
   const [viewerRole, setViewerRole] = useState<'ADMIN' | 'USER' | null>(null);
   const [viewerId, setViewerId] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'USER' | 'ADMIN'>('USER');
-  const [sending, setSending] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // RHF + zod owns the invite form. Email validation is the main win
+  // — the previous `<input type="email" required>` only checked
+  // presence, so typos like `me@company` slipped through to the API
+  // and surfaced as 400s; zod's email refinement catches them on the
+  // client.
+  const inviteSchema = z.object({
+    email: z.string().email(),
+    role: z.enum(['USER', 'ADMIN']),
+  });
+  type InviteForm = z.infer<typeof inviteSchema>;
+  const {
+    register: registerInvite,
+    handleSubmit: handleInviteSubmit,
+    reset: resetInvite,
+    watch: watchInvite,
+    formState: { isSubmitting: sending, errors: inviteErrors },
+  } = useForm<InviteForm>({
+    resolver: zodResolver(inviteSchema),
+    defaultValues: { email: '', role: 'USER' },
+  });
+  const inviteEmailValue = watchInvite('email');
 
   async function refresh() {
     const [invitesRes, membersRes] = await Promise.all([
@@ -160,31 +182,26 @@ export function TeamPanel({ lang }: { lang: 'en' | 'es' }) {
     refresh().catch(() => undefined);
   }, [session]);
 
-  async function onSend(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (sending) return;
+  const onSend = handleInviteSubmit(async values => {
     setError(null);
-    setSending(true);
     try {
       const res = await fetch('/api/invites', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, role }),
+        body: JSON.stringify(values),
       });
       if (res.status === 409) {
         setError(t.dupErr);
         return;
       }
       if (!res.ok) throw new Error(`invite failed: ${res.status}`);
-      setEmail('');
+      resetInvite({ email: '', role: values.role });
       await refresh();
     } catch {
       setError(t.failed);
-    } finally {
-      setSending(false);
     }
-  }
+  });
 
   async function onRevoke(id: string) {
     if (revokingId) return;
@@ -312,20 +329,23 @@ export function TeamPanel({ lang }: { lang: 'en' | 'es' }) {
           </span>
           <input
             type="email"
-            required
-            value={email}
-            onChange={e => setEmail(e.target.value)}
             placeholder="teammate@company.com"
-            className="placeholder-[var(--text-muted)]/60 focus:border-primary w-full rounded-md border border-[var(--border-color)] bg-transparent px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none"
+            aria-invalid={!!inviteErrors.email}
+            {...registerInvite('email')}
+            className="placeholder-[var(--text-muted)]/60 focus:border-primary w-full rounded-md border border-[var(--border-color)] bg-transparent px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none aria-[invalid=true]:border-rose-500/60"
           />
+          {inviteErrors.email && (
+            <span className="mt-1 block text-[11px] text-rose-300">
+              {inviteErrors.email.message}
+            </span>
+          )}
         </label>
         <label>
           <span className="mb-1.5 block font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)]">
             {t.inviteRole}
           </span>
           <select
-            value={role}
-            onChange={e => setRole(e.target.value as 'USER' | 'ADMIN')}
+            {...registerInvite('role')}
             className="focus:border-primary rounded-md border border-[var(--border-color)] bg-transparent px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none"
           >
             <option value="USER">{t.roleUser}</option>
@@ -334,7 +354,7 @@ export function TeamPanel({ lang }: { lang: 'en' | 'es' }) {
         </label>
         <button
           type="submit"
-          disabled={sending || !email}
+          disabled={sending || !inviteEmailValue}
           className="bg-primary text-primary-foreground shadow-primary/20 hover:bg-primary/90 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold shadow-md disabled:opacity-60"
         >
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

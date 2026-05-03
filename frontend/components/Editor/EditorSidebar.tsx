@@ -1,5 +1,6 @@
 'use client';
 
+import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
@@ -27,7 +28,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { DNAMark } from '@/components/Brand/DNAMark';
 import GlobalCommandPalette from '@/components/Common/GlobalCommandPalette';
@@ -83,9 +84,11 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // User menu popover anchored at the bottom-left footer row.
+  // User menu popover anchored at the bottom-left footer row. Radix
+  // `Popover.Root` owns the open/close state, focus trap, and ESC /
+  // outside-click dismissal — the previous hand-rolled mousedown
+  // listener missed several keyboard paths.
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -112,25 +115,6 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
     setDrawerOpen(false);
     setUserMenuOpen(false);
   }, [pathname]);
-
-  // Close user menu on outside click / Escape
-  useEffect(() => {
-    if (!userMenuOpen) return;
-    const onClick = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
-        setUserMenuOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setUserMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onClick);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onClick);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [userMenuOpen]);
 
   // Top-level (always-visible) primary nav. The handful of routes a
   // user hits first — kept flat so they're one click away.
@@ -422,52 +406,45 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
         </div>
 
         {/* Footer / User menu trigger + popover */}
-        <div
-          ref={userMenuRef}
-          className="relative border-t border-[var(--panel-border)] bg-[rgba(255,255,255,0.02)] p-3"
-        >
-          <button
-            onClick={() => setUserMenuOpen(o => !o)}
-            className={`group flex w-full items-center rounded-xl p-2 transition-all hover:bg-[var(--panel-elevated)] ${
-              userMenuOpen ? 'bg-[var(--panel-elevated)]' : ''
-            } ${!showLabels ? 'justify-center' : ''}`}
-            aria-haspopup="menu"
-            aria-expanded={userMenuOpen}
-            title={!showLabels ? displayName : ''}
-          >
-            <div className="group-hover:border-[var(--accent-color)]/50 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] text-[var(--text-muted)] transition-all group-hover:text-[var(--accent-color)]">
-              <User size={18} />
-            </div>
-            {showLabels && (
-              <>
-                <div className="ml-3 flex-1 overflow-hidden text-left">
-                  <div className="truncate text-xs font-black text-[var(--text-primary)]">
-                    {displayName}
-                  </div>
-                  <div className="truncate text-[10px] font-medium text-[var(--text-muted)]">
-                    {displayEmail}
-                  </div>
+        <div className="relative border-t border-[var(--panel-border)] bg-[rgba(255,255,255,0.02)] p-3">
+          <PopoverPrimitive.Root open={userMenuOpen} onOpenChange={setUserMenuOpen}>
+            <PopoverPrimitive.Trigger asChild>
+              <button
+                className={`group flex w-full items-center rounded-xl p-2 transition-all hover:bg-[var(--panel-elevated)] data-[state=open]:bg-[var(--panel-elevated)] ${
+                  !showLabels ? 'justify-center' : ''
+                }`}
+                title={!showLabels ? displayName : ''}
+              >
+                <div className="group-hover:border-[var(--accent-color)]/50 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] text-[var(--text-muted)] transition-all group-hover:text-[var(--accent-color)]">
+                  <User size={18} />
                 </div>
-                <ChevronDown
-                  size={14}
-                  className={`ml-2 text-[var(--text-muted)] transition-transform ${
-                    userMenuOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </>
-            )}
-          </button>
-
-          <AnimatePresence>
-            {userMenuOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.12 }}
-                role="menu"
-                className={`absolute bottom-[72px] z-[60] overflow-hidden rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] shadow-2xl backdrop-blur-xl ${
-                  showLabels ? 'left-3 right-3' : 'left-[60px] w-56'
+                {showLabels && (
+                  <>
+                    <div className="ml-3 flex-1 overflow-hidden text-left">
+                      <div className="truncate text-xs font-black text-[var(--text-primary)]">
+                        {displayName}
+                      </div>
+                      <div className="truncate text-[10px] font-medium text-[var(--text-muted)]">
+                        {displayEmail}
+                      </div>
+                    </div>
+                    <ChevronDown
+                      size={14}
+                      className={`ml-2 text-[var(--text-muted)] transition-transform ${
+                        userMenuOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </>
+                )}
+              </button>
+            </PopoverPrimitive.Trigger>
+            <PopoverPrimitive.Portal>
+              <PopoverPrimitive.Content
+                side="top"
+                align="start"
+                sideOffset={8}
+                className={`data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in data-[side=top]:data-[state=closed]:slide-out-to-bottom-2 data-[side=top]:data-[state=open]:slide-in-from-bottom-2 z-[60] overflow-hidden rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] shadow-2xl backdrop-blur-xl ${
+                  showLabels ? 'w-[208px]' : 'w-56'
                 }`}
               >
                 <div className="border-b border-[var(--panel-border)] px-3 py-2">
@@ -479,7 +456,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                   </div>
                 </div>
                 <button
-                  role="menuitem"
+                  type="button"
                   onClick={() => {
                     setUserMenuOpen(false);
                     router.push(`/${lang}/settings`);
@@ -491,7 +468,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                 </button>
                 {isAdmin && (
                   <button
-                    role="menuitem"
+                    type="button"
                     onClick={() => {
                       setUserMenuOpen(false);
                       router.push(`/${lang}/admin`);
@@ -506,7 +483,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                   <>
                     <div className="border-t border-[var(--panel-border)]" />
                     <button
-                      role="menuitem"
+                      type="button"
                       onClick={handleLogout}
                       disabled={signingOut}
                       className="hover:bg-[var(--op-sunset)]/10 flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-bold text-[var(--text-primary)] transition-colors hover:text-[var(--op-sunset)] disabled:opacity-50"
@@ -516,9 +493,9 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                     </button>
                   </>
                 )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </PopoverPrimitive.Content>
+            </PopoverPrimitive.Portal>
+          </PopoverPrimitive.Root>
         </div>
       </>
     );

@@ -1,5 +1,6 @@
 'use client';
 
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import { Panel } from '@xyflow/react';
 import {
   Activity,
@@ -25,7 +26,7 @@ import {
   Sun,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useTheme } from '@/context/ThemeContext';
@@ -69,63 +70,45 @@ interface MoreMenuItem {
  * less-frequent operations (YAML, exports, layout helpers, themes,
  * templates, snapshots) one click away.
  *
- * Click-outside dismiss listens on `mousedown` so the menu doesn't
- * close mid-pointer-up if the user releases outside.
+ * Backed by Radix `DropdownMenu` so we get focus management, ESC to
+ * close, arrow-key navigation, and outside-click dismissal for free
+ * (the previous hand-rolled mousedown listener missed the keyboard
+ * paths).
  */
 function MoreMenu({ label, items }: { label: string; items: MoreMenuItem[] }) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      if (containerRef.current.contains(e.target as Node)) return;
-      setOpen(false);
-    };
-    window.addEventListener('mousedown', onDown);
-    return () => window.removeEventListener('mousedown', onDown);
-  }, [open]);
-
   return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        title={label}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)]"
-      >
-        <MoreHorizontal size={14} />
-      </button>
-      {open ? (
-        <ul
-          role="menu"
-          className="bg-[color:var(--rb-node-bg)]/95 absolute right-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-lg border border-[color:var(--rb-node-border)] py-1 shadow-2xl backdrop-blur"
+    <DropdownMenuPrimitive.Root>
+      <DropdownMenuPrimitive.Trigger asChild>
+        <button
+          type="button"
+          title={label}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[color:var(--rb-node-muted)] transition-colors hover:bg-white/5 hover:text-[color:var(--rb-node-text)] data-[state=open]:bg-white/10"
+        >
+          <MoreHorizontal size={14} />
+        </button>
+      </DropdownMenuPrimitive.Trigger>
+      <DropdownMenuPrimitive.Portal>
+        <DropdownMenuPrimitive.Content
+          align="end"
+          sideOffset={4}
+          className="bg-[color:var(--rb-node-bg)]/95 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 z-50 min-w-[180px] overflow-hidden rounded-lg border border-[color:var(--rb-node-border)] py-1 shadow-2xl backdrop-blur"
         >
           {items.map((item, idx) => (
-            <li key={idx} role="none">
-              <button
-                type="button"
-                role="menuitem"
-                disabled={item.disabled}
-                onClick={() => {
-                  item.onClick();
-                  setOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-[color:var(--rb-node-text)] transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <span className="flex h-4 w-4 items-center justify-center text-[color:var(--rb-node-muted)]">
-                  {item.icon}
-                </span>
-                <span>{item.label}</span>
-              </button>
-            </li>
+            <DropdownMenuPrimitive.Item
+              key={idx}
+              disabled={item.disabled}
+              onSelect={() => item.onClick()}
+              className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs text-[color:var(--rb-node-text)] outline-none transition-colors data-[disabled]:cursor-not-allowed data-[highlighted]:bg-white/5 data-[disabled]:opacity-40"
+            >
+              <span className="flex h-4 w-4 items-center justify-center text-[color:var(--rb-node-muted)]">
+                {item.icon}
+              </span>
+              <span>{item.label}</span>
+            </DropdownMenuPrimitive.Item>
           ))}
-        </ul>
-      ) : null}
-    </div>
+        </DropdownMenuPrimitive.Content>
+      </DropdownMenuPrimitive.Portal>
+    </DropdownMenuPrimitive.Root>
   );
 }
 

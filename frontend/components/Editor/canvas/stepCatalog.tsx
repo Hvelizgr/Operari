@@ -190,8 +190,9 @@ export const NODE_TYPES: NodeType[] = [
       {
         name: 'command',
         displayName: 'Command',
-        type: 'string',
+        type: 'shell',
         default: 'echo "hello from operari"',
+        typeOptions: { rows: 6 },
       },
       { name: 'cwd', displayName: 'Working directory', type: 'string', default: '' },
       {
@@ -248,7 +249,7 @@ export const NODE_TYPES: NodeType[] = [
       {
         name: 'command',
         displayName: 'Command',
-        type: 'string',
+        type: 'shell',
         default: 'hostname',
         typeOptions: { rows: 3, expression: true },
         description: 'Shell command to execute on the remote host.',

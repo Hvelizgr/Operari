@@ -1,6 +1,17 @@
 'use client';
 
 import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useReactTable,
+} from '@tanstack/react-table';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -8,7 +19,7 @@ import {
   ShieldCheck,
   ShieldX,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { formatDateTime } from '@/lib/datetime';
 
@@ -167,6 +178,79 @@ export function AuditChainInspector({ lang, viewerRole }: AuditChainInspectorPro
     void fetchEvents(newStack[newStack.length - 1] ?? null);
   }, [cursorStack, fetchEvents]);
 
+  // react-table column model. Sorting toggles in-page (the server-side
+  // cursor pagination still owns the broader window) — operators
+  // sorting the current page is enough to surface a recent suspect
+  // event without having to scroll. Real cross-page sorting would
+  // require a sort param on the API, which the audit endpoint doesn't
+  // currently expose.
+  const columns = useMemo<ColumnDef<AuditEvent>[]>(
+    () => [
+      {
+        accessorKey: 'seq',
+        header: t.seq,
+        cell: info => (
+          <span className="font-mono text-[11px] text-[var(--text-muted)]">
+            {info.getValue<string>()}
+          </span>
+        ),
+        sortingFn: (a, b) => Number(a.original.seq) - Number(b.original.seq),
+      },
+      {
+        accessorKey: 'type',
+        header: t.type,
+        cell: info => <span className="font-mono text-[11px]">{info.getValue<string>()}</span>,
+      },
+      {
+        id: 'actor',
+        header: t.actor,
+        cell: info => {
+          const ev = info.row.original;
+          return (
+            <span className="font-mono text-[11px] text-[var(--text-muted)]">
+              {ev.actorType ? `${ev.actorType}:` : ''}
+              {ev.actorId ?? '—'}
+            </span>
+          );
+        },
+        enableSorting: false,
+      },
+      {
+        accessorKey: 'hash',
+        header: t.hash,
+        cell: info => {
+          const hash = info.getValue<string>();
+          return (
+            <span className="font-mono text-[11px] text-[var(--text-muted)]" title={hash}>
+              {hash.slice(0, 12)}…
+            </span>
+          );
+        },
+        enableSorting: false,
+      },
+      {
+        accessorKey: 'createdAt',
+        header: t.when,
+        cell: info => (
+          <span className="text-[11px] text-[var(--text-muted)]">
+            {formatDateTime(info.getValue<string>(), lang)}
+          </span>
+        ),
+      },
+    ],
+    [lang, t]
+  );
+
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const table = useReactTable({
+    data: events ?? [],
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
   if (viewerRole !== 'ADMIN') return null;
 
   const canGoBack = cursorStack.length > 1;
@@ -227,34 +311,45 @@ export function AuditChainInspector({ lang, viewerRole }: AuditChainInspectorPro
           <div className="overflow-hidden rounded-lg border border-[var(--border-color)]">
             <table className="w-full text-left text-xs">
               <thead className="bg-[var(--weathered,#262626)] text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-                <tr>
-                  <th className="px-3 py-2">{t.seq}</th>
-                  <th className="px-3 py-2">{t.type}</th>
-                  <th className="px-3 py-2">{t.actor}</th>
-                  <th className="px-3 py-2">{t.hash}</th>
-                  <th className="px-3 py-2">{t.when}</th>
-                </tr>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => {
+                      const sortDir = header.column.getIsSorted();
+                      const canSort = header.column.getCanSort();
+                      return (
+                        <th key={header.id} className="px-3 py-2">
+                          {canSort ? (
+                            <button
+                              type="button"
+                              onClick={header.column.getToggleSortingHandler()}
+                              className="inline-flex items-center gap-1 transition-colors hover:text-[var(--text-primary)]"
+                            >
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                              {sortDir === 'asc' ? (
+                                <ArrowUp size={10} />
+                              ) : sortDir === 'desc' ? (
+                                <ArrowDown size={10} />
+                              ) : (
+                                <ArrowUpDown size={10} className="opacity-50" />
+                              )}
+                            </button>
+                          ) : (
+                            flexRender(header.column.columnDef.header, header.getContext())
+                          )}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                ))}
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]">
-                {events.map(ev => (
-                  <tr key={ev.id} className="text-[var(--text-primary)]">
-                    <td className="px-3 py-2 font-mono text-[11px] text-[var(--text-muted)]">
-                      {ev.seq}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-[11px]">{ev.type}</td>
-                    <td className="px-3 py-2 font-mono text-[11px] text-[var(--text-muted)]">
-                      {ev.actorType ? `${ev.actorType}:` : ''}
-                      {ev.actorId ?? '—'}
-                    </td>
-                    <td
-                      className="px-3 py-2 font-mono text-[11px] text-[var(--text-muted)]"
-                      title={ev.hash}
-                    >
-                      {ev.hash.slice(0, 12)}…
-                    </td>
-                    <td className="px-3 py-2 text-[11px] text-[var(--text-muted)]">
-                      {formatDateTime(ev.createdAt, lang)}
-                    </td>
+                {table.getRowModel().rows.map(row => (
+                  <tr key={row.id} className="text-[var(--text-primary)]">
+                    {row.getVisibleCells().map(cell => (
+                      <td key={cell.id} className="px-3 py-2">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>

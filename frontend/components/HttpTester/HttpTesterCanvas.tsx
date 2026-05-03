@@ -4,7 +4,9 @@ import { HelpCircle, History, PanelLeft, Send, X, Zap } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Group, Panel, Separator } from 'react-resizable-panels';
+import { toast } from 'sonner';
 
+import { chipButton } from '@/components/ui/buttonVariants';
 import { useApiPrefs } from '@/lib/userPrefs';
 
 import ConvertToStepButton from './ConvertToStepButton';
@@ -149,15 +151,24 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
           payload,
         };
         persistHistory([entry, ...history].slice(0, HISTORY_CAP));
+        // Toast on 4xx/5xx responses too — the request succeeded but
+        // the upstream returned an error status, which the operator
+        // still wants to know about even if their eye is on the
+        // request pane.
+        if (success.status >= 400) {
+          toast.error(`HTTP ${success.status} · ${success.statusText || 'error'}`);
+        }
       } else {
-        setError({
+        const err: ResponseError = {
           status: res.status,
           message: data.message || data.error || 'Request failed',
           reason: data.reason,
-        });
+        };
+        setError(err);
+        toast.error(err.reason ? `Blocked: ${err.message}` : err.message);
       }
     } catch (err) {
-      setError({
+      const failure: ResponseError = {
         status: 0,
         message:
           err instanceof Error && err.name === 'AbortError'
@@ -165,7 +176,9 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
             : err instanceof Error
               ? err.message
               : 'Network error',
-      });
+      };
+      setError(failure);
+      toast.error(failure.message);
     } finally {
       window.clearTimeout(timeoutId);
       setIsLoading(false);
@@ -248,11 +261,7 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
           <button
             type="button"
             onClick={() => setHelpOpen(o => !o)}
-            className={`flex items-center gap-1 rounded border px-2 py-1 text-[11px] transition-colors ${
-              helpOpen
-                ? 'border-emerald-700 bg-emerald-900/30 text-emerald-200'
-                : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
-            }`}
+            className={chipButton({ tone: helpOpen ? 'primary' : 'neutral' })}
             title={lang === 'es' ? 'Ayuda API  (?)' : 'API help  (?)'}
             aria-label={lang === 'es' ? 'Abrir ayuda API' : 'Open API help'}
           >

@@ -25,6 +25,9 @@
     "prettier-plugin-tailwindcss": "^0.6.0"
   },
   "dependencies": {
-    "elkjs": "^0.9.3"
+    "@hookform/resolvers": "^5.2.2",
+    "elkjs": "^0.9.3",
+    "react-hook-form": "^7.75.0",
+    "zod": "^4.4.2"
   }
 }

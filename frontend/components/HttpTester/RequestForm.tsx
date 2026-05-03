@@ -1,8 +1,25 @@
 'use client';
 
+import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
-import { Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { GripVertical, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
 
@@ -32,6 +49,14 @@ interface Props {
 
 type Tab = 'headers' | 'body';
 
+// Stable id generator for header rows. The persisted RequestPayload
+// only stores `{ key, value }` so we mint client-side ids on the fly
+// to feed @dnd-kit's SortableContext (which needs unique row keys).
+const newRowId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `h-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
 export default function RequestForm({ payload, onChange, lang }: Props) {
   const [tab, setTab] = useState<Tab>('headers');
   // Auto-animate the headers list — adding / removing rows now slides
@@ -39,6 +64,29 @@ export default function RequestForm({ payload, onChange, lang }: Props) {
   // detects child mount/unmount and applies the transition. Zero
   // per-row code change.
   const [headersListRef] = useAutoAnimate<HTMLDivElement>();
+
+  // Parallel array of stable ids that mirrors payload.headers in
+  // length + index. Resyncs whenever headers grow or shrink from
+  // outside (e.g. snippet inserts from the help drawer pushing
+  // multiple Authorization headers at once). Reorder mutates both
+  // sides at once via setHeaders below.
+  const headerIdsRef = useRef<string[]>([]);
+  useEffect(() => {
+    while (headerIdsRef.current.length < payload.headers.length) {
+      headerIdsRef.current.push(newRowId());
+    }
+    if (headerIdsRef.current.length > payload.headers.length) {
+      headerIdsRef.current = headerIdsRef.current.slice(0, payload.headers.length);
+    }
+  }, [payload.headers.length]);
+
+  const sensors = useSensors(
+    // 4-pixel activation distance so a click on the row's text inputs
+    // doesn't get hijacked as a drag start. Matches the existing dnd
+    // setups elsewhere in the editor.
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
   const t =
     lang === 'es'
       ? {
@@ -71,11 +119,24 @@ export default function RequestForm({ payload, onChange, lang }: Props) {
   };
 
   const addHeader = () => {
+    headerIdsRef.current = [...headerIdsRef.current, newRowId()];
     onChange({ ...payload, headers: [...payload.headers, { key: '', value: '' }] });
   };
 
   const removeHeader = (idx: number) => {
+    headerIdsRef.current = headerIdsRef.current.filter((_, i) => i !== idx);
     onChange({ ...payload, headers: payload.headers.filter((_, i) => i !== idx) });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = headerIdsRef.current;
+    const oldIdx = ids.indexOf(String(active.id));
+    const newIdx = ids.indexOf(String(over.id));
+    if (oldIdx < 0 || newIdx < 0) return;
+    headerIdsRef.current = arrayMove(ids, oldIdx, newIdx);
+    onChange({ ...payload, headers: arrayMove(payload.headers, oldIdx, newIdx) });
   };
 
   const bodyDisabled = payload.method === 'GET' || payload.method === 'HEAD';
@@ -123,44 +184,42 @@ export default function RequestForm({ payload, onChange, lang }: Props) {
 
       <div className="min-h-0 flex-1">
         {tab === 'headers' ? (
-          <div ref={headersListRef} className="space-y-1.5">
-            {payload.headers.map((h, idx) => (
-              <div key={idx} className="flex items-center gap-1.5">
-                <input
-                  type="text"
-                  value={h.key}
-                  onChange={e => updateHeader(idx, e.target.value, h.value)}
-                  placeholder={t.headerName}
-                  className="focus:border-primary w-1/3 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-100 placeholder:text-zinc-700 focus:outline-none"
-                  spellCheck={false}
-                />
-                <input
-                  type="text"
-                  value={h.value}
-                  onChange={e => updateHeader(idx, h.key, e.target.value)}
-                  placeholder={t.headerValue}
-                  className="focus:border-primary flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-100 placeholder:text-zinc-700 focus:outline-none"
-                  spellCheck={false}
-                />
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={headerIdsRef.current} strategy={verticalListSortingStrategy}>
+              <div ref={headersListRef} className="space-y-1.5">
+                {payload.headers.map((h, idx) => {
+                  const id = headerIdsRef.current[idx];
+                  if (!id) return null;
+                  return (
+                    <SortableHeaderRow
+                      key={id}
+                      id={id}
+                      header={h}
+                      onUpdate={(key, value) => updateHeader(idx, key, value)}
+                      onRemove={() => removeHeader(idx)}
+                      labels={{
+                        headerName: t.headerName,
+                        headerValue: t.headerValue,
+                        remove: t.remove,
+                      }}
+                    />
+                  );
+                })}
                 <button
-                  onClick={() => removeHeader(idx)}
-                  className="p-1 text-zinc-600 transition-colors hover:text-rose-400"
-                  aria-label={t.remove}
+                  onClick={addHeader}
                   type="button"
+                  className="flex items-center gap-1.5 rounded border border-dashed border-zinc-700 px-2 py-1 text-[11px] text-zinc-500 transition-colors hover:border-zinc-500 hover:text-zinc-300"
                 >
-                  <Trash2 size={13} />
+                  <Plus size={11} />
+                  {t.add}
                 </button>
               </div>
-            ))}
-            <button
-              onClick={addHeader}
-              type="button"
-              className="flex items-center gap-1.5 rounded border border-dashed border-zinc-700 px-2 py-1 text-[11px] text-zinc-500 transition-colors hover:border-zinc-500 hover:text-zinc-300"
-            >
-              <Plus size={11} />
-              {t.add}
-            </button>
-          </div>
+            </SortableContext>
+          </DndContext>
         ) : (
           <textarea
             value={payload.body}
@@ -172,6 +231,62 @@ export default function RequestForm({ payload, onChange, lang }: Props) {
           />
         )}
       </div>
+    </div>
+  );
+}
+
+interface SortableHeaderRowProps {
+  id: string;
+  header: { key: string; value: string };
+  onUpdate: (key: string, value: string) => void;
+  onRemove: () => void;
+  labels: { headerName: string; headerValue: string; remove: string };
+}
+
+function SortableHeaderRow({ id, header, onUpdate, onRemove, labels }: SortableHeaderRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-1.5">
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label="Reorder header"
+        className="cursor-grab touch-none p-1 text-zinc-700 transition-colors hover:text-zinc-300 active:cursor-grabbing"
+      >
+        <GripVertical size={12} />
+      </button>
+      <input
+        type="text"
+        value={header.key}
+        onChange={e => onUpdate(e.target.value, header.value)}
+        placeholder={labels.headerName}
+        className="focus:border-primary w-1/3 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-100 placeholder:text-zinc-700 focus:outline-none"
+        spellCheck={false}
+      />
+      <input
+        type="text"
+        value={header.value}
+        onChange={e => onUpdate(header.key, e.target.value)}
+        placeholder={labels.headerValue}
+        className="focus:border-primary flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-100 placeholder:text-zinc-700 focus:outline-none"
+        spellCheck={false}
+      />
+      <button
+        onClick={onRemove}
+        className="p-1 text-zinc-600 transition-colors hover:text-rose-400"
+        aria-label={labels.remove}
+        type="button"
+      >
+        <Trash2 size={13} />
+      </button>
     </div>
   );
 }

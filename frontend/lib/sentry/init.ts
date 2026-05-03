@@ -53,3 +53,27 @@ export function captureError(error: unknown, context?: Record<string, unknown>) 
   if (!initialised) return;
   Sentry.captureException(error, context ? { extra: context } : undefined);
 }
+
+/**
+ * Bind the current user to Sentry's scope so subsequent events carry
+ * `user.id` / `user.email` and the dashboard can group reports per
+ * operator. Pass `null` on logout to clear the scope so an anonymous
+ * crash isn't attributed to the previous user.
+ *
+ * No-op when the SDK is not initialised (DSN unset → self-host
+ * installs without Sentry pay nothing).
+ */
+export function setSentryUser(user: { id: string; email?: string; username?: string } | null) {
+  if (!initialised) return;
+  Sentry.setUser(user);
+}
+
+/**
+ * Tag the active scope with the operator's tenant so reports can be
+ * sliced per-workspace. Sentry tags are indexed and searchable in the
+ * dashboard, which makes "show me errors for tenant X" trivial.
+ */
+export function setSentryTenant(tenantId: string | null) {
+  if (!initialised) return;
+  Sentry.setTag('tenant_id', tenantId);
+}

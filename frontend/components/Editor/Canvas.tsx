@@ -46,6 +46,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 
 import { SurfaceBoundary } from '@/components/ui/SurfaceBoundary';
 
+import { BreakpointsPanel } from './BreakpointsPanel';
 import { detectActiveStep, EditorHelpDrawer } from './EditorHelpDrawer';
 import Inspector from './Inspector';
 import Palette from './Palette';
@@ -484,6 +485,7 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
           <EditorRunConsole lang={lang} />
         </SurfaceBoundary>
       ) : null}
+      {!embedMode ? <BreakpointsPanel lang={lang} /> : null}
       {!embedMode ? (
         <EditorHelpDrawer
           open={helpOpen}

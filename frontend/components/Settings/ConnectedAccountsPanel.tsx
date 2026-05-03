@@ -1,7 +1,26 @@
 'use client';
 
-import { Check, Github, Link2Off, Loader2, ShieldAlert } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useReactTable,
+} from '@tanstack/react-table';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Check,
+  Github,
+  Link2Off,
+  Loader2,
+  ShieldAlert,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { formatDateTime } from '@/lib/datetime';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -27,6 +46,10 @@ const STRINGS = {
     linkedFlash: 'GitHub account linked.',
     errorFlash: 'Could not link GitHub account.',
     scopes: 'Scopes',
+    provider: 'Provider',
+    name: 'Name',
+    linkedAt: 'Linked',
+    actions: 'Actions',
   },
   es: {
     title: 'Cuentas conectadas',
@@ -41,6 +64,10 @@ const STRINGS = {
     linkedFlash: 'Cuenta de GitHub vinculada.',
     errorFlash: 'No se pudo vincular la cuenta de GitHub.',
     scopes: 'Permisos',
+    provider: 'Proveedor',
+    name: 'Nombre',
+    linkedAt: 'Vinculado',
+    actions: 'Acciones',
   },
 } as const;
 
@@ -148,6 +175,99 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
     [refresh, t.confirmDisconnect]
   );
 
+  // react-table column model. Sorting is client-side over the full
+  // accounts list (typically <50 rows per tenant) so we don't need a
+  // server-side sort param. The "Actions" column opts out of sort —
+  // sorting buttons by their own UI doesn't make sense.
+  const columns = useMemo<ColumnDef<ConnectedAccount>[]>(
+    () => [
+      {
+        accessorKey: 'provider',
+        header: t.provider,
+        cell: info => {
+          const provider = info.getValue<string>();
+          return provider === 'github' ? (
+            <span className="inline-flex items-center gap-1.5 text-[var(--text-primary)]">
+              <Github size={13} />
+              <span className="font-mono text-[10px] uppercase">{provider}</span>
+            </span>
+          ) : (
+            <span className="font-mono text-[10px] uppercase text-[var(--text-primary)]">
+              {provider}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'name',
+        header: t.name,
+        accessorFn: row => row.displayName ?? row.id,
+        cell: info => {
+          const acc = info.row.original;
+          return (
+            <div className="min-w-0">
+              <div className="truncate text-[var(--text-primary)]">{acc.displayName ?? acc.id}</div>
+              <div className="mt-0.5 truncate text-[10px] text-[var(--text-muted)]">
+                {t.scopes}: {acc.scopes.join(', ') || '—'}
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'createdAt',
+        header: t.linkedAt,
+        cell: info => {
+          // Defensive: date-fns throws on invalid input. Production
+          // payloads always have valid ISO strings but the test
+          // fixtures use sentinel values (`'t'`), so we render `—`
+          // when the parse would throw rather than crashing the row.
+          const raw = info.getValue<string>();
+          let display = '—';
+          if (raw) {
+            const d = new Date(raw);
+            if (!Number.isNaN(d.getTime())) display = formatDateTime(d, lang);
+          }
+          return <span className="text-[11px] text-[var(--text-muted)]">{display}</span>;
+        },
+      },
+      {
+        id: 'actions',
+        header: t.actions,
+        cell: info => {
+          const acc = info.row.original;
+          return (
+            <button
+              type="button"
+              onClick={() => handleDisconnect(acc.id)}
+              disabled={unlinkingId === acc.id}
+              className="flex shrink-0 items-center gap-1 rounded border border-rose-500/40 px-2 py-1 text-[11px] text-rose-300 transition-colors hover:border-rose-400 hover:text-rose-200 disabled:opacity-50"
+            >
+              {unlinkingId === acc.id ? (
+                <Loader2 size={11} className="animate-spin" />
+              ) : (
+                <Link2Off size={11} />
+              )}
+              {unlinkingId === acc.id ? t.disconnecting : t.disconnect}
+            </button>
+          );
+        },
+        enableSorting: false,
+      },
+    ],
+    [lang, t, unlinkingId, handleDisconnect]
+  );
+
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const table = useReactTable({
+    data: accounts ?? [],
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
   return (
     <div className="space-y-3">
       <p className="text-[11px] text-[var(--text-muted)]">{t.hint}</p>
@@ -186,38 +306,53 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
       ) : accounts && accounts.length === 0 ? (
         <div className="text-xs text-[var(--text-muted)]">{t.empty}</div>
       ) : (
-        <ul className="divide-y divide-[var(--panel-border)] rounded-md border border-[var(--panel-border)]">
-          {accounts!.map(acc => (
-            <li key={acc.id} className="flex items-center justify-between px-3 py-2 text-sm">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-[var(--text-primary)]">
-                  {acc.provider === 'github' ? (
-                    <Github size={13} />
-                  ) : (
-                    <span className="font-mono text-[10px] uppercase">{acc.provider}</span>
-                  )}
-                  <span className="truncate">{acc.displayName ?? acc.id}</span>
-                </div>
-                <div className="mt-0.5 truncate text-[10px] text-[var(--text-muted)]">
-                  {t.scopes}: {acc.scopes.join(', ') || '—'}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleDisconnect(acc.id)}
-                disabled={unlinkingId === acc.id}
-                className="flex shrink-0 items-center gap-1 rounded border border-rose-500/40 px-2 py-1 text-[11px] text-rose-300 transition-colors hover:border-rose-400 hover:text-rose-200 disabled:opacity-50"
-              >
-                {unlinkingId === acc.id ? (
-                  <Loader2 size={11} className="animate-spin" />
-                ) : (
-                  <Link2Off size={11} />
-                )}
-                {unlinkingId === acc.id ? t.disconnecting : t.disconnect}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-hidden rounded-md border border-[var(--panel-border)]">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-[var(--weathered,#262626)] text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map(header => {
+                    const sortDir = header.column.getIsSorted();
+                    const canSort = header.column.getCanSort();
+                    return (
+                      <th key={header.id} className="px-3 py-2">
+                        {canSort ? (
+                          <button
+                            type="button"
+                            onClick={header.column.getToggleSortingHandler()}
+                            className="inline-flex items-center gap-1 transition-colors hover:text-[var(--text-primary)]"
+                          >
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {sortDir === 'asc' ? (
+                              <ArrowUp size={10} />
+                            ) : sortDir === 'desc' ? (
+                              <ArrowDown size={10} />
+                            ) : (
+                              <ArrowUpDown size={10} className="opacity-50" />
+                            )}
+                          </button>
+                        ) : (
+                          flexRender(header.column.columnDef.header, header.getContext())
+                        )}
+                      </th>
+                    );
+                  })}
+                </tr>
+              ))}
+            </thead>
+            <tbody className="divide-y divide-[var(--panel-border)]">
+              {table.getRowModel().rows.map(row => (
+                <tr key={row.id}>
+                  {row.getVisibleCells().map(cell => (
+                    <td key={cell.id} className="px-3 py-2 align-top">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
