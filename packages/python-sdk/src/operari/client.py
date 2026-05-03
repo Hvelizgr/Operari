@@ -20,7 +20,7 @@ Quick start::
 from __future__ import annotations
 
 import time
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 from urllib.parse import quote, urlencode
 
 import httpx
@@ -33,6 +33,8 @@ from .errors import (
 )
 from .types import (
     AuditVerifyResult,
+    GetLogsResponse,
+    LogEntry,
     ResolvedApproval,
     Run,
     RunStatus,
@@ -216,6 +218,99 @@ class Operari:
         return _parse_approval(data)
 
     # ------------------------------------------------------------------
+    # Logs
+    # ------------------------------------------------------------------
+
+    def get_logs(
+        self,
+        run_id: str,
+        *,
+        from_id: Optional[str] = None,
+        count: Optional[int] = None,
+    ) -> GetLogsResponse:
+        """Fetch a bounded page of log entries for a run.
+
+        Use the returned ``next_from_id`` as ``from_id`` on the next
+        call to paginate through a finished run's full log; pass
+        nothing to start from the beginning. For a LIVE tail that
+        yields entries as the runtime emits them use ``tail_logs``
+        instead.
+        """
+        params: dict[str, str] = {}
+        if from_id is not None:
+            params["fromId"] = from_id
+        if count is not None:
+            params["count"] = str(count)
+        qs = f"?{urlencode(params)}" if params else ""
+        data = self._request("GET", f"/api/executions/{quote(run_id, safe='')}/logs{qs}")
+        return _parse_logs_response(data)
+
+    def tail_logs(
+        self,
+        run_id: str,
+        *,
+        from_id: Optional[str] = None,
+    ) -> Iterator[LogEntry]:
+        """Yield log entries as the runtime emits them, blocking on the SSE stream.
+
+        Stop the iteration by ``break``-ing or by closing the
+        generator (``gen.close()``). The underlying connection is
+        torn down promptly when the iterator is garbage-collected.
+        For an asyncio-friendly version use ``OperariAsync.tail_logs``.
+
+        Notes:
+            - The server replays the backlog (last 10k entries by
+              default) before switching to live tail, so a fresh
+              connection to an in-flight run sees everything from
+              the ring-buffer window.
+            - On a mid-stream disconnect the iterable ends without
+              raising. Reconnect by calling ``tail_logs`` again with
+              ``from_id`` set to the last entry id you saw.
+        """
+        params: dict[str, str] = {"follow": "true"}
+        if from_id is not None:
+            params["fromId"] = from_id
+        path = f"/api/executions/{quote(run_id, safe='')}/logs?{urlencode(params)}"
+
+        try:
+            with self._client.stream(
+                "GET",
+                path,
+                headers={"Accept": "text/event-stream"},
+                # SSE streams have no fixed length; disable the
+                # request-side timeout to let the stream live as
+                # long as the run does.
+                timeout=None,
+            ) as response:
+                if response.status_code == 401:
+                    raise OperariAuthError(
+                        f"tail_logs unauthorized: {response.read().decode(errors='replace')}"
+                    )
+                if response.status_code == 404:
+                    raise OperariNotFoundError(
+                        f"tail_logs not found: {response.read().decode(errors='replace')}"
+                    )
+                if response.status_code >= 400:
+                    raise OperariError(
+                        f"tail_logs failed: {response.status_code}",
+                        status_code=response.status_code,
+                    )
+
+                buffer = ""
+                for chunk in response.iter_text():
+                    buffer += chunk
+                    while "\n\n" in buffer:
+                        raw, _, buffer = buffer.partition("\n\n")
+                        entry = _parse_sse_event(raw)
+                        if entry is not None:
+                            yield entry
+        except httpx.TimeoutException:
+            # The server idles SSE connections at long but finite
+            # intervals; treat that as graceful end-of-stream so the
+            # caller can decide whether to reconnect.
+            return
+
+    # ------------------------------------------------------------------
     # Audit
     # ------------------------------------------------------------------
 
@@ -328,6 +423,55 @@ def _parse_run(data: dict[str, Any]) -> Run:
         error=data.get("error"),
         steps=[_parse_step(s) for s in steps_raw],
     )
+
+
+def _parse_log_entry(data: dict[str, Any]) -> LogEntry:
+    return LogEntry(
+        id=str(data.get("id", "")),
+        message=str(data.get("message", "")),
+        timestamp=str(data.get("timestamp", "")),
+        metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else None,
+    )
+
+
+def _parse_logs_response(data: dict[str, Any]) -> GetLogsResponse:
+    raw_entries = data.get("entries") or []
+    entries = [_parse_log_entry(e) for e in raw_entries if isinstance(e, dict)]
+    total = data.get("totalApprox")
+    return GetLogsResponse(
+        execution_id=str(data.get("executionId", "")),
+        entries=entries,
+        count=int(data.get("count", len(entries))),
+        total_approx=int(total) if isinstance(total, int) else None,
+        next_from_id=data.get("nextFromId"),
+    )
+
+
+def _parse_sse_event(raw: str) -> Optional[LogEntry]:
+    """Parse one SSE event block ("data: ...\\ndata: ...") into a LogEntry.
+
+    Returns None when the block has no ``data:`` line (heartbeat,
+    comment, unknown event) so the caller can skip it silently.
+    """
+    import json
+
+    data_line: Optional[str] = None
+    for line in raw.split("\n"):
+        if line.startswith(":"):
+            # SSE comment / heartbeat
+            continue
+        if line.startswith("data:"):
+            piece = line[5:].lstrip(" ")
+            data_line = piece if data_line is None else f"{data_line}\n{piece}"
+    if data_line is None:
+        return None
+    try:
+        parsed = json.loads(data_line)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    return _parse_log_entry(parsed)
 
 
 def _parse_approval(data: dict[str, Any]) -> ResolvedApproval:

@@ -93,3 +93,31 @@ class AuditVerifyResult:
     first_broken_seq: Optional[int]
     first_gap_after_seq: Optional[int]
     verified_at: str
+
+
+@dataclass
+class LogEntry:
+    """A single log line emitted by the runtime for a specific run.
+
+    Mirrors `LogEntry` in the TypeScript SDK. The `id` field is the
+    monotonic stream cursor — pass it as `from_id` on the next
+    `get_logs()` call to resume from where you left off.
+    """
+
+    id: str
+    message: str
+    timestamp: str
+    metadata: Optional[dict[str, Any]] = None
+
+
+@dataclass
+class GetLogsResponse:
+    """Bounded page of log entries for a finished or in-flight run."""
+
+    execution_id: str
+    entries: list[LogEntry]
+    count: int
+    """Approximate total entries in the run's stream — None when unknown."""
+    total_approx: Optional[int]
+    """Cursor for the next call. None when the page is the last one."""
+    next_from_id: Optional[str]

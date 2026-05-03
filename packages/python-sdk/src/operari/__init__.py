@@ -1,6 +1,7 @@
 """Operari Python SDK — official client for the Operari API."""
 
 from .client import Operari
+from .client_async import OperariAsync
 from .errors import (
     OperariError,
     OperariAuthError,
@@ -8,17 +9,20 @@ from .errors import (
     OperariTimeoutError,
 )
 from .types import (
-    RunbookSummary,
-    TriggerResponse,
-    StepLog,
-    Run,
-    RunStatus,
-    ResolvedApproval,
     AuditVerifyResult,
+    GetLogsResponse,
+    LogEntry,
+    ResolvedApproval,
+    Run,
+    RunbookSummary,
+    RunStatus,
+    StepLog,
+    TriggerResponse,
 )
 
 __all__ = [
     "Operari",
+    "OperariAsync",
     "OperariError",
     "OperariAuthError",
     "OperariNotFoundError",
@@ -30,6 +34,8 @@ __all__ = [
     "RunStatus",
     "ResolvedApproval",
     "AuditVerifyResult",
+    "LogEntry",
+    "GetLogsResponse",
 ]
 
 # Step authoring lives at `operari.steps` so plugin modules import:
