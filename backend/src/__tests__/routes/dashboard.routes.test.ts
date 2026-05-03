@@ -185,8 +185,12 @@ describe('GET /api/dashboard/overview — recentStatuses', () => {
     await request(buildApp()).get('/api/dashboard/overview');
 
     // Call index 7 (0-based) is the per-runbook last-20 findMany.
+    // The where clause carries tenantId alongside runbookId — without
+    // it the runtime tenant-scope guard throws and poisons the
+    // connection pool (see commit 497ed73 / pendiente.md cascading
+    // hang root cause).
     const last20Args = m.execution.findMany.mock.calls[7][0];
-    expect(last20Args.where).toEqual({ runbookId: 'wf-a' });
+    expect(last20Args.where).toEqual({ runbookId: 'wf-a', tenantId: 'tenant-1' });
     expect(last20Args.orderBy).toEqual({ startedAt: 'desc' });
     expect(last20Args.take).toBe(20);
     expect(last20Args.select).toEqual({ status: true });

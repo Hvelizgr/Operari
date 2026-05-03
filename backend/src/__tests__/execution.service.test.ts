@@ -148,6 +148,10 @@ describe('ExecutionService', () => {
           // A1: no version backfilled by the test's null-returning
           // runbookVersion.findFirst stub, so the engine pins to null.
           runbookVersionId: null,
+          // dryRun is now persisted on the Execution row so post-hoc
+          // queries can distinguish simulated runs from real ones.
+          // Defaults to false when the caller didn't pass dryRun.
+          dryRun: false,
         },
       });
     });

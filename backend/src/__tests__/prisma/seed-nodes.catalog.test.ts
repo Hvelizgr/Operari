@@ -96,8 +96,13 @@ describe('node-types catalog (seed-nodes.js NODES export)', () => {
     expect(cred.typeOptions?.provider).toBe('github');
   });
 
-  it('operari.postgres exposes a sql-typed query input + a postgres-scoped credential', () => {
-    const props = nodeOf('operari.postgres').properties!;
+  it('operari.database exposes a sql-typed query input + a postgres-scoped credential', () => {
+    // The seed type-string was renamed from `operari.postgres` to
+    // `operari.database` to match the runtime registry binding (see
+    // seed-nodes.js for the full rationale). The secret picker still
+    // scopes to `provider: 'postgres'` because that's the credential
+    // provider, not the step type.
+    const props = nodeOf('operari.database').properties!;
     const query = props.find(p => p.name === 'query')!;
     expect(query.type).toBe('sql');
     const cred = props.find(p => p.name === 'credentialId')!;
