@@ -1,7 +1,9 @@
 import './globals.css';
 
+import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { Toaster } from 'sonner';
 
 import { QuotaExceededModal, QuotaInterceptor } from '@/components/Common/QuotaExceededModal';
 import { ThemeProvider } from '@/context/ThemeContext';
@@ -69,15 +71,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider>
           <VisualizationProvider>
-            <AuthProvider>
-              <QuotaInterceptor />
-              {/* Default to English for the modal; the locale-aware
+            {/* Single Radix tooltip provider at the root so every
+                surface that uses our `<HoverTooltip>` wrapper picks
+                up consistent timings (200ms hover delay, instant on
+                keyboard focus) without each route mounting its own. */}
+            <TooltipPrimitive.Provider delayDuration={200} skipDelayDuration={300}>
+              <AuthProvider>
+                <QuotaInterceptor />
+                {/* Default to English for the modal; the locale-aware
                   routes wrap their own tree but the interceptor has
                   to live at the root layout so every fetch is wrapped
                   regardless of which subtree made the call. */}
-              <QuotaExceededModal lang="en" />
-              {children}
-            </AuthProvider>
+                <QuotaExceededModal lang="en" />
+                {children}
+                {/* Sonner toaster — single mount at the root so every
+                  surface (editor / sql-editor / http-tester / dashboard
+                  / settings) can `import { toast } from 'sonner'` and
+                  fire transient feedback (run started, save failed,
+                  breakpoint hit, replay success) without each route
+                  wiring its own provider. Theme matches the dark UI
+                  baseline; the offset keeps it clear of the editor's
+                  bottom run console. */}
+                <Toaster theme="dark" position="top-right" richColors closeButton offset="16px" />
+              </AuthProvider>
+            </TooltipPrimitive.Provider>
           </VisualizationProvider>
         </ThemeProvider>
       </body>

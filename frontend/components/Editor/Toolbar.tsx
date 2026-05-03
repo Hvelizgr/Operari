@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import { useTheme } from '@/context/ThemeContext';
 import { usePngExport } from '@/hooks/usePngExport';
@@ -228,6 +229,11 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle, onOpenHelp
 
   const handleDryRun = async () => {
     if (!runbookId) {
+      // Surface the missing-runbookId guard as a toast in addition to
+      // the store error — the toolbar badge is easy to miss when the
+      // operator's eyes are on the canvas. setStatus stays so the
+      // existing error-pill UI keeps working until we migrate it.
+      toast.error(t.missingId);
       setStatus('error', t.missingId);
       return;
     }
@@ -241,6 +247,7 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle, onOpenHelp
       url.searchParams.delete('debug');
       router.replace(`${url.pathname}${url.search}`);
     } else if (result?.kind === 'error') {
+      toast.error(result.message);
       setStatus('error', result.message);
     }
   };

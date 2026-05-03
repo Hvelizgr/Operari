@@ -105,7 +105,7 @@ Decision: pick **Radix** over `react-aria-components` (heavier) and
 | Lib                    | Tier                    | Lands at                                                   |
 | ---------------------- | ----------------------- | ---------------------------------------------------------- |
 | `shiki`                | 1                       | HelpDrawer code blocks (server-rendered), audit event JSON |
-| `prism-react-renderer` | 2 (lighter alternative) |
+| `prism-react-renderer` | 2 (lighter alternative) | Same niche; pick if `shiki` SSR doesn't fit                |
 
 ### G. Tables
 
@@ -135,10 +135,10 @@ Decision: pick **Radix** over `react-aria-components` (heavier) and
 
 ### K. JSON inspection
 
-| Lib                    | Tier                    | Lands at                                     |
-| ---------------------- | ----------------------- | -------------------------------------------- |
-| `@uiw/react-json-view` | 1 ⭐                    | BaseStepNode inspect bubbles, ResponseViewer |
-| `react-json-view-lite` | 2 (lighter alternative) |
+| Lib                    | Tier                    | Lands at                                           |
+| ---------------------- | ----------------------- | -------------------------------------------------- |
+| `@uiw/react-json-view` | 1 ⭐                    | BaseStepNode inspect bubbles, ResponseViewer       |
+| `react-json-view-lite` | 2 (lighter alternative) | Smaller bundle, no search; pick if bundle pressure |
 
 ### L. Diff viewers
 
@@ -220,25 +220,24 @@ Decision: pick **Radix** over `react-aria-components` (heavier) and
 Ground every later refactor on shared infrastructure. No
 user-visible features yet, but every subsequent item gets faster.
 
-| #   | Lib                                | Lift | First landing                                                          |
-| --- | ---------------------------------- | ---- | ---------------------------------------------------------------------- |
-| 1   | `nanoid`                           | 30m  | Replace `randomId()` in `frontend/utils/runbookYaml.ts` + adapter      |
-| 2   | `react-error-boundary`             | 1h   | Per-route segment boundaries (`[lang]/editor/error.tsx`, etc.)         |
-| 3   | `sonner`                           | 1h   | Toaster in root layout. First migration: HttpTester `setError`         |
-| 4   | `@radix-ui/react-tooltip`          | 2h   | Reemplazar `title=` en NodeContextToolbar buttons                      |
-| 5   | `react-hotkeys-hook`               | 2h   | Centralize `?` / `Ctrl+Enter` / `Esc` listeners                        |
-| 6   | `class-variance-authority`         | 2h   | Variant API for buttons + chips, starting with NodeContextToolbar      |
-| 7   | `@tanstack/react-query` + devtools | 8h   | `QueryClient` provider; pilot migration: `useExecutionSocket` backfill |
+| #   | Lib                                | Lift | First landing                                                                                                                                                                                                                                 |
+| --- | ---------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | ~~`nanoid`~~                       | —    | **DROPPED in adoption — see live progress.** Existing `randomId()` produces UUIDs that become Prisma primary keys; nanoid would mix ID formats in DB. Local-only ID sites (snapshots, HttpTester history) aren't pain points worth migrating. |
+| 2   | `react-error-boundary`             | 1h   | Per-route segment boundaries (`[lang]/editor/error.tsx`, etc.)                                                                                                                                                                                |
+| 3   | `sonner`                           | 1h   | Toaster in root layout. First migration: HttpTester `setError`                                                                                                                                                                                |
+| 4   | `@radix-ui/react-tooltip`          | 2h   | Reemplazar `title=` en NodeContextToolbar buttons                                                                                                                                                                                             |
+| 5   | `react-hotkeys-hook`               | 2h   | Centralize `?` / `Ctrl+Enter` / `Esc` listeners                                                                                                                                                                                               |
+| 6   | `class-variance-authority`         | 2h   | Variant API for buttons + chips, starting with NodeContextToolbar                                                                                                                                                                             |
+| 7   | `@tanstack/react-query` + devtools | 8h   | `QueryClient` provider; pilot migration: `useExecutionSocket` backfill                                                                                                                                                                        |
 
-**Order within Sprint 1:**
+**Order within Sprint 1 (revised after nanoid finding):**
 
-1. nanoid (cero riesgo, prueba el path de instalar libs)
-2. react-error-boundary (mejora la red de seguridad antes de más cambios)
-3. sonner (instant UX win visible)
-4. Radix tooltip (pieza Radix más chica como prueba)
-5. react-hotkeys-hook
-6. cva
-7. react-query (el más grande, último)
+1. sonner (instant UX win visible)
+2. Radix tooltip (pieza Radix más chica como prueba)
+3. react-error-boundary (mejora la red de seguridad antes de más cambios)
+4. react-hotkeys-hook
+5. cva
+6. react-query (el más grande, último)
 
 ### Sprint 2 — Forms & data tables (1–2 weeks, ~25–30h)
 
@@ -329,3 +328,21 @@ user-visible features yet, but every subsequent item gets faster.
 ## Live progress (updated as we go)
 
 - 2026-05-02 — plan saved (this file).
+- 2026-05-02 — `nanoid` dropped from Sprint 1 after install. Reason:
+  the original `randomId()` produces `crypto.randomUUID()` values that
+  become Prisma primary keys (`RunbookStep`, `RunbookConnection`).
+  Replacing with nanoid mixes UUID + non-UUID ids in the same column;
+  the only call sites that aren't DB PKs are snapshot ids and
+  HttpTester `HistoryEntry` ids, which aren't pain. Package removed.
+  Re-evaluate only if a future feature genuinely needs short shareable
+  ids (e.g. shareable run links).
+- 2026-05-02 — `sonner` mounted at root layout (`app/layout.tsx`).
+  First migration: Toolbar `handleDryRun` error paths now `toast.error`
+  alongside the existing `setStatus('error', ...)`. Future migrations
+  remove the inline error pills as their consumers move over.
+- 2026-05-02 — `@radix-ui/react-tooltip` mounted via Provider at the
+  root and consumed via a `HoverTooltip` wrapper in
+  `components/ui/Tooltip.tsx`. First migration: NodeContextToolbar's
+  6 buttons (Run from here, Duplicate, Disable/Enable, breakpoint,
+  Detach, Delete) — `title=` removed in favor of the bubble. Provider
+  delays: 200ms hover, 300ms skip-delay across siblings.

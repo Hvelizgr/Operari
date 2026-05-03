@@ -5,6 +5,7 @@ import { CircleDot, Copy, Play, Power, Trash2, Unlink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { HoverTooltip } from '@/components/ui/Tooltip';
 import { buildSnapshot, remapForPaste } from '@/lib/canvas/clipboard';
 import { useEditorStore } from '@/state/editorStore';
 
@@ -122,78 +123,81 @@ export function NodeContextToolbar({
       className="bg-[color:var(--rb-node-bg)]/95 flex items-center gap-1 rounded-lg border border-[color:var(--rb-node-border)] p-1 shadow-xl backdrop-blur"
     >
       {kind === 'step' ? (
-        <button
-          type="button"
-          onClick={runHere}
-          disabled={running}
-          aria-label="Run from here"
-          title="Run from here"
-          className={`${buttonClass} hover:bg-[color:var(--op-moss)]/15 hover:text-[color:var(--op-moss)] disabled:cursor-not-allowed disabled:opacity-40`}
-        >
-          <Play size={14} />
-        </button>
+        <HoverTooltip label="Run from here">
+          <button
+            type="button"
+            onClick={runHere}
+            disabled={running}
+            aria-label="Run from here"
+            className={`${buttonClass} hover:bg-[color:var(--op-moss)]/15 hover:text-[color:var(--op-moss)] disabled:cursor-not-allowed disabled:opacity-40`}
+          >
+            <Play size={14} />
+          </button>
+        </HoverTooltip>
       ) : null}
-      <button
-        type="button"
-        onClick={duplicate}
-        aria-label="Duplicate"
-        title="Duplicate"
-        className={buttonClass}
-      >
-        <Copy size={14} />
-      </button>
-      {kind === 'step' ? (
-        <button
-          type="button"
-          onClick={toggleEnabled}
-          aria-label={enabled ? 'Disable step' : 'Enable step'}
-          title={enabled ? 'Disable' : 'Enable'}
-          className={buttonClass}
-          data-active={!enabled}
-        >
-          <Power size={14} className={enabled ? '' : 'text-[color:var(--rb-edge-failed)]'} />
+      <HoverTooltip label="Duplicate">
+        <button type="button" onClick={duplicate} aria-label="Duplicate" className={buttonClass}>
+          <Copy size={14} />
         </button>
+      </HoverTooltip>
+      {kind === 'step' ? (
+        <HoverTooltip label={enabled ? 'Disable' : 'Enable'}>
+          <button
+            type="button"
+            onClick={toggleEnabled}
+            aria-label={enabled ? 'Disable step' : 'Enable step'}
+            className={buttonClass}
+            data-active={!enabled}
+          >
+            <Power size={14} className={enabled ? '' : 'text-[color:var(--rb-edge-failed)]'} />
+          </button>
+        </HoverTooltip>
       ) : null}
       {kind === 'step' ? (
-        <button
-          type="button"
-          onClick={toggleBreakpoint}
-          aria-label={isBreakpoint ? 'Remove breakpoint' : 'Set breakpoint'}
-          title={
+        <HoverTooltip
+          label={
             isBreakpoint
               ? 'Remove breakpoint — engine will no longer pause before this step'
               : 'Set breakpoint — engine pauses before executing this step'
           }
-          className={buttonClass}
-          data-active={isBreakpoint}
         >
-          <CircleDot
-            size={14}
-            className={isBreakpoint ? 'text-[color:var(--rb-edge-failed)]' : ''}
-          />
-        </button>
+          <button
+            type="button"
+            onClick={toggleBreakpoint}
+            aria-label={isBreakpoint ? 'Remove breakpoint' : 'Set breakpoint'}
+            className={buttonClass}
+            data-active={isBreakpoint}
+          >
+            <CircleDot
+              size={14}
+              className={isBreakpoint ? 'text-[color:var(--rb-edge-failed)]' : ''}
+            />
+          </button>
+        </HoverTooltip>
       ) : null}
       {parentId ? (
-        <button
-          type="button"
-          onClick={detach}
-          aria-label="Detach from frame"
-          title="Detach from frame"
-          className={buttonClass}
-        >
-          <Unlink size={14} />
-        </button>
+        <HoverTooltip label="Detach from frame">
+          <button
+            type="button"
+            onClick={detach}
+            aria-label="Detach from frame"
+            className={buttonClass}
+          >
+            <Unlink size={14} />
+          </button>
+        </HoverTooltip>
       ) : null}
       <div className="mx-1 h-4 w-px bg-white/10" />
-      <button
-        type="button"
-        onClick={remove}
-        aria-label="Delete"
-        title="Delete"
-        className={`${buttonClass} hover:bg-[color:var(--rb-edge-failed)]/20 hover:text-[color:var(--rb-edge-failed)]`}
-      >
-        <Trash2 size={14} />
-      </button>
+      <HoverTooltip label="Delete">
+        <button
+          type="button"
+          onClick={remove}
+          aria-label="Delete"
+          className={`${buttonClass} hover:bg-[color:var(--rb-edge-failed)]/20 hover:text-[color:var(--rb-edge-failed)]`}
+        >
+          <Trash2 size={14} />
+        </button>
+      </HoverTooltip>
     </NodeToolbar>
   );
 }
