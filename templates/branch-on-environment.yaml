@@ -1,0 +1,86 @@
+# Operari Template: Multi-environment switch
+#
+# Branches into prod / staging / dev based on the `env` variable. The
+# Switch step has one output port per case; every output then feeds
+# into a follow-up shell that simulates the per-env deploy command.
+# Useful as a teaching example of `Switch` because the operator can
+# trigger the runbook three times with different `env` values and
+# watch a different branch fire each time.
+#
+# Variables expected:
+#   - env  (string)  one of: "prod" | "staging" | "dev"
+#
+# How to test from the editor:
+#   1. Drag this template into the canvas.
+#   2. Set vars.env = "prod" (or "staging", or "dev") in the Run dialog.
+#   3. Click Run / Simulación. The matching branch should highlight
+#      and emit its line in the run console.
+version: 1
+name: Switch on environment
+slug: branch-on-environment
+description: Switch step routes to prod / staging / dev branches based on the env variable.
+category: example
+steps:
+  - id: route
+    type: Switch
+    name: Route by environment
+    config:
+      field: vars.env
+      cases:
+        - value: prod
+          label: prod
+        - value: staging
+          label: staging
+        - value: dev
+          label: dev
+    next:
+      prod: deploy_prod
+      staging: deploy_staging
+      dev: deploy_dev
+      default: alert_unknown_env
+
+  - id: deploy_prod
+    type: shell
+    name: Deploy to PROD
+    config:
+      command: |
+        echo "🟥 Deploying to PROD environment"
+        echo "Image: registry/app:{{vars.image_tag}}"
+    next: notify_done
+
+  - id: deploy_staging
+    type: shell
+    name: Deploy to STAGING
+    config:
+      command: |
+        echo "🟨 Deploying to STAGING environment"
+        echo "Image: registry/app:{{vars.image_tag}}"
+    next: notify_done
+
+  - id: deploy_dev
+    type: shell
+    name: Deploy to DEV
+    config:
+      command: |
+        echo "🟩 Deploying to DEV environment"
+        echo "Image: registry/app:{{vars.image_tag}}"
+    next: notify_done
+
+  - id: alert_unknown_env
+    type: shell
+    name: Unknown environment
+    config:
+      command: |
+        echo "⚠ vars.env was not one of prod/staging/dev"
+        echo "Got: {{vars.env}}"
+        exit 1
+      failOnNonZeroExit: true
+    next: notify_done
+
+  - id: notify_done
+    type: notify
+    name: Notify completion
+    config:
+      channel: webhook
+      webhookUrl: '{{vars.slack_webhook}}'
+      message: 'Deployment to {{vars.env}} finished'

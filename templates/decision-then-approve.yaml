@@ -1,0 +1,96 @@
+# Operari Template: Conditional auto-fix vs human approval
+#
+# Combines `operari.if` (decide on a runtime value) with `approval`
+# (ask the operator a question). The runbook checks the severity of
+# an incident: low severity auto-resolves, high severity pauses for
+# explicit human approval before the destructive remediation fires.
+#
+# This is the canonical "decision tree where some branches need a
+# human sign-off" SRE pattern. Surfaces all four constructs the
+# operator asked about — a decision, a question (approval gate), a
+# conditional branch, and visible per-step output in the run console.
+#
+# Variables expected:
+#   - severity        (string)  one of: "low" | "high" | "critical"
+#   - service_name    (string)  service to remediate
+#   - slack_webhook   (secret)  Slack incoming webhook
+#
+# How to test:
+#   1. Drag this into the canvas.
+#   2. Try three runs: severity=low, severity=high, severity=critical.
+#      - "low" → auto-fix branch, no human pause.
+#      - "high"/"critical" → halt-point yellow stripe; the run pauses
+#        until you approve from the inbox or hit the approval handle
+#        in the canvas.
+#   3. Watch the run console: the decision branch fires first, then
+#      either the auto-fix or the approval-gated remediation.
+version: 1
+name: Decision then approve
+slug: decision-then-approve
+description: Branch on severity — low auto-resolves, high pauses for human approval before remediation.
+category: example
+steps:
+  - id: log_incident
+    type: shell
+    name: Log incident
+    config:
+      command: |
+        echo "Incident on service {{vars.service_name}}"
+        echo "Severity: {{vars.severity}}"
+    next: classify
+
+  - id: classify
+    type: operari.if
+    name: Severity == low?
+    config:
+      field: vars.severity
+      operator: equals
+      value: low
+    next:
+      'true': auto_fix
+      'false': ask_human
+
+  - id: auto_fix
+    type: shell
+    name: Auto-resolve (low severity)
+    config:
+      command: |
+        echo "→ Restarting {{vars.service_name}} pods"
+        echo "Low-severity incidents auto-resolve without human approval"
+    next: notify_resolved
+
+  - id: ask_human
+    type: approval
+    name: Approve destructive remediation?
+    config:
+      message: 'High-severity incident on {{vars.service_name}}. Approve destructive remediation (full restart + traffic drain)?'
+      timeoutSeconds: 600
+    next:
+      approved: human_fix
+      rejected: notify_rejected
+
+  - id: human_fix
+    type: shell
+    name: Apply destructive fix
+    config:
+      command: |
+        echo "→ Draining traffic from {{vars.service_name}}"
+        echo "→ Cycling all pods"
+        echo "→ Re-enabling traffic with smoke check"
+    next: notify_resolved
+
+  - id: notify_resolved
+    type: notify
+    name: Resolved
+    config:
+      channel: webhook
+      webhookUrl: '{{vars.slack_webhook}}'
+      message: 'Incident on {{vars.service_name}} resolved.'
+
+  - id: notify_rejected
+    type: notify
+    name: Rejected — escalate
+    config:
+      channel: webhook
+      webhookUrl: '{{vars.slack_webhook}}'
+      message: 'Approval rejected for {{vars.service_name}}. Escalating to on-call lead.'

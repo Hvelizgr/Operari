@@ -1,0 +1,62 @@
+# Operari Template: Iterate over a service list and probe each
+#
+# Demonstrates the Loop step. The Loop reads `vars.services` (an
+# array of service names) and emits the count + items downstream;
+# the runtime expands each item into a separate iteration of the
+# follow-up shell step. Every service hits a `curl /health` probe
+# and the run console shows one line per service.
+#
+# Why this pattern: SRE on-call runbooks frequently need to "run X
+# against every service in this region" — restart, drain, healthcheck.
+# Coding the list inline in the runbook would couple the runbook to
+# a snapshot of the service catalog; the Loop step keeps the list as
+# a runtime variable so the same runbook stays current as the catalog
+# grows.
+#
+# Variables expected:
+#   - services  (array of strings)  service names to probe
+#   - api_base  (string)            base URL prefix, e.g. "https://api.example.com"
+#
+# How to test:
+#   1. Drag template into the canvas.
+#   2. Set vars.services = ["auth", "billing", "search"] and
+#      vars.api_base = "https://api.example.com" in the Run dialog.
+#   3. Click Simulación. The Loop step expands to 3 iterations and
+#      the run console shows one `probe` line per service.
+version: 1
+name: Iterate services healthcheck
+slug: iterate-services-healthcheck
+description: Loop over a service list and probe /health for each. Teaches the Loop step.
+category: example
+steps:
+  - id: collect_services
+    type: shell
+    name: Announce probe
+    config:
+      command: echo "Probing {{vars.services}}"
+    next: loop_services
+
+  - id: loop_services
+    type: Loop
+    name: For each service
+    config:
+      itemsPath: vars.services
+    next: probe
+
+  - id: probe
+    type: operari.httpRequest
+    name: GET /health
+    config:
+      method: GET
+      url: '{{vars.api_base}}/{{item}}/health'
+      timeout: 5000
+      failOnNon2xx: false
+    next: notify
+
+  - id: notify
+    type: notify
+    name: Summary
+    config:
+      channel: webhook
+      webhookUrl: '{{vars.slack_webhook}}'
+      message: 'Healthcheck pass complete across {{steps.loop_services.output.count}} services'
