@@ -696,9 +696,18 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
             <div className="text-sm text-gray-500">{t.topEmpty}</div>
           ) : data ? (
             <ul className="text-sm">
-              {data.topRunbooks.map(rb => (
+              {data.topRunbooks.map((rb, idx) => (
                 <li
-                  key={rb.id}
+                  // `rb.id` is the canonical stable key. The slug + name
+                  // + idx fallback covers an older backend that hasn't
+                  // respawned to ship the `id` field yet — without it,
+                  // a stale build serving the prior response shape
+                  // collapses every <li> to `undefined` and React
+                  // throws "Each child should have a unique key" on
+                  // every dashboard render. Defensive composition
+                  // protects against a half-deployed env without
+                  // hiding the bug long-term.
+                  key={rb.id ?? `${rb.slug ?? rb.name}-${idx}`}
                   className="flex items-center gap-3 border-b border-white/5 py-2 last:border-0"
                 >
                   <span className="flex-1 truncate text-gray-300">{rb.name}</span>
