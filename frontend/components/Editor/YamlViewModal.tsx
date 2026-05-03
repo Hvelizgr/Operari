@@ -1,6 +1,9 @@
 'use client';
 
+import { yaml } from '@codemirror/lang-yaml';
 import type { Connection, WorkflowNode } from '@operari/shared';
+import { vscodeDark } from '@uiw/codemirror-theme-vscode';
+import CodeMirror from '@uiw/react-codemirror';
 import { AlertCircle, Check, Copy, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -132,15 +135,26 @@ export default function YamlViewModal({
         </header>
 
         <div className="flex-1 overflow-hidden p-3">
-          <textarea
-            value={text}
-            onChange={e => {
-              setText(e.target.value);
-              if (error) setError(null);
-            }}
-            spellCheck={false}
-            className="h-full w-full resize-none rounded border border-zinc-800 bg-black p-3 font-mono text-xs leading-relaxed text-zinc-100 focus:border-zinc-600 focus:outline-none"
-          />
+          <div className="h-full overflow-hidden rounded border border-zinc-800 bg-black">
+            <CodeMirror
+              value={text}
+              onChange={next => {
+                setText(next);
+                if (error) setError(null);
+              }}
+              theme={vscodeDark}
+              extensions={[yaml()]}
+              basicSetup={{
+                lineNumbers: true,
+                foldGutter: true,
+                highlightActiveLine: true,
+                indentOnInput: true,
+                tabSize: 2,
+              }}
+              height="100%"
+              style={{ fontSize: '12px', fontFamily: 'ui-monospace, monospace', height: '100%' }}
+            />
+          </div>
         </div>
 
         {error && (

@@ -483,3 +483,13 @@ outside a module`). Pinning to v3 also matches backend (which
   Item concatenates `label + subLabel` so the operator can fuzzy-
   match against both. ~50 LOC of hand-rolled keyboard / filter
   logic dropped in favor of the lib.
+- 2026-05-03 — `@uiw/react-codemirror` + `@codemirror/lang-sql` +
+  `@codemirror/lang-yaml` + `@uiw/codemirror-theme-vscode`
+  installed. `SQLCodeEditor` migrated from a hand-rolled
+  textarea-with-overlay-highlight (180 LOC of regex highlighter +
+  scroll-sync) to CodeMirror 6 — same public API (`value` /
+  `onChange` / `onRun` / `readOnly` / `minHeight` / `placeholder`),
+  but now ships line numbers, autocomplete (PG-aware), undo,
+  multi-cursor, search/replace. `YamlViewModal` migrated to
+  CodeMirror with the YAML language pack (line numbers, fold
+  gutter, indent guides). Sprint 3 ✅ closed.
