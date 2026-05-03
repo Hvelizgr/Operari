@@ -298,6 +298,12 @@ model Runbook {
   onErrorRunbookId String?
   onErrorRunbook   Runbook?  @relation("RunbookErrorHandler", fields: [onErrorRunbookId], references: [id], onDelete: SetNull)
   errorHandlerFor  Runbook[] @relation("RunbookErrorHandler")
+  /// Step-id breakpoints. When the engine is about to execute a node
+  /// whose id appears in this list, it persists resume state and pauses
+  /// (same mechanism as the approval/Suspend halt). Operators step over
+  /// or continue from the editor. Default empty array — breakpoints are
+  /// set per-node via the canvas, never required for normal runs.
+  breakpoints String[] @default([])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

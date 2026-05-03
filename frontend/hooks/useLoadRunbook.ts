@@ -65,7 +65,10 @@ export function useLoadRunbook(runbookId: string | null) {
         }
         if (cancelled) return;
         const inputs = Array.isArray(wf.inputs) ? (wf.inputs as RunbookInputDefinition[]) : [];
-        hydrateFromWorkflow(runbookId, headerFromRow(wf), inputs, nodes, connections);
+        const breakpoints = Array.isArray(wf.breakpoints)
+          ? (wf.breakpoints as unknown[]).filter((s): s is string => typeof s === 'string')
+          : [];
+        hydrateFromWorkflow(runbookId, headerFromRow(wf), inputs, nodes, connections, breakpoints);
       } catch (err) {
         if (cancelled) return;
         setStatus('error', err instanceof Error ? err.message : 'load failed');

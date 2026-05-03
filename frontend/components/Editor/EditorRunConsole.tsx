@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Eraser, Terminal } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eraser, Play, Terminal } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
@@ -99,6 +99,15 @@ export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
   const [lines, setLines] = useState<ConsoleLine[]>([]);
   const lineKeyRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // Run-level paused flag. Driven off the backend `execution_status`
+  // socket event + the backfill response. While true, the console
+  // shows a Continue button next to the close affordance — POSTs to
+  // /executions/:id/resume which advances past the breakpoint (the
+  // disarmed-breakpoints set inside the engine guards against an
+  // immediate re-pause at the same node). Cleared once the next
+  // execution_status arrives or the console resets on a new run id.
+  const [paused, setPaused] = useState(false);
+  const [resuming, setResuming] = useState(false);
   // Auto-follow tail. Operator can scroll up to inspect older lines;
   // a wheel-up takes us out of follow until they scroll back to ~48 px
   // of the bottom. Same threshold the Runs page uses.
@@ -126,6 +135,7 @@ export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
     setLines([]);
     lineKeyRef.current = 0;
     setOpen(true);
+    setPaused(false);
 
     const startedAt = Date.now();
     append({
@@ -177,6 +187,11 @@ export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
             level: 'muted',
             text: `run.created  status=${data.status ?? '?'}`,
           });
+          // Surface the Continue affordance immediately if the run was
+          // paused before we connected — covers the breakpoint-then-
+          // refresh case where the operator reloaded the editor while
+          // the engine sat on a paused run.
+          if (data.status === 'PAUSED') setPaused(true);
 
           const steps = data.steps ?? [];
           const shouldReplay =
@@ -316,6 +331,10 @@ export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
         level: event.status === 'FAILED' ? 'error' : 'success',
         text: `run.${event.status.toLowerCase()}`,
       });
+      // Drive the Continue button visibility off the run status. Any
+      // terminal status (SUCCESS / FAILED / CANCELLED) clears it so a
+      // resumed-then-finished run doesn't leave the button hanging.
+      setPaused(event.status === 'PAUSED');
     });
 
     return () => {
@@ -363,6 +382,48 @@ export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
           ) : null}
         </button>
         <div className="flex items-center gap-1">
+          {paused ? (
+            <button
+              type="button"
+              disabled={resuming}
+              onClick={async () => {
+                if (!executionId) return;
+                setResuming(true);
+                try {
+                  const res = await fetch(`${API_BASE}/api/executions/${executionId}/resume`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ input: {} }),
+                  });
+                  if (!res.ok) {
+                    append({
+                      ts: Date.now(),
+                      level: 'error',
+                      text: `! resume failed: HTTP ${res.status}`,
+                    });
+                  } else {
+                    append({ ts: Date.now(), level: 'info', text: '> resume requested' });
+                    setPaused(false);
+                  }
+                } catch (err) {
+                  append({
+                    ts: Date.now(),
+                    level: 'error',
+                    text: `! resume failed: ${(err as Error)?.message ?? 'unknown'}`,
+                  });
+                } finally {
+                  setResuming(false);
+                }
+              }}
+              title="Continue past the breakpoint (or paused step)"
+              aria-label="Continue"
+              className="flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Play size={11} />
+              {resuming ? 'resuming…' : 'continue'}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {

@@ -29,6 +29,7 @@ Stack acumulado de la sesión, en orden cronológico:
 21. **Tier C edge data wiring (3/4)** — `runs.routes.ts` cuenta ExecutionError por `nodeLogId` y devuelve `retries` por step; `useExecutionSocket` propaga retries a edges entrantes y Loop `output.count` a edges salientes; `editorStore.setStepStats` patcha `p50DurationMs` (target.p50) en una sola pasada. `crossEnv` queda pending en pendiente — necesita `env` metadata en ConnectedAccount.
 22. **Debug Option B = "Replay desde aquí"** — la infra ya existía (`ExecutionService.replayExecution` línea 709 lee `nodeLogs.input` para el nodeId solicitado), solo faltaba la UX. Backend agrega `input` per-step en la respuesta de GET `/api/runs/:id`. Frontend backfillea `data.input` en RfNodeData. BaseStepNode renderiza panel "input" (encima de output) + botón "replay desde aquí" en el inspect panel cuando hay `?run=` en URL y el step está past-idle. El click POSTea a `/executions/:id/replay { nodeId }` y rebuilda la URL con el nuevo run id (popstate dispatch para que searchParams subscribers re-lean).
 23. **Tier C 4/4 — `data.crossEnv` shipeado** — `extractAccountRefs` util colecta refs via `{{secrets.X}}` templates + well-known credential field names (credentialId/kubeconfigSecret/sshCredentialId/etc). GET `/api/runbooks/:id` augmenta connections con `crossEnv: { source, target }` cuando los ConnectedAccount.metadata.env de los nodos source/target difieren. Connection schema en `@operari/shared` extendido con `crossEnv?: {source, target}` opcional. Adapter pass-through. 7 tests verde para el extractor. Sin UI para setear env en accounts → el chip queda dormido hasta que se setee manualmente via Prisma.
+24. **Debug Option C = breakpoints reales** — schema migration agrega `Runbook.breakpoints: String[] @default([])`. Engine (`runWorkflow`) chequea `breakpoints.includes(currentNode.id) && !disarmedBreakpoints.has(currentNode.id)` antes de cada `nodeExecutor.execute()`. Cuando matchea: pone el nodo de vuelta al frente de `nodesToExecute`, lo agrega a `disarmedBreakpoints`, persiste `resumeState`, status PAUSED, emite + audit. `disarmedBreakpoints` ride en `resumeState` para que el resume no re-pause en el mismo node. Reusa el endpoint `/executions/:id/resume` que ya existía para approval-pause — cero código nuevo en resume path. Editor store: `breakpoints[]` + acción `toggleBreakpoint(stepId)`, hidratado desde GET runbook, persistido en autosave (skip YAML cuando hay breakpoints, va directo a JSON PUT). NodeContextToolbar: botón CircleDot que toggle. BaseStepNode: bead rojo (top-left) + `data-breakpoint` attr. EditorRunConsole: botón "continue" cuando `paused`, POST a `/resume`.
 
 ---
 
@@ -116,13 +117,9 @@ Inspirado por chartdb pero NO implementado, en orden de probabilidad de pedido:
 
 ---
 
-### 🟠 Debug Option C — true breakpoints + step-pause
+### ✅ Debug Option C — true breakpoints + step-pause (shipeado)
 
-**Estado:** research hecho. La mecánica está al alcance porque el engine es 100% serial (Kahn topological sort + single `while (nodesToExecute.length > 0)` loop) y el approval/Suspend halt mechanism (`SuspendNodeExecutor` retorna `isSuspended: true` → `runWorkflow` chequea y persiste `resumeState`) ya es un PAUSED→RUNNING clean state machine.
-
-**Scope subset (6-8h):** schema migration `Runbook.breakpoints: String[]` + check `runbook.breakpoints?.includes(currentNode.id)` antes de `nodeExecutor.execute()` (~10 LOC backend), reusar `resumeExecution` para "continue" (cero cambios), UI toggle por nodo + step-over button en EditorRunConsole (~40 LOC frontend).
-
-**Por qué no entró esta sesión:** prioridad relativa. Debug Option B (replay-desde-aquí) ya cubre ~80% del valor diagnóstico para SREs (re-correr una falla con los mismos inputs). True breakpoints son más útiles cuando estás *desarrollando* el runbook, no debugando uno en producción. Re-evaluar después de feedback de uso real de Option B.
+Implementación final entró en sesión post-2026-05-02. Ver item 24 del stack acumulado y la sección "Tests baseline" para detalles. **Step-over** específico (ejecutar UN nodo y volver a pausar) NO incluido en este MVP; "continue" actual ejecuta hasta el siguiente breakpoint o fin del runbook. Step-over real necesitaría un flag `stepMode: 'over' | 'into' | 'continue'` en el resume body + lógica para re-armar el siguiente breakpoint en línea — ~2-3h adicionales si llegado el caso.
 
 ---
 
@@ -228,7 +225,7 @@ Si un usuario pide algo de esto, agregalo arriba con un estimado.
 - **30+ archivos pre-existentes de la rama** — trabajo del usuario previo al inicio de mi sesión, sigue pendiente de split en commits temáticos
 - **README desactualizado** — dice "9 step types" / "6 templates curados", actualmente son ~16 tipos en palette y 17 templates seeded
 - **Tier C edge data wiring (4/4 ✅)** — `data.retries` (backfill desde `ExecutionError` por `nodeLogId`), `data.items` (Loop `output.count`), `data.p50DurationMs` (mirror del target step en `setStepStats`), y `data.crossEnv` (derivado en GET runbook desde `ConnectedAccount.metadata.env` via `extractAccountRefs`). Para que el chip cross-env aparezca, los `ConnectedAccount` deben tener `metadata: { env: "prod" }` (o "staging"/"dev"/etc) — no hay UI para setearlo todavía, sólo via Prisma direct edit. Sin `env` metadata el sistema es no-op.
-- **Debug Option C** — research completo, 6-8h de implementación gracias al engine serial + approval-halt mechanism existente. Pendiente decidir si vale ahora o esperar feedback de uso de Option B.
+- ~~**Debug Option C**~~ — ✅ shipeado en sesión post-2026-05-02 (commit pendiente al cierre).
 - **UI para `ConnectedAccount.metadata.env`** — el chip cross-env funciona pero no hay form para asignar env a un account. Probable scope: ~1-2h (input en account form + PATCH `metadata.env`).
 
 ## Tests baseline al cierre de la sesión 2026-04-30

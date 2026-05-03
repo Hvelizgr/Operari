@@ -231,6 +231,11 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   // selector keeps re-renders scoped to changes in this node's stats.
   const showStats = useEditorStore(s => s.showStats);
   const stats = useEditorStore(s => s.stepStats[id]);
+  // Boolean selector keeps re-renders shallow — only flips when the
+  // node enters/leaves the breakpoint list. The red bead indicator
+  // renders on the node when this is true; the engine pauses BEFORE
+  // executing this step on the next run.
+  const isBreakpoint = useEditorStore(s => s.breakpoints.includes(id));
 
   // Per-node connection counts. `useNodeConnections` is reactive — adds
   // / removes update without re-rendering the whole canvas.
@@ -379,7 +384,25 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
         data-blast-radius={metadata.blastRadius ?? undefined}
         data-idempotent={metadata.idempotent ? '' : undefined}
         data-secret-touch={metadata.touchesSecrets ? '' : undefined}
+        data-breakpoint={isBreakpoint ? '' : undefined}
       >
+        {/* Breakpoint bead — debugger-style red dot in the top-left
+            gutter when this step is in the runbook's breakpoints
+            list. The bead carries no interaction (toggle lives in
+            the NodeContextToolbar) so it stays out of the way during
+            normal authoring. Pulses subtly to draw the eye when the
+            run is about to hit it; CSS handles the animation. */}
+        {isBreakpoint ? (
+          <span
+            className="rb-node-breakpoint pointer-events-none absolute left-1.5 top-1.5 z-10 inline-flex h-2.5 w-2.5 rounded-full"
+            style={{
+              background: 'var(--rb-edge-failed)',
+              boxShadow: '0 0 0 2px rgba(0,0,0,0.4), 0 0 6px var(--rb-edge-failed)',
+            }}
+            title="Breakpoint — engine pauses before executing this step"
+            aria-label="Breakpoint enabled"
+          />
+        ) : null}
         {/* Header — colored band + per-type pattern + secondary chips.
             `rb-node-header` class lets globals.css gate it via
             `html[data-node-header-band="off"]` for the user's

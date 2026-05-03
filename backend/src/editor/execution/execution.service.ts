@@ -69,6 +69,14 @@ interface RunState {
   nodeOutputs: Record<string, ExecutionOutput>;
   executedNodes: Set<string>;
   nodesToExecute: WorkflowNode[];
+  /**
+   * Breakpoints that have already paused execution at least once during
+   * this run. The pause-before-execute check skips ids in this set so
+   * a resumed run actually runs the node instead of pausing again at
+   * the same step. Persisted in `resumeState.disarmedBreakpoints` so
+   * the property survives PAUSED→RUNNING round-trips.
+   */
+  disarmedBreakpoints?: Set<string>;
 }
 
 export interface ExecutionServiceOptions {
@@ -786,6 +794,8 @@ export class ExecutionService {
       nodeOutputs?: Record<string, Record<string, unknown>>;
       executedNodes?: string[];
       nodesToExecute?: string[];
+      /** Breakpoint ids already paused at during this run — see RunState.disarmedBreakpoints. */
+      disarmedBreakpoints?: string[];
     };
     const allNodes = execution.runbook.nodes as unknown as WorkflowNode[];
 
@@ -796,6 +806,7 @@ export class ExecutionService {
       nodesToExecute: (resumeState.nodesToExecute ?? [])
         .map((nodeId: string) => allNodes.find((n: WorkflowNode) => n.id === nodeId))
         .filter((n: WorkflowNode | undefined): n is WorkflowNode => !!n),
+      disarmedBreakpoints: new Set(resumeState.disarmedBreakpoints ?? []),
     };
 
     // Merge new input with the output of the node that paused the execution
@@ -983,6 +994,13 @@ export class ExecutionService {
       const executedNodes = initialState?.executedNodes
         ? new Set(initialState.executedNodes)
         : new Set<string>();
+      // Breakpoint state — list comes from the persisted Runbook, the
+      // disarmed set comes from `resumeState` so a resumed run does NOT
+      // re-pause at the breakpoint that triggered the prior pause.
+      const breakpoints = (
+        (runbook as unknown as { breakpoints?: string[] }).breakpoints ?? []
+      ).filter(Boolean);
+      const disarmedBreakpoints = new Set<string>(initialState?.disarmedBreakpoints ?? []);
 
       let nodesToExecute: WorkflowNode[];
       if (initialState) {
@@ -1066,6 +1084,64 @@ export class ExecutionService {
         // every predecessor has already been evaluated. This replaces
         // the old "if not all parents done, continue" busy-spin.
 
+        // Debug Option C — breakpoint pause. Generalises the same halt
+        // mechanism the approval/Suspend executors use: when the next
+        // node is a breakpoint that hasn't been disarmed yet, persist
+        // `resumeState` (with the current node put back at the front
+        // of `nodesToExecute` so resume runs it first) and flip the
+        // run to PAUSED. The disarmed set rides along in `resumeState`
+        // so the upcoming resume doesn't pause again at the same id —
+        // separate breakpoints further down still fire normally.
+        if (breakpoints.includes(currentNode.id) && !disarmedBreakpoints.has(currentNode.id)) {
+          nodesToExecute.unshift(currentNode);
+          disarmedBreakpoints.add(currentNode.id);
+          await this.prisma.execution.update({
+            where: { id: executionId },
+            data: {
+              status: 'PAUSED',
+              pausedAt: new Date(),
+              resumeState: {
+                nodeOutputs,
+                executedNodes: Array.from(executedNodes),
+                nodesToExecute: nodesToExecute.map(n => n.id),
+                disarmedBreakpoints: Array.from(disarmedBreakpoints),
+              } as unknown as Prisma.InputJsonValue,
+            },
+          });
+          contextLogger.info('Runbook execution paused at breakpoint', {
+            metadata: { nodeId: currentNode.id, nodeType: currentNode.type },
+          });
+          socketService.emitLog(executionId, `Breakpoint hit: ${currentNode.title}`, {
+            nodeId: currentNode.id,
+          });
+          socketService.emitExecutionStatus(executionId, 'PAUSED');
+
+          await this.safeAudit('run.paused', {
+            tenantId,
+            actorId: (executionContext.userId as string | undefined) ?? null,
+            actorType: 'system',
+            resource: executionId,
+            payload: {
+              executionId,
+              runbookId: runbook.id,
+              pausedAtNodeId: currentNode.id,
+              pausedAtNodeName: currentNode.title,
+              pausedAtNodeType: currentNode.type,
+              reason: 'breakpoint',
+            },
+          });
+
+          await this.safeAppendEvent(executionId, tenantId, {
+            type: 'run.paused',
+            payload: {
+              pausedAtNodeId: currentNode.id,
+              pausedAtNodeType: currentNode.type,
+            },
+          });
+
+          return;
+        }
+
         const nodeInput = this.getNodeInput(currentNode.id, connections, nodeOutputs, input);
 
         const nodeLog = await this.prisma.nodeLog.create({
@@ -1139,6 +1215,10 @@ export class ExecutionService {
                   nodeOutputs,
                   executedNodes: Array.from(executedNodes),
                   nodesToExecute: nodesToExecute.map(n => n.id),
+                  // Carry the breakpoint disarmed set across a Suspend
+                  // pause so a runbook that mixes Suspend halts and
+                  // breakpoints doesn't re-pause at the same id.
+                  disarmedBreakpoints: Array.from(disarmedBreakpoints),
                 } as unknown as Prisma.InputJsonValue,
               },
             });

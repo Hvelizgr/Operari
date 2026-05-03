@@ -1134,6 +1134,12 @@ router.put('/:id', async (req: AuthRequest, res) => {
       // wiring; undefined leaves whatever was previously set.
       onErrorRunbookId: z.string().uuid().nullish(),
       inputs: z.array(runbookInputDefinitionSchema).optional(),
+      // Step-id breakpoints. Persisted on the Runbook so the engine
+      // can read them without an extra round-trip at execution time.
+      // Frontend sends the full list every save; the engine just
+      // checks `breakpoints.includes(currentNode.id)` before each
+      // step's execute() call.
+      breakpoints: z.array(z.string()).optional(),
     });
 
     const data = updateSchema.parse(req.body);
@@ -1214,6 +1220,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
       schedule?: string | null;
       inputs?: Prisma.InputJsonValue;
       onErrorRunbookId?: string | null;
+      breakpoints?: string[];
     } = {
       nodes: data.nodes as unknown as Prisma.InputJsonValue,
       connections: data.connections as unknown as Prisma.InputJsonValue,
@@ -1225,6 +1232,15 @@ router.put('/:id', async (req: AuthRequest, res) => {
     if (data.schedule !== undefined) updateData.schedule = data.schedule;
     if (data.inputs !== undefined) {
       updateData.inputs = data.inputs as unknown as Prisma.InputJsonValue;
+    }
+    // Filter out breakpoints whose step ids no longer exist after this
+    // save — the operator may have deleted a step that previously had
+    // a breakpoint. The engine would just never trigger them, but
+    // keeping the array clean avoids confusing post-mortem readers
+    // and shrinks the column.
+    if (data.breakpoints !== undefined) {
+      const liveStepIds = new Set(data.nodes.map(n => n.id));
+      updateData.breakpoints = data.breakpoints.filter(id => liveStepIds.has(id));
     }
 
     // onErrorRunbookId: undefined leaves it untouched, null clears,

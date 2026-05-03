@@ -55,7 +55,8 @@ const tryYamlSave = async (
 
 const tryJsonSave = async (
   runbookId: string,
-  payload: { nodes: WorkflowNode[]; connections: WorkflowConnection[] }
+  payload: { nodes: WorkflowNode[]; connections: WorkflowConnection[] },
+  breakpoints: string[]
 ): Promise<boolean> => {
   try {
     const res = await fetch(`${API_BASE}/api/runbooks/${runbookId}`, {
@@ -65,6 +66,7 @@ const tryJsonSave = async (
       body: JSON.stringify({
         nodes: payload.nodes,
         connections: payload.connections,
+        breakpoints,
         lastModified: Date.now(),
       }),
     });
@@ -120,13 +122,19 @@ export function useAutosave() {
 
       const payload = store.getRunbookPayload();
       const header = store.runbookHeader;
+      const breakpoints = store.breakpoints;
       store.setStatus('saving');
 
+      // YAML path drops breakpoints — they're not part of the spec
+      // schema. So whenever the operator has any breakpoint set we
+      // skip YAML and go straight to JSON, which carries the field.
+      // YAML stays the optimal save path for runbooks without
+      // breakpoints (round-trips comments + ordering).
       let ok = false;
-      if (header) {
+      if (header && breakpoints.length === 0) {
         ok = await tryYamlSave(runbookId, header, payload.nodes, payload.connections);
       }
-      if (!ok) ok = await tryJsonSave(runbookId, payload);
+      if (!ok) ok = await tryJsonSave(runbookId, payload, breakpoints);
 
       if (ok) {
         store.markSaved();

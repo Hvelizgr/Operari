@@ -48,6 +48,11 @@ type State = {
    *  component reads this to draw a hover ring telegraphing "drop
    *  here to parent". Cleared on drag stop. */
   hoveredFrameId: string | null;
+  /** Step-id breakpoints. The engine pauses BEFORE executing any
+   *  step in this list (Debug Option C). Persisted on the Runbook
+   *  via the standard PUT autosave path. Empty array on a fresh
+   *  runbook — operators opt in per-step from the canvas. */
+  breakpoints: string[];
   /** When true, BaseStepNode renders the run-history strip + heat
    *  tint sourced from the per-step stats endpoint. Toggled from the
    *  toolbar; not persisted (operators turn it on for diagnosis,
@@ -97,8 +102,11 @@ type Actions = {
     header: RunbookHeader,
     inputs: RunbookInputDefinition[],
     nodes: WorkflowNode[],
-    connections: WorkflowConnection[]
+    connections: WorkflowConnection[],
+    breakpoints?: string[]
   ) => void;
+  toggleBreakpoint: (stepId: string) => void;
+  setBreakpoints: (next: string[]) => void;
   /** Incremental version of `hydrateFromWorkflow`: nodes that exist
    *  in both the current canvas and the incoming workflow keep their
    *  positions and selection state. New nodes appear at the position
@@ -138,6 +146,7 @@ const initialState: State = {
   hoveredFrameId: null,
   showStats: false,
   stepStats: {},
+  breakpoints: [],
 };
 
 export const useEditorStore = create<EditorState>()(
@@ -271,7 +280,7 @@ export const useEditorStore = create<EditorState>()(
           return { nodes: sortNodesForRf(updated), status: 'dirty' };
         }),
 
-      hydrateFromWorkflow: (runbookId, header, inputs, nodes, connections) => {
+      hydrateFromWorkflow: (runbookId, header, inputs, nodes, connections, breakpoints = []) => {
         const rf = workflowToRf(nodes, connections);
         set({
           runbookId,
@@ -283,11 +292,25 @@ export const useEditorStore = create<EditorState>()(
           status: 'idle',
           savedAt: Date.now(),
           errorMessage: null,
+          breakpoints,
         });
         // History resets when we load a different runbook so undo can't leak
         // across documents.
         useEditorStore.temporal.getState().clear();
       },
+
+      toggleBreakpoint: stepId =>
+        set(state => {
+          const exists = state.breakpoints.includes(stepId);
+          return {
+            breakpoints: exists
+              ? state.breakpoints.filter(id => id !== stepId)
+              : [...state.breakpoints, stepId],
+            status: 'dirty',
+          };
+        }),
+
+      setBreakpoints: next => set({ breakpoints: next, status: 'dirty' }),
 
       reconcileFromWorkflow: (header, inputs, nodes, connections) => {
         const state = get();

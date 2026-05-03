@@ -1,7 +1,7 @@
 'use client';
 
 import { NodeToolbar, Position } from '@xyflow/react';
-import { Copy, Play, Power, Trash2, Unlink } from 'lucide-react';
+import { CircleDot, Copy, Play, Power, Trash2, Unlink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -65,6 +65,10 @@ export function NodeContextToolbar({
 }: NodeContextToolbarProps) {
   const router = useRouter();
   const [running, setRunning] = useState(false);
+  // Subscribe to breakpoint membership so the toggle's pressed
+  // state stays in sync. Selector returns boolean to keep
+  // re-renders shallow — only flips when this id enters/leaves.
+  const isBreakpoint = useEditorStore(s => s.breakpoints.includes(id));
 
   const runHere = async () => {
     const runbookId = useEditorStore.getState().runbookId;
@@ -106,6 +110,10 @@ export function NodeContextToolbar({
     useEditorStore.getState().reparentNode(id, null);
   };
 
+  const toggleBreakpoint = () => {
+    useEditorStore.getState().toggleBreakpoint(id);
+  };
+
   return (
     <NodeToolbar
       isVisible={undefined /* default: visible while selected */}
@@ -144,6 +152,25 @@ export function NodeContextToolbar({
           data-active={!enabled}
         >
           <Power size={14} className={enabled ? '' : 'text-[color:var(--rb-edge-failed)]'} />
+        </button>
+      ) : null}
+      {kind === 'step' ? (
+        <button
+          type="button"
+          onClick={toggleBreakpoint}
+          aria-label={isBreakpoint ? 'Remove breakpoint' : 'Set breakpoint'}
+          title={
+            isBreakpoint
+              ? 'Remove breakpoint — engine will no longer pause before this step'
+              : 'Set breakpoint — engine pauses before executing this step'
+          }
+          className={buttonClass}
+          data-active={isBreakpoint}
+        >
+          <CircleDot
+            size={14}
+            className={isBreakpoint ? 'text-[color:var(--rb-edge-failed)]' : ''}
+          />
         </button>
       ) : null}
       {parentId ? (
