@@ -467,3 +467,11 @@ outside a module`). Pinning to v3 also matches backend (which
   HttpTesterCanvas (request / response) from fixed-percentage
   splits to drag-resizable panels with `minSize` clamps. The
   separator turns emerald on drag.
+- 2026-05-03 — `shiki` installed + wired into the shared
+  `SyntaxBlock` (HelpDrawer code blocks). Lazy-loaded via
+  `import('shiki')` so the highlighter ships only when the operator
+  opens a help drawer with a code block. github-dark-default theme,
+  6 langs bundled (sql / yaml / json / bash / http / plaintext) —
+  each domain's `Code` helper passes its `syntax` (sql / yaml /
+  http). Plain `<pre>` fallback while shiki resolves; the dark
+  background stays so there's no flash of light text.

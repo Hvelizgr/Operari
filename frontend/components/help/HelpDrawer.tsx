@@ -50,20 +50,103 @@ interface SyntaxBlockProps {
    *  an "insert into editor" affordance shows on hover. */
   onInsert?: (code: string) => void;
   lang: 'en' | 'es';
+  /** Source language for shiki highlighting. Common values across
+   *  Operari surfaces: `sql`, `yaml`, `json`, `bash`, `http`,
+   *  `plaintext`. Defaults to plaintext when omitted. */
+  syntax?: string;
+}
+
+/** Languages we ship in the shiki highlighter bundle. Adding a new
+ *  one here is the only change needed for new help-drawer surfaces.
+ *  Kept narrow on purpose — every extra language is ~50KB of grammar
+ *  data lazy-loaded on first highlight. */
+const SHIKI_LANGS = ['sql', 'yaml', 'json', 'bash', 'http', 'plaintext'] as const;
+type ShikiLang = (typeof SHIKI_LANGS)[number];
+
+/**
+ * Lazy shiki highlighter. Loaded on first call, reused for the rest
+ * of the session. The dynamic `import('shiki')` keeps shiki off the
+ * critical bundle — it only ships when the operator actually opens
+ * a help drawer with a code block.
+ */
+type ShikiRender = (code: string, lang: ShikiLang) => string;
+
+let highlighterPromise: Promise<ShikiRender> | null = null;
+
+function loadHighlighter(): Promise<ShikiRender> {
+  if (!highlighterPromise) {
+    highlighterPromise = import('shiki').then(async shiki => {
+      const highlighter = await shiki.createHighlighter({
+        themes: ['github-dark-default'],
+        langs: SHIKI_LANGS as unknown as string[],
+      });
+      const render: ShikiRender = (code, lang) =>
+        highlighter.codeToHtml(code, {
+          lang,
+          theme: 'github-dark-default',
+        });
+      return render;
+    });
+  }
+  return highlighterPromise;
 }
 
 /**
- * Code snippet box with copy + insert affordances. Exported so
- * domain-specific topic builders can compose richer bodies without
- * each rebuilding the same scaffolding.
+ * Code snippet box with copy + insert affordances + lazy shiki
+ * syntax highlighting. Exported so domain-specific topic builders
+ * can compose richer bodies without each rebuilding the same
+ * scaffolding.
+ *
+ * Highlighting is opportunistic: until shiki resolves we render the
+ * raw `<pre>` so the operator sees something immediately. When the
+ * highlighter resolves we swap in the colorized HTML. Unknown
+ * languages fall back to `plaintext` (still gets the dark-themed
+ * background but no token coloring).
  */
-export function SyntaxBlock({ code, onInsert, lang }: SyntaxBlockProps) {
+export function SyntaxBlock({ code, onInsert, lang, syntax }: SyntaxBlockProps) {
   const [copied, setCopied] = useState(false);
+  const [html, setHtml] = useState<string | null>(null);
+  const requestedLang: ShikiLang = (
+    syntax && (SHIKI_LANGS as readonly string[]).includes(syntax) ? syntax : 'plaintext'
+  ) as ShikiLang;
+
+  useEffect(() => {
+    let cancelled = false;
+    loadHighlighter()
+      .then(render => {
+        if (cancelled) return;
+        try {
+          setHtml(render(code, requestedLang));
+        } catch {
+          // Grammar fail — leave the plain pre fallback in place.
+          setHtml(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setHtml(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [code, requestedLang]);
+
   return (
     <div className="group relative my-2 rounded border border-zinc-800 bg-black/40">
-      <pre className="overflow-x-auto p-2.5 font-mono text-[11px] leading-relaxed text-emerald-200">
-        {code}
-      </pre>
+      {html ? (
+        // shiki produces a self-contained <pre><code>...</code></pre>
+        // already styled by the github-dark-default theme; we wrap
+        // it in our overflow + padding scaffolding. dangerouslySet
+        // is safe here — the source is our own static help content,
+        // not user input.
+        <div
+          className="rb-shiki overflow-x-auto p-2.5 text-[11px] leading-relaxed [&_pre]:!bg-transparent [&_pre]:!p-0"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      ) : (
+        <pre className="overflow-x-auto p-2.5 font-mono text-[11px] leading-relaxed text-emerald-200">
+          {code}
+        </pre>
+      )}
       <div className="pointer-events-none absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
         <button
           type="button"

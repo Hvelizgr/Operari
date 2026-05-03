@@ -52,7 +52,7 @@ export function detectActiveMethod(method: string | null | undefined): string | 
 
 const buildHttpTopics = (lang: 'en' | 'es', onInsert?: (s: string) => void): HelpTopic[] => {
   const Code = ({ children }: { children: string }) => (
-    <SyntaxBlock code={children} onInsert={onInsert} lang={lang} />
+    <SyntaxBlock code={children} onInsert={onInsert} lang={lang} syntax="http" />
   );
   return [
     {

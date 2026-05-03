@@ -77,7 +77,9 @@ export function detectActiveStep(stepType: string | null | undefined): string | 
 }
 
 const buildEditorTopics = (lang: 'en' | 'es'): HelpTopic[] => {
-  const Code = ({ children }: { children: string }) => <SyntaxBlock code={children} lang={lang} />;
+  const Code = ({ children }: { children: string }) => (
+    <SyntaxBlock code={children} lang={lang} syntax="yaml" />
+  );
   return [
     {
       id: 'steps',
