@@ -56,6 +56,8 @@ import SelectionStatusPill from './SelectionStatusPill';
 import Toolbar from './Toolbar';
 import UndoRedoPanel from './UndoRedoPanel';
 import { useZoomVisuals } from './canvas/useZoomVisuals';
+import { buildSnapshot, remapForPaste } from '@/lib/canvas/clipboard';
+import { computeAutoLayout } from '@/lib/canvas/layout';
 import ZoomToRunning from './ZoomToRunning';
 
 // MiniMap colors mirror the in-canvas status palette so the operator
@@ -108,6 +110,72 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   // literal `?` inside a property field.
   const [helpOpen, setHelpOpen] = useState(false);
   useHotkeys('shift+/', () => setHelpOpen(o => !o), { preventDefault: true });
+
+  // n8n-style keyboard layer. Most shortcuts read/write through the
+  // editor store + React Flow's viewport so they work uniformly with
+  // the toolbar buttons. The hooks deliberately use `useHotkeys` with
+  // `preventDefault: true` for chords that overlap browser defaults
+  // (Ctrl+S, Ctrl+A, Ctrl+D) — without it, the browser would save
+  // the page or open the bookmarks dialog instead.
+  const reactFlow = useReactFlow<RfNode, RfEdge>();
+  const handleTidyUp = useCallback(async () => {
+    const store = useEditorStore.getState();
+    const next = await computeAutoLayout(store.nodes, store.edges, { direction: 'RIGHT' });
+    useEditorStore.setState({ nodes: next, status: 'dirty' });
+    // Wait one tick so the new positions land in the DOM, then
+    // fit-view so the operator sees the result without manually
+    // panning back.
+    requestAnimationFrame(() => {
+      reactFlow.fitView({ padding: 0.2, duration: 250 });
+    });
+  }, [reactFlow]);
+
+  useHotkeys(
+    'shift+alt+t',
+    e => {
+      e.preventDefault();
+      void handleTidyUp();
+    },
+    { preventDefault: true }
+  );
+  useHotkeys(
+    'mod+a',
+    e => {
+      // Don't fight a select-all inside an inspector text input.
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+      e.preventDefault();
+      const store = useEditorStore.getState();
+      // Toggle: if everything is already selected, deselect all.
+      const allSelected = store.nodes.length > 0 && store.nodes.every(n => n.selected);
+      const next = store.nodes.map(n => ({ ...n, selected: !allSelected }));
+      store.onNodesChange(
+        next.map(n => ({ id: n.id, type: 'select' as const, selected: !allSelected }))
+      );
+    },
+    { enableOnFormTags: false }
+  );
+  useHotkeys(
+    'mod+d',
+    e => {
+      e.preventDefault();
+      const store = useEditorStore.getState();
+      const ids = store.nodes.filter(n => n.selected).map(n => n.id);
+      if (ids.length === 0) return;
+      const snap = buildSnapshot(ids, store.nodes, store.edges);
+      const { nodes: newNodes, edges: newEdges } = remapForPaste(snap);
+      store.appendForPaste(newNodes, newEdges);
+    },
+    { enableOnFormTags: false }
+  );
+  useHotkeys('1', () => reactFlow.fitView({ padding: 0.2, duration: 250 }), {
+    enableOnFormTags: false,
+  });
+  useHotkeys('0', () => reactFlow.zoomTo(1, { duration: 250 }), {
+    enableOnFormTags: false,
+  });
+  useHotkeys(['+', '='], () => reactFlow.zoomIn({ duration: 200 }), { enableOnFormTags: false });
+  useHotkeys(['-', '_'], () => reactFlow.zoomOut({ duration: 200 }), { enableOnFormTags: false });
   // Selected step type drives the auto-jump topic. Reading the
   // selected node out of the same store the rest of the canvas
   // subscribes to keeps this in sync without a separate signal.
