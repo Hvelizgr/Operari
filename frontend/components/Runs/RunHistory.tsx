@@ -23,6 +23,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { List as VirtualList } from 'react-window';
 
 import { formatDateTime } from '@/lib/datetime';
+import {
+  deriveDisplayStatus,
+  DISPLAY_STATUS_HINT,
+  DISPLAY_STATUS_LABEL,
+  type DisplayRunStatus,
+  type StoredRunStatus,
+} from '@/lib/runs/displayStatus';
 
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 
@@ -87,12 +94,19 @@ const FILTERS: Array<{ key: RunStatus | 'all'; labelKey: string }> = [
   { key: 'CANCELLED', labelKey: 'filterCancelled' },
 ];
 
-const STATUS_STYLES: Record<RunStatus, { icon: typeof CheckCircle2; cls: string }> = {
+const STATUS_STYLES: Record<DisplayRunStatus, { icon: typeof CheckCircle2; cls: string }> = {
+  PENDING: { icon: Loader2, cls: 'text-zinc-400' },
   RUNNING: { icon: Loader2, cls: 'text-sky-400' },
   SUCCESS: { icon: CheckCircle2, cls: 'text-emerald-400' },
   FAILED: { icon: XCircle, cls: 'text-red-400' },
   PAUSED: { icon: Pause, cls: 'text-amber-400' },
   CANCELLED: { icon: Ban, cls: 'text-zinc-500' },
+  // New display-only buckets derived from FAILED + error.code. The
+  // amber/red tones intentionally read as "still bad but different
+  // shape" — operators glance and learn which retry strategy fits.
+  TIMED_OUT: { icon: XCircle, cls: 'text-amber-300' },
+  CRASHED: { icon: XCircle, cls: 'text-fuchsia-400' },
+  EXPIRED: { icon: Ban, cls: 'text-orange-400' },
 };
 
 function formatDuration(ms: number | null): string {
@@ -243,7 +257,14 @@ function RunRow({
   onOpen,
 }: { index: number; style: React.CSSProperties } & RunRowExtra) {
   const r = runs[index];
-  const meta = STATUS_STYLES[r.status];
+  // Derive a richer display status from the stored (status, error)
+  // pair so a FAILED run with a NODE_TIMEOUT error reads as
+  // "Timed out" — operators can pick a retry strategy at a glance.
+  const displayStatus = deriveDisplayStatus(
+    r.status as StoredRunStatus,
+    r.error ? { message: r.error } : null
+  );
+  const meta = STATUS_STYLES[displayStatus];
   const Icon = meta.icon;
   return (
     <div
@@ -253,7 +274,12 @@ function RunRow({
     >
       <div className="flex w-44 items-center gap-2 px-4">
         <Icon className={`h-4 w-4 ${meta.cls} ${r.status === 'RUNNING' ? 'animate-spin' : ''}`} />
-        <span className={`text-xs font-semibold ${meta.cls}`}>{r.status}</span>
+        <span
+          className={`text-xs font-semibold ${meta.cls}`}
+          title={DISPLAY_STATUS_HINT[displayStatus]}
+        >
+          {DISPLAY_STATUS_LABEL[displayStatus].toUpperCase()}
+        </span>
         {r.dryRun && (
           <span
             className="inline-flex items-center rounded-sm border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400"
