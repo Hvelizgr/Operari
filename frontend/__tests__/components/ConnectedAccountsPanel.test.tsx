@@ -262,6 +262,90 @@ describe('ConnectedAccountsPanel', () => {
     expect(patchCall).toBeUndefined();
   });
 
+  it('runs the connection test and renders a success line on a working token', async () => {
+    const fetchMock = jest.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST' && String(url).endsWith('/test')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            provider: 'github',
+            info: { login: 'alice', scopes: ['repo'] },
+          }),
+        } as unknown as Response;
+      }
+      // Initial list call.
+      return {
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: 'ca-9',
+              provider: 'github',
+              displayName: 'alice',
+              scopes: ['repo'],
+              createdAt: 't',
+              env: null,
+            },
+          ],
+        }),
+      } as unknown as Response;
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    installLocation();
+
+    render(<ConnectedAccountsPanel lang="en" />);
+    const testBtn = await screen.findByRole('button', { name: /^test$/i });
+    fireEvent.click(testBtn);
+
+    await waitFor(() => {
+      const testCall = fetchMock.mock.calls.find(call => String(call[0]).endsWith('/test'));
+      expect(testCall).toBeTruthy();
+    });
+    expect(await screen.findByText(/token works/i)).toBeInTheDocument();
+    expect(screen.getByText(/@alice/)).toBeInTheDocument();
+  });
+
+  it('renders an error line when the test fails', async () => {
+    const fetchMock = jest.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST' && String(url).endsWith('/test')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: false,
+            provider: 'github',
+            status: 401,
+            message: 'Bad credentials',
+          }),
+        } as unknown as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: 'ca-9',
+              provider: 'github',
+              displayName: 'alice',
+              scopes: ['repo'],
+              createdAt: 't',
+              env: null,
+            },
+          ],
+        }),
+      } as unknown as Response;
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    installLocation();
+
+    render(<ConnectedAccountsPanel lang="en" />);
+    fireEvent.click(await screen.findByRole('button', { name: /^test$/i }));
+    expect(await screen.findByText(/token rejected/i)).toBeInTheDocument();
+    expect(screen.getByText(/bad credentials/i)).toBeInTheDocument();
+  });
+
   it('strips ?ca_linked from the URL after showing the success flash', async () => {
     globalThis.fetch = jest.fn(async () => ({
       ok: true,

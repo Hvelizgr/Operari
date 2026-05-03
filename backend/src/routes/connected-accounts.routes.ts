@@ -324,6 +324,122 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 });
 
 /**
+ * POST /api/connected-accounts/:id/test
+ *
+ * Ping the provider with the stored token to confirm it still works.
+ * The decryption goes through SecretReader, so a successful call
+ * also leaves a `secret.accessed` event on the audit chain (the
+ * compliance dashboard treats "test connection" the same as any
+ * other token read — it's the same plaintext exposure).
+ *
+ * Per-provider implementation:
+ *   - github: GET https://api.github.com/user. Returns the login
+ *             and effective scopes so the operator sees what the
+ *             token can actually do, not just "OK".
+ *   - others: returns 501 with `code: 'unsupported_provider'`. We
+ *             do not silently say "OK" for providers we can't probe
+ *             — that would be worse than honest 501.
+ *
+ * Response:
+ *   200 — `{ success: true, provider, info }` on a working token
+ *   200 — `{ success: false, provider, status, message }` on an
+ *         expected failure (401/403 from the provider). The HTTP
+ *         status stays 200 because the call succeeded; the
+ *         payload tells the operator what the provider said.
+ *   501 — provider does not support testing yet
+ *   404 — account not found / cross-tenant
+ */
+router.post('/:id/test', async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const accountId = String(req.params.id);
+  const { id: actorId, tenantId } = req.user;
+  try {
+    const summary = await getService().getMetadata(accountId, tenantId);
+    if (!summary) {
+      return res.status(404).json({ error: 'Connected account not found', code: 'not_found' });
+    }
+    if (summary.provider !== 'github') {
+      return res.status(501).json({
+        error: `Test is not implemented for provider '${summary.provider}'`,
+        code: 'unsupported_provider',
+      });
+    }
+
+    const token = await getService().getAccessToken({
+      accountId,
+      tenantId,
+      actorId,
+      actorType: 'user',
+      reason: 'connection-test',
+    });
+
+    const probeRes = await fetch('https://api.github.com/user', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'operari-credential-test',
+      },
+      // Provider probes never need to take more than a few seconds;
+      // bound the timeout so a flaky GitHub does not hold the request
+      // queue. AbortSignal.timeout is on Node 18+.
+      signal: AbortSignal.timeout(8_000),
+    }).catch((err: unknown) => {
+      throw new Error(
+        `Network error contacting GitHub: ${err instanceof Error ? err.message : String(err)}`
+      );
+    });
+
+    if (probeRes.status === 401 || probeRes.status === 403) {
+      const text = await probeRes.text().catch(() => '');
+      return res.json({
+        success: false,
+        provider: summary.provider,
+        status: probeRes.status,
+        message: text || `GitHub rejected the token (${probeRes.status})`,
+      });
+    }
+
+    if (!probeRes.ok) {
+      const text = await probeRes.text().catch(() => '');
+      return res.json({
+        success: false,
+        provider: summary.provider,
+        status: probeRes.status,
+        message: text || `Unexpected GitHub response (${probeRes.status})`,
+      });
+    }
+
+    const profile = (await probeRes.json().catch(() => ({}))) as {
+      login?: string;
+      id?: number;
+    };
+    // Effective scopes are returned in a comma-separated header.
+    const scopes = String(probeRes.headers.get('x-oauth-scopes') ?? '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    return res.json({
+      success: true,
+      provider: summary.provider,
+      info: {
+        login: profile.login ?? null,
+        scopes,
+      },
+    });
+  } catch (err) {
+    if (err instanceof ConnectedAccountError) {
+      const status = err.code === 'NOT_FOUND' || err.code === 'CROSS_TENANT' ? 404 : 400;
+      return res.status(status).json({ error: err.message, code: err.code.toLowerCase() });
+    }
+    req.log.error({ err }, 'Connected account test failed');
+    return res.status(500).json({ error: 'Failed to test connected account' });
+  }
+});
+
+/**
  * DELETE /api/connected-accounts/:id
  *
  * Unlink a connected account. Calls ConnectedAccountService.unlink so

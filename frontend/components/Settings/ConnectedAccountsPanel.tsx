@@ -13,11 +13,13 @@ import {
   ArrowUp,
   ArrowUpDown,
   Check,
+  CircleSlash2,
   Github,
   Link2Off,
   Loader2,
   Pencil,
   ShieldAlert,
+  Wifi,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -66,6 +68,11 @@ const STRINGS = {
     envSave: 'Save',
     envCancel: 'Cancel',
     envInvalid: 'Use a-z, 0-9, dash or underscore (max 32 chars)',
+    test: 'Test',
+    testing: 'Testing…',
+    testOk: 'Token works',
+    testFail: 'Token rejected',
+    testUnsupported: 'No test for this provider',
   },
   es: {
     title: 'Cuentas conectadas',
@@ -92,6 +99,11 @@ const STRINGS = {
     envSave: 'Guardar',
     envCancel: 'Cancelar',
     envInvalid: 'Usá a-z, 0-9, guión o guión bajo (máx 32 chars)',
+    test: 'Probar',
+    testing: 'Probando…',
+    testOk: 'Token funciona',
+    testFail: 'Token rechazado',
+    testUnsupported: 'Sin prueba para este proveedor',
   },
 } as const;
 
@@ -242,6 +254,10 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
   const [linking, setLinking] = useState(false);
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<
+    Record<string, { ok: boolean; text: string } | undefined>
+  >({});
 
   const refresh = useCallback(async () => {
     try {
@@ -333,6 +349,64 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
       await refresh();
     },
     [refresh]
+  );
+
+  const handleTest = useCallback(
+    async (id: string) => {
+      setTestingId(id);
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/connected-accounts/${encodeURIComponent(id)}/test`,
+          {
+            method: 'POST',
+            credentials: 'include',
+          }
+        );
+        // 501 = provider unsupported. Surface that as a distinct
+        // outcome (gray icon) — it's neither a token failure nor
+        // a success.
+        if (res.status === 501) {
+          setTestResults(prev => ({ ...prev, [id]: { ok: false, text: t.testUnsupported } }));
+          return;
+        }
+        const body = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          info?: { login?: string | null; scopes?: string[] };
+          message?: string;
+        };
+        if (!res.ok) {
+          setTestResults(prev => ({
+            ...prev,
+            [id]: { ok: false, text: body.message ?? `HTTP ${res.status}` },
+          }));
+          return;
+        }
+        if (body.success === true) {
+          const login = body.info?.login ? `@${body.info.login}` : '';
+          const scopes =
+            body.info?.scopes && body.info.scopes.length > 0
+              ? ` · ${body.info.scopes.slice(0, 3).join(', ')}${body.info.scopes.length > 3 ? '…' : ''}`
+              : '';
+          setTestResults(prev => ({
+            ...prev,
+            [id]: { ok: true, text: `${t.testOk}${login ? ` (${login}${scopes})` : ''}` },
+          }));
+        } else {
+          setTestResults(prev => ({
+            ...prev,
+            [id]: { ok: false, text: `${t.testFail}: ${body.message ?? '?'}` },
+          }));
+        }
+      } catch (err) {
+        setTestResults(prev => ({
+          ...prev,
+          [id]: { ok: false, text: err instanceof Error ? err.message : String(err) },
+        }));
+      } finally {
+        setTestingId(null);
+      }
+    },
+    [t.testOk, t.testFail, t.testUnsupported]
   );
 
   const handleDisconnect = useCallback(
@@ -427,26 +501,54 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
         header: t.actions,
         cell: info => {
           const acc = info.row.original;
+          const result = testResults[acc.id];
           return (
-            <button
-              type="button"
-              onClick={() => handleDisconnect(acc.id)}
-              disabled={unlinkingId === acc.id}
-              className="flex shrink-0 items-center gap-1 rounded border border-rose-500/40 px-2 py-1 text-[11px] text-rose-300 transition-colors hover:border-rose-400 hover:text-rose-200 disabled:opacity-50"
-            >
-              {unlinkingId === acc.id ? (
-                <Loader2 size={11} className="animate-spin" />
-              ) : (
-                <Link2Off size={11} />
-              )}
-              {unlinkingId === acc.id ? t.disconnecting : t.disconnect}
-            </button>
+            <div className="flex flex-col items-start gap-1">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleTest(acc.id)}
+                  disabled={testingId === acc.id}
+                  className="flex shrink-0 items-center gap-1 rounded border border-sky-500/40 px-2 py-1 text-[11px] text-sky-300 transition-colors hover:border-sky-400 hover:text-sky-200 disabled:opacity-50"
+                  aria-label={t.test}
+                >
+                  {testingId === acc.id ? (
+                    <Loader2 size={11} className="animate-spin" />
+                  ) : result?.ok === true ? (
+                    <Check size={11} className="text-emerald-400" />
+                  ) : result?.ok === false ? (
+                    <CircleSlash2 size={11} className="text-rose-400" />
+                  ) : (
+                    <Wifi size={11} />
+                  )}
+                  {testingId === acc.id ? t.testing : t.test}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDisconnect(acc.id)}
+                  disabled={unlinkingId === acc.id}
+                  className="flex shrink-0 items-center gap-1 rounded border border-rose-500/40 px-2 py-1 text-[11px] text-rose-300 transition-colors hover:border-rose-400 hover:text-rose-200 disabled:opacity-50"
+                >
+                  {unlinkingId === acc.id ? (
+                    <Loader2 size={11} className="animate-spin" />
+                  ) : (
+                    <Link2Off size={11} />
+                  )}
+                  {unlinkingId === acc.id ? t.disconnecting : t.disconnect}
+                </button>
+              </div>
+              {result ? (
+                <span className={`text-[10px] ${result.ok ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {result.text}
+                </span>
+              ) : null}
+            </div>
           );
         },
         enableSorting: false,
       },
     ],
-    [lang, t, unlinkingId, handleDisconnect, handleUpdateEnv]
+    [lang, t, unlinkingId, handleDisconnect, handleUpdateEnv, handleTest, testingId, testResults]
   );
 
   const [sorting, setSorting] = useState<SortingState>([]);

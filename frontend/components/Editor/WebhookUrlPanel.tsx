@@ -54,7 +54,7 @@ const STRINGS = {
   },
 } as const;
 
-type LangStrings = (typeof STRINGS)['en'];
+type LangStrings = (typeof STRINGS)[keyof typeof STRINGS];
 
 interface WebhookUrlPanelProps {
   lang: 'en' | 'es';

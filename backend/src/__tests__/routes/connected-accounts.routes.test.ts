@@ -32,6 +32,8 @@ const linkMock = jest.fn();
 const unlinkMock = jest.fn();
 const listMock = jest.fn().mockResolvedValue([]);
 const updateMetadataMock = jest.fn();
+const getMetadataMock = jest.fn();
+const getAccessTokenMock = jest.fn();
 jest.mock('../../security/connected-account.service', () => {
   const actual = jest.requireActual('../../security/connected-account.service');
   return {
@@ -41,6 +43,8 @@ jest.mock('../../security/connected-account.service', () => {
       link: linkMock,
       unlink: unlinkMock,
       updateMetadata: updateMetadataMock,
+      getMetadata: getMetadataMock,
+      getAccessToken: getAccessTokenMock,
     })),
   };
 });
@@ -293,6 +297,77 @@ describe('PATCH /api/connected-accounts/:id', () => {
       .send({ env: 'prod' });
     expect(res.status).toBe(401);
     expect(updateMetadataMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/connected-accounts/:id/test', () => {
+  const realFetch = globalThis.fetch;
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it('returns success + login + scopes when GitHub accepts the token', async () => {
+    getMetadataMock.mockResolvedValueOnce({ id: 'ca-1', provider: 'github' });
+    getAccessTokenMock.mockResolvedValueOnce('ghp_real');
+    globalThis.fetch = jest.fn(
+      async () =>
+        new Response(JSON.stringify({ login: 'octocat', id: 1 }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-OAuth-Scopes': 'repo, read:user, user:email',
+          },
+        })
+    ) as unknown as typeof fetch;
+
+    const res = await request(buildApp({ authed: true })).post('/api/connected-accounts/ca-1/test');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      success: true,
+      provider: 'github',
+      info: { login: 'octocat', scopes: ['repo', 'read:user', 'user:email'] },
+    });
+  });
+
+  it('returns success:false when GitHub returns 401', async () => {
+    getMetadataMock.mockResolvedValueOnce({ id: 'ca-2', provider: 'github' });
+    getAccessTokenMock.mockResolvedValueOnce('ghp_revoked');
+    globalThis.fetch = jest.fn(
+      async () => new Response('Bad credentials', { status: 401 })
+    ) as unknown as typeof fetch;
+
+    const res = await request(buildApp({ authed: true })).post('/api/connected-accounts/ca-2/test');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(false);
+    expect(res.body.status).toBe(401);
+  });
+
+  it('returns 501 when the provider has no test implementation yet', async () => {
+    getMetadataMock.mockResolvedValueOnce({ id: 'ca-3', provider: 'slack' });
+    const res = await request(buildApp({ authed: true })).post('/api/connected-accounts/ca-3/test');
+    expect(res.status).toBe(501);
+    expect(res.body.code).toBe('unsupported_provider');
+    expect(getAccessTokenMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the account does not exist or belongs to another tenant', async () => {
+    getMetadataMock.mockResolvedValueOnce(null);
+    const res = await request(buildApp({ authed: true })).post(
+      '/api/connected-accounts/missing/test'
+    );
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('not_found');
+  });
+
+  it('returns 401 when no user is authenticated', async () => {
+    const res = await request(buildApp({ authed: false })).post(
+      '/api/connected-accounts/ca-1/test'
+    );
+    expect(res.status).toBe(401);
+    expect(getMetadataMock).not.toHaveBeenCalled();
   });
 });
 
