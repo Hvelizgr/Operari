@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion';
 import { GitBranch, Puzzle, RotateCw, Shield, Zap } from 'lucide-react';
 
+import PulseGridBackground from './PulseGridBackground';
+
 type SafetyContent = {
   eyebrow: string;
   title: string;
@@ -64,8 +66,18 @@ export default function SafetyRails({
         };
 
   return (
-    <section className="bg-background relative py-24 sm:py-32">
-      <div className="container mx-auto max-w-6xl px-4 sm:px-6">
+    <section className="bg-background relative overflow-hidden py-24 sm:py-32">
+      {/* Animated grid that pulses out from the centre on a loop —
+          fills the previously flat black bg with subtle "data
+          flowing" motion. Sits below the radial mask so the
+          section's edges fade out cleanly into the page. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]"
+      >
+        <PulseGridBackground cols={16} rows={10} />
+      </div>
+      <div className="container relative mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mb-14 max-w-2xl sm:mb-20">
           <span className="border-primary/30 bg-primary/10 text-primary mb-5 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium">
             <Shield className="h-3.5 w-3.5" />

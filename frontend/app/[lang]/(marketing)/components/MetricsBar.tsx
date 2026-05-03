@@ -56,6 +56,11 @@ export default function MetricsBar({ content }: MetricsBarProps) {
   );
 }
 
+function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 function MetricCell({
   item,
   index,
@@ -65,7 +70,26 @@ function MetricCell({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const numberRef = useRef<HTMLSpanElement>(null);
+  const ringRef = useRef<HTMLSpanElement>(null);
   const [visible, setVisible] = useState(false);
+
+  // Radar ping on hover — a ring scales out from behind the number
+  // and fades. Reads as "live metric, not a static screenshot" while
+  // staying invisible until intent (no idle motion). Skipped under
+  // prefers-reduced-motion.
+  const handlePing = () => {
+    if (!ringRef.current) return;
+    if (prefersReducedMotion()) return;
+    anime.remove(ringRef.current);
+    anime.set(ringRef.current, { scale: 0.4, opacity: 0.45 });
+    anime({
+      targets: ringRef.current,
+      scale: [0.4, 1.6],
+      opacity: [0.45, 0],
+      duration: 700,
+      easing: 'easeOutCubic',
+    });
+  };
 
   useEffect(() => {
     if (!ref.current) return;
@@ -111,6 +135,8 @@ function MetricCell({
   return (
     <motion.div
       ref={ref}
+      onMouseEnter={handlePing}
+      onFocus={handlePing}
       initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-60px' }}
@@ -118,10 +144,19 @@ function MetricCell({
       className="bg-background/70 hover:bg-background group relative flex flex-col justify-between gap-3 p-5 backdrop-blur-sm transition-colors sm:p-7"
     >
       <div>
-        <div className="text-foreground flex items-baseline gap-1">
+        <div className="text-foreground relative flex items-baseline gap-1">
+          {/* Radar ring — anchored behind the number, invisible until
+              hover/focus pings it. pointer-events-none + aria-hidden
+              so it never affects layout or assistive tech. */}
+          <span
+            ref={ringRef}
+            aria-hidden="true"
+            className="border-primary/40 pointer-events-none absolute -left-2 -top-2 -z-0 h-12 w-12 rounded-full border opacity-0 sm:h-14 sm:w-14"
+            style={{ transform: 'scale(0.4)' }}
+          />
           <span
             ref={numberRef}
-            className="text-3xl font-bold tabular-nums tracking-tight sm:text-4xl lg:text-5xl"
+            className="relative z-10 text-3xl font-bold tabular-nums tracking-tight sm:text-4xl lg:text-5xl"
           >
             0
           </span>

@@ -12,6 +12,7 @@ import { repo } from '@/config/repo.config';
 
 import AuroraBackground from './AuroraBackground';
 import GithubStarsChip from './GithubStarsChip';
+import ScrambleText from './ScrambleText';
 
 type HeroProps = {
   content: typeof content.hero;
@@ -129,6 +130,12 @@ export default function Hero({ content }: HeroProps) {
               {content.badge}
             </motion.a>
 
+            {/* Scrambled-decode reveal — line 1 cycles through random
+                glyphs and settles left-to-right; line 2 stays solid
+                (the gradient bg-clip mask doesn't paint cleanly on
+                glyphs that change every 30ms — the bg-clip would
+                redraw and stutter). The framer fade still owns the
+                container so the headline still slides up gently. */}
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -139,10 +146,10 @@ export default function Hero({ content }: HeroProps) {
                 <span key={i}>
                   {i === 1 ? (
                     <span className="from-primary to-primary bg-gradient-to-r via-emerald-300 bg-clip-text text-transparent">
-                      {line}
+                      <ScrambleText text={line} staticOnly />
                     </span>
                   ) : (
-                    line
+                    <ScrambleText text={line} startDelayMs={300} />
                   )}
                   {i === 0 && '\n'}
                 </span>
