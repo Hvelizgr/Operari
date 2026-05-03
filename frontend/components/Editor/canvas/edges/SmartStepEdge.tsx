@@ -109,6 +109,9 @@ function SmartStepEdgeComponent(props: EdgeProps<RfEdge>) {
         id={pathId}
         path={path}
         markerEnd={sourceDisabled ? undefined : markerEnd}
+        // Invisible 40px-wide interaction zone so the 2px stroke is
+        // not the actual hit target (n8n parity).
+        interactionWidth={40}
         style={{
           stroke: running ? `url(#${gradientId})` : stroke,
           strokeWidth,

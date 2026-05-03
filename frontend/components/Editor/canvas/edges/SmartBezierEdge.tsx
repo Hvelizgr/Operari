@@ -161,6 +161,10 @@ function SmartBezierEdgeComponent(props: EdgeProps<RfEdge>) {
         id={pathId}
         path={path}
         markerEnd={sourceDisabled ? undefined : markerEnd}
+        // Invisible 40px-wide interaction zone so an SRE doesn't have
+        // to pixel-hunt the 2px stroke to hover or click an edge
+        // (n8n parity — same default in their CanvasEdge).
+        interactionWidth={40}
         style={{
           // While running, paint the edge with the sliding gradient on
           // top of the dashed stroke. Once idle/done, fall back to the

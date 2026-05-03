@@ -160,6 +160,85 @@
   box-shadow: 0 0 0 6px color-mix(in oklab, var(--op-moss) 40%, transparent);
 }
 
+/* Hit-zone expansion (n8n parity).
+   The visible handle dot is ~8px but a precise pixel-target is hostile
+   to operators trying to start a connection — so we paint an INVISIBLE
+   pseudo-element behind every handle that triples the click area to
+   ~24px without enlarging the dot. The pseudo sits at z-index 0 so the
+   real handle (z-index auto) is still the topmost click target when
+   the cursor is dead-centre. `cursor: crosshair` on source handles
+   communicates "drag me to connect" before the operator even hovers. */
+.react-flow__handle {
+  position: relative;
+}
+.react-flow__handle::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: transparent;
+  z-index: 0;
+}
+.react-flow__handle.source {
+  cursor: crosshair;
+}
+/* Visual scale-up on hover so the operator sees the dot grow when
+   they're in range. Pure CSS — fires off the parent .react-flow__handle
+   :hover so it covers both the dot itself and the invisible hit zone. */
+.react-flow__handle:hover {
+  transform: scale(1.45);
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Rotating conic-gradient border on `.rb-node[data-status='running']`
+   (n8n parity). Replaces the static ring with a moving spinner-style
+   gradient so a running step is visible from the corner of the eye
+   without strobing. CSS-only via the @property registration so the
+   browser interpolates an angle (it would otherwise just snap from
+   0deg to 360deg on each animation iteration). */
+@property --rb-spin-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes rb-running-rotate {
+  to {
+    --rb-spin-angle: 360deg;
+  }
+}
+/* Anchored on `.react-flow__node` instead of `.rb-node` because the
+   inner card uses `overflow-hidden` (so the body clips the conic
+   gradient if we put ::after there). The wrapper has no overflow
+   rule and is the natural positioned ancestor for the spinner ring.
+   `:has()` is universally supported in modern Chromium / Firefox /
+   Safari now — same target audience as the rest of the editor. */
+.react-flow__node:has(.rb-node[data-status='running']) {
+  position: relative;
+}
+.react-flow__node:has(.rb-node[data-status='running'])::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 12px;
+  z-index: -1;
+  background: conic-gradient(
+    from var(--rb-spin-angle),
+    var(--rb-edge-running, #6ee7ff) 0%,
+    var(--rb-edge-running, #6ee7ff) 18%,
+    color-mix(in oklab, var(--rb-edge-running, #6ee7ff) 25%, transparent) 35%,
+    color-mix(in oklab, var(--rb-edge-running, #6ee7ff) 18%, transparent) 65%,
+    var(--rb-edge-running, #6ee7ff) 90%,
+    var(--rb-edge-running, #6ee7ff) 100%
+  );
+  animation: rb-running-rotate 1.5s linear infinite;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__node:has(.rb-node[data-status='running'])::after {
+    animation: none;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────
    Operari brand tokens — single source of truth.
    See docs/adr/0005-rebrand-to-operari.md for the full palette

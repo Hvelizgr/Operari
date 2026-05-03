@@ -32,6 +32,7 @@ import {
   resolveSecondaryChips,
   resolveTags,
 } from './nodeChrome';
+import HandlePlusExtension from './HandlePlusExtension';
 import { TypePattern } from './TypePattern';
 
 type Status = NonNullable<RfNode['data']['status']>;
@@ -257,6 +258,10 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   // exposes the connection state via the store; we subscribe with a
   // stable selector so non-connection drags don't trigger re-renders.
   const connectionInProgress = useStore(s => s.connection.inProgress);
+  // Embed-mode detection — the plus-button extension only renders
+  // when the canvas accepts edits. Read straight from React Flow's
+  // store so we don't have to plumb embedMode through props.
+  const elementsSelectable = useStore(s => s.elementsSelectable);
 
   // Live elapsed counter while running. Subscribes to a 1s tick only
   // when this specific node is running, so the canvas pays nothing for
@@ -774,6 +779,15 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
           // whose definition lists more than one output port.
           const showLabel = outputs.length > 1;
           const top = `${((idx + 1) / (outputs.length + 1)) * 100}%`;
+          // Plus-button extension visibility: this port has no
+          // outgoing connection AND the canvas is editable. We
+          // compare on `String(idx)` because Handle ids are strings;
+          // `c.sourceHandle === null` accounts for default-port
+          // edges that didn't carry an explicit handle id.
+          const isPortConnected = outgoing.some(
+            c => c.sourceHandle === String(idx) || (idx === 0 && c.sourceHandle == null)
+          );
+          const showPlus = elementsSelectable && !isPortConnected && status !== 'running';
           return (
             <Fragment key={`out-${idx}`}>
               <Handle
@@ -781,6 +795,7 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
                 type="source"
                 position={Position.Right}
                 aria-label={`output ${label}`}
+                className="source"
                 style={{
                   top,
                   transform: 'translateY(-50%)',
@@ -795,6 +810,14 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
                 >
                   {label}
                 </span>
+              ) : null}
+              {showPlus ? (
+                <HandlePlusExtension
+                  sourceNodeId={id}
+                  sourceHandle={String(idx)}
+                  topPercent={top}
+                  tone={tone ?? undefined}
+                />
               ) : null}
             </Fragment>
           );

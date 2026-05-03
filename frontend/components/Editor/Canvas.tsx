@@ -314,6 +314,32 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
     });
   }, []);
 
+  // Plus-button extension click handler. The button itself lives in
+  // BaseStepNode -> HandlePlusExtension; clicking it dispatches a
+  // window event with the source node + handle + cursor coords. We
+  // route it through the same PaneNodeMenu the drop-on-pane flow
+  // uses, so the picker and the connection wiring are identical.
+  useEffect(() => {
+    if (embedMode) return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as {
+        sourceNodeId?: string;
+        sourceHandle?: string | null;
+        screenX?: number;
+        screenY?: number;
+      };
+      if (!detail?.sourceNodeId) return;
+      setPaneMenu({
+        screenX: detail.screenX ?? 0,
+        screenY: detail.screenY ?? 0,
+        sourceNodeId: detail.sourceNodeId,
+        sourceHandle: detail.sourceHandle ?? null,
+      });
+    };
+    window.addEventListener('operari:request-node-add', handler);
+    return () => window.removeEventListener('operari:request-node-add', handler);
+  }, [embedMode]);
+
   const handleEdgeDoubleClick = useCallback((event: React.MouseEvent, edge: Edge) => {
     event.stopPropagation();
     useEditorStore.getState().onEdgesChange([{ id: edge.id, type: 'remove' }]);
