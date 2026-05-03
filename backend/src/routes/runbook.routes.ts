@@ -1010,6 +1010,118 @@ router.get('/:id/yaml', async (req: AuthRequest, res) => {
 });
 
 /**
+ * GET /runbooks/:id/versions
+ *
+ * Lists every persisted RunbookVersion for the given runbook, newest
+ * first. Powers the "Compare versions" affordance in the editor — the
+ * frontend picks two version ids and feeds them to the diff modal.
+ *
+ * Returns metadata only (id + version + createdAt + createdByUserId).
+ * Snapshots are large; clients fetch them on demand via the per-id
+ * route below.
+ */
+router.get('/:id/versions', async (req: AuthRequest, res) => {
+  try {
+    const runbookId = req.params.id as string;
+    // Tenant scope check before listing versions — both the runbook
+    // row AND the versions are tenant-scoped, but checking the runbook
+    // first lets us return 404 for cross-tenant probes instead of an
+    // empty list (which would leak existence).
+    const runbook = await prisma.runbook.findFirst({
+      where: { id: runbookId, tenantId: req.user!.tenantId },
+      select: { id: true },
+    });
+    if (!runbook) return res.status(404).json({ error: 'Runbook not found' });
+
+    const versions = await prisma.runbookVersion.findMany({
+      where: { runbookId, tenantId: req.user!.tenantId },
+      orderBy: { version: 'desc' },
+      select: {
+        id: true,
+        version: true,
+        createdAt: true,
+        createdByUserId: true,
+      },
+    });
+    return res.json({ data: versions });
+  } catch (error) {
+    req.log.error({ error }, 'List runbook versions error');
+    return res.status(500).json({ error: 'Failed to list runbook versions' });
+  }
+});
+
+/**
+ * GET /runbooks/:id/versions/:versionId/yaml
+ *
+ * Renders a frozen RunbookVersion snapshot as YAML so the diff viewer
+ * can feed two YAMLs straight into a text-diff component. Re-uses the
+ * same toSpec / specToYaml pipeline as `/:id/yaml` so the byte-level
+ * shape matches what the operator sees in YamlViewModal.
+ *
+ * Tenant scope is enforced via the version's own tenantId column —
+ * cross-tenant requests get a 404 even if the versionId is guessed.
+ */
+router.get('/:id/versions/:versionId/yaml', async (req: AuthRequest, res) => {
+  try {
+    const runbookId = req.params.id as string;
+    const versionId = req.params.versionId as string;
+    const version = await prisma.runbookVersion.findFirst({
+      where: { id: versionId, runbookId, tenantId: req.user!.tenantId },
+      include: { runbook: { select: { slug: true } } },
+    });
+    if (!version) return res.status(404).json({ error: 'Version not found' });
+
+    // The snapshot stores nodes + connections + name + description +
+    // category as a JSON blob. We rebuild a Spec-shaped input for
+    // toSpec — the schedule field doesn't live in the snapshot today
+    // (it's a runbook-level field, not a per-version one), so we
+    // pull it from the live runbook row.
+    const snap = version.snapshot as {
+      name?: string;
+      description?: string | null;
+      category?: string | null;
+      nodes?: Array<Record<string, unknown>>;
+      connections?: Array<Record<string, unknown>>;
+    };
+    const live = await prisma.runbook.findFirst({
+      where: { id: runbookId, tenantId: req.user!.tenantId },
+      select: { schedule: true },
+    });
+    const spec = toSpec(
+      {
+        id: runbookId,
+        slug: version.runbook?.slug ?? null,
+        name: snap.name ?? '',
+        description: snap.description ?? null,
+        category: snap.category ?? null,
+        schedule: live?.schedule ?? null,
+      },
+      (snap.nodes ?? []).map(n => ({
+        id: String(n.id),
+        type: String(n.type ?? ''),
+        title: typeof n.title === 'string' ? n.title : '',
+        positionX: typeof n.positionX === 'number' ? n.positionX : 0,
+        positionY: typeof n.positionY === 'number' ? n.positionY : 0,
+        enabled: n.enabled !== false,
+        config: (n.config ?? {}) as Record<string, unknown>,
+      })),
+      (snap.connections ?? []).map(c => ({
+        sourceNodeId: String(c.sourceNodeId ?? ''),
+        sourcePort: typeof c.sourcePort === 'number' ? c.sourcePort : null,
+        targetNodeId: String(c.targetNodeId ?? ''),
+        targetPort: typeof c.targetPort === 'number' ? c.targetPort : null,
+      }))
+    );
+    const yamlText = specToYaml(spec);
+    res.setHeader('Content-Type', 'application/x-yaml');
+    return res.send(yamlText);
+  } catch (error) {
+    req.log.error({ error }, 'Get runbook version YAML error');
+    return res.status(500).json({ error: 'Failed to get version YAML' });
+  }
+});
+
+/**
  * PUT /workflows/:id/yaml
  *
  * Replace the runbook contents with a new YAML body. Performs a full

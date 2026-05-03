@@ -679,3 +679,64 @@ pain shows up. Two candidates were re-evaluated:
 Other Sprint 5 candidates (`@git-diff-view/react`, `@react-pdf/renderer`,
 `tremor`, `posthog-js`, `@microsoft/fetch-event-source`) stay parked —
 none of their triggers have fired.
+
+### Sprint 5 close (2026-05-03 evening)
+
+After re-evaluating the remaining 5 candidates against actual signal,
+two of them got a yes and three honest no's. Sprint 5 is now closed.
+
+**Shipped:**
+
+- `@git-diff-view/react` — runbook version diff viewer. Trigger fired
+  partially: the `RunbookVersion` Prisma model + `RunbookVersionService`
+  already existed, the rest of the stack didn't.
+  - Backend: added `GET /api/runbooks/:id/versions` (list metadata)
+    and `GET /api/runbooks/:id/versions/:versionId/yaml` (per-version
+    YAML render). Both tenant-scoped via the existing prisma guard;
+    the YAML route reuses `toSpec` + `specToYaml` so the diff matches
+    the bytes the operator sees in `YamlViewModal`.
+  - Frontend: `components/Editor/RunbookDiffModal.tsx` mounted on
+    Radix `Dialog`, with two version selectors that default to the
+    latest pair, swap button, split / unified toggle, and an
+    "identical versions" empty state so a no-op diff doesn't
+    confuse. Wired into the editor `Toolbar` More menu as
+    "Compare versions" (gated on `runbookId`, gracefully hidden
+    on the blank-canvas state).
+- `@react-pdf/renderer` — audit log PDF export. Trigger fired
+  partially: NDJSON export already covers SIEM ingestion; compliance
+  officers want a printable signed summary that NDJSON doesn't read
+  as.
+  - `lib/audit/buildPdf.tsx` owns the `<Document>` factory (header
+    with tenant name + verify badge, table of last 100 events with
+    seq / type / actor / hash / when, footer with page numbers +
+    hash-truncation note). Loaded via dynamic `import()` so the
+    ~1MB package never reaches the main bundle — only fetched when
+    an admin presses Download PDF.
+  - `AuditExportCard` gains a secondary "Download PDF" button next
+    to the existing NDJSON CTA. Same plan-gate (BUSINESS+) and
+    admin-only render. PDF builder fetches the recent events
+    page + verify status in parallel; failures surface as sonner
+    toasts.
+
+**Documented skips (no real trigger fired):**
+
+- `tremor` — the dashboard `Trend7d` chart already moved to recharts
+  in Sprint 4, and tremor's chart components wrap recharts internally.
+  Adopting tremor would add a layer without removing one. Re-evaluate
+  if a "20+ chart dashboard" page lands; until then, recharts direct
+  is the right call.
+- `posthog-js` — the trigger was "onboarding analytics", but Operari
+  doesn't have a hosted tier or onboarding flow yet (`pendiente.md`
+  🟡). Adopting an analytics SDK before the consent UX is a footgun
+  in any privacy-conscious tenant. Park until the hosted tier ships
+  and a privacy / cookie-banner story is decided.
+- `@microsoft/fetch-event-source` — the trigger was "native
+  EventSource shows weakness". `ExecutionEventLog`'s SSE consumer
+  works correctly; reconnection / backoff are the only real motives
+  to adopt the Microsoft polyfill. No reconnection bugs reported.
+  Re-evaluate if a long-lived monitor surface lands or operators
+  report dropped events on flaky connections.
+
+That closes Sprint 5. Both adopted libs have real consumers shipped;
+the three skips are documented with explicit conditions for
+re-evaluation rather than left as silent gaps.

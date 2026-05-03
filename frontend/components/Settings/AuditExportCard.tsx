@@ -1,10 +1,12 @@
 'use client';
 
-import { Download, Loader2, Lock } from 'lucide-react';
+import { Download, FileText, Loader2, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const PDF_PAGE_SIZE = 100;
 
 type Plan = 'FREE' | 'TEAM' | 'PRO' | 'BUSINESS' | 'ENTERPRISE';
 const ALLOWED_PLANS: Plan[] = ['BUSINESS', 'ENTERPRISE', 'PRO'];
@@ -20,21 +22,27 @@ const STRINGS = {
     title: 'Audit log export',
     hint: 'Download the full tenant audit chain as NDJSON for SIEM ingestion or compliance review. Streaming download — large exports start immediately.',
     cta: 'Download NDJSON',
+    pdfCta: 'Download PDF',
+    pdfHint: 'Last 100 events as a printable summary',
     preparing: 'Preparing…',
     adminOnly: 'Only admins can export the audit log.',
     planGated: 'Available on Business and Enterprise plans.',
     upgrade: 'Upgrade plan',
     failed: 'Could not start the export. Try again in a moment.',
+    pdfFailed: 'Could not build the PDF. Try again in a moment.',
   },
   es: {
     title: 'Export de audit log',
     hint: 'Descargá la cadena de auditoría completa del tenant como NDJSON para ingestión en SIEM o revisión de compliance. Descarga streaming — arranca de inmediato.',
     cta: 'Descargar NDJSON',
+    pdfCta: 'Descargar PDF',
+    pdfHint: 'Últimos 100 eventos como resumen imprimible',
     preparing: 'Preparando…',
     adminOnly: 'Solo los admins pueden exportar el audit log.',
     planGated: 'Disponible en planes Business y Enterprise.',
     upgrade: 'Mejorar plan',
     failed: 'No se pudo iniciar el export. Probá en un momento.',
+    pdfFailed: 'No se pudo armar el PDF. Probá en un momento.',
   },
 } as const;
 
@@ -53,6 +61,7 @@ const STRINGS = {
 export function AuditExportCard({ lang, viewerRole, tenantPlan }: AuditExportCardProps) {
   const t = STRINGS[lang];
   const [starting, setStarting] = useState(false);
+  const [buildingPdf, setBuildingPdf] = useState(false);
 
   if (viewerRole !== 'ADMIN') return null;
 
@@ -78,6 +87,64 @@ export function AuditExportCard({ lang, viewerRole, tenantPlan }: AuditExportCar
     setTimeout(() => setStarting(false), 800);
   }
 
+  async function downloadPdf() {
+    if (!planAllowed || buildingPdf) return;
+    setBuildingPdf(true);
+    try {
+      // Fetch the most recent audit page + the verify status in
+      // parallel so the PDF carries both. Errors on either are
+      // non-fatal — we still build a PDF with what we have.
+      const [eventsRes, verifyRes] = await Promise.all([
+        fetch(`${API_BASE}/api/tenants/audit/events?pageSize=${PDF_PAGE_SIZE}`, {
+          credentials: 'include',
+        }),
+        fetch(`${API_BASE}/api/tenants/audit/verify`, { credentials: 'include' }),
+      ]);
+      if (!eventsRes.ok) throw new Error(`HTTP ${eventsRes.status}`);
+      const eventsBody = (await eventsRes.json()) as {
+        data: Array<{
+          seq: string;
+          type: string;
+          actorId: string | null;
+          actorType: string | null;
+          hash: string;
+          prevHash: string;
+          createdAt: string;
+        }>;
+      };
+      const verify = verifyRes.ok
+        ? ((await verifyRes.json()) as { intact: boolean; eventCount: number })
+        : null;
+
+      // Lazy-load @react-pdf/renderer — the package is ~1MB and we
+      // want the cost paid only when the operator clicks. The chunk
+      // is the entire `lib/audit/buildPdf.tsx` factory.
+      const { buildAuditPdf } = await import('@/lib/audit/buildPdf');
+      const blob = await buildAuditPdf({
+        tenantName: 'Tenant audit log',
+        events: eventsBody.data,
+        verifyIntact: verify?.intact ?? null,
+        verifyEventCount: verify?.eventCount ?? null,
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `operari-audit-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Revoke after the click handler returns so the browser has
+      // time to start the download.
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown';
+      toast.error(`${t.pdfFailed} (${message.slice(0, 60)})`);
+    } finally {
+      setBuildingPdf(false);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-[var(--border-color)] bg-[var(--panel-bg)] p-4">
       <div className="flex items-start justify-between gap-4">
@@ -101,18 +168,33 @@ export function AuditExportCard({ lang, viewerRole, tenantPlan }: AuditExportCar
         </div>
         <div className="flex items-center gap-2">
           {planAllowed ? (
-            <button
-              onClick={start}
-              disabled={starting}
-              className="bg-primary text-primary-foreground shadow-primary/20 hover:bg-primary/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold shadow-md disabled:opacity-50"
-            >
-              {starting ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Download className="h-3 w-3" />
-              )}
-              {starting ? t.preparing : t.cta}
-            </button>
+            <>
+              <button
+                onClick={downloadPdf}
+                disabled={buildingPdf}
+                title={t.pdfHint}
+                className="inline-flex items-center gap-1.5 rounded-md border border-[var(--panel-border)] bg-transparent px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--panel-elevated)] disabled:opacity-50"
+              >
+                {buildingPdf ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <FileText className="h-3 w-3" />
+                )}
+                {buildingPdf ? t.preparing : t.pdfCta}
+              </button>
+              <button
+                onClick={start}
+                disabled={starting}
+                className="bg-primary text-primary-foreground shadow-primary/20 hover:bg-primary/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold shadow-md disabled:opacity-50"
+              >
+                {starting ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Download className="h-3 w-3" />
+                )}
+                {starting ? t.preparing : t.cta}
+              </button>
+            </>
           ) : (
             <Link
               href={`/${lang}/pricing`}

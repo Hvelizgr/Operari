@@ -12,6 +12,7 @@ import {
   Download,
   FileCode,
   FileImage,
+  GitCommitVertical,
   Group,
   HelpCircle,
   LayoutGrid,
@@ -43,6 +44,7 @@ import ScheduleDialog from '../Runbook/ScheduleDialog';
 import SnapshotDialog from '../Runbook/SnapshotDialog';
 import TemplateGallery, { type SelectedTemplateMeta } from '../Runbook/TemplateGallery';
 import type { LineStyle } from './canvas/edgeTypes';
+import { RunbookDiffModal } from './RunbookDiffModal';
 import YamlViewModal from './YamlViewModal';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -112,7 +114,7 @@ function MoreMenu({ label, items }: { label: string; items: MoreMenuItem[] }) {
   );
 }
 
-type Dialog = 'run' | 'debug' | 'schedule' | 'yaml' | 'templates' | 'snapshots' | null;
+type Dialog = 'run' | 'debug' | 'schedule' | 'yaml' | 'templates' | 'snapshots' | 'diff' | null;
 
 const SAVE_BADGE: Record<
   Exclude<ReturnType<typeof useEditorStore.getState>['status'], 'idle' | 'loading' | 'dirty'>,
@@ -173,6 +175,7 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle, onOpenHelp
           wrap: 'Agrupar en frame',
           templates: 'Plantillas',
           snapshots: 'Instantáneas',
+          diff: 'Comparar versiones',
           lineStyle: lineStyle === 'smart' ? 'Aristas curvas' : 'Aristas ortogonales',
           stats: showStats ? 'Ocultar estadísticas' : 'Ver estadísticas',
           help: 'Ayuda',
@@ -193,6 +196,7 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle, onOpenHelp
           wrap: 'Wrap in frame',
           templates: 'Templates',
           snapshots: 'Snapshots',
+          diff: 'Compare versions',
           lineStyle: lineStyle === 'smart' ? 'Curved edges' : 'Step edges',
           stats: showStats ? 'Hide stats' : 'Show stats',
           help: 'Help',
@@ -535,6 +539,12 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle, onOpenHelp
               onClick: () => setDialog('snapshots'),
             },
             {
+              icon: <GitCommitVertical size={12} />,
+              label: t.diff,
+              disabled: !runbookId,
+              onClick: () => setDialog('diff'),
+            },
+            {
               icon: <Activity size={12} />,
               label: t.stats,
               onClick: () => setShowStats(!showStats),
@@ -634,6 +644,15 @@ export default function Toolbar({ lang, lineStyle, onLineStyleToggle, onOpenHelp
         onDelete={deleteSnapshot}
         lang={lang}
       />
+
+      {runbookId ? (
+        <RunbookDiffModal
+          runbookId={runbookId}
+          open={dialog === 'diff'}
+          onClose={() => setDialog(null)}
+          lang={lang}
+        />
+      ) : null}
     </>
   );
 }
