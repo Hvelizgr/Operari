@@ -130,10 +130,27 @@ function SchemaDiagramInner({ metadata, visibleSchemas, lang }: SchemaDiagramPro
 
   const handleBaselineUpload = (file: File) => {
     setBaselineError(null);
+    const isDbml = /\.dbml$/i.test(file.name);
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
+      const text = reader.result as string;
       try {
-        const raw = JSON.parse(reader.result as string);
+        if (isDbml) {
+          // Lazy-load `@dbml/core` only when DBML is actually imported.
+          // The package weighs ~120 KB minified — keeping it out of the
+          // initial diagram bundle wins the load time back for the
+          // common case (live introspection or JSON baseline).
+          const { parseDbml, DbmlParseError } = await import('@/lib/sql/dbml-import');
+          try {
+            const metadata = parseDbml(text);
+            setBaselineMetadata(metadata);
+          } catch (err) {
+            const msg = err instanceof DbmlParseError ? err.message : String(err);
+            setBaselineError(lang === 'es' ? `DBML inválido: ${msg}` : `Invalid DBML: ${msg}`);
+          }
+          return;
+        }
+        const raw = JSON.parse(text);
         const parsed = sqlMetadataSchema.safeParse(raw);
         if (!parsed.success) {
           setBaselineError(
@@ -273,7 +290,11 @@ function SchemaDiagramInner({ metadata, visibleSchemas, lang }: SchemaDiagramPro
           <input
             ref={fileInputRef}
             type="file"
-            accept="application/json,.json"
+            // `.dbml` joins JSON as a baseline source: operators
+            // pasting from dbdiagram.io / chartdb / hand-rolled DBML
+            // can compare straight against the live metadata without
+            // first round-tripping through Postgres.
+            accept="application/json,.json,.dbml,text/plain"
             className="hidden"
             onChange={e => {
               const file = e.target.files?.[0];
