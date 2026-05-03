@@ -1,7 +1,7 @@
 'use client';
 
 import { NodeToolbar, Position } from '@xyflow/react';
-import { CircleDot, Copy, Palette, Play, Power, Trash2, Unlink } from 'lucide-react';
+import { CircleDot, Copy, Palette, Play, Power, Replace, Trash2, Unlink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -190,6 +190,27 @@ export function NodeContextToolbar({
             className={iconButton({ tone: 'destructive', active: isBreakpoint })}
           >
             <CircleDot size={14} />
+          </button>
+        </HoverTooltip>
+      ) : null}
+      {kind === 'step' ? (
+        <HoverTooltip label="Replace step type (r)">
+          <button
+            type="button"
+            onClick={() => {
+              // Same window-event channel HandlePlusExtension uses
+              // for the new-node menu. Canvas listens for this event
+              // and mounts ReplaceNodeMenu against the supplied id.
+              window.dispatchEvent(
+                new CustomEvent('operari:request-replace-type', {
+                  detail: { nodeId: id },
+                })
+              );
+            }}
+            aria-label="Replace step type"
+            className={iconButton()}
+          >
+            <Replace size={14} />
           </button>
         </HoverTooltip>
       ) : null}

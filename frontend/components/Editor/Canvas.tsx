@@ -56,6 +56,7 @@ import SelectionStatusPill from './SelectionStatusPill';
 import Toolbar from './Toolbar';
 import UndoRedoPanel from './UndoRedoPanel';
 import { useZoomVisuals } from './canvas/useZoomVisuals';
+import { ReplaceNodeMenu } from './ReplaceNodeMenu';
 import { buildSnapshot, remapForPaste } from '@/lib/canvas/clipboard';
 import { computeAutoLayout } from '@/lib/canvas/layout';
 import ZoomToRunning from './ZoomToRunning';
@@ -176,6 +177,30 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   });
   useHotkeys(['+', '='], () => reactFlow.zoomIn({ duration: 200 }), { enableOnFormTags: false });
   useHotkeys(['-', '_'], () => reactFlow.zoomOut({ duration: 200 }), { enableOnFormTags: false });
+
+  // `r` opens the replace-type palette anchored to the selected step.
+  // Skips when nothing is selected so a stray keystroke on the empty
+  // canvas doesn't pop a menu. The NodeContextToolbar's "Replace"
+  // button dispatches the same `operari:request-replace-type` event
+  // so the keyboard and the toolbar share a single state path.
+  const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
+  useHotkeys(
+    'r',
+    () => {
+      const sel = useEditorStore.getState().nodes.find(n => n.selected);
+      if (!sel) return;
+      setReplaceTargetId(sel.id);
+    },
+    { enableOnFormTags: false }
+  );
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { nodeId?: string };
+      if (detail?.nodeId) setReplaceTargetId(detail.nodeId);
+    };
+    window.addEventListener('operari:request-replace-type', handler);
+    return () => window.removeEventListener('operari:request-replace-type', handler);
+  }, []);
   // Selected step type drives the auto-jump topic. Reading the
   // selected node out of the same store the rest of the canvas
   // subscribes to keeps this in sync without a separate signal.
@@ -615,6 +640,13 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
           sourceHandle={paneMenu.sourceHandle}
           lang={lang}
           onClose={() => setPaneMenu(null)}
+        />
+      ) : null}
+      {replaceTargetId && !embedMode ? (
+        <ReplaceNodeMenu
+          targetId={replaceTargetId}
+          lang={lang}
+          onClose={() => setReplaceTargetId(null)}
         />
       ) : null}
     </div>
