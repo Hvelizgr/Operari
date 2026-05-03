@@ -11,11 +11,20 @@ import {
 import { temporal } from 'zundo';
 import { create } from 'zustand';
 
+import { NODE_TYPES } from '@/components/Editor/canvas/stepCatalog';
 import type { RunbookInputDefinition } from '@/components/Editor/RunbookInputsPanel';
 import type { RfEdge, RfNode } from '@/lib/canvas/adapter';
 import { rfToWorkflow, workflowToRf } from '@/lib/canvas/adapter';
 import { getDescendantIds, sortNodesForRf } from '@/lib/canvas/graph';
 import { reconcileWorkflow } from '@/lib/canvas/reconcile';
+
+/**
+ * Map of step-type → default English label. Used by
+ * `replaceNodeType` so a swap that hits an un-customised title
+ * picks up the new type's wording instead of stranding the user
+ * on the previous type's name.
+ */
+const NODE_DEFAULT_TITLES = new Map<string, string>(NODE_TYPES.map(nt => [nt.type, nt.label.en]));
 
 export type SaveStatus = 'idle' | 'loading' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
 
@@ -103,6 +112,19 @@ type Actions = {
     id: string,
     parentId: string | null,
     nextPosition?: { x: number; y: number }
+  ) => void;
+  /**
+   * Swap a node's `type` while keeping its id, position, edges, and
+   * any config keys whose names also exist on the new type. n8n
+   * parity — the operator hits `r` (or "Replace…" in the menu) and
+   * the canvas swaps without redrawing connections. Title sticks
+   * unless it was the previous type's default label.
+   */
+  replaceNodeType: (
+    id: string,
+    nextType: string,
+    nextDefaultConfig: Record<string, unknown>,
+    nextDefaultTitle?: string
   ) => void;
   appendForPaste: (nodes: RfNode[], edges: RfEdge[]) => void;
   hydrateFromWorkflow: (
@@ -398,6 +420,54 @@ export const useEditorStore = create<EditorState>()(
       setStatus: (status, errorMessage = null) => set({ status, errorMessage }),
 
       markSaved: (savedAt = Date.now()) => set({ status: 'saved', savedAt, errorMessage: null }),
+
+      replaceNodeType: (id, nextType, nextDefaultConfig, nextDefaultTitle) =>
+        set(state => {
+          const idx = state.nodes.findIndex(n => n.id === id);
+          if (idx === -1) return state;
+          const node = state.nodes[idx];
+          const oldConfig = (node.data?.workflow?.config ?? {}) as Record<string, unknown>;
+          // Carry over config keys that exist on the new type's
+          // defaults — the operator's hand-typed values survive
+          // the swap, while keys that no longer apply get dropped
+          // (a `command` from a shell step is meaningless on
+          // operari.httpRequest). Reserved underscore keys
+          // (_retry, _runIf, __pinnedOutput) survive unconditionally
+          // because they're cross-cutting node metadata.
+          const RESERVED_KEYS = new Set(['_retry', '_runIf', '_skipIf', '__pinnedOutput']);
+          const mergedConfig: Record<string, unknown> = { ...nextDefaultConfig };
+          for (const [k, v] of Object.entries(oldConfig)) {
+            if (RESERVED_KEYS.has(k) || k in nextDefaultConfig) {
+              mergedConfig[k] = v;
+            }
+          }
+          const nextNodes = [...state.nodes];
+          // Title: keep operator-edited labels, but if the title
+          // matches the previous type's default it was probably
+          // never customised — swap to the new type's default.
+          const oldTitle = node.data?.workflow?.title ?? '';
+          const previousDefaultTitle = NODE_DEFAULT_TITLES.get(node.type ?? '');
+          const nextTitle =
+            previousDefaultTitle && oldTitle === previousDefaultTitle
+              ? (nextDefaultTitle ?? oldTitle)
+              : oldTitle;
+          nextNodes[idx] = {
+            ...node,
+            type: nextType,
+            data: {
+              ...node.data,
+              workflow: {
+                ...node.data.workflow,
+                title: nextTitle,
+                config: mergedConfig,
+              },
+            },
+          };
+          return {
+            nodes: nextNodes,
+            status: state.status === 'loading' ? state.status : 'dirty',
+          };
+        }),
 
       getRunbookPayload: () => rfToWorkflow(get().nodes, get().edges),
 

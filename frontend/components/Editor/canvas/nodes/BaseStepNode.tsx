@@ -778,6 +778,16 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
             />
           );
         })}
+        {/* Run-data badge at the output handle (n8n parity). When the
+            most recent run produced an array-shaped output (or carried
+            an explicit `items: []` / `count: N`), surface the cardinality
+            inline so the operator sees "this step produced 5 items"
+            without opening the run console. Only renders for single-
+            output steps — multi-output nodes use the label slot for
+            branch names. */}
+        {outputs.length === 1 && data.output !== undefined ? (
+          <RunDataItemBadge output={data.output} />
+        ) : null}
         {outputs.map((label, idx) => {
           const tone = handleTone(label);
           // Branch label: only render on multi-output nodes (IF, Switch,
@@ -856,3 +866,43 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
 }
 
 export const BaseStepNode = memo(BaseStepNodeComponent);
+
+/**
+ * Compute an item-count for a step's run output, falling back through
+ * three shapes: a top-level array, an `items: array` field, or an
+ * explicit `count: number`. Returns null when no shape matches — a
+ * scalar string output (`"hello world"`) reads as zero cardinality
+ * because there's no "5 of something" to show.
+ */
+function deriveItemCount(output: unknown): number | null {
+  if (Array.isArray(output)) return output.length;
+  if (output && typeof output === 'object') {
+    const o = output as { items?: unknown; count?: unknown };
+    if (Array.isArray(o.items)) return o.items.length;
+    if (typeof o.count === 'number' && Number.isFinite(o.count)) return o.count;
+  }
+  return null;
+}
+
+interface RunDataItemBadgeProps {
+  output: unknown;
+}
+
+/**
+ * "X items" pill anchored to the right edge of the node, just above
+ * the output handle. Pure read of `data.output` — no store
+ * subscription needed because the parent already re-renders on
+ * output change.
+ */
+function RunDataItemBadge({ output }: RunDataItemBadgeProps) {
+  const count = deriveItemCount(output);
+  if (count == null) return null;
+  return (
+    <span
+      className="pointer-events-none absolute right-3 top-1 z-10 rounded-full bg-emerald-700/85 px-2 py-0.5 font-mono text-[9px] uppercase tracking-tight text-white shadow"
+      title={`${count} item${count === 1 ? '' : 's'} produced in the most recent run`}
+    >
+      {count} {count === 1 ? 'item' : 'items'}
+    </span>
+  );
+}
