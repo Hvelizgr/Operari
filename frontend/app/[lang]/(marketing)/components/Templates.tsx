@@ -168,8 +168,26 @@ function TemplateCard({ item }: { item: (typeof content.templates.items)[number]
       <p className="text-muted-foreground mb-4 text-xs leading-relaxed sm:text-sm">
         {item.description}
       </p>
-      <div className="text-muted-foreground/70 truncate font-mono text-[10px] sm:text-[11px]">
-        templates/{item.slug}.yaml
+      {/* Footer row — filename anchors the "this is a real file"
+          claim on the left, while an explicit "View example" CTA on
+          the right gives a clearer affordance than the corner arrow
+          alone (trigger.dev parity — every feature card surfaces the
+          link as text, not just an icon). */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-muted-foreground/70 truncate font-mono text-[10px] sm:text-[11px]">
+          templates/{item.slug}.yaml
+        </div>
+        <span
+          className={`shrink-0 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors sm:text-[11px] ${accent.text} opacity-80 group-hover:opacity-100`}
+        >
+          {item.viewLabel}
+          <span
+            aria-hidden="true"
+            className="ml-1 inline-block transition-transform group-hover:translate-x-0.5"
+          >
+            →
+          </span>
+        </span>
       </div>
     </a>
   );

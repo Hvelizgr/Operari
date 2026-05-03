@@ -54,7 +54,7 @@ export default async function Page({ params }: { params: Promise<{ lang: string 
       </div>
 
       <div id="safety">
-        <SafetyRails content={content.safety} />
+        <SafetyRails content={content.safety} lang={lang === 'es' ? 'es' : 'en'} />
       </div>
 
       <div id="templates">

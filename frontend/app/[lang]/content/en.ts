@@ -77,16 +77,16 @@ export const content = {
         hint: 'measured on the hosted API',
       },
       {
-        value: 12,
+        value: 16,
         suffix: '',
         label: 'first-party step types',
-        hint: 'shell · http · approve · notify · sql · …',
+        hint: 'shell · ssh · http · sql · kubectl · approve · notify · runbook · …',
       },
       {
         value: 100,
         suffix: '%',
-        label: 'open source, Apache-2.0',
-        hint: 'self-host or run hosted — same binary',
+        label: 'open source, dual license',
+        hint: 'AGPL-3.0 backend · MIT SDK + CLI',
       },
       {
         value: 10,
@@ -98,7 +98,7 @@ export const content = {
   },
   safety: {
     eyebrow: 'Safety rails',
-    title: 'Four primitives most workflow tools miss.',
+    title: 'Six primitives most workflow tools miss.',
     subtitle:
       "The features below are the actual line between 'Zapier for backend devs' and a tool you are willing to trust with prod traffic.",
     rails: [
@@ -128,6 +128,20 @@ export const content = {
           "The @operari/sdk exports defineStep({type, configSchema, execute}). Author in TypeScript, ship the built package, drop it in OPERARI_PLUGINS_DIR. The runtime validates config via your zod schema before execute. Reserved types can't be overridden.",
         example:
           "import { defineStep } from '@operari/sdk/steps';\nexport default defineStep({\n  type: 'myorg.slack-notify',\n  configSchema: z.object({ webhook: z.string().url() }),\n  async execute(config, ctx) { /* ... */ },\n});",
+      },
+      {
+        title: 'An AI agent reads the failure with you.',
+        description:
+          'When a run fails, the side-panel agent (Anthropic or OpenAI, your key) reads the step I/O, audit chain, and stack trace and tells you which step broke and why. Read-only by default; opt-in write tools can grant or reject approval gates per runbook.',
+        example:
+          '# in runbook.yaml\nai:\n  provider: anthropic\n  tools: [read_run, read_logs]   # add grant_approval to opt in to writes',
+      },
+      {
+        title: 'Operator surfaces, not just an editor.',
+        description:
+          'Approval inbox at /inbox with inline grant/reject. Operator dashboard at /dashboard with pulse KPIs, live runs, and per-runbook sparklines. SQL editor and HTTP tester (G S / G A) for the on-call who needs to poke prod from the same shell. None of these are paid add-ons.',
+        example:
+          'GET /inbox          → human-gated approvals waiting\nGET /dashboard      → live runs + p95 + top runbooks\nG S / G A          → SQL / HTTP scratchpads',
       },
     ],
   },
@@ -173,6 +187,7 @@ export const content = {
         description:
           'The runbook the hero promises. Webhook in, fetch logs, gate on approval, helm rollback, notify #incidents, open post-mortem ticket.',
         accent: 'violet',
+        viewLabel: 'View example',
       },
       {
         slug: 'k8s-rolling-deploy',
@@ -181,6 +196,7 @@ export const content = {
         description:
           'kubectl set image, watch rollout, smoke test the pods, notify Slack on success. The CI runbook every team rewrites in bash.',
         accent: 'primary',
+        viewLabel: 'View example',
       },
       {
         slug: 'rotate-aws-secrets',
@@ -189,6 +205,7 @@ export const content = {
         description:
           'Create a new key, propagate to Vercel and GitHub, gate on human approval, verify, then revoke the old one. Auditable end to end.',
         accent: 'amber',
+        viewLabel: 'View example',
       },
       {
         slug: 'db-migration-prisma',
@@ -197,6 +214,7 @@ export const content = {
         description:
           'Snapshot the database, run the pending migrations, verify with a row count, notify Slack. One human approval before the destructive step.',
         accent: 'emerald',
+        viewLabel: 'View example',
       },
     ],
     cta: 'Browse all templates on GitHub',
@@ -235,7 +253,7 @@ export const content = {
     callsAnything: {
       title: 'And every step calls real tools.',
       subtitle:
-        "No DSL. No per-tool plugin to install. Steps run as shell — so anything you'd type in a terminal works on day one.",
+        "No DSL. No per-tool plugin to install. Steps run as shell — so anything you'd type in a terminal works on day one. The same engine powers the operator dashboard, approval inbox, and the SQL / HTTP scratchpads on-call uses to poke prod live.",
       tools: [
         'kubectl',
         'helm',
@@ -298,6 +316,14 @@ export const content = {
       {
         feature: 'Built-in MFA + email verification',
         cells: ['yes', 'yes', 'no', 'yes', 'partial'],
+      },
+      {
+        feature: 'Operator dashboard + approval inbox',
+        cells: ['yes', 'partial', 'no', 'yes', 'no'],
+      },
+      {
+        feature: 'Sub-runbooks (sync/async composition)',
+        cells: ['yes', 'no', 'partial', 'no', 'no'],
       },
       {
         feature: 'Price per seat',
@@ -377,12 +403,14 @@ export const content = {
         period: 'forever',
         description: 'Docker compose, your server, your data. AGPL forever.',
         features: [
-          'Unlimited runbooks',
-          'Unlimited runs',
-          'Unlimited webhooks',
-          'All trigger sources',
-          'Audit chain verification',
-          'Sandboxed shell execution',
+          'Unlimited runbooks, runs, and webhooks',
+          'All trigger sources + sub-runbook composition',
+          'Sandboxed shell + 16 first-party step types',
+          'Hash-chained audit + dry-run against prod',
+          'MFA, RBAC, connected accounts (GitHub OAuth)',
+          'Operator dashboard, inbox, SQL + HTTP scratchpads',
+          'AI agent on failure (your Anthropic / OpenAI key)',
+          'Custom step plugins via @operari/sdk',
           'Community Discord',
         ],
         cta: 'Self-host now',

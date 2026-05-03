@@ -11,6 +11,7 @@ import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
 
 import AuroraBackground from './AuroraBackground';
+import GithubStarsChip from './GithubStarsChip';
 
 type HeroProps = {
   content: typeof content.hero;
@@ -190,26 +191,34 @@ export default function Hero({ content }: HeroProps) {
               </Link>
             </motion.div>
 
-            {/* Quick endpoint chip — click-to-copy the base curl so a reader
-                curious enough to try the API doesn't have to hunt for it
-                in the docs. */}
-            <motion.button
-              onClick={copyEndpoint}
+            {/* Quick endpoint chip + GitHub stars chip — secondary
+                proof rail under the CTAs. The endpoint chip is a
+                click-to-copy curl base; the stars chip telegraphs
+                that we are open-source and (eventually) has traction.
+                Trigger.dev parity — they show "14.8k | Open source"
+                next to their primary CTA in the same slot. */}
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6, duration: 0.4 }}
-              className="border-border/60 bg-card/40 text-foreground/70 hover:text-foreground hover:border-primary/40 mt-6 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 font-mono text-[11px] transition-colors sm:text-xs"
+              className="mt-6 flex flex-wrap items-center gap-2"
             >
-              <Terminal className="text-primary h-3.5 w-3.5" />
-              <span className="truncate">
-                POST <span className="text-primary">api.operari.dev</span>/v1/runs/trigger
-              </span>
-              {copied ? (
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
-              ) : (
-                <Copy className="h-3.5 w-3.5 opacity-60" />
-              )}
-            </motion.button>
+              <button
+                onClick={copyEndpoint}
+                className="border-border/60 bg-card/40 text-foreground/70 hover:text-foreground hover:border-primary/40 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[11px] transition-colors sm:text-xs"
+              >
+                <Terminal className="text-primary h-3.5 w-3.5" />
+                <span className="truncate">
+                  POST <span className="text-primary">api.operari.dev</span>/v1/runs/trigger
+                </span>
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 opacity-60" />
+                )}
+              </button>
+              <GithubStarsChip lang={lang} />
+            </motion.div>
           </div>
 
           {/* RIGHT — animated API request/response/stream terminal.

@@ -73,16 +73,16 @@ export const content = {
         hint: 'medido en la API hospedada',
       },
       {
-        value: 12,
+        value: 16,
         suffix: '',
         label: 'tipos de step first-party',
-        hint: 'shell · http · approve · notify · sql · …',
+        hint: 'shell · ssh · http · sql · kubectl · approve · notify · runbook · …',
       },
       {
         value: 100,
         suffix: '%',
-        label: 'open source, Apache-2.0',
-        hint: 'self-host o hosted — el mismo binario',
+        label: 'open source, dual license',
+        hint: 'AGPL-3.0 backend · MIT SDK + CLI',
       },
       {
         value: 10,
@@ -94,7 +94,7 @@ export const content = {
   },
   safety: {
     eyebrow: 'Safety rails',
-    title: 'Cuatro primitivas que a otros workflow tools les faltan.',
+    title: 'Seis primitivas que a otros workflow tools les faltan.',
     subtitle:
       "Estas features son la línea real entre 'Zapier para devs backend' y una herramienta que confiás con tráfico de producción.",
     rails: [
@@ -124,6 +124,20 @@ export const content = {
           '@operari/sdk exporta defineStep({type, configSchema, execute}). Lo escribís en TypeScript, shippeás el build, lo dropeás en OPERARI_PLUGINS_DIR. El runtime valida config con tu zod schema antes del execute. Los types reservados no se pueden override.',
         example:
           "import { defineStep } from '@operari/sdk/steps';\nexport default defineStep({\n  type: 'myorg.slack-notify',\n  configSchema: z.object({ webhook: z.string().url() }),\n  async execute(config, ctx) { /* ... */ },\n});",
+      },
+      {
+        title: 'Un agente IA lee la falla con vos.',
+        description:
+          'Cuando un run falla, el agente del side-panel (Anthropic u OpenAI, tu key) lee el I/O del step, la cadena de auditoría y el stack trace y te dice qué step rompió y por qué. Read-only por default; tools de escritura opt-in pueden otorgar o rechazar gates de aprobación por runbook.',
+        example:
+          '# en runbook.yaml\nai:\n  provider: anthropic\n  tools: [read_run, read_logs]   # agregá grant_approval para habilitar writes',
+      },
+      {
+        title: 'Superficies de operador, no solo un editor.',
+        description:
+          'Inbox de aprobaciones en /inbox con grant/reject inline. Dashboard de operador en /dashboard con KPIs en vivo, runs activos y sparklines por runbook. SQL editor y HTTP tester (G S / G A) para el on-call que necesita pegarle a prod desde la misma shell. Nada de esto es add-on pago.',
+        example:
+          'GET /inbox          → aprobaciones humanas pendientes\nGET /dashboard      → runs en vivo + p95 + top runbooks\nG S / G A          → scratchpads de SQL / HTTP',
       },
     ],
   },
@@ -169,6 +183,7 @@ export const content = {
         description:
           'El runbook que promete el hero. Webhook entra, traer logs, gate de aprobación, helm rollback, notificar #incidents, abrir ticket de post-mortem.',
         accent: 'violet',
+        viewLabel: 'Ver ejemplo',
       },
       {
         slug: 'k8s-rolling-deploy',
@@ -177,6 +192,7 @@ export const content = {
         description:
           'kubectl set image, mirar el rollout, smoke test de los pods, notificar Slack al terminar. El runbook de CI que todo equipo reescribe en bash.',
         accent: 'primary',
+        viewLabel: 'Ver ejemplo',
       },
       {
         slug: 'rotate-aws-secrets',
@@ -185,6 +201,7 @@ export const content = {
         description:
           'Crear nueva key, propagar a Vercel y GitHub, gate de aprobación humana, verificar, después revocar la vieja. Auditable end to end.',
         accent: 'amber',
+        viewLabel: 'Ver ejemplo',
       },
       {
         slug: 'db-migration-prisma',
@@ -193,6 +210,7 @@ export const content = {
         description:
           'Snapshot de la base, correr las migraciones pendientes, verificar con un row count, notificar Slack. Una aprobación humana antes del paso destructivo.',
         accent: 'emerald',
+        viewLabel: 'Ver ejemplo',
       },
     ],
     cta: 'Ver todos los templates en GitHub',
@@ -231,7 +249,7 @@ export const content = {
     callsAnything: {
       title: 'Y cada step llama herramientas reales.',
       subtitle:
-        'Sin DSL. Sin plugins por herramienta. Los steps corren como shell — cualquier cosa que tipearías en una terminal funciona desde el día 1.',
+        'Sin DSL. Sin plugins por herramienta. Los steps corren como shell — cualquier cosa que tipearías en una terminal funciona desde el día 1. El mismo engine alimenta el dashboard de operador, el inbox de aprobaciones y los scratchpads de SQL / HTTP que el on-call usa para pegarle a prod en vivo.',
       tools: [
         'kubectl',
         'helm',
@@ -289,11 +307,19 @@ export const content = {
       },
       {
         feature: 'Custom step plugins (SDK)',
-        cells: ['sí', 'no', 'partial', 'no', 'partial'],
+        cells: ['sí', 'no', 'parcial', 'no', 'parcial'],
       },
       {
         feature: 'MFA + verificación email built-in',
-        cells: ['sí', 'sí', 'no', 'sí', 'partial'],
+        cells: ['sí', 'sí', 'no', 'sí', 'parcial'],
+      },
+      {
+        feature: 'Dashboard de operador + inbox de aprobaciones',
+        cells: ['sí', 'parcial', 'no', 'sí', 'no'],
+      },
+      {
+        feature: 'Sub-runbooks (composición sync/async)',
+        cells: ['sí', 'no', 'parcial', 'no', 'no'],
       },
       {
         feature: 'Precio por usuario',
@@ -373,12 +399,14 @@ export const content = {
         period: 'para siempre',
         description: 'Docker compose, tu servidor, tus datos. AGPL para siempre.',
         features: [
-          'Runbooks ilimitados',
-          'Runs ilimitados',
-          'Webhooks ilimitados',
-          'Todas las fuentes de trigger',
-          'Verificación de cadena de auditoría',
-          'Ejecución de shell sandboxeada',
+          'Runbooks, runs y webhooks ilimitados',
+          'Todas las fuentes de trigger + composición sub-runbook',
+          'Shell sandboxeado + 16 tipos de step first-party',
+          'Cadena de auditoría hash + dry-run contra prod',
+          'MFA, RBAC, connected accounts (GitHub OAuth)',
+          'Dashboard de operador, inbox, scratchpads SQL + HTTP',
+          'Agente IA al fallar (tu key Anthropic / OpenAI)',
+          'Plugins de step custom vía @operari/sdk',
           'Discord de la comunidad',
         ],
         cta: 'Self-host ahora',
