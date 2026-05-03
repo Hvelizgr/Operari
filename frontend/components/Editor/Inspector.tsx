@@ -9,6 +9,7 @@ import { useEditorStore } from '@/state/editorStore';
 
 import { NODE_CATALOG } from './canvas/catalog';
 import { StepDurationSparkline } from './StepDurationSparkline';
+import { WebhookUrlPanel } from './WebhookUrlPanel';
 
 export default function Inspector({ lang }: { lang: 'en' | 'es' }) {
   const nodes = useEditorStore(s => s.nodes);
@@ -104,6 +105,9 @@ export default function Inspector({ lang }: { lang: 'en' | 'es' }) {
         {selectedStats && selectedStats.runs > 0 && (
           <StepDurationSparkline stats={selectedStats} lang={lang} />
         )}
+        {target.type === 'operari.webhook' || target.type === 'Webhook' ? (
+          <WebhookUrlPanel lang={lang} />
+        ) : null}
       </div>
 
       <div className="max-h-[50vh] overflow-y-auto border-t border-white/10 px-4 py-3">
