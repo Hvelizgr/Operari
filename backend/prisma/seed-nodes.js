@@ -277,7 +277,10 @@ const NODES = [
       es: 'Iterar una lista o reintentar N veces',
     },
     inputs: [MAIN_PORT],
-    outputs: [MAIN_PORT],
+    // Two ports: `iteration` fires per item (loop body); `done` fires
+    // once after the final iteration so a summary / notify step can
+    // be wired downstream without firing N times.
+    outputs: ['iteration', 'done'],
     properties: [
       {
         name: 'items',

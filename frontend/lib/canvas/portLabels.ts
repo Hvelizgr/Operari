@@ -75,6 +75,14 @@ export const STATIC_BRANCH_OUTPUTS: Record<string, string[]> = {
   approval: ['approved', 'rejected'],
   'operari.if': ['true', 'false'],
   Condition: ['true', 'false'],
+  // Loop emits two ports: `iteration` fires once per item and is the
+  // body of the loop; `done` fires once after the last iteration so
+  // an author can wire a one-shot summary step (post-run notify, log,
+  // etc.) without having it run N times. Aliases (`Iterator`,
+  // `operari.loop`) reuse the same shape.
+  Loop: ['iteration', 'done'],
+  Iterator: ['iteration', 'done'],
+  'operari.loop': ['iteration', 'done'],
 };
 
 /**

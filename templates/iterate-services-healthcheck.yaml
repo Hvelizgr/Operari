@@ -41,7 +41,12 @@ steps:
     name: For each service
     config:
       itemsPath: vars.services
-    next: probe
+    # Two ports: `iteration` runs the probe per item; `done` runs the
+    # summary once after the last iteration. Without the `done` port
+    # the summary would fire N times (one per service) instead of once.
+    next:
+      iteration: probe
+      done: notify
 
   - id: probe
     type: operari.httpRequest
@@ -51,7 +56,6 @@ steps:
       url: '{{vars.api_base}}/{{item}}/health'
       timeout: 5000
       failOnNon2xx: false
-    next: notify
 
   - id: notify
     type: notify

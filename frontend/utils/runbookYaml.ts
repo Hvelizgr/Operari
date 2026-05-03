@@ -338,6 +338,9 @@ const STATIC_BRANCH_OUTPUTS: Record<string, string[]> = {
   approval: ['approved', 'rejected'],
   'operari.if': ['true', 'false'],
   Condition: ['true', 'false'],
+  Loop: ['iteration', 'done'],
+  Iterator: ['iteration', 'done'],
+  'operari.loop': ['iteration', 'done'],
 };
 
 function deriveSwitchOutputsFromConfig(config: unknown): string[] {

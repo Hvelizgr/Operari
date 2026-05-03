@@ -213,6 +213,76 @@ describe('runbookYaml (frontend)', () => {
       expect(branchEdges.sort()).toEqual([0, 1]);
     });
 
+    it('maps Loop next: { iteration, done } to the right ports', () => {
+      const out = specToNodes({
+        version: 1,
+        name: 'x',
+        steps: [
+          {
+            id: 'loop_services',
+            type: 'Loop',
+            next: { iteration: 'probe', done: 'notify' },
+          },
+          { id: 'probe', type: 'shell' },
+          { id: 'notify', type: 'notify' },
+        ],
+      });
+      const loopId = out.nodes.find(n => n.title === 'loop_services')?.id ?? '';
+      const targetByPort = new Map<number, string>();
+      for (const c of out.connections.filter(c => c.source === loopId)) {
+        targetByPort.set(c.sourcePort ?? 0, c.target);
+      }
+      const probeId = out.nodes.find(n => n.title === 'probe')?.id ?? '';
+      const notifyId = out.nodes.find(n => n.title === 'notify')?.id ?? '';
+      // iteration → port 0, done → port 1 per the Loop catalog.
+      expect(targetByPort.get(0)).toBe(probeId);
+      expect(targetByPort.get(1)).toBe(notifyId);
+    });
+
+    it('round-trips a Loop step with iteration + done in labeled form', () => {
+      const loopNodes: WorkflowNode[] = [
+        {
+          id: 'lp',
+          type: 'Loop',
+          title: 'For each service',
+          position: { x: 0, y: 0 },
+          config: { itemsPath: 'vars.services' },
+          enabled: true,
+        },
+        {
+          id: 'p',
+          type: 'shell',
+          title: 'probe',
+          position: { x: 100, y: 0 },
+          config: {},
+          enabled: true,
+        },
+        {
+          id: 'n',
+          type: 'notify',
+          title: 'summary',
+          position: { x: 200, y: 0 },
+          config: {},
+          enabled: true,
+        },
+      ];
+      const loopConns: Connection[] = [
+        { id: 'c-iter', source: 'lp', target: 'p', sourcePort: 0 },
+        { id: 'c-done', source: 'lp', target: 'n', sourcePort: 1 },
+      ];
+      const spec = nodesToSpec(header, loopNodes, loopConns);
+      // simplifyNext picks the labeled object form when every fromPort
+      // maps to a known label without collisions — exactly our case.
+      // Friendly ids slugify the title, so look up by name.
+      const loopStep = spec.steps.find(s => s.name === 'For each service');
+      const probeStep = spec.steps.find(s => s.name === 'probe');
+      const notifyStep = spec.steps.find(s => s.name === 'summary');
+      expect(loopStep?.next).toEqual({
+        iteration: probeStep?.id,
+        done: notifyStep?.id,
+      });
+    });
+
     it('handles unknown branch labels by assigning ports in insertion order', () => {
       // Custom Switch case the operator added by hand. `case_1` and
       // `default` are known (ports 0 and 2); `case_99` is unknown so

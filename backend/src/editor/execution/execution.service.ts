@@ -1350,21 +1350,33 @@ export class ExecutionService {
 
           if (isLoopNode && nodeOutput) {
             const items = Array.isArray(nodeOutput.items) ? nodeOutput.items : [];
-            const childNodes = outgoingConnections
+
+            // Split outgoing connections by port:
+            //   sourcePort 0 (or undefined for legacy YAMLs)  → iteration body
+            //   sourcePort 1                                  → done branch
+            // The done branch fires once after the last iteration so an
+            // author can wire a one-shot summary step (notify, log,
+            // etc.) without it firing N times. Pre-`done`-port runbooks
+            // keep working because undefined still maps to iteration.
+            const iterationConnections = outgoingConnections.filter(
+              c => c.sourcePort === undefined || c.sourcePort === 0
+            );
+            const doneConnections = outgoingConnections.filter(c => c.sourcePort === 1);
+
+            const iterationChildNodes = iterationConnections
+              .map(c => nodes.find(n => n.id === c.target))
+              .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
+            const doneChildNodes = doneConnections
               .map(c => nodes.find(n => n.id === c.target))
               .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
 
-            // Execute children once per iteration, passing item context.
-            // The inner `for (const _child of childNodes)` loop is
-            // intentionally present but unused: the loop body only writes
-            // to `nodeOutputs[currentNode.id]` (same key every iter),
-            // which means the per-child loop is a no-op today. Preserved
-            // because the planned shape is per-child output injection,
-            // currently tracked under the runner refactor (not in this
-            // scope). Prefix with `_` to silence the unused-var rule.
+            // Execute iteration children once per iteration, passing
+            // item context. The inner `for (const _child of …)` loop
+            // is intentionally a no-op today — preserved because the
+            // planned shape is per-child output injection (tracked
+            // under the runner refactor, not in this scope).
             for (let i = 0; i < items.length; i++) {
-              for (const _child of childNodes) {
-                // Inject loop iteration variables into the node's input
+              for (const _child of iterationChildNodes) {
                 nodeOutputs[currentNode.id] = {
                   ...nodeOutput,
                   currentItem: items[i],
@@ -1375,16 +1387,23 @@ export class ExecutionService {
               }
               // Re-run children for this iteration by temporarily clearing their executed state
               if (i < items.length - 1) {
-                for (const child of childNodes) {
+                for (const child of iterationChildNodes) {
                   executedNodes.delete(child.id);
                 }
               }
-              nodesToExecute.push(...childNodes);
+              nodesToExecute.push(...iterationChildNodes);
             }
 
             if (items.length === 0) {
-              // No items — skip children entirely
-              nodesToExecute.push(...childNodes);
+              // No items — skip the iteration body entirely
+              nodesToExecute.push(...iterationChildNodes);
+            }
+
+            // Done branch always fires once, after the iteration body
+            // queue. Empty when the runbook does not wire a `done`
+            // connection; the engine simply flows past the Loop.
+            if (doneChildNodes.length > 0) {
+              nodesToExecute.push(...doneChildNodes);
             }
           } else {
             // Normal path: push only children whose every parent has

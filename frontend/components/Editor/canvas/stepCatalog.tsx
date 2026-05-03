@@ -592,7 +592,7 @@ export const NODE_TYPES: NodeType[] = [
       es: 'Iterar sobre un arreglo, ejecutando hijos una vez por elemento',
     },
     inputs: ['main'],
-    outputs: ['iteration'],
+    outputs: ['iteration', 'done'],
     properties: [
       {
         name: 'itemsPath',
