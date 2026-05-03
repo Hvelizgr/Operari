@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 
 import { content } from '@/app/[lang]/content/en';
 import { useAnimeStaggerOnView } from '@/hooks/useAnimeStaggerOnView';
+import { useTilt } from '@/hooks/useTilt';
 
 import AuroraBackground from './AuroraBackground';
 
@@ -160,10 +161,15 @@ export default function TriggerSources({ content }: TriggerSourcesProps) {
 }
 
 function TriggerCard({ item }: { item: (typeof content.triggers.items)[number] }) {
+  // Same tilt vocabulary as TemplateCard so the two grids feel
+  // consistent. Drop the previous translate-y hover for the same
+  // reason (tilt's perspective transform replaces it).
+  const tiltRef = useTilt<HTMLDivElement>({ maxRotate: 5, perspective: 800 });
   return (
     <div
+      ref={tiltRef}
       data-trigger-card
-      className="border-border/60 bg-card/60 hover:border-primary/40 group relative rounded-2xl border p-6 backdrop-blur-md transition-all hover:-translate-y-0.5"
+      className="border-border/60 bg-card/60 hover:border-primary/40 group relative rounded-2xl border p-6 backdrop-blur-md"
     >
       <div className="mb-4 flex items-start justify-between">
         <ProviderIcon name={item.name} />

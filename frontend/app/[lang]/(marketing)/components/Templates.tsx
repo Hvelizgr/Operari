@@ -6,6 +6,7 @@ import { ArrowUpRight, Github } from 'lucide-react';
 import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
 import { useAnimeStaggerOnView } from '@/hooks/useAnimeStaggerOnView';
+import { useTilt } from '@/hooks/useTilt';
 
 import AuroraBackground from './AuroraBackground';
 
@@ -146,13 +147,20 @@ const accentClasses: Record<string, { ring: string; bg: string; text: string }> 
 
 function TemplateCard({ item }: { item: (typeof content.templates.items)[number] }) {
   const accent = accentClasses[item.accent] ?? accentClasses.primary;
+  // 3D tilt — 5° feels luxe on a card this size; 800px perspective
+  // matches Apple's product cards. Skipped on touch + reduced-motion
+  // by the hook itself. We drop the previous `hover:-translate-y-0.5`
+  // because the tilt's perspective transform replaces it; combining
+  // both fights the same matrix and stutters.
+  const tiltRef = useTilt<HTMLAnchorElement>({ maxRotate: 5, perspective: 800 });
   return (
     <a
+      ref={tiltRef}
       href={repo.templateFile(item.slug)}
       target="_blank"
       rel="noopener noreferrer"
       data-template-card
-      className={`border-border/60 bg-card/60 group relative block rounded-2xl border p-5 backdrop-blur-md transition-all hover:-translate-y-0.5 sm:p-6 ${accent.ring}`}
+      className={`border-border/60 bg-card/60 group relative block rounded-2xl border p-5 backdrop-blur-md sm:p-6 ${accent.ring}`}
     >
       <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4">
         <span

@@ -10,6 +10,7 @@ import { repo } from '@/config/repo.config';
 import { useMagnetic } from '@/hooks/useMagnetic';
 
 import AuroraBackground from './AuroraBackground';
+import MouseSpotlight from './MouseSpotlight';
 
 type CTAProps = {
   content: typeof content.cta;
@@ -74,9 +75,13 @@ export default function CTA({ content }: CTAProps) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="border-border/60 bg-card/60 shadow-primary/[0.08] rounded-2xl border p-6 shadow-2xl backdrop-blur-md sm:rounded-3xl sm:p-10 md:p-16"
+          className="border-border/60 bg-card/60 shadow-primary/[0.08] relative overflow-hidden rounded-2xl border p-6 shadow-2xl backdrop-blur-md sm:rounded-3xl sm:p-10 md:p-16"
         >
-          <div className="mb-8 text-center sm:mb-10">
+          {/* Cursor-following spotlight — inside the card so the
+              gradient is clipped to the rounded corners. Soft emerald
+              tint matches the rest of the section's accent palette. */}
+          <MouseSpotlight size={680} />
+          <div className="relative mb-8 text-center sm:mb-10">
             <div className="text-primary/80 mb-3 text-xs font-semibold uppercase tracking-widest sm:mb-4">
               {content.eyebrow}
             </div>
@@ -135,7 +140,7 @@ export default function CTA({ content }: CTAProps) {
           </div>
 
           {/* Two CTAs — primary readme, secondary "what does NOT work" */}
-          <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
             <Link
               ref={magneticPrimaryRef}
               href={repo.readme}
