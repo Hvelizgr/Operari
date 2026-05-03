@@ -55,6 +55,7 @@ import SearchPalette from './SearchPalette';
 import SelectionStatusPill from './SelectionStatusPill';
 import Toolbar from './Toolbar';
 import UndoRedoPanel from './UndoRedoPanel';
+import { useZoomVisuals } from './canvas/useZoomVisuals';
 import ZoomToRunning from './ZoomToRunning';
 
 // MiniMap colors mirror the in-canvas status palette so the operator
@@ -79,6 +80,9 @@ const MINIMAP_COLOR = (node: RfNode): string => {
 };
 
 function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
+  const canvasRootRef = useRef<HTMLDivElement | null>(null);
+  useZoomVisuals(canvasRootRef);
+
   const params = useSearchParams();
   const runbookId = params.get('id');
   const executionId = params.get('run');
@@ -415,7 +419,12 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
   );
 
   return (
-    <div className="relative h-full w-full" onDragOver={handleDragOver} onDrop={handleDrop}>
+    <div
+      ref={canvasRootRef}
+      className="relative h-full w-full"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       <ReactFlow<RfNode, RfEdge>
         nodes={nodes}
         edges={edges}

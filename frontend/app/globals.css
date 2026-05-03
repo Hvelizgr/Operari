@@ -130,6 +130,47 @@
   z-index: 10;
 }
 
+/* Selection halo, zoom-compensated. The factor (1/zoom, clamped at
+   0.4) keeps the halo at constant on-screen thickness regardless of
+   how far out the operator zoomed — n8n parity. The halo only renders
+   for `.rb-node` step nodes; sticky/frame nodes have their own
+   selection treatments tied to their per-node colour. */
+.react-flow__node.selected:not(.dragging) .rb-node {
+  box-shadow: 0 0 0 calc(4px * var(--canvas-zoom-compensation-factor, 1))
+    color-mix(in oklab, var(--rb-node-selected) 35%, transparent);
+}
+
+/* Per-category node shapes (n8n parity).
+   Trigger steps get an asymmetric pill — left side rounded all the
+   way (entry-point flag), right side regular corner — so an operator
+   spotting the canvas at a glance reads "this is where execution
+   starts" without parsing the icon. Flow-control nodes (Switch /
+   Loop / Condition) keep a sharper outer border but are tagged
+   visually distinct via the category-tinted bottom strip rendered
+   by the `data-category` selector. */
+.rb-node {
+  /* keep the existing rounded-rectangle as the default */
+  --rb-node-radius: 0.5rem;
+  border-radius: var(--rb-node-radius);
+}
+
+.rb-node[data-category='triggers'] {
+  border-radius: 28px var(--rb-node-radius) var(--rb-node-radius) 28px;
+}
+
+.rb-node[data-category='triggers'] .rb-node-header {
+  border-radius: 28px var(--rb-node-radius) 0 0;
+}
+
+/* The selection halo follows the node's own border-radius via
+   inheritance of `border-radius` on the box-shadow target — but
+   ReactFlow renders the wrapper without that information. Restate
+   the radius on the wrapper too so the halo ring traces the pill
+   instead of cutting corners. */
+.react-flow__node:has(.rb-node[data-category='triggers']) {
+  border-radius: 28px var(--rb-node-radius) var(--rb-node-radius) 28px;
+}
+
 /* Disabled-step diagonal hatching. The pattern reads as "muted but
    present" without resorting to opacity-30 which makes the node hard
    to read against the canvas background. */
