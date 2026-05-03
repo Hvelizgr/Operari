@@ -1,6 +1,8 @@
 'use client';
 
+import anime from 'animejs';
 import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 
 import { content } from '@/app/[lang]/content/en';
 import { useAnimeStaggerOnView } from '@/hooks/useAnimeStaggerOnView';
@@ -47,6 +49,34 @@ export default function TriggerSources({ content }: TriggerSourcesProps) {
     stagger: 28,
     duration: 420,
   });
+
+  // Webhook arrival simulation — every ~7s, randomly pick one of the
+  // 4 cards and pulse it as if a webhook just landed there. Reads as
+  // "this product is alive" without actually waking up a server. The
+  // pulsingIndex flips back to null after the animation finishes so
+  // the next pick is independent. Skipped under reduced-motion via
+  // the consumer's own gate (TriggerCard checks the media query
+  // before running the anime instance).
+  const [pulsingIndex, setPulsingIndex] = useState<number | null>(null);
+  const itemCount = content.items.length;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const interval = setInterval(() => {
+      // Pick a random card. Skipping the previous index would make
+      // the pattern feel artificial; true random across 4 cards
+      // means the same card sometimes pulses twice in a row, which
+      // matches real-world traffic where one source is louder.
+      setPulsingIndex(Math.floor(Math.random() * itemCount));
+      // Reset after the pulse animation finishes (~700ms). The
+      // TriggerCard hook keys off this flip to fire its anime
+      // instance once per non-null value.
+      const reset = setTimeout(() => setPulsingIndex(null), 720);
+      return () => clearTimeout(reset);
+    }, 7000);
+    return () => clearInterval(interval);
+  }, [itemCount]);
+
   return (
     <section className="relative overflow-hidden py-24 sm:py-32">
       <AuroraBackground
@@ -122,8 +152,8 @@ export default function TriggerSources({ content }: TriggerSourcesProps) {
           ref={cardsRef}
           className="mb-14 grid grid-cols-1 gap-3 sm:mb-20 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4"
         >
-          {content.items.map(item => (
-            <TriggerCard key={item.name} item={item} />
+          {content.items.map((item, idx) => (
+            <TriggerCard key={item.name} item={item} isPulsing={pulsingIndex === idx} />
           ))}
         </div>
 
@@ -160,25 +190,84 @@ export default function TriggerSources({ content }: TriggerSourcesProps) {
   );
 }
 
-function TriggerCard({ item }: { item: (typeof content.triggers.items)[number] }) {
+function TriggerCard({
+  item,
+  isPulsing,
+}: {
+  item: (typeof content.triggers.items)[number];
+  isPulsing: boolean;
+}) {
   // Same tilt vocabulary as TemplateCard so the two grids feel
   // consistent. Drop the previous translate-y hover for the same
   // reason (tilt's perspective transform replaces it).
   const tiltRef = useTilt<HTMLDivElement>({ maxRotate: 5, perspective: 800 });
+  const pulseDotRef = useRef<HTMLSpanElement | null>(null);
+  const cardEdgeRef = useRef<HTMLDivElement | null>(null);
+
+  // Webhook-arrival pulse: when isPulsing flips true, fire a brief
+  // anime sequence on the corner indicator (scale + opacity ring) and
+  // a faint emerald edge glow on the card itself. Both decay in
+  // ~700ms — short enough that the eye sees "something just
+  // happened" without it stealing attention from copy nearby.
+  useEffect(() => {
+    if (!isPulsing) return;
+    if (pulseDotRef.current) {
+      anime.remove(pulseDotRef.current);
+      anime.set(pulseDotRef.current, { scale: 0.6, opacity: 0.9 });
+      anime({
+        targets: pulseDotRef.current,
+        scale: [0.6, 2.2],
+        opacity: [0.9, 0],
+        duration: 700,
+        easing: 'easeOutCubic',
+      });
+    }
+    if (cardEdgeRef.current) {
+      anime.remove(cardEdgeRef.current);
+      anime.set(cardEdgeRef.current, { opacity: 0 });
+      anime({
+        targets: cardEdgeRef.current,
+        opacity: [0, 0.55, 0],
+        duration: 700,
+        easing: 'easeOutCubic',
+      });
+    }
+  }, [isPulsing]);
+
   return (
     <div
       ref={tiltRef}
       data-trigger-card
       className="border-border/60 bg-card/60 hover:border-primary/40 group relative rounded-2xl border p-6 backdrop-blur-md"
     >
-      <div className="mb-4 flex items-start justify-between">
+      {/* Edge glow that flares when a webhook "arrives" — sits behind
+          the card content via aria-hidden + pointer-events-none and
+          opacity 0 by default. The anime instance fades it in then
+          out on each pulse trigger. */}
+      <div
+        ref={cardEdgeRef}
+        aria-hidden="true"
+        className="border-primary/40 shadow-primary/20 pointer-events-none absolute inset-0 rounded-2xl border opacity-0 shadow-[0_0_24px_rgba(63,207,142,0.35)]"
+      />
+      <div className="relative mb-4 flex items-start justify-between">
         <ProviderIcon name={item.name} />
-        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
-          {item.status}
-        </span>
+        <div className="relative">
+          {/* Radar-style ping indicator anchored to the upper-right
+              corner. Sits behind the status pill so it doesn't push
+              layout. Scales out + fades on each webhook arrival. */}
+          <span
+            ref={pulseDotRef}
+            aria-hidden="true"
+            className="bg-primary/70 pointer-events-none absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full opacity-0"
+            style={{ transform: 'scale(0.6)' }}
+          />
+          <span className="relative rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+            {item.status}
+          </span>
+        </div>
       </div>
-      <h3 className="text-foreground mb-2 font-semibold">{item.name}</h3>
-      <p className="text-muted-foreground text-xs leading-relaxed">{item.description}</p>
+      <h3 className="text-foreground relative mb-2 font-semibold">{item.name}</h3>
+      <p className="text-muted-foreground relative text-xs leading-relaxed">{item.description}</p>
     </div>
   );
 }

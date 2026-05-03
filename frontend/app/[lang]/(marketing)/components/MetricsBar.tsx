@@ -20,8 +20,34 @@ type MetricsBarProps = {
  * Numbers are pulled from content so they stay honest per locale.
  * `IntersectionObserver` fires once so scrolling back doesn't
  * re-animate — enterprise visitors find that jittery.
+ *
+ * Auto-ping: every ~9s, randomly pick one of the four cards and
+ * trigger its hover-ping animation as if a measurement just landed.
+ * This is the "live data" tell — paired with the honest static
+ * numbers, it telegraphs "the engine is running, these are
+ * snapshots". Skipped under prefers-reduced-motion.
  */
 export default function MetricsBar({ content }: MetricsBarProps) {
+  // Parent-driven auto-ping. Increments a counter every interval so
+  // the targeted MetricCell sees a new `pingKey` and fires its anime
+  // instance once — the cell holds the actual ring DOM ref.
+  const [autoPing, setAutoPing] = useState<{ index: number; key: number }>({
+    index: -1,
+    key: 0,
+  });
+  const itemCount = content.items.length;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const interval = setInterval(() => {
+      setAutoPing(prev => ({
+        index: Math.floor(Math.random() * itemCount),
+        key: prev.key + 1,
+      }));
+    }, 9000);
+    return () => clearInterval(interval);
+  }, [itemCount]);
+
   return (
     <section className="border-border/40 relative border-b py-16 sm:py-20">
       <div className="container mx-auto max-w-6xl px-4 sm:px-6">
@@ -48,7 +74,12 @@ export default function MetricsBar({ content }: MetricsBarProps) {
 
         <div className="bg-border/40 grid grid-cols-2 gap-px overflow-hidden rounded-xl lg:grid-cols-4">
           {content.items.map((item, i) => (
-            <MetricCell key={item.label} item={item} index={i} />
+            <MetricCell
+              key={item.label}
+              item={item}
+              index={i}
+              autoPingKey={autoPing.index === i ? autoPing.key : 0}
+            />
           ))}
         </div>
       </div>
@@ -64,9 +95,16 @@ function prefersReducedMotion(): boolean {
 function MetricCell({
   item,
   index,
+  autoPingKey,
 }: {
   item: { value: number; suffix: string; label: string; hint: string };
   index: number;
+  /** Increments when the parent picks this cell for an auto-ping. The
+   *  effect keys off the new value to fire the same ring animation as
+   *  the manual hover/focus path. Default 0 means "no auto-ping
+   *  pending"; the parent only passes a non-zero value to the chosen
+   *  cell. */
+  autoPingKey?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const numberRef = useRef<HTMLSpanElement>(null);
@@ -90,6 +128,19 @@ function MetricCell({
       easing: 'easeOutCubic',
     });
   };
+
+  // Auto-ping path — fires the same animation as hover when the
+  // parent rotates a key onto this cell. Skipped on first mount
+  // (autoPingKey === 0 default) so we don't fire a stray ping
+  // during the count-up.
+  useEffect(() => {
+    if (!autoPingKey) return;
+    if (!visible) return;
+    handlePing();
+    // handlePing is stable (no closures over react state) so we
+    // intentionally exclude it from the dep list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPingKey, visible]);
 
   useEffect(() => {
     if (!ref.current) return;

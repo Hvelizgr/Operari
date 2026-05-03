@@ -2,8 +2,10 @@
 
 import { motion } from 'framer-motion';
 import { GitBranch, Puzzle, RotateCw, Shield, Zap } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import PulseGridBackground from './PulseGridBackground';
+import ScrambleText from './ScrambleText';
 
 type SafetyContent = {
   eyebrow: string;
@@ -149,21 +151,82 @@ export default function SafetyRails({
               {reliabilityCopy.callout}
             </p>
           </div>
-          <div className="border-border/60 bg-background/60 overflow-hidden rounded-xl border shadow-xl">
-            <div className="border-border/60 flex items-center gap-2 border-b px-4 py-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-500/70" />
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/70" />
-              <span className="text-muted-foreground/70 ml-2 font-mono text-[10px]">
-                runbook.yaml
-              </span>
-            </div>
-            <pre className="overflow-x-auto p-4 font-mono text-[12px] leading-relaxed text-emerald-200/90">
-              <code>{RELIABILITY_YAML}</code>
-            </pre>
-          </div>
+          <ReliabilityYamlWindow />
         </motion.div>
       </div>
     </section>
+  );
+}
+
+/**
+ * The runbook.yaml code window with a viewport-triggered "decoder"
+ * reveal — when the panel enters the viewport, each line scrambles
+ * through random glyphs and settles top-to-bottom. Reuses the same
+ * `<ScrambleText>` primitive as the Hero headline so the vocabulary
+ * stays consistent. Static fallback for SSR + pre-scroll users +
+ * prefers-reduced-motion.
+ */
+function ReliabilityYamlWindow() {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const lines = RELIABILITY_YAML.split('\n');
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+    const io = new IntersectionObserver(
+      entries => {
+        if (entries[0]?.isIntersecting) {
+          setRevealed(true);
+          io.disconnect();
+        }
+      },
+      // Larger root margin than the cards so the YAML decode starts
+      // *while* the panel is sliding into view, not after — by the
+      // time the user fixates on it the decode is already finishing.
+      { rootMargin: '0px 0px -20% 0px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="border-border/60 bg-background/60 overflow-hidden rounded-xl border shadow-xl"
+    >
+      <div className="border-border/60 flex items-center gap-2 border-b px-4 py-2">
+        <span className="h-2.5 w-2.5 rounded-full bg-rose-500/70" />
+        <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/70" />
+        <span className="text-muted-foreground/70 ml-2 font-mono text-[10px]">runbook.yaml</span>
+      </div>
+      <pre className="overflow-x-auto p-4 font-mono text-[12px] leading-relaxed text-emerald-200/90">
+        {revealed ? (
+          // One ScrambleText per line so each settles independently
+          // with a stagger. ~140ms per line * 10 lines ≈ 1.4s total
+          // wall-time — quick enough that a hurried scroller still
+          // catches it before scrolling past.
+          <code>
+            {lines.map((line, idx) => (
+              <span key={idx} className="block">
+                <ScrambleText
+                  text={line || ' '}
+                  tickMs={22}
+                  settleEvery={1}
+                  startDelayMs={idx * 140}
+                />
+              </span>
+            ))}
+          </code>
+        ) : (
+          // Pre-reveal: static text. Same content, no animation, so
+          // SSR matches and users with reduced-motion (which short-
+          // circuits ScrambleText to its `text` prop) see the right
+          // bytes from the first paint.
+          <code>{RELIABILITY_YAML}</code>
+        )}
+      </pre>
+    </div>
   );
 }
