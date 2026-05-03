@@ -11,7 +11,7 @@ import {
   MinusCircle,
   XCircle,
 } from 'lucide-react';
-import { KeyRound, Repeat } from 'lucide-react';
+import { KeyRound, PlayCircle, Repeat } from 'lucide-react';
 import { Fragment, memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNextInPath } from '@/hooks/useNextInPath';
@@ -167,6 +167,44 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
   // collapsed by default and the operator opts in via double-click.
   const params = useSearchParams();
   const debugMode = params.get('debug') === '1';
+  // Last-run execution id is on the URL when a run is in flight or has
+  // just settled. Reading it here (rather than threading it through
+  // props) keeps the replay-from-here button decoupled from Toolbar
+  // state — same source useExecutionSocket reads from.
+  const lastRunId = params.get('run');
+  const [replayPending, setReplayPending] = useState(false);
+  const handleReplayFromHere = async () => {
+    if (!lastRunId || replayPending) return;
+    setReplayPending(true);
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiBase}/api/executions/${lastRunId}/replay`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeId: id }),
+      });
+      if (!res.ok) throw new Error(`Replay failed (${res.status})`);
+      const next = (await res.json()) as { id?: string };
+      if (next?.id && typeof window !== 'undefined') {
+        // Bump the URL so useExecutionSocket re-subscribes against
+        // the freshly-created execution. Toolbar uses the same `run`
+        // query key, so the canvas picks it up via Canvas.tsx's
+        // params.get('run') without any further plumbing.
+        const url = new URL(window.location.href);
+        url.searchParams.set('run', next.id);
+        window.history.pushState({}, '', url.toString());
+        // history.pushState doesn't fire the navigation listener
+        // Next.js routes off of, so dispatch a popstate to trigger
+        // the searchParams subscribers to re-read.
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
+    } catch (err) {
+      console.warn('[BaseStepNode] replay-from-here failed', err);
+    } finally {
+      setReplayPending(false);
+    }
+  };
   // Effective expansion: explicit local toggle wins over the debug
   // auto-expand so the operator can collapse a noisy step they
   // already inspected without leaving the debug session.
@@ -514,6 +552,25 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
               <div className="break-all">{data.error}</div>
             </div>
           ) : null}
+          {isExpanded && data.input !== undefined && data.input !== null ? (
+            <div
+              className="rb-node-input mt-1.5 max-h-24 overflow-y-auto rounded border border-white/10 bg-black/20 p-1.5 font-mono text-[10px] leading-snug text-zinc-400"
+              onWheelCapture={e => e.stopPropagation()}
+            >
+              <div className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
+                input
+              </div>
+              <pre className="whitespace-pre-wrap break-all text-zinc-400">
+                {(() => {
+                  try {
+                    return JSON.stringify(data.input, null, 2);
+                  } catch {
+                    return String(data.input);
+                  }
+                })()}
+              </pre>
+            </div>
+          ) : null}
           {isExpanded && data.output !== undefined && data.output !== null ? (
             <div
               className="rb-node-output mt-1.5 max-h-32 overflow-y-auto rounded border border-white/10 bg-black/30 p-1.5 font-mono text-[10px] leading-snug text-zinc-300"
@@ -532,6 +589,32 @@ function BaseStepNodeComponent(props: NodeProps<RfNode>) {
                 })()}
               </pre>
             </div>
+          ) : null}
+          {/* Replay desde aquí — exposes the existing replayExecution
+              service path (POST /executions/:id/replay { nodeId }) as
+              a single click. Backend's replayExecution already pulls
+              this step's `nodeLogs.input` from the prior run and feeds
+              it as starting input, so the operator can edit a node's
+              config and re-run with the SAME data the failed run used,
+              without having to fabricate inputs. n8n calls this "Debug
+              in Editor"; we keep the operator on the canvas instead of
+              opening a separate panel. Visible only when there's a run
+              to replay from AND this step actually executed (status
+              transitioned past idle). */}
+          {isExpanded && lastRunId && status !== 'idle' ? (
+            <button
+              type="button"
+              disabled={replayPending}
+              onClick={e => {
+                e.stopPropagation();
+                handleReplayFromHere();
+              }}
+              className="rb-node-replay mt-1.5 inline-flex w-full items-center justify-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Re-run this runbook from this step using the input the prior run captured here"
+            >
+              <PlayCircle size={11} />
+              {replayPending ? 'replaying…' : 'replay desde aquí'}
+            </button>
           ) : null}
           {showStats && stats ? (
             <div

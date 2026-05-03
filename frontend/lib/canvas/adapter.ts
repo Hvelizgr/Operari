@@ -22,6 +22,15 @@ export type RfNodeData = {
    */
   output?: unknown;
   /**
+   * Last-run input JSON — what the previous step (or run trigger)
+   * handed to this step. Pairs with `output` so operators can audit
+   * "what did this step see, what did it return" before clicking
+   * "Replay desde aquí". Same backfill path as output. n8n shows
+   * input on the left of each node panel; we render it above the
+   * output in the inspect bubble.
+   */
+  input?: unknown;
+  /**
    * Last-run error message from `nodeLogs.error`. Renders red in the
    * inspect panel ahead of the output to mirror what an SRE actually
    * scans for. Undefined when the step succeeded, was skipped, or

@@ -67,6 +67,10 @@ export function useExecutionSocket(executionId: string | null) {
               startedAt?: string;
               completedAt?: string;
               duration?: number | null;
+              /** Per-step input captured by the engine — what arrived
+               *  from the upstream step (or run trigger). Powers the
+               *  Replay-desde-aquí preview panel in the inspect bubble. */
+              input?: unknown;
               /** Per-step output captured by the engine. Shape varies
                *  by step type. The inspect panel renders this as JSON. */
               output?: unknown;
@@ -106,10 +110,11 @@ export function useExecutionSocket(executionId: string | null) {
                   (startedAt != null && step.completedAt
                     ? Math.max(0, Date.parse(step.completedAt) - startedAt)
                     : null),
-                // Hand the per-step output + error onto the canvas
-                // so the inspect panel in BaseStepNode can render
-                // them without a second fetch. Undefined when absent
-                // — the panel renders only when these are set.
+                // Hand the per-step input + output + error onto the
+                // canvas so the inspect panel in BaseStepNode can render
+                // them without a second fetch. Undefined when absent —
+                // the panel renders only when these are set.
+                input: (step as { input?: unknown }).input,
                 output: (step as { output?: unknown }).output,
                 error: (step as { error?: string | null }).error ?? null,
               });

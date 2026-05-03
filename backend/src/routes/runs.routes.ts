@@ -346,6 +346,12 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       startedAt: log.startedAt,
       completedAt: log.completedAt,
       duration: log.duration,
+      // Surface the per-step input alongside output so the editor's
+      // "Replay from here" affordance can show operators what data the
+      // node received during the prior run before they confirm. The
+      // engine already persists this in NodeLog; we were just hiding
+      // it from the API response.
+      input: log.input,
       output: log.output,
       error: log.error,
       retries: retriesByNodeLogId.get(log.id) ?? 0,

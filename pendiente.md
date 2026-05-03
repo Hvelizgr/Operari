@@ -27,6 +27,7 @@ Stack acumulado de la sesión, en orden cronológico:
 19. **RunDialog empty-state placeholder** (`d81275a`) — `{ "key": "value" }` literal movido a `placeholder` (gris) + parse vacío como `{}`.
 20. **Debug button = post-hoc inspect bubbles** (`de60827`) — Option A del research debug. RfNodeData.output/error backfilleado, BaseStepNode renderea inspect panel cuando expandido. `?debug=1` URL auto-expande todos los nodos.
 21. **Tier C edge data wiring (3/4)** — `runs.routes.ts` cuenta ExecutionError por `nodeLogId` y devuelve `retries` por step; `useExecutionSocket` propaga retries a edges entrantes y Loop `output.count` a edges salientes; `editorStore.setStepStats` patcha `p50DurationMs` (target.p50) en una sola pasada. `crossEnv` queda pending en pendiente — necesita `env` metadata en ConnectedAccount.
+22. **Debug Option B = "Replay desde aquí"** — la infra ya existía (`ExecutionService.replayExecution` línea 709 lee `nodeLogs.input` para el nodeId solicitado), solo faltaba la UX. Backend agrega `input` per-step en la respuesta de GET `/api/runs/:id`. Frontend backfillea `data.input` en RfNodeData. BaseStepNode renderiza panel "input" (encima de output) + botón "replay desde aquí" en el inspect panel cuando hay `?run=` en URL y el step está past-idle. El click POSTea a `/executions/:id/replay { nodeId }` y rebuilda la URL con el nuevo run id (popstate dispatch para que searchParams subscribers re-lean).
 
 ---
 
@@ -110,7 +111,17 @@ Inspirado por chartdb pero NO implementado, en orden de probabilidad de pedido:
 
 **Lift estimado:** 2-3 semanas. Riesgo medio — el socket emit al frontend pasa por la rama editor; un cambio mal hecho rompe el live log streaming.
 
-**Por qué no entró:** half-done es worse-than-nothing. La rama intermedia (mover archivos sin consolidar) confunde más que ayuda.
+**Por qué no entró:** half-done es worse-than-nothing. La rama intermedia (mover archivos sin consolidar) confunde más que ayuda. **Decisión post-research (sesión post-2026-05-02):** el propio ADR 0004 explícitamente difiere a "unblocked once ADR 0003 phase 4 lands" — `StepExecutor` shape va a cambiar cuando phase 4 introduzca event-sourced replay, y migrar ahora significa refactorear dos veces. Los 3 candidatos pure-function (Note, Delay, Condition) se descartan por la misma razón: tests legacy verde no compensa la doble migración. Re-evaluar cuando phase 4 ship.
+
+---
+
+### 🟠 Debug Option C — true breakpoints + step-pause
+
+**Estado:** research hecho. La mecánica está al alcance porque el engine es 100% serial (Kahn topological sort + single `while (nodesToExecute.length > 0)` loop) y el approval/Suspend halt mechanism (`SuspendNodeExecutor` retorna `isSuspended: true` → `runWorkflow` chequea y persiste `resumeState`) ya es un PAUSED→RUNNING clean state machine.
+
+**Scope subset (6-8h):** schema migration `Runbook.breakpoints: String[]` + check `runbook.breakpoints?.includes(currentNode.id)` antes de `nodeExecutor.execute()` (~10 LOC backend), reusar `resumeExecution` para "continue" (cero cambios), UI toggle por nodo + step-over button en EditorRunConsole (~40 LOC frontend).
+
+**Por qué no entró esta sesión:** prioridad relativa. Debug Option B (replay-desde-aquí) ya cubre ~80% del valor diagnóstico para SREs (re-correr una falla con los mismos inputs). True breakpoints son más útiles cuando estás *desarrollando* el runbook, no debugando uno en producción. Re-evaluar después de feedback de uso real de Option B.
 
 ---
 
@@ -216,6 +227,7 @@ Si un usuario pide algo de esto, agregalo arriba con un estimado.
 - **30+ archivos pre-existentes de la rama** — trabajo del usuario previo al inicio de mi sesión, sigue pendiente de split en commits temáticos
 - **README desactualizado** — dice "9 step types" / "6 templates curados", actualmente son ~16 tipos en palette y 17 templates seeded
 - **Tier C edge data wiring (parcial)** — `data.retries` (backfill desde `ExecutionError` por `nodeLogId`), `data.items` (Loop `output.count`), `data.p50DurationMs` (mirror del target step en `setStepStats`) wired en sesión post-2026-05-02. **Falta `data.crossEnv`** — necesita `env` metadata en `ConnectedAccount` (no existe en schema hoy) + derivación static-analysis al guardar runbook. Frontend ya renderiza el chip cuando los 4 vienen seteados.
+- **Debug Option C** — research completo, 6-8h de implementación gracias al engine serial + approval-halt mechanism existente. Pendiente decidir si vale ahora o esperar feedback de uso de Option B.
 
 ## Tests baseline al cierre de la sesión 2026-04-30
 
