@@ -58,6 +58,20 @@ export interface UnlinkAccountInput {
   reason?: string;
 }
 
+export interface UpdateMetadataInput {
+  accountId: string;
+  tenantId: string;
+  /**
+   * Partial metadata patch — merged on top of the existing JSON blob.
+   * Setting a key to `null` removes it; supplying a key with a value
+   * overrides the prior value. Other keys are preserved untouched so
+   * provider-supplied fields like `providerId` survive an env tag edit.
+   */
+  patch: Record<string, unknown>;
+  actorId: string;
+  actorType?: ActorType;
+}
+
 export interface ReadTokenInput {
   accountId: string;
   tenantId: string;
@@ -165,6 +179,52 @@ export class ConnectedAccountService {
   }
 
   /**
+   * Merge a metadata patch into the existing JSON blob and emit
+   * `connectedaccount.metadata_updated` to the audit chain. Used by
+   * the settings panel to tag accounts with `env: 'prod' | 'staging' | …`
+   * which the canvas later reads to chevron cross-env edges.
+   *
+   * Keys with `null` values are removed; keys with non-null values
+   * overwrite the prior entry. Untouched keys (e.g. provider-supplied
+   * `providerId`) are preserved.
+   */
+  async updateMetadata(input: UpdateMetadataInput): Promise<ConnectedAccountSummary> {
+    const existing = await this.loadAndVerify(input.accountId, input.tenantId);
+    const prior = (existing.metadata ?? {}) as Record<string, unknown>;
+    const next: Record<string, unknown> = { ...prior };
+    for (const [key, value] of Object.entries(input.patch)) {
+      if (value === null || value === undefined) {
+        delete next[key];
+      } else {
+        next[key] = value;
+      }
+    }
+
+    const updated = await this.prisma.connectedAccount.update({
+      where: { id: existing.id },
+      data: { metadata: next as Prisma.InputJsonValue },
+    });
+
+    await this.recordSafe('connectedaccount.metadata_updated', {
+      tenantId: input.tenantId,
+      actorId: input.actorId,
+      actorType: input.actorType ?? 'user',
+      resource: `connected-account:${existing.id}`,
+      payload: {
+        accountId: existing.id,
+        provider: existing.provider,
+        // Snapshot only the env tag in the audit payload — it's the
+        // single field operators care about for compliance review and
+        // provider-supplied keys can carry PII (email, providerId).
+        envBefore: typeof prior.env === 'string' ? prior.env : null,
+        envAfter: typeof next.env === 'string' ? next.env : null,
+      },
+    });
+
+    return ConnectedAccountService.toSummary(updated);
+  }
+
+  /**
    * Decrypt and return the access token. Goes through {@link SecretReader}
    * which emits `secret.accessed` per call (success or failure).
    */
@@ -268,7 +328,10 @@ export class ConnectedAccountService {
    * successful operation.
    */
   private async recordSafe(
-    type: 'connectedaccount.linked' | 'connectedaccount.unlinked',
+    type:
+      | 'connectedaccount.linked'
+      | 'connectedaccount.unlinked'
+      | 'connectedaccount.metadata_updated',
     params: {
       tenantId: string;
       actorId: string;

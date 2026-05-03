@@ -16,9 +16,11 @@ import {
   Github,
   Link2Off,
   Loader2,
+  Pencil,
   ShieldAlert,
+  X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { formatDateTime } from '@/lib/datetime';
 
@@ -30,7 +32,13 @@ interface ConnectedAccount {
   displayName: string | null;
   scopes: string[];
   createdAt: string;
+  env?: string | null;
 }
+
+// Same shape the backend enforces — keep client-side validation in
+// sync so we never POST a value the API will reject.
+const ENV_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/i;
+const ENV_SUGGESTIONS = ['prod', 'staging', 'dev', 'test', 'preview'];
 
 const STRINGS = {
   en: {
@@ -50,6 +58,14 @@ const STRINGS = {
     name: 'Name',
     linkedAt: 'Linked',
     actions: 'Actions',
+    env: 'Environment',
+    envHint:
+      'Tag this account with the environment it points at (prod / staging / dev). Edges on the runbook canvas that cross environments get a warning chip — useful for catching prod-after-staging fanouts at author time.',
+    envEdit: 'Set environment',
+    envClear: 'Clear',
+    envSave: 'Save',
+    envCancel: 'Cancel',
+    envInvalid: 'Use a-z, 0-9, dash or underscore (max 32 chars)',
   },
   es: {
     title: 'Cuentas conectadas',
@@ -68,11 +84,155 @@ const STRINGS = {
     name: 'Nombre',
     linkedAt: 'Vinculado',
     actions: 'Acciones',
+    env: 'Entorno',
+    envHint:
+      'Etiquetá esta cuenta con el entorno al que apunta (prod / staging / dev). Las conexiones en el canvas que cruzan entornos muestran un chip de advertencia — útil para detectar fanouts prod-después-de-staging al diseñar el runbook.',
+    envEdit: 'Asignar entorno',
+    envClear: 'Limpiar',
+    envSave: 'Guardar',
+    envCancel: 'Cancelar',
+    envInvalid: 'Usá a-z, 0-9, guión o guión bajo (máx 32 chars)',
   },
 } as const;
 
 interface Props {
   lang: 'en' | 'es';
+}
+
+type Strings = (typeof STRINGS)[keyof typeof STRINGS];
+
+interface EnvCellProps {
+  account: ConnectedAccount;
+  t: Strings;
+  onSave: (id: string, env: string | null) => Promise<void>;
+}
+
+/**
+ * Inline editor for `metadata.env`. Read-mode shows the current tag
+ * (or a "—" affordance to add one); edit-mode swaps in an input
+ * with a datalist of common env names. Enter / blur saves; Escape
+ * cancels. Validates client-side against the same regex the backend
+ * enforces so an invalid value never round-trips.
+ */
+function EnvCell({ account, t, onSave }: EnvCellProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(account.env ?? '');
+  const [saving, setSaving] = useState(false);
+  const [localErr, setLocalErr] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Reset when the underlying value changes (e.g. after refresh).
+  useEffect(() => {
+    if (!editing) setDraft(account.env ?? '');
+  }, [account.env, editing]);
+
+  // Autofocus when entering edit mode so the operator can type
+  // immediately without an extra click.
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  const handleSave = useCallback(async () => {
+    const trimmed = draft.trim();
+    if (trimmed && !ENV_RE.test(trimmed)) {
+      setLocalErr(t.envInvalid);
+      return;
+    }
+    setSaving(true);
+    setLocalErr(null);
+    try {
+      await onSave(account.id, trimmed === '' ? null : trimmed);
+      setEditing(false);
+    } catch (err) {
+      setLocalErr(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }, [account.id, draft, onSave, t.envInvalid]);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setDraft(account.env ?? '');
+          setEditing(true);
+        }}
+        className="group inline-flex items-center gap-1.5 rounded border border-transparent px-1.5 py-0.5 text-[11px] transition-colors hover:border-[var(--panel-border)]"
+        title={t.envEdit}
+      >
+        {account.env ? (
+          <span className="font-mono uppercase text-[var(--text-primary)]">{account.env}</span>
+        ) : (
+          <span className="text-[var(--text-muted)]">—</span>
+        )}
+        <Pencil
+          size={10}
+          className="opacity-0 transition-opacity group-hover:opacity-60"
+          aria-hidden
+        />
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1">
+        <input
+          ref={inputRef}
+          list={`env-suggestions-${account.id}`}
+          value={draft}
+          onChange={e => {
+            setDraft(e.target.value);
+            if (localErr) setLocalErr(null);
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void handleSave();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setEditing(false);
+              setDraft(account.env ?? '');
+              setLocalErr(null);
+            }
+          }}
+          disabled={saving}
+          aria-label={t.env}
+          className="w-24 rounded border border-[var(--panel-border)] bg-[var(--panel-bg)] px-1.5 py-0.5 font-mono text-[11px] uppercase text-[var(--text-primary)] outline-none focus:border-[var(--accent-color)] disabled:opacity-50"
+          placeholder="prod"
+        />
+        <datalist id={`env-suggestions-${account.id}`}>
+          {ENV_SUGGESTIONS.map(s => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+        <button
+          type="button"
+          onClick={() => void handleSave()}
+          disabled={saving}
+          aria-label={t.envSave}
+          className="rounded p-1 text-emerald-300 hover:text-emerald-200 disabled:opacity-50"
+        >
+          {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(false);
+            setDraft(account.env ?? '');
+            setLocalErr(null);
+          }}
+          disabled={saving}
+          aria-label={t.envCancel}
+          className="rounded p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-50"
+        >
+          <X size={11} />
+        </button>
+      </div>
+      {localErr && <span className="text-[10px] text-rose-400">{localErr}</span>}
+    </div>
+  );
 }
 
 export default function ConnectedAccountsPanel({ lang }: Props) {
@@ -150,6 +310,31 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
     }
   }, [t.errorFlash]);
 
+  const handleUpdateEnv = useCallback(
+    async (id: string, env: string | null) => {
+      const res = await fetch(`${API_BASE}/api/connected-accounts/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ env }),
+      });
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const body = (await res.json()) as { error?: string };
+          if (body.error) msg = body.error;
+        } catch {
+          // intentional — fall back to the HTTP status
+        }
+        throw new Error(msg);
+      }
+      // Optimistic-style refresh: re-fetch the list so the cell
+      // reflects exactly what the server stored. Cheap (<50 rows).
+      await refresh();
+    },
+    [refresh]
+  );
+
   const handleDisconnect = useCallback(
     async (id: string) => {
       if (typeof window !== 'undefined' && !window.confirm(t.confirmDisconnect)) return;
@@ -215,6 +400,12 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
         },
       },
       {
+        id: 'env',
+        header: t.env,
+        accessorFn: row => row.env ?? '',
+        cell: info => <EnvCell account={info.row.original} t={t} onSave={handleUpdateEnv} />,
+      },
+      {
         accessorKey: 'createdAt',
         header: t.linkedAt,
         cell: info => {
@@ -255,7 +446,7 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
         enableSorting: false,
       },
     ],
-    [lang, t, unlinkingId, handleDisconnect]
+    [lang, t, unlinkingId, handleDisconnect, handleUpdateEnv]
   );
 
   const [sorting, setSorting] = useState<SortingState>([]);

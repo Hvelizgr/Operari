@@ -53,14 +53,22 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const provider = req.query.provider as string | undefined;
     const filtered = provider ? accounts.filter(a => a.provider === provider) : accounts;
     res.json({
-      data: filtered.map(a => ({
-        id: a.id,
-        provider: a.provider,
-        displayName: a.displayName,
-        scopes: a.scopes,
-        createdAt: a.createdAt,
-        tokenExpiry: a.tokenExpiry,
-      })),
+      data: filtered.map(a => {
+        // Surface only `metadata.env` to the picker. The full metadata
+        // blob can carry provider-supplied PII (email, providerId) we
+        // do not want flowing through the editor's network tab.
+        const meta = (a.metadata ?? {}) as { env?: unknown };
+        const env = typeof meta.env === 'string' && meta.env.trim() ? meta.env.trim() : null;
+        return {
+          id: a.id,
+          provider: a.provider,
+          displayName: a.displayName,
+          scopes: a.scopes,
+          createdAt: a.createdAt,
+          tokenExpiry: a.tokenExpiry,
+          env,
+        };
+      }),
     });
   } catch (err) {
     req.log.error({ err }, 'List connected accounts error');
@@ -243,6 +251,75 @@ router.get('/github/oauth/callback', async (req: AuthRequest, res: Response) => 
   } catch (err) {
     req.log.error({ err }, 'GitHub connected-account OAuth callback failed');
     return res.redirect(`${frontendUrl()}${returnPath}?ca_error=oauth_failed`);
+  }
+});
+
+/**
+ * PATCH /api/connected-accounts/:id
+ *
+ * Edit the metadata blob of a connected account. The single
+ * supported key today is `env` ("prod" / "staging" / "dev" / …) —
+ * it activates the cross-env chevron on edges in the canvas. Body
+ * shape: `{ env: string | null }`. `null` clears the tag.
+ *
+ * Validation is intentionally narrow: env must be a short, slug-y
+ * string so we don't leak HTML or surprising characters into the
+ * canvas chip. The empty string and `null` both clear.
+ */
+const ENV_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/i;
+router.patch('/:id', async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const accountId = String(req.params.id);
+  const body = (req.body ?? {}) as { env?: unknown };
+  const patch: Record<string, unknown> = {};
+
+  if ('env' in body) {
+    const raw = body.env;
+    if (raw === null || (typeof raw === 'string' && raw.trim() === '')) {
+      patch.env = null;
+    } else if (typeof raw === 'string' && ENV_RE.test(raw.trim())) {
+      patch.env = raw.trim();
+    } else {
+      return res
+        .status(400)
+        .json({ error: 'env must be a slug (a-z, 0-9, dash, underscore; ≤32 chars) or null' });
+    }
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return res.status(400).json({ error: 'No supported fields supplied' });
+  }
+
+  try {
+    const summary = await getService().updateMetadata({
+      accountId,
+      tenantId: req.user.tenantId,
+      patch,
+      actorId: req.user.id,
+      actorType: 'user',
+    });
+    const meta = (summary.metadata ?? {}) as { env?: unknown };
+    const env = typeof meta.env === 'string' && meta.env.trim() ? meta.env.trim() : null;
+    return res.json({
+      data: {
+        id: summary.id,
+        provider: summary.provider,
+        displayName: summary.displayName,
+        scopes: summary.scopes,
+        createdAt: summary.createdAt,
+        tokenExpiry: summary.tokenExpiry,
+        env,
+      },
+    });
+  } catch (err) {
+    if (err instanceof ConnectedAccountError) {
+      const status = err.code === 'NOT_FOUND' || err.code === 'CROSS_TENANT' ? 404 : 400;
+      return res.status(status).json({ error: err.message, code: err.code.toLowerCase() });
+    }
+    req.log.error({ err }, 'Update connected account metadata failed');
+    return res.status(500).json({ error: 'Failed to update connected account' });
   }
 });
 

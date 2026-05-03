@@ -31,6 +31,7 @@ jest.mock('../../audit/audit.service', () => ({
 const linkMock = jest.fn();
 const unlinkMock = jest.fn();
 const listMock = jest.fn().mockResolvedValue([]);
+const updateMetadataMock = jest.fn();
 jest.mock('../../security/connected-account.service', () => {
   const actual = jest.requireActual('../../security/connected-account.service');
   return {
@@ -39,6 +40,7 @@ jest.mock('../../security/connected-account.service', () => {
       list: listMock,
       link: linkMock,
       unlink: unlinkMock,
+      updateMetadata: updateMetadataMock,
     })),
   };
 });
@@ -202,6 +204,95 @@ describe('GET /api/connected-accounts/github/oauth/callback', () => {
     expect(res.status).toBe(302);
     expect(res.headers.location).toContain('ca_error=oauth_failed');
     expect(linkMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('PATCH /api/connected-accounts/:id', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function summary(env: string | null) {
+    return {
+      id: 'ca-1',
+      provider: 'github',
+      displayName: 'alice',
+      scopes: ['repo'],
+      createdAt: new Date('2026-04-29T00:00:00Z'),
+      tokenExpiry: null,
+      tenantId: 't1',
+      userId: 'u1',
+      updatedAt: new Date('2026-05-01T00:00:00Z'),
+      metadata: env === null ? { providerId: '12345' } : { providerId: '12345', env },
+    };
+  }
+
+  it('writes metadata.env when env is a valid slug', async () => {
+    updateMetadataMock.mockResolvedValueOnce(summary('prod'));
+    const res = await request(buildApp({ authed: true }))
+      .patch('/api/connected-accounts/ca-1')
+      .send({ env: 'prod' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.env).toBe('prod');
+    expect(updateMetadataMock).toHaveBeenCalledWith({
+      accountId: 'ca-1',
+      tenantId: 't1',
+      patch: { env: 'prod' },
+      actorId: 'u1',
+      actorType: 'user',
+    });
+  });
+
+  it('clears metadata.env when env is null', async () => {
+    updateMetadataMock.mockResolvedValueOnce(summary(null));
+    const res = await request(buildApp({ authed: true }))
+      .patch('/api/connected-accounts/ca-1')
+      .send({ env: null });
+    expect(res.status).toBe(200);
+    expect(res.body.data.env).toBeNull();
+    expect(updateMetadataMock.mock.calls[0][0].patch).toEqual({ env: null });
+  });
+
+  it('treats an empty string as a clear', async () => {
+    updateMetadataMock.mockResolvedValueOnce(summary(null));
+    const res = await request(buildApp({ authed: true }))
+      .patch('/api/connected-accounts/ca-1')
+      .send({ env: '   ' });
+    expect(res.status).toBe(200);
+    expect(updateMetadataMock.mock.calls[0][0].patch).toEqual({ env: null });
+  });
+
+  it('rejects env values with disallowed characters', async () => {
+    const res = await request(buildApp({ authed: true }))
+      .patch('/api/connected-accounts/ca-1')
+      .send({ env: 'has spaces' });
+    expect(res.status).toBe(400);
+    expect(updateMetadataMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty body with no supported fields', async () => {
+    const res = await request(buildApp({ authed: true }))
+      .patch('/api/connected-accounts/ca-1')
+      .send({});
+    expect(res.status).toBe(400);
+    expect(updateMetadataMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the service raises NOT_FOUND or CROSS_TENANT', async () => {
+    updateMetadataMock.mockRejectedValueOnce(new ConnectedAccountError('nope', 'NOT_FOUND'));
+    const res = await request(buildApp({ authed: true }))
+      .patch('/api/connected-accounts/missing')
+      .send({ env: 'prod' });
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('not_found');
+  });
+
+  it('returns 401 when no user is authenticated', async () => {
+    const res = await request(buildApp({ authed: false }))
+      .patch('/api/connected-accounts/ca-1')
+      .send({ env: 'prod' });
+    expect(res.status).toBe(401);
+    expect(updateMetadataMock).not.toHaveBeenCalled();
   });
 });
 

@@ -31,6 +31,7 @@ export type AuditEventType =
   | 'role.revoked'
   | 'connectedaccount.linked'
   | 'connectedaccount.unlinked'
+  | 'connectedaccount.metadata_updated'
   | 'apikey.created'
   | 'apikey.used'
   | 'apikey.revoked'

@@ -166,6 +166,102 @@ describe('ConnectedAccountsPanel', () => {
     expect(deleteCall).toBeUndefined();
   });
 
+  it('renders the current env tag and PATCHes the new value when the operator edits it', async () => {
+    let envOnServer: string | null = 'staging';
+    const fetchMock = jest.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body)) as { env: string | null };
+        envOnServer = body.env;
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              id: 'ca-1',
+              provider: 'github',
+              displayName: 'alice',
+              scopes: ['repo'],
+              createdAt: '2026-04-29T00:00:00Z',
+              env: envOnServer,
+            },
+          }),
+        } as unknown as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: 'ca-1',
+              provider: 'github',
+              displayName: 'alice',
+              scopes: ['repo'],
+              createdAt: '2026-04-29T00:00:00Z',
+              env: envOnServer,
+            },
+          ],
+        }),
+      } as unknown as Response;
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    installLocation();
+
+    render(<ConnectedAccountsPanel lang="en" />);
+
+    // Initial render shows the staging tag inside the env button.
+    const stagingChip = await screen.findByTitle(/set environment/i);
+    expect(stagingChip).toHaveTextContent('staging');
+
+    fireEvent.click(stagingChip);
+    const input = await screen.findByLabelText(/environment/i);
+    fireEvent.change(input, { target: { value: 'prod' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      const patchCall = fetchMock.mock.calls.find(
+        call => (call[1] as RequestInit | undefined)?.method === 'PATCH'
+      );
+      expect(patchCall).toBeTruthy();
+      expect(JSON.parse(String((patchCall![1] as RequestInit).body))).toEqual({ env: 'prod' });
+    });
+
+    // Refresh shows the new tag.
+    await waitFor(() => {
+      const updated = screen.getByTitle(/set environment/i);
+      expect(updated).toHaveTextContent('prod');
+    });
+  });
+
+  it('rejects an env value with disallowed characters before sending the PATCH', async () => {
+    const fetchMock = jest.fn(async (_url: string, _init?: RequestInit) => ({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            id: 'ca-1',
+            provider: 'github',
+            displayName: 'alice',
+            scopes: ['repo'],
+            createdAt: '2026-04-29T00:00:00Z',
+            env: null,
+          },
+        ],
+      }),
+    }));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    installLocation();
+
+    render(<ConnectedAccountsPanel lang="en" />);
+    const editBtn = await screen.findByTitle(/set environment/i);
+    fireEvent.click(editBtn);
+    const input = await screen.findByLabelText(/environment/i);
+    fireEvent.change(input, { target: { value: 'has spaces' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(await screen.findByText(/a-z, 0-9/i)).toBeInTheDocument();
+    const patchCall = fetchMock.mock.calls.find(call => call[1]?.method === 'PATCH');
+    expect(patchCall).toBeUndefined();
+  });
+
   it('strips ?ca_linked from the URL after showing the success flash', async () => {
     globalThis.fetch = jest.fn(async () => ({
       ok: true,

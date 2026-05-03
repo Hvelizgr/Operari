@@ -45,6 +45,12 @@ function buildPrisma(seed: ConnectedAccount[] = []) {
         const [removed] = rows.splice(idx, 1);
         return removed;
       }),
+      update: jest.fn(async (args: { where: { id: string }; data: Partial<ConnectedAccount> }) => {
+        const row = rows.find(r => r.id === args.where.id);
+        if (!row) throw new Error('not found');
+        Object.assign(row, args.data, { updatedAt: new Date() });
+        return row;
+      }),
     },
   } as unknown as PrismaClient;
 
@@ -248,6 +254,84 @@ describe('ConnectedAccountService', () => {
         reason: 'oauth-refresh',
       });
       expect(refresh).toBe('ghr');
+    });
+  });
+
+  describe('updateMetadata', () => {
+    async function seedAccount(extraMetadata: Record<string, unknown> = {}) {
+      const built = buildService();
+      await built.service.link({
+        tenantId: TENANT,
+        userId: USER,
+        provider: 'github',
+        accessToken: 'ghp_x',
+        scopes: ['repo'],
+        metadata: { providerId: '12345', ...extraMetadata },
+        actorId: USER,
+      });
+      built.audit.record.mockClear();
+      return built;
+    }
+
+    it('merges the patch on top of existing metadata and preserves untouched keys', async () => {
+      const { service, rows } = await seedAccount();
+      const id = rows[0].id;
+      await service.updateMetadata({
+        accountId: id,
+        tenantId: TENANT,
+        patch: { env: 'prod' },
+        actorId: USER,
+      });
+      const meta = rows[0].metadata as Record<string, unknown>;
+      expect(meta.env).toBe('prod');
+      // providerId from link() must survive the patch — the panel
+      // never sends it, so a naive overwrite would wipe it.
+      expect(meta.providerId).toBe('12345');
+    });
+
+    it('removes a key when its patched value is null', async () => {
+      const { service, rows } = await seedAccount({ env: 'staging' });
+      const id = rows[0].id;
+      await service.updateMetadata({
+        accountId: id,
+        tenantId: TENANT,
+        patch: { env: null },
+        actorId: USER,
+      });
+      const meta = rows[0].metadata as Record<string, unknown>;
+      expect('env' in meta).toBe(false);
+      expect(meta.providerId).toBe('12345');
+    });
+
+    it('emits connectedaccount.metadata_updated with envBefore/envAfter snapshot', async () => {
+      const { service, rows, audit } = await seedAccount({ env: 'staging' });
+      const id = rows[0].id;
+      await service.updateMetadata({
+        accountId: id,
+        tenantId: TENANT,
+        patch: { env: 'prod' },
+        actorId: USER,
+      });
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      const call = audit.record.mock.calls[0][0];
+      expect(call.type).toBe('connectedaccount.metadata_updated');
+      expect(call.actorId).toBe(USER);
+      const payload = call.payload as Record<string, unknown>;
+      expect(payload.envBefore).toBe('staging');
+      expect(payload.envAfter).toBe('prod');
+    });
+
+    it('throws CROSS_TENANT when the account belongs to another tenant', async () => {
+      const { service, rows } = await seedAccount();
+      const id = rows[0].id;
+      await expect(
+        service.updateMetadata({
+          accountId: id,
+          tenantId: 'tenant-other',
+          patch: { env: 'prod' },
+          actorId: USER,
+        })
+      ).rejects.toBeInstanceOf(ConnectedAccountError);
     });
   });
 
