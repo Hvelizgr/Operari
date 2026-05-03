@@ -341,6 +341,63 @@ export const NODE_TYPES: NodeType[] = [
       { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 30000 },
     ],
   },
+  // Sub-runbook composition. The backend dispatches `runbook` as
+  // `RunbookExecutor` which loads another runbook, runs it (sync /
+  // async, with optional inputs and timeout) and surfaces its output
+  // as if it were a single step. Was previously missing from the
+  // frontend palette — operators couldn't drag it onto the canvas
+  // even though the executor + visual metadata were ready.
+  {
+    type: 'runbook',
+    icon: <Route size={18} />,
+    label: { en: 'Sub-runbook', es: 'Sub-runbook' },
+    color: 'bg-fuchsia-600',
+    category: 'devops',
+    description: {
+      en: 'Invoke another runbook as a child step. Pass inputs, wait for completion, surface its output.',
+      es: 'Invocar otro runbook como sub-paso. Pasar inputs, esperar al final, exponer su output.',
+    },
+    inputs: ['main'],
+    outputs: ['main'],
+    properties: [
+      {
+        name: 'runbookId',
+        displayName: 'Runbook to invoke',
+        type: 'string',
+        default: '',
+        description: 'ID of the runbook to call. Use the slug or UUID from /runbooks.',
+      },
+      {
+        name: 'inputs',
+        displayName: 'Inputs (JSON)',
+        type: 'string',
+        default: '{}',
+        typeOptions: { rows: 3 },
+        description:
+          "JSON object passed as the child runbook's input vars. Each value is template-resolved against the parent context, so {{vars.x}} works.",
+      },
+      {
+        name: 'waitFor',
+        displayName: 'Wait mode',
+        type: 'options',
+        default: 'sync',
+        options: [
+          { name: 'Wait for completion (sync)', value: 'sync' },
+          { name: "Fire and don't wait (async)", value: 'async' },
+        ],
+        description:
+          'Sync blocks the parent run until the child finishes; async dispatches it and continues.',
+      },
+      {
+        name: 'timeoutSeconds',
+        displayName: 'Timeout (seconds)',
+        type: 'number',
+        default: 300,
+        description:
+          'How long to wait in sync mode before failing the parent step. Ignored in async.',
+      },
+    ],
+  },
   {
     type: 'approval',
     icon: <UserCheck size={18} />,
