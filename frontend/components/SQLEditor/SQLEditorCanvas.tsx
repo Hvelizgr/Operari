@@ -8,6 +8,7 @@ import {
   Columns3,
   Database,
   Filter,
+  HelpCircle,
   Network,
   PanelLeft,
   Play,
@@ -23,6 +24,7 @@ import { sqlMetadataSchema, type SqlMetadata } from '@/lib/sql/metadata';
 import { useSqlPrefs } from '@/lib/userPrefs';
 
 import { QUERY_TEMPLATE_CATEGORIES, QUERY_TEMPLATES } from './queryTemplates';
+import { SQLHelpDrawer } from './SQLHelpDrawer';
 
 import SQLCodeEditor from './SQLCodeEditor';
 import SQLResultsTable, { type SQLError, type SQLResult } from './SQLResultsTable';
@@ -119,6 +121,10 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   const [isMetadataLoading, setIsMetadataLoading] = useState(false);
   const [hiddenSchemas, setHiddenSchemas] = useState<Set<string>>(() => new Set());
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  // Cheatsheet drawer — slide-in panel with SELECT/INSERT/UPDATE/DELETE
+  // syntax + constraints reminder. Toggled from the toolbar (?) and
+  // dismissed via Esc / backdrop click.
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const selectedCredential = useMemo(
     () => credentials.find(c => c.id === credentialId) ?? null,
@@ -348,6 +354,27 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   // Insert table/column name into editor
   const insertText = useCallback((text: string) => {
     setQuery(prev => prev + text);
+  }, []);
+
+  // `?` toggles the SQL help drawer (modeled on GitHub's keyboard
+  // shortcut picker). We require Shift+/ produced by a non-input
+  // target so the operator can still type a literal `?` inside the
+  // editor or any text input. Esc handling lives inside the drawer
+  // itself so this listener stays single-purpose.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '?' || e.altKey || e.ctrlKey || e.metaKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        const editable = target.isContentEditable;
+        if (editable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      }
+      e.preventDefault();
+      setHelpOpen(open => !open);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   const toggleTable = (tableName: string) => {
@@ -580,6 +607,27 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
             </div>
           ) : null}
 
+          {/* Help drawer toggle — slide-in cheatsheet. Visible on both
+              editor + diagram views since the constraints + JOIN
+              sections help diagram readers too. Keyboard: `?`. */}
+          <button
+            type="button"
+            onClick={() => setHelpOpen(o => !o)}
+            className={`flex items-center gap-1 rounded border px-2 py-1 text-[11px] transition-colors ${
+              helpOpen
+                ? 'border-emerald-700 bg-emerald-900/30 text-emerald-200'
+                : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+            }`}
+            title={lang === 'es' ? 'Ayuda SQL  (?)' : 'SQL help  (?)'}
+            aria-label={lang === 'es' ? 'Abrir ayuda SQL' : 'Open SQL help'}
+          >
+            <HelpCircle size={11} />
+            <span className="hidden sm:inline">{lang === 'es' ? 'Ayuda' : 'Help'}</span>
+            <kbd className="hidden rounded bg-zinc-800 px-1 font-mono text-[9px] text-zinc-400 sm:inline">
+              ?
+            </kbd>
+          </button>
+
           {/* Run button (editor view only — meaningless on diagram tab). */}
           {view === 'editor' ? (
             <button
@@ -684,6 +732,18 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
           </div>
         )}
       </div>
+      <SQLHelpDrawer
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        lang={lang}
+        onInsertSnippet={sql => {
+          // Bridge to the editor's existing insert path. Newlines
+          // sandwich the snippet so it lands as a separate stanza
+          // rather than mashing into whatever was on the cursor line.
+          insertText(`\n${sql}\n`);
+          setHelpOpen(false);
+        }}
+      />
     </div>
   );
 }
