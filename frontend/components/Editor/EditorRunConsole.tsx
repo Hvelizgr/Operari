@@ -188,9 +188,11 @@ export default function EditorRunConsole({ lang }: { lang: 'en' | 'es' }) {
           // Pacing must match the canvas playback in
           // useExecutionSocket — both share the constant so the
           // terminal line and the node animation land at the same
-          // visual instant.
+          // visual instant. Bumped GAP from 80 → 250 alongside
+          // useExecutionSocket so the canvas success/fail bump has
+          // time to finish before the next running line lands.
           const STEP_DURATION_MS = 600;
-          const STEP_GAP_MS = 80;
+          const STEP_GAP_MS = 250;
           const PER_STEP = STEP_DURATION_MS + STEP_GAP_MS;
 
           if (!shouldReplay) {

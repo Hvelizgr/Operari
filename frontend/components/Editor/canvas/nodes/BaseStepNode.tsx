@@ -100,16 +100,34 @@ const longFormat = (ms: number): string => {
 // terminal state, so framer-motion treats them as a single mount
 // rather than a loop. The base mount animation animates `opacity` +
 // `scale`; the celebrations only override the keys they care about.
+//
+// Amplitude tuning: previous values (4% scale bump, 3px shake) were
+// too subtle to read inside the dry-run replay where the next step
+// kicks off ~250 ms after the bump fires. Bumped scale to 8%, shake
+// to 8px, and made the success-glow ring brighter + larger so the
+// celebration registers in peripheral vision when an SRE is scanning
+// a 10-step graph. `prefers-reduced-motion` users still get the
+// status colour change without the geometry changes via the
+// VisualizationContext `reducedMotion` flag.
 const SUCCESS_BUMP = {
   opacity: 1,
-  scale: [1, 1.04, 1],
+  scale: [1, 1.08, 1],
   boxShadow: [
     '0 0 0 0 rgba(62,207,142,0)',
-    '0 0 0 8px rgba(62,207,142,0.35)',
+    '0 0 0 14px rgba(62,207,142,0.55)',
     '0 0 0 0 rgba(62,207,142,0)',
   ],
 };
-const FAIL_SHAKE = { opacity: 1, scale: 1, x: [0, -3, 3, -2, 2, 0] };
+const FAIL_SHAKE = {
+  opacity: 1,
+  scale: [1, 1.05, 1],
+  x: [0, -8, 8, -6, 6, -3, 3, 0],
+  boxShadow: [
+    '0 0 0 0 rgba(239,68,68,0)',
+    '0 0 0 12px rgba(239,68,68,0.5)',
+    '0 0 0 0 rgba(239,68,68,0)',
+  ],
+};
 const REST = { opacity: 1, scale: 1 };
 
 /**

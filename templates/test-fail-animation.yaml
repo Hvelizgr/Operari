@@ -1,0 +1,48 @@
+# Operari Template: Intentional failure — for testing the fail animation
+#
+# The middle step exits with code 1 (`exit 1`) and `failOnNonZeroExit:
+# true`, so the runbook engine marks it FAILED and the canvas plays
+# the FAIL_SHAKE animation: horizontal shake + red ring burst + 5%
+# scale bump. Subsequent steps stay idle (skipped) so the trace-dim
+# overlay highlights "this is where it broke".
+#
+# Use this when validating the editor's run-completion animations:
+#
+#   1. Drag this template onto the canvas.
+#   2. Click Run (NOT Simulación — dry-run synthesizes a success and
+#      never exercises the FAIL_SHAKE path. Real runs hit the actual
+#      shell exit code).
+#   3. Watch the second step ("Boom") — it should shake, flash red,
+#      and the run console should turn its line red with the exit
+#      code in the message.
+#   4. The third step ("Never reached") should stay idle / skipped.
+#
+# Variables expected: none. Self-contained, fails on every run.
+version: 1
+name: Test fail animation
+slug: test-fail-animation
+description: Intentional shell failure to demo the FAIL_SHAKE animation. Second step always exits non-zero.
+category: example
+steps:
+  - id: ok
+    type: shell
+    name: Pre-flight check (succeeds)
+    config:
+      command: echo "Pre-flight OK"
+    next: boom
+
+  - id: boom
+    type: shell
+    name: Boom — exit 1 on purpose
+    config:
+      command: |
+        echo "About to fail intentionally"
+        exit 1
+      failOnNonZeroExit: true
+    next: never_reached
+
+  - id: never_reached
+    type: shell
+    name: Never reached
+    config:
+      command: echo "Should not run"

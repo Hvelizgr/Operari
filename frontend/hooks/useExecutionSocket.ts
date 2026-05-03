@@ -119,12 +119,18 @@ export function useExecutionSocket(executionId: string | null) {
           // even though the engine is long done.
           //
           // Step timing constants — generous enough that a 5-step
-          // graph plays out over ~3 s, fast enough that a 20-step
-          // graph isn't a 12 s wait. Tuned by feel; can be exposed
+          // graph plays out over ~4 s, fast enough that a 20-step
+          // graph isn't a 17 s wait. Tuned by feel; can be exposed
           // as a Visualization preference later if operators want a
           // slower demo cadence.
+          //
+          // STEP_GAP_MS bumped from 80 → 250 so the success / fail
+          // bump on step N has time to finish (~600 ms duration)
+          // before step N+1's running animation steals attention.
+          // The previous gap left the celebration overlapping the
+          // next running state which masked the bump entirely.
           const STEP_DURATION_MS = 600;
-          const STEP_GAP_MS = 80;
+          const STEP_GAP_MS = 250;
           const PER_STEP = STEP_DURATION_MS + STEP_GAP_MS;
 
           // Kick the canvas into trace-dim mode so untouched steps
