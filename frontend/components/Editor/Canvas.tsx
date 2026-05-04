@@ -51,6 +51,7 @@ import { detectActiveStep, EditorHelpDrawer } from './EditorHelpDrawer';
 import Inspector from './Inspector';
 import Palette from './Palette';
 import PaneNodeMenu from './PaneNodeMenu';
+import PendingStepBanner from './PendingStepBanner';
 import SearchPalette from './SearchPalette';
 import SelectionStatusPill from './SelectionStatusPill';
 import Toolbar from './Toolbar';
@@ -587,6 +588,12 @@ function CanvasInner({ lang }: { lang: 'en' | 'es' }) {
         {!embedMode ? <Palette lang={lang} /> : null}
         {!embedMode ? <UndoRedoPanel lang={lang} /> : null}
         {!embedMode ? <SelectionStatusPill lang={lang} /> : null}
+        {/* Banner picks up pending steps stashed by the SQL editor
+            and the API tester via localStorage. Hidden by default;
+            renders only when something is waiting. Skipped in
+            embedMode (preview iframe), where promotion to a step
+            doesn't make sense. */}
+        {!embedMode ? <PendingStepBanner lang={lang} /> : null}
         {!embedMode ? (
           <Toolbar
             lang={lang}

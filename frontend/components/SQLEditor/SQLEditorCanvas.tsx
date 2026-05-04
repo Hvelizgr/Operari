@@ -26,6 +26,7 @@ import { chipButton } from '@/components/ui/buttonVariants';
 import { sqlMetadataSchema, type SqlMetadata } from '@/lib/sql/metadata';
 import { useSqlPrefs } from '@/lib/userPrefs';
 
+import ConvertToStepButton from './ConvertToStepButton';
 import { QUERY_TEMPLATE_CATEGORIES, QUERY_TEMPLATES } from './queryTemplates';
 import { detectActiveVerb, SQLHelpDrawer } from './SQLHelpDrawer';
 
@@ -611,6 +612,15 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               ?
             </kbd>
           </button>
+
+          {/* "Save as runbook step" — handoff to the editor.
+              Editor-only because the diagram tab has no live query
+              to capture. Only enabled when the operator has a real
+              query against a real connection — empty payload would
+              just trip on form validation in the editor. */}
+          {view === 'editor' ? (
+            <ConvertToStepButton query={query} credentialId={credentialId} lang={lang} />
+          ) : null}
 
           {/* Run button (editor view only — meaningless on diagram tab). */}
           {view === 'editor' ? (
