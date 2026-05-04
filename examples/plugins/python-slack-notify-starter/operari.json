@@ -1,0 +1,16 @@
+{
+  "type": "example.py-slack-notify",
+  "language": "python",
+  "entry": "src/plugin/slack_notify.py",
+  "label": {
+    "en": "Slack notify (Python)",
+    "es": "Slack notify (Python)"
+  },
+  "description": {
+    "en": "Production-shaped Python plugin starter. Pydantic schema, requests with timeout, structured success/failure.",
+    "es": "Starter de plugin Python production-shaped. Pydantic schema, requests con timeout, success/failure estructurado."
+  },
+  "icon": "Bell",
+  "color": "bg-emerald-500",
+  "category": "notify"
+}
