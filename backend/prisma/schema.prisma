@@ -232,6 +232,7 @@ model Tenant {
   billingEvents     BillingEvent[]
   nodeTypes         NodeType[]
   alertChannels     TenantAlertChannel[]
+  waitpoints        Waitpoint[]
 
   @@index([slug])
 }
@@ -474,6 +475,7 @@ model Execution {
   runbookVersion  RunbookVersion?  @relation(fields: [runbookVersionId], references: [id], onDelete: SetNull)
   nodeLogs        NodeLog[]
   executionErrors ExecutionError[]
+  waitpoints      Waitpoint[]
 
   @@index([runbookId])
   @@index([userId])
@@ -1302,4 +1304,50 @@ model KeyRotationJob {
   createdBy User? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
+}
+
+/// Waitpoint token (trigger.dev parity).
+///
+/// Created by a step inside a run to PAUSE the run until something
+/// external completes the token. Decouples "I need to pause" from
+/// the resume protocol — the same token can be completed by a
+/// Slack callback, a webhook, an SDK call, or another runbook,
+/// all via `POST /api/waitpoints/:id/complete`.
+///
+/// `executionId` is nullable because a token can be created
+/// without immediately attaching it to a paused run (advanced
+/// pattern: pre-allocate the URL, hand it to a vendor, then create
+/// a step that blocks on the same id).
+enum WaitpointStatus {
+  PENDING
+  COMPLETED
+  TIMED_OUT
+  CANCELLED
+}
+
+model Waitpoint {
+  id              String          @id
+  tenantId        String
+  /// The execution that's blocked on this token. Null when the
+  /// token was minted without an active blocker (rare — used by
+  /// "preflight" patterns where the URL is handed to a vendor
+  /// before the step that waits on it runs).
+  executionId     String?
+  status          WaitpointStatus @default(PENDING)
+  expiresAt       DateTime?
+  tags            String[]        @default([])
+  completedValue  Json?
+  completedBy     String?
+  completedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  execution Execution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
+
+  // The partial expiresAt index (PENDING tokens with a TTL) lives
+  // in the migration SQL — Prisma's @@index lacks a `where` clause.
+  @@index([expiresAt])
+  @@index([tags], type: Gin, map: "Waitpoint_tags_idx")
+  @@index([tenantId, status], map: "Waitpoint_tenant_status_idx")
 }

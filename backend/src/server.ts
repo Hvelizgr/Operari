@@ -63,6 +63,7 @@ import schedulesRoutes from './routes/schedules.routes';
 import sqlRoutes from './routes/sql.routes';
 import templatesRoutes from './routes/templates.routes';
 import tenantsRoutes from './routes/tenants.routes';
+import waitpointsRoutes from './routes/waitpoints.routes';
 import v1ApprovalRoutes from './routes/v1/approvals.routes';
 import v1AuditRoutes from './routes/v1/audit.routes';
 import v1KeyRoutes from './routes/v1/keys.routes';
@@ -170,6 +171,7 @@ app.use('/api/approvals', standardRateLimiter, approvalRoutes);
 // does not swallow the literal /ai-filter sub-route as a run id.
 app.use('/api/runs/ai-filter', standardRateLimiter, runsAiFilterRoutes);
 app.use('/api/runs', standardRateLimiter, runRoutes);
+app.use('/api/waitpoints', standardRateLimiter, waitpointsRoutes);
 app.use('/api/connected-accounts', standardRateLimiter, connectedAccountRoutes);
 app.use('/api/runbook-assist', standardRateLimiter, runbookAssistRoutes);
 app.use('/api/webhooks', standardRateLimiter, webhooksAdminRoutes);
