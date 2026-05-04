@@ -3,6 +3,7 @@ import { Response, Router } from 'express';
 import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
 import { sseConcurrencyGuard, sseStreamRateLimiter } from '../middleware/ratelimit.middleware';
 import { getEventStream } from '../observability/event-stream.service';
+import { getRunner } from '../runbook/runners';
 import { prisma } from '../server';
 
 const router = Router();
@@ -141,6 +142,89 @@ async function computeEtas(tenantId: string, workflowIds: string[]): Promise<Map
  * doesn't route "/abc/events" into the detail handler as id="abc" and
  * then hit an unknown path.
  */
+/**
+ * POST /api/runs/bulk/cancel  body: { ids: string[] }
+ *
+ * Cancel up to 100 runs in one shot (trigger.dev parity for the
+ * runs list bulk action). Each id is verified against the caller
+ * tenant before the update; cross-tenant or non-existent ids
+ * surface in `skipped` with a reason instead of 404'ing the
+ * whole call (so a partial overlap with a stale clipboard does
+ * not fail the operation).
+ *
+ * Only RUNNING and PAUSED rows are eligible. Already-terminated
+ * rows return as `skipped: already <status>`. The runner-side
+ * cancel signal is best-effort and per-id; the DB rows are
+ * already CANCELLED before any runner.cancel() fires so an
+ * operator's intent is recorded regardless of runner behaviour.
+ */
+const BULK_CANCEL_LIMIT = 100;
+
+router.post('/bulk/cancel', async (req: AuthRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+  const tenantId = req.user.tenantId;
+  const ids = (req.body as { ids?: unknown } | undefined)?.ids;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res
+      .status(400)
+      .json({ error: 'ids must be a non-empty array of run ids', code: 'invalid_ids' });
+  }
+  if (ids.length > BULK_CANCEL_LIMIT) {
+    return res.status(400).json({
+      error: `Too many ids — max ${BULK_CANCEL_LIMIT} per call`,
+      code: 'too_many_ids',
+    });
+  }
+  const stringIds = ids.filter((x): x is string => typeof x === 'string' && x.length > 0);
+
+  const candidates = await prisma.execution.findMany({
+    where: {
+      id: { in: stringIds },
+      runbook: { tenantId },
+    },
+    select: { id: true, status: true },
+  });
+  const eligible = candidates.filter(c => c.status === 'RUNNING' || c.status === 'PAUSED');
+  const skipped: Array<{ id: string; reason: string }> = candidates
+    .filter(c => c.status !== 'RUNNING' && c.status !== 'PAUSED')
+    .map(c => ({ id: c.id, reason: `already ${c.status.toLowerCase()}` }));
+  const found = new Set(candidates.map(c => c.id));
+  for (const id of stringIds) {
+    if (!found.has(id)) skipped.push({ id, reason: 'not_found' });
+  }
+
+  if (eligible.length === 0) {
+    return res.json({ data: { cancelled: [], skipped } });
+  }
+
+  await prisma.execution.updateMany({
+    where: { id: { in: eligible.map(c => c.id) } },
+    data: { status: 'CANCELLED', completedAt: new Date() },
+  });
+
+  // Best-effort runner-side stop. Runner.cancel() is keyed by runId
+  // (one signal per run) so we loop. Each call is wrapped so a
+  // single failing runner does not abort the whole bulk op.
+  try {
+    const runner = getRunner();
+    if (typeof runner.cancel === 'function') {
+      for (const c of eligible) {
+        try {
+          await runner.cancel(c.id);
+        } catch {
+          /* per-id swallow — best effort */
+        }
+      }
+    }
+  } catch (err) {
+    req.log.warn({ err }, 'bulk cancel: runner signal best-effort failed');
+  }
+
+  return res.json({
+    data: { cancelled: eligible.map(c => c.id), skipped },
+  });
+});
+
 /**
  * POST /api/runs/:id/tags  body: { tags: string[] }
  *

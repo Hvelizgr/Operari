@@ -131,6 +131,8 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(
     async (mode: 'replace' | 'append') => {
@@ -229,7 +231,61 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
           lang={lang}
           t={t}
           onOpen={id => router.push(`/${lang}/runs/${id}`)}
+          selectedIds={selectedIds}
+          onToggleSelect={(id, next) => {
+            setSelectedIds(prev => {
+              const out = new Set(prev);
+              if (next) out.add(id);
+              else out.delete(id);
+              return out;
+            });
+          }}
         />
+      )}
+
+      {/* Bulk action bar — only visible when one or more rows are
+          checked. Mounted as a fixed footer pill so the operator
+          can scroll the list without losing the selection
+          affordance. trigger.dev parity. */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-violet-500/40 bg-zinc-900/95 px-4 py-2 text-xs text-zinc-200 shadow-2xl backdrop-blur">
+          <span className="font-mono">
+            {selectedIds.size} {selectedIds.size === 1 ? 'run' : 'runs'} {t.selected ?? 'selected'}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="rounded text-zinc-400 hover:text-zinc-100"
+          >
+            {t.clear ?? 'Clear'}
+          </button>
+          <div className="h-4 w-px bg-zinc-700" />
+          <button
+            type="button"
+            disabled={bulkBusy}
+            onClick={async () => {
+              setBulkBusy(true);
+              try {
+                const res = await fetch(`${apiBase}/api/runs/bulk/cancel`, {
+                  method: 'POST',
+                  credentials: 'include',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ ids: Array.from(selectedIds) }),
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                setSelectedIds(new Set());
+                await load('replace');
+              } catch (err) {
+                setError(err instanceof Error ? err.message : String(err));
+              } finally {
+                setBulkBusy(false);
+              }
+            }}
+            className="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-rose-300 transition-colors hover:bg-rose-500/20 disabled:opacity-50"
+          >
+            {bulkBusy ? '…' : (t.bulkCancel ?? 'Cancel selected')}
+          </button>
+        </div>
       )}
 
       {nextCursor && (
@@ -270,6 +326,10 @@ interface RunRowExtra {
    *  click doesn't trigger a full-page reload (which would lose
    *  the event-log tail and re-mount the whole sidebar). */
   onOpen: (runId: string) => void;
+  /** Bulk-select state. Click on the checkbox toggles membership;
+   *  the rest of the row navigates as before. */
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string, next: boolean) => void;
 }
 
 function RunRow({
@@ -278,6 +338,8 @@ function RunRow({
   runs,
   lang,
   onOpen,
+  selectedIds,
+  onToggleSelect,
 }: { index: number; style: React.CSSProperties } & RunRowExtra) {
   const r = runs[index];
   // Derive a richer display status from the stored (status, error)
@@ -295,6 +357,18 @@ function RunRow({
       className="flex cursor-pointer items-center border-b border-zinc-900 bg-black px-0 hover:bg-zinc-950"
       onClick={() => onOpen(r.id)}
     >
+      <div className="flex w-10 shrink-0 items-center justify-center px-2">
+        <input
+          type="checkbox"
+          checked={selectedIds.has(r.id)}
+          onChange={e => onToggleSelect(r.id, e.target.checked)}
+          // Stop the row click from also navigating when the
+          // operator clicks the checkbox.
+          onClick={e => e.stopPropagation()}
+          aria-label={`Select run ${r.id}`}
+          className="h-3.5 w-3.5 cursor-pointer accent-violet-500"
+        />
+      </div>
       <div className="flex w-44 items-center gap-2 px-4">
         <Icon className={`h-4 w-4 ${meta.cls} ${r.status === 'RUNNING' ? 'animate-spin' : ''}`} />
         <span
@@ -332,11 +406,15 @@ function RunsVirtualTable({
   lang,
   t,
   onOpen,
+  selectedIds,
+  onToggleSelect,
 }: {
   runs: Run[];
   lang: 'en' | 'es';
   t: Record<string, string>;
   onOpen: (runId: string) => void;
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string, next: boolean) => void;
 }) {
   // Sort state lives in the parent so the column header click can
   // toggle asc/desc/off without losing it on data refresh. Sprint 2
@@ -446,7 +524,7 @@ function RunsVirtualTable({
         rowCount={sortedRuns.length}
         rowHeight={ROW_HEIGHT}
         rowComponent={RunRow}
-        rowProps={{ runs: sortedRuns, lang, onOpen }}
+        rowProps={{ runs: sortedRuns, lang, onOpen, selectedIds, onToggleSelect }}
       />
     </div>
   );
