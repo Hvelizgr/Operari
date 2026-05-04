@@ -436,6 +436,14 @@ model Execution {
   /// 30s TTL: if the queue is backlogged the work is dropped, not
   /// run with stale input). Null = no TTL.
   expiresAt   DateTime?
+  /// Idempotency key — when set, repeated triggers with the same
+  /// (tenantId, runbookId, idempotencyKey) return the original
+  /// Execution row instead of spawning a duplicate. Trigger.dev
+  /// parity. Unique scope is enforced by a partial index that
+  /// excludes null keys, so legacy rows do not collide. The SDK
+  /// helper `idempotencyKeys.create(...)` produces hashed keys
+  /// scoped per-run / per-attempt / per-tenant.
+  idempotencyKey String?
 
   /// Dry-run mode: step executors log what they WOULD do (commands,
   /// requests, notifications) without executing any side effect.

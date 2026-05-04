@@ -24,6 +24,24 @@ const triggerSchema = z.object({
    * cannot accidentally trigger a dry run instead of a real one.
    */
   dryRun: z.boolean().optional().default(false),
+  /**
+   * Idempotency key (trigger.dev parity). Two triggers with the
+   * same key on the same runbook within the same tenant return
+   * the original Execution row instead of spawning a duplicate.
+   * Useful when the upstream is a flaky webhook or an SDK call
+   * that retries on network failures. Pair with the SDK's
+   * `idempotencyKeys.create(...)` helper to scope keys per-run /
+   * per-attempt without colliding across runs.
+   */
+  idempotencyKey: z.string().min(1).max(256).optional(),
+  /**
+   * TTL in seconds (trigger.dev parity). When set, the run is
+   * abandoned with TTL_EXCEEDED if it does not start within the
+   * window — useful for "only do this if the work is still
+   * relevant" use cases. The frontend's deriveDisplayStatus
+   * helper renders these rows as EXPIRED.
+   */
+  ttlSeconds: z.number().int().positive().max(86_400).optional(),
 });
 
 /**
@@ -62,7 +80,7 @@ router.post(
   async (req: ApiKeyRequest, res: Response) => {
     try {
       const { slug } = req.params;
-      const { variables, dryRun } = triggerSchema.parse(req.body || {});
+      const { variables, dryRun, idempotencyKey, ttlSeconds } = triggerSchema.parse(req.body || {});
       const { tenantId } = req.apiContext!;
 
       // Look up runbook by slug OR id (slug preferred, fallback to UUID)
@@ -97,6 +115,29 @@ router.post(
         });
       }
 
+      // Idempotency short-circuit. The (tenantId, runbookId,
+      // idempotencyKey) tuple is unique via a partial index, so
+      // looking it up before the create is cheap. We return the
+      // existing Execution row verbatim — the caller sees the
+      // same id + status it would have seen on the original
+      // trigger, which lets them poll `runs.retrieve()` without
+      // distinguishing "I created this" from "I rediscovered it".
+      if (idempotencyKey) {
+        const existing = await prisma.execution.findFirst({
+          where: { tenantId, runbookId: runbook.id, idempotencyKey },
+        });
+        if (existing) {
+          return res.status(200).json({
+            id: existing.id,
+            runbook: { id: runbook.id, slug: runbook.slug, name: runbook.name },
+            status: existing.status,
+            triggeredAt: existing.startedAt,
+            url: `${process.env.APP_URL || 'http://localhost:3000'}/en/editor?runId=${existing.id}`,
+            idempotent: true,
+          });
+        }
+      }
+
       // Trigger via the existing ExecutionService — same engine the UI uses
       const execution = await getExecutionService().execute({
         runbookId: runbook.id,
@@ -105,6 +146,8 @@ router.post(
         input: validated.values,
         tenantId,
         dryRun,
+        ttlSeconds,
+        idempotencyKey,
       });
 
       res.status(202).json({

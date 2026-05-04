@@ -65,6 +65,13 @@ interface ExecuteParams {
    * Null/undefined = no TTL (default: run whenever picked up).
    */
   ttlSeconds?: number;
+  /**
+   * Idempotency key (trigger.dev parity). The trigger route
+   * deduplicates by `(tenantId, runbookId, idempotencyKey)` BEFORE
+   * calling execute(); we persist the key on the Execution row so
+   * the dedup index has something to point at.
+   */
+  idempotencyKey?: string;
 }
 
 interface ResumeParams {
@@ -476,6 +483,7 @@ export class ExecutionService {
       parentExecutionId,
       dryRun,
       ttlSeconds,
+      idempotencyKey,
     } = params;
 
     try {
@@ -556,6 +564,7 @@ export class ExecutionService {
           runbookVersionId: latestVersion?.id ?? null,
           dryRun: dryRun ?? false,
           expiresAt,
+          idempotencyKey: idempotencyKey ?? null,
         },
       });
 
