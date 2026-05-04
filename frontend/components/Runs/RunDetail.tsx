@@ -35,6 +35,11 @@ interface StepLog {
   duration: number | null;
   output: unknown;
   error: string | null;
+  /** Hook handles wired in the runbook definition (id or slug of the
+   * child runbook fired on the corresponding terminal state).
+   * Surfaces a "this step has a recovery path" badge — does NOT
+   * confirm the hook actually fired (fire-and-forget; no writeback). */
+  hooks?: { onSuccess?: string; onFailure?: string } | null;
 }
 
 interface RunDetailPayload {
@@ -54,6 +59,13 @@ interface RunDetailPayload {
    * for an actual deploy.
    */
   dryRun?: boolean;
+  /** Free-form operator tags (env:prod, deploy:canary, …). */
+  tags?: string[];
+  /** TTL absolute deadline; null when no TTL was set. */
+  expiresAt?: string | null;
+  /** Idempotency key when the trigger supplied one — surfaces dedup
+   * lineage in support tickets and incident review. */
+  idempotencyKey?: string | null;
 }
 
 const STRINGS: Record<'en' | 'es', Record<string, string>> = {
@@ -341,7 +353,41 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
             <div className="text-[10px] uppercase text-zinc-500">{t.duration}</div>
             <div>{formatDuration(run.duration)}</div>
           </div>
+          {run.expiresAt && (
+            <div>
+              <div className="text-[10px] uppercase text-zinc-500">TTL</div>
+              <div className="text-amber-300">{formatDateTime(run.expiresAt, lang)}</div>
+            </div>
+          )}
+          {run.idempotencyKey && (
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase text-zinc-500">
+                {lang === 'en' ? 'Idempotency key' : 'Clave idempotencia'}
+              </div>
+              <div
+                className="truncate font-mono text-[11px] text-zinc-300"
+                title={run.idempotencyKey}
+              >
+                {run.idempotencyKey}
+              </div>
+            </div>
+          )}
         </div>
+        {run.tags && run.tags.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] uppercase text-zinc-500">
+              {lang === 'en' ? 'Tags' : 'Etiquetas'}
+            </span>
+            {run.tags.map(tag => (
+              <span
+                key={tag}
+                className="rounded bg-violet-900/30 px-1.5 py-0.5 text-[10px] text-violet-200"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
         {run.error && (
           <div className="mt-4 flex items-start gap-2 rounded border border-red-900 bg-red-950/40 px-3 py-2 text-xs text-red-300">
             <AlertCircle size={14} className="mt-0.5 shrink-0" />
@@ -383,7 +429,25 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
                     }`}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm text-white">{step.name ?? step.stepId}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 truncate text-sm text-white">
+                      <span className="truncate">{step.name ?? step.stepId}</span>
+                      {step.hooks?.onSuccess && (
+                        <span
+                          className="shrink-0 rounded border border-emerald-700/50 bg-emerald-950/30 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-emerald-300"
+                          title={`onSuccess → ${step.hooks.onSuccess}`}
+                        >
+                          ✓ hook
+                        </span>
+                      )}
+                      {step.hooks?.onFailure && (
+                        <span
+                          className="shrink-0 rounded border border-red-700/50 bg-red-950/30 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-red-300"
+                          title={`onFailure → ${step.hooks.onFailure}`}
+                        >
+                          ✕ hook
+                        </span>
+                      )}
+                    </div>
                     <div className="font-mono text-[11px] text-zinc-500">
                       {step.type ?? 'unknown'} · {formatDuration(step.duration)}
                     </div>

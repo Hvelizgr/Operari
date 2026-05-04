@@ -459,12 +459,36 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     },
     include: {
       nodeLogs: { orderBy: { startedAt: 'asc' } },
-      runbook: { select: { id: true, slug: true, name: true } },
+      // `nodes` is included so we can project per-step hook config
+      // (`_onSuccess` / `_onFailure`) into the step rows. We don't
+      // expose the full node config — only the hook handles, which
+      // are both small and operator-relevant ("this step has a
+      // recovery path wired" is a legible signal at a glance).
+      runbook: { select: { id: true, slug: true, name: true, nodes: true } },
     },
   });
 
   if (!run) {
     return res.status(404).json({ error: 'Run not found', code: 'run_not_found' });
+  }
+
+  // Pre-build the step-id → hook-config map so the .map() below stays
+  // O(steps). The runbook nodes JSON is an array of { id, config?, ... }
+  // shapes; we only need each node's hook handles.
+  const hooksByStepId = new Map<string, { onSuccess?: string; onFailure?: string }>();
+  if (Array.isArray(run.runbook.nodes)) {
+    for (const node of run.runbook.nodes as Array<{
+      id?: string;
+      config?: Record<string, unknown> | null;
+    }>) {
+      if (!node.id) continue;
+      const config = (node.config ?? {}) as Record<string, unknown>;
+      const onSuccess = typeof config._onSuccess === 'string' ? config._onSuccess : undefined;
+      const onFailure = typeof config._onFailure === 'string' ? config._onFailure : undefined;
+      if (onSuccess || onFailure) {
+        hooksByStepId.set(node.id, { onSuccess, onFailure });
+      }
+    }
   }
 
   // Per-step retry counts feed Tier C edge visuals (`data.retries` chip).
@@ -486,7 +510,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 
   res.json({
     id: run.id,
-    runbook: run.runbook,
+    runbook: { id: run.runbook.id, slug: run.runbook.slug, name: run.runbook.name },
     status: run.status,
     trigger: run.trigger,
     startedAt: run.startedAt,
@@ -494,6 +518,9 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     duration: run.duration,
     error: run.error,
     dryRun: run.dryRun,
+    tags: run.tags ?? [],
+    expiresAt: run.expiresAt,
+    idempotencyKey: run.idempotencyKey,
     steps: run.nodeLogs.map(log => ({
       id: log.id,
       stepId: log.nodeId,
@@ -512,6 +539,9 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       output: log.output,
       error: log.error,
       retries: retriesByNodeLogId.get(log.id) ?? 0,
+      // Hook handles (configured, not "did fire") so the operator
+      // can see at a glance which steps have a recovery path wired.
+      hooks: hooksByStepId.get(log.nodeId) ?? null,
     })),
   });
 });
