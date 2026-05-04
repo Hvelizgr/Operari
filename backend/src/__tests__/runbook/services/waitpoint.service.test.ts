@@ -47,18 +47,23 @@ const buildPrisma = (rows: WaitpointRow[] = []) => {
       }),
       updateMany: jest.fn(
         async (args: {
-          where: { status: string; expiresAt?: { lt: Date } };
+          where: {
+            status?: string;
+            expiresAt?: { lt: Date };
+            id?: { in: string[] };
+          };
           data: Partial<WaitpointRow>;
         }) => {
           let count = 0;
           for (const row of rows) {
-            if (row.status !== args.where.status) continue;
+            if (args.where.status && row.status !== args.where.status) continue;
             if (
               args.where.expiresAt?.lt &&
               (!row.expiresAt || row.expiresAt >= args.where.expiresAt.lt)
             ) {
               continue;
             }
+            if (args.where.id?.in && !args.where.id.in.includes(row.id)) continue;
             Object.assign(row, args.data);
             count++;
           }
@@ -67,14 +72,32 @@ const buildPrisma = (rows: WaitpointRow[] = []) => {
       ),
       findMany: jest.fn(
         async (args: {
-          where: { tenantId: string; status?: string };
+          where: {
+            tenantId?: string;
+            status?: string;
+            expiresAt?: { lt: Date };
+          };
           take?: number;
           orderBy?: unknown;
+          select?: Record<string, true>;
         }) => {
-          return rows
-            .filter(r => r.tenantId === args.where.tenantId)
+          const matched = rows
+            .filter(r => !args.where.tenantId || r.tenantId === args.where.tenantId)
             .filter(r => !args.where.status || r.status === args.where.status)
+            .filter(
+              r =>
+                !args.where.expiresAt?.lt || (r.expiresAt && r.expiresAt < args.where.expiresAt.lt)
+            )
             .slice(0, args.take ?? 50);
+          if (!args.select) return matched;
+          // Mirror Prisma's behaviour: project only the requested keys.
+          return matched.map(r => {
+            const out: Record<string, unknown> = {};
+            for (const key of Object.keys(args.select!)) {
+              out[key] = (r as unknown as Record<string, unknown>)[key];
+            }
+            return out;
+          });
         }
       ),
     },
@@ -203,8 +226,8 @@ describe('WaitpointService', () => {
       // Sleep just past the short timeout.
       await new Promise(r => setTimeout(r, 10));
 
-      const count = await svc.expireOverdue();
-      expect(count).toBe(1);
+      const flipped = await svc.expireOverdue();
+      expect(flipped).toHaveLength(1);
       expect(rows[0].status).toBe('TIMED_OUT');
       expect(rows[1].status).toBe('PENDING');
     });
@@ -213,9 +236,18 @@ describe('WaitpointService', () => {
       const { prisma, rows } = buildPrisma();
       const svc = new WaitpointService(prisma);
       await svc.create({ tenantId: 't1' });
-      const count = await svc.expireOverdue();
-      expect(count).toBe(0);
+      const flipped = await svc.expireOverdue();
+      expect(flipped).toHaveLength(0);
       expect(rows[0].status).toBe('PENDING');
+    });
+
+    it('returns the executionId so the caller can resume the linked run', async () => {
+      const { prisma } = buildPrisma();
+      const svc = new WaitpointService(prisma);
+      await svc.create({ tenantId: 't1', executionId: 'exec-42', timeoutMs: 1 });
+      await new Promise(r => setTimeout(r, 10));
+      const flipped = await svc.expireOverdue();
+      expect(flipped).toEqual([{ id: expect.any(String), tenantId: 't1', executionId: 'exec-42' }]);
     });
   });
 

@@ -117,21 +117,36 @@ export class WaitpointService {
 
   /**
    * Watchdog sweep: time out PENDING tokens whose expiresAt is in
-   * the past. Returns the count for the caller to log.
+   * the past. Returns the rows it flipped so the caller can resume
+   * any executions that were blocked on them.
+   *
+   * Two-phase on purpose:
+   *   1. SELECT candidates so we know which executions need a resume
+   *      kick. (updateMany doesn't return updated rows in Prisma.)
+   *   2. UPDATE filtered by `status = 'PENDING'` so a concurrent
+   *      `complete()` wins the race: the row is already COMPLETED,
+   *      our updateMany leaves it alone, and the linked execution
+   *      doesn't get a duplicate resume signal (the execution
+   *      service short-circuits non-PAUSED executions anyway, but
+   *      keeping the SQL honest avoids the noise).
    *
    * Designed to run on a per-minute interval — the partial index
    * over (expiresAt, status='PENDING') keeps the scan cheap even
    * with millions of historical tokens.
    */
-  async expireOverdue(now = new Date()): Promise<number> {
-    const res = await this.prisma.waitpoint.updateMany({
-      where: {
-        status: 'PENDING',
-        expiresAt: { lt: now },
-      },
+  async expireOverdue(
+    now = new Date()
+  ): Promise<Array<{ id: string; tenantId: string; executionId: string | null }>> {
+    const candidates = await this.prisma.waitpoint.findMany({
+      where: { status: 'PENDING', expiresAt: { lt: now } },
+      select: { id: true, tenantId: true, executionId: true },
+    });
+    if (candidates.length === 0) return [];
+    await this.prisma.waitpoint.updateMany({
+      where: { id: { in: candidates.map(c => c.id) }, status: 'PENDING' },
       data: { status: 'TIMED_OUT', completedAt: now },
     });
-    return res.count;
+    return candidates;
   }
 
   async list(tenantId: string, opts: { status?: WaitpointStatus; limit?: number } = {}) {

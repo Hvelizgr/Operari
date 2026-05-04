@@ -438,13 +438,36 @@ async function main() {
     // whose `expiresAt` is in the past. Cheap thanks to the partial
     // index on (expiresAt, status='PENDING') — terminated and
     // never-expiring tokens contribute zero pages.
+    //
+    // For each timed-out token whose execution is still PAUSED we
+    // also fire a resume so the run continues with
+    // `waitpointTimedOut: true` in its merged input. Without this,
+    // a runbook that mints a waitpoint and never gets a callback
+    // would hang in PAUSED indefinitely.
     const { WaitpointService } = await import('./runbook/services/waitpoint.service');
+    const { ExecutionService: ExecutionServiceCls } =
+      await import('./editor/execution/execution.service');
     const waitpointService = new WaitpointService(prisma);
+    const waitpointResumer = new ExecutionServiceCls(prisma);
     const waitpointInterval = setInterval(() => {
       waitpointService
         .expireOverdue()
-        .then(count => {
-          if (count > 0) logger.info({ count }, 'Waitpoint sweep timed out tokens');
+        .then(rows => {
+          if (rows.length === 0) return;
+          logger.info({ count: rows.length }, 'Waitpoint sweep timed out tokens');
+          for (const row of rows) {
+            if (!row.executionId) continue;
+            void waitpointResumer
+              .resumeExecution({
+                executionId: row.executionId,
+                userId: 'system',
+                tenantId: row.tenantId,
+                input: { waitpointTimedOut: true, waitpointValue: null },
+              })
+              .catch(err => {
+                logger.warn({ err, waitpointId: row.id }, 'Waitpoint timeout resume failed');
+              });
+          }
         })
         .catch(err => {
           logger.error({ err }, 'Waitpoint sweep failed');
@@ -481,8 +504,6 @@ async function main() {
     // cadence; rows never touched when no errors are in flight.
     const { WebhookRetryWorker } = await import('./runbook/services/webhook-retry-worker');
     const { WebhookService } = await import('./runbook/services/webhook.service');
-    const { ExecutionService: ExecutionServiceCls } =
-      await import('./editor/execution/execution.service');
     const webhookRetryWorker = new WebhookRetryWorker({
       prisma,
       webhookService: new WebhookService(prisma),
