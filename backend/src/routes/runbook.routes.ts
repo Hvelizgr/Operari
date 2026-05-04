@@ -395,11 +395,27 @@ router.get('/lineage', async (req: AuthRequest, res) => {
     type LineageEdge = {
       source: string;
       target: string;
-      kind: 'runbook-step' | 'on-error';
+      // - runbook-step:  explicit `runbook` step calls another runbook
+      // - on-error:      runbook-level fallback (Runbook.onErrorRunbookId)
+      // - hook-success:  per-step `_onSuccess` hook (fire-and-forget child)
+      // - hook-failure:  per-step `_onFailure` hook (fire-and-forget child)
+      // The two hook kinds are distinct from on-error because they fire
+      // off any step terminal state, not only when the parent run errors.
+      kind: 'runbook-step' | 'on-error' | 'hook-success' | 'hook-failure';
       stepId?: string;
       stepName?: string;
     };
     const edges: LineageEdge[] = [];
+
+    // Helper: resolve a hook ref (id or slug) to a runbook id we know.
+    // Drops refs to runbooks the user can't see (cross-tenant typos,
+    // deleted children) — silent so the graph stays clean.
+    const resolveRef = (ref: string): string | null => {
+      const trimmed = ref.trim();
+      if (!trimmed) return null;
+      if (idSet.has(trimmed)) return trimmed;
+      return slugToId.get(trimmed) ?? null;
+    };
 
     for (const runbook of runbooks) {
       if (runbook.onErrorRunbookId && idSet.has(runbook.onErrorRunbookId)) {
@@ -412,19 +428,51 @@ router.get('/lineage', async (req: AuthRequest, res) => {
       const nodes = Array.isArray(runbook.nodes) ? runbook.nodes : [];
       for (const node of nodes as Array<Record<string, unknown>>) {
         if (typeof node !== 'object' || node === null) continue;
-        if (node.type !== 'runbook' && node.type !== 'operari.runbook') continue;
         const cfg = (node.config ?? {}) as Record<string, unknown>;
-        const ref = typeof cfg.ref === 'string' ? cfg.ref.trim() : '';
-        if (!ref) continue;
-        const targetId = idSet.has(ref) ? ref : (slugToId.get(ref) ?? null);
-        if (!targetId) continue;
-        edges.push({
-          source: runbook.id,
-          target: targetId,
-          kind: 'runbook-step',
-          stepId: typeof node.id === 'string' ? node.id : undefined,
-          stepName: typeof node.name === 'string' ? node.name : undefined,
-        });
+        const stepId = typeof node.id === 'string' ? node.id : undefined;
+        const stepName = typeof node.name === 'string' ? node.name : undefined;
+
+        // Existing: explicit runbook-call edges.
+        if (node.type === 'runbook' || node.type === 'operari.runbook') {
+          const ref = typeof cfg.ref === 'string' ? cfg.ref : '';
+          const targetId = resolveRef(ref);
+          if (targetId) {
+            edges.push({
+              source: runbook.id,
+              target: targetId,
+              kind: 'runbook-step',
+              stepId,
+              stepName,
+            });
+          }
+        }
+
+        // Step lifecycle hooks fire a child runbook on terminal state.
+        // Both apply to every step type, not just `runbook` calls.
+        if (typeof cfg._onSuccess === 'string') {
+          const targetId = resolveRef(cfg._onSuccess);
+          if (targetId) {
+            edges.push({
+              source: runbook.id,
+              target: targetId,
+              kind: 'hook-success',
+              stepId,
+              stepName,
+            });
+          }
+        }
+        if (typeof cfg._onFailure === 'string') {
+          const targetId = resolveRef(cfg._onFailure);
+          if (targetId) {
+            edges.push({
+              source: runbook.id,
+              target: targetId,
+              kind: 'hook-failure',
+              stepId,
+              stepName,
+            });
+          }
+        }
       }
     }
 

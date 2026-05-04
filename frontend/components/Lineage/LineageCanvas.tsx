@@ -38,7 +38,11 @@ interface LineageNode {
 interface LineageEdge {
   source: string;
   target: string;
-  kind: 'runbook-step' | 'on-error';
+  // - runbook-step:  explicit `runbook` step → child runbook
+  // - on-error:      runbook-level fallback (Runbook.onErrorRunbookId)
+  // - hook-success:  per-step _onSuccess hook (fire-and-forget)
+  // - hook-failure:  per-step _onFailure hook (fire-and-forget)
+  kind: 'runbook-step' | 'on-error' | 'hook-success' | 'hook-failure';
   stepId?: string;
   stepName?: string;
 }
@@ -198,22 +202,45 @@ function layoutLineage(
     });
   }
 
-  const rfEdges: RfLineageEdge[] = payload.edges.map((edge, idx) => ({
-    id: `e${idx}`,
-    source: edge.source,
-    target: edge.target,
-    type: 'smoothstep',
-    animated: edge.kind === 'on-error',
-    style: {
-      stroke: edge.kind === 'on-error' ? '#fb923c' : '#71717a',
-      strokeDasharray: edge.kind === 'on-error' ? '4 3' : undefined,
-      strokeWidth: 1.4,
-    },
-    label: edge.stepName,
-    labelStyle: { fill: '#a1a1aa', fontSize: 10, fontFamily: 'monospace' },
-    labelBgStyle: { fill: '#18181b' },
-    data: { kind: edge.kind, stepName: edge.stepName },
-  }));
+  // Edge style per kind. Hook edges read distinctly from on-error
+  // (which fires only at runbook-level failure) and from the default
+  // runbook-step edge (the explicit call).
+  //   runbook-step  → solid zinc (default flow)
+  //   on-error      → dashed amber (legacy runbook-level fallback)
+  //   hook-success  → dashed emerald
+  //   hook-failure  → dashed red
+  const edgeStyleFor = (kind: LineageEdge['kind']) => {
+    switch (kind) {
+      case 'on-error':
+        return { stroke: '#fb923c', dash: '4 3', animated: true };
+      case 'hook-success':
+        return { stroke: '#34d399', dash: '4 3', animated: true };
+      case 'hook-failure':
+        return { stroke: '#f87171', dash: '4 3', animated: true };
+      default:
+        return { stroke: '#71717a', dash: undefined, animated: false };
+    }
+  };
+
+  const rfEdges: RfLineageEdge[] = payload.edges.map((edge, idx) => {
+    const s = edgeStyleFor(edge.kind);
+    return {
+      id: `e${idx}`,
+      source: edge.source,
+      target: edge.target,
+      type: 'smoothstep',
+      animated: s.animated,
+      style: {
+        stroke: s.stroke,
+        strokeDasharray: s.dash,
+        strokeWidth: 1.4,
+      },
+      label: edge.stepName,
+      labelStyle: { fill: '#a1a1aa', fontSize: 10, fontFamily: 'monospace' },
+      labelBgStyle: { fill: '#18181b' },
+      data: { kind: edge.kind, stepName: edge.stepName },
+    };
+  });
 
   return { nodes: rfNodes, edges: rfEdges };
 }
@@ -257,11 +284,13 @@ function LineageCanvasInner({ lang }: LineageCanvasProps) {
   }, [fitView, setNodes, setEdges, lineagePrefs]);
 
   const counts = useMemo(() => {
-    if (!payload) return { runbooks: 0, calls: 0, onError: 0 };
+    if (!payload) return { runbooks: 0, calls: 0, onError: 0, hooks: 0 };
     return {
       runbooks: payload.nodes.length,
       calls: payload.edges.filter(e => e.kind === 'runbook-step').length,
       onError: payload.edges.filter(e => e.kind === 'on-error').length,
+      hooks: payload.edges.filter(e => e.kind === 'hook-success' || e.kind === 'hook-failure')
+        .length,
     };
   }, [payload]);
 
@@ -269,7 +298,7 @@ function LineageCanvasInner({ lang }: LineageCanvasProps) {
     lang === 'es'
       ? {
           title: 'Lineage de runbooks',
-          subtitle: `${counts.runbooks} runbooks · ${counts.calls} llamadas · ${counts.onError} on-error`,
+          subtitle: `${counts.runbooks} runbooks · ${counts.calls} llamadas · ${counts.onError} on-error · ${counts.hooks} hooks`,
           empty: 'Aún no hay runbooks',
           emptyHint: 'Creá tu primer runbook desde la lista para ver el grafo de llamadas.',
           emptyCta: 'Ir a Runbooks',
@@ -277,10 +306,12 @@ function LineageCanvasInner({ lang }: LineageCanvasProps) {
           export: 'Exportar PNG',
           legendCall: 'Llamada de runbook',
           legendOnError: 'Handler on-error',
+          legendHookSuccess: 'Hook onSuccess',
+          legendHookFailure: 'Hook onFailure',
         }
       : {
           title: 'Runbook lineage',
-          subtitle: `${counts.runbooks} runbooks · ${counts.calls} calls · ${counts.onError} on-error`,
+          subtitle: `${counts.runbooks} runbooks · ${counts.calls} calls · ${counts.onError} on-error · ${counts.hooks} hooks`,
           empty: 'No runbooks yet',
           emptyHint: 'Create your first runbook from the list to see the call graph.',
           emptyCta: 'Go to Runbooks',
@@ -288,6 +319,8 @@ function LineageCanvasInner({ lang }: LineageCanvasProps) {
           export: 'Export PNG',
           legendCall: 'Runbook call',
           legendOnError: 'On-error handler',
+          legendHookSuccess: 'onSuccess hook',
+          legendHookFailure: 'onFailure hook',
         };
 
   if (error) {
@@ -356,6 +389,16 @@ function LineageCanvasInner({ lang }: LineageCanvasProps) {
             <span className="h-px w-4" style={{ background: '#fb923c' }} />
             <ArrowRight size={9} style={{ color: '#fb923c' }} />
             {t.legendOnError}
+          </span>
+          <span className="flex items-center gap-1 text-zinc-400">
+            <span className="h-px w-4" style={{ background: '#34d399' }} />
+            <ArrowRight size={9} style={{ color: '#34d399' }} />
+            {t.legendHookSuccess}
+          </span>
+          <span className="flex items-center gap-1 text-zinc-400">
+            <span className="h-px w-4" style={{ background: '#f87171' }} />
+            <ArrowRight size={9} style={{ color: '#f87171' }} />
+            {t.legendHookFailure}
           </span>
           <button
             type="button"
