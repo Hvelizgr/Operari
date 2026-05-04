@@ -12,6 +12,7 @@ import Story from './components/Story';
 import Templates from './components/Templates';
 import TriggerSources from './components/TriggerSources';
 import TrustBar from './components/TrustBar';
+import TrustSignals from './components/TrustSignals';
 
 export async function generateStaticParams() {
   return [{ lang: 'en' }, { lang: 'es' }];
@@ -77,6 +78,10 @@ export default async function Page({ params }: { params: Promise<{ lang: string 
 
       <div id="compare">
         <Comparison content={content.comparison} />
+      </div>
+
+      <div id="trust">
+        <TrustSignals lang={lang === 'es' ? 'es' : 'en'} />
       </div>
 
       <div id="self-host">
