@@ -36,6 +36,17 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 50;
   const cursor = req.query.cursor as string | undefined;
 
+  // Tag filter — `?tag=env:prod` repeats are AND'ed via Postgres's
+  // array `&&` (overlap) operator. A single value covers the
+  // common case ("show me everything tagged user:42"); multi-tag
+  // is supported for narrowing further.
+  const rawTagParam = req.query.tag;
+  const tagFilter = Array.isArray(rawTagParam)
+    ? rawTagParam.filter((t): t is string => typeof t === 'string' && t.length > 0)
+    : typeof rawTagParam === 'string' && rawTagParam.length > 0
+      ? [rawTagParam]
+      : [];
+
   const runs = await prisma.execution.findMany({
     where: {
       runbook: {
@@ -43,6 +54,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         ...(runbookParam ? { OR: [{ id: runbookParam }, { slug: runbookParam }] } : {}),
       },
       ...(statusFilter ? { status: statusFilter } : {}),
+      ...(tagFilter.length > 0 ? { tags: { hasEvery: tagFilter } } : {}),
     },
     include: {
       runbook: { select: { id: true, slug: true, name: true } },
@@ -75,6 +87,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       error: r.error,
       etaMs: r.status === 'RUNNING' ? (etaMap.get(r.runbookId) ?? null) : null,
       dryRun: r.dryRun,
+      tags: r.tags ?? [],
     })),
     nextCursor: hasMore ? page[page.length - 1].id : null,
   });
@@ -127,6 +140,65 @@ async function computeEtas(tenantId: string, workflowIds: string[]): Promise<Map
  * doesn't route "/abc/events" into the detail handler as id="abc" and
  * then hit an unknown path.
  */
+/**
+ * POST /api/runs/:id/tags  body: { tags: string[] }
+ *
+ * Append tags to an in-flight or terminated run. Tags merge with
+ * existing ones — duplicates collapse via a Set, so calling this
+ * twice with overlapping arrays is idempotent. Capped at 16 unique
+ * tags per run to keep payload + GIN index entries bounded.
+ *
+ * Each tag is normalised to a slug (lowercase, max 64 chars). Empty
+ * strings, whitespace-only, and overlong tags are dropped silently
+ * — operators that paste a CSV with stray spaces don't have to
+ * pre-clean.
+ *
+ * Tenant-scoped: a tag attempt against another tenant's run 404s
+ * before reaching the update.
+ */
+const TAG_LIMIT = 16;
+const TAG_MAX_LEN = 64;
+const TAG_SHAPE = /^[a-z0-9][a-z0-9_:.\-/]{0,63}$/;
+
+function normaliseTags(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const out = new Set<string>();
+  for (const raw of input) {
+    if (typeof raw !== 'string') continue;
+    const t = raw.trim().toLowerCase();
+    if (!t || t.length > TAG_MAX_LEN) continue;
+    if (!TAG_SHAPE.test(t)) continue;
+    out.add(t);
+  }
+  return Array.from(out);
+}
+
+router.post('/:id/tags', async (req: AuthRequest, res: Response) => {
+  const tenantId = req.user!.tenantId;
+  const runId = String(req.params.id);
+  const incoming = normaliseTags((req.body as { tags?: unknown } | undefined)?.tags);
+  if (incoming.length === 0) {
+    return res.status(400).json({ error: 'No valid tags supplied', code: 'invalid_tags' });
+  }
+
+  const existing = await prisma.execution.findFirst({
+    where: { id: runId, tenantId },
+    select: { tags: true },
+  });
+  if (!existing) {
+    return res.status(404).json({ error: 'Run not found', code: 'not_found' });
+  }
+
+  const merged = Array.from(new Set([...existing.tags, ...incoming])).slice(0, TAG_LIMIT);
+
+  await prisma.execution.update({
+    where: { id: runId },
+    data: { tags: merged },
+  });
+
+  return res.json({ data: { tags: merged } });
+});
+
 router.get('/:id/events', async (req: AuthRequest, res: Response) => {
   const tenantId = req.user!.tenantId;
   const runId = String(req.params.id);

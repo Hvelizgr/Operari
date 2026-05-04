@@ -423,6 +423,13 @@ model Execution {
   pausedAt    DateTime?
   resumeState Json?
   metadata    Json?
+  /// Free-form tags pushed at runtime (trigger.dev parity). Steps
+  /// inside a run call `runs.tag(['env:prod', 'user:42'])` to attach
+  /// arbitrary slugs; the runs list filters by `tags && ARRAY['x']`
+  /// over a GIN index so arbitrary axes (env, customer, incident id,
+  /// caller) become cheap slicing. Capped at 16 tags per run by the
+  /// API to keep payload + GIN entries bounded.
+  tags        String[]   @default([])
 
   /// Dry-run mode: step executors log what they WOULD do (commands,
   /// requests, notifications) without executing any side effect.

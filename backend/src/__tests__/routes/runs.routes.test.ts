@@ -9,6 +9,7 @@ jest.mock('../../server', () => ({
     execution: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      update: jest.fn(),
     },
     executionEvent: {
       findMany: jest.fn(),
@@ -37,7 +38,7 @@ import runsRouter from '../../routes/runs.routes';
 import { prisma as mockedPrisma } from '../../server';
 
 type MockPrisma = {
-  execution: { findFirst: jest.Mock; findMany: jest.Mock };
+  execution: { findFirst: jest.Mock; findMany: jest.Mock; update: jest.Mock };
   executionEvent: { findMany: jest.Mock };
 };
 const m = mockedPrisma as unknown as MockPrisma;
@@ -387,5 +388,58 @@ describe('sseConcurrencyGuard (unit)', () => {
     const next = jest.fn();
     sseConcurrencyGuard(req, res, next);
     expect(next).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('POST /api/runs/:id/tags', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('appends new tags, deduplicates against existing, and returns the merged set', async () => {
+    m.execution.findFirst.mockResolvedValueOnce({ tags: ['env:prod'] });
+    m.execution.update.mockResolvedValueOnce({});
+    const res = await request(buildApp())
+      .post('/api/runs/run-1/tags')
+      .send({ tags: ['env:prod', 'user:42', 'incident:INC-217'] });
+    expect(res.status).toBe(200);
+    expect(res.body.data.tags).toEqual(
+      expect.arrayContaining(['env:prod', 'user:42', 'incident:inc-217'])
+    );
+    // Update call carries the merged unique set.
+    expect(m.execution.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'run-1' },
+        data: { tags: expect.arrayContaining(['env:prod', 'user:42', 'incident:inc-217']) },
+      })
+    );
+  });
+
+  it('caps the merged tag set at 16 entries', async () => {
+    const existing = Array.from({ length: 12 }, (_, i) => `t${i}`);
+    m.execution.findFirst.mockResolvedValueOnce({ tags: existing });
+    m.execution.update.mockResolvedValueOnce({});
+    const incoming = Array.from({ length: 10 }, (_, i) => `n${i}`);
+    const res = await request(buildApp()).post('/api/runs/run-1/tags').send({ tags: incoming });
+    expect(res.status).toBe(200);
+    expect(res.body.data.tags).toHaveLength(16);
+  });
+
+  it('drops malformed tag entries silently and 400s when nothing valid remains', async () => {
+    const res = await request(buildApp())
+      .post('/api/runs/run-1/tags')
+      .send({ tags: ['', '  ', '!!invalid', 'A'.repeat(80)] });
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('invalid_tags');
+    expect(m.execution.update).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the run does not belong to this tenant', async () => {
+    m.execution.findFirst.mockResolvedValueOnce(null);
+    const res = await request(buildApp())
+      .post('/api/runs/foreign/tags')
+      .send({ tags: ['env:prod'] });
+    expect(res.status).toBe(404);
+    expect(m.execution.update).not.toHaveBeenCalled();
   });
 });
