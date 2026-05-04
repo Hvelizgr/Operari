@@ -39,6 +39,8 @@ interface DashboardOverview {
     successRate24h: number | null;
     avgDurationMs24h: number | null;
     pendingApprovals: number;
+    /** Pending wait-tokens count. Optional for pre-waitpoint backends. */
+    pendingWaitpoints?: number;
   };
   attention: {
     pendingApprovals: Array<{
@@ -51,6 +53,13 @@ interface DashboardOverview {
       id: string;
       runbookName: string;
       startedAt: string;
+    }>;
+    /** Runs whose TTL expires within the next hour. Optional for
+     *  pre-TTL backends — the card is hidden when missing or empty. */
+    expiringTtlRuns?: Array<{
+      id: string;
+      runbookName: string;
+      expiresAt: string;
     }>;
     recentFailures: Array<{
       id: string;
@@ -372,7 +381,8 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
     !!data &&
     (data.attention.pendingApprovals.length > 0 ||
       data.attention.stuckRuns.length > 0 ||
-      data.attention.recentFailures.length > 0);
+      data.attention.recentFailures.length > 0 ||
+      (data.attention.expiringTtlRuns?.length ?? 0) > 0);
 
   // Supabase-style collapsing banner. When all is well, it does not
   // render at all (zero vertical space). When something needs
@@ -545,6 +555,13 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
               label={t.pulsePending}
               value={data ? String(data.pulse.pendingApprovals) : '—'}
               tone={data && data.pulse.pendingApprovals > 0 ? 'warn' : undefined}
+              subtext={
+                data && (data.pulse.pendingWaitpoints ?? 0) > 0
+                  ? lang === 'en'
+                    ? `+ ${data.pulse.pendingWaitpoints} wait tokens`
+                    : `+ ${data.pulse.pendingWaitpoints} tokens`
+                  : undefined
+              }
             />
           </motion.div>
         </motion.div>
@@ -581,6 +598,29 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
                   </button>
                 </li>
               ))}
+              {(data.attention.expiringTtlRuns ?? []).slice(0, 5).map(r => {
+                const remainingMs = new Date(r.expiresAt).getTime() - Date.now();
+                const remainingMin = Math.max(0, Math.round(remainingMs / 60000));
+                return (
+                  <li key={r.id}>
+                    <button
+                      onClick={() => router.push(`/${lang}/runs/${r.id}`)}
+                      className="flex w-full items-center gap-2 rounded py-1 text-left text-amber-300 transition-colors hover:bg-white/5"
+                      title={
+                        lang === 'en'
+                          ? 'TTL expires soon — engine will auto-cancel'
+                          : 'TTL por vencer — el engine cancelará automáticamente'
+                      }
+                    >
+                      <Clock size={14} />
+                      <span className="text-gray-300">{r.runbookName}</span>
+                      <span className="ml-auto font-mono text-xs text-amber-400">
+                        TTL {remainingMin}m
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
               {data.attention.recentFailures.slice(0, 5).map(f => (
                 <li
                   key={f.id}
@@ -773,11 +813,16 @@ function PulseCard({
   label,
   value,
   tone,
+  subtext,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   tone?: 'ok' | 'warn' | 'danger';
+  /** Single optional sub-line under the value. Used to surface a
+   *  secondary count (e.g. "+ 3 waitpoints") without claiming a
+   *  whole second card on the 4-wide grid. */
+  subtext?: string;
 }) {
   const toneClass =
     tone === 'danger'
@@ -794,6 +839,7 @@ function PulseCard({
         <span>{label}</span>
       </div>
       <div className={`text-2xl font-semibold ${toneClass}`}>{value}</div>
+      {subtext && <div className="mt-0.5 text-[11px] text-gray-500">{subtext}</div>}
     </div>
   );
 }

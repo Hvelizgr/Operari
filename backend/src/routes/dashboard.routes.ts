@@ -35,6 +35,10 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
   const since7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const stuckThreshold = new Date(now.getTime() - 5 * 60 * 1000);
   const since2h = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+  // TTL-expiring window: runs with expiresAt within the next hour.
+  // Tight enough to read as "act soon" without flooding the card
+  // with day-long deferred runs.
+  const ttlSoon = new Date(now.getTime() + 60 * 60 * 1000);
   // Delta window for the "what changed in 24h" card. Prior-24h is
   // the slice between 48h ago and 24h ago so we can compute a
   // this-period-vs-previous-period comparison.
@@ -65,6 +69,10 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     priorRuns24h,
     newApprovals24h,
     firedMonitors24h,
+    // TTL/waitpoint surfacing. Both lean on the same partial indexes
+    // the watchdogs use, so the cost is a couple of cheap counts.
+    expiringTtlRuns,
+    pendingWaitpointsCount,
   ] = await Promise.all([
     prisma.execution.count({
       where: { ...tenantWorkflowFilter, startedAt: { gte: since24h } },
@@ -156,6 +164,24 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
     }),
     prisma.monitor.count({
       where: { tenantId, lastFiredAt: { gte: since24h } },
+    }),
+    // TTL-expiring runs: in-flight rows whose expiresAt is within
+    // the next hour. Same partial-index path the engine uses to
+    // short-circuit work past TTL — cheap.
+    prisma.execution.findMany({
+      where: {
+        ...tenantWorkflowFilter,
+        status: { in: ['RUNNING', 'PAUSED'] },
+        expiresAt: { gte: now, lt: ttlSoon },
+      },
+      include: { runbook: { select: { name: true } } },
+      orderBy: { expiresAt: 'asc' },
+      take: 5,
+    }),
+    // Pending waitpoint count for the pulse card. Uses the partial
+    // tenant+status index on Waitpoint.
+    prisma.waitpoint.count({
+      where: { tenantId, status: 'PENDING' },
     }),
   ]);
 
@@ -278,6 +304,7 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
       successRate24h,
       avgDurationMs24h,
       pendingApprovals: pendingApprovalsCount,
+      pendingWaitpoints: pendingWaitpointsCount,
     },
     attention: {
       pendingApprovals: pendingApprovalsList.map(a => ({
@@ -290,6 +317,13 @@ router.get('/overview', async (req: AuthRequest, res: Response) => {
         id: r.id,
         runbookName: r.runbook.name,
         startedAt: r.startedAt,
+      })),
+      // TTL-expiring within the next hour. Front-end renders an
+      // amber card so an SRE can decide to extend or let lapse.
+      expiringTtlRuns: expiringTtlRuns.map(r => ({
+        id: r.id,
+        runbookName: r.runbook.name,
+        expiresAt: r.expiresAt,
       })),
       recentFailures: recentFailures.map(r => ({
         id: r.id,
