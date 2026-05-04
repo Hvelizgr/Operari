@@ -300,10 +300,16 @@ function loadDescriptor(
   try {
     mod = require(resolved);
   } catch (err) {
+    // Stack trace is the actually-useful payload for a plugin
+    // author iterating in dev — `.message` alone usually says
+    // "Cannot find module 'foo'" without telling them which line
+    // of which file did the require. Keep both fields so prod
+    // log aggregators that key on `err` still get a string.
     logger.error({
       plugin: manifest.name,
       entry,
       err: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
       msg: 'plugin_loader: require() threw',
     });
     return null;
