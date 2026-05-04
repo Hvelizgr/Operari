@@ -1,5 +1,4 @@
-import { anthropic } from '@ai-sdk/anthropic';
-import { openai } from '@ai-sdk/openai';
+import { resolveAiModel } from './models';
 import type { PrismaClient } from '@prisma/client';
 import { type ModelMessage, stepCountIs, streamText, type StreamTextResult } from 'ai';
 
@@ -144,14 +143,11 @@ vocabulary directly — say "step" not "task", "runbook" not
   context is genuinely insufficient. The operator wants a hypothesis,
   not a Socratic dialogue.`;
 
-function getModel() {
-  const provider = process.env.AI_MODEL_PROVIDER ?? 'anthropic';
-  const modelName = process.env.AI_MODEL_NAME ?? 'claude-sonnet-4-6';
-  if (provider === 'openai') {
-    return openai(modelName);
-  }
-  return anthropic(modelName);
-}
+// Provider/model selection lives in `./models` so every AI surface
+// (orchestrator, ai-filter route, runbook-assist) reads the same
+// env contract. Keeping the wrapper-free re-export inline so the
+// call sites below stay terse.
+const getModel = resolveAiModel;
 
 export interface OrchestratorContext {
   /** Required for tool calls — every tool is bound to this tenant. */

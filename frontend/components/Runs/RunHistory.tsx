@@ -31,6 +31,8 @@ import {
   type StoredRunStatus,
 } from '@/lib/runs/displayStatus';
 
+import { AIFilterInput } from './AIFilterInput';
+
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 
 interface Run {
@@ -165,7 +167,7 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
         <p className="mt-1 text-sm text-zinc-400">{t.subtitle}</p>
       </header>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         {FILTERS.map(f => (
           <button
             key={f.key}
@@ -179,6 +181,27 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
             {t[f.labelKey]}
           </button>
         ))}
+        <div className="ml-auto">
+          <AIFilterInput
+            lang={lang}
+            onApply={resolved => {
+              if (
+                resolved.status === 'RUNNING' ||
+                resolved.status === 'SUCCESS' ||
+                resolved.status === 'FAILED' ||
+                resolved.status === 'PAUSED' ||
+                resolved.status === 'CANCELLED'
+              ) {
+                setFilter(resolved.status);
+              } else {
+                setFilter('all');
+              }
+              // Future iteration: pipe runbook/from/to into the
+              // request URL too. For now the status filter is the
+              // only one the runs list reads.
+            }}
+          />
+        </div>
       </div>
 
       {error && (

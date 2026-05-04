@@ -58,6 +58,7 @@ import workosRoutes from './routes/workos.routes';
 import runbookRoutes from './routes/runbook.routes';
 import runbookAssistRoutes from './routes/runbook-assist.routes';
 import runRoutes from './routes/runs.routes';
+import runsAiFilterRoutes from './routes/runs-ai-filter.routes';
 import schedulesRoutes from './routes/schedules.routes';
 import sqlRoutes from './routes/sql.routes';
 import templatesRoutes from './routes/templates.routes';
@@ -165,6 +166,9 @@ app.use('/api/node-types', standardRateLimiter, nodeTypesRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
 app.use('/api/chat', standardRateLimiter, chatRoutes);
 app.use('/api/approvals', standardRateLimiter, approvalRoutes);
+// More specific path mounts FIRST so /api/runs/:id in runRoutes
+// does not swallow the literal /ai-filter sub-route as a run id.
+app.use('/api/runs/ai-filter', standardRateLimiter, runsAiFilterRoutes);
 app.use('/api/runs', standardRateLimiter, runRoutes);
 app.use('/api/connected-accounts', standardRateLimiter, connectedAccountRoutes);
 app.use('/api/runbook-assist', standardRateLimiter, runbookAssistRoutes);
