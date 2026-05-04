@@ -1,6 +1,7 @@
 import { type Response, Router } from 'express';
 import { z } from 'zod';
 
+import { ExecutionService } from '../editor/execution/execution.service';
 import { type AuthRequest, anonymousFallback } from '../middleware/auth.middleware';
 import { WaitpointError, WaitpointService } from '../runbook/services/waitpoint.service';
 import { prisma } from '../server';
@@ -129,6 +130,24 @@ router.post('/:id/complete', async (req, res) => {
       value: parsed.data.value,
       completedBy: parsed.data.completedBy ?? null,
     });
+
+    // If the token was minted by a paused step, resume that run with
+    // the completed value as input. Fire-and-forget: we don't want
+    // the public callback hanging on the duration of the runbook
+    // continuation. Errors are logged but never surfaced to the
+    // vendor — the operator can resume manually via /api/executions
+    // if the resume itself failed.
+    if (updated.executionId) {
+      void new ExecutionService(prisma)
+        .resumeExecution({
+          executionId: updated.executionId,
+          userId: parsed.data.completedBy ?? 'system',
+          tenantId: row.tenantId,
+          input: { waitpointValue: parsed.data.value },
+        })
+        .catch(() => undefined);
+    }
+
     return res.json({ data: updated });
   } catch (err) {
     if (err instanceof WaitpointError) {

@@ -15,6 +15,7 @@ import { RunbookExecutor } from './runbook.executor';
 import { ShellExecutor } from './shell.executor';
 import { SSHExecutor } from './ssh.executor';
 import { WaitExecutor } from './wait.executor';
+import { WaitpointExecutor } from './waitpoint.executor';
 
 export { ApprovalExecutor } from './approval.executor';
 export { DatabaseExecutor } from './database.executor';
@@ -26,6 +27,7 @@ export { RunbookExecutor } from './runbook.executor';
 export { ShellExecutor } from './shell.executor';
 export { SSHExecutor } from './ssh.executor';
 export { WaitExecutor } from './wait.executor';
+export { WaitpointExecutor } from './waitpoint.executor';
 
 export interface ExecutorRegistryOptions {
   /**
@@ -55,6 +57,7 @@ export function createExecutorRegistry(
   registry.set('approval', new ApprovalExecutor(prisma));
   registry.set('notify', new NotifyExecutor());
   registry.set('wait', new WaitExecutor());
+  registry.set('waitpoint', new WaitpointExecutor(prisma));
   registry.set('ssh', new SSHExecutor());
   registry.set('kubectl', new KubectlExecutor(runner));
   registry.set('operari.httpRequest', new HttpExecutor());
