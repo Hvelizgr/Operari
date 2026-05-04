@@ -152,6 +152,12 @@ describe('ExecutionService', () => {
           // queries can distinguish simulated runs from real ones.
           // Defaults to false when the caller didn't pass dryRun.
           dryRun: false,
+          // TTL + idempotency key default to null when the caller did
+          // not supply them. Both are post-launch additions from the
+          // trigger.dev parity work (36897e5, 3d6e331); the engine
+          // persists them on every row so the audit trail is uniform.
+          expiresAt: null,
+          idempotencyKey: null,
         },
       });
     });
@@ -198,6 +204,83 @@ describe('ExecutionService', () => {
       });
 
       expect(result).toBeDefined();
+    });
+
+    describe('per-runbook concurrency cap', () => {
+      const cappedRunbook = {
+        ...mockWorkflow,
+        tenantId: 'tenant-1',
+        slug: 'capped',
+        concurrencyLimit: 2,
+      };
+
+      it('refuses with CONCURRENCY_LIMIT when in-flight count meets the cap', async () => {
+        (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue(cappedRunbook);
+        (mockPrisma.execution.count as jest.Mock).mockResolvedValue(2);
+
+        await expect(
+          executionService.execute({
+            runbookId: 'runbook-1',
+            userId: 'user-1',
+            tenantId: 'tenant-1',
+            trigger: TriggerType.MANUAL,
+          })
+        ).rejects.toMatchObject({ code: 'ERR_2005' });
+
+        expect(mockPrisma.execution.count).toHaveBeenCalledWith({
+          where: {
+            tenantId: 'tenant-1',
+            runbookId: 'runbook-1',
+            status: { in: ['RUNNING', 'PAUSED'] },
+          },
+        });
+        expect(mockPrisma.execution.create).not.toHaveBeenCalled();
+      });
+
+      it('passes through when in-flight count is below the cap', async () => {
+        (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue(cappedRunbook);
+        (mockPrisma.execution.count as jest.Mock).mockResolvedValue(1);
+        (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
+          id: 'exec-2',
+          runbookId: 'runbook-1',
+          userId: 'user-1',
+          status: 'RUNNING',
+          trigger: 'MANUAL',
+        });
+
+        const result = await executionService.execute({
+          runbookId: 'runbook-1',
+          userId: 'user-1',
+          tenantId: 'tenant-1',
+          trigger: TriggerType.MANUAL,
+        });
+        expect(result).toBeDefined();
+        expect(mockPrisma.execution.count).toHaveBeenCalled();
+      });
+
+      it('skips the gate entirely when concurrencyLimit is null (unlimited)', async () => {
+        (mockPrisma.runbook.findUnique as jest.Mock).mockResolvedValue({
+          ...mockWorkflow,
+          tenantId: 'tenant-1',
+          concurrencyLimit: null,
+        });
+        (mockPrisma.execution.create as jest.Mock).mockResolvedValue({
+          id: 'exec-3',
+          runbookId: 'runbook-1',
+          userId: 'user-1',
+          status: 'RUNNING',
+          trigger: 'MANUAL',
+        });
+
+        await executionService.execute({
+          runbookId: 'runbook-1',
+          userId: 'user-1',
+          tenantId: 'tenant-1',
+          trigger: TriggerType.MANUAL,
+        });
+        // No COUNT(*) issued — the gate exited before the query.
+        expect(mockPrisma.execution.count).not.toHaveBeenCalled();
+      });
     });
   });
 

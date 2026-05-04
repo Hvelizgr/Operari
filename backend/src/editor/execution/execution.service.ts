@@ -576,6 +576,41 @@ export class ExecutionService {
         });
       }
 
+      // Per-runbook concurrency gate. Counts in-flight runs (RUNNING
+      // + PAUSED) for this runbook and refuses if they meet or
+      // exceed the cap. Enforced BEFORE the quota check + Execution
+      // insert so the operator sees one clean 429 instead of a
+      // half-created run row. Skipped when concurrencyLimit is null
+      // (the historical "unlimited" behaviour).
+      //
+      // Sub-runs (parentExecutionId set) STILL count toward the cap
+      // — a runbook that recursively spawns itself shouldn't be
+      // able to bypass back-pressure by going through the runbook
+      // step. Operators who need that pattern can either lift the
+      // cap on the inner runbook or set it to null.
+      if (typeof runbook.concurrencyLimit === 'number' && runbook.concurrencyLimit > 0) {
+        const inFlight = await this.prisma.execution.count({
+          where: {
+            tenantId: runbook.tenantId,
+            runbookId: runbook.id,
+            status: { in: ['RUNNING', 'PAUSED'] },
+          },
+        });
+        if (inFlight >= runbook.concurrencyLimit) {
+          throw new WorkflowError({
+            message: `Runbook ${runbook.slug ?? runbook.id} is at its concurrency limit (${inFlight}/${runbook.concurrencyLimit})`,
+            code: ErrorCode.CONCURRENCY_LIMIT,
+            runbookId,
+            context: {
+              userId,
+              tenantId,
+              current: inFlight,
+              limit: runbook.concurrencyLimit,
+            },
+          });
+        }
+      }
+
       // Runs-per-month quota gate. Enforced BEFORE we insert the
       // Execution row — if the tenant is at their plan cap we do
       // not want a half-committed run record that the UI shows

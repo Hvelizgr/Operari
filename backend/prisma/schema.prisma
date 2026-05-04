@@ -319,6 +319,16 @@ model Runbook {
   /// or continue from the editor. Default empty array — breakpoints are
   /// set per-node via the canvas, never required for normal runs.
   breakpoints String[] @default([])
+  /// Per-runbook concurrency cap (trigger.dev queue.concurrencyLimit
+  /// parity). When set, the trigger entry points refuse to start a
+  /// new RUNNING execution if the current count of in-flight runs
+  /// (status in RUNNING|PAUSED) for this runbook is at or above
+  /// the cap. Null = unlimited (engine fallback). Useful for
+  /// runbooks that touch a flaky upstream that can't handle parallel
+  /// callers (vendor APIs without their own throttle, single-row
+  /// DB updates, etc.). Capped at 1000 by the API to keep the
+  /// row-level COUNT cheap.
+  concurrencyLimit Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

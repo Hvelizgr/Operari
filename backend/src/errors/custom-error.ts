@@ -18,6 +18,14 @@ export enum ErrorCode {
    * Caller should treat as 402 Payment Required at the HTTP boundary.
    */
   QUOTA_EXCEEDED = 'ERR_2004',
+  /**
+   * Per-runbook concurrency cap reached (trigger.dev queue.concurrencyLimit
+   * parity). Distinct from QUOTA_EXCEEDED: this is a runbook-level
+   * back-pressure signal, not a billing one. Caller should treat as
+   * 429 Too Many Requests at the HTTP boundary and retry with
+   * exponential backoff.
+   */
+  CONCURRENCY_LIMIT = 'ERR_2005',
 
   // Node execution errors (3xxx)
   NODE_EXECUTION_FAILED = 'ERR_3000',
@@ -82,6 +90,7 @@ export const ERROR_CODE_TO_HTTP: Record<ErrorCode, number> = {
   [ErrorCode.WORKFLOW_DISABLED]: 403,
   [ErrorCode.EXECUTION_NOT_FOUND]: 404,
   [ErrorCode.QUOTA_EXCEEDED]: 402,
+  [ErrorCode.CONCURRENCY_LIMIT]: 429,
 
   [ErrorCode.NODE_EXECUTION_FAILED]: 500,
   [ErrorCode.NODE_NOT_FOUND]: 422,
@@ -197,6 +206,8 @@ export class CustomError extends Error {
       [ErrorCode.WORKFLOW_DISABLED]: 'The runbook is currently disabled.',
       [ErrorCode.EXECUTION_NOT_FOUND]: 'The execution was not found.',
       [ErrorCode.QUOTA_EXCEEDED]: 'Plan quota exceeded. Upgrade to continue.',
+      [ErrorCode.CONCURRENCY_LIMIT]:
+        'This runbook is at its concurrency limit. Wait for an in-flight run to finish.',
 
       [ErrorCode.NODE_EXECUTION_FAILED]: 'A node failed to execute.',
       [ErrorCode.NODE_NOT_FOUND]: 'The specified node was not found.',

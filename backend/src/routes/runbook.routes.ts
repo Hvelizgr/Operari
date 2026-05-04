@@ -1300,6 +1300,11 @@ router.put('/:id', async (req: AuthRequest, res) => {
       // checks `breakpoints.includes(currentNode.id)` before each
       // step's execute() call.
       breakpoints: z.array(z.string()).optional(),
+      // Per-runbook concurrency cap (trigger.dev queue.concurrencyLimit
+      // parity). Null clears the cap (unlimited); positive integer up
+      // to 1000 sets it. The engine consults this before creating
+      // each new Execution row.
+      concurrencyLimit: z.number().int().positive().max(1000).nullish(),
     });
 
     const data = updateSchema.parse(req.body);
@@ -1381,6 +1386,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
       inputs?: Prisma.InputJsonValue;
       onErrorRunbookId?: string | null;
       breakpoints?: string[];
+      concurrencyLimit?: number | null;
     } = {
       nodes: data.nodes as unknown as Prisma.InputJsonValue,
       connections: data.connections as unknown as Prisma.InputJsonValue,
@@ -1401,6 +1407,13 @@ router.put('/:id', async (req: AuthRequest, res) => {
     if (data.breakpoints !== undefined) {
       const liveStepIds = new Set(data.nodes.map(n => n.id));
       updateData.breakpoints = data.breakpoints.filter(id => liveStepIds.has(id));
+    }
+
+    // concurrencyLimit: undefined leaves it untouched, null clears
+    // (unlimited), positive int sets the cap. The trigger entry
+    // points consult this on every dispatch.
+    if (data.concurrencyLimit !== undefined) {
+      updateData.concurrencyLimit = data.concurrencyLimit;
     }
 
     // onErrorRunbookId: undefined leaves it untouched, null clears,

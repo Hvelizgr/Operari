@@ -176,6 +176,22 @@ router.post(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ error: 'Invalid body', details: err.errors });
       }
+      // CONCURRENCY_LIMIT comes from the engine's per-runbook gate.
+      // Map it to 429 with a Retry-After hint so SDK consumers can
+      // back off without parsing the error body. The hint is a
+      // soft guess (5s) — the real time-to-availability depends on
+      // the in-flight runs finishing, which we don't know.
+      const isWf = typeof err === 'object' && err !== null && 'code' in err && 'message' in err;
+      if (isWf && (err as { code: string }).code === 'ERR_2005') {
+        const ctx = (err as { context?: { current?: number; limit?: number } }).context ?? {};
+        res.setHeader('Retry-After', '5');
+        return res.status(429).json({
+          error: (err as { message: string }).message,
+          code: 'concurrency_limit',
+          current: ctx.current ?? null,
+          limit: ctx.limit ?? null,
+        });
+      }
       logger.error({ err }, 'Trigger runbook error');
       res.status(500).json({ error: 'Failed to trigger runbook' });
     }
