@@ -48,6 +48,10 @@ interface Run {
   etaMs?: number | null;
   /** Dry-run runs are badged so they are never confused with real executions. */
   dryRun?: boolean;
+  /** Free-form operator tags (env:prod, deploy:canary, ...). */
+  tags?: string[];
+  /** TTL absolute deadline; null when no TTL was set. */
+  expiresAt?: string | null;
 }
 
 const STRINGS: Record<'en' | 'es', Record<string, string>> = {
@@ -127,6 +131,7 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
   const router = useRouter();
 
   const [filter, setFilter] = useState<RunStatus | 'all'>('all');
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +146,8 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
       try {
         const params = new URLSearchParams({ status: filter, limit: '50' });
         if (mode === 'append' && nextCursor) params.set('cursor', nextCursor);
+        // Backend ANDs repeated `?tag=` params via `tags.hasEvery`.
+        for (const tag of tagFilter) params.append('tag', tag);
         const res = await fetch(`${apiBase}/api/runs?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
@@ -152,7 +159,7 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
         setLoading(false);
       }
     },
-    [apiBase, filter, nextCursor]
+    [apiBase, filter, nextCursor, tagFilter]
   );
 
   useEffect(() => {
@@ -160,7 +167,7 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
     setNextCursor(null);
     load('replace');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [filter, tagFilter]);
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -206,6 +213,35 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
         </div>
       </div>
 
+      {/* Active tag filter chips. Adding tags happens by clicking a
+          chip on a row; removing happens by clicking the X here. The
+          set is AND'ed at the backend (`tags.hasEvery`) so chaining
+          chips narrows the result. */}
+      {tagFilter.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] uppercase text-zinc-500">
+            {lang === 'en' ? 'Tag filter' : 'Filtro de etiquetas'}:
+          </span>
+          {tagFilter.map(tag => (
+            <button
+              key={tag}
+              onClick={() => setTagFilter(prev => prev.filter(x => x !== tag))}
+              className="group inline-flex items-center gap-1 rounded bg-violet-900/40 px-2 py-0.5 text-[11px] text-violet-100 hover:bg-violet-900/70"
+              title={lang === 'en' ? 'Remove from filter' : 'Quitar del filtro'}
+            >
+              {tag}
+              <span className="opacity-60 group-hover:opacity-100">×</span>
+            </button>
+          ))}
+          <button
+            onClick={() => setTagFilter([])}
+            className="text-[11px] text-zinc-500 hover:text-zinc-300"
+          >
+            {lang === 'en' ? 'Clear all' : 'Limpiar'}
+          </button>
+        </div>
+      )}
+
       {error && (
         <div className="mb-4 rounded border border-red-900 bg-red-950/50 px-4 py-3 text-sm text-red-300">
           {error}
@@ -239,6 +275,9 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
               else out.delete(id);
               return out;
             });
+          }}
+          onTagClick={tag => {
+            setTagFilter(prev => (prev.includes(tag) ? prev : [...prev, tag]));
           }}
         />
       )}
@@ -330,6 +369,8 @@ interface RunRowExtra {
    *  the rest of the row navigates as before. */
   selectedIds: Set<string>;
   onToggleSelect: (id: string, next: boolean) => void;
+  /** Click on a tag chip adds it to the current filter set. */
+  onTagClick: (tag: string) => void;
 }
 
 function RunRow({
@@ -340,6 +381,7 @@ function RunRow({
   onOpen,
   selectedIds,
   onToggleSelect,
+  onTagClick,
 }: { index: number; style: React.CSSProperties } & RunRowExtra) {
   const r = runs[index];
   // Derive a richer display status from the stored (status, error)
@@ -386,15 +428,60 @@ function RunRow({
           </span>
         )}
       </div>
-      <div className="flex-1 truncate px-4 text-zinc-200">{r.runbook.name}</div>
+      <div className="min-w-0 flex-1 truncate px-4 text-zinc-200">
+        <div className="flex items-center gap-2">
+          <span className="truncate">{r.runbook.name}</span>
+          {r.tags && r.tags.length > 0 && (
+            <div className="flex shrink-0 items-center gap-1 overflow-hidden">
+              {r.tags.slice(0, 3).map(tag => (
+                <button
+                  key={tag}
+                  onClick={e => {
+                    e.stopPropagation();
+                    onTagClick(tag);
+                  }}
+                  className="rounded bg-violet-900/30 px-1.5 py-0.5 text-[10px] text-violet-200 hover:bg-violet-900/60"
+                  title={lang === 'en' ? 'Filter by this tag' : 'Filtrar por esta etiqueta'}
+                >
+                  {tag}
+                </button>
+              ))}
+              {r.tags.length > 3 && (
+                <span className="text-[10px] text-zinc-500" title={r.tags.slice(3).join(', ')}>
+                  +{r.tags.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
       <div className="w-28 truncate px-4 text-xs text-zinc-400">{r.trigger || '—'}</div>
       <div className="w-44 truncate px-4 text-xs text-zinc-400">
         {formatDateTime(r.startedAt, lang)}
       </div>
       <div className="w-24 px-4 text-xs text-zinc-400">
-        {r.status === 'RUNNING' && r.etaMs != null
-          ? `~${formatDuration(r.etaMs)}`
-          : formatDuration(r.duration)}
+        {/* TTL takes precedence over duration for in-flight runs that
+            have an expiresAt — the operator wants "how long until this
+            self-destructs" more than "how long has it been running". */}
+        {r.expiresAt && (r.status === 'RUNNING' || r.status === 'PAUSED')
+          ? (() => {
+              const ms = new Date(r.expiresAt).getTime() - Date.now();
+              return ms > 0 ? (
+                <span
+                  className="rounded border border-amber-700/50 bg-amber-950/30 px-1.5 py-0.5 text-[10px] text-amber-300"
+                  title={
+                    lang === 'en' ? 'TTL — auto-cancel deadline' : 'TTL — fecha de auto-cancelación'
+                  }
+                >
+                  TTL {formatDuration(ms)}
+                </span>
+              ) : (
+                <span className="text-[10px] text-amber-400">TTL passed</span>
+              );
+            })()
+          : r.status === 'RUNNING' && r.etaMs != null
+            ? `~${formatDuration(r.etaMs)}`
+            : formatDuration(r.duration)}
       </div>
       <div className="w-24 truncate px-4 font-mono text-xs text-zinc-500">{r.id.slice(0, 8)}</div>
     </div>
@@ -408,6 +495,7 @@ function RunsVirtualTable({
   onOpen,
   selectedIds,
   onToggleSelect,
+  onTagClick,
 }: {
   runs: Run[];
   lang: 'en' | 'es';
@@ -415,6 +503,7 @@ function RunsVirtualTable({
   onOpen: (runId: string) => void;
   selectedIds: Set<string>;
   onToggleSelect: (id: string, next: boolean) => void;
+  onTagClick: (tag: string) => void;
 }) {
   // Sort state lives in the parent so the column header click can
   // toggle asc/desc/off without losing it on data refresh. Sprint 2
@@ -524,7 +613,7 @@ function RunsVirtualTable({
         rowCount={sortedRuns.length}
         rowHeight={ROW_HEIGHT}
         rowComponent={RunRow}
-        rowProps={{ runs: sortedRuns, lang, onOpen, selectedIds, onToggleSelect }}
+        rowProps={{ runs: sortedRuns, lang, onOpen, selectedIds, onToggleSelect, onTagClick }}
       />
     </div>
   );
