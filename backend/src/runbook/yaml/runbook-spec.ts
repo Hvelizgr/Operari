@@ -68,6 +68,17 @@ export interface RunbookStep {
    */
   skipIf?: string;
   /**
+   * Lifecycle hook (trigger.dev parity). When the step terminates
+   * with success / failure, the engine fires a child run of the
+   * referenced runbook (id or slug) with `{ parent: <step output|error> }`
+   * as input. Side-effect dispatch — the parent run does not wait
+   * on the hook. Useful for "if deploy fails, page on-call" style
+   * fanout without bloating the main DAG with notify steps.
+   */
+  onSuccess?: string;
+  /** See `onSuccess`. */
+  onFailure?: string;
+  /**
    * Successor step id(s). Omit on the final step. Four shapes:
    *   - `string`              — single edge, default port
    *   - `string[]`            — multiple edges, default port

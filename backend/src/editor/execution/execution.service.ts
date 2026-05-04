@@ -175,6 +175,85 @@ export class ExecutionService {
    * caching adds invalidation complexity for the rare case where a
    * tenant gets re-linked to a new Stripe customer mid-run.
    */
+  /**
+   * Fire-and-forget per-step lifecycle hook (trigger.dev parity).
+   *
+   * When a step's config carries `_onSuccess: <runbook-slug-or-id>`
+   * or `_onFailure: <runbook-slug-or-id>`, the engine dispatches a
+   * child run of that runbook the moment the step terminates. The
+   * payload is the step output (success) or `{ error, stepId,
+   * stepType }` (failure), keyed under `parent` so the handler
+   * runbook can read `{{ parent.error }}` etc.
+   *
+   * Why fire-and-forget: an SRE who sets `onFailure: notify-pager`
+   * does not want the failing step's run to BLOCK on the notify
+   * succeeding. The hook is a side-effect dispatch, not part of
+   * the parent's data flow. If the hook runbook itself fails, that
+   * failure is still in the runs list under its own row.
+   *
+   * Tenant scope is preserved — the lookup is `findFirst` against
+   * `(tenantId, slug || id)` so a step in tenant A cannot call a
+   * runbook in tenant B even with a verbatim id paste.
+   */
+  private async dispatchStepHook(
+    kind: 'onSuccess' | 'onFailure',
+    node: { id: string; type: string; config?: unknown },
+    tenantId: string,
+    userId: string,
+    payload: Record<string, unknown>,
+    parentExecutionId: string
+  ): Promise<void> {
+    try {
+      const config = (node.config ?? {}) as Record<string, unknown>;
+      const ref = config[kind === 'onSuccess' ? '_onSuccess' : '_onFailure'];
+      if (typeof ref !== 'string' || ref.trim().length === 0) return;
+
+      const target = await this.prisma.runbook.findFirst({
+        where: {
+          tenantId,
+          OR: [{ id: ref }, { slug: ref }],
+        },
+      });
+      if (!target) {
+        // Misconfigured hook — log and move on. The parent run
+        // already finished its step; surfacing this as a hard
+        // failure would punish the operator for a one-line typo.
+        this.logger.warn('Step hook target runbook not found', {
+          kind,
+          ref,
+          stepId: node.id,
+          tenantId,
+        });
+        return;
+      }
+
+      // Fire-and-forget. The promise is intentionally not awaited;
+      // we want the parent run loop to keep going while the hook
+      // dispatches independently. Errors are logged for diagnosis
+      // but do not propagate.
+      void this.execute({
+        runbookId: target.id,
+        userId,
+        trigger: 'API',
+        tenantId,
+        parentExecutionId,
+        input: { parent: payload },
+      }).catch(err => {
+        this.logger.error('Step hook dispatch failed', {
+          kind,
+          targetRunbookId: target.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    } catch (err) {
+      this.logger.error('Step hook resolution failed', {
+        kind,
+        stepId: node.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   private async resolveStripeCustomerId(
     tenantId: string | undefined | null
   ): Promise<string | undefined> {
@@ -1330,6 +1409,18 @@ export class ExecutionService {
             },
           });
 
+          // Fire `onSuccess` hook if the step was wired with one.
+          // Side-effect dispatch — we do NOT await; the parent run
+          // keeps marching while the handler runbook starts.
+          void this.dispatchStepHook(
+            'onSuccess',
+            currentNode,
+            tenantId,
+            userId,
+            { stepId: currentNode.id, stepType: currentNode.type, output },
+            executionId
+          );
+
           socketService.emitNodeStatus(executionId, currentNode.id, 'SUCCESS', output);
           socketService.emitLog(executionId, `Node execution completed: ${currentNode.title}`, {
             nodeId: currentNode.id,
@@ -1499,6 +1590,24 @@ export class ExecutionService {
               duration: nodeDuration,
             },
           });
+
+          // Fire `onFailure` hook if the step was wired with one.
+          // Same fire-and-forget contract as onSuccess; the parent
+          // run continues to the error-handler runbook the operator
+          // already opted into via `onErrorRunbookId`.
+          void this.dispatchStepHook(
+            'onFailure',
+            currentNode,
+            tenantId,
+            (executionContext.userId as string) ?? '',
+            {
+              stepId: currentNode.id,
+              stepType: currentNode.type,
+              error: errorMessage,
+              errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
+            },
+            executionId
+          );
 
           socketService.emitNodeStatus(executionId, currentNode.id, 'FAILED', {
             error: errorMessage,

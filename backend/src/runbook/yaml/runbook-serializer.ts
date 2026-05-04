@@ -12,6 +12,13 @@ import { RetryPolicy, RunbookSpec, RunbookStep, StepConnection } from './runbook
 const RETRY_KEY = '_retry';
 const RUN_IF_KEY = '_runIf';
 const SKIP_IF_KEY = '_skipIf';
+// Per-step lifecycle hooks (trigger.dev parity). Stored under
+// underscore-prefixed keys to keep the YAML's top-level shape
+// reserved for engine-level fields and the operator's plain
+// config keys; the engine looks at config._onSuccess /
+// config._onFailure when a step terminates.
+const ON_SUCCESS_KEY = '_onSuccess';
+const ON_FAILURE_KEY = '_onFailure';
 
 /**
  * Serialize / deserialize a runbook between the Prisma storage shape
@@ -94,11 +101,15 @@ export function toSpec(
     };
     if (node.enabled === false) step.enabled = false;
     if (node.config && typeof node.config === 'object') {
-      const { config, retry, runIf, skipIf } = splitMeta(node.config as Record<string, unknown>);
+      const { config, retry, runIf, skipIf, onSuccess, onFailure } = splitMeta(
+        node.config as Record<string, unknown>
+      );
       if (Object.keys(config).length > 0) step.config = config;
       if (retry) step.retry = retry;
       if (runIf) step.runIf = runIf;
       if (skipIf) step.skipIf = skipIf;
+      if (onSuccess) step.onSuccess = onSuccess;
+      if (onFailure) step.onFailure = onFailure;
     }
     if (outgoing.length > 0) {
       step.next = simplifyNext(outgoing, step);
@@ -193,6 +204,8 @@ export function fromSpec(spec: RunbookSpec): DeserializedRunbook {
     if (step.retry) merged[RETRY_KEY] = step.retry;
     if (step.runIf) merged[RUN_IF_KEY] = step.runIf;
     if (step.skipIf) merged[SKIP_IF_KEY] = step.skipIf;
+    if (step.onSuccess) merged[ON_SUCCESS_KEY] = step.onSuccess;
+    if (step.onFailure) merged[ON_FAILURE_KEY] = step.onFailure;
     return {
       id: friendlyToUuid.get(step.id)!,
       friendlyId: step.id,
@@ -272,11 +285,15 @@ function splitMeta(config: Record<string, unknown>): {
   retry?: RetryPolicy;
   runIf?: string;
   skipIf?: string;
+  onSuccess?: string;
+  onFailure?: string;
 } {
   const {
     [RETRY_KEY]: rawRetry,
     [RUN_IF_KEY]: rawRunIf,
     [SKIP_IF_KEY]: rawSkipIf,
+    [ON_SUCCESS_KEY]: rawOnSuccess,
+    [ON_FAILURE_KEY]: rawOnFailure,
     // Pinned output is editor-author state, not part of the canonical
     // runbook definition — strip it from YAML so a `git diff` of a
     // shared YAML file doesn't churn on whatever the last author had
@@ -295,8 +312,12 @@ function splitMeta(config: Record<string, unknown>): {
 
   const runIf = typeof rawRunIf === 'string' && rawRunIf.trim() ? rawRunIf : undefined;
   const skipIf = typeof rawSkipIf === 'string' && rawSkipIf.trim() ? rawSkipIf : undefined;
+  const onSuccess =
+    typeof rawOnSuccess === 'string' && rawOnSuccess.trim() ? rawOnSuccess.trim() : undefined;
+  const onFailure =
+    typeof rawOnFailure === 'string' && rawOnFailure.trim() ? rawOnFailure.trim() : undefined;
 
-  return { config: rest, retry, runIf, skipIf };
+  return { config: rest, retry, runIf, skipIf, onSuccess, onFailure };
 }
 
 function normalizeRetry(raw: Record<string, unknown>): RetryPolicy | undefined {
