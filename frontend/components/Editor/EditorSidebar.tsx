@@ -147,7 +147,16 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
 
   // Collapsible sections. Items here are real surfaces but used less
   // often than the primary nav, so they hide behind a section toggle
-  // to reduce noise. Tools + Library default closed.
+  // to reduce noise. Only Observability defaults open — every other
+  // section starts closed so a fresh login lands on a calm sidebar.
+  //
+  // Grouping rationale:
+  //   - Observabilidad: things that watch (monitors, audit log)
+  //   - Automatizaciones: things that fire runbooks without a human
+  //     in the loop (cron, webhook routers, AI assistant)
+  //   - Consultas: ad-hoc workbenches with no runbook attachment
+  //   - Integraciones: outbound/inbound plumbing config
+  //   - Referencia: read-only views over runbook + run state
   const sections: MenuSection[] = [
     {
       id: 'observability',
@@ -169,27 +178,15 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
       ],
     },
     {
-      id: 'tools',
-      label: lang === 'en' ? 'Tools' : 'Herramientas',
+      id: 'automations',
+      label: lang === 'en' ? 'Automations' : 'Automatizaciones',
       defaultOpen: false,
       items: [
         {
-          id: 'sql',
-          label: 'SQL Editor',
-          icon: Database,
-          href: `/${lang}/sql-editor`,
-        },
-        {
-          id: 'lineage',
-          label: 'Lineage',
-          icon: Network,
-          href: `/${lang}/lineage`,
-        },
-        {
-          id: 'http-tester',
-          label: lang === 'en' ? 'API Tester' : 'Probador API',
-          icon: Send,
-          href: `/${lang}/http-tester`,
+          id: 'schedules',
+          label: lang === 'en' ? 'Schedules' : 'Horarios',
+          icon: CalendarClock,
+          href: `/${lang}/schedules`,
         },
         {
           id: 'agents',
@@ -206,16 +203,42 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
       ],
     },
     {
-      id: 'library',
-      label: lang === 'en' ? 'Library' : 'Biblioteca',
+      id: 'queries',
+      label: lang === 'en' ? 'Queries' : 'Consultas',
       defaultOpen: false,
       items: [
         {
-          id: 'schedules',
-          label: lang === 'en' ? 'Schedules' : 'Horarios',
-          icon: CalendarClock,
-          href: `/${lang}/schedules`,
+          id: 'sql',
+          label: 'SQL Editor',
+          icon: Database,
+          href: `/${lang}/sql-editor`,
         },
+        {
+          id: 'http-tester',
+          label: lang === 'en' ? 'API Tester' : 'Probador API',
+          icon: Send,
+          href: `/${lang}/http-tester`,
+        },
+      ],
+    },
+    {
+      id: 'reference',
+      label: lang === 'en' ? 'Reference' : 'Referencia',
+      defaultOpen: false,
+      items: [
+        {
+          id: 'lineage',
+          label: 'Lineage',
+          icon: Network,
+          href: `/${lang}/lineage`,
+        },
+      ],
+    },
+    {
+      id: 'integrations',
+      label: lang === 'en' ? 'Integrations' : 'Integraciones',
+      defaultOpen: false,
+      items: [
         {
           id: 'utilities',
           label: lang === 'en' ? 'Utilities' : 'Utilidades',
