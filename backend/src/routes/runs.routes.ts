@@ -88,6 +88,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       etaMs: r.status === 'RUNNING' ? (etaMap.get(r.runbookId) ?? null) : null,
       dryRun: r.dryRun,
       tags: r.tags ?? [],
+      expiresAt: r.expiresAt,
     })),
     nextCursor: hasMore ? page[page.length - 1].id : null,
   });

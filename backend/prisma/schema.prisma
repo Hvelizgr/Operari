@@ -430,6 +430,12 @@ model Execution {
   /// caller) become cheap slicing. Capped at 16 tags per run by the
   /// API to keep payload + GIN entries bounded.
   tags        String[]   @default([])
+  /// TTL — absolute time at which the run is abandoned if the
+  /// engine has not picked it up. Trigger.dev parity for the "only
+  /// run this if it's still relevant" use case (e.g. webhook with
+  /// 30s TTL: if the queue is backlogged the work is dropped, not
+  /// run with stale input). Null = no TTL.
+  expiresAt   DateTime?
 
   /// Dry-run mode: step executors log what they WOULD do (commands,
   /// requests, notifications) without executing any side effect.

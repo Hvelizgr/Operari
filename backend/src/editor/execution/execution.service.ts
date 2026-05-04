@@ -56,6 +56,15 @@ interface ExecuteParams {
    * row and propagates to sub-runs via the `runbook` step.
    */
   dryRun?: boolean;
+  /**
+   * TTL in seconds (trigger.dev parity). When set, the engine
+   * persists `expiresAt = now() + ttlSeconds` and refuses to
+   * start the run if it surfaces past that point — useful when
+   * the work loses relevance after some time (a webhook handler
+   * with a 30s TTL would rather drop than run with stale input).
+   * Null/undefined = no TTL (default: run whenever picked up).
+   */
+  ttlSeconds?: number;
 }
 
 interface ResumeParams {
@@ -466,6 +475,7 @@ export class ExecutionService {
       startNodeId,
       parentExecutionId,
       dryRun,
+      ttlSeconds,
     } = params;
 
     try {
@@ -524,6 +534,17 @@ export class ExecutionService {
       // so the run-history filter and the run detail page can label
       // the row distinctly — otherwise every dry-run looks like a
       // real run in /runs.
+      // Compute expiresAt from the optional TTL. Stored as an
+      // absolute target (vs duration + start) so the watchdog
+      // can compare with `expiresAt < now()` directly. We
+      // re-check this just before the engine consumes the
+      // execution, so a TTL set to a tiny window with no queue
+      // pressure gives "ran" not "expired".
+      const expiresAt =
+        ttlSeconds && Number.isFinite(ttlSeconds) && ttlSeconds > 0
+          ? new Date(Date.now() + Math.floor(ttlSeconds * 1000))
+          : null;
+
       const execution = await this.prisma.execution.create({
         data: {
           runbookId,
@@ -534,8 +555,27 @@ export class ExecutionService {
           parentExecutionId,
           runbookVersionId: latestVersion?.id ?? null,
           dryRun: dryRun ?? false,
+          expiresAt,
         },
       });
+
+      // Belt + braces: if the TTL was so short the run already
+      // expired before we persisted it (e.g. tenant clock drift,
+      // post-create scheduler delay), short-circuit BEFORE
+      // running anything. The execution is finalised with a
+      // sanitised error so the runs list shows TTL_EXCEEDED via
+      // the deriveDisplayStatus helper.
+      if (expiresAt && expiresAt.getTime() <= Date.now()) {
+        await this.prisma.execution.update({
+          where: { id: execution.id },
+          data: {
+            status: 'FAILED',
+            error: 'TTL exceeded before execution started (TTL_EXCEEDED)',
+            completedAt: new Date(),
+          },
+        });
+        return execution;
+      }
 
       // Create context logger for this execution
       const executionContext = {
