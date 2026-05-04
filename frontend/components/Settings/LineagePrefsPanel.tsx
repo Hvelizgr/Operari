@@ -1,6 +1,6 @@
 'use client';
 
-import { Network, Filter, Group } from 'lucide-react';
+import { Network, Filter, Group, Anchor } from 'lucide-react';
 
 import { useLineagePrefs } from '@/lib/userPrefs';
 
@@ -15,6 +15,9 @@ const STRINGS = {
       'Cluster runbooks visually by their `category` column. Off = single graph.',
     hideOnErrorLabel: 'Hide on-error edges',
     hideOnErrorHint: 'Only show explicit `runbook` step calls. Hides the orange on-error handlers.',
+    hideHookLabel: 'Hide step hook edges',
+    hideHookHint:
+      'Hide per-step onSuccess / onFailure hook edges (emerald + red). Keeps the call graph clean when many steps wire hooks.',
     on: 'On',
     off: 'Off',
   },
@@ -27,6 +30,9 @@ const STRINGS = {
     hideOnErrorLabel: 'Ocultar handlers on-error',
     hideOnErrorHint:
       'Solo mostrar llamadas explícitas via step `runbook`. Oculta los handlers on-error en naranja.',
+    hideHookLabel: 'Ocultar edges de hooks',
+    hideHookHint:
+      'Oculta los edges de hooks onSuccess / onFailure (verde + rojo) por step. Útil cuando muchos steps cablearon hooks.',
     on: 'Encendido',
     off: 'Apagado',
   },
@@ -60,6 +66,15 @@ export default function LineagePrefsPanel({ lang }: { lang: 'en' | 'es' }) {
           hint={t.hideOnErrorHint}
           value={prefs.hideOnErrorEdges}
           onChange={v => setPrefs({ hideOnErrorEdges: v })}
+          on={t.on}
+          off={t.off}
+        />
+        <Toggle
+          icon={<Anchor size={12} />}
+          label={t.hideHookLabel}
+          hint={t.hideHookHint}
+          value={prefs.hideHookEdges}
+          onChange={v => setPrefs({ hideHookEdges: v })}
           on={t.on}
           off={t.off}
         />

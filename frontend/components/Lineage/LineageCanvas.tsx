@@ -100,22 +100,32 @@ interface LineageCanvasProps {
  * Drop edges/nodes the user wants hidden via Lineage prefs.
  *   - hideOnErrorEdges: filter out the `on-error` edge kind so the
  *     graph shows only explicit runbook-step calls.
+ *   - hideHookEdges: filter out per-step hook edges (hook-success +
+ *     hook-failure). Two flags instead of one because the recovery
+ *     story for runbook-level on-error is operationally distinct
+ *     from the step-level hook story.
  *   - groupByCategory is applied at layout time, not here.
  */
 function applyLineageFilters(
   payload: LineagePayload,
-  prefs: { hideOnErrorEdges: boolean; groupByCategory: boolean }
+  prefs: { hideOnErrorEdges: boolean; hideHookEdges: boolean; groupByCategory: boolean }
 ): LineagePayload {
-  if (!prefs.hideOnErrorEdges) return payload;
+  if (!prefs.hideOnErrorEdges && !prefs.hideHookEdges) return payload;
   return {
     nodes: payload.nodes,
-    edges: payload.edges.filter(e => e.kind !== 'on-error'),
+    edges: payload.edges.filter(e => {
+      if (prefs.hideOnErrorEdges && e.kind === 'on-error') return false;
+      if (prefs.hideHookEdges && (e.kind === 'hook-success' || e.kind === 'hook-failure')) {
+        return false;
+      }
+      return true;
+    }),
   };
 }
 
 function layoutLineage(
   payload: LineagePayload,
-  prefs: { groupByCategory: boolean; hideOnErrorEdges: boolean }
+  prefs: { groupByCategory: boolean; hideOnErrorEdges: boolean; hideHookEdges: boolean }
 ): {
   nodes: RfLineageNode[];
   edges: RfLineageEdge[];

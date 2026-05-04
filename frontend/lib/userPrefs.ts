@@ -124,11 +124,16 @@ export interface LineagePrefs {
   groupByCategory: boolean;
   /** Hide on-error edges (only show explicit `runbook` step calls). */
   hideOnErrorEdges: boolean;
+  /** Hide per-step hook edges (hook-success + hook-failure). Useful
+   *  when a workspace has many hook-heavy runbooks and the operator
+   *  wants the call graph without the recovery-path overlay. */
+  hideHookEdges: boolean;
 }
 
 export const LINEAGE_PREFS_DEFAULTS: LineagePrefs = {
   groupByCategory: false,
   hideOnErrorEdges: false,
+  hideHookEdges: false,
 };
 
 const LINEAGE_KEY = 'operari:prefs:lineage';
