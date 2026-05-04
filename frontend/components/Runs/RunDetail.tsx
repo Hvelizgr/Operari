@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { formatDateTime } from '@/lib/datetime';
 
 import ExecutionEventLog from './ExecutionEventLog';
+import PendingWaitpointsPanel from './PendingWaitpointsPanel';
 
 type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 type StepStatus = RunStatus | string;
@@ -439,6 +440,11 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
           })}
         </ol>
       </section>
+
+      {/* Pending waitpoints — surfaced for any run that has at least
+          one PENDING token. Most useful while PAUSED but also fires
+          for preflight tokens minted before the blocking step. */}
+      <PendingWaitpointsPanel runId={run.id} lang={lang} />
 
       {/* Durable event log — reads from the engine's ExecutionEvent
           table. When the run is live, the component polls incre-

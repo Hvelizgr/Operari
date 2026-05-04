@@ -149,12 +149,16 @@ export class WaitpointService {
     return candidates;
   }
 
-  async list(tenantId: string, opts: { status?: WaitpointStatus; limit?: number } = {}) {
+  async list(
+    tenantId: string,
+    opts: { status?: WaitpointStatus; executionId?: string; limit?: number } = {}
+  ) {
     const limit = Math.min(opts.limit ?? 50, 200);
     return this.prisma.waitpoint.findMany({
       where: {
         tenantId,
         ...(opts.status ? { status: opts.status } : {}),
+        ...(opts.executionId ? { executionId: opts.executionId } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: limit,

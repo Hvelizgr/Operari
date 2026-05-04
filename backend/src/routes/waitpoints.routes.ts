@@ -84,7 +84,14 @@ router.get('/', anonymousFallback, async (req: AuthRequest, res: Response) => {
   const statusFilter = (allowed as readonly string[]).includes(status ?? '')
     ? (status as (typeof allowed)[number])
     : undefined;
-  const data = await getService().list(req.user.tenantId, { status: statusFilter });
+  const executionIdFilter =
+    typeof req.query.executionId === 'string' && req.query.executionId.length > 0
+      ? req.query.executionId
+      : undefined;
+  const data = await getService().list(req.user.tenantId, {
+    status: statusFilter,
+    executionId: executionIdFilter,
+  });
   res.json({ data });
 });
 
