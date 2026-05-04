@@ -31,11 +31,20 @@ router.use((req: AuthRequest, _res, next) => {
 const createSchema = z.object({
   runbookId: z.string().min(1),
   cronExpr: z.string().min(1).max(120),
+  /** Optional human-readable label so multiple schedules on the
+   *  same runbook stay distinguishable in the operator UI. */
+  name: z.string().min(1).max(120).nullish(),
+  /** Optional per-schedule typed inputs. Merged into the run's
+   *  variables at fire time so the same runbook can fire on
+   *  different cadences with different params. */
+  inputs: z.record(z.unknown()).nullish(),
 });
 
 const updateSchema = z.object({
   cronExpr: z.string().min(1).max(120).optional(),
   isActive: z.boolean().optional(),
+  name: z.string().min(1).max(120).nullish(),
+  inputs: z.record(z.unknown()).nullish(),
 });
 
 router.get('/', async (req: AuthRequest, res: Response) => {
@@ -51,8 +60,11 @@ router.get('/upcoming', async (req: AuthRequest, res: Response) => {
 
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
-    const { runbookId, cronExpr } = createSchema.parse(req.body);
-    const job = await getService().create(req.user!.tenantId, runbookId, cronExpr);
+    const parsed = createSchema.parse(req.body);
+    const job = await getService().create(req.user!.tenantId, parsed.runbookId, parsed.cronExpr, {
+      name: parsed.name ?? null,
+      inputs: parsed.inputs ?? null,
+    });
     res.status(201).json(job);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -67,7 +79,12 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 router.patch('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const patch = updateSchema.parse(req.body);
-    const job = await getService().update(req.user!.tenantId, String(req.params.id), patch);
+    const job = await getService().update(req.user!.tenantId, String(req.params.id), {
+      cronExpr: patch.cronExpr,
+      isActive: patch.isActive,
+      name: patch.name,
+      inputs: patch.inputs,
+    });
     if (!job) return res.status(404).json({ error: 'Schedule not found' });
     res.json(job);
   } catch (err) {

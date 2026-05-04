@@ -46,12 +46,17 @@ type RunbookShape = {
   inputs: unknown;
 };
 
-function buildPrisma(runbook: RunbookShape | null) {
+function buildPrisma(runbook: RunbookShape | null, scheduleInputs: unknown = null) {
   return {
     runbook: {
       findUnique: jest.fn().mockResolvedValue(runbook),
     },
     scheduledJob: {
+      // Multi-schedule (20260504060000) — the scheduler now reads
+      // the job row to surface per-schedule typed inputs. Default
+      // mock returns null inputs so legacy single-schedule behaviour
+      // is preserved.
+      findUnique: jest.fn().mockResolvedValue({ inputs: scheduleInputs }),
       update: jest.fn().mockResolvedValue({}),
     },
   } as unknown as PrismaClient;
@@ -131,5 +136,26 @@ describe('SchedulerService.scheduleJob input handling', () => {
     await fireSchedule();
 
     expect(executeMock).not.toHaveBeenCalled();
+  });
+
+  it('multi-schedule: per-schedule inputs override runbook defaults', async () => {
+    // Runbook declares env='staging' as the default; the schedule
+    // pins env='production'. The dispatched run sees the schedule's
+    // value, not the default.
+    const prisma = buildPrisma(
+      {
+        id: 'wf-1',
+        userId: 'u-1',
+        tenantId: 't-1',
+        inputs: [{ name: 'env', type: 'text', default: 'staging' }],
+      },
+      { env: 'production' }
+    );
+    const svc = new SchedulerService(prisma);
+    await svc.scheduleJob('job-prod', 'wf-1', '0 0 * * *');
+    await fireSchedule();
+
+    expect(executeMock).toHaveBeenCalledTimes(1);
+    expect(executeMock.mock.calls[0][0].input).toEqual({ env: 'production' });
   });
 });

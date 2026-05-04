@@ -342,7 +342,7 @@ model Runbook {
   webhooks            Webhook[]
   approvals           Approval[]
   eventAgents         EventAgent[]
-  scheduledJob        ScheduledJob?
+  scheduledJobs       ScheduledJob[]
   monitors            Monitor[]
 
   @@unique([tenantId, slug])
@@ -588,8 +588,25 @@ model ErrorNotificationConfig {
 
 model ScheduledJob {
   id         String    @id @default(uuid())
-  runbookId String    @unique
+  /// Per-runbook foreign key. Multi-schedule per runbook (trigger.dev
+  /// "schedules in code" parity) — a runbook can fire on several
+  /// independent crons, each with its own inputs. The historical
+  /// @unique constraint was dropped in 20260504060000.
+  runbookId  String
   cronExpr   String
+  /// Optional human-readable label so an operator with three schedules
+  /// on the same runbook ("daily smoke", "weekly full", "monthly
+  /// archive") can tell them apart in the /schedules UI without
+  /// reading every cron expression.
+  name       String?
+  /// Optional per-schedule typed inputs. Merged into the run's
+  /// `variables` at trigger time so the same runbook can fire on
+  /// different cadences with different params (e.g. environment:
+  /// 'staging' on the hourly schedule, environment: 'production'
+  /// on the daily one). Validated against Runbook.inputs at
+  /// schedule-create time, not at fire time, so a misconfigured
+  /// schedule is caught early.
+  inputs     Json?
   isActive   Boolean   @default(true)
   lastRunAt  DateTime?
   nextRunAt  DateTime?
@@ -599,6 +616,7 @@ model ScheduledJob {
   runbook Runbook @relation(fields: [runbookId], references: [id], onDelete: Cascade)
 
   @@index([isActive])
+  @@index([runbookId])
 }
 
 enum Role {

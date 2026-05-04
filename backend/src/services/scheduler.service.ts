@@ -94,14 +94,27 @@ export class SchedulerService {
           return;
         }
 
+        // Per-schedule typed inputs (multi-schedule parity). Read
+        // the job row's `inputs` JSONB and merge into the input
+        // payload AFTER defaults resolution so a schedule that
+        // pins `environment: 'production'` overrides a declared
+        // default of `'staging'`. Empty / null on legacy single-
+        // schedule rows so the historical behaviour is unchanged.
+        const job = await this.prisma.scheduledJob.findUnique({
+          where: { id: jobId },
+          select: { inputs: true },
+        });
+        const scheduleInputs =
+          job?.inputs && typeof job.inputs === 'object'
+            ? (job.inputs as Record<string, unknown>)
+            : {};
+
         // Resolve the runbook's declared typed inputs from their
-        // defaults. A schedule fire carries no user-supplied payload,
-        // so validateRunInputs({}) either returns a defaults-only map
-        // or fails because a required input has no default — in which
-        // case we skip the dispatch and log, rather than silently
-        // running the graph against undefined variables.
+        // defaults, then layer the schedule's overrides on top.
+        // validateRunInputs uses the merged payload so a required
+        // input that the schedule provides counts as supplied.
         const inputDefs = parseInputDefs(runbook.inputs);
-        const validated = validateRunInputs(inputDefs, {});
+        const validated = validateRunInputs(inputDefs, scheduleInputs);
         if (!validated.ok) {
           logger.error(
             { runbookId, jobId, issues: validated.issues },

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import cronstrue from 'cronstrue';
 import cron from 'node-cron';
 
@@ -97,7 +97,12 @@ export class ScheduleService {
     return hydrated.filter((j): j is NonNullable<typeof j> => j !== null);
   }
 
-  async create(tenantId: string, runbookId: string, cronExpr: string) {
+  async create(
+    tenantId: string,
+    runbookId: string,
+    cronExpr: string,
+    opts: { name?: string | null; inputs?: Record<string, unknown> | null } = {}
+  ) {
     if (!cron.validate(cronExpr)) {
       throw new CustomError({
         message: `Invalid cron expression: ${cronExpr}`,
@@ -116,16 +121,25 @@ export class ScheduleService {
         userMessage: 'Runbook not found.',
       });
     }
-    // Schema enforces runbookId @unique, so a second create on the
-    // same runbook would 500. Convert to a clean 409.
-    const existing = await this.prisma.scheduledJob.findUnique({
-      where: { runbookId },
+    // Multi-schedule per runbook is allowed since 20260504060000.
+    // The previous "one schedule per runbook" guard is intentionally
+    // gone — operators that want a deploy.runbook to fire on a daily
+    // smoke + a weekly full + a monthly archive cron now do that with
+    // three rows. We only refuse an exact duplicate (same cron + same
+    // name) so a double-click on Save doesn't silently double-fire.
+    const dup = await this.prisma.scheduledJob.findFirst({
+      where: {
+        runbookId,
+        cronExpr,
+        name: opts.name ?? null,
+      },
     });
-    if (existing) {
+    if (dup) {
       throw new CustomError({
-        message: 'schedule_already_exists_for_runbook',
+        message: 'schedule_duplicate',
         code: ErrorCode.RESOURCE_CONFLICT,
-        userMessage: 'This runbook already has a schedule.',
+        userMessage:
+          'A schedule with this cron expression and name already exists for this runbook.',
       });
     }
 
@@ -133,6 +147,12 @@ export class ScheduleService {
       data: {
         runbookId,
         cronExpr,
+        name: opts.name ?? null,
+        // Prisma's nullable JSON columns require Prisma.JsonNull
+        // (the explicit "set to JSON null in the DB") rather than
+        // a JS null. Pass through Prisma.InputJsonValue when the
+        // caller supplied a real object.
+        inputs: opts.inputs == null ? Prisma.JsonNull : (opts.inputs as Prisma.InputJsonValue),
         isActive: true,
         nextRunAt: computeNextRunAt(cronExpr),
       },
@@ -141,7 +161,16 @@ export class ScheduleService {
     return job;
   }
 
-  async update(tenantId: string, id: string, patch: { cronExpr?: string; isActive?: boolean }) {
+  async update(
+    tenantId: string,
+    id: string,
+    patch: {
+      cronExpr?: string;
+      isActive?: boolean;
+      name?: string | null;
+      inputs?: Record<string, unknown> | null;
+    }
+  ) {
     const existing = await this.prisma.scheduledJob.findFirst({
       where: { id, runbook: { tenantId } },
     });
@@ -164,6 +193,10 @@ export class ScheduleService {
       data: {
         ...(patch.cronExpr !== undefined && { cronExpr: patch.cronExpr }),
         ...(patch.isActive !== undefined && { isActive: patch.isActive }),
+        ...(patch.name !== undefined && { name: patch.name }),
+        ...(patch.inputs !== undefined && {
+          inputs: patch.inputs == null ? Prisma.JsonNull : (patch.inputs as Prisma.InputJsonValue),
+        }),
         nextRunAt,
       },
     });
@@ -203,11 +236,19 @@ export class ScheduleService {
       where: { id: job.runbookId, tenantId },
     });
     if (!runbook) return null;
+    // Per-schedule typed inputs (multi-schedule parity). The job's
+    // own `inputs` JSONB merges into the run's variables so the
+    // same runbook fires with different params per schedule. Empty
+    // / null on legacy single-schedule rows so the historical
+    // behaviour is unchanged.
+    const scheduleInputs =
+      job.inputs && typeof job.inputs === 'object' ? (job.inputs as Record<string, unknown>) : {};
     const run = await this.executionService.execute({
       runbookId: runbook.id,
       userId: runbook.userId,
       trigger: 'MANUAL',
       tenantId,
+      input: scheduleInputs,
     });
     return { runId: run.id };
   }

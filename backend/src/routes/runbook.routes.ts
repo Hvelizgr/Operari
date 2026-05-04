@@ -1493,20 +1493,33 @@ router.put('/:id', async (req: AuthRequest, res) => {
 
     if (data.schedule) {
       const nextRunAt = computeNextRunAt(data.schedule);
-      await prisma.scheduledJob.upsert({
-        where: { runbookId: runbook.id },
-        create: {
-          runbookId: runbook.id,
-          cronExpr: data.schedule,
-          isActive: data.isActive || false,
-          nextRunAt,
-        },
-        update: {
-          cronExpr: data.schedule,
-          isActive: data.isActive || false,
-          nextRunAt,
-        },
+      // Multi-schedule per runbook is allowed since 20260504060000.
+      // The legacy `Runbook.schedule` field maps to the single
+      // anonymous schedule (name=null) to keep round-tripping
+      // backward compatible — additional named schedules live as
+      // separate ScheduledJob rows created via /api/schedules.
+      const existingDefault = await prisma.scheduledJob.findFirst({
+        where: { runbookId: runbook.id, name: null },
       });
+      if (existingDefault) {
+        await prisma.scheduledJob.update({
+          where: { id: existingDefault.id },
+          data: {
+            cronExpr: data.schedule,
+            isActive: data.isActive || false,
+            nextRunAt,
+          },
+        });
+      } else {
+        await prisma.scheduledJob.create({
+          data: {
+            runbookId: runbook.id,
+            cronExpr: data.schedule,
+            isActive: data.isActive || false,
+            nextRunAt,
+          },
+        });
+      }
     }
 
     res.json({
