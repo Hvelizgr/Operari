@@ -109,6 +109,21 @@ export interface StepSkippedPayload {
   reason: string;
 }
 
+export interface StepRetryPayload {
+  /** 1-indexed attempt number that just slept and is about to fire. */
+  attempt: number;
+  /** Total retry budget (count from the policy; not including the
+   *  first attempt). When attempt === maxAttempts the engine has
+   *  burned the last retry. */
+  maxAttempts: number;
+  /** Wait that elapsed before this attempt. */
+  delayMs: number;
+  /** Resolved backoff strategy ('fixed' | 'exponential'). */
+  backoff: 'fixed' | 'exponential';
+  /** Error code that triggered the retry, if classified. */
+  errorCode?: string | null;
+}
+
 /**
  * Discriminated union mapping each variant to its payload. Used by
  * the service so callers must supply the right payload for the
@@ -126,7 +141,8 @@ export type ExecutionEventPayload =
   | { type: 'step.started'; payload: StepStartedPayload; nodeId: string }
   | { type: 'step.completed'; payload: StepCompletedPayload; nodeId: string }
   | { type: 'step.failed'; payload: StepFailedPayload; nodeId: string }
-  | { type: 'step.skipped'; payload: StepSkippedPayload; nodeId: string };
+  | { type: 'step.skipped'; payload: StepSkippedPayload; nodeId: string }
+  | { type: 'step.retry'; payload: StepRetryPayload; nodeId: string };
 
 /**
  * The reduced state of a run after walking every event in seq order.

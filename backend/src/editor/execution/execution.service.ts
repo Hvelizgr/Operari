@@ -17,6 +17,7 @@ import type { ExecutionEventPayload } from '../../runbook/engine/execution-event
 import { getRunner } from '../../runbook/runners';
 import { GitHubStatusService } from '../../runbook/services/github-status.service';
 import { applyRunbookVersionSnapshot } from '../../runbook/services/runbook-version.service';
+import { computeBackoffDelay, readRetryPolicy } from '../../runbook/services/retry-policy';
 import { loadTenantComputeDefaults } from '../../runbook/services/tenant-compute-defaults';
 import { ErrorNotificationService } from '../../services/error-notification.service';
 import { Logger } from '../../services/logger.service';
@@ -1161,6 +1162,16 @@ export class ExecutionService {
         ? { machine: tenantComputeDefaults.machine }
         : undefined;
 
+      // Per-step retry attempt counter. Survives the lifetime of
+      // this run; one entry per node id that has hit at least one
+      // retry. Reset on resume because the resumed engine starts a
+      // fresh runWorkflow scope — a step that failed + got
+      // resumed from is treated as a fresh attempt budget. That
+      // matches operator expectation ("I clicked replay, give me
+      // the full retry budget again") more than carrying the
+      // previous run's exhaustion forward.
+      const retryAttemptsByNode = new Map<string, number>();
+
       const nodeOutputs = initialState?.nodeOutputs || {};
       const executedNodes = initialState?.executedNodes
         ? new Set(initialState.executedNodes)
@@ -1628,8 +1639,70 @@ export class ExecutionService {
           const wrappedError = wrapError(error, nodeContext);
           const nodeDuration = Date.now() - nodeStartTime;
 
-          // Persist error to database
+          // Persist error to database — done BEFORE the retry
+          // decision so each failed attempt leaves a row in
+          // ExecutionError. The UI's "retries" chip on the run
+          // detail page counts these by nodeLogId, so successful
+          // retries still surface "this step burned 2 attempts
+          // before succeeding" in post-mortems.
           await persistExecutionError(this.prisma, wrappedError, executionId, tenantId, nodeLog.id);
+
+          // Retry resolver. If the step has a retry policy and
+          // we still have attempts in the budget, sleep per the
+          // backoff strategy and re-queue this exact node. The
+          // nodeLog stays in RUNNING (it represents the step as
+          // a whole, not one attempt); the success branch above
+          // flips it to SUCCESS when retries finally land.
+          //
+          // The unshift puts the node back at the FRONT of the
+          // queue so retries don't get starved by other ready
+          // children that landed in the meantime.
+          const policy = readRetryPolicy(currentNode);
+          if (policy) {
+            const attemptsSoFar = retryAttemptsByNode.get(currentNode.id) ?? 0;
+            if (attemptsSoFar < policy.count) {
+              const delayMs = computeBackoffDelay(policy, attemptsSoFar);
+              retryAttemptsByNode.set(currentNode.id, attemptsSoFar + 1);
+
+              nodeContextLogger.warn('Retrying step after failure', {
+                metadata: {
+                  attempt: attemptsSoFar + 1,
+                  maxAttempts: policy.count,
+                  delayMs,
+                  backoff: policy.backoff,
+                },
+              });
+              socketService.emitLog(
+                executionId,
+                `Retry ${attemptsSoFar + 1}/${policy.count} after ${delayMs}ms (${policy.backoff})`,
+                { nodeId: currentNode.id }
+              );
+              await this.safeAppendEvent(executionId, tenantId, {
+                type: 'step.retry',
+                nodeId: currentNode.id,
+                payload: {
+                  attempt: attemptsSoFar + 1,
+                  maxAttempts: policy.count,
+                  delayMs,
+                  backoff: policy.backoff,
+                  errorCode: wrappedError instanceof CustomError ? wrappedError.code : null,
+                },
+              });
+
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+              nodesToExecute.unshift(currentNode);
+              continue;
+            }
+            // Budget exhausted — emit one log line so the
+            // operator sees "yes the engine tried, here's what
+            // it tried" before the FAILED treatment kicks in.
+            nodeContextLogger.warn('Retry budget exhausted; failing step', {
+              metadata: {
+                attempts: policy.count,
+                backoff: policy.backoff,
+              },
+            });
+          }
 
           // Update node log with error
           const errorMessage =
