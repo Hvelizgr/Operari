@@ -476,6 +476,25 @@ async function main() {
     process.on('SIGTERM', () => clearInterval(waitpointInterval));
     logger.info('Waitpoint watchdog started (1-minute interval)');
 
+    // Plugin hot-reload — opt-in via OPERARI_DEV_HOT_RELOAD_PLUGINS
+    // so production never installs the watcher even if
+    // OPERARI_PLUGINS_DIR is set. Collect the set of types claimed
+    // by core executors right here (vs reaching into the registry
+    // post-hoc) so the watcher rejects plugin overrides the same
+    // way the boot path does.
+    if (process.env.OPERARI_DEV_HOT_RELOAD_PLUGINS === 'true') {
+      const { installPluginWatcher } = await import('./runbook/plugins/hot-reload');
+      const { createExecutorRegistry } = await import('./runbook/executors');
+      const reservedTypes = new Set(createExecutorRegistry(prisma).keys());
+      const handle = installPluginWatcher({
+        prisma,
+        registeredTypes: reservedTypes,
+      });
+      if (handle) {
+        process.on('SIGTERM', () => handle.stop());
+      }
+    }
+
     // A5: install the queued billing meter + start its dispatch
     // worker when a real billing provider is configured. For noop /
     // self-host we skip both — there's nothing to ship.

@@ -33,7 +33,15 @@ if (pluginsDir) {
   const abs = resolve(pluginsDir);
   if (existsSync(abs) && statSync(abs).isDirectory()) {
     args.push('--watch', abs);
+    // Flip the in-process hot-reload flag so the backend installs
+    // the fs.watch + require.cache invalidation path. Two layers
+    // (ts-node-dev respawn + in-process swap) cover the cases
+    // where one or the other doesn't fire — ts-node-dev catches
+    // index.ts edits, the in-process watcher catches built dist/
+    // edits and any non-source manifest changes.
+    process.env.OPERARI_DEV_HOT_RELOAD_PLUGINS = 'true';
     console.log(`[dev] watching plugins dir for live reload: ${abs}`);
+    console.log('[dev] in-process plugin hot-reload enabled (no respawn needed)');
   } else {
     console.warn(
       `[dev] OPERARI_PLUGINS_DIR is set (${pluginsDir}) but does not exist or is not a directory — plugin watch disabled`

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
+import { installLivePlugins } from '../plugins/live-registry';
 import { loadPluginsSync, type PluginNodeMetadata } from '../plugins/loader';
 import { upsertPluginNodeTypes } from '../plugins/upsert-node-types';
 import { getRunner } from '../runners';
@@ -82,6 +83,12 @@ export function createExecutorRegistry(
     const key = executor.tenantId ? `${executor.tenantId}::${executor.type}` : executor.type;
     registry.set(key, executor);
   }
+  // Mirror plugins into the live registry so the dispatcher's
+  // hot-reload path picks up the same set the captured registry
+  // was built from. In production this happens once per process;
+  // in dev-mode the watcher re-runs `loadPluginsSync` and calls
+  // `installLivePlugins` again to swap in the new bytes.
+  installLivePlugins(pluginExecutors);
 
   // Bridge plugin metadata to the editor catalog. Async + fire-and-
   // forget on purpose: a slow / unreachable database must not stall

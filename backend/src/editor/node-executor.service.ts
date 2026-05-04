@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { ErrorCode, NodeExecutionError } from '../errors/custom-error';
 import { createExecutorRegistry } from '../runbook/executors';
 import { EditorExecutorAdapter } from '../runbook/executors/_editor-adapter';
+import { getLivePlugin } from '../runbook/plugins/live-registry';
 import {
   SecretReferenceError,
   SecretTemplateResolver,
@@ -258,9 +259,19 @@ export class NodeExecutor {
     // same type name; fall back to the global registration so
     // built-ins (`shell`, `operari.httpRequest`, etc.) and shared
     // plugins resolve identically for every tenant.
+    //
+    // The live plugin registry is consulted FIRST (before the
+    // captured registry) so a dev-mode hot reload swaps the
+    // executor everywhere — every NodeExecutorService instance,
+    // including ones constructed before the reload — without
+    // having to track + invalidate per-instance state. In
+    // production the live map mirrors the captured registry, so
+    // this just adds one cheap Map.get per dispatch.
     const tenantKey = tenantId ? `${tenantId}::${node.type}` : null;
     const executor =
-      (tenantKey ? this.registry.get(tenantKey) : undefined) ?? this.registry.get(node.type);
+      getLivePlugin(node.type, tenantId) ??
+      (tenantKey ? this.registry.get(tenantKey) : undefined) ??
+      this.registry.get(node.type);
 
     if (!executor) {
       throw new NodeExecutionError({
