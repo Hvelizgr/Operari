@@ -22,6 +22,7 @@ import { storageRead, storageWrite } from '@/lib/storage-compat';
 
 import ApiPrefsPanel from './ApiPrefsPanel';
 import { BillingPanel } from './BillingPanel';
+import ComputePrefsPanel from './ComputePrefsPanel';
 import ConnectedAccountsPanel from './ConnectedAccountsPanel';
 import EditorPrefsPanel from './EditorPrefsPanel';
 import LineagePrefsPanel from './LineagePrefsPanel';
@@ -275,6 +276,7 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
         <ApiPrefsPanel lang={lang} />
         <EditorPrefsPanel lang={lang} />
         <LineagePrefsPanel lang={lang} />
+        <ComputePrefsPanel lang={lang} />
 
         {/* Profile placeholder */}
         <Section icon={<User size={16} />} title={t.profileTitle} hint={t.profileHint}>

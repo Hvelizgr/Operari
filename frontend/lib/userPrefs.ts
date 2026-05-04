@@ -134,6 +134,45 @@ export const LINEAGE_PREFS_DEFAULTS: LineagePrefs = {
 const LINEAGE_KEY = 'operari:prefs:lineage';
 
 // =============================================================================
+// Compute defaults (machine presets, TTL, retries)
+// =============================================================================
+
+/** Mirror of backend MachinePresetName — kept narrow on purpose so a
+ *  typo in the prefs panel doesn't silently fall through to the
+ *  `small-1x` fallback at run time. */
+export type MachinePresetName =
+  | 'micro'
+  | 'small-1x'
+  | 'small-2x'
+  | 'medium-1x'
+  | 'medium-2x'
+  | 'large-1x'
+  | 'large-2x';
+
+export interface ComputePrefs {
+  /** Default `machine:` value applied when a runbook trigger / new
+   *  step doesn't specify one. Mirrors the backend's small-1x
+   *  fallback so installing an Operari instance and never visiting
+   *  Settings keeps the historical behaviour. */
+  defaultMachine: MachinePresetName;
+  /** Default TTL (seconds) seeded into the trigger dialog. 0 = no TTL. */
+  defaultTtlSeconds: number;
+  /** Default retry count seeded into new step retry policies. */
+  defaultRetryCount: number;
+  /** Whether the trigger dialog should default to dry-run mode. */
+  defaultDryRun: boolean;
+}
+
+export const COMPUTE_PREFS_DEFAULTS: ComputePrefs = {
+  defaultMachine: 'small-1x',
+  defaultTtlSeconds: 0,
+  defaultRetryCount: 0,
+  defaultDryRun: false,
+};
+
+const COMPUTE_KEY = 'operari:prefs:compute';
+
+// =============================================================================
 // Hook factory
 // =============================================================================
 
@@ -212,6 +251,10 @@ export function useLineagePrefs(): [LineagePrefs, (patch: Partial<LineagePrefs>)
   return useStoredPrefs(LINEAGE_KEY, LINEAGE_PREFS_DEFAULTS);
 }
 
+export function useComputePrefs(): [ComputePrefs, (patch: Partial<ComputePrefs>) => void] {
+  return useStoredPrefs(COMPUTE_KEY, COMPUTE_PREFS_DEFAULTS);
+}
+
 /**
  * Read SQL prefs synchronously from a non-React caller (e.g. a fetch
  * callback). Returns the merged value with defaults so a fresh
@@ -225,6 +268,9 @@ export function readApiPrefs(): ApiPrefs {
 }
 export function readEditorPrefs(): EditorPrefs {
   return readPrefs(EDITOR_KEY, EDITOR_PREFS_DEFAULTS);
+}
+export function readComputePrefs(): ComputePrefs {
+  return readPrefs(COMPUTE_KEY, COMPUTE_PREFS_DEFAULTS);
 }
 export function readLineagePrefs(): LineagePrefs {
   return readPrefs(LINEAGE_KEY, LINEAGE_PREFS_DEFAULTS);
