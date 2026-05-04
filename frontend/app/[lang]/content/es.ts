@@ -310,6 +310,18 @@ export const content = {
         cells: ['sí', 'no', 'parcial', 'no', 'parcial'],
       },
       {
+        feature: 'Claves de idempotencia + TTL en triggers',
+        cells: ['sí', 'no', 'parcial', 'no', 'no'],
+      },
+      {
+        feature: 'Wait tokens (pausa + URL handoff)',
+        cells: ['sí', 'no', 'no', 'no', 'no'],
+      },
+      {
+        feature: 'Hooks de ciclo de vida por step (onSuccess / onFailure)',
+        cells: ['sí', 'parcial', 'no', 'no', 'no'],
+      },
+      {
         feature: 'MFA + verificación email built-in',
         cells: ['sí', 'sí', 'no', 'sí', 'parcial'],
       },

@@ -2,7 +2,9 @@ import { content as contentEn } from '../content/en';
 import { content as contentEs } from '../content/es';
 import Comparison from './components/Comparison';
 import CTA from './components/CTA';
+import ExtendWithPlugins from './components/ExtendWithPlugins';
 import Hero from './components/Hero';
+import HumanInTheLoop from './components/HumanInTheLoop';
 import MetricsBar from './components/MetricsBar';
 import RunbookTraceSection from './components/RunbookTraceSection';
 import SafetyRails from './components/SafetyRails';
@@ -55,6 +57,14 @@ export default async function Page({ params }: { params: Promise<{ lang: string 
 
       <div id="safety">
         <SafetyRails content={content.safety} lang={lang === 'es' ? 'es' : 'en'} />
+      </div>
+
+      <div id="extend">
+        <ExtendWithPlugins lang={lang === 'es' ? 'es' : 'en'} />
+      </div>
+
+      <div id="human">
+        <HumanInTheLoop lang={lang === 'es' ? 'es' : 'en'} />
       </div>
 
       <div id="templates">

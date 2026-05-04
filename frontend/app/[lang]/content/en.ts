@@ -314,6 +314,18 @@ export const content = {
         cells: ['yes', 'no', 'partial', 'no', 'partial'],
       },
       {
+        feature: 'Idempotency keys + TTL on triggers',
+        cells: ['yes', 'no', 'partial', 'no', 'no'],
+      },
+      {
+        feature: 'Wait tokens (pause + URL handoff)',
+        cells: ['yes', 'no', 'no', 'no', 'no'],
+      },
+      {
+        feature: 'Per-step lifecycle hooks (onSuccess / onFailure)',
+        cells: ['yes', 'partial', 'no', 'no', 'no'],
+      },
+      {
         feature: 'Built-in MFA + email verification',
         cells: ['yes', 'yes', 'no', 'yes', 'partial'],
       },
