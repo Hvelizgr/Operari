@@ -1476,6 +1476,7 @@ export class ExecutionService {
             currentNode.type === 'Loop' ||
             currentNode.type === 'Iterator' ||
             currentNode.type === 'operari.loop';
+          const isWaitpointNode = currentNode.type === 'waitpoint';
 
           let outgoingConnections = connections.filter(c => c.source === currentNode.id);
 
@@ -1494,6 +1495,19 @@ export class ExecutionService {
                 c => c.sourcePort === matchedCase || c.sourcePort === undefined
               );
             }
+          } else if (isWaitpointNode && nodeOutput) {
+            // Port 0 = `completed` (the vendor POSTed the URL), port 1 =
+            // `timed_out` (watchdog flipped the token after expiresAt).
+            // The resume merges either `waitpointValue` or
+            // `waitpointTimedOut: true` into the waitpoint's prior
+            // output, so this is the one signal we need to branch on.
+            // Connections without an explicit sourcePort follow the
+            // completed branch — same backward-compat shape as If.
+            const timedOut = Boolean(nodeOutput.waitpointTimedOut);
+            outgoingConnections = outgoingConnections.filter(c => {
+              if (timedOut) return c.sourcePort === 1;
+              return c.sourcePort === 0 || c.sourcePort === undefined;
+            });
           }
 
           if (isLoopNode && nodeOutput) {

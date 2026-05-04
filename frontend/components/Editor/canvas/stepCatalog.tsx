@@ -91,6 +91,7 @@ export const NODE_VISUAL_METADATA: Record<string, NodeVisualMetadata> = {
   notify: { blastRadius: 'writes', idempotent: false, touchesSecrets: true },
   runbook: { blastRadius: 'readonly', idempotent: false, touchesSecrets: false },
   approval: { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
+  waitpoint: { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
   // Tier 0 promotions — legacy editor executors now exposed in palette.
   Transform: { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
   StoreGet: { blastRadius: 'readonly', idempotent: true, touchesSecrets: false },
@@ -477,6 +478,39 @@ export const NODE_TYPES: NodeType[] = [
     outputs: ['main'],
     properties: [
       { name: 'durationMs', displayName: 'Duration (ms)', type: 'number', default: 5000 },
+    ],
+  },
+  {
+    type: 'waitpoint',
+    icon: <Anchor size={18} />,
+    label: { en: 'Wait token', es: 'Token de espera' },
+    color: 'bg-violet-600',
+    category: 'devops',
+    description: {
+      en: 'Pause until an external system POSTs to a unique URL',
+      es: 'Pausar hasta que un sistema externo haga POST a una URL única',
+    },
+    inputs: ['main'],
+    outputs: ['completed', 'timed_out'],
+    properties: [
+      {
+        name: 'message',
+        displayName: 'Label (shown in operator dashboard)',
+        type: 'string',
+        default: '',
+      },
+      {
+        name: 'timeoutSeconds',
+        displayName: 'Auto-timeout after (seconds, 0 = wait forever)',
+        type: 'number',
+        default: 0,
+      },
+      {
+        name: 'tags',
+        displayName: 'Tags (comma-separated)',
+        type: 'string',
+        default: '',
+      },
     ],
   },
 
