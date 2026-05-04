@@ -1,5 +1,5 @@
 import EditorSidebar from '@/components/Editor/EditorSidebar';
-import ApprovalInbox from '@/components/Inbox/ApprovalInbox';
+import InboxTabs from '@/components/Inbox/InboxTabs';
 
 export default async function InboxPage({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;
@@ -8,7 +8,7 @@ export default async function InboxPage({ params }: { params: Promise<{ lang: st
     <div className="flex h-screen w-full bg-black text-white">
       <EditorSidebar lang={typedLang} />
       <div className="flex-1 overflow-y-auto">
-        <ApprovalInbox lang={typedLang} />
+        <InboxTabs lang={typedLang} />
       </div>
     </div>
   );
