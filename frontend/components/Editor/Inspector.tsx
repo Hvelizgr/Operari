@@ -8,6 +8,7 @@ import { rfToWorkflow } from '@/lib/canvas/adapter';
 import { useEditorStore } from '@/state/editorStore';
 
 import { NODE_CATALOG } from './canvas/catalog';
+import OpenInToolButton from './OpenInToolButton';
 import { SpanTimeline } from './SpanTimeline';
 import { StepDurationSparkline } from './StepDurationSparkline';
 import { WebhookUrlPanel } from './WebhookUrlPanel';
@@ -115,6 +116,13 @@ export default function Inspector({ lang }: { lang: 'en' | 'es' }) {
         )}
         {target.type === 'operari.webhook' || target.type === 'Webhook' ? (
           <WebhookUrlPanel lang={lang} />
+        ) : null}
+        {target.type === 'operari.database' || target.type === 'operari.httpRequest' ? (
+          <OpenInToolButton
+            type={target.type as 'operari.database' | 'operari.httpRequest'}
+            config={config}
+            lang={lang}
+          />
         ) : null}
       </div>
 

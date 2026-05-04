@@ -36,6 +36,44 @@ export default function HttpTesterCanvas({ lang }: { lang: 'en' | 'es' }) {
 
   const [payload, setPayload] = useState<RequestPayload>(defaultPayload);
   const [result, setResult] = useState<ResponseResult | null>(null);
+
+  // Reverse handoff from the runbook editor — when an operator
+  // clicked "Open in API Tester" on an `operari.httpRequest` step,
+  // the editor stashed method/url/headers/body under
+  // `operari:prefillHttpTester`. Read on mount, prefill, clear.
+  // Headers come in as a flat record on the wire (matching the
+  // step config shape) and need re-mapping into the {key,value}[]
+  // shape RequestForm expects.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const raw = window.localStorage.getItem('operari:prefillHttpTester');
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as {
+        method?: string;
+        url?: string;
+        headers?: Record<string, string>;
+        body?: string;
+      };
+      const headerEntries: Array<{ key: string; value: string }> =
+        parsed.headers && typeof parsed.headers === 'object'
+          ? Object.entries(parsed.headers).map(([key, value]) => ({ key, value }))
+          : [];
+      const validMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'] as const;
+      const methodFromHandoff = (validMethods as readonly string[]).includes(parsed.method ?? '')
+        ? (parsed.method as RequestPayload['method'])
+        : null;
+      setPayload(prev => ({
+        method: methodFromHandoff ?? prev.method,
+        url: typeof parsed.url === 'string' ? parsed.url : prev.url,
+        headers: headerEntries.length > 0 ? headerEntries : prev.headers,
+        body: typeof parsed.body === 'string' ? parsed.body : prev.body,
+      }));
+    } catch {
+      // bad JSON — drop it so a refresh doesn't keep retrying
+    }
+    window.localStorage.removeItem('operari:prefillHttpTester');
+  }, []);
   const [error, setError] = useState<ResponseError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);

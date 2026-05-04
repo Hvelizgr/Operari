@@ -101,6 +101,33 @@ export default function SQLEditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   // State
   const [query, setQuery] = useState('SELECT 1 AS test;');
   const [credentialId, setCredentialId] = useState<string>('');
+
+  // Reverse handoff from the runbook editor — when an operator
+  // clicked "Open in SQL Editor" on an `operari.database` step,
+  // the editor stashed the query + credentialId under
+  // `operari:prefillSqlEditor`. Read it on mount, prefill the
+  // form, then clear so a refresh doesn't re-prefill stale data.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const raw = window.localStorage.getItem('operari:prefillSqlEditor');
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as {
+        query?: string;
+        credentialId?: string;
+      };
+      if (typeof parsed.query === 'string' && parsed.query.length > 0) {
+        setQuery(parsed.query);
+      }
+      if (typeof parsed.credentialId === 'string' && parsed.credentialId.length > 0) {
+        setCredentialId(parsed.credentialId);
+      }
+    } catch {
+      // bad JSON — drop it so we don't keep retrying on every mount
+    }
+    window.localStorage.removeItem('operari:prefillSqlEditor');
+  }, []);
+
   const [credentials, setCredentials] = useState<ConnectedAccount[]>([]);
   const [schema, setSchema] = useState<SchemaTable[]>([]);
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
