@@ -28,6 +28,7 @@ import EditorPrefsPanel from './EditorPrefsPanel';
 import LineagePrefsPanel from './LineagePrefsPanel';
 import PluginsPanel from './PluginsPanel';
 import SqlPrefsPanel from './SqlPrefsPanel';
+import WorkspaceComputeDefaultsPanel from './WorkspaceComputeDefaultsPanel';
 import { DangerZone } from './DangerZone';
 import { TeamPanel } from './TeamPanel';
 import { UpgradeWelcomeModal } from './UpgradeWelcomeModal';
@@ -277,6 +278,7 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
         <EditorPrefsPanel lang={lang} />
         <LineagePrefsPanel lang={lang} />
         <ComputePrefsPanel lang={lang} />
+        <WorkspaceComputeDefaultsPanel lang={lang} />
 
         {/* Profile placeholder */}
         <Section icon={<User size={16} />} title={t.profileTitle} hint={t.profileHint}>

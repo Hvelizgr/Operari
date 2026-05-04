@@ -212,6 +212,20 @@ model Tenant {
   /// Used to show the user when the next renewal hits.
   planCurrentPeriodEnd DateTime?
 
+  /// Workspace-wide compute defaults. Filled by the trigger path
+  /// when neither the request payload nor the runbook spec
+  /// supplies an explicit value. Schema is freeform JSONB but the
+  /// service layer reads it through a zod parser:
+  ///   {
+  ///     "machine": "small-1x" | "micro" | ...,
+  ///     "ttlSeconds": number | null,
+  ///     "retryCount": number,
+  ///     "dryRun": boolean
+  ///   }
+  /// Null = use the engine fallbacks (small-1x, no TTL, 0 retries,
+  /// dry-run off). Admin-only writes via PATCH /api/tenants/me.
+  computeDefaults Json?
+
   users             User[]
   runbooks         Runbook[]
   storageBuckets    StorageBucket[]

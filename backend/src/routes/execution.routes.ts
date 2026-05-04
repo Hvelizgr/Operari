@@ -3,6 +3,7 @@ import { Router } from 'express';
 
 import { AuditService } from '../audit/audit.service';
 import { ExecutionService } from '../editor/execution/execution.service';
+import { loadTenantComputeDefaults } from '../runbook/services/tenant-compute-defaults';
 import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
 import { ExecutionEventStore } from '../runbook/engine/execution-event.store';
 import { parseInputDefs } from '../runbook/inputs/parse-input-defs';
@@ -399,6 +400,17 @@ router.post('/:runbookId/run', async (req: AuthRequest, res) => {
       });
     }
 
+    // Workspace defaults — same shape as the v1 trigger route.
+    // Explicit body fields win; unset fields fall back to tenant
+    // defaults; tenant defaults that are also absent fall back to
+    // the engine's own defaults (no TTL, dry-run off).
+    const tenantDefaults = await loadTenantComputeDefaults(prisma, req.user!.tenantId);
+    const explicitDryRun = typeof req.body.dryRun === 'boolean' ? req.body.dryRun : undefined;
+    const explicitTtlSeconds =
+      typeof req.body.ttlSeconds === 'number' && req.body.ttlSeconds > 0
+        ? Math.floor(req.body.ttlSeconds)
+        : undefined;
+
     const executionService = new ExecutionService(prisma);
     const execution = await executionService.execute({
       runbookId: runbook.id,
@@ -406,10 +418,8 @@ router.post('/:runbookId/run', async (req: AuthRequest, res) => {
       tenantId: req.user!.tenantId,
       trigger: 'MANUAL',
       input: validated.values,
-      // Dry-run is strictly opt-in per request. The body flag
-      // must be literally `true` so there's no way to trigger
-      // a dry run by accident from an incorrectly-typed form.
-      dryRun: req.body.dryRun === true,
+      dryRun: explicitDryRun ?? tenantDefaults.dryRun ?? false,
+      ttlSeconds: explicitTtlSeconds ?? tenantDefaults.ttlSeconds ?? undefined,
     });
 
     res.status(202).json(execution);

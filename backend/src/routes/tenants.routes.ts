@@ -127,6 +127,29 @@ const securityPolicySchema = z.object({
 });
 
 /**
+ * Compute defaults shape. Mirrors the per-device ComputePrefs panel
+ * but lives at the workspace level — admin-set, applied at trigger
+ * time when neither the request payload nor the runbook spec
+ * supplies an explicit value. Each field is optional so admins can
+ * pin one knob without committing to all four.
+ */
+const computeDefaultsSchema = z.object({
+  machine: z
+    .enum(['micro', 'small-1x', 'small-2x', 'medium-1x', 'medium-2x', 'large-1x', 'large-2x'])
+    .nullable()
+    .optional(),
+  ttlSeconds: z
+    .number()
+    .int()
+    .positive()
+    .max(7 * 24 * 3600)
+    .nullable()
+    .optional(),
+  retryCount: z.number().int().min(0).max(10).nullable().optional(),
+  dryRun: z.boolean().nullable().optional(),
+});
+
+/**
  * GET /api/tenants/security
  *
  * Surfaces the tenant's security policy — today just `mfaRequired`.
@@ -200,6 +223,70 @@ router.patch('/security', authenticate, async (req: AuthRequest, res: Response) 
     .catch(() => undefined);
 
   res.json({ data: updated });
+});
+
+/**
+ * GET /api/tenants/compute-defaults
+ *
+ * Read the workspace compute defaults. Visible to every authed
+ * member because the trigger dialog reads them to show "this
+ * machine is the workspace default" hints. Write is admin-only.
+ */
+router.get('/compute-defaults', authenticate, async (req: AuthRequest, res: Response) => {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: req.user!.tenantId },
+    select: { computeDefaults: true },
+  });
+  if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+  res.json({ data: tenant.computeDefaults ?? {} });
+});
+
+/**
+ * PATCH /api/tenants/compute-defaults
+ *
+ * Admin-only. Merge-style update: any field the body omits is left
+ * alone; explicit `null` clears that knob (so a tenant can revert
+ * a single default without wiping the whole object).
+ */
+router.patch('/compute-defaults', authenticate, async (req: AuthRequest, res: Response) => {
+  if (req.user!.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Only admins can change workspace defaults' });
+  }
+  const parsed = computeDefaultsSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid body', details: parsed.error.errors });
+  }
+
+  // Merge so a PATCH that only sets `machine` doesn't clobber a
+  // previously-set ttlSeconds. Explicit nulls land in the merged
+  // object and behave as "this knob has no default" downstream.
+  const existing = await prisma.tenant.findUnique({
+    where: { id: req.user!.tenantId },
+    select: { computeDefaults: true },
+  });
+  const merged = {
+    ...((existing?.computeDefaults ?? {}) as Record<string, unknown>),
+    ...parsed.data,
+  };
+
+  const updated = await prisma.tenant.update({
+    where: { id: req.user!.tenantId },
+    data: { computeDefaults: merged },
+    select: { computeDefaults: true },
+  });
+
+  void getAudit()
+    .record({
+      tenantId: req.user!.tenantId,
+      type: 'tenant.compute_defaults_changed',
+      actorId: req.user!.id,
+      actorType: 'user',
+      resource: req.user!.tenantId,
+      payload: { defaults: updated.computeDefaults },
+    })
+    .catch(() => undefined);
+
+  res.json({ data: updated.computeDefaults ?? {} });
 });
 
 /**

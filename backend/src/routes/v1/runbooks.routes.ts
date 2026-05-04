@@ -6,6 +6,7 @@ import { ExecutionService } from '../../editor/execution/execution.service';
 import { ApiKeyRequest, requireApiKey } from '../../middleware/api-key.middleware';
 import { parseInputDefs } from '../../runbook/inputs/parse-input-defs';
 import { validateRunInputs } from '../../runbook/inputs/validate-run-inputs';
+import { loadTenantComputeDefaults } from '../../runbook/services/tenant-compute-defaults';
 import { prisma } from '../../server';
 
 const router = Router();
@@ -22,8 +23,13 @@ const triggerSchema = z.object({
    * Dry-run: the runbook engine logs every step's intent without
    * performing any side effect. Opt-in per trigger so clients
    * cannot accidentally trigger a dry run instead of a real one.
+   *
+   * Optional, no default — falls back to the tenant's
+   * computeDefaults.dryRun and finally to false. We removed
+   * `.default(false)` so an unset field doesn't override the
+   * workspace default with `false` at parse time.
    */
-  dryRun: z.boolean().optional().default(false),
+  dryRun: z.boolean().optional(),
   /**
    * Idempotency key (trigger.dev parity). Two triggers with the
    * same key on the same runbook within the same tenant return
@@ -138,6 +144,15 @@ router.post(
         }
       }
 
+      // Resolve workspace defaults for fields the trigger payload
+      // didn't supply. Sub-runs and other internal callers go
+      // straight to execute() without this layer — only public
+      // entry points pick up tenant defaults so an explicit value
+      // anywhere in the parent chain wins.
+      const tenantDefaults = await loadTenantComputeDefaults(prisma, tenantId);
+      const effectiveDryRun = dryRun ?? tenantDefaults.dryRun ?? false;
+      const effectiveTtlSeconds = ttlSeconds ?? tenantDefaults.ttlSeconds ?? undefined;
+
       // Trigger via the existing ExecutionService — same engine the UI uses
       const execution = await getExecutionService().execute({
         runbookId: runbook.id,
@@ -145,8 +160,8 @@ router.post(
         trigger: 'API',
         input: validated.values,
         tenantId,
-        dryRun,
-        ttlSeconds,
+        dryRun: effectiveDryRun,
+        ttlSeconds: effectiveTtlSeconds ?? undefined,
         idempotencyKey,
       });
 

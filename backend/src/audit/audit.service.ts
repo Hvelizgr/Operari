@@ -65,6 +65,12 @@ export type AuditEventType =
    */
   | 'tenant.mfa_policy_changed'
   /**
+   * Workspace-wide compute defaults changed. Payload carries the
+   * post-change `defaults` object; an incident reviewer can pair
+   * it with run logs to explain "why did this run get small-1x?".
+   */
+  | 'tenant.compute_defaults_changed'
+  /**
    * Compliance export of the audit log. Written once per download
    * request so a reviewer can see "who pulled the chain and when".
    * Payload carries the row count that left the box, the format
