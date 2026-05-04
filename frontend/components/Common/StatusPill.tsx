@@ -201,17 +201,36 @@ export default function StatusPill({ lang }: StatusPillProps) {
               hasUrgent ? 'hover:bg-red-900/40' : 'hover:bg-zinc-900/40'
             }`}
           >
-            <motion.span
-              className={`inline-block h-2 w-2 rounded-full ${
-                hasUrgent ? 'bg-red-400' : 'bg-emerald-400'
-              }`}
-              animate={
-                hasRunning && !reducedMotion
-                  ? { opacity: [1, 0.4, 1], scale: [1, 1.25, 1] }
-                  : undefined
-              }
-              transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-            />
+            {/* Sonar-ping dot (trigger.dev parity).
+                  - Outer ring uses Tailwind's built-in `animate-ping`
+                    keyframe (scale 0→2.25, opacity 1→0, infinite).
+                    Renders only while there is a live run so the
+                    pill stays calm during pure-failure or pure-
+                    pending-approval states.
+                  - Inner solid dot keeps the existing framer-motion
+                    breathe (scale + opacity), so reduced-motion
+                    users still see the dot fade in/out subtly. */}
+            <span className="relative inline-flex h-2 w-2">
+              {hasRunning && !reducedMotion ? (
+                <span
+                  aria-hidden
+                  className={`absolute inset-0 inline-flex h-full w-full animate-ping rounded-full ${
+                    hasUrgent ? 'bg-red-400' : 'bg-emerald-400'
+                  } opacity-60`}
+                />
+              ) : null}
+              <motion.span
+                className={`relative inline-flex h-2 w-2 rounded-full ${
+                  hasUrgent ? 'bg-red-400' : 'bg-emerald-400'
+                }`}
+                animate={
+                  hasRunning && !reducedMotion
+                    ? { opacity: [1, 0.5, 1], scale: [1, 1.15, 1] }
+                    : undefined
+                }
+                transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            </span>
             {hasRunning && data && (
               <span>
                 {data.running} {t.running}

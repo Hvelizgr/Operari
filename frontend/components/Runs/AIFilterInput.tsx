@@ -67,6 +67,7 @@ export function AIFilterInput({ onApply, lang }: AIFilterInputProps) {
   const t = STRINGS[lang] ?? STRINGS.en;
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [result, setResult] = useState<AIFilterResultFailure | null>(null);
 
   const submit = async () => {
@@ -100,11 +101,19 @@ export function AIFilterInput({ onApply, lang }: AIFilterInputProps) {
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2 rounded-md border border-violet-500/40 bg-violet-500/5 px-2 py-1.5">
+      <div
+        className="rb-ai-glow flex items-center gap-2 rounded-md border border-violet-500/40 bg-violet-500/5 px-2 py-1.5"
+        // Glow only paints while the operator is engaging with the
+        // input — focus, an in-flight request, or a non-empty draft.
+        // Idle state is calm so a busy runs page is not strobed.
+        data-glow={focused || loading || text.length > 0 ? 'on' : 'off'}
+      >
         <Sparkles size={13} className="shrink-0 text-violet-300" />
         <input
           value={text}
           onChange={e => setText(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onKeyDown={e => {
             if (e.key === 'Enter') {
               e.preventDefault();

@@ -99,7 +99,16 @@ export function StepDurationSparkline({ stats, lang }: StepDurationSparklineProp
               dataKey="duration"
               fill="var(--rb-edge-success)"
               radius={[2, 2, 0, 0]}
-              isAnimationActive={false}
+              // Trigger.dev-flavoured grow-in: bars rise from the
+              // baseline with an ease-out curve. 600ms total + 40ms
+              // stagger per index reads as a quick wave instead of
+              // a flat snap-on. Disabled in reduced-motion via the
+              // `prefers-reduced-motion` media query that recharts
+              // honours through its internal Animate wrapper.
+              isAnimationActive
+              animationDuration={600}
+              animationEasing="ease-out"
+              animationBegin={40}
               shape={props => {
                 // Recharts passes the row's payload alongside the
                 // computed pixel rect so we can color per-status

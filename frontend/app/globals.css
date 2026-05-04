@@ -247,6 +247,43 @@
     --rb-spin-angle: 360deg;
   }
 }
+
+/* AI-feature focus glow (trigger.dev parity).
+   Apply to a positioned wrapper around an input or button to draw
+   a soft, slowly-rotating conic-gradient halo. The glow only paints
+   when the wrapper carries `data-glow="on"` — bind that to your
+   focus / hover state. The rotation is slow (4s) because the input
+   should breathe, not flash; faster timings read as "loading". */
+.rb-ai-glow {
+  position: relative;
+}
+.rb-ai-glow[data-glow='on']::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--rb-spin-angle),
+    color-mix(in oklab, var(--op-moss) 80%, transparent),
+    color-mix(in oklab, var(--op-gold) 80%, transparent),
+    color-mix(in oklab, var(--op-sky) 80%, transparent),
+    color-mix(in oklab, var(--op-moss) 80%, transparent)
+  );
+  animation: rb-running-rotate 4s linear infinite;
+  filter: blur(0.25rem);
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 250ms ease-out;
+}
+.rb-ai-glow[data-glow='off']::before {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rb-ai-glow[data-glow='on']::before {
+    animation: none;
+  }
+}
 /* Anchored on `.react-flow__node` instead of `.rb-node` because the
    inner card uses `overflow-hidden` (so the body clips the conic
    gradient if we put ::after there). The wrapper has no overflow
