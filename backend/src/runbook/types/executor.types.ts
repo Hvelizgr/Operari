@@ -43,6 +43,21 @@ export interface ExecutorContext {
    * dry-run of a parent runbook dry-runs the whole tree.
    */
   dryRun?: boolean;
+  /**
+   * Workspace-wide compute defaults. Resolved by the engine once at
+   * runWorkflow start (from Tenant.computeDefaults) and threaded
+   * through every step's context. Executors that build a RunnerSpec
+   * (shell, kubectl, future docker) forward this into RunnerContext
+   * so the runner's preset resolver can use it as a fallback when
+   * the spec doesn't pin an explicit `machine`.
+   *
+   * Sub-runs inherit from the parent run, not from a fresh tenant
+   * lookup — that keeps "what the operator typed at trigger time"
+   * authoritative for the whole call tree.
+   */
+  tenantDefaults?: {
+    machine?: string;
+  };
 }
 
 export interface ExecutorEvent {

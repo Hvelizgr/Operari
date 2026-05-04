@@ -170,10 +170,13 @@ export class FlyMachineRunner implements Runner {
     // always wins, then `machine` preset, finally `small-1x` (the
     // v1 default of 256MB / 1 vCPU). Same call path the docker
     // runner will use once it picks up the preset abstraction.
-    const resolved = resolveMachineResources({
-      machine: spec.machine,
-      resources: spec.resources,
-    });
+    const resolved = resolveMachineResources(
+      {
+        machine: spec.machine,
+        resources: spec.resources,
+      },
+      { tenantDefaultMachine: context.tenantDefaults?.machine ?? null }
+    );
     const memoryMb = resolved.memoryMb;
     const cpus = Math.max(1, Math.round(resolved.cpuMillis / 1000));
 

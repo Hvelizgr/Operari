@@ -136,6 +136,7 @@ export class KubectlExecutor implements StepExecutor<KubectlConfig> {
         stepId: context.stepId,
         tenantId: context.tenantId,
         emit: context.emit,
+        tenantDefaults: context.tenantDefaults,
       });
 
       const output: KubectlOutput = {

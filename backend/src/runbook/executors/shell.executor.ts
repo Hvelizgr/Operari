@@ -92,6 +92,7 @@ export class ShellExecutor implements StepExecutor<ShellConfig> {
       stepId: context.stepId,
       tenantId: context.tenantId,
       emit: context.emit,
+      tenantDefaults: context.tenantDefaults,
     });
 
     const output: ShellOutput = {

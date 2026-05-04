@@ -225,7 +225,8 @@ export class NodeExecutor {
     input: ExecutionInput,
     tenantId?: string,
     executionId?: string,
-    dryRun?: boolean
+    dryRun?: boolean,
+    tenantDefaults?: { machine?: string }
   ): Promise<NodeExecutionResult> {
     const commonErrorContext = {
       nodeId: node.id,
@@ -362,6 +363,7 @@ export class NodeExecutor {
       tenantId: effectiveTenantId,
       secrets,
       dryRun: dryRun ?? false,
+      tenantDefaults,
       emit: executionId
         ? event => {
             socketService.emitLog(executionId, event.text.trimEnd(), {

@@ -17,6 +17,7 @@ import type { ExecutionEventPayload } from '../../runbook/engine/execution-event
 import { getRunner } from '../../runbook/runners';
 import { GitHubStatusService } from '../../runbook/services/github-status.service';
 import { applyRunbookVersionSnapshot } from '../../runbook/services/runbook-version.service';
+import { loadTenantComputeDefaults } from '../../runbook/services/tenant-compute-defaults';
 import { ErrorNotificationService } from '../../services/error-notification.service';
 import { Logger } from '../../services/logger.service';
 import {
@@ -1113,6 +1114,18 @@ export class ExecutionService {
         this.validateWorkflow(nodes, connections);
       }
 
+      // Resolve workspace compute defaults ONCE per run. Threaded
+      // into every step's ExecutorContext so executors that build a
+      // RunnerSpec (shell, kubectl) forward it into RunnerContext
+      // and the runner's preset resolver picks up the workspace's
+      // chosen `machine` when the spec / runbook doesn't pin one.
+      // Kept simple — re-reading on every step would amplify the
+      // cost of one Tenant.findUnique by N steps for no gain.
+      const tenantComputeDefaults = await loadTenantComputeDefaults(this.prisma, tenantId);
+      const stepTenantDefaults = tenantComputeDefaults.machine
+        ? { machine: tenantComputeDefaults.machine }
+        : undefined;
+
       const nodeOutputs = initialState?.nodeOutputs || {};
       const executedNodes = initialState?.executedNodes
         ? new Set(initialState.executedNodes)
@@ -1337,7 +1350,8 @@ export class ExecutionService {
             nodeInput,
             tenantId,
             executionId,
-            dryRun
+            dryRun,
+            stepTenantDefaults
           );
 
           // Handle suspend signal

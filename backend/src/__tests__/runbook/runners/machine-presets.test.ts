@@ -81,4 +81,41 @@ describe('resolveMachineResources', () => {
       memoryMb: 768,
     });
   });
+
+  describe('tenantDefaultMachine fallback', () => {
+    it('uses the tenant default when spec has no machine and no resources', () => {
+      expect(resolveMachineResources({}, { tenantDefaultMachine: 'medium-1x' })).toEqual({
+        cpuMillis: 1000,
+        memoryMb: 1024,
+      });
+    });
+
+    it('spec.machine wins over tenant default (explicit beats workspace)', () => {
+      expect(
+        resolveMachineResources({ machine: 'large-2x' }, { tenantDefaultMachine: 'micro' })
+      ).toEqual({ cpuMillis: 2000, memoryMb: 8192 });
+    });
+
+    it('explicit per-key resources still beat both spec.machine and the tenant default', () => {
+      expect(
+        resolveMachineResources(
+          { machine: 'medium-2x', resources: { memoryMb: 512 } },
+          { tenantDefaultMachine: 'large-1x' }
+        )
+      ).toEqual({ cpuMillis: 2000, memoryMb: 512 });
+    });
+
+    it('ignores an unknown tenant default name and falls back to small-1x', () => {
+      expect(resolveMachineResources({}, { tenantDefaultMachine: 'galactic-9x' })).toEqual({
+        cpuMillis: 1000,
+        memoryMb: 256,
+      });
+    });
+
+    it('null tenant default behaves identically to undefined', () => {
+      expect(resolveMachineResources({}, { tenantDefaultMachine: null })).toEqual(
+        resolveMachineResources({})
+      );
+    });
+  });
 });

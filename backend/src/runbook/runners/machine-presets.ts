@@ -70,17 +70,34 @@ export function machinePresetResources(name: MachinePresetName): MachineResource
 
 /**
  * Resolve the effective {cpu, memory} for a runner spec given its
- * declared `machine` preset and any explicit `resources` override.
- * Explicit numbers always win — operators that hand-tuned values
+ * declared `machine` preset, any explicit `resources` override, and
+ * an optional tenant-wide default.
+ *
+ * Resolution order (first non-null wins):
+ *   1. spec.resources.{cpuMillis,memoryMb} — explicit numbers, per-key
+ *   2. spec.machine preset
+ *   3. tenantDefaultMachine preset
+ *   4. small-1x (engine fallback)
+ *
+ * Explicit numbers win per-key — operators that hand-tuned values
  * before the presets shipped should not see a regression.
  */
-export function resolveMachineResources(spec: {
-  machine?: string;
-  resources?: { cpuMillis?: number; memoryMb?: number };
-}): MachineResources {
+export function resolveMachineResources(
+  spec: {
+    machine?: string;
+    resources?: { cpuMillis?: number; memoryMb?: number };
+  },
+  options?: { tenantDefaultMachine?: string | null }
+): MachineResources {
+  const tenantPreset =
+    options?.tenantDefaultMachine && isMachinePresetName(options.tenantDefaultMachine)
+      ? options.tenantDefaultMachine
+      : null;
   const fromPreset = isMachinePresetName(spec.machine)
     ? machinePresetResources(spec.machine)
-    : machinePresetResources('small-1x');
+    : tenantPreset
+      ? machinePresetResources(tenantPreset)
+      : machinePresetResources('small-1x');
   return {
     cpuMillis: spec.resources?.cpuMillis ?? fromPreset.cpuMillis,
     memoryMb: spec.resources?.memoryMb ?? fromPreset.memoryMb,

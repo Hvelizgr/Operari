@@ -95,6 +95,19 @@ export interface RunnerContext {
   tenantId: string;
   /** Streaming emitter for stdout/stderr lines */
   emit?: (event: ExecutorEvent) => void;
+  /**
+   * Workspace-wide compute defaults injected at run-start by the
+   * engine. Runners consult this when neither the step spec nor
+   * the runbook spec supplies an explicit value (e.g. `machine`).
+   * Empty / undefined → runner uses its built-in defaults
+   * (small-1x for Fly, no resource overrides for Docker).
+   *
+   * Sub-runs inherit this from the parent run; the engine resolves
+   * tenant defaults once at runWorkflow start, not per step.
+   */
+  tenantDefaults?: {
+    machine?: string;
+  };
 }
 
 export interface Runner {
