@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "predev": "lsof -ti:3000,4000 | xargs -r kill -9 ; sleep 1",
+    "predev": "fuser -k 3000/tcp 4000/tcp 2>/dev/null ; lsof -ti:3000,4000 2>/dev/null | xargs -r kill -9 2>/dev/null ; sleep 2 ; true",
     "dev": "concurrently \"npm run dev -w frontend\" \"npm run dev -w backend\"",
     "dev:nokill": "concurrently \"npm run dev -w frontend\" \"npm run dev -w backend\"",
     "build": "npm run build -w frontend && npm run build -w backend",
