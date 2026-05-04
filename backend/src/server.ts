@@ -434,6 +434,25 @@ async function main() {
     process.on('SIGTERM', () => clearInterval(monitorInterval));
     logger.info('Monitor watchdog started (1-minute interval)');
 
+    // Waitpoint watchdog: 1-minute sweep to time out PENDING tokens
+    // whose `expiresAt` is in the past. Cheap thanks to the partial
+    // index on (expiresAt, status='PENDING') — terminated and
+    // never-expiring tokens contribute zero pages.
+    const { WaitpointService } = await import('./runbook/services/waitpoint.service');
+    const waitpointService = new WaitpointService(prisma);
+    const waitpointInterval = setInterval(() => {
+      waitpointService
+        .expireOverdue()
+        .then(count => {
+          if (count > 0) logger.info({ count }, 'Waitpoint sweep timed out tokens');
+        })
+        .catch(err => {
+          logger.error({ err }, 'Waitpoint sweep failed');
+        });
+    }, 60_000);
+    process.on('SIGTERM', () => clearInterval(waitpointInterval));
+    logger.info('Waitpoint watchdog started (1-minute interval)');
+
     // A5: install the queued billing meter + start its dispatch
     // worker when a real billing provider is configured. For noop /
     // self-host we skip both — there's nothing to ship.
