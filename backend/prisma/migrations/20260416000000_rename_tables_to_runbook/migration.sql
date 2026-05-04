@@ -24,7 +24,22 @@ ALTER TABLE "WorkflowConnection" RENAME TO "RunbookConnection";
 
 -- 2. Primary-key and unique constraints
 ALTER TABLE "Runbook"           RENAME CONSTRAINT "Workflow_pkey"                    TO "Runbook_pkey";
-ALTER TABLE "Runbook"           RENAME CONSTRAINT "Workflow_tenantId_slug_key"       TO "Runbook_tenantId_slug_key";
+-- `Workflow_tenantId_slug_key` was created by a `prisma db push` in a
+-- pre-migrate-dev era (the unique was added to the model without a
+-- corresponding migration file). Live DBs have it; shadow DBs that
+-- replay history from scratch don't, which broke `migrate dev` with
+-- P3006. Wrap in a DO block so the rename runs only when the
+-- constraint actually exists. Idempotent: live DBs still get the
+-- rename; shadow replay no-ops cleanly.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'Workflow_tenantId_slug_key'
+  ) THEN
+    ALTER TABLE "Runbook" RENAME CONSTRAINT "Workflow_tenantId_slug_key" TO "Runbook_tenantId_slug_key";
+  END IF;
+END$$;
 ALTER TABLE "RunbookStep"       RENAME CONSTRAINT "WorkflowNode_pkey"                TO "RunbookStep_pkey";
 ALTER TABLE "RunbookConnection" RENAME CONSTRAINT "WorkflowConnection_pkey"          TO "RunbookConnection_pkey";
 
