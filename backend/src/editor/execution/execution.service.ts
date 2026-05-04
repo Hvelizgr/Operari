@@ -219,10 +219,7 @@ export class ExecutionService {
         // already finished its step; surfacing this as a hard
         // failure would punish the operator for a one-line typo.
         this.logger.warn('Step hook target runbook not found', {
-          kind,
-          ref,
-          stepId: node.id,
-          tenantId,
+          metadata: { kind, ref, stepId: node.id, tenantId },
         });
         return;
       }
@@ -240,16 +237,14 @@ export class ExecutionService {
         input: { parent: payload },
       }).catch(err => {
         this.logger.error('Step hook dispatch failed', {
-          kind,
-          targetRunbookId: target.id,
-          error: err instanceof Error ? err.message : String(err),
+          error: err instanceof Error ? err : new Error(String(err)),
+          metadata: { kind, targetRunbookId: target.id },
         });
       });
     } catch (err) {
       this.logger.error('Step hook resolution failed', {
-        kind,
-        stepId: node.id,
-        error: err instanceof Error ? err.message : String(err),
+        error: err instanceof Error ? err : new Error(String(err)),
+        metadata: { kind, stepId: node.id },
       });
     }
   }
@@ -1416,7 +1411,7 @@ export class ExecutionService {
             'onSuccess',
             currentNode,
             tenantId,
-            userId,
+            (executionContext.userId as string) ?? '',
             { stepId: currentNode.id, stepType: currentNode.type, output },
             executionId
           );
