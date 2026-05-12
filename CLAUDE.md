@@ -77,3 +77,55 @@ operari/
 - **Not architecture decisions** — those go in [docs/adr/](./docs/adr/) as ADR files. This is the _shape_; ADRs are the _why_.
 
 When you change the shape (new top-level module, new helper page, new cross-cutting concern), update the map above. When you don't, leave it alone.
+
+---
+
+## Personal vault — NeuralArchive
+
+There's a personal Obsidian vault at `~/Documentos/NeuralArchive` reachable via the `obsidian-vault` MCP server (filesystem mode, registered at user scope). It's a PARA-organized second brain in Spanish with cross-domain notes (dev, ciberseguridad, bases-de-datos, personal admin).
+
+### When to READ the vault
+
+- The user references prior decisions, learnings, or notes ("como hicimos en X", "según mis apuntes", "ya tenía algo sobre Y").
+- The user asks a general programming/architecture question that may have been previously studied (search `30-Recursos/dev/` and `30-Recursos/repositorios/`).
+- The user asks about a tool/technique not specific to this codebase (search relevant MOC: `_indices/moc-{dev,ciberseguridad,bases-de-datos}.md`).
+- Before suggesting a pattern, check if the user already has notes on it — cite their wording and frame in those terms.
+
+**Read order (cheapest to most expensive)**:
+
+1. `_indices/hot.md` — ~500 words of recent context.
+2. `_indices/index.md` — master catalog.
+3. Domain MOC: `_indices/moc-{dev,ciberseguridad,bases-de-datos,personal}.md`.
+4. Individual notes (3–5 max per query).
+
+**Don't read the vault** for:
+
+- Anything already in this repo's context.
+- Generic boilerplate questions Claude can answer directly.
+- Codebase navigation (use `Read`/`Grep` on Operari files instead).
+
+### When to WRITE to the vault
+
+Propose writing to the vault when the user does something whose value extends past this repo:
+
+- **Architectural decision with a generalizable rationale** → propose ADR-style note in `30-Recursos/dev/patrones/` or in their project folder if they have one.
+- **Concept they figured out / learned** ("ya entendí cómo funciona X") → propose `30-Recursos/dev/conceptos/` (or the right domain).
+- **Useful command / pattern they used** → propose `30-Recursos/dev/cheatsheets/` using template `_templates/cheatsheet.md`.
+- **Useful repo / article they referenced** → propose `30-Recursos/repositorios/interes/` or `30-Recursos/articulos/` with template.
+- **A workflow / decision worth remembering** → propose adding to relevant project's `decisiones/` if they have one in `10-Proyectos/`.
+
+Always **propose first, don't just write**. Show the proposed note and path, ask for confirmation. Use the right template from `_templates/` and respect the frontmatter schema (`type`, `category`, `topics`, `language`, `useful_for`, etc — see `_meta/convenciones.md`).
+
+### Quick triggers (user phrases that should make you offer to save)
+
+- "guarda esto en el vault" / "anótalo" / "para no olvidarlo" → propose write
+- "tomemos nota de" / "esto vale la pena recordar" → propose write
+- "como hice antes" / "ya tenía algo sobre" → search vault first
+- "qué notas tengo de" / "qué he guardado sobre" → read vault
+
+### NanoFlow ↔ vault crosslinks
+
+- Repo catalog entry: `30-Recursos/repositorios/propios/NanoFlow.md` (Operari/runbook automation, P1).
+- If the user starts treating NanoFlow as actively-developed-by-me-now, propose creating `10-Proyectos/personales/NanoFlow/_index.md` to track current state, decisions and bitácora separately from the catalog entry.
+
+Full guide: `~/Documentos/NeuralArchive/_meta/setup/06-uso-cross-project.md`.
