@@ -109,62 +109,18 @@ See the LICENSE.md file in this repository. */
   position: relative;
   width: 100%;
   height: 100%;
-
-  mask-image:
-    linear-gradient(
-      to bottom,
-      transparent 0px,
-      transparent 25px,
-      black 50px,
-      black calc(100% - 50px),
-      transparent calc(100% - 25px),
-      transparent 100%
-    ),
-    linear-gradient(
-      to right,
-      transparent 0px,
-      black 25px,
-      black calc(100% - 25px),
-      transparent 100%
-    );
-  mask-composite: intersect;
+  /* Removed mask-image that was clipping connections and nodes
+     at the canvas edges. The fade effect was causing visual
+     artifacts where bezier lines appeared to dissolve near
+     the viewport boundary. */
 }
 
 .wf_container.preview .wf_fade {
-  mask-image:
-    linear-gradient(
-      to bottom,
-      transparent 0px,
-      black 25px,
-      black calc(100% - 25px),
-      transparent 100%
-    ),
-    linear-gradient(
-      to right,
-      transparent 0px,
-      black 25px,
-      black calc(100% - 25px),
-      transparent 100%
-    );
   pointer-events: none;
 }
 
 .wf_container.job_preview .wf_fade {
-  mask-image:
-    linear-gradient(
-      to bottom,
-      transparent 0px,
-      black 25px,
-      black calc(100% - 25px),
-      transparent 100%
-    ),
-    linear-gradient(
-      to right,
-      transparent 0px,
-      black 25px,
-      black calc(100% - 25px),
-      transparent 100%
-    );
+  /* No fade mask — let connections render fully */
 }
 
 .wf_canvas {
@@ -223,12 +179,13 @@ See the LICENSE.md file in this repository. */
 
 .wf_event {
   background: var(--background-color);
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  /* Refined from 16px */
-
-  width: 275px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  width: 260px;
   height: auto;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* ... */
@@ -245,29 +202,41 @@ See the LICENSE.md file in this repository. */
 
 .wf_pole_button {
   position: absolute;
-  width: 24px;
-  height: 24px;
-  margin-top: -12px;
-  margin-left: -12px;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  margin-left: -7px;
   background: var(--theme-color);
   border-radius: 999em;
   z-index: 2;
   cursor: pointer;
 
-  font-size: 16px;
-  line-height: 24px;
+  font-size: 0;
+  line-height: 14px;
   text-align: center;
   color: white;
 
-  /* Larger clickable area */
+  /* Subtle border ring for depth */
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+
   transition:
     transform 0.15s ease,
-    box-shadow 0.15s ease;
+    box-shadow 0.15s ease,
+    width 0.15s ease,
+    height 0.15s ease;
 }
 
 .wf_pole_button:hover {
-  transform: scale(1.15);
-  box-shadow: 0 0 8px rgba(55, 145, 245, 0.5);
+  transform: scale(1.3);
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.15),
+    0 0 12px rgba(62, 207, 142, 0.5);
+}
+
+/* Hide icons inside poles — the shape itself communicates direction */
+.wf_pole_button > svg {
+  display: none;
 }
 
 /* ... */
@@ -297,30 +266,41 @@ See the LICENSE.md file in this repository. */
 .wf_input_pole {
   left: calc(0% - 1px);
   top: 50%;
-  /* Poles follow the user-selected accent from VisualizationContext.
-       --accent-override is set by applyToDocument; falls back to
-       operari-moss (emerald) when missing. */
+  /* Input: circle with a visible inset ring — reads as a "socket"
+     where data plugs in. The inner dot + outer ring gives it depth. */
   background: var(--accent-override, var(--op-moss, #3ecf8e));
+  border-radius: 999em;
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 0 0 2px rgba(62, 207, 142, 0.25),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.2);
 }
 
 .wf_output_pole {
   left: calc(100% + 1px);
   top: 50%;
+  /* Output: diamond/rotated square — distinct from the round input.
+     Reads as "data exits here" with a directional feel. */
   background: var(--accent-override, var(--op-moss, #3ecf8e));
+  border-radius: 3px;
+  transform: rotate(45deg);
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 2px rgba(62, 207, 142, 0.25);
+  /* Compensate margin for rotated element */
+  margin-top: -7px;
+  margin-left: -7px;
+}
+
+.wf_up_pole {
+  left: 50%;
+  top: calc(0% - 1px);
+  background: var(--cyan);
 }
 
 .wf_down_pole {
   left: 50%;
   top: calc(100% + 1px);
   background: var(--cyan);
-
-  /* background: var(--cyan);
-	transform-origin: center;
-	transform: scale(0.8); */
-  /* border: 1px solid var(--border-color); */
-  /* border-radius: 0;
-	transform-origin: center;
-	transform: rotate(45deg) scale(0.8); */
 }
 
 .wf_event.disabled .wf_pole {
@@ -366,32 +346,46 @@ See the LICENSE.md file in this repository. */
   color: var(--label-color);
   background: var(--background-color);
   border: 2px solid var(--border-color);
-
-  /* outline: 2px dashed var(--theme-color); */
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* Trigger — half-circle on the left, "start here" shape.
+   Accented with a left glow stripe. */
 .wf_ent_trigger {
-  border-radius: 999em 0px 0px 999em;
+  border-radius: 999em 8px 8px 999em;
   color: var(--op-moss, #3ecf8e);
+  border-left: 3px solid var(--op-moss, #3ecf8e);
+  box-shadow: -2px 0 8px rgba(62, 207, 142, 0.15);
 }
 
+/* Action — half-circle on the right, "end here" / "output" shape.
+   Accented with a right glow stripe. */
 .wf_ent_action {
-  border-radius: 0px 999em 999em 0px;
+  border-radius: 8px 999em 999em 8px;
   color: var(--green);
+  border-right: 3px solid var(--green);
+  box-shadow: 2px 0 8px rgba(40, 167, 69, 0.15);
 }
 
+/* Controller — pill with purple accent, "decision" shape. */
 .wf_ent_controller {
   width: 128px;
   left: 0px;
   border-radius: 999em;
   color: var(--purple);
+  border: 2px solid color-mix(in srgb, var(--purple) 50%, var(--border-color));
+  box-shadow: 0 0 12px rgba(140, 60, 220, 0.1);
 }
 
+/* Limit/Loop — diamond, "iteration/gate" shape.
+   Slightly larger scale than before for readability. */
 .wf_ent_limit {
-  border-radius: 0;
+  border-radius: 4px;
   transform-origin: center;
-  transform: rotate(45deg) scale(0.7);
+  transform: rotate(45deg) scale(0.72);
   color: var(--cyan);
+  border: 2px solid color-mix(in srgb, var(--cyan) 50%, var(--border-color));
+  box-shadow: 0 0 12px rgba(23, 162, 184, 0.1);
 }
 
 .wf_ent_title {
@@ -439,21 +433,27 @@ See the LICENSE.md file in this repository. */
 .wf_ent_trigger > .wf_output_pole {
   left: calc(100% + 1px);
   background: var(--op-moss, #3ecf8e);
+  border-radius: 3px;
+  transform: rotate(45deg);
 }
 
 .wf_ent_action > .wf_input_pole {
   left: calc(0% - 1px);
   background: var(--green);
+  border-radius: 999em;
 }
 
 .wf_ent_controller > .wf_input_pole {
   left: calc(0% - 1px);
   background: var(--purple);
+  border-radius: 999em;
 }
 
 .wf_ent_controller > .wf_output_pole {
   left: calc(100% + 1px);
   background: var(--purple);
+  border-radius: 3px;
+  transform: rotate(45deg);
 }
 
 .wf_ent_limit > .wf_up_pole {
@@ -1037,13 +1037,13 @@ html[style*='--status-idle:'] .wf_event:not(.wf_active):not(.wf_completed):not(.
 .wf_pole_button[data-upstream-status='SUCCESS'] {
   background: rgb(62, 207, 142);
   box-shadow:
-    0 0 0 2px rgba(62, 207, 142, 0.25),
+    0 0 0 3px rgba(62, 207, 142, 0.3),
     0 2px 8px rgba(62, 207, 142, 0.45);
 }
 .wf_pole_button[data-upstream-status='FAILED'] {
   background: rgb(239, 68, 68);
   box-shadow:
-    0 0 0 2px rgba(239, 68, 68, 0.25),
+    0 0 0 3px rgba(239, 68, 68, 0.3),
     0 2px 8px rgba(239, 68, 68, 0.45);
 }
 .wf_pole_button[data-upstream-status='RUNNING'] {

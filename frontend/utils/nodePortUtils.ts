@@ -20,7 +20,7 @@ export interface NodeWithDimensions extends WorkflowNode {
 const NODE_DIMENSIONS = {
   entity: { width: 64, height: 64 }, // .wf_ent_trigger, .wf_ent_action, .wf_ent_limit
   controller: { width: 128, height: 64 }, // .wf_ent_controller
-  event: { width: 275, height: 120 }, // .wf_event (standard job)
+  event: { width: 260, height: 120 }, // .wf_event (standard job)
 };
 
 /**
@@ -63,14 +63,18 @@ export const getNodePortInfo = (
     const { width } = NODE_DIMENSIONS.controller;
     const outputs = (node as any).outputs as Array<unknown> | undefined;
     const hasMultiOut = Array.isArray(outputs) && outputs.length > 1;
+    // Must match EditorNode.tsx line ~338: Math.max(64, 30 + outputs.length * 26)
     const effectiveHeight = hasMultiOut
-      ? Math.max(64, 14 + outputs!.length * 26)
+      ? Math.max(64, 30 + outputs!.length * 26)
       : NODE_DIMENSIONS.controller.height;
 
     if (portType === 'input') {
       return { x: node.position.x, y: node.position.y + effectiveHeight / 2, direction: 'left' };
     }
-    // Multi-output: stacked vertically at 14 + i * 26
+    // Multi-output: stacked vertically — must match EditorNode.tsx
+    // which positions controller poles at `top: ${14 + i * 26}px`.
+    // The 14px offset is relative to the controller div, but the
+    // controller div starts at node.position.y. So the pole Y is:
     if (hasMultiOut) {
       const poleY = node.position.y + 14 + portIndex * 26;
       return { x: node.position.x + width, y: poleY, direction: 'right' };
@@ -100,15 +104,25 @@ export const getNodePortInfo = (
 
   // Limit: Input (Top), Output (Bottom) - 64x64 diamond rotated 45deg
   // CSS: .wf_ent_limit is 64x64 with transform: rotate(45deg) scale(0.7)
+  // The visual element is scaled down by 0.7 and rotated 45deg, but the
+  // DOM bounding box stays 64x64. The CSS up_pole/down_pole positions
+  // account for the transform, so we anchor to the center of the 64x64
+  // box and offset by the scaled radius for accurate pole alignment.
   // Matches: Loop, Iterator, operari.loop, and any *limit* type
   if (type.includes('limit') || type === 'loop' || type === 'iterator' || type === 'operari.loop') {
     const { width, height } = NODE_DIMENSIONS.entity;
+    const cx = node.position.x + width / 2;
+    const cy = node.position.y + height / 2;
+    // The diamond's visual corners after rotate(45deg) scale(0.7) sit at
+    // ±(64/2 * 0.7) = ±22.4px from the center. The CSS poles sit at
+    // 0% - 1px and 100% + 1px of the untransformed box, which visually
+    // land at the diamond's tips thanks to the transform-origin: center.
     if (portType === 'input') {
-      // Input at top center
-      return { x: node.position.x + width / 2, y: node.position.y, direction: 'top' };
+      // Input at top of the visual diamond
+      return { x: cx, y: node.position.y, direction: 'top' };
     }
-    // Output at bottom center
-    return { x: node.position.x + width / 2, y: node.position.y + height, direction: 'bottom' };
+    // Output at bottom of the visual diamond
+    return { x: cx, y: node.position.y + height, direction: 'bottom' };
   }
 
   // Standard Job (Event): Input (Left), Output (Right)

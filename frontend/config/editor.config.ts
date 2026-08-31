@@ -24,7 +24,7 @@ export const EDITOR_CONFIG = {
   ZOOM: {
     MIN: Number(process.env.NEXT_PUBLIC_EDITOR_MIN_ZOOM) || 0.1,
     MAX: Number(process.env.NEXT_PUBLIC_EDITOR_MAX_ZOOM) || 2,
-    SENSITIVITY: 0.001,
+    SENSITIVITY: 0.0006,
   } as ZoomConfig,
   GRID: {
     SIZE: 20,

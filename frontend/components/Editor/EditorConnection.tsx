@@ -43,9 +43,9 @@ export default function EditorConnection({
   };
 
   const getStrokeColor = () => {
-    if (isCyclic) return '#ef4444';
-    if (isSelected) return '#3ecf8e';
-    return isExecuting ? '#3ecf8e' : '#475569'; // Emerald when executing, slate-600 otherwise
+    if (isCyclic) return 'var(--op-sunset, #ef4444)';
+    if (isSelected) return 'var(--op-moss, #3ecf8e)';
+    return isExecuting ? 'var(--op-moss, #3ecf8e)' : 'var(--border-color, #475569)'; // Emerald when executing, slate-600 otherwise
   };
 
   return (
@@ -89,7 +89,7 @@ export default function EditorConnection({
         cx={targetPos.x}
         cy={targetPos.y}
         r="4"
-        fill={isSelected ? '#3ecf8e' : '#475569'}
+        fill={isSelected ? 'var(--op-moss, #3ecf8e)' : 'var(--border-color, #475569)'}
         className="group-hover:fill-primary/70 transition-colors duration-300"
       />
 

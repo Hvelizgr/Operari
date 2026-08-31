@@ -338,7 +338,7 @@ function EditorNode({
             hasMultiOutput ? { height: Math.max(64, 30 + node.outputs!.length * 26) } : undefined
           }
         >
-          {/* Input Pole */}
+          {/* Input Pole — squared shape with arrow icon */}
           <div
             className="wf_pole_button wf_input_pole"
             data-pole-label="in"
@@ -350,7 +350,7 @@ function EditorNode({
               onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY });
             }}
           >
-            <Icons.ChevronRight size={12} />
+            <Icons.ArrowRight size={12} />
           </div>
 
           <span className="relative flex h-full w-full items-center justify-center">
@@ -519,7 +519,7 @@ function EditorNode({
               onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY });
             }}
           >
-            <Icons.ChevronRight size={12} />
+            <Icons.ArrowRight size={12} />
           </div>
           <span
             className="relative flex h-full w-full items-center justify-center"
@@ -658,7 +658,7 @@ function EditorNode({
           onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY });
         }}
       >
-        <Icons.ChevronRight size={12} />
+        <Icons.ArrowRight size={12} />
       </div>
       {/* Output poles. If the node declares multiple outputs (e.g.
                 `approval` with approved/rejected), render one pole per

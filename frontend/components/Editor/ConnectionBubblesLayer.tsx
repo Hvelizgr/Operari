@@ -44,25 +44,17 @@ export default function ConnectionBubblesLayer({
   onBubbleClick,
 }: ConnectionBubblesLayerProps) {
   return (
-    <motion.div
-      className="pointer-events-none absolute left-0 top-0 h-full w-full" // pointer-events-none so we don't block canvas interactions, but bubbles need pointer-events-auto
-      animate={{
-        x: viewport.x,
-        y: viewport.y,
-        scale: viewport.zoom,
+    <div
+      className="pointer-events-none absolute left-0 top-0 h-full w-full"
+      // No spring animation — move instantly with the canvas so the
+      // bubbles don't lag behind the connection lines during pan/zoom.
+      // The old framer-motion spring made bubbles "bounce" while lines
+      // (drawn on canvas 2D) snapped instantly, creating a visual mismatch.
+      style={{
+        transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+        transformOrigin: '0 0',
+        zIndex: 2,
       }}
-      transition={{
-        type: 'spring',
-        stiffness: 300,
-        damping: 30,
-      }}
-      // framer-motion animate applies a transform, which creates a
-      // stacking context — same gotcha as NodesLayer. Explicit
-      // z-index pushes the bubbles above the canvas (z:1) while
-      // staying below the nodes layer (also z:2, but rendered
-      // after us in the DOM, so nodes still win within the same
-      // integer via source order).
-      style={{ transformOrigin: '0 0', zIndex: 2 }}
     >
       {(() => {
         // Resolve the canvas element so the port anchor helper
@@ -99,14 +91,38 @@ export default function ConnectionBubblesLayer({
           };
           const Icon = iconMap[conditionType] || Icons.Check;
 
+          // Color map for the condition type
+          const colorMap: Record<string, string> = {
+            complete: '#3ecf8e',
+            success: '#22c55e',
+            error: '#ef4444',
+            warning: '#eab308',
+            start: '#f97316',
+            disabled: '#6b7280',
+          };
+          const badgeColor = colorMap[conditionType] || '#3ecf8e';
+
           return (
             <div
               key={conn.id}
-              className={`wf_condition ${conditionType} ${selectedConnection === conn.id ? 'popped' : ''}`}
+              className={selectedConnection === conn.id ? 'popped' : ''}
               style={{
-                left: mid.x - 12, // centered (24px width)
-                top: mid.y - 12,
+                position: 'absolute',
+                left: mid.x - 11,
+                top: mid.y - 11,
+                width: 22,
+                height: 22,
+                borderRadius: '5px',
+                transform: 'rotate(45deg)',
+                backgroundColor: badgeColor,
+                border: '2.5px solid rgba(255,255,255,0.5)',
+                boxShadow: `0 0 0 2px rgba(0,0,0,0.3), 0 2px 8px ${badgeColor}50`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
                 pointerEvents: 'auto',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
               }}
               onClick={e => {
                 e.stopPropagation();
@@ -117,12 +133,13 @@ export default function ConnectionBubblesLayer({
                 }
               }}
             >
-              {/* xyOps usually uses icons or just color/symbols. */}
-              <Icon size={14} strokeWidth={3} />
+              <span style={{ transform: 'rotate(-45deg)', display: 'flex' }}>
+                <Icon size={12} strokeWidth={3} color="white" />
+              </span>
             </div>
           );
         });
       })()}
-    </motion.div>
+    </div>
   );
 }

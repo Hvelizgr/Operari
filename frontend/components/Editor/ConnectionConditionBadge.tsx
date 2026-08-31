@@ -62,9 +62,9 @@ export default function ConnectionConditionBadge({
     setIsOpen(false);
   };
 
-  // Scale size based on zoom
-  const size = Math.max(20, 24 / zoom);
-  const iconSize = Math.max(10, 12 / zoom);
+  // Scale size based on zoom — slightly larger for readability
+  const size = Math.max(22, 28 / zoom);
+  const iconSize = Math.max(12, 14 / zoom);
 
   return (
     <div
@@ -78,32 +78,38 @@ export default function ConnectionConditionBadge({
         zIndex: 15,
       }}
     >
-      {/* Badge Button */}
+      {/* Badge Button — diamond shape for visual distinction from
+           the circular output poles and squared input poles */}
       <button
         onClick={handleClick}
         className="connection-badge-button"
         style={{
           width: size,
           height: size,
-          borderRadius: '50%',
+          borderRadius: '5px',
+          transform: 'rotate(45deg)',
           backgroundColor: config.color,
-          border: '2px solid rgba(255,255,255,0.3)',
+          border: '2.5px solid rgba(255,255,255,0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          transition: 'transform 0.15s, box-shadow 0.15s',
-          boxShadow: isOpen ? '0 0 0 3px rgba(255,255,255,0.2)' : 'none',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+          boxShadow: isOpen
+            ? `0 0 0 4px rgba(255,255,255,0.25), 0 4px 12px ${config.color}70`
+            : `0 0 0 2px rgba(0,0,0,0.3), 0 2px 8px ${config.color}50`,
         }}
         onMouseEnter={e => {
-          (e.target as HTMLElement).style.transform = 'scale(1.2)';
+          (e.target as HTMLElement).style.transform = 'rotate(45deg) scale(1.2)';
         }}
         onMouseLeave={e => {
-          (e.target as HTMLElement).style.transform = 'scale(1)';
+          (e.target as HTMLElement).style.transform = 'rotate(45deg) scale(1)';
         }}
         title={config.label}
       >
-        <Icon size={iconSize} color="white" strokeWidth={3} />
+        <span style={{ transform: 'rotate(-45deg)', display: 'flex' }}>
+          <Icon size={iconSize} color="white" strokeWidth={3} />
+        </span>
       </button>
 
       {/* Dropdown Menu */}
