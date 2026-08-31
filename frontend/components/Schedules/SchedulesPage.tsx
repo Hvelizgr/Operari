@@ -183,8 +183,8 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
   const load = useCallback(async () => {
     try {
       const [list, upc] = await Promise.all([
-        fetch(`${API_BASE}/api/schedules`).then(r => r.json()),
-        fetch(`${API_BASE}/api/schedules/upcoming?hours=24`).then(r => r.json()),
+        fetch(`${API_BASE}/api/schedules`, { credentials: 'include' }).then(r => r.json()),
+        fetch(`${API_BASE}/api/schedules/upcoming?hours=24`, { credentials: 'include' }).then(r => r.json()),
       ]);
       setSchedules(list.data);
       setUpcoming(upc.data);
@@ -196,7 +196,7 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
 
   const fetchRunbooks = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/runbooks`);
+      const res = await fetch(`${API_BASE}/api/runbooks`, { credentials: 'include' });
       if (res.ok) {
         const json = await res.json();
         setRunbooks(Array.isArray(json) ? json : (json.data ?? []));
@@ -228,6 +228,7 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
   const handleToggle = async (s: Schedule) => {
     await fetch(`${API_BASE}/api/schedules/${s.id}`, {
       method: 'PATCH',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isActive: !s.isActive }),
     });
@@ -235,13 +236,13 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
   };
 
   const handleDelete = async (s: Schedule) => {
-    await fetch(`${API_BASE}/api/schedules/${s.id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE}/api/schedules/${s.id}`, { method: 'DELETE', credentials: 'include' });
     setConfirmingDeleteId(null);
     load();
   };
 
   const handleRunNow = async (s: Schedule) => {
-    const res = await fetch(`${API_BASE}/api/schedules/${s.id}/run`, { method: 'POST' });
+    const res = await fetch(`${API_BASE}/api/schedules/${s.id}/run`, { method: 'POST', credentials: 'include' });
     if (res.ok) {
       setToast(t.runTriggered);
       load();

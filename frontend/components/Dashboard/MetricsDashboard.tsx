@@ -50,7 +50,7 @@ export default function MetricsDashboard({
 
   const content = {
     en: {
-      title: 'Workflow Metrics',
+      title: 'Runbook Metrics',
       totalExecutions: 'Total Executions',
       successRate: 'Success Rate',
       avgExecutionTime: 'Avg Execution Time',

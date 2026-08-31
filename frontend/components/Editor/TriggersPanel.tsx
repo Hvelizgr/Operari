@@ -112,7 +112,7 @@ export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBase}/api/webhooks?runbookId=${encodeURIComponent(runbookId)}`);
+      const res = await fetch(`${apiBase}/api/webhooks?runbookId=${encodeURIComponent(runbookId)}`, { credentials: 'include' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setTriggers(json.data || []);
@@ -134,6 +134,7 @@ export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
     try {
       const res = await fetch(`${apiBase}/api/webhooks`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ runbookId, source, useSecret: true }),
       });
@@ -160,6 +161,7 @@ export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
     try {
       const res = await fetch(`${apiBase}/api/webhooks/${id}/rotate-secret`, {
         method: 'POST',
+        credentials: 'include',
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -176,7 +178,7 @@ export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
 
   const remove = async (id: string) => {
     try {
-      const res = await fetch(`${apiBase}/api/webhooks/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${apiBase}/api/webhooks/${id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setTriggers(prev => prev.filter(tr => tr.id !== id));
     } catch (err) {

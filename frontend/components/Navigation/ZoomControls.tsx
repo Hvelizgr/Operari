@@ -54,6 +54,7 @@ export default function ZoomControls({
             onClick={onZoomIn}
             className="border-b border-slate-700/50 p-2 text-slate-200 transition-colors hover:bg-slate-700"
             title={text.zoomIn}
+            aria-label={text.zoomIn}
           >
             <ZoomIn size={18} />
           </button>
@@ -62,6 +63,7 @@ export default function ZoomControls({
             onClick={onZoomOut}
             className="border-b border-slate-700/50 p-2 text-slate-200 transition-colors hover:bg-slate-700"
             title={text.zoomOut}
+            aria-label={text.zoomOut}
           >
             <ZoomOut size={18} />
           </button>
@@ -70,6 +72,7 @@ export default function ZoomControls({
             onClick={onFitView}
             className="border-b border-slate-700/50 p-2 text-slate-200 transition-colors hover:bg-slate-700"
             title={text.fitView}
+            aria-label={text.fitView}
           >
             <Maximize2 size={18} />
           </button>
@@ -78,6 +81,7 @@ export default function ZoomControls({
             onClick={onResetZoom}
             className="p-2 text-slate-200 transition-colors hover:bg-slate-700"
             title={text.resetZoom}
+            aria-label={text.resetZoom}
           >
             <RotateCcw size={18} />
           </button>

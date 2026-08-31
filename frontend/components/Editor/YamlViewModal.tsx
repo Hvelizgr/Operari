@@ -117,7 +117,7 @@ export default function YamlViewModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-6">
-      <div className="flex h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl">
+      <div role="dialog" aria-modal="true" className="flex h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl">
         <header className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
           <div>
             <h2 className="text-base font-semibold text-white">{t.title}</h2>
@@ -125,6 +125,7 @@ export default function YamlViewModal({
           </div>
           <button
             onClick={onClose}
+            aria-label={lang === 'en' ? 'Close' : 'Cerrar'}
             className="rounded p-1 text-zinc-400 hover:bg-zinc-900 hover:text-white"
           >
             <X size={18} />

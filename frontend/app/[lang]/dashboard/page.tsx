@@ -9,7 +9,7 @@ export default async function Page({ params }: { params: Promise<{ lang: string 
   const { lang } = await params;
   const typedLang = lang as 'en' | 'es';
   return (
-    <div className="flex h-screen w-full bg-black text-white">
+    <div className="flex h-screen w-full overflow-hidden bg-[var(--app-bg)] text-[var(--text-primary)]">
       <EditorSidebar lang={typedLang} />
       <div className="flex min-w-0 flex-1 flex-col">
         <EmailVerifyBanner lang={typedLang} />

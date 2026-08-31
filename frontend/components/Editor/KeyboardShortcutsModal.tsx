@@ -109,6 +109,8 @@ export default function KeyboardShortcutsModal({
           onClick={onClose}
         >
           <motion.div
+            role="dialog"
+            aria-modal="true"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -123,6 +125,7 @@ export default function KeyboardShortcutsModal({
               </div>
               <button
                 onClick={onClose}
+                aria-label={lang === 'en' ? 'Close' : 'Cerrar'}
                 className="text-gray-400 transition-colors hover:text-white"
               >
                 <X size={18} />

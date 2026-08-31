@@ -121,7 +121,10 @@ export function useEditorViewport({
 
     const zoomX = canvasWidth / width;
     const zoomY = canvasHeight / height;
-    const newZoom = Math.min(zoomX, zoomY, EDITOR_CONFIG.ZOOM.MAX);
+    // Clamp fit-view zoom to [0.5, MAX] so it never zooms out so far
+    // that nodes become illegibly small. 0.5 (50%) is the sweet spot:
+    // enough to see the whole graph, readable enough to click nodes.
+    const newZoom = Math.max(0.5, Math.min(zoomX, zoomY, EDITOR_CONFIG.ZOOM.MAX));
 
     const centerX = -(minX - padding - (canvasWidth / newZoom - width) / 2) * newZoom;
     const centerY = -(minY - padding - (canvasHeight / newZoom - height) / 2) * newZoom;

@@ -42,7 +42,7 @@ export function useNodeTypes() {
       }
 
       try {
-        const res = await fetch('/api/node-types'); // Use proxy defined in next.config.ts
+        const res = await fetch('/api/node-types', { credentials: 'include' }); // Use proxy defined in next.config.ts
         if (!res.ok) throw new Error('Failed to fetch');
         const data = await res.json();
 

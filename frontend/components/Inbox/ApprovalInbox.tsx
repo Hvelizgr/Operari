@@ -130,7 +130,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
       try {
         const params = new URLSearchParams({ status: filter, limit: '50' });
         if (mode === 'append' && nextCursor) params.set('cursor', nextCursor);
-        const res = await fetch(`${apiBase}/api/approvals?${params}`);
+        const res = await fetch(`${apiBase}/api/approvals?${params}`, { credentials: 'include' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         setApprovals(prev => (mode === 'append' ? [...prev, ...json.data] : json.data));
@@ -158,6 +158,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
     try {
       const res = await fetch(`${apiBase}/api/approvals/${id}/${action}`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment: comments[id] || undefined }),
       });
@@ -251,7 +252,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
         </div>
       )}
 
-      {!loading && approvals.length === 0 && (
+      {!loading && !error && approvals.length === 0 && (
         <div className="rounded border border-zinc-800 bg-zinc-950 px-6 py-12 text-center text-sm text-zinc-500">
           {t.empty}
         </div>
@@ -286,7 +287,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
                       {a.status}
                     </span>
                     <span className="text-xs text-zinc-500">
-                      {new Date(a.createdAt).toLocaleString()}
+                      {new Date(a.createdAt).toLocaleString(lang === 'es' ? 'es-GT' : 'en-US')}
                     </span>
                   </div>
                   <div className="mt-2 text-sm font-medium text-white">

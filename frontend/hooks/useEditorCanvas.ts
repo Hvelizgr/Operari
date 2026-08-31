@@ -885,13 +885,21 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     handleCloseContextMenu();
   }, [contextMenu, handleCloseContextMenu]);
 
-  // Fit view on mount
+  // Gentle fit-view on first load only — runs once after the initial
+  // nodes are loaded, then never again. Uses a ref to track whether
+  // the initial fit has already fired so React Strict Mode double-mounts
+  // don't re-trigger it and navigation back to the editor doesn't
+  // snap the viewport away from where the user left it.
+  const hasInitialFit = useRef(false);
   useEffect(() => {
+    if (hasInitialFit.current || nodes.length === 0) return;
+    hasInitialFit.current = true;
     const timer = setTimeout(() => {
       handleFitView();
-    }, 100);
+    }, 200);
     return () => clearTimeout(timer);
-  }, [handleFitView]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes.length]);
 
   const handleViewportChangeAdapter = useCallback(
     (newViewport: ViewportState) => {

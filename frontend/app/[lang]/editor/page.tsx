@@ -11,7 +11,7 @@ export default async function EditorPage({ params }: { params: Promise<{ lang: s
   const { lang } = await params;
   return (
     <AccessibilityProvider>
-      <div className="h-screen w-full bg-black">
+      <div className="h-screen w-full overflow-hidden bg-black">
         <EditorCanvas lang={lang as 'en' | 'es'} />
       </div>
     </AccessibilityProvider>

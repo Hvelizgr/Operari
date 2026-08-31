@@ -174,7 +174,7 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
     try {
       const params = new URLSearchParams({ limit: '100' });
       if (search) params.set('search', search);
-      const res = await fetch(`${API_BASE}/api/runbooks?${params}`);
+      const res = await fetch(`${API_BASE}/api/runbooks?${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setRunbooks(json.runbooks ?? json.workflows ?? []);
@@ -214,6 +214,7 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
     try {
       const res = await fetch(`${API_BASE}/api/runbooks`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: t.new_blank_name,
@@ -235,6 +236,7 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
     try {
       const created = await fetch(`${API_BASE}/api/runbooks`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: tpl.name,
@@ -247,6 +249,7 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
       const wf = await created.json();
       await fetch(`${API_BASE}/api/runbooks/${wf.id}/yaml`, {
         method: 'PUT',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ yaml: tpl.yaml }),
       });
@@ -257,24 +260,21 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
   };
 
   const handleDuplicate = async (rb: Runbook) => {
-    await fetch(`${API_BASE}/api/runbooks/${rb.id}/duplicate`, { method: 'POST' });
+    await fetch(`${API_BASE}/api/runbooks/${rb.id}/duplicate`, { method: 'POST', credentials: 'include' });
     load();
   };
 
   const handleDelete = async (rb: Runbook) => {
     if (!confirm(t.confirmDelete)) return;
-    await fetch(`${API_BASE}/api/runbooks/${rb.id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE}/api/runbooks/${rb.id}`, { method: 'DELETE', credentials: 'include' });
     load();
   };
 
   const handleRunNow = async (rb: Runbook) => {
-    if (!rb.slug) {
-      alert('Runbook needs a slug to trigger via API. Edit it and add one.');
-      return;
-    }
     try {
-      const res = await fetch(`${API_BASE}/api/v1/runbooks/${rb.slug}/trigger`, {
+      const res = await fetch(`${API_BASE}/api/executions/${rb.id}/run`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
@@ -584,7 +584,7 @@ function TemplatePicker({
   const [templates, setTemplates] = useState<Template[] | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/templates`)
+    fetch(`${API_BASE}/api/templates`, { credentials: 'include' })
       .then(r => r.json())
       .then(j => setTemplates(j.data ?? []))
       .catch(() => setTemplates([]));

@@ -25,7 +25,7 @@ export default function SaveLoadMenu({ nodes, connections, onLoad, lang }: SaveL
       load: 'Load',
       export: 'Export JSON',
       import: 'Import',
-      importTitle: 'Import Workflow',
+      importTitle: 'Import Runbook',
       importPlaceholder: 'Paste JSON here...',
       importButton: 'Import',
       cancel: 'Cancel',

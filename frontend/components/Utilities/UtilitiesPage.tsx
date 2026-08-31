@@ -184,7 +184,7 @@ function KeysTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
   const [createdKey, setCreatedKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch(`${API_BASE}/api/v1/keys`);
+    const res = await fetch(`${API_BASE}/api/v1/keys`, { credentials: 'include' });
     if (res.ok) {
       const j = await res.json();
       setKeys(j.data ?? []);
@@ -198,6 +198,7 @@ function KeysTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
   const handleCreate = async (name: string) => {
     const res = await fetch(`${API_BASE}/api/v1/keys`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
     });
@@ -211,7 +212,7 @@ function KeysTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
 
   const handleDelete = async (id: string) => {
     if (!confirm(t.confirmDelete)) return;
-    await fetch(`${API_BASE}/api/v1/keys/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE}/api/v1/keys/${id}`, { method: 'DELETE', credentials: 'include' });
     load();
   };
 
@@ -300,7 +301,7 @@ function WebhooksTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
   const [showForm, setShowForm] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch(`${API_BASE}/api/webhooks`);
+    const res = await fetch(`${API_BASE}/api/webhooks`, { credentials: 'include' });
     if (res.ok) {
       const j = await res.json();
       setWebhooks(Array.isArray(j) ? j : (j.data ?? []));
@@ -309,7 +310,7 @@ function WebhooksTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
 
   useEffect(() => {
     load();
-    fetch(`${API_BASE}/api/runbooks?limit=100`)
+    fetch(`${API_BASE}/api/runbooks?limit=100`, { credentials: 'include' })
       .then(r => r.json())
       .then(j => setRunbooks(j.runbooks ?? j.workflows ?? []))
       .catch(() => {});
@@ -318,6 +319,7 @@ function WebhooksTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
   const handleCreate = async (body: WebhookCreatePayload) => {
     const res = await fetch(`${API_BASE}/api/webhooks`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
@@ -329,7 +331,7 @@ function WebhooksTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
 
   const handleDelete = async (id: string) => {
     if (!confirm(t.confirmDelete)) return;
-    await fetch(`${API_BASE}/api/webhooks/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE}/api/webhooks/${id}`, { method: 'DELETE', credentials: 'include' });
     load();
   };
 
@@ -398,7 +400,7 @@ function AccountsTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
   const [accounts, setAccounts] = useState<ConnectedAccount[] | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/connected-accounts`)
+    fetch(`${API_BASE}/api/connected-accounts`, { credentials: 'include' })
       .then(r => r.json())
       .then(j => setAccounts(Array.isArray(j) ? j : (j.data ?? [])))
       .catch(() => setAccounts([]));
