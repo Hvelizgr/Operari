@@ -181,6 +181,8 @@ const STRINGS = {
 
 type Step = 'idle' | 'enrolling' | 'awaiting-code' | 'verifying' | 'disabling';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
 export function SecurityPanel({ lang }: { lang: 'en' | 'es' }) {
   const t = STRINGS[lang];
   const { session, refresh } = useAuth();
@@ -206,7 +208,7 @@ export function SecurityPanel({ lang }: { lang: 'en' | 'es' }) {
 
   useEffect(() => {
     if (!session) return;
-    fetch('/api/auth/me', { credentials: 'include' })
+    fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' })
       .then(r => (r.ok ? r.json() : null))
       .then(body => {
         // /me returns the emailVerified flag but not the mfa
@@ -240,7 +242,7 @@ export function SecurityPanel({ lang }: { lang: 'en' | 'es' }) {
     setError(null);
     setStep('enrolling');
     try {
-      const res = await fetch('/api/auth/mfa/enroll', {
+      const res = await fetch(`${API_BASE}/api/auth/mfa/enroll`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -261,7 +263,7 @@ export function SecurityPanel({ lang }: { lang: 'en' | 'es' }) {
     setError(null);
     setStep('verifying');
     try {
-      const res = await fetch('/api/auth/mfa/verify-enroll', {
+      const res = await fetch(`${API_BASE}/api/auth/mfa/verify-enroll`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -300,7 +302,7 @@ export function SecurityPanel({ lang }: { lang: 'en' | 'es' }) {
     setError(null);
     setStep('disabling');
     try {
-      const res = await fetch('/api/auth/mfa/disable', {
+      const res = await fetch(`${API_BASE}/api/auth/mfa/disable`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

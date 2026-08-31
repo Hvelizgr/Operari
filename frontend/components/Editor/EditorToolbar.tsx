@@ -97,6 +97,9 @@ export default function EditorToolbar({
           <div
             className="button icon delete right"
             onClick={onDelete}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDelete?.(); } }}
             title={lang === 'en' ? 'Delete (Del)' : 'Eliminar (Del)'}
           >
             <Trash2 size={16} style={{ transform: 'scale(1.2)' }} />
@@ -105,6 +108,9 @@ export default function EditorToolbar({
           <div
             className="button icon right"
             onClick={onDuplicate}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDuplicate?.(); } }}
             title={lang === 'en' ? 'Duplicate (Ctrl+D)' : 'Duplicar (Ctrl+D)'}
           >
             <Copy size={16} style={{ transform: 'scale(1.2)' }} />
@@ -113,6 +119,9 @@ export default function EditorToolbar({
           <div
             className="button icon right"
             onClick={onToggleEnable}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleEnable?.(); } }}
             title={lang === 'en' ? 'Toggle Enable' : 'Activar/Desactivar'}
           >
             <Power size={16} style={{ transform: 'scale(1.2)' }} />
@@ -121,6 +130,9 @@ export default function EditorToolbar({
           <div
             className="button icon right"
             onClick={onDetach}
+            role="button"
+            tabIndex={0}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDetach?.(); } }}
             title={lang === 'en' ? 'Detach' : 'Desconectar'}
           >
             <Unlink size={16} style={{ transform: 'scale(1.2)' }} />
@@ -134,6 +146,9 @@ export default function EditorToolbar({
       <div
         className={`button icon right ${!canRedo ? 'disabled' : ''}`}
         onClick={redo}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); redo(); } }}
         title={redoTitle}
       >
         <Redo2 size={16} style={{ transform: 'scale(1.2)' }} />
@@ -142,6 +157,9 @@ export default function EditorToolbar({
       <div
         className={`button icon right ${!canUndo ? 'disabled' : ''}`}
         onClick={undo}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); undo(); } }}
         title={undoTitle}
       >
         <Undo2 size={16} style={{ transform: 'scale(1.2)' }} />
@@ -153,6 +171,9 @@ export default function EditorToolbar({
       <div
         className={`button right ${editorMode === 'move' ? 'selected' : ''}`}
         onClick={() => setEditorMode('move')}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditorMode('move'); } }}
         title={lang === 'en' ? 'Move Tool (M)' : 'Mover (M)'}
       >
         <Move size={16} style={{ marginRight: '4px', transform: 'scale(1.2)' }} />
@@ -162,6 +183,9 @@ export default function EditorToolbar({
       <div
         className={`button right ${editorMode === 'connect' ? 'selected' : ''}`}
         onClick={() => setEditorMode('connect')}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditorMode('connect'); } }}
         title={lang === 'en' ? 'Draw Tool (D)' : 'Dibujar (D)'}
       >
         <MousePointer2 size={16} style={{ marginRight: '4px', transform: 'scale(1.2)' }} />
@@ -174,6 +198,9 @@ export default function EditorToolbar({
       <div
         className="button icon right"
         onClick={onOpenShortcuts}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenShortcuts(); } }}
         title={lang === 'en' ? 'Shortcuts (?)' : 'Atajos (?)'}
       >
         <Keyboard size={16} style={{ transform: 'scale(1.2)' }} />
@@ -182,6 +209,9 @@ export default function EditorToolbar({
       <div
         className="button icon right"
         onClick={onOpenHistory}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenHistory(); } }}
         title={lang === 'en' ? 'History' : 'Historial'}
       >
         <HistoryIcon size={16} style={{ transform: 'scale(1.2)' }} />

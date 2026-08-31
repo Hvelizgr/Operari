@@ -294,8 +294,13 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     return () => clearTimeout(timer);
   }, [urlRunbookId, workflowProperties.inputs]);
 
+  // Use the real runbook ID from the URL when available. The old
+  // hardcoded 'current-workflow' doesn't exist in the DB, so every
+  // execution attempt returned 404. When urlRunbookId is null (new
+  // unsaved runbook or template just loaded), the hook receives null
+  // and executeWorkflow returns early with an error prompt.
   const { executeWorkflow, executeFromNode, executing, currentExecutionId } =
-    useWorkflowExecution('current-workflow');
+    useWorkflowExecution(urlRunbookId);
   const { logs, nodeStatuses, nodeMeta } = useExecutionSocket(currentExecutionId);
 
   // Capture run start time on executing transition. Pairs with the
@@ -462,7 +467,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
       },
       {
         id: 'add_node',
-        label: lang === 'en' ? 'Add Node' : 'Aspirar Nuevo Nodo',
+        label: lang === 'en' ? 'Add Node' : 'Agregar Nuevo Nodo',
         shortcut: ['Space'],
         action: () => setSearchTrigger(Date.now()),
       },

@@ -122,7 +122,7 @@ steps:
           kubectl exec -n production "$pod" -- nginx -s reload
         done
       timeout: 60000
-    next: verify_new_cert
+    next: wait_settle
 
   # Wait a beat so the reload has visibly taken effect on every pod
   # before we sample the public socket.
@@ -131,6 +131,7 @@ steps:
     name: Settle 5s
     config:
       durationMs: 5000
+    next: verify_new_cert
 
   - id: verify_new_cert
     type: shell

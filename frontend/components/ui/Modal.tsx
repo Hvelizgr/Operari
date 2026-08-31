@@ -52,6 +52,8 @@ export default function Modal({ isOpen, onClose, children }: ModalProps) {
 
           <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
+              role="dialog"
+              aria-modal="true"
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -61,6 +63,7 @@ export default function Modal({ isOpen, onClose, children }: ModalProps) {
             >
               <button
                 onClick={onClose}
+                aria-label="Close"
                 className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200"
               >
                 <svg

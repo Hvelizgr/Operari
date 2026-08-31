@@ -1,11 +1,11 @@
 'use client';
 
-import { Ban, CheckCircle2, Loader2, Pause, XCircle } from 'lucide-react';
+import { Ban, CheckCircle2, Clock, Loader2, Pause, XCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { List as VirtualList } from 'react-window';
 
-type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
+type RunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 
 interface Run {
   id: string;
@@ -69,6 +69,7 @@ const FILTERS: Array<{ key: RunStatus | 'all'; labelKey: string }> = [
 ];
 
 const STATUS_STYLES: Record<RunStatus, { icon: typeof CheckCircle2; cls: string }> = {
+  PENDING: { icon: Clock, cls: 'text-zinc-400' },
   RUNNING: { icon: Loader2, cls: 'text-sky-400' },
   SUCCESS: { icon: CheckCircle2, cls: 'text-emerald-400' },
   FAILED: { icon: XCircle, cls: 'text-red-400' },
@@ -104,7 +105,7 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
       try {
         const params = new URLSearchParams({ status: filter, limit: '50' });
         if (mode === 'append' && nextCursor) params.set('cursor', nextCursor);
-        const res = await fetch(`${apiBase}/api/runs?${params}`);
+        const res = await fetch(`${apiBase}/api/runs?${params}`, { credentials: 'include' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         setRuns(prev => (mode === 'append' ? [...prev, ...json.data] : json.data));
@@ -161,7 +162,7 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
         </div>
       )}
 
-      {!loading && runs.length === 0 && (
+      {!loading && !error && runs.length === 0 && (
         <div className="rounded border border-zinc-800 bg-zinc-950 px-6 py-12 text-center text-sm text-zinc-500">
           {t.empty}
         </div>
@@ -247,7 +248,7 @@ function RunRow({
       <div className="flex-1 truncate px-4 text-zinc-200">{r.runbook.name}</div>
       <div className="w-28 truncate px-4 text-xs text-zinc-400">{r.trigger || '—'}</div>
       <div className="w-44 truncate px-4 text-xs text-zinc-400">
-        {new Date(r.startedAt).toLocaleString()}
+        {new Date(r.startedAt).toLocaleString(lang === 'es' ? 'es-GT' : 'en-US')}
       </div>
       <div className="w-24 px-4 text-xs text-zinc-400">
         {r.status === 'RUNNING' && r.etaMs != null
@@ -280,7 +281,7 @@ function RunsVirtualTable({
     <div className="overflow-hidden rounded-lg border border-zinc-800">
       {/* Sticky header — same column widths as the rows below */}
       <div className="flex border-b border-zinc-800 bg-zinc-950 text-xs uppercase text-zinc-500">
-        <div className="w-32 px-4 py-3">Status</div>
+        <div className="w-44 px-4 py-3">Status</div>
         <div className="flex-1 px-4 py-3">{t.runbook}</div>
         <div className="w-28 px-4 py-3">{t.trigger}</div>
         <div className="w-44 px-4 py-3">{t.started}</div>

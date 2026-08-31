@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Clock,
   Copy,
   Loader2,
   Pause,
@@ -18,7 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import ExecutionEventLog from './ExecutionEventLog';
 
-type RunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
+type RunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 type StepStatus = RunStatus | string;
 
 interface StepLog {
@@ -91,6 +92,7 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
 };
 
 const STATUS_STYLES: Record<RunStatus, { icon: typeof CheckCircle2; cls: string }> = {
+  PENDING: { icon: Clock, cls: 'text-zinc-400' },
   RUNNING: { icon: Loader2, cls: 'text-sky-400' },
   SUCCESS: { icon: CheckCircle2, cls: 'text-emerald-400' },
   FAILED: { icon: XCircle, cls: 'text-red-400' },
@@ -137,7 +139,7 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBase}/api/runs/${runId}`);
+      const res = await fetch(`${apiBase}/api/runs/${runId}`, { credentials: 'include' });
       if (res.status === 404) {
         setRun(null);
         return;
@@ -171,6 +173,7 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
     try {
       const res = await fetch(`${apiBase}/api/executions/${run.id}/replay`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodeId: step.stepId }),
       });
@@ -199,6 +202,7 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
     try {
       const res = await fetch(`${apiBase}/api/executions/${run.id}/replay`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
@@ -332,7 +336,7 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
           </div>
           <div>
             <div className="text-[10px] uppercase text-zinc-500">{t.started}</div>
-            <div>{new Date(run.startedAt).toLocaleString()}</div>
+            <div>{new Date(run.startedAt).toLocaleString(lang === 'es' ? 'es-GT' : 'en-US')}</div>
           </div>
           <div>
             <div className="text-[10px] uppercase text-zinc-500">{t.duration}</div>

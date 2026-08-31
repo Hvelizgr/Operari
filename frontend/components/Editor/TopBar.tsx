@@ -147,7 +147,7 @@ export default function TopBar({
         </div>
         <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
         <div className="flex items-center gap-2">
-          <span className="cursor-pointer rounded px-2 py-1 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
+          <span className="max-w-[200px] cursor-pointer truncate rounded px-2 py-1 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" title={workflowName}>
             {workflowName}
           </span>
           <span className="rounded-full border border-green-200 bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
@@ -287,6 +287,7 @@ export default function TopBar({
                 : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white'
             }`}
             title={lang === 'en' ? 'AI assist' : 'Asistente IA'}
+            aria-label={lang === 'en' ? 'AI assist' : 'Asistente IA'}
           >
             <Sparkles size={18} />
             {hasFailedNode && (
@@ -301,6 +302,7 @@ export default function TopBar({
             onClick={onYaml}
             className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
             title={lang === 'en' ? 'View as YAML' : 'Ver como YAML'}
+            aria-label={lang === 'en' ? 'View as YAML' : 'Ver como YAML'}
           >
             <Code2 size={18} />
           </button>
@@ -312,6 +314,7 @@ export default function TopBar({
             onClick={onGitHub}
             className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
             title={lang === 'en' ? 'GitHub Branches' : 'Ramas de GitHub'}
+            aria-label={lang === 'en' ? 'GitHub Branches' : 'Ramas de GitHub'}
           >
             <GitBranch size={18} />
           </button>
@@ -338,6 +341,7 @@ export default function TopBar({
                   ? 'Event log'
                   : 'Registro de eventos'
             }
+            aria-label={lang === 'en' ? 'Event log' : 'Registro de eventos'}
           >
             <ListOrdered size={18} />
             {isExecuting && (
@@ -356,6 +360,7 @@ export default function TopBar({
             onClick={onMetrics}
             className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
             title={lang === 'en' ? 'Metrics' : 'Métricas'}
+            aria-label={lang === 'en' ? 'Metrics' : 'Métricas'}
           >
             <BarChart3 size={18} />
           </button>
@@ -392,6 +397,7 @@ export default function TopBar({
           onClick={onProperties}
           className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
           title={lang === 'en' ? 'Properties' : 'Propiedades'}
+          aria-label={lang === 'en' ? 'Properties' : 'Propiedades'}
         >
           <FileText size={18} />
         </button>
@@ -400,6 +406,7 @@ export default function TopBar({
         <label
           className="cursor-pointer rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
           title={lang === 'en' ? 'Import' : 'Importar'}
+          aria-label={lang === 'en' ? 'Import' : 'Importar'}
         >
           <Upload size={18} />
           <input
@@ -419,6 +426,7 @@ export default function TopBar({
           onClick={onExport}
           className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
           title={lang === 'en' ? 'Export' : 'Exportar'}
+          aria-label={lang === 'en' ? 'Export' : 'Exportar'}
         >
           <Download size={18} />
         </button>
@@ -442,6 +450,7 @@ export default function TopBar({
                 ? 'Snap a la grilla: ON'
                 : 'Snap a la grilla: OFF'
           }
+          aria-label={lang === 'en' ? 'Toggle snap to grid' : 'Alternar snap a la grilla'}
         >
           <Grid3x3 size={18} />
         </button>
@@ -455,6 +464,7 @@ export default function TopBar({
               ? `Theme: ${theme} (click to cycle)`
               : `Tema: ${theme} (click para cambiar)`
           }
+          aria-label={lang === 'en' ? 'Cycle theme' : 'Cambiar tema'}
         >
           {theme === 'light' ? (
             <Sun size={18} />

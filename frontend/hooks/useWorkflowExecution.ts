@@ -23,7 +23,11 @@ export function useWorkflowExecution(runbookId: string | null) {
     input: unknown = {},
     mode: 'run' | 'debug' | 'dry-run' = 'run'
   ): Promise<ExecuteWorkflowResult | undefined> => {
-    if (!runbookId) return;
+    if (!runbookId) {
+      const msg = 'Save this runbook first before running it.';
+      setError(msg);
+      return { kind: 'error', message: msg };
+    }
 
     setExecuting(true);
     setError(null);
@@ -49,6 +53,7 @@ export function useWorkflowExecution(runbookId: string | null) {
 
       const response = await fetch(endpoint, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -88,7 +93,10 @@ export function useWorkflowExecution(runbookId: string | null) {
   };
 
   const executeFromNode = async (nodeId: string, input: any = {}) => {
-    if (!runbookId) return;
+    if (!runbookId) {
+      setError('Save this runbook first before running it.');
+      return;
+    }
 
     setExecuting(true);
     setError(null);
@@ -97,6 +105,7 @@ export function useWorkflowExecution(runbookId: string | null) {
       const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const response = await fetch(`${apiBase}/api/executions/${runbookId}/run`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -126,6 +135,7 @@ export function useWorkflowExecution(runbookId: string | null) {
       const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const response = await fetch(`${apiBase}/api/executions/${executionId}/replay`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },

@@ -114,7 +114,7 @@ export default function TemplateGallery({
     // Lazy-load: only hit the endpoint when the modal opens. Avoids
     // a network request on every editor render.
     if (templates !== null) return;
-    fetch(`${API_BASE}/api/templates`)
+    fetch(`${API_BASE}/api/templates`, { credentials: 'include' })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();

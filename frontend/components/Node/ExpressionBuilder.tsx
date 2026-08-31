@@ -512,6 +512,8 @@ export default function ExpressionBuilder({
           onClick={onClose}
         >
           <motion.div
+            role="dialog"
+            aria-modal="true"
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -526,6 +528,7 @@ export default function ExpressionBuilder({
               </div>
               <button
                 onClick={onClose}
+                aria-label={lang === 'en' ? 'Close' : 'Cerrar'}
                 className="text-gray-400 transition-colors hover:text-white"
               >
                 <X size={18} />
@@ -538,7 +541,7 @@ export default function ExpressionBuilder({
                 onClick={() => setActiveTab('nodes')}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                   activeTab === 'nodes'
-                    ? 'text-primary/70 border-primary/70 bg-primary/70/10 border-b-2'
+                    ? 'text-primary/70 border-primary/70 bg-primary/10 border-b-2'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
@@ -549,7 +552,7 @@ export default function ExpressionBuilder({
                 onClick={() => setActiveTab('functions')}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                   activeTab === 'functions'
-                    ? 'text-primary/70 border-primary/70 bg-primary/70/10 border-b-2'
+                    ? 'text-primary/70 border-primary/70 bg-primary/10 border-b-2'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
@@ -560,7 +563,7 @@ export default function ExpressionBuilder({
                 onClick={() => setActiveTab('variables')}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                   activeTab === 'variables'
-                    ? 'text-primary/70 border-primary/70 bg-primary/70/10 border-b-2'
+                    ? 'text-primary/70 border-primary/70 bg-primary/10 border-b-2'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >

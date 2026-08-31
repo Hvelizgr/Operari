@@ -142,12 +142,40 @@ export function specToNodes(spec: RunbookSpec): ParsedRunbook {
     idToUuid.set(step.id, randomId());
   }
 
+  // Default inputs/outputs by node type. Approval has two named outputs
+  // (approved/rejected); triggers have no input; everything else is
+  // single-in single-out. Matches NodePalette.tsx definitions so the
+  // canvas draws the correct poles and the engine routes correctly.
+  const defaultPorts = (type: string) => {
+    const t = type.toLowerCase();
+    if (t === 'approval') {
+      return {
+        inputs: [{ id: 'in', label: 'Input' }],
+        outputs: [
+          { id: 'out-0', label: 'approved' },
+          { id: 'out-1', label: 'rejected' },
+        ],
+      };
+    }
+    if (t.includes('trigger') || t === 'operari.webhook' || t === 'operari.cron') {
+      return {
+        inputs: [],
+        outputs: [{ id: 'out', label: 'Output' }],
+      };
+    }
+    return {
+      inputs: [{ id: 'in', label: 'Input' }],
+      outputs: [{ id: 'out', label: 'Output' }],
+    };
+  };
+
   const nodes: WorkflowNode[] = spec.steps.map((step, index) => {
     const baseConfig = (step.config as Record<string, unknown>) ?? {};
     const merged: Record<string, unknown> = { ...baseConfig };
     if (step.retry) merged[RETRY_KEY] = step.retry;
     if (step.runIf) merged[RUN_IF_KEY] = step.runIf;
     if (step.skipIf) merged[SKIP_IF_KEY] = step.skipIf;
+    const ports = defaultPorts(step.type);
     return {
       id: idToUuid.get(step.id)!,
       type: step.type,
@@ -158,6 +186,8 @@ export function specToNodes(spec: RunbookSpec): ParsedRunbook {
       },
       config: merged,
       enabled: step.enabled !== false,
+      inputs: ports.inputs,
+      outputs: ports.outputs,
     };
   });
 

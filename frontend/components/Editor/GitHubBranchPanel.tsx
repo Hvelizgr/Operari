@@ -181,10 +181,9 @@ export default function GitHubBranchPanel({ open, onClose, lang }: GitHubBranchP
       }))
     : [];
 
-  if (!open) return null;
-
   return (
     <AnimatePresence>
+      {open && (
       <motion.div
         className="absolute bottom-0 right-0 top-0 z-40 flex w-[520px] flex-col border-l border-slate-700 bg-slate-900 shadow-2xl"
         initial={{ x: '100%', opacity: 1 }}
@@ -357,6 +356,7 @@ export default function GitHubBranchPanel({ open, onClose, lang }: GitHubBranchP
           </div>
         )}
       </motion.div>
+      )}
     </AnimatePresence>
   );
 }

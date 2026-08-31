@@ -672,6 +672,7 @@ export default function NodePalette({
                 <h3 className="text-base font-bold text-white">{text.title}</h3>
                 <button
                   onClick={() => setIsOpen(false)}
+                  aria-label={lang === 'en' ? 'Close' : 'Cerrar'}
                   className="text-gray-400 transition-colors hover:text-white"
                 >
                   <X size={18} />
@@ -697,6 +698,7 @@ export default function NodePalette({
                 {searchTerm && (
                   <button
                     onClick={() => setSearchTerm('')}
+                    aria-label={lang === 'en' ? 'Clear search' : 'Limpiar búsqueda'}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
                   >
                     <X size={14} />

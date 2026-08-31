@@ -217,6 +217,7 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
       const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const res = await fetch(`${apiBase}/api/executions/${runId}/replay`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodeId }),
       });
@@ -288,6 +289,7 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
       const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       const res = await fetch(`${apiBase}/api/executions/${runId}/cancel`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -298,6 +300,7 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
       setCancelState('idle');
     } catch {
       setCancelState('failed');
+      setTimeout(() => setCancelState('idle'), 5000);
     }
   };
 
@@ -318,7 +321,7 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
         const types = filterFor(preset);
         if (types) qs.set('type', types.join(','));
         if (afterSeqRef.current) qs.set('afterSeq', afterSeqRef.current);
-        const res = await fetch(`${apiBase}/api/runs/${runId}/events?${qs.toString()}`);
+        const res = await fetch(`${apiBase}/api/runs/${runId}/events?${qs.toString()}`, { credentials: 'include' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = (await res.json()) as {
           data: ExecutionEventRow[];

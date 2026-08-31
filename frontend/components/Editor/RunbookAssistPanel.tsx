@@ -1,6 +1,7 @@
 'use client';
 
 import type { WorkflowNode } from '@operari/shared';
+import { AnimatePresence } from 'framer-motion';
 import { AlertCircle, ChevronRight, Loader2, Sparkles, Wrench, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -148,8 +149,6 @@ export default function RunbookAssistPanel({
     }
   }, [open]);
 
-  if (!open) return null;
-
   const ask = async () => {
     setError(null);
     setEvents([]);
@@ -229,6 +228,8 @@ export default function RunbookAssistPanel({
   const hasFailureContext = !!(errorMessage || errorOverride.trim() || failedNode);
 
   return (
+    <AnimatePresence>
+    {open && (
     <div className="fixed right-0 top-0 z-[90] flex h-full w-full max-w-md flex-col border-l border-zinc-800 bg-zinc-950 text-white shadow-2xl">
       <header className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
         <div className="flex items-start gap-2">
@@ -353,6 +354,8 @@ export default function RunbookAssistPanel({
         )}
       </div>
     </div>
+    )}
+    </AnimatePresence>
   );
 }
 
