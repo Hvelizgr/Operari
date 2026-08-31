@@ -1026,6 +1026,18 @@ router.post('/dev-login', async (req, res) => {
         },
         include: { tenant: true },
       });
+    } else if (user.role !== 'ADMIN') {
+      // Ensure dev user always has ADMIN role. If the user was created
+      // by a previous session (or seed) with role=USER, the admin
+      // overview and key-rotation routes would return 403. Since this
+      // endpoint is already gated by OPERARI_DEV_LOGIN_ENABLED=true,
+      // upgrading to ADMIN is safe — the flag should never be on in
+      // production.
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { role: 'ADMIN' },
+        include: { tenant: true },
+      });
     }
 
     const token = signSessionToken({

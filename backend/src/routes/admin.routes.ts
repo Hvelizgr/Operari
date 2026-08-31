@@ -9,6 +9,10 @@ import { prisma } from '../server';
 
 const router = Router();
 
+// req.user is populated by the global `attachUserIfPresent` middleware
+// in server.ts. This fallback handles the edge case where auth is
+// missing entirely (should not happen in normal flow, but keeps the
+// route from crashing on req.user!.tenantId).
 router.use((req: AuthRequest, _res, next) => {
   if (!req.user) {
     req.user = {
@@ -31,6 +35,7 @@ router.use((req: AuthRequest, _res, next) => {
  * The control surface lives in the existing /api/auth, /api/v1/keys, etc.
  */
 router.get('/overview', async (req: AuthRequest, res: Response) => {
+  if (!requireAdmin(req, res)) return;
   const tenantId = req.user!.tenantId;
 
   const [tenant, users, customRoles, counts] = await Promise.all([

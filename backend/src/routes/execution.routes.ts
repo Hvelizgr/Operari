@@ -32,6 +32,9 @@ function getEventStore(): ExecutionEventStore | null {
 const router = Router();
 
 // Anonymous fallback gated by OPERARI_ANONYMOUS_MODE=true.
+// req.user is already populated by the global `attachUserIfPresent`
+// in server.ts. anonymousFallback fills in a default user for
+// anonymous-mode deployments where no JWT is present.
 router.use(anonymousFallback);
 
 /**

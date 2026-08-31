@@ -27,6 +27,7 @@ import { logger } from './config/logger.config';
 import { swaggerSpec } from './config/swagger.config';
 import { csrfProtection } from './middleware/csrf.middleware';
 import { errorHandler } from './middleware/error.middleware';
+import { attachUserIfPresent } from './middleware/auth.middleware';
 import { addUserContext, requestLogger } from './middleware/logger.middleware';
 import {
   authRateLimiter,
@@ -51,9 +52,11 @@ import executionRoutes from './routes/execution.routes';
 import githubExplorerRoutes from './routes/github-explorer.routes';
 import httpTesterRoutes from './routes/http-tester.routes';
 import invitesRoutes from './routes/invites.routes';
+import mfaRoutes from './routes/mfa.routes';
 import monitorsRoutes from './routes/monitors.routes';
 import nodeTypesRoutes from './routes/node-types.routes'; // Added import
 import oauthRoutes from './routes/oauth.routes';
+import projectRoutes from './routes/projects.routes';
 import workosRoutes from './routes/workos.routes';
 import runbookRoutes from './routes/runbook.routes';
 import runbookAssistRoutes from './routes/runbook-assist.routes';
@@ -134,6 +137,15 @@ app.use(cookieParser());
 app.use(requestLogger);
 app.use(addUserContext);
 
+// Soft auth: silently populates req.user from JWT/cookie when a valid
+// token is present, skips without error otherwise. Mounted globally so
+// EVERY route sees the authenticated user (if any) without each router
+// having to import and call `authenticate`. Routes that require auth
+// gate on `!req.user` themselves; routes that allow anonymous fall
+// through to `anonymousFallback` which fills a default user when
+// OPERARI_ANONYMOUS_MODE=true.
+app.use(attachUserIfPresent);
+
 // Double-submit CSRF guard. No-op when CSRF_ENFORCE is unset so
 // self-host / first deploys pay zero cost; flip the env to
 // "observe" to log mismatches without blocking, then "enforce" once
@@ -148,6 +160,7 @@ app.use(csrfProtection());
 // falls through.
 app.use('/api/auth/login', loginEmailRateLimiter);
 app.use('/api/auth', authRateLimiter, authRoutes);
+app.use('/api/auth/mfa', authRateLimiter, mfaRoutes);
 // OAuth routes live under /api/auth/:provider but are intentionally
 // mounted AFTER /api/auth so the password register/login paths take
 // precedence. The OAuth router owns dynamic `:provider` + `:provider/callback`
@@ -160,6 +173,7 @@ app.use('/api/tenants', standardRateLimiter, tenantsRoutes);
 app.use('/api/executions', executionRateLimiter, executionRoutes);
 app.use('/api/runbooks', standardRateLimiter, runbookRoutes);
 app.use('/api/node-types', standardRateLimiter, nodeTypesRoutes);
+app.use('/api/projects', standardRateLimiter, projectRoutes);
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
 app.use('/api/chat', standardRateLimiter, chatRoutes);
 app.use('/api/approvals', standardRateLimiter, approvalRoutes);
