@@ -139,7 +139,11 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
       }
     }
 
-    // Return paused — runbook engine will suspend execution until approval resolves
+    // Return paused — runbook engine will suspend execution until approval resolves.
+    // conditionResult: true tells the engine to follow port 0 (approved) when the
+    // run resumes. If the approval is rejected, the execution is CANCELLED outright
+    // (see ApprovalService.resolve) so the false branch never fires — matching the
+    // "approved" / "rejected" output port semantics defined in NodePalette.tsx.
     return {
       success: true,
       paused: true,
@@ -147,6 +151,7 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
         approvalId: approval.id,
         message,
         status: 'PENDING',
+        conditionResult: true, // approved branch (port 0) on resume
       },
       duration: Date.now() - startTime,
     };

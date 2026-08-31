@@ -938,13 +938,29 @@ export class ExecutionService {
     connections: WorkflowConnection[],
     executedNodes: Set<string>
   ): WorkflowNode[] {
+    const outgoing = connections.filter(c => c.source === nodeId);
+    return this.readyChildrenOfFiltered(outgoing, nodes, connections, executedNodes);
+  }
+
+  /**
+   * Like readyChildrenOf, but accepts a pre-filtered set of outgoing
+   * connections. Used by the Condition/Switch/Approval branch logic
+   * so only the connections for the correct output port are followed,
+   * while the full `allConnections` array is used to check whether
+   * all of a child's parents have executed (multi-parent join).
+   */
+  private readyChildrenOfFiltered(
+    outgoingConnections: WorkflowConnection[],
+    nodes: WorkflowNode[],
+    allConnections: WorkflowConnection[],
+    executedNodes: Set<string>
+  ): WorkflowNode[] {
     const ready: WorkflowNode[] = [];
-    for (const conn of connections) {
-      if (conn.source !== nodeId) continue;
+    for (const conn of outgoingConnections) {
       const child = nodes.find(n => n.id === conn.target);
       if (!child) continue;
       if (executedNodes.has(child.id)) continue;
-      const parents = connections.filter(c => c.target === child.id);
+      const parents = allConnections.filter(c => c.target === child.id);
       const allParentsDone = parents.every(p => executedNodes.has(p.source));
       if (allParentsDone) ready.push(child);
     }
@@ -1306,8 +1322,18 @@ export class ExecutionService {
             // Normal path: push only children whose every parent has
             // finished. Multi-parent joins are unblocked by whichever
             // parent lands last — no more busy-spin re-queue.
+            //
+            // IMPORTANT: pass `outgoingConnections` (which has been
+            // filtered by sourcePort for Condition/Switch/Approval
+            // nodes) instead of the full `connections` array. This
+            // ensures only the correct branch is followed. The full
+            // `connections` array is still used for the parent-check
+            // inside readyChildrenOf so multi-parent joins evaluate
+            // correctly.
             nodesToExecute.push(
-              ...this.readyChildrenOf(currentNode.id, nodes, connections, executedNodes)
+              ...this.readyChildrenOfFiltered(
+                outgoingConnections, nodes, connections, executedNodes
+              )
             );
           }
         } catch (error) {
