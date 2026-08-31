@@ -57,6 +57,7 @@ model User {
   mfaBackupCodes    MfaBackupCode[]
   runbookVersions   RunbookVersion[]
   keyRotationJobs   KeyRotationJob[]
+  projectMemberships ProjectMember[]
 
   @@index([tenantId])
   @@index([email])
@@ -232,6 +233,7 @@ model Tenant {
   billingEvents     BillingEvent[]
   nodeTypes         NodeType[]
   alertChannels     TenantAlertChannel[]
+  projects          Project[]
 
   @@index([slug])
 }
@@ -269,6 +271,50 @@ model StorageBucket {
   @@index([tenantId])
 }
 
+/// Project — groups runbooks, controls execution permissions, and
+/// optionally restricts shell commands to a working directory.
+/// A Runbook belongs to at most one Project. Runbooks without a
+/// project behave as before (tenant-wide visibility).
+model Project {
+  id              String   @id @default(uuid())
+  name            String
+  slug            String
+  description     String?
+  tenantId        String
+  /// Optional allowed directory for shell commands. When set, the
+  /// ShellExecutor rejects any `cwd` outside this prefix and defaults
+  /// to it when no cwd is specified. Null = unrestricted (backward compat).
+  allowedShellDir String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  members  ProjectMember[]
+  runbooks Runbook[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+}
+
+/// ProjectMember — links a user to a project with a specific role.
+/// Roles: VIEWER (see runbooks), EXECUTOR (run), EDITOR (edit),
+/// ADMIN (manage members, delete project).
+model ProjectMember {
+  id        String      @id @default(uuid())
+  userId    String
+  projectId String
+  role      ProjectRole @default(VIEWER)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([projectId])
+  @@index([userId])
+}
+
 model Runbook {
   id          String   @id @default(uuid())
   // NanoRun: slug is used by the SDK/CLI to reference runbooks (e.g. "deploy-frontend")
@@ -296,6 +342,7 @@ model Runbook {
   /// style meta-automation. SetNull on delete so deleting the handler
   /// does not cascade into deleting the parent runbook.
   onErrorRunbookId String?
+  projectId        String?
   onErrorRunbook   Runbook?  @relation("RunbookErrorHandler", fields: [onErrorRunbookId], references: [id], onDelete: SetNull)
   errorHandlerFor  Runbook[] @relation("RunbookErrorHandler")
   createdAt   DateTime @default(now())
@@ -303,6 +350,7 @@ model Runbook {
 
   user                User                @relation(fields: [userId], references: [id])
   tenant              Tenant              @relation(fields: [tenantId], references: [id])
+  project             Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
   executions          Execution[]
   versions            RunbookVersion[]
   // New normalized relationships
@@ -319,6 +367,7 @@ model Runbook {
   @@index([tenantId])
   @@index([isActive])
   @@index([onErrorRunbookId])
+  @@index([projectId])
 }
 
 /// Immutable snapshot of a Runbook definition at save time.
@@ -552,6 +601,13 @@ enum Role {
   ADMIN
   USER
   VIEWER
+}
+
+enum ProjectRole {
+  VIEWER
+  EXECUTOR
+  EDITOR
+  ADMIN
 }
 
 enum Plan {

@@ -1,3 +1,5 @@
+import path from 'path';
+
 import { Runner, RunnerSpec } from '../runners/runner.types';
 import {
   ExecutorContext,
@@ -50,9 +52,57 @@ export class ShellExecutor implements StepExecutor<ShellConfig> {
 
   constructor(private readonly runner: Runner) {}
 
+  /**
+   * Validate that a working directory is within the allowed shell dir.
+   * Returns the resolved cwd or throws if it escapes the allowed prefix.
+   */
+  private validateCwd(
+    requestedCwd: string | undefined,
+    allowedDir: string | undefined
+  ): string | undefined {
+    if (!allowedDir) return requestedCwd; // no restriction configured
+
+    const resolved = requestedCwd
+      ? path.resolve(allowedDir, requestedCwd)
+      : allowedDir;
+
+    // Ensure the resolved path starts with the allowed directory
+    // (prevent ../../ traversal attacks)
+    const normalizedAllowed = path.resolve(allowedDir) + path.sep;
+    const normalizedResolved = path.resolve(resolved) + path.sep;
+    if (!normalizedResolved.startsWith(normalizedAllowed) && path.resolve(resolved) !== path.resolve(allowedDir)) {
+      throw new Error(
+        `Shell sandbox violation: working directory "${requestedCwd}" ` +
+        `escapes allowed directory "${allowedDir}". ` +
+        `Resolved path: "${resolved}"`
+      );
+    }
+    return resolved;
+  }
+
   async execute(config: ShellConfig, context: ExecutorContext): Promise<ExecutorResult> {
     const command = resolveTemplate(config.command, context);
     const failOnNonZero = config.failOnNonZeroExit ?? true;
+
+    // Shell sandbox: restrict cwd to the allowed directory when configured.
+    // The allowed dir comes from the Project's allowedShellDir field (passed
+    // via context.allowedShellDir) or the global OPERARI_SHELL_ALLOWED_DIR
+    // env var. Project-level takes precedence.
+    const allowedDir = (context as any).allowedShellDir
+      ?? process.env.OPERARI_SHELL_ALLOWED_DIR
+      ?? undefined;
+
+    let safeCwd: string | undefined;
+    try {
+      safeCwd = this.validateCwd(config.cwd, allowedDir);
+    } catch (err) {
+      return {
+        success: false,
+        error: (err as Error).message,
+        output: { command, stdout: '', stderr: (err as Error).message, exitCode: 1 },
+        duration: 0,
+      };
+    }
 
     // Dry-run: never spawn a runner. Emit a log line so the run
     // timeline shows exactly what the real execution would send to
@@ -81,7 +131,7 @@ export class ShellExecutor implements StepExecutor<ShellConfig> {
     const spec: RunnerSpec = {
       command,
       shell: config.shell,
-      cwd: config.cwd,
+      cwd: safeCwd ?? config.cwd,
       env: config.env,
       timeoutMs: config.timeout ?? 60_000,
       image: config.image,

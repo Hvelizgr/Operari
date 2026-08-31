@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Database,
+  FolderKanban,
   History,
   Inbox,
   LayoutDashboard,
@@ -119,6 +120,12 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           label: 'Runbooks',
           icon: Share2,
           href: `/${lang}/runbooks`,
+        },
+        {
+          id: 'projects',
+          label: lang === 'en' ? 'Projects' : 'Proyectos',
+          icon: FolderKanban,
+          href: `/${lang}/projects`,
         },
         {
           id: 'runs',
@@ -282,7 +289,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                       />
                     )}
                     <div
-                      className={`flex min-w-[240px] items-center ${!showLabels ? 'min-w-0 justify-center' : ''}`}
+                      className={`flex min-w-0 items-center ${!showLabels ? 'min-w-0 justify-center' : ''}`}
                     >
                       <div className="flex w-6 justify-center">
                         <Icon
@@ -389,7 +396,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
       <StatusPill lang={lang} />
       <GlobalCommandPalette lang={lang} />
       <motion.div
-        className="bg-[var(--panel-bg)]/50 relative z-50 flex h-screen flex-shrink-0 flex-col border-r border-[var(--panel-border)] text-[var(--text-primary)] backdrop-blur-xl"
+        className="relative z-50 flex h-screen flex-shrink-0 flex-col overflow-hidden border-r border-[var(--panel-border)] bg-[var(--panel-bg)] text-[var(--text-primary)] backdrop-blur-xl"
         initial={{ width: 240 }}
         animate={{ width: collapsed ? 70 : 240 }}
         transition={{ type: 'spring', stiffness: 250, damping: 25 }}

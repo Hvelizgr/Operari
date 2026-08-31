@@ -5,6 +5,7 @@ import {
   Bot,
   CalendarClock,
   Database,
+  FolderKanban,
   History,
   Inbox,
   Keyboard,
@@ -32,6 +33,7 @@ const LABELS = {
   en: {
     dashboard: 'Dashboard',
     runbooks: 'Runbooks',
+    projects: 'Projects',
     runs: 'Run history',
     inbox: 'Inbox',
     monitors: 'Monitors',
@@ -51,6 +53,7 @@ const LABELS = {
   es: {
     dashboard: 'Panel',
     runbooks: 'Runbooks',
+    projects: 'Proyectos',
     runs: 'Historial',
     inbox: 'Bandeja',
     monitors: 'Monitores',
@@ -127,6 +130,14 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
       icon: <Share2 size={16} />,
       shortcut: ['G', 'R'],
       action: go(`/${lang}/runbooks`),
+    },
+    {
+      id: 'nav:projects',
+      label: t.projects,
+      subLabel: t.navigate,
+      icon: <FolderKanban size={16} />,
+      shortcut: ['G', 'P'],
+      action: go(`/${lang}/projects`),
     },
     {
       id: 'nav:runs',
