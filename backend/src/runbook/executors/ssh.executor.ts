@@ -73,6 +73,22 @@ export class SSHExecutor implements StepExecutor<SSHConfig> {
     const command = resolveTemplate(config.command, context);
     const port = config.port ?? 22;
 
+    // Dry-run: never open a real SSH connection. Emit a log line so the
+    // run timeline shows what would have been executed, then return a
+    // success result with `dryRun: true`.
+    if (context.dryRun) {
+      context.emit?.({
+        type: 'log',
+        text: `[dry-run] Would SSH to ${username}@${host}:${port} and run: ${command}`,
+        timestamp: new Date(),
+      });
+      return {
+        success: true,
+        output: { dryRun: true, host, port, username, command, stdout: '', stderr: '', exitCode: 0 },
+        duration: Date.now() - startTime,
+      };
+    }
+
     // Read the private key from pre-resolved secrets.
     const privateKey = context.secrets?.[config.credentialId];
     if (!privateKey) {

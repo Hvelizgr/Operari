@@ -93,7 +93,7 @@ const NODES = [
     ],
   },
   {
-    type: 'operari.postgres',
+    type: 'operari.database',
     category: 'devops',
     icon: 'Database',
     color: 'bg-blue-400',
@@ -516,6 +516,54 @@ const NODES = [
     },
     inputs: [],
     outputs: [],
+  },
+  // --- Added to sync seed with executor registry + palette ---
+  {
+    type: 'ssh',
+    category: 'devops',
+    icon: 'KeyRound',
+    color: 'bg-cyan-600',
+    label: { en: 'SSH command', es: 'Comando SSH' },
+    description: {
+      en: 'Run a command on a remote host via SSH',
+      es: 'Ejecutar comando en host remoto vía SSH',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [MAIN_PORT],
+    properties: [
+      { name: 'host', displayName: 'Host', type: 'string', description: 'IP or hostname.' },
+      { name: 'port', displayName: 'Port', type: 'number', default: 22 },
+      { name: 'username', displayName: 'Username', type: 'string', default: 'deploy' },
+      {
+        name: 'credentialId',
+        displayName: 'SSH private key',
+        type: 'secret',
+        typeOptions: { provider: 'ssh' },
+      },
+      { name: 'command', displayName: 'Command', type: 'string', typeOptions: { rows: 3 } },
+      { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 60000 },
+    ],
+  },
+  {
+    type: 'operari.switch',
+    category: 'core',
+    icon: 'Route',
+    color: 'bg-yellow-500',
+    label: { en: 'Switch', es: 'Switch' },
+    description: {
+      en: 'Multi-way branch by matching a field against cases',
+      es: 'Bifurcación múltiple comparando un campo contra casos',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [
+      { name: 'case 0', type: 'main' },
+      { name: 'case 1', type: 'main' },
+      { name: 'default', type: 'main' },
+    ],
+    properties: [
+      { name: 'field', displayName: 'Field', type: 'string', typeOptions: { expression: true } },
+      { name: 'cases', displayName: 'Cases (JSON array)', type: 'string', typeOptions: { rows: 3 } },
+    ],
   },
 ];
 

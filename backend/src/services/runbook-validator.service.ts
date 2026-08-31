@@ -64,7 +64,7 @@ export class RunbookValidatorService {
    * Ensure there is at least one trigger node
    */
   private checkTriggers(nodes: WorkflowNode[], issues: ValidationIssue[]): void {
-    const triggerTypes = ['Trigger', 'Webhook', 'Schedule'];
+    const triggerTypes = ['Trigger', 'Webhook', 'Schedule', 'operari.webhook', 'operari.cron'];
     const hasTrigger = nodes.some(node => triggerTypes.includes(node.type));
 
     if (!hasTrigger) {

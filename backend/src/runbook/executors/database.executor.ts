@@ -95,6 +95,23 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
   async execute(config: DatabaseConfig, context: ExecutorContext): Promise<ExecutorResult> {
     const startTime = Date.now();
     const timeoutMs = config.timeout ?? 30_000;
+    const operation = config.operation;
+
+    // Dry-run: never open a real database connection. Emit a log line
+    // so the run timeline shows what would have been executed, then
+    // return a success result with `dryRun: true`.
+    if (context.dryRun) {
+      context.emit?.({
+        type: 'log',
+        text: `[dry-run] Would run ${operation} operation on database`,
+        timestamp: new Date(),
+      });
+      return {
+        success: true,
+        output: { dryRun: true, operation },
+        duration: Date.now() - startTime,
+      };
+    }
 
     // Resolve connection string from secrets.
     const connectionString = context.secrets?.[config.credentialId];
