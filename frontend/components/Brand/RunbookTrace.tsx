@@ -205,6 +205,15 @@ export function RunbookTrace({ lang = 'en' }: RunbookTraceProps) {
     // to both); guard anyway so a future divergence doesn't crash.
     const stepCount = nodesByLayout[0].length;
 
+    // The loops re-schedule themselves from tl.finished, so unmounting
+    // (or StrictMode's double effect) must stop them or they stack up.
+    let cancelled = false;
+    let current: anime.AnimeTimelineInstance | null = null;
+    const stop = () => {
+      cancelled = true;
+      current?.pause();
+    };
+
     const reduced = prefersReducedMotion();
     if (reduced) {
       // Reduced-motion fallback: still show the sequence, but with
@@ -220,29 +229,31 @@ export function RunbookTrace({ lang = 'en' }: RunbookTraceProps) {
       allPulses.forEach(p => (p.style.opacity = '0'));
 
       const runReducedLoop = () => {
+        if (cancelled) return;
         allNodes.forEach(n => n.setAttribute('data-status', 'pending'));
         auditHashes.forEach(a => a.setAttribute('data-visible', 'false'));
         const tl = anime.timeline({ autoplay: true });
+        current = tl;
         tl.add({ duration: 800 });
         for (let i = 0; i < stepCount; i++) {
           const beatNodes = nodesByLayout
             .map(layoutNodes => layoutNodes[i])
             .filter((n): n is HTMLElement => Boolean(n));
           tl.add({
-            duration: 0,
-            changeBegin: () => beatNodes.forEach(n => n.setAttribute('data-status', 'success')),
+            duration: 1,
+            complete: () => beatNodes.forEach(n => n.setAttribute('data-status', 'success')),
           });
           tl.add({ duration: 600 });
         }
         tl.add({
-          duration: 0,
-          changeBegin: () => auditHashes.forEach(a => a.setAttribute('data-visible', 'true')),
+          duration: 1,
+          complete: () => auditHashes.forEach(a => a.setAttribute('data-visible', 'true')),
         });
         tl.add({ duration: 6000 });
         tl.finished.then(runReducedLoop);
       };
       runReducedLoop();
-      return;
+      return stop;
     }
 
     // Edge prep — strokeDashoffset to full length so each edge can
@@ -313,21 +324,22 @@ export function RunbookTrace({ lang = 'en' }: RunbookTraceProps) {
       // Flip to running across both layouts.
       t.add(
         {
-          duration: 0,
-          changeBegin: () => beatNodes.forEach(n => n.setAttribute('data-status', 'running')),
+          duration: 1,
+          complete: () => beatNodes.forEach(n => n.setAttribute('data-status', 'running')),
         },
         '+=80'
       );
       t.add({ duration: 720 });
       // Flip to success.
       t.add({
-        duration: 0,
-        changeBegin: () => beatNodes.forEach(n => n.setAttribute('data-status', 'success')),
+        duration: 1,
+        complete: () => beatNodes.forEach(n => n.setAttribute('data-status', 'success')),
       });
       t.add({ duration: 250 });
     };
 
     const runOnce = () => {
+      if (cancelled) return;
       // Reset state for the next loop iteration.
       allNodes.forEach(n => n.setAttribute('data-status', 'pending'));
       allEdges.forEach(e => {
@@ -339,6 +351,7 @@ export function RunbookTrace({ lang = 'en' }: RunbookTraceProps) {
       auditHashes.forEach(a => a.setAttribute('data-visible', 'false'));
 
       const tl = anime.timeline({ autoplay: true });
+      current = tl;
       // 600ms warm-up so the visitor's eye lands before the first
       // node fires — without it the trigger flip happens off-screen
       // and reads as broken on a fast first paint.
@@ -347,8 +360,8 @@ export function RunbookTrace({ lang = 'en' }: RunbookTraceProps) {
       // Audit hash chip pops in across both layouts once the last
       // node lands.
       tl.add({
-        duration: 0,
-        changeBegin: () => auditHashes.forEach(a => a.setAttribute('data-visible', 'true')),
+        duration: 1,
+        complete: () => auditHashes.forEach(a => a.setAttribute('data-visible', 'true')),
       });
       // 1.6s rest beat — long enough that the visitor reads "this
       // finished" before the trace resets and starts the next loop.
@@ -357,6 +370,7 @@ export function RunbookTrace({ lang = 'en' }: RunbookTraceProps) {
     };
 
     runOnce();
+    return stop;
   }, [steps]);
 
   return (
@@ -394,14 +408,6 @@ function TraceHorizontal({ steps }: { steps: Step[] }) {
         aria-hidden="true"
       >
         <defs>
-          {/* Gradient mask so each edge fades at its endpoints — the
-              line shouldn't terminate sharp against the circle. */}
-          <linearGradient id="trace-edge-gradient" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="rgb(63 207 142)" stopOpacity="0" />
-            <stop offset="15%" stopColor="rgb(63 207 142)" stopOpacity="0.7" />
-            <stop offset="85%" stopColor="rgb(63 207 142)" stopOpacity="0.7" />
-            <stop offset="100%" stopColor="rgb(63 207 142)" stopOpacity="0" />
-          </linearGradient>
           {/* Subtle filter on the pulse so it reads as light, not
               just a green dot. Stays cheap — single Gaussian blur. */}
           <filter id="trace-pulse-glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -412,12 +418,30 @@ function TraceHorizontal({ steps }: { steps: Step[] }) {
           const x1 = centers[i] + nodeBodyHalf;
           const x2 = centers[i + 1] - nodeBodyHalf;
           const pulseId = `pulse-${i}`;
+          const gradientId = `trace-edge-gradient-${i}`;
           return (
             <g key={i}>
+              {/* Each edge fades at its endpoints so it doesn't end sharp
+                  against the node. userSpaceOnUse: with the default
+                  objectBoundingBox units a perfectly horizontal path has
+                  a zero-height box and the gradient never paints. */}
+              <linearGradient
+                id={gradientId}
+                gradientUnits="userSpaceOnUse"
+                x1={x1}
+                y1={42}
+                x2={x2}
+                y2={42}
+              >
+                <stop offset="0%" stopColor="rgb(63 207 142)" stopOpacity="0" />
+                <stop offset="15%" stopColor="rgb(63 207 142)" stopOpacity="0.7" />
+                <stop offset="85%" stopColor="rgb(63 207 142)" stopOpacity="0.7" />
+                <stop offset="100%" stopColor="rgb(63 207 142)" stopOpacity="0" />
+              </linearGradient>
               <path
                 data-trace-edge
                 d={`M ${x1} 42 L ${x2} 42`}
-                stroke="url(#trace-edge-gradient)"
+                stroke={`url(#${gradientId})`}
                 strokeWidth={1.5}
                 strokeLinecap="round"
                 fill="none"
