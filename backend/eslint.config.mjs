@@ -1,10 +1,7 @@
 // Backend ESLint config — flat-config format (ESLint 9+).
 //
-// Keeps the rule set close to the frontend's .eslintrc.json so a
-// developer moving between workspaces sees the same warnings. The
-// frontend stays on the legacy RC format because `next lint` still
-// prefers it; here we go flat because plain `eslint` in v9 defaults
-// to flat config.
+// Keeps the rule set close to the frontend's eslint.config.mjs so a
+// developer moving between workspaces sees the same warnings.
 //
 // Delta vs. frontend:
 // - No React rules (server code)
