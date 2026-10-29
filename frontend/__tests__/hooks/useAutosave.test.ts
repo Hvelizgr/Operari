@@ -151,4 +151,52 @@ describe('useAutosave', () => {
     // Assuming implementation checks conflict before saving.
     // If conflict check returns true (server timestamp > local), it sets 'conflict'.
   });
+
+  it('keeps the JSON columns in sync after a YAML save and does not self-conflict', async () => {
+    let serverTime = 1000;
+    (global.fetch as jest.Mock).mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith('/metadata')) {
+        return Promise.resolve({ ok: true, json: async () => ({ lastModified: serverTime }) });
+      }
+      serverTime += 10;
+      return Promise.resolve({ ok: true, json: async () => ({ timestamp: serverTime }), init });
+    });
+    const node = (x: number) => ({
+      id: 'node-1',
+      type: 'shell',
+      position: { x, y: 0 },
+      title: 'Step',
+      config: { command: 'echo hi' },
+      inputs: [{ id: 'in', label: 'Input' }],
+      outputs: [{ id: 'out', label: 'Output' }],
+    });
+    const props = { ...defaultProps, runbookHeader: { name: 'Runbook' } };
+    const flush = async () => {
+      act(() => {
+        jest.advanceTimersByTime(1100);
+      });
+      for (let i = 0; i < 10; i++) {
+        await act(async () => {
+          await Promise.resolve();
+        });
+      }
+    };
+
+    const { result, rerender } = renderHook(p => useAutosave(p), { initialProps: props });
+    rerender({ ...props, nodes: [node(0)] });
+    await flush();
+    rerender({ ...props, nodes: [node(50)] });
+    await flush();
+
+    const puts = (global.fetch as jest.Mock).mock.calls
+      .filter(([, init]) => init?.method === 'PUT')
+      .map(([url]) => (url as string).replace(/^.*\/api/, ''));
+    expect(puts).toEqual([
+      '/runbooks/test-workflow/yaml',
+      '/runbooks/test-workflow',
+      '/runbooks/test-workflow/yaml',
+      '/runbooks/test-workflow',
+    ]);
+    expect(result.current.saveStatus).toBe('saved');
+  });
 });

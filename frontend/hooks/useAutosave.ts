@@ -98,16 +98,11 @@ export function useAutosave({
 
   const saveToBackend = useCallback(
     async (data: WorkflowData): Promise<boolean> => {
-      // Try YAML first when a header is available — that path keeps
-      // the canonical RunbookSpec in sync on every save, so the YAML
-      // round-trip endpoint and any CLI/git consumer always sees a
-      // current snapshot. If it fails for any reason we fall through
-      // to the legacy nodes/connections save so we never lose data.
-      const yamlOk = await saveYamlToBackend(data);
-      if (yamlOk) {
-        lastSavedTimestampRef.current = data.timestamp;
-        return true;
-      }
+      // The YAML route only writes RunbookStep rows (read by the YAML
+      // endpoint and CLI), while the editor loader and the execution
+      // engine read the nodes/connections JSON columns — so the JSON
+      // save always runs, YAML or not.
+      await saveYamlToBackend(data);
 
       try {
         const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}`, {
