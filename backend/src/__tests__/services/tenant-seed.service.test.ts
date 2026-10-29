@@ -1,4 +1,5 @@
 import { seedDemoRunbook } from '../../services/tenant-seed.service';
+import { workflowNodeSchema } from '../../types/runbook.types';
 
 type MockPrisma = {
   runbook: {
@@ -42,11 +43,17 @@ describe('seedDemoRunbook', () => {
     expect(args.data.userId).toBe('u-1');
     expect(args.data.isActive).toBe(false);
     expect(args.data.name).toMatch(/Operari/i);
-    // Definition shape: one note node + one shell node + one connection.
+    // Definition shape: one note node + one shell node, no connection
+    // (notes have no ports on the canvas).
     expect(args.data.nodes).toHaveLength(2);
-    expect(args.data.connections).toHaveLength(1);
+    expect(args.data.connections).toHaveLength(0);
     const nodeTypes = (args.data.nodes as Array<{ type: string }>).map(n => n.type);
-    expect(nodeTypes.sort()).toEqual(['note', 'shell']);
+    expect(nodeTypes.sort()).toEqual(['custom.note', 'shell']);
+    // The editor autosave PUTs these back verbatim, so they must pass
+    // the same schema or the demo runbook can never be saved.
+    for (const node of args.data.nodes as unknown[]) {
+      expect(workflowNodeSchema.safeParse(node).success).toBe(true);
+    }
   });
 
   it('is idempotent — skips create when the tenant already has ≥1 runbook', async () => {

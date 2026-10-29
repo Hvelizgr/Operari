@@ -8,8 +8,8 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  * can run — an extra click where a concrete example would be more
  * useful.
  *
- * Shape: one note node ("what is this") → one shell node ("echo hello
- * from Operari"). Intentionally simple: the demo exists to prove the
+ * Shape: one note node ("what is this") next to one shell node ("echo
+ * hello from Operari"). Intentionally simple: the demo exists to prove the
  * canvas + the run button work end-to-end, not to teach every node
  * type. A curious user will replace it within minutes.
  *
@@ -28,9 +28,10 @@ const DEMO_RUNBOOK_DESCRIPTION =
 const DEMO_NODES = [
   {
     id: 'demo-note',
-    type: 'note',
-    position: { x: 160, y: 120 },
-    data: {
+    type: 'custom.note',
+    title: 'Note',
+    position: { x: 160, y: 80 },
+    config: {
       text:
         'Welcome to Operari. This is your starter runbook — click “Run” in the top bar ' +
         'or press ⌘+Enter to trigger the shell step below. Replace it with your own ' +
@@ -40,21 +41,16 @@ const DEMO_NODES = [
   {
     id: 'demo-shell',
     type: 'shell',
+    title: 'Print greeting',
     position: { x: 160, y: 340 },
-    data: {
-      label: 'Print greeting',
-      command: 'echo "hello from Operari"',
-    },
+    enabled: true,
+    config: { command: 'echo "hello from Operari"' },
+    inputs: [{ id: 'in', label: 'Input' }],
+    outputs: [{ id: 'out', label: 'Output' }],
   },
 ];
 
-const DEMO_CONNECTIONS = [
-  {
-    id: 'demo-connection',
-    source: 'demo-note',
-    target: 'demo-shell',
-  },
-];
+const DEMO_CONNECTIONS: never[] = [];
 
 export interface SeedDemoRunbookInput {
   tenantId: string;
