@@ -28,7 +28,6 @@ interface EditorOverlaysProps {
   nodes: WorkflowNode[];
   connections: Connection[];
   viewport: ViewportState;
-  windowSize: { width: number; height: number };
   dbNodeTypes: NodeType[];
   executionMetrics: ExecutionMetric[];
   cycleError: string | null;
@@ -44,7 +43,6 @@ interface EditorOverlaysProps {
   // Actions
   onLoadWorkflow: (nodes: WorkflowNode[], connections: Connection[]) => void;
   onSelectTemplate: (nodes: WorkflowNode[], connections: Connection[]) => void;
-  onViewportChange: (viewport: ViewportState) => void;
   onNodeAdd: (type: NodeType) => void;
   onHighlightNodes: (ids: string[]) => void;
   onSearchNodeSelect: (nodeId: string) => void;
@@ -105,7 +103,6 @@ export default function EditorOverlays({
   nodes,
   connections,
   viewport,
-  windowSize,
   dbNodeTypes,
   executionMetrics,
   cycleError,
@@ -119,7 +116,6 @@ export default function EditorOverlays({
   selectedNodesCount,
   onLoadWorkflow: _onLoadWorkflow,
   onSelectTemplate,
-  onViewportChange,
   onNodeAdd,
   onHighlightNodes,
   onSearchNodeSelect,
@@ -187,13 +183,7 @@ export default function EditorOverlays({
         onOpenChange={onTemplateGalleryOpenChange}
       />
 
-      <MiniMap
-        nodes={nodes}
-        viewport={viewport}
-        canvasSize={windowSize}
-        onViewportChange={(x, y) => onViewportChange({ ...viewport, x, y })}
-        lang={lang}
-      />
+      <MiniMap lang={lang} />
 
       <SearchBar
         nodes={nodes}

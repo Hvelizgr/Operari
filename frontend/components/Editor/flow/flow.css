@@ -162,3 +162,20 @@
     display: none;
   }
 }
+
+/* <MiniMap> renders as an absolutely positioned Panel; inside the
+   Operari minimap card it should just fill the body. */
+.wf_minimap.react-flow__minimap {
+  position: static;
+  margin: 0;
+  --xy-minimap-background-color: rgb(2 6 23);
+  --xy-minimap-mask-background-color: rgba(15, 23, 42, 0.6);
+  --xy-minimap-mask-stroke-color: var(--theme-color, #3ecf8e);
+  --xy-minimap-mask-stroke-width: 2;
+  --xy-minimap-node-background-color: color-mix(
+    in srgb,
+    var(--theme-color, #3ecf8e) 45%,
+    transparent
+  );
+  --xy-minimap-node-stroke-color: var(--theme-color, #3ecf8e);
+}

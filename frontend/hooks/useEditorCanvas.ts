@@ -27,7 +27,6 @@ import type {
   DeleteConfirmState,
   DeleteConnectionConfirmState,
   ExecutionMetric,
-  ViewportState,
 } from '../types/editor.types';
 import {
   applyPositionChanges,
@@ -84,7 +83,6 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
   const {
     viewport,
     syncViewport,
-    setViewport,
     handleZoomIn,
     handleZoomOut,
     handleFitView,
@@ -606,13 +604,6 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length]);
 
-  const handleViewportChangeAdapter = useCallback(
-    (newViewport: ViewportState) => {
-      setViewport(newViewport);
-    },
-    [setViewport]
-  );
-
   const handleContextMenuToggleEnable = useCallback(() => {
     if (contextMenu?.nodeId) {
       setNodes(prevNodes =>
@@ -723,7 +714,6 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     handleOnboardingClose,
     handleExecutionStateChange,
     handleNodeAddFromSearch,
-    handleViewportChangeAdapter,
     syncViewport,
     createConnection,
     handleAddNode,

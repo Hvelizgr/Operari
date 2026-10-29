@@ -39,7 +39,7 @@ export default function ZoomControls({
 
   return (
     <motion.div
-      className="absolute bottom-4 right-4 z-30 flex flex-col gap-2"
+      className="absolute bottom-20 right-4 z-30 flex flex-col gap-2"
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.2 }}

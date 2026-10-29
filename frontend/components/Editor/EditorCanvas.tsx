@@ -137,7 +137,6 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
     handleOnboardingSkip,
     handleOnboardingClose,
     handleNodeAddFromSearch,
-    handleViewportChangeAdapter,
     syncViewport,
 
     isRunDialogOpen,
@@ -713,7 +712,6 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
               nodes={nodes}
               connections={connections}
               viewport={viewport}
-              windowSize={windowSize}
               dbNodeTypes={dbNodeTypes}
               executionMetrics={executionMetrics}
               cycleError={cycleError}
@@ -727,7 +725,6 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
               selectedNodesCount={selectedNodes.size}
               onLoadWorkflow={handleLoadWorkflow}
               onSelectTemplate={handleSelectTemplate}
-              onViewportChange={handleViewportChangeAdapter}
               onNodeAdd={handleNodeAddFromSearch}
               onHighlightNodes={handleHighlightNodes}
               onSearchNodeSelect={handleSearchNodeSelect}

@@ -1,44 +1,33 @@
 'use client';
 
+import { MiniMap as FlowMiniMap } from '@xyflow/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Map, Maximize2, Minimize2 } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { type MinimapPosition, useVisualization } from '@/context/VisualizationContext';
 
-import { WorkflowNode } from '../Editor';
-
 interface MiniMapProps {
-  nodes: WorkflowNode[];
-  viewport: { x: number; y: number; zoom: number };
-  canvasSize: { width: number; height: number };
-  onViewportChange: (x: number, y: number) => void;
   lang: 'en' | 'es';
 }
 
 /** Maps the user's minimap position preference to Tailwind corner
- *  classes. Kept in-module so the MiniMap file is self-contained. */
+ *  classes. Kept in-module so the MiniMap file is self-contained.
+ *  The right-hand corners leave room for the zoom controls and the
+ *  floating terminal button that share that edge. */
 const POSITION_CLASSES: Record<Exclude<MinimapPosition, 'hidden'>, string> = {
   'top-left': 'top-4 left-4',
   'top-right': 'top-4 right-4',
   'bottom-left': 'bottom-4 left-4',
-  'bottom-right': 'bottom-4 right-4',
+  'bottom-right': 'bottom-4 right-24',
 };
 
-export default function MiniMap({
-  nodes,
-  viewport,
-  canvasSize,
-  onViewportChange,
-  lang,
-}: MiniMapProps) {
+const MINIMAP_WIDTH = 240;
+const MINIMAP_HEIGHT = 180;
+
+export default function MiniMap({ lang }: MiniMapProps) {
   const { minimapPosition } = useVisualization();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const miniMapRef = useRef<HTMLDivElement>(null);
-
-  const MINIMAP_WIDTH = 240;
-  const MINIMAP_HEIGHT = 180;
 
   const content = {
     en: {
@@ -54,112 +43,6 @@ export default function MiniMap({
   };
 
   const text = content[lang] || content['en'];
-
-  const calculateBounds = () => {
-    if (nodes.length === 0) {
-      return { minX: 0, minY: 0, maxX: 1000, maxY: 800 };
-    }
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    nodes.forEach(node => {
-      minX = Math.min(minX, node.position.x);
-      minY = Math.min(minY, node.position.y);
-      maxX = Math.max(maxX, node.position.x + 200);
-      maxY = Math.max(maxY, node.position.y + 100);
-    });
-
-    const padding = 200;
-    return {
-      minX: minX - padding,
-      minY: minY - padding,
-      maxX: maxX + padding,
-      maxY: maxY + padding,
-    };
-  };
-
-  const bounds = calculateBounds();
-  const worldWidth = bounds.maxX - bounds.minX;
-  const worldHeight = bounds.maxY - bounds.minY;
-
-  const scaleX = MINIMAP_WIDTH / worldWidth;
-  const scaleY = MINIMAP_HEIGHT / worldHeight;
-  const scale = Math.min(scaleX, scaleY);
-
-  const toMiniMapCoords = (x: number, y: number) => ({
-    x: (x - bounds.minX) * scale,
-    y: (y - bounds.minY) * scale,
-  });
-
-  const fromMiniMapCoords = useCallback(
-    (x: number, y: number) => ({
-      x: x / scale + bounds.minX,
-      y: y / scale + bounds.minY,
-    }),
-    [scale, bounds.minX, bounds.minY]
-  );
-
-  const viewportInWorld = {
-    x: -viewport.x / viewport.zoom,
-    y: -viewport.y / viewport.zoom,
-    width: canvasSize.width / viewport.zoom,
-    height: canvasSize.height / viewport.zoom,
-  };
-
-  const viewportInMiniMap = {
-    x: (viewportInWorld.x - bounds.minX) * scale,
-    y: (viewportInWorld.y - bounds.minY) * scale,
-    width: viewportInWorld.width * scale,
-    height: viewportInWorld.height * scale,
-  };
-
-  const handleMiniMapClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!miniMapRef.current) return;
-
-      const rect = miniMapRef.current.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-
-      const worldCoords = fromMiniMapCoords(clickX, clickY);
-
-      const newX = -(worldCoords.x - canvasSize.width / viewport.zoom / 2) * viewport.zoom;
-      const newY = -(worldCoords.y - canvasSize.height / viewport.zoom / 2) * viewport.zoom;
-
-      onViewportChange(newX, newY);
-    },
-    [fromMiniMapCoords, viewport.zoom, canvasSize, onViewportChange]
-  );
-
-  const handleViewportDragStart = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsDragging(true);
-  }, []);
-
-  const handleViewportDrag = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isDragging || !miniMapRef.current) return;
-
-      const rect = miniMapRef.current.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-
-      const worldCoords = fromMiniMapCoords(clickX, clickY);
-
-      const newX = -(worldCoords.x - canvasSize.width / viewport.zoom / 2) * viewport.zoom;
-      const newY = -(worldCoords.y - canvasSize.height / viewport.zoom / 2) * viewport.zoom;
-
-      onViewportChange(newX, newY);
-    },
-    [isDragging, fromMiniMapCoords, viewport.zoom, canvasSize, onViewportChange]
-  );
-
-  const handleViewportDragEnd = useCallback(() => {
-    setIsDragging(false);
-  }, []);
 
   // User picked "hidden" in Appearance → Canvas → Minimap position —
   // skip rendering entirely so the minimap isn't just visually
@@ -198,59 +81,14 @@ export default function MiniMap({
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <div
-                ref={miniMapRef}
-                className="relative cursor-pointer bg-slate-950"
+              <FlowMiniMap
+                className="wf_minimap"
                 style={{ width: MINIMAP_WIDTH, height: MINIMAP_HEIGHT }}
-                onClick={handleMiniMapClick}
-                onMouseMove={handleViewportDrag}
-                onMouseUp={handleViewportDragEnd}
-                onMouseLeave={handleViewportDragEnd}
-              >
-                {nodes.map(node => {
-                  const miniPos = toMiniMapCoords(node.position.x, node.position.y);
-                  return (
-                    <div
-                      key={node.id}
-                      className="bg-primary/40 border-primary/70/60 absolute rounded-sm border"
-                      style={{
-                        left: miniPos.x,
-                        top: miniPos.y,
-                        width: 200 * scale,
-                        height: 100 * scale,
-                      }}
-                    />
-                  );
-                })}
-
-                <motion.div
-                  className="border-primary bg-primary/10 absolute cursor-move border-2"
-                  style={{
-                    left: Math.max(
-                      0,
-                      Math.min(MINIMAP_WIDTH - viewportInMiniMap.width, viewportInMiniMap.x)
-                    ),
-                    top: Math.max(
-                      0,
-                      Math.min(MINIMAP_HEIGHT - viewportInMiniMap.height, viewportInMiniMap.y)
-                    ),
-                    width: Math.min(MINIMAP_WIDTH, viewportInMiniMap.width),
-                    height: Math.min(MINIMAP_HEIGHT, viewportInMiniMap.height),
-                  }}
-                  onMouseDown={handleViewportDragStart}
-                  animate={{
-                    left: Math.max(
-                      0,
-                      Math.min(MINIMAP_WIDTH - viewportInMiniMap.width, viewportInMiniMap.x)
-                    ),
-                    top: Math.max(
-                      0,
-                      Math.min(MINIMAP_HEIGHT - viewportInMiniMap.height, viewportInMiniMap.y)
-                    ),
-                  }}
-                  transition={{ type: 'tween', duration: 0.1 }}
-                />
-              </div>
+                ariaLabel={text.minimap}
+                pannable
+                zoomable
+                nodeBorderRadius={3}
+              />
             </motion.div>
           )}
         </AnimatePresence>
