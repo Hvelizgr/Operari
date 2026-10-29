@@ -3,6 +3,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
 
+import { useEscapeKey } from '@/hooks/useEscapeKey';
+
 interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
@@ -22,6 +24,7 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  useEscapeKey(isOpen, onCancel);
   if (!isOpen) return null;
 
   return (

@@ -5,6 +5,7 @@ import { AlertCircle, Check, Copy, Save, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { COPY_FEEDBACK_MS } from '@/constants/timeouts';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import {
   nodesToSpec,
   RunbookHeader,
@@ -58,6 +59,7 @@ export default function YamlViewModal({
   connections,
   onApply,
 }: YamlViewModalProps) {
+  useEscapeKey(open, onClose);
   const t = STRINGS[lang] ?? STRINGS.en;
 
   const initial = useMemo(() => {
@@ -117,7 +119,11 @@ export default function YamlViewModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-6">
-      <div role="dialog" aria-modal="true" className="flex h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="flex h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl"
+      >
         <header className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
           <div>
             <h2 className="text-base font-semibold text-white">{t.title}</h2>

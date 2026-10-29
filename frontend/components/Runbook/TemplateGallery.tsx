@@ -6,6 +6,7 @@ import { FileCode, FileText, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import TemplatePreview from '@/app/[lang]/(marketing)/templates/TemplatePreview';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { specToNodes, yamlToSpec } from '@/utils/runbookYaml';
 
 /** Thin bridge: template gallery holds YAML strings, the shared
@@ -104,6 +105,7 @@ export default function TemplateGallery({
     if (onOpenChange) onOpenChange(open);
     else setInternalIsOpen(open);
   };
+  useEscapeKey(isOpen, () => setIsOpen(false));
 
   const [templates, setTemplates] = useState<RemoteTemplate[] | null>(null);
   const [error, setError] = useState<string | null>(null);

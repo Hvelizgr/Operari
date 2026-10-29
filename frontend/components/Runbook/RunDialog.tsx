@@ -6,6 +6,8 @@ import { Bug, Play, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { useEscapeKey } from '@/hooks/useEscapeKey';
+
 import type { RunbookInputDefinition } from '../Editor/RunbookInputsPanel';
 
 interface LogEntry {
@@ -76,6 +78,7 @@ export default function RunDialog({
   mode = 'run',
   inputs = [],
 }: RunDialogProps) {
+  useEscapeKey(isOpen, onClose);
   const hasInputs = inputs.length > 0;
   const [jsonInput, setJsonInput] = useState(`{\n  "key": "value"\n}`);
   const [formValues, setFormValues] = useState<Record<string, unknown>>(() => defaultsFor(inputs));

@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Camera, History, RotateCcw, Trash2, X } from 'lucide-react';
 
+import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { Snapshot } from '../../hooks/useSnapshots';
 
 interface SnapshotDialogProps {
@@ -45,12 +46,17 @@ export default function SnapshotDialog({
     },
   }[lang];
 
+  useEscapeKey(isOpen, onClose);
+
   return (
     <AnimatePresence>
       {isOpen && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-[2px]"
           onClick={onClose}
+          role="dialog"
+          aria-modal="true"
+          aria-label={text.title}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}

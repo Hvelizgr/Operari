@@ -68,8 +68,11 @@ export default function CommandPalette({ isOpen, onClose, actions, lang }: Comma
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    // Capture phase: another window keydown listener registered earlier
+    // swallows keys typed in inputs, so with focus in the search box the
+    // palette never saw Escape/Enter/arrows in the bubble phase.
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen, filteredActions, selectedIndex, onClose]);
 
   const Shortcut = ({ keys }: { keys: string[] }) => (

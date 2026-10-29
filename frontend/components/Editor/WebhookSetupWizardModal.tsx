@@ -3,6 +3,8 @@
 import { Check, Copy, ExternalLink, X } from 'lucide-react';
 import { useState } from 'react';
 
+import { useEscapeKey } from '@/hooks/useEscapeKey';
+
 interface WebhookSetupWizardModalProps {
   open: boolean;
   onClose: () => void;
@@ -147,6 +149,7 @@ export default function WebhookSetupWizardModal({
   url,
   secret,
 }: WebhookSetupWizardModalProps) {
+  useEscapeKey(open, onClose);
   const t = STRINGS[lang];
   const provider = t[source];
   const [copied, setCopied] = useState<'url' | 'secret' | null>(null);

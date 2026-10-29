@@ -2,6 +2,8 @@
 
 import { Clock, X } from 'lucide-react';
 
+import { useEscapeKey } from '@/hooks/useEscapeKey';
+
 import CronPicker from '../Editor/CronPicker';
 
 /**
@@ -26,6 +28,7 @@ export default function ScheduleDialog({
   value: string | null;
   onChange: (next: string | null) => void;
 }) {
+  useEscapeKey(isOpen, onClose);
   if (!isOpen) return null;
 
   const text = {
