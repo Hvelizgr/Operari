@@ -57,6 +57,16 @@ export default function ChatSidebar({
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
+          aria-label={
+            collapsed
+              ? lang === 'en'
+                ? 'Expand conversations'
+                : 'Expandir conversaciones'
+              : lang === 'en'
+                ? 'Collapse conversations'
+                : 'Contraer conversaciones'
+          }
+          aria-expanded={!collapsed}
           className="rounded p-1 text-gray-400 transition-colors hover:bg-white/10"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}

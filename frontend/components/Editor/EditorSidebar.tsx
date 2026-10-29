@@ -240,6 +240,16 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           {showLabels && !isMobile && (
             <button
               onClick={() => setCollapsed(!collapsed)}
+              aria-label={
+                collapsed
+                  ? lang === 'en'
+                    ? 'Expand sidebar'
+                    : 'Expandir barra lateral'
+                  : lang === 'en'
+                    ? 'Collapse sidebar'
+                    : 'Contraer barra lateral'
+              }
+              aria-expanded={!collapsed}
               className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--panel-elevated)] hover:text-[var(--text-primary)]"
             >
               {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}

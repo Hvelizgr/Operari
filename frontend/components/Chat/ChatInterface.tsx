@@ -295,6 +295,7 @@ export default function ChatInterface({ lang }: ChatInterfaceProps) {
             <button
               type="submit"
               disabled={isLoading || !input.trim()}
+              aria-label={lang === 'en' ? 'Send message' : 'Enviar mensaje'}
               className="bg-primary hover:bg-primary disabled:hover:bg-primary flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-white transition-colors disabled:opacity-30"
             >
               <svg

@@ -868,6 +868,7 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setShowTerminal(false)}
+                    aria-label={lang === 'en' ? 'Close terminal' : 'Cerrar terminal'}
                     className="p-1 text-slate-500 transition-colors hover:text-white"
                   >
                     <X size={16} />

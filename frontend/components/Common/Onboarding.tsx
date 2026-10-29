@@ -16,6 +16,7 @@ interface OnboardingProps {
   onNext: () => void;
   onSkip: () => void;
   onClose: () => void;
+  lang?: 'en' | 'es';
 }
 
 export default function Onboarding({
@@ -24,8 +25,14 @@ export default function Onboarding({
   onNext,
   onSkip,
   onClose,
+  lang = 'en',
 }: OnboardingProps) {
   if (currentStep >= steps.length) return null;
+
+  const t =
+    lang === 'es'
+      ? { close: 'Cerrar tour', skip: 'Saltar tour', next: 'Siguiente', done: 'Empezar' }
+      : { close: 'Close tour', skip: 'Skip Tour', next: 'Next', done: 'Get Started' };
 
   const step = steps[currentStep];
 
@@ -74,6 +81,7 @@ export default function Onboarding({
               </div>
               <button
                 onClick={onClose}
+                aria-label={t.close}
                 className="text-slate-400 transition-colors hover:text-slate-200"
               >
                 <X size={20} />
@@ -87,13 +95,13 @@ export default function Onboarding({
                 onClick={onSkip}
                 className="text-sm text-slate-400 transition-colors hover:text-slate-200"
               >
-                Skip Tour
+                {t.skip}
               </button>
               <button
                 onClick={onNext}
                 className="bg-primary hover:bg-primary rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors"
               >
-                {currentStep === steps.length - 1 ? 'Get Started' : 'Next'}
+                {currentStep === steps.length - 1 ? t.done : t.next}
               </button>
             </div>
           </div>

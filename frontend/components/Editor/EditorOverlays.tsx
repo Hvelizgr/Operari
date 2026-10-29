@@ -209,6 +209,7 @@ export default function EditorOverlays({
           onNext={onOnboardingNext}
           onSkip={onOnboardingSkip}
           onClose={onOnboardingClose}
+          lang={lang}
         />
       )}
 
