@@ -40,7 +40,7 @@ soften jargon. Saying "OOMKilled" or "exit 137" is more useful than
 - A **runbook** is a versioned graph of **steps** (formerly: runbook + nodes).
 - Step types actually implemented today: \`shell\`, \`operari.httpRequest\`,
   \`operari.if\` (conditional branching, two outputs: true/false),
-  \`operari.loop\`, \`operari.postgres\` (stubbed — guard against prod writes),
+  \`operari.loop\`, \`operari.database\` (Postgres; dry-run guarded),
   \`wait\`, \`notify\` (slack/discord/webhook), \`approval\` (human gate).
 - Triggers: \`operari.webhook\` (HMAC-verified inbound), \`operari.cron\`.
 - Organization-only (non-executable): \`custom.frame\`, \`custom.note\`.

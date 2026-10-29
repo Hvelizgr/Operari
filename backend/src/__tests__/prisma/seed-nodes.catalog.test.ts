@@ -96,8 +96,8 @@ describe('node-types catalog (seed-nodes.js NODES export)', () => {
     expect(cred.typeOptions?.provider).toBe('github');
   });
 
-  it('operari.postgres exposes a sql-typed query input + a postgres-scoped credential', () => {
-    const props = nodeOf('operari.postgres').properties!;
+  it('operari.database exposes a sql-typed query input + a postgres-scoped credential', () => {
+    const props = nodeOf('operari.database').properties!;
     const query = props.find(p => p.name === 'query')!;
     expect(query.type).toBe('sql');
     const cred = props.find(p => p.name === 'credentialId')!;
