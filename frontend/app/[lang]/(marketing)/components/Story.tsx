@@ -1,6 +1,9 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Hand } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { type PointerEvent as ReactPointerEvent, useRef, useState } from 'react';
 
 import { content } from '@/app/[lang]/content/en';
 
@@ -139,11 +142,56 @@ function StoryBlock({
  * The whole sequence triggers on viewport entry via framer-motion's
  * `whileInView` so visitors who scroll fast still catch the animation.
  * ------------------------------------------------------------------ */
+type NodeId = 'trigger' | 'shell' | 'approve' | 'notify';
+type Point = { x: number; y: number };
+
+const CANVAS_NODES: { id: NodeId; label: string; color: keyof typeof nodeColor; delay: number }[] =
+  [
+    { id: 'trigger', label: 'trigger', color: 'mono', delay: 0.1 },
+    { id: 'shell', label: 'shell', color: 'primary', delay: 0.3 },
+    { id: 'approve', label: 'approve', color: 'primary', delay: 0.5 },
+    { id: 'notify', label: 'notify', color: 'emerald', delay: 0.7 },
+  ];
+const CANVAS_EDGES: [NodeId, NodeId, number][] = [
+  ['trigger', 'shell', 0.55],
+  ['shell', 'approve', 0.85],
+  ['shell', 'notify', 1.0],
+];
+const START: Record<NodeId, Point> = {
+  trigger: { x: 20, y: 30 },
+  shell: { x: 50, y: 30 },
+  approve: { x: 80, y: 30 },
+  notify: { x: 50, y: 70 },
+};
+
+/* A tiny playable editor: nodes drag (mouse or touch) inside the canvas
+ * and the connectors follow, which says "this is a canvas" faster than
+ * any copy. Positions are percentages so the layout survives resizes. */
 function CanvasMockup() {
+  const params = useParams();
+  const es = params?.lang === 'es';
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState(START);
+  const [dragging, setDragging] = useState<NodeId | null>(null);
+  const [touched, setTouched] = useState(false);
+
+  const moveTo = (id: NodeId, e: ReactPointerEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const clamp = (v: number) => Math.min(90, Math.max(10, v));
+    setPos(p => ({
+      ...p,
+      [id]: {
+        x: clamp(((e.clientX - rect.left) / rect.width) * 100),
+        y: clamp(((e.clientY - rect.top) / rect.height) * 100),
+      },
+    }));
+  };
+
   return (
     <div className="border-border/60 bg-card/60 relative overflow-hidden rounded-2xl border p-4 shadow-2xl shadow-black/30 backdrop-blur-md sm:p-6">
       <MockHeader />
-      <div className="relative mt-4 h-56 sm:h-64">
+      <div ref={canvasRef} className="relative mt-4 h-56 select-none sm:h-64">
         {/* Background grid — static */}
         <div
           className="absolute inset-0 opacity-[0.07]"
@@ -154,99 +202,80 @@ function CanvasMockup() {
           }}
         />
 
-        {/* Connecting lines — grow from node to node after the nodes
-            appear. Plain bars scaled from their origin: an SVG line with
-            a non-scaling stroke measures its dash array in screen pixels,
-            which left broken dashes instead of a drawn line. */}
-        {/* One observer for all lines: each line starts at scale 0, i.e.
-            zero area, which IntersectionObserver does not reliably report. */}
-        <motion.div
-          className="absolute inset-0"
+        <motion.svg
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-100px' }}
         >
-          <AnimatedLine left={20} top={30} length={30} axis="x" delay={0.55} />
-          <AnimatedLine left={50} top={30} length={30} axis="x" delay={0.85} />
-          <AnimatedLine left={50} top={30} length={40} axis="y" delay={1.15} />
-        </motion.div>
+          {CANVAS_EDGES.map(([from, to, delay]) => (
+            <motion.line
+              key={`${from}-${to}`}
+              x1={`${pos[from].x}%`}
+              y1={`${pos[from].y}%`}
+              x2={`${pos[to].x}%`}
+              y2={`${pos[to].y}%`}
+              stroke="rgb(62 207 142 / 0.65)"
+              strokeWidth={2}
+              strokeLinecap="round"
+              variants={{
+                hidden: { opacity: 0 },
+                visible: { opacity: 1, transition: { duration: 0.4, delay } },
+              }}
+            />
+          ))}
+        </motion.svg>
 
-        {/* Nodes — pop in one by one before the lines connect them */}
-        <AnimatedNode left="20%" top="30%" label="trigger" color="mono" delay={0.1} />
-        <AnimatedNode left="50%" top="30%" label="shell" color="primary" delay={0.3} />
-        <AnimatedNode left="80%" top="30%" label="approve" color="primary" delay={0.5} />
-        <AnimatedNode left="50%" top="70%" label="notify" color="emerald" delay={1.4} />
+        {CANVAS_NODES.map(node => (
+          // Centering lives on the wrapper: motion's scale writes an
+          // inline transform that would override the translate classes.
+          <div
+            key={node.id}
+            className="absolute -translate-x-1/2 -translate-y-1/2 touch-none"
+            style={{ left: `${pos[node.id].x}%`, top: `${pos[node.id].y}%` }}
+            onPointerDown={e => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              setDragging(node.id);
+              setTouched(true);
+            }}
+            onPointerMove={e => dragging === node.id && moveTo(node.id, e)}
+            onPointerUp={() => setDragging(null)}
+            onPointerCancel={() => setDragging(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.7 }}
+              whileInView={{ opacity: 1, scale: dragging === node.id ? 1.08 : 1 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={{
+                duration: 0.4,
+                delay: dragging ? 0 : node.delay,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className={`relative isolate rounded-lg border px-3 py-2 font-mono text-[11px] backdrop-blur-sm ${nodeColor[node.color]} ${dragging === node.id ? 'cursor-grabbing shadow-lg shadow-emerald-500/20' : 'cursor-grab'}`}
+            >
+              {/* Opaque base under the tinted fill so connectors stop at
+                  the node edge instead of showing through it. */}
+              <span aria-hidden="true" className="bg-card absolute inset-0 -z-10 rounded-lg" />
+              {node.label}
+            </motion.div>
+          </div>
+        ))}
+
+        <AnimatePresence>
+          {!touched && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, transition: { delay: 1.6 } }}
+              exit={{ opacity: 0 }}
+              className="text-muted-foreground pointer-events-none absolute bottom-2 right-2 flex items-center gap-1.5 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-[10px]"
+            >
+              <Hand size={12} className="text-emerald-400/80" />
+              {es ? 'Arrastrá los nodos' : 'Drag the nodes'}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
-  );
-}
-
-/** A connector that grows along one axis from (left%, top%). */
-function AnimatedLine({
-  left,
-  top,
-  length,
-  axis,
-  delay,
-}: {
-  left: number;
-  top: number;
-  length: number;
-  axis: 'x' | 'y';
-  delay: number;
-}) {
-  const horizontal = axis === 'x';
-  return (
-    <motion.div
-      aria-hidden="true"
-      className="absolute bg-[rgb(62_207_142/0.65)]"
-      style={{
-        left: `${left}%`,
-        top: `${top}%`,
-        width: horizontal ? `${length}%` : 2,
-        height: horizontal ? 2 : `${length}%`,
-        transformOrigin: horizontal ? 'left center' : 'center top',
-      }}
-      variants={{
-        hidden: horizontal ? { scaleX: 0 } : { scaleY: 0 },
-        visible: {
-          ...(horizontal ? { scaleX: 1 } : { scaleY: 1 }),
-          transition: { duration: 0.45, delay, ease: 'easeOut' },
-        },
-      }}
-    />
-  );
-}
-
-function AnimatedNode({
-  left,
-  top,
-  label,
-  color,
-  delay,
-}: {
-  left: string;
-  top: string;
-  label: string;
-  color: keyof typeof nodeColor;
-  delay: number;
-}) {
-  // Centering lives on a wrapper: motion's scale writes an inline
-  // transform that would override Tailwind's translate classes.
-  return (
-    <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left, top }}>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.7 }}
-        whileInView={{ opacity: 1, scale: 1 }}
-        viewport={{ once: true, margin: '-100px' }}
-        transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
-        className={`relative isolate rounded-lg border px-3 py-2 font-mono text-[11px] backdrop-blur-sm ${nodeColor[color]}`}
-      >
-        {/* Opaque base under the tinted fill so connectors stop at the
-            node edge instead of showing through it. */}
-        <span aria-hidden="true" className="bg-card absolute inset-0 -z-10 rounded-lg" />
-        {label}
-      </motion.div>
     </div>
   );
 }
@@ -261,18 +290,35 @@ function AnimatedNode({
  * review" — we want users to see the deletion first, then the
  * additions.
  * ------------------------------------------------------------------ */
+type DiffView = 'before' | 'diff' | 'after';
+
+const YAML_LINES = [
+  { sign: ' ', text: 'name: rollback-on-error-spike' },
+  { sign: ' ', text: 'on:' },
+  { sign: ' ', text: '  webhook: incoming' },
+  { sign: ' ', text: 'steps:' },
+  { sign: '-', text: '  - shell: helm rollback prod' },
+  { sign: '+', text: '  - shell: helm rollback prod --wait' },
+  { sign: '+', text: '  - approval:' },
+  { sign: '+', text: '      message: "Rollback ok?"' },
+  { sign: ' ', text: '  - notify: slack#incidents' },
+] as const;
+
+/* The diff can be flipped between the old file, the change and the new
+ * file, so the "approval gate added in code review" beat is something
+ * the visitor does rather than reads. */
 function YamlDiffMockup() {
-  const lines = [
-    { sign: ' ', text: 'name: rollback-on-error-spike', cls: 'text-foreground/80' },
-    { sign: ' ', text: 'on:', cls: 'text-foreground/80' },
-    { sign: ' ', text: '  webhook: incoming', cls: 'text-foreground/80' },
-    { sign: ' ', text: 'steps:', cls: 'text-foreground/80' },
-    { sign: '-', text: '  - shell: helm rollback prod', cls: 'text-red-400' },
-    { sign: '+', text: '  - shell: helm rollback prod --wait', cls: 'text-emerald-400' },
-    { sign: '+', text: '  - approval:', cls: 'text-emerald-400' },
-    { sign: '+', text: '      message: "Rollback ok?"', cls: 'text-emerald-400' },
-    { sign: ' ', text: '  - notify: slack#incidents', cls: 'text-foreground/80' },
+  const params = useParams();
+  const es = params?.lang === 'es';
+  const [view, setView] = useState<DiffView>('diff');
+  const tabs: { id: DiffView; label: string }[] = [
+    { id: 'before', label: es ? 'Antes' : 'Before' },
+    { id: 'diff', label: 'Diff' },
+    { id: 'after', label: es ? 'Después' : 'After' },
   ];
+  const lines = YAML_LINES.filter(l =>
+    view === 'before' ? l.sign !== '+' : view === 'after' ? l.sign !== '-' : true
+  );
 
   return (
     <motion.div
@@ -282,27 +328,77 @@ function YamlDiffMockup() {
       className="border-border/60 bg-card/60 relative overflow-hidden rounded-2xl border shadow-2xl shadow-black/30 backdrop-blur-md"
     >
       <MockHeader filename="runbooks/rollback.yaml" />
+      <div
+        role="tablist"
+        aria-label={es ? 'Vista del archivo' : 'File view'}
+        className="border-border/40 flex gap-1 border-b px-4 py-2 sm:px-5"
+      >
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={view === tab.id}
+            onClick={() => setView(tab.id)}
+            className={`relative isolate rounded-md px-2.5 py-1 font-mono text-[11px] transition-colors ${view === tab.id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            {view === tab.id && (
+              <motion.span
+                layoutId="yaml-tab"
+                className="absolute inset-0 -z-10 rounded-md bg-white/[0.06]"
+                transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+              />
+            )}
+            {tab.label}
+          </button>
+        ))}
+      </div>
       {/* overflow-x-auto so very narrow viewports (320px) can horizontally
           scroll the diff instead of breaking the layout. The diff lines
           are intentionally short enough that this rarely triggers. */}
       <div className="overflow-x-auto px-4 py-4 font-mono text-[11px] leading-relaxed sm:px-5 sm:text-xs">
-        {lines.map((line, i) => (
-          <motion.div
-            key={i}
-            variants={{
-              hidden: { opacity: 0, x: -8 },
-              visible: {
-                opacity: 1,
-                x: 0,
-                transition: { duration: 0.32, delay: 0.15 + i * 0.085, ease: 'easeOut' },
-              },
-            }}
-            className={`-mx-4 flex gap-2 whitespace-nowrap px-4 sm:-mx-5 sm:gap-3 sm:px-5 ${line.sign === '+' ? 'bg-emerald-500/[0.06]' : line.sign === '-' ? 'bg-red-500/[0.06]' : ''}`}
-          >
-            <span className="text-foreground/40 w-3 select-none">{line.sign}</span>
-            <span className={line.cls}>{line.text}</span>
-          </motion.div>
-        ))}
+        <AnimatePresence initial={false} mode="popLayout">
+          {lines.map((line, i) => {
+            const marked = view === 'diff' && line.sign !== ' ';
+            const added = view === 'after' && line.sign === '+';
+            return (
+              <motion.div
+                key={line.text}
+                layout
+                variants={{
+                  hidden: { opacity: 0, x: -8 },
+                  visible: {
+                    opacity: 1,
+                    x: 0,
+                    transition: { duration: 0.32, delay: 0.15 + i * 0.085, ease: 'easeOut' },
+                  },
+                }}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 8 }}
+                transition={{ duration: 0.25 }}
+                className={`-mx-4 flex gap-2 whitespace-nowrap px-4 sm:-mx-5 sm:gap-3 sm:px-5 ${marked && line.sign === '+' ? 'bg-emerald-500/[0.06]' : marked ? 'bg-red-500/[0.06]' : added ? 'bg-emerald-500/[0.03]' : ''}`}
+              >
+                <span className="text-foreground/40 w-3 select-none">
+                  {marked ? line.sign : ' '}
+                </span>
+                <span
+                  className={
+                    marked
+                      ? line.sign === '+'
+                        ? 'text-emerald-400'
+                        : 'text-red-400'
+                      : added
+                        ? 'text-emerald-300/90'
+                        : 'text-foreground/80'
+                  }
+                >
+                  {line.text}
+                </span>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
