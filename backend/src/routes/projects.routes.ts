@@ -54,7 +54,7 @@ router.get('/', async (req: AuthRequest, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    const result = projects.map((p) => ({
+    const result = projects.map(p => ({
       id: p.id,
       name: p.name,
       slug: p.slug,
@@ -143,7 +143,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
     if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
 
     const project = await prisma.project.findFirst({
-      where: { id: req.params.id, tenantId: req.user.tenantId },
+      where: { id: req.params.id as string, tenantId: req.user.tenantId },
       include: {
         members: {
           include: { user: { select: { id: true, name: true, email: true } } },
@@ -164,7 +164,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
 
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    const isMember = project.members.some((m) => m.userId === req.user!.id);
+    const isMember = project.members.some(m => m.userId === req.user!.id);
     if (!isMember) return res.status(403).json({ error: 'Not a project member' });
 
     res.json(project);
@@ -189,7 +189,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
     if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
 
     const project = await prisma.project.findFirst({
-      where: { id: req.params.id, tenantId: req.user.tenantId },
+      where: { id: req.params.id as string, tenantId: req.user.tenantId },
     });
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -231,7 +231,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
     if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
 
     const project = await prisma.project.findFirst({
-      where: { id: req.params.id, tenantId: req.user.tenantId },
+      where: { id: req.params.id as string, tenantId: req.user.tenantId },
     });
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -271,7 +271,7 @@ router.post('/:id/members', async (req: AuthRequest, res) => {
     if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
 
     const project = await prisma.project.findFirst({
-      where: { id: req.params.id, tenantId: req.user.tenantId },
+      where: { id: req.params.id as string, tenantId: req.user.tenantId },
     });
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -331,7 +331,7 @@ router.put('/:id/members/:userId', async (req: AuthRequest, res) => {
     if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
 
     const project = await prisma.project.findFirst({
-      where: { id: req.params.id, tenantId: req.user.tenantId },
+      where: { id: req.params.id as string, tenantId: req.user.tenantId },
     });
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -343,7 +343,7 @@ router.put('/:id/members/:userId', async (req: AuthRequest, res) => {
     }
 
     const data = updateMemberSchema.parse(req.body);
-    const targetUserId = req.params.userId;
+    const targetUserId = req.params.userId as string;
 
     const targetMembership = await prisma.projectMember.findUnique({
       where: { userId_projectId: { userId: targetUserId, projectId: project.id } },
@@ -377,7 +377,7 @@ router.delete('/:id/members/:userId', async (req: AuthRequest, res) => {
     if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
 
     const project = await prisma.project.findFirst({
-      where: { id: req.params.id, tenantId: req.user.tenantId },
+      where: { id: req.params.id as string, tenantId: req.user.tenantId },
     });
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -388,7 +388,7 @@ router.delete('/:id/members/:userId', async (req: AuthRequest, res) => {
       return res.status(403).json({ error: 'Only project admins can remove members' });
     }
 
-    const targetUserId = req.params.userId;
+    const targetUserId = req.params.userId as string;
 
     const targetMembership = await prisma.projectMember.findUnique({
       where: { userId_projectId: { userId: targetUserId, projectId: project.id } },
@@ -417,7 +417,7 @@ router.post('/:id/runbooks/:runbookId', async (req: AuthRequest, res) => {
     if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
 
     const project = await prisma.project.findFirst({
-      where: { id: req.params.id, tenantId: req.user.tenantId },
+      where: { id: req.params.id as string, tenantId: req.user.tenantId },
     });
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -429,7 +429,7 @@ router.post('/:id/runbooks/:runbookId', async (req: AuthRequest, res) => {
     }
 
     const runbook = await prisma.runbook.findFirst({
-      where: { id: req.params.runbookId, tenantId: req.user.tenantId },
+      where: { id: req.params.runbookId as string, tenantId: req.user.tenantId },
     });
     if (!runbook) return res.status(404).json({ error: 'Runbook not found' });
 
@@ -455,7 +455,7 @@ router.delete('/:id/runbooks/:runbookId', async (req: AuthRequest, res) => {
     if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
 
     const project = await prisma.project.findFirst({
-      where: { id: req.params.id, tenantId: req.user.tenantId },
+      where: { id: req.params.id as string, tenantId: req.user.tenantId },
     });
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
@@ -467,7 +467,11 @@ router.delete('/:id/runbooks/:runbookId', async (req: AuthRequest, res) => {
     }
 
     const runbook = await prisma.runbook.findFirst({
-      where: { id: req.params.runbookId, projectId: project.id, tenantId: req.user.tenantId },
+      where: {
+        id: req.params.runbookId as string,
+        projectId: project.id,
+        tenantId: req.user.tenantId,
+      },
     });
     if (!runbook) return res.status(404).json({ error: 'Runbook not found in this project' });
 
