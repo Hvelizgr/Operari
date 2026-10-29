@@ -17,6 +17,7 @@ import { Terminal as TerminalIcon, X } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { normalizeLegacyNodes } from '@/utils/canvas/legacy';
 import { specToNodes, yamlToSpec } from '@/utils/runbookYaml';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -229,8 +230,10 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
         let loadedNodes: WorkflowNode[] = [];
         let loadedConnections: Connection[] = [];
         if (Array.isArray(wf.nodes) && wf.nodes.length > 0) {
-          loadedNodes = wf.nodes;
-          loadedConnections = Array.isArray(wf.connections) ? wf.connections : [];
+          ({ nodes: loadedNodes, connections: loadedConnections } = normalizeLegacyNodes(
+            wf.nodes,
+            Array.isArray(wf.connections) ? wf.connections : []
+          ));
         } else {
           try {
             const yamlRes = await fetch(`${API_BASE}/api/runbooks/${urlRunbookId}/yaml`);
