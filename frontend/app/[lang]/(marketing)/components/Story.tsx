@@ -154,67 +154,63 @@ function CanvasMockup() {
           }}
         />
 
-        {/* Connecting lines — drawn progressively after the nodes appear.
-            We rely on viewBox 0..100 (percent-equivalent) so the line
-            geometry matches the node positions one-for-one. */}
-        <motion.svg
-          className="absolute inset-0 h-full w-full"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          aria-hidden="true"
+        {/* Connecting lines — grow from node to node after the nodes
+            appear. Plain bars scaled from their origin: an SVG line with
+            a non-scaling stroke measures its dash array in screen pixels,
+            which left broken dashes instead of a drawn line. */}
+        {/* One observer for all lines: each line starts at scale 0, i.e.
+            zero area, which IntersectionObserver does not reliably report. */}
+        <motion.div
+          className="absolute inset-0"
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-100px' }}
         >
-          <AnimatedLine x1={20} y1={30} x2={50} y2={30} delay={0.55} />
-          <AnimatedLine x1={50} y1={30} x2={80} y2={30} delay={0.85} />
-          <AnimatedLine x1={50} y1={30} x2={50} y2={70} delay={1.15} />
-        </motion.svg>
+          <AnimatedLine left={20} top={30} length={30} axis="x" delay={0.55} />
+          <AnimatedLine left={50} top={30} length={30} axis="x" delay={0.85} />
+          <AnimatedLine left={50} top={30} length={40} axis="y" delay={1.15} />
+        </motion.div>
 
         {/* Nodes — pop in one by one before the lines connect them */}
-        <AnimatedNode left="6%" top="22%" label="trigger" color="mono" delay={0.1} />
-        <AnimatedNode left="36%" top="22%" label="shell" color="primary" delay={0.3} />
-        <AnimatedNode left="66%" top="22%" label="approve" color="primary" delay={0.5} />
-        <AnimatedNode left="36%" top="62%" label="notify" color="emerald" delay={1.4} />
+        <AnimatedNode left="20%" top="30%" label="trigger" color="mono" delay={0.1} />
+        <AnimatedNode left="50%" top="30%" label="shell" color="primary" delay={0.3} />
+        <AnimatedNode left="80%" top="30%" label="approve" color="primary" delay={0.5} />
+        <AnimatedNode left="50%" top="70%" label="notify" color="emerald" delay={1.4} />
       </div>
     </div>
   );
 }
 
-/**
- * SVG line that draws itself by animating stroke-dashoffset from the
- * full length down to zero. Cheaper than animating x2/y2 because the
- * browser only repaints stroke, not geometry.
- */
+/** A connector that grows along one axis from (left%, top%). */
 function AnimatedLine({
-  x1,
-  y1,
-  x2,
-  y2,
+  left,
+  top,
+  length,
+  axis,
   delay,
 }: {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
+  left: number;
+  top: number;
+  length: number;
+  axis: 'x' | 'y';
   delay: number;
 }) {
-  const length = Math.hypot(x2 - x1, y2 - y1);
+  const horizontal = axis === 'x';
   return (
-    <motion.line
-      x1={x1}
-      y1={y1}
-      x2={x2}
-      y2={y2}
-      stroke="rgb(62 207 142 / 0.65)"
-      strokeWidth="0.6"
-      strokeLinecap="round"
-      vectorEffect="non-scaling-stroke"
-      style={{ strokeDasharray: length, strokeDashoffset: length }}
+    <motion.div
+      aria-hidden="true"
+      className="absolute bg-[rgb(62_207_142/0.65)]"
+      style={{
+        left: `${left}%`,
+        top: `${top}%`,
+        width: horizontal ? `${length}%` : 2,
+        height: horizontal ? 2 : `${length}%`,
+        transformOrigin: horizontal ? 'left center' : 'center top',
+      }}
       variants={{
-        hidden: { strokeDashoffset: length },
+        hidden: horizontal ? { scaleX: 0 } : { scaleY: 0 },
         visible: {
-          strokeDashoffset: 0,
+          ...(horizontal ? { scaleX: 1 } : { scaleY: 1 }),
           transition: { duration: 0.45, delay, ease: 'easeOut' },
         },
       }}
@@ -235,17 +231,23 @@ function AnimatedNode({
   color: keyof typeof nodeColor;
   delay: number;
 }) {
+  // Centering lives on a wrapper: motion's scale writes an inline
+  // transform that would override Tailwind's translate classes.
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.7 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true, margin: '-100px' }}
-      transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-lg border px-3 py-2 font-mono text-[11px] backdrop-blur-sm ${nodeColor[color]}`}
-      style={{ left, top }}
-    >
-      {label}
-    </motion.div>
+    <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left, top }}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.7 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true, margin: '-100px' }}
+        transition={{ duration: 0.4, delay, ease: [0.22, 1, 0.36, 1] }}
+        className={`relative isolate rounded-lg border px-3 py-2 font-mono text-[11px] backdrop-blur-sm ${nodeColor[color]}`}
+      >
+        {/* Opaque base under the tinted fill so connectors stop at the
+            node edge instead of showing through it. */}
+        <span aria-hidden="true" className="bg-card absolute inset-0 -z-10 rounded-lg" />
+        {label}
+      </motion.div>
+    </div>
   );
 }
 
