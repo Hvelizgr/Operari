@@ -105,14 +105,20 @@ export const createRateLimiter = (tier: RateLimitTier): RateLimitRequestHandler 
   const config = RATE_LIMIT_CONFIGS[tier];
   const redisClient = redisConfig.getClient();
 
-  // Configure store if Redis is available
-  let store;
-  if (redisClient && redisConfig.isReady()) {
+  // The limiters are built at import time, before ioredis has
+  // connected, so gating on isReady() always fell back to memory.
+  // ioredis queues commands until it connects.
+  let store: RedisStore | undefined;
+  if (redisClient) {
     store = new RedisStore({
       // @ts-expect-error - Expected by library type definition issues
       sendCommand: (...args: string[]) => redisClient.call(...args),
       prefix: `ratelimit:${tier}:`,
     });
+    // The constructor fires SCRIPT LOAD immediately; if Redis is down
+    // at boot that rejection would go unhandled. The store reloads the
+    // scripts on first use, so the boot result can be dropped.
+    void Promise.allSettled([store.incrementScriptSha, store.getScriptSha]);
     logger.debug(`Using Redis store for rate limit tier: ${tier}`, {
       context: { nodeId: '', nodeName: '', nodeType: '' },
     });
@@ -126,6 +132,8 @@ export const createRateLimiter = (tier: RateLimitTier): RateLimitRequestHandler 
     windowMs: config.windowMs,
     max: config.max,
     store: store, // If undefined, express-rate-limit uses MemoryStore
+    // A Redis outage must not turn every limited route into a 500.
+    passOnStoreError: true,
 
     // Use custom key generator for per-user/tenant limiting
     keyGenerator: (req: Request) => {
