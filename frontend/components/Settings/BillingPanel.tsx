@@ -117,6 +117,7 @@ export function BillingPanel({ lang }: { lang: 'en' | 'es' }) {
     // can even when the billing provider is offline.
     fetch('/api/billing/summary', { credentials: 'include' })
       .then(async res => {
+        // 501 is what older backends sent before `configured: false`.
         if (res.status === 501) {
           setNotConfigured(true);
           return null;
@@ -125,7 +126,8 @@ export function BillingPanel({ lang }: { lang: 'en' | 'es' }) {
         return res.json();
       })
       .then(body => {
-        if (body?.data) setBilling(body.data);
+        if (body?.configured === false) setNotConfigured(true);
+        else if (body?.data) setBilling(body.data);
       })
       .catch(() => undefined);
 

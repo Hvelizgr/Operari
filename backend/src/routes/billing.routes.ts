@@ -56,13 +56,15 @@ router.get('/usage', authenticate, async (req: AuthRequest, res: Response) => {
  * GET /api/billing/summary
  *
  * Cheap read for the settings panel — returns the plan-relevant
- * columns on the tenant row. Returns 501 when Stripe isn't
- * configured so the panel can render the "self-host = free forever"
- * message without a second round-trip to probe the provider.
+ * columns on the tenant row. Returns `{ configured: false }` when
+ * Stripe isn't configured so the panel can render the "self-host =
+ * free forever" message without a second round-trip. That is a normal
+ * state, not an error: a 501 left a failed request in every visitor's
+ * console.
  */
 router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => {
   if (!stripeConfigured()) {
-    return res.status(501).json({ error: 'Billing is not configured on this server' });
+    return res.json({ configured: false });
   }
   const tenant = await prisma.tenant.findUnique({
     where: { id: req.user!.tenantId },
