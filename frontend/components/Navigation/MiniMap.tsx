@@ -1,6 +1,6 @@
 'use client';
 
-import { MiniMap as FlowMiniMap } from '@xyflow/react';
+import { MiniMap as FlowMiniMap, useReactFlow } from '@xyflow/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Map, Maximize2, Minimize2 } from 'lucide-react';
 import { useState } from 'react';
@@ -13,13 +13,13 @@ interface MiniMapProps {
 
 /** Maps the user's minimap position preference to Tailwind corner
  *  classes. Kept in-module so the MiniMap file is self-contained.
- *  The right-hand corners leave room for the zoom controls and the
- *  floating terminal button that share that edge. */
+ *  Bottom-right clears the zoom controls, the floating terminal
+ *  button and the status bar that share that corner. */
 const POSITION_CLASSES: Record<Exclude<MinimapPosition, 'hidden'>, string> = {
   'top-left': 'top-4 left-4',
   'top-right': 'top-4 right-4',
   'bottom-left': 'bottom-4 left-4',
-  'bottom-right': 'bottom-4 right-24',
+  'bottom-right': 'bottom-16 right-24',
 };
 
 const MINIMAP_WIDTH = 240;
@@ -28,6 +28,7 @@ const MINIMAP_HEIGHT = 180;
 export default function MiniMap({ lang }: MiniMapProps) {
   const { minimapPosition } = useVisualization();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const flow = useReactFlow();
 
   const content = {
     en: {
@@ -87,6 +88,9 @@ export default function MiniMap({ lang }: MiniMapProps) {
                 ariaLabel={text.minimap}
                 pannable
                 zoomable
+                onClick={(_, position) =>
+                  flow.setCenter(position.x, position.y, { zoom: flow.getZoom(), duration: 300 })
+                }
                 nodeBorderRadius={3}
               />
             </motion.div>

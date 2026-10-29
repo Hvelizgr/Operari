@@ -6,7 +6,6 @@
 import { useReactFlow } from '@xyflow/react';
 import { useCallback, useState } from 'react';
 
-import { EDITOR_CONFIG } from '../config/editor.config';
 import type { ViewportState } from '../types/editor.types';
 
 const ANIMATION_MS = 200;
@@ -57,7 +56,8 @@ export function useEditorViewport(): UseEditorViewportReturn {
     flow.fitView({
       padding: 0.15,
       minZoom: FIT_VIEW_MIN_ZOOM,
-      maxZoom: EDITOR_CONFIG.ZOOM.MAX,
+      // Fitting a two-node runbook to the screen zoomed to 2x.
+      maxZoom: 1,
       duration: ANIMATION_MS,
     });
   }, [flow]);

@@ -158,7 +158,7 @@ export default function EditorOverlays({
   return (
     <>
       {/* ... other elements ... */}
-      <div className="pointer-events-none absolute bottom-4 right-4 rounded-lg bg-slate-800/80 px-3 py-2 font-mono text-xs text-slate-300 backdrop-blur-sm">
+      <div className="pointer-events-none absolute bottom-4 right-20 rounded-lg bg-slate-800/80 px-3 py-2 font-mono text-xs text-slate-300 backdrop-blur-sm">
         Zoom: {Math.round(viewport.zoom * 100)}% | Pan: ({Math.round(viewport.x)},{' '}
         {Math.round(viewport.y)}) | Nodes: {nodes.length} | Selected: {selectedNodesCount}
       </div>
