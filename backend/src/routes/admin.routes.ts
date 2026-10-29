@@ -120,7 +120,7 @@ function getKeyRotationService(): KeyRotationService {
  *  one-role-fits-all is fine for v0.1. */
 function requireAdmin(req: AuthRequest, res: Response): boolean {
   if (req.user?.role !== 'ADMIN') {
-    res.status(403).json({ error: 'Only admins can manage key rotation' });
+    res.status(403).json({ error: 'Admin role required' });
     return false;
   }
   return true;

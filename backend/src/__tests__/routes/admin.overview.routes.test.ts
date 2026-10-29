@@ -54,6 +54,8 @@ const USER_VIEWER = {
   email: 'u@x.com',
 };
 
+const ADMIN_VIEWER = { ...USER_VIEWER, role: 'ADMIN' as const };
+
 describe('GET /api/admin/overview', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -75,6 +77,13 @@ describe('GET /api/admin/overview', () => {
     });
   }
 
+  it('rejects non-admin viewers with 403 without touching the database', async () => {
+    const res = await request(makeApp(USER_VIEWER)).get('/api/admin/overview');
+
+    expect(res.status).toBe(403);
+    expect(prisma.tenant.findUnique).not.toHaveBeenCalled();
+  });
+
   it('returns tenant + users + custom roles + counts for the caller tenant', async () => {
     (prisma.tenant.findUnique as jest.Mock).mockResolvedValue({
       id: 't-1',
@@ -94,7 +103,7 @@ describe('GET /api/admin/overview', () => {
     ]);
     stubCounts([12, 340, 3, 2, 1, 0, 5, 200]);
 
-    const res = await request(makeApp(USER_VIEWER)).get('/api/admin/overview');
+    const res = await request(makeApp(ADMIN_VIEWER)).get('/api/admin/overview');
 
     expect(res.status).toBe(200);
     expect(res.body.tenant).toMatchObject({ id: 't-1', slug: 'acme', plan: 'TEAM' });
@@ -118,7 +127,7 @@ describe('GET /api/admin/overview', () => {
     (prisma.customRole.findMany as jest.Mock).mockResolvedValue([]);
     stubCounts([0, 0, 0, 0, 0, 0, 0, 0]);
 
-    await request(makeApp(USER_VIEWER)).get('/api/admin/overview');
+    await request(makeApp(ADMIN_VIEWER)).get('/api/admin/overview');
 
     expect(prisma.tenant.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 't-1' } })
@@ -140,7 +149,7 @@ describe('GET /api/admin/overview', () => {
     (prisma.customRole.findMany as jest.Mock).mockResolvedValue([]);
     stubCounts([0, 0, 0, 0, 0, 0, 0, 0]);
 
-    const res = await request(makeApp(USER_VIEWER)).get('/api/admin/overview');
+    const res = await request(makeApp(ADMIN_VIEWER)).get('/api/admin/overview');
     expect(res.status).toBe(200);
     expect(res.body.tenant).toBeNull();
   });
