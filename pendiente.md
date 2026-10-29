@@ -121,6 +121,16 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 
 ---
 
+### ✅ Producción operari.hvelizgr.dev (2026-10-29)
+
+- Registro bloqueado con 429: Express sin `trust proxy` → todos los visitantes compartían un cupo de 5/min. `TRUST_PROXY=2` + el tier auth ya no cuenta GETs (`97fb6c0`)
+- `OPERARI_DEV_LOGIN_ENABLED` estaba en `true` en el sitio público → forzado a `false` en el overlay (`071fae6`)
+- `OPERARI_SECRET_KEY` nunca llegaba al contenedor → MFA daba 500 y el worker de rotación no arrancaba (`dfedc5e`); clave generada en `.env` del servidor
+- Rate limit siempre en memoria (se creaba antes de que Redis conectara) → ahora en Redis, con fallo abierto si Redis cae (`455d597`)
+- Runbooks demo con forma vieja: 0 en este servidor. Solo haría falta una migración de datos para self-hosts antiguos (baja prioridad)
+
+---
+
 ## Operativos / no-código (afuera del repo)
 
 | Item | Estado |
