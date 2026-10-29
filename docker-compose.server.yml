@@ -1,0 +1,84 @@
+# Overlay para el servidor hvelizgr.dev — https://operari.hvelizgr.dev
+#   docker compose -f docker-compose.yml -f docker-compose.server.yml up -d --build
+# Sin puertos al host: el proxy de ~/servidor/infra entra por la red "web".
+
+x-labels: &labels
+  dev.hvelizgr.proyecto: operari
+  dev.hvelizgr.url: https://operari.hvelizgr.dev
+
+services:
+  postgres:
+    ports: !reset []
+    labels:
+      <<: *labels
+      dev.hvelizgr.servicio: postgres
+
+  redis:
+    ports: !reset []
+    labels:
+      <<: *labels
+      dev.hvelizgr.servicio: redis
+
+  migrate:
+    # Reusa la imagen del backend en vez de construirla dos veces
+    build: !reset null
+    image: hvelizgr/operari-backend:latest
+    depends_on:
+      backend-image:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    labels:
+      <<: *labels
+      dev.hvelizgr.servicio: migrate
+
+  # Sólo construye la imagen del backend (termina enseguida)
+  backend-image:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      labels:
+        dev.hvelizgr.proyecto: operari
+        dev.hvelizgr.servicio: backend
+    image: hvelizgr/operari-backend:latest
+    command: ['true']
+    restart: 'no'
+    labels:
+      <<: *labels
+      dev.hvelizgr.servicio: build
+
+  backend:
+    build: !reset null
+    image: hvelizgr/operari-backend:latest
+    ports: !reset []
+    environment:
+      FRONTEND_URL: https://operari.hvelizgr.dev
+      OAUTH_REDIRECT_BASE_URL: https://operari.hvelizgr.dev
+      COOKIE_SECURE: 'true'
+    networks:
+      - default
+      - web
+    labels:
+      <<: *labels
+      dev.hvelizgr.servicio: backend
+
+  frontend:
+    build:
+      labels:
+        dev.hvelizgr.proyecto: operari
+        dev.hvelizgr.servicio: frontend
+    image: hvelizgr/operari-frontend:latest
+    ports: !reset []
+    environment:
+      NEXT_PUBLIC_API_URL: https://operari.hvelizgr.dev
+      NEXT_PUBLIC_SITE_URL: https://operari.hvelizgr.dev
+    networks:
+      - default
+      - web
+    labels:
+      <<: *labels
+      dev.hvelizgr.servicio: frontend
+
+networks:
+  web:
+    external: true
