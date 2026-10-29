@@ -100,7 +100,7 @@ export default function DocsPage({
 
         <div className="grid gap-10 sm:gap-14 md:grid-cols-[220px,1fr]">
           {/* TOC — sticky sidebar on desktop, top bar on mobile */}
-          <aside className="md:sticky md:top-28 md:max-h-[calc(100vh-8rem)] md:self-start md:overflow-y-auto">
+          <aside className="min-w-0 md:sticky md:top-28 md:max-h-[calc(100vh-8rem)] md:self-start md:overflow-y-auto">
             <p className="text-muted-foreground mb-3 hidden font-mono text-[10px] uppercase tracking-[0.2em] md:block">
               {tocLabel}
             </p>

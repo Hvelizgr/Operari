@@ -165,7 +165,12 @@ export default function ChangelogView({ content, lang }: { content: Changelog; l
 
                 <div className="space-y-8">
                   {entries.map((entry, i) => (
-                    <EntryRow key={entry.version} entry={entry} index={i} lang={lang} />
+                    <EntryRow
+                      key={`${entry.version}-${entry.title}`}
+                      entry={entry}
+                      index={i}
+                      lang={lang}
+                    />
                   ))}
                 </div>
               </div>

@@ -80,7 +80,7 @@ export default function PricingView({ content, lang }: { content: Pricing; lang:
   const copy = lang === 'es' ? COPY.es : COPY.en;
 
   return (
-    <main className="relative">
+    <main className="relative overflow-x-clip">
       {/* Hero band — dotted-grid backdrop. Anchors the calculator visually
           and contrasts with the matrix section below it (flat dark). */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[860px] overflow-hidden">
