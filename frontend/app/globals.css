@@ -473,6 +473,20 @@ html {
   --anim-duration-mult: 1;
 }
 
+/* Multi-line headings were leaving a single orphaned word on the last
+   line ("…en cinco / beats."). */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+/* framer-motion's useScroll({ target }) measures against the document
+   element and miscalculates offsets when it is position: static. */
+html {
+  position: relative;
+}
+
 /* Apply to the editor's job/event nodes. The CSS below is
    intentionally additive — it only OVERRIDES padding/radius/width
    on .wf_event so the existing visual types (trigger, action,
@@ -769,4 +783,47 @@ html[data-anim='off'] .wf_error {
 
 .shimmer-hover:hover::after {
   transform: translateX(100%);
+}
+
+/* Landing integrations strip (TrustBar). */
+.trust-marquee {
+  overflow: hidden;
+}
+.trust-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: trust-marquee 38s linear infinite;
+}
+.trust-marquee:hover .trust-marquee-track {
+  animation-play-state: paused;
+}
+.trust-marquee-group {
+  display: flex;
+  align-items: center;
+  gap: 3.5rem;
+  padding-right: 3.5rem;
+}
+@keyframes trust-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trust-marquee {
+    mask-image: none;
+  }
+  .trust-marquee-track {
+    width: auto;
+    animation: none;
+    justify-content: center;
+  }
+  .trust-marquee-group {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 1.25rem;
+    padding-right: 0;
+  }
+  .trust-marquee-group[aria-hidden='true'] {
+    display: none;
+  }
 }

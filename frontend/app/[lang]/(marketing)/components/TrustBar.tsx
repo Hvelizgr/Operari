@@ -34,28 +34,40 @@ export default function TrustBar({ content }: TrustBarProps) {
           {content.eyebrow}
         </motion.p>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-5 sm:gap-x-14 sm:gap-y-6">
-          {LOGOS.map((logo, i) => (
-            <motion.div
-              key={logo.name}
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 0.55, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{
-                duration: 0.55,
-                delay: 0.06 * i,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              whileHover={{ opacity: 1 }}
-              className="text-foreground/80 flex items-center gap-2 transition-opacity"
-            >
-              <Logo name={logo.name} />
-              <span className="text-sm font-semibold tracking-tight sm:text-base">
-                {logo.label}
-              </span>
-            </motion.div>
-          ))}
-        </div>
+        {/* One row that drifts sideways instead of wrapping into an
+            orphaned second line. The list is rendered twice so the
+            -50% translate loops seamlessly; the copy is hidden from
+            assistive tech. Reduced motion falls back to a static,
+            wrapped row (see .trust-marquee in globals.css). */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-40px' }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          className="trust-marquee [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]"
+        >
+          <div className="trust-marquee-track">
+            {[0, 1].map(copy => (
+              <ul
+                key={copy}
+                aria-hidden={copy === 1 ? true : undefined}
+                className="trust-marquee-group"
+              >
+                {LOGOS.map(logo => (
+                  <li
+                    key={logo.name}
+                    className="text-foreground/80 flex shrink-0 items-center gap-2 opacity-55 transition-opacity duration-300 hover:opacity-100"
+                  >
+                    <Logo name={logo.name} />
+                    <span className="text-sm font-semibold tracking-tight sm:text-base">
+                      {logo.label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ))}
+          </div>
+        </motion.div>
 
         <motion.p
           initial={{ opacity: 0 }}
