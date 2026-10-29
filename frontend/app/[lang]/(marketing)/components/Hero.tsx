@@ -274,7 +274,6 @@ function ApiTerminal({ content: s }: { content: typeof content.hero.scenario }) 
     const tl = anime.timeline({
       easing: 'easeOutQuart',
       loop: true,
-      loopDelay: 4500,
     });
 
     // 1. Type each request line character-by-character. anime.js doesn't
@@ -285,7 +284,7 @@ function ApiTerminal({ content: s }: { content: typeof content.hero.scenario }) 
       tl.add({
         targets: { p: 0 },
         p: 1,
-        duration: Math.max(260, full.length * 18),
+        duration: Math.max(200, full.length * 9),
         easing: 'linear',
         delay: i === 0 ? 350 : 80,
         update: anim => {
@@ -334,6 +333,11 @@ function ApiTerminal({ content: s }: { content: typeof content.hero.scenario }) 
       },
       '+=200'
     );
+
+    // anime v3 has no loopDelay, so hold the finished run on screen with
+    // a trailing pause; without it the loop wiped the stream ~1s after
+    // it appeared.
+    tl.add({ duration: 4500 });
 
     timelineRef.current = tl;
 
