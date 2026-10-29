@@ -248,3 +248,31 @@ def test_run_cli_rejects_non_json_stdin():
     body = json.loads(out_stream.getvalue().split("RESULT ", 1)[1])
     assert body["success"] is False
     assert "JSON parse" in body["error"]
+
+
+def test_execute_step_awaits_async_execute():
+    async def execute(config, context: PluginContext):
+        import asyncio
+
+        await asyncio.sleep(0)
+        context.emit("log", "async step")
+        return PluginResult(success=True, output={"n": config["n"] * 2})
+
+    step = define_step(type="example.async", config_schema=lambda v: v, execute=execute)
+    out = io.StringIO()
+    result = execute_step(step, {"config": {"n": 21}, "context": {}}, out)
+
+    assert result.success is True
+    assert result.output == {"n": 42}
+    assert 'EMIT {"type": "log", "text": "async step"}' in out.getvalue()
+
+
+def test_execute_step_reports_async_execute_failures():
+    async def execute(config, context: PluginContext):
+        raise RuntimeError("boom")
+
+    step = define_step(type="example.async-fail", config_schema=lambda v: v, execute=execute)
+    result = execute_step(step, {"config": {}, "context": {}}, io.StringIO())
+
+    assert result.success is False
+    assert result.error == "boom"

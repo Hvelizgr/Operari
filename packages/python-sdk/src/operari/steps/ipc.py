@@ -40,6 +40,8 @@ debugging but does not become a log event.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 import sys
 import traceback
@@ -83,6 +85,10 @@ def _build_context(
     )
 
 
+async def _await(awaitable: Any) -> Any:
+    return await awaitable
+
+
 def execute_step(
     step: PluginStep[Any],
     payload: dict[str, Any],
@@ -106,6 +112,10 @@ def execute_step(
 
     try:
         result = step.execute(config, context)
+        # `async def execute` returns a coroutine; each plugin process runs
+        # exactly one step, so it owns the event loop for its lifetime.
+        if inspect.isawaitable(result):
+            result = asyncio.run(_await(result))
     except Exception as err:
         # Mirror the TS adapter's behavior: an uncaught throw becomes
         # a structured failure result. We include the stack on stderr

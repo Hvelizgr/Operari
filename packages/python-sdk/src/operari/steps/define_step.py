@@ -10,7 +10,7 @@ the Node.js loader to a Python subprocess lives in
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generic, Literal, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Literal, Optional, TypeVar
 
 TConfig = TypeVar("TConfig")
 
@@ -80,7 +80,7 @@ class PluginStepProperty:
     type_options: Optional[dict[str, Any]] = None
 
 
-ExecuteFn = Callable[[Any, PluginContext], PluginResult]
+ExecuteFn = Callable[[Any, PluginContext], PluginResult | Awaitable[PluginResult]]
 
 
 @dataclass
