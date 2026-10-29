@@ -13,6 +13,7 @@ name: operari
 #   JWT_SECRET=<32+ chars random>
 #   ENCRYPTION_KEY=<32+ chars hex, generate with:
 #                   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
+#   OPERARI_SECRET_KEY=<64 chars hex, same command; enables MFA>
 #   ANTHROPIC_API_KEY=<your key>     # optional, enables R4 AI assist drawer
 #
 # After the stack is healthy, open http://localhost:3000/en/editor.
@@ -119,6 +120,11 @@ services:
       # Required by SecretCipher / ConnectedAccountService. 32+ char hex.
       # Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      # Master key for MFA secrets and key rotation (same format). Without
+      # it MFA enroll/verify/disable return 500 and the rotation worker
+      # does not start. Add OPERARI_SECRET_KEY_LEGACY only mid-rotation.
+      OPERARI_SECRET_KEY: ${OPERARI_SECRET_KEY:-}
+      OPERARI_SECRET_KEY_LEGACY: ${OPERARI_SECRET_KEY_LEGACY:-}
       # Optional. Enables the R4 RunbookAssistPanel diagnose endpoint.
       # Without an AI key the panel still opens but POSTs return 500.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
