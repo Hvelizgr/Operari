@@ -81,6 +81,9 @@ import { SchedulerService } from './services/scheduler.service';
 import { SchedulerLeader } from './services/scheduler-leader';
 
 const app = express();
+if (env.TRUST_PROXY) {
+  app.set('trust proxy', /^\d+$/.test(env.TRUST_PROXY) ? Number(env.TRUST_PROXY) : env.TRUST_PROXY);
+}
 const httpServer = createServer(app);
 const prisma = new PrismaClient();
 // Every query against Execution / NodeLog / ExecutionError must

@@ -52,6 +52,12 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
   COOKIE_SECURE: z.enum(['true', 'false']).optional(),
   CSRF_ENFORCE: z.enum(['true', 'false']).optional(),
+  /**
+   * Express `trust proxy`: a hop count ("2" for Cloudflare + nginx) or
+   * an address list. Unset behind a reverse proxy, req.ip is the proxy
+   * for every visitor and they all share one rate-limit bucket.
+   */
+  TRUST_PROXY: z.string().optional(),
   OPERARI_ANONYMOUS_MODE: z.enum(['true', 'false']).default('false'),
   /**
    * Enables POST /api/auth/dev-login — an unauthenticated endpoint that

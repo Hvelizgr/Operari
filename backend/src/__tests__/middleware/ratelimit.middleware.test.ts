@@ -15,20 +15,31 @@ describe('Rate Limit Middleware', () => {
   it('should limit requests for AUTH tier', async () => {
     // Auth tier limits to 5 requests per minute
     const limiter = createRateLimiter(RateLimitTier.AUTH);
-    app.get('/test-auth', limiter, (req, res) => res.json({ success: true }));
+    app.post('/test-auth', limiter, (req, res) => res.json({ success: true }));
 
     // Make 5 successful requests
     for (let i = 0; i < 5; i++) {
-      const res = await request(app).get('/test-auth');
+      const res = await request(app).post('/test-auth');
       expect(res.status).toBe(200);
       expect(res.headers['ratelimit-remaining']).toBe(String(4 - i));
     }
 
     // 6th request should fail
-    const res = await request(app).get('/test-auth');
+    const res = await request(app).post('/test-auth');
     expect(res.status).toBe(429);
     expect(res.body.error).toBe('Too many requests');
     expect(res.body.tier).toBe(RateLimitTier.AUTH);
+  });
+
+  it('does not count session reads against the AUTH tier', async () => {
+    const limiter = createRateLimiter(RateLimitTier.AUTH);
+    app.get('/me', limiter, (req, res) => res.json({ success: true }));
+    app.post('/register', limiter, (req, res) => res.json({ success: true }));
+
+    for (let i = 0; i < 10; i++) {
+      expect((await request(app).get('/me')).status).toBe(200);
+    }
+    expect((await request(app).post('/register')).status).toBe(200);
   });
 
   it('should allow more requests for EXECUTION tier', async () => {
@@ -45,15 +56,15 @@ describe('Rate Limit Middleware', () => {
 
   it('should provide Retry-After header when limit exceeded', async () => {
     const limiter = createRateLimiter(RateLimitTier.AUTH);
-    app.get('/retry-check', limiter, (req, res) => res.json({ success: true }));
+    app.post('/retry-check', limiter, (req, res) => res.json({ success: true }));
 
     // Exhaust limit
     for (let i = 0; i < 5; i++) {
-      await request(app).get('/retry-check');
+      await request(app).post('/retry-check');
     }
 
     // Check exceeded response
-    const res = await request(app).get('/retry-check');
+    const res = await request(app).post('/retry-check');
     expect(res.status).toBe(429);
     expect(res.headers['retry-after']).toBeDefined();
     // window is 60000ms, so retry after should be around 60 seconds

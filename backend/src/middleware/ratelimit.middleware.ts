@@ -20,6 +20,7 @@ export enum RateLimitTier {
 interface RateLimitConfig {
   windowMs: number;
   max: number;
+  countReads?: boolean;
 }
 
 /**
@@ -27,9 +28,13 @@ interface RateLimitConfig {
  * These can be easily adjusted without code changes by moving to environment variables
  */
 const RATE_LIMIT_CONFIGS: Record<RateLimitTier, RateLimitConfig> = {
+  // Mounted on all of /api/auth, so session reads (GET /me on every
+  // page load, OAuth redirects) would otherwise burn the budget meant
+  // for credential attempts and lock users out of login/register.
   [RateLimitTier.AUTH]: {
     windowMs: 1 * 60 * 1000, // 1 minute
     max: 5, // 5 requests per minute
+    countReads: false,
   },
   [RateLimitTier.EXECUTION]: {
     windowMs: 1 * 60 * 1000, // 1 minute
@@ -152,6 +157,9 @@ export const createRateLimiter = (tier: RateLimitTier): RateLimitRequestHandler 
     // against the limit would either false-alarm or force us to
     // whitelist monitor IPs per customer.
     skip: (req: Request) => {
+      if (config.countReads === false && ['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return true;
+      }
       return req.path === '/health' || req.path === '/live';
     },
   });

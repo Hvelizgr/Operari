@@ -55,6 +55,8 @@ services:
       FRONTEND_URL: https://operari.hvelizgr.dev
       OAUTH_REDIRECT_BASE_URL: https://operari.hvelizgr.dev
       COOKIE_SECURE: 'true'
+      # Cloudflare Tunnel → infra-proxy → backend
+      TRUST_PROXY: '2'
     networks:
       - default
       - web
