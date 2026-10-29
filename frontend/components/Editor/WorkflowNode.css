@@ -589,7 +589,9 @@ body.dark .wf_condition {
   width: 275px;
   height: auto;
   border-radius: 16px;
-  background-color: var(--box-background-color);
+  /* --box-background-color alone matches the canvas, so the box vanished */
+  background-color: color-mix(in srgb, var(--box-background-color) 86%, #f5c451);
+  border: 1px solid color-mix(in srgb, #f5c451 40%, transparent);
   font-size: 13px;
 }
 
