@@ -2,7 +2,7 @@
 
 import anime from 'animejs';
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, Check, Copy, Github, Terminal } from 'lucide-react';
+import { ArrowRight, Check, Copy, Github, RotateCcw, Terminal } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -218,7 +218,7 @@ export default function Hero({ content }: HeroProps) {
               drift is tiny (<60px over the hero height) so visitors
               read it as parallax depth, not movement. */}
           <motion.div style={{ y: terminalY, opacity: terminalOpacity }}>
-            <ApiTerminal content={content.scenario} />
+            <ApiTerminal content={content.scenario} lang={lang} />
           </motion.div>
         </div>
       </div>
@@ -236,12 +236,19 @@ export default function Hero({ content }: HeroProps) {
  * prop-driven orchestration; (c) we wanted to show off anime.js *somewhere*
  * on the page, and this is the highest-visibility slot.
  */
-function ApiTerminal({ content: s }: { content: typeof content.hero.scenario }) {
+function ApiTerminal({
+  content: s,
+  lang,
+}: {
+  content: typeof content.hero.scenario;
+  lang: string;
+}) {
   const requestRef = useRef<HTMLPreElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<anime.AnimeTimelineInstance | null>(null);
+  const replayRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     // Bail if any ref isn't mounted yet (SSR / strict-mode remount).
@@ -271,9 +278,14 @@ function ApiTerminal({ content: s }: { content: typeof content.hero.scenario }) 
     });
     if (footerRef.current) footerRef.current.style.opacity = '0';
 
+    // Seeking back to 0 does not undo the typing `update` callbacks, so
+    // lines typed in the previous pass would sit there fully written
+    // until their turn came round again.
+    const clearRequest = () => requestLines.forEach(line => (line.textContent = ''));
     const tl = anime.timeline({
       easing: 'easeOutQuart',
       loop: true,
+      loopBegin: clearRequest,
     });
 
     // 1. Type each request line character-by-character. anime.js doesn't
@@ -340,6 +352,10 @@ function ApiTerminal({ content: s }: { content: typeof content.hero.scenario }) 
     tl.add({ duration: 4500 });
 
     timelineRef.current = tl;
+    replayRef.current = () => {
+      clearRequest();
+      tl.restart();
+    };
 
     return () => {
       tl.pause();
@@ -353,22 +369,27 @@ function ApiTerminal({ content: s }: { content: typeof content.hero.scenario }) 
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.7, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
       className="relative mx-auto w-full max-w-xl lg:mx-0 lg:ml-auto"
-      aria-hidden="true"
     >
       {/* Ambient emerald halo around the whole card */}
-      <div className="from-primary/[0.08] to-primary/[0.04] absolute -inset-6 rounded-3xl bg-gradient-to-b via-transparent blur-2xl" />
+      <div
+        aria-hidden="true"
+        className="from-primary/[0.08] to-primary/[0.04] absolute -inset-6 rounded-3xl bg-gradient-to-b via-transparent blur-2xl"
+      />
 
       <div className="border-border bg-card/80 relative overflow-hidden rounded-2xl border shadow-2xl shadow-black/40 backdrop-blur-md">
         {/* Title bar — traffic lights + endpoint badge. The method pill
             uses the same accent as the primary CTA so the eye links them
             visually (press button → this endpoint runs). */}
         <div className="border-border/70 bg-card/60 flex items-center gap-3 border-b px-4 py-3 sm:px-5">
-          <div className="flex items-center gap-1.5">
+          <div aria-hidden="true" className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500/60" />
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/60" />
           </div>
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:justify-start">
+          <div
+            aria-hidden="true"
+            className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:justify-start"
+          >
             <span className="bg-primary/15 border-primary/30 text-primary shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold sm:text-[11px]">
               {s.requestMethod}
             </span>
@@ -376,10 +397,19 @@ function ApiTerminal({ content: s }: { content: typeof content.hero.scenario }) 
               {s.requestUrl}
             </span>
           </div>
+          <button
+            type="button"
+            onClick={() => replayRef.current()}
+            aria-label={lang === 'es' ? 'Repetir la demo' : 'Replay the demo'}
+            title={lang === 'es' ? 'Repetir' : 'Replay'}
+            className="text-muted-foreground hover:text-foreground focus-visible:ring-primary/60 shrink-0 rounded-md p-1 transition-colors focus-visible:outline-none focus-visible:ring-2"
+          >
+            <RotateCcw size={14} />
+          </button>
         </div>
 
         {/* Request pane */}
-        <div className="border-border/70 border-b px-4 py-4 sm:px-5">
+        <div aria-hidden="true" className="border-border/70 border-b px-4 py-4 sm:px-5">
           <div className="text-muted-foreground mb-2 text-[10px] font-semibold uppercase tracking-wider">
             {s.requestLabel}
           </div>
@@ -398,6 +428,7 @@ function ApiTerminal({ content: s }: { content: typeof content.hero.scenario }) 
         {/* Response pane — hidden until the timeline reveals it */}
         <div
           ref={responseRef}
+          aria-hidden="true"
           className="border-border/70 border-b px-4 py-4 sm:px-5"
           style={{ opacity: 0, transform: 'translateY(8px)' }}
         >
@@ -413,7 +444,7 @@ function ApiTerminal({ content: s }: { content: typeof content.hero.scenario }) 
         </div>
 
         {/* Stream pane — each line pops in with an emerald arrow */}
-        <div ref={streamRef} className="px-4 py-4 sm:px-5">
+        <div ref={streamRef} aria-hidden="true" className="px-4 py-4 sm:px-5">
           <div className="text-muted-foreground mb-2 text-[10px] font-semibold uppercase tracking-wider">
             {s.streamLabel}
           </div>
