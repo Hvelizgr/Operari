@@ -105,7 +105,7 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 
 - ~~Probarlo contra el backend real~~ — hecho 2026-10-29 contra el stack Docker (runbook demo + plantilla `db-migration-prisma`): carga, fit view, drag, autosave, recarga. Salieron y se arreglaron: falso "Conflict" del autosave tras el primer guardado, autosave YAML que no actualizaba la columna JSON (que leen el loader y el engine), sin fit view al abrir `?id=`, warning 015 de React Flow (`measured` no se pasaba a los nodos), seed del runbook demo con forma inválida, nodos de YAML sin posición superpuestos (espaciado 200 < ancho 260)
 - Runbooks demo ya sembrados en tenants existentes siguen con la forma vieja (`type: 'note'`, `data.label`, sin `title`): el autosave les da 400. Hace falta migración de datos o normalizar en el loader (~medio día)
-- Borrar la cuenta de prueba `rf-canvas-test@example.com` (tenant `rf-canvas-test`) de la base del servidor
+- ~~Borrar la cuenta de prueba `rf-canvas-test@example.com` (tenant `rf-canvas-test`)~~ — borrada 2026-10-29
 - Conectar nodos contra el backend real: no se llegó a probar (sí en la prueba local con fixture); usa el mismo autosave que el drag
 - Commit de la migración + del arreglo de `ajv` (overrides anidados en `package.json` raíz y entradas del lockfile regeneradas; backup del lockfile anterior en el scratchpad de la sesión)
 - Minimapa propio (`components/Navigation/MiniMap.tsx`) → reemplazar por `<MiniMap>` de React Flow; hoy mueve el canvas vía `handleViewportChangeAdapter` → `useReactFlow().setViewport` (~medio día)
