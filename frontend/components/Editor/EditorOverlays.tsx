@@ -75,6 +75,7 @@ interface EditorOverlaysProps {
   onRedo?: () => void;
   onHistory?: () => void;
   onShortcuts?: () => void;
+  onOpenNodeSearch?: () => void;
   onSetModeMove?: () => void;
   onSetModeDraw?: () => void;
   onClearAll?: () => void;
@@ -138,6 +139,7 @@ export default function EditorOverlays({
   onRedo,
   onHistory,
   onShortcuts,
+  onOpenNodeSearch,
   onSetModeMove,
   onSetModeDraw,
   onClearAll,
@@ -269,7 +271,8 @@ export default function EditorOverlays({
           lang={lang}
           type={contextMenu.type}
           onAddNode={() => {
-            onContextMenuClose(); /* trigger search */
+            onContextMenuClose();
+            onOpenNodeSearch?.();
           }}
           onZoomIn={onZoomIn}
           onZoomOut={onZoomOut}

@@ -750,6 +750,7 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
               onRedo={redo}
               onHistory={() => setIsSnapshotDialogOpen(true)}
               onShortcuts={() => setIsCommandPaletteOpen(true)}
+              onOpenNodeSearch={() => setSearchTrigger(Date.now())}
               onSetModeMove={() => selectTool('move')}
               onSetModeDraw={() => selectTool('draw')}
               onClearAll={handleClearAll}
