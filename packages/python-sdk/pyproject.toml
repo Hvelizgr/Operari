@@ -33,9 +33,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/hvelizg/Operari"
-Documentation = "https://github.com/hvelizg/Operari/tree/main/packages/python-sdk"
-Repository = "https://github.com/hvelizg/Operari"
+Homepage = "https://github.com/Hvelizgr/Operari"
+Documentation = "https://github.com/Hvelizgr/Operari/tree/main/packages/python-sdk"
+Repository = "https://github.com/Hvelizgr/Operari"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/operari"]
