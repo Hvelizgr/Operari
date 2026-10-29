@@ -1,0 +1,164 @@
+/* React Flow host — transparent so GridLayer (Appearance-driven pattern)
+   keeps painting underneath. */
+.wf_flow.react-flow {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: transparent;
+  --xy-background-color: transparent;
+  --xy-selection-background-color: rgba(62, 207, 142, 0.08);
+  --xy-selection-border: 1px dashed var(--theme-color, #3ecf8e);
+}
+
+/* The legacy cards are `position: absolute` with left/top coming from the
+   old layer. Inside React Flow the wrapper owns positioning, and an
+   absolute child would collapse the wrapper to 0×0 — React Flow would
+   then measure nothing and anchor every edge at the node's origin. */
+.react-flow__node .wf_node {
+  position: relative;
+}
+
+.react-flow__node:focus-visible {
+  outline: none;
+}
+
+.wf_node.highlighted {
+  box-shadow: 0 0 0 2px var(--theme-color, #3ecf8e);
+}
+
+/* Poles rendered as React Flow handles. Reset the library's defaults and
+   re-apply the pole look; centring stays on the legacy -7px margins. */
+.wf_node .react-flow__handle.wf_pole_button {
+  min-width: 0;
+  min-height: 0;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  margin-left: -7px;
+  transform: none;
+  background: var(--accent-override, var(--op-moss, #3ecf8e));
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  border-radius: 999em;
+}
+
+.wf_node .react-flow__handle.wf_output_pole {
+  border-radius: 3px;
+  transform: rotate(45deg);
+}
+
+.wf_node .react-flow__handle.wf_up_pole,
+.wf_node .react-flow__handle.wf_down_pole {
+  background: var(--cyan);
+}
+
+.wf_node .react-flow__handle-left {
+  left: -1px;
+  top: 50%;
+}
+
+.wf_node .react-flow__handle-right {
+  left: calc(100% + 1px);
+  right: auto;
+  top: 50%;
+}
+
+.wf_node .wf_multi_output_poles .react-flow__handle-right {
+  left: auto;
+  right: 0;
+}
+
+.wf_node .react-flow__handle-top {
+  left: 50%;
+  top: -1px;
+}
+
+.wf_node .react-flow__handle-bottom {
+  bottom: auto;
+}
+
+.wf_node .react-flow__handle.connectingto,
+.wf_node .react-flow__handle.valid {
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.15),
+    0 0 12px rgba(62, 207, 142, 0.6);
+}
+
+.wf_edge_bubble {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: var(--bubble-color);
+  border: 2.5px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 0 0 2px rgba(0, 0, 0, 0.3),
+    0 2px 8px color-mix(in srgb, var(--bubble-color) 30%, transparent);
+  color: white;
+  cursor: pointer;
+  pointer-events: all;
+  transition: box-shadow 0.15s ease;
+}
+
+.wf_edge_bubble > svg {
+  transform: rotate(-45deg);
+}
+
+.wf_edge_bubble.popped,
+.wf_edge_bubble:hover {
+  box-shadow:
+    0 0 0 2px var(--theme-color, #3ecf8e),
+    0 2px 10px var(--bubble-color);
+}
+
+/* Edge flow styles from Appearance → Connections. Durations come from
+   --edge-flow-seconds (set per edge from the flow-speed preference). */
+.react-flow__edge-path.wf_edge_march {
+  stroke-dasharray: 6 4;
+  animation: wf-edge-march 0.6s linear infinite;
+}
+
+.react-flow__edge-path.wf_edge_sweep {
+  stroke-dasharray: 24 36;
+  animation: wf-edge-sweep var(--edge-flow-seconds, 2s) linear infinite;
+}
+
+.react-flow__edge-path.wf_edge_pulse {
+  animation: wf-edge-pulse var(--edge-flow-seconds, 2s) ease-in-out infinite;
+}
+
+.react-flow__edge-path.wf_edge_cyclic {
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.7));
+}
+
+@keyframes wf-edge-march {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+@keyframes wf-edge-sweep {
+  to {
+    stroke-dashoffset: -60;
+  }
+}
+
+@keyframes wf-edge-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__edge-path.wf_edge_march,
+  .react-flow__edge-path.wf_edge_sweep,
+  .react-flow__edge-path.wf_edge_pulse {
+    animation: none;
+  }
+
+  .wf_edge_flow {
+    display: none;
+  }
+}

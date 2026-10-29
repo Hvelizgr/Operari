@@ -2,16 +2,15 @@
 'use client';
 
 import type { FrameNodeConfig, WorkflowNode } from '@operari/shared';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { NodeResizer } from '@xyflow/react';
+import { useEffect, useState } from 'react';
 
 interface FrameNodeProps {
   node: WorkflowNode;
   isSelected: boolean;
   onUpdate: (nodeId: string, updates: Partial<WorkflowNode>) => void;
-  onDragStart: (nodeId: string, e: React.MouseEvent) => void;
-  zoom?: number;
   /** How many non-frame, non-note steps are visually contained inside
-   * this frame's bounding box. Computed once in NodesLayer and passed
+   * this frame's bounding box. Computed once in FlowCanvas and passed
    * down so the frame can render a "N steps" pill without walking the
    * node list itself. */
   containedCount?: number;
@@ -21,26 +20,13 @@ export default function FrameNode({
   node,
   isSelected,
   onUpdate,
-  onDragStart,
-  zoom = 1,
   containedCount = 0,
 }: FrameNodeProps) {
-  // FrameNode is only rendered when node.type === 'custom.frame' (see
-  // NodesLayer), so treating the config as FrameNodeConfig is safe. The
-  // `as any` chains this replaces came from the older catch-all
-  // `Record<string, any>` typing of WorkflowNode.config.
+  // FrameNode is only rendered for node.type === 'custom.frame' (see
+  // FlowCanvas), so treating the config as FrameNodeConfig is safe.
   const cfg = (node.config ?? {}) as FrameNodeConfig;
   const [title, setTitle] = useState(cfg.title || 'Frame');
   const [isEditing, setIsEditing] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const resizeRef = useRef<{
-    startX: number;
-    startY: number;
-    startW: number;
-    startH: number;
-    corner: string;
-  } | null>(null);
-  const frameRef = useRef<HTMLDivElement>(null);
 
   // Frame dimensions with defaults
   const width = cfg.width || 400;
@@ -68,86 +54,22 @@ export default function FrameNode({
     }
   };
 
-  // Resize handlers
-  const handleResizeStart = useCallback(
-    (e: React.MouseEvent, corner: string) => {
-      e.stopPropagation();
-      e.preventDefault();
-      setIsResizing(true);
-      resizeRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        startW: width,
-        startH: height,
-        corner,
-      };
-    },
-    [width, height]
-  );
-
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!resizeRef.current) return;
-
-      const { startX, startY, startW, startH, corner } = resizeRef.current;
-      const deltaX = (e.clientX - startX) / zoom;
-      const deltaY = (e.clientY - startY) / zoom;
-
-      let newWidth = startW;
-      let newHeight = startH;
-
-      if (corner.includes('e')) newWidth = Math.max(200, startW + deltaX);
-      if (corner.includes('w')) newWidth = Math.max(200, startW - deltaX);
-      if (corner.includes('s')) newHeight = Math.max(150, startH + deltaY);
-      if (corner.includes('n')) newHeight = Math.max(150, startH - deltaY);
-
-      onUpdate(node.id, {
-        config: {
-          ...node.config,
-          width: newWidth,
-          height: newHeight,
-        },
-      });
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      resizeRef.current = null;
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing, zoom, node.id, node.config, onUpdate]);
-
   return (
     <div
-      ref={frameRef}
       id={`d_wfn_${node.id}`}
       className={`wf_node wf_frame ${isSelected ? 'selected' : ''}`}
       style={
         {
-          left: node.position.x,
-          top: node.position.y,
           width,
           height,
           '--frame-color': color,
         } as React.CSSProperties
       }
     >
-      {/* Title Bar - Draggable */}
+      <NodeResizer isVisible={isSelected} minWidth={200} minHeight={150} color={color} />
+
       <div
         className="frame-title-bar"
-        onMouseDown={e => {
-          e.stopPropagation();
-          onDragStart(node.id, e);
-        }}
         onDoubleClick={e => {
           e.stopPropagation();
           setIsEditing(true);
@@ -171,7 +93,7 @@ export default function FrameNode({
             onBlur={handleTitleBlur}
             onKeyDown={handleTitleKeyDown}
             autoFocus
-            className="frame-title-input"
+            className="frame-title-input nodrag"
             onClick={e => e.stopPropagation()}
           />
         ) : (
@@ -184,18 +106,7 @@ export default function FrameNode({
         )}
       </div>
 
-      {/* Content Area */}
       <div className="frame-content" />
-
-      {/* Resize Handles */}
-      <div className="frame-resize-handle se" onMouseDown={e => handleResizeStart(e, 'se')} />
-      <div className="frame-resize-handle sw" onMouseDown={e => handleResizeStart(e, 'sw')} />
-      <div className="frame-resize-handle ne" onMouseDown={e => handleResizeStart(e, 'ne')} />
-      <div className="frame-resize-handle nw" onMouseDown={e => handleResizeStart(e, 'nw')} />
-      <div className="frame-resize-handle e" onMouseDown={e => handleResizeStart(e, 'e')} />
-      <div className="frame-resize-handle w" onMouseDown={e => handleResizeStart(e, 'w')} />
-      <div className="frame-resize-handle s" onMouseDown={e => handleResizeStart(e, 's')} />
-      <div className="frame-resize-handle n" onMouseDown={e => handleResizeStart(e, 'n')} />
     </div>
   );
 }

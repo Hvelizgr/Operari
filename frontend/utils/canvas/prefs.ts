@@ -1,10 +1,10 @@
 import { colorWithAlpha } from './color';
 
 /**
- * Canvas-renderer view of the user's Appearance preferences. Read
- * fresh from the DOM on every frame — the Appearance page writes to
- * `<html>` as data-* attrs + CSS custom properties, so the renderer
- * picks up changes instantly without prop drilling or React re-renders.
+ * Editor-canvas view of the user's Appearance preferences. The
+ * Appearance page writes to `<html>` as data-* attrs + CSS custom
+ * properties; `Editor/flow/useCanvasAppearance` observes those and
+ * re-reads through here.
  */
 
 export type UpstreamStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'SKIPPED' | 'CANCELLED';

@@ -18,8 +18,6 @@ export function useEditorNodes({ executeCommand }: UseEditorNodesOptions) {
   const [nodes, setNodes] = useState<WorkflowNode[]>(INITIAL_NODES);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [highlightedNodes, setHighlightedNodes] = useState<string[]>([]);
-  const [draggingNode, setDraggingNode] = useState<string | null>(null);
-  const [nodeDragStart, setNodeDragStart] = useState({ x: 0, y: 0 });
   const [draggingNodeType, setDraggingNodeType] = useState<NodeType | null>(null);
   const [configNodeId, setConfigNodeId] = useState<string | null>(null);
 
@@ -40,35 +38,12 @@ export function useEditorNodes({ executeCommand }: UseEditorNodesOptions) {
     }
   }, []);
 
-  // Node update. Two paths:
-  //
-  // 1) Auto-measurement updates (dimensions only) bypass the undo
-  //    stack AND skip the stale-closure snapshot entirely. This is
-  //    the ResizeObserver / useLayoutEffect fix: we MUST merge with
-  //    the freshest node state, because a concurrent drag may have
-  //    already moved `position`. The old code captured
-  //    `oldNode = nodes.find(...)` from a stale closure, then did
-  //    `{ ...oldNode, ...updates }` — which silently reverted a
-  //    user's drag back to the pre-drag position, and visually
-  //    manifested as "cables point at the center, not the node
-  //    where it actually is".
-  //
-  // 2) Real user edits (config, title, retry policy, etc.) go
-  //    through executeCommand so undo/redo can rewind them. We
-  //    capture the old state INSIDE the setNodes callback so the
-  //    snapshot is always from the committed state, not a stale
-  //    closure.
+  // Real user edits (config, title, retry policy, etc.) go through
+  // executeCommand so undo/redo can rewind them. The old state is
+  // captured INSIDE the setNodes callback so the snapshot is always from
+  // the committed state, not a stale closure.
   const handleNodeUpdate = useCallback(
     (nodeId: string, updates: Partial<WorkflowNode>) => {
-      const isDimensionsOnly = Object.keys(updates).length === 1 && 'dimensions' in updates;
-
-      if (isDimensionsOnly) {
-        setNodes((prev: WorkflowNode[]) =>
-          prev.map((node: WorkflowNode) => (node.id === nodeId ? { ...node, ...updates } : node))
-        );
-        return;
-      }
-
       let capturedOldState: WorkflowNode | null = null;
       executeCommand({
         execute: () => {
@@ -139,10 +114,6 @@ export function useEditorNodes({ executeCommand }: UseEditorNodesOptions) {
     selectedNodes,
     setSelectedNodes,
     highlightedNodes,
-    draggingNode,
-    setDraggingNode,
-    nodeDragStart,
-    setNodeDragStart,
     draggingNodeType,
     setDraggingNodeType,
     configNodeId,

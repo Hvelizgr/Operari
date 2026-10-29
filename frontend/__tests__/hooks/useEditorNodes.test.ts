@@ -96,14 +96,4 @@ describe('useEditorNodes', () => {
 
     expect(result.current.highlightedNodes).toEqual(ids);
   });
-
-  it('handles drag state', () => {
-    const { result } = renderHook(() => useEditorNodes({ executeCommand: mockExecuteCommand }));
-
-    act(() => {
-      result.current.setDraggingNode('node-1');
-    });
-
-    expect(result.current.draggingNode).toBe('node-1');
-  });
 });

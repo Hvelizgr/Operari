@@ -3,150 +3,91 @@
  * Handles zoom, pan, fit view, and viewport transformations
  */
 
-import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { useReactFlow } from '@xyflow/react';
+import { useCallback, useState } from 'react';
 
-import type { WorkflowNode } from '../components/Editor';
 import { EDITOR_CONFIG } from '../config/editor.config';
 import type { ViewportState } from '../types/editor.types';
 
-interface UseEditorViewportProps {
-  nodes: WorkflowNode[];
-  windowSize: { width: number; height: number };
-  canvasRef: RefObject<HTMLDivElement | null>;
-}
+const ANIMATION_MS = 200;
+
+// Never fit so far out that cards become illegible to click.
+const FIT_VIEW_MIN_ZOOM = 0.5;
 
 interface UseEditorViewportReturn {
   viewport: ViewportState;
-  setViewport: React.Dispatch<React.SetStateAction<ViewportState>>;
+  /** Mirror React Flow's viewport into React state (FlowCanvas onMove). */
+  syncViewport: (viewport: ViewportState) => void;
+  /** Move the canvas. Goes through React Flow, which owns the viewport. */
+  setViewport: (viewport: ViewportState) => void;
   handleZoomIn: () => void;
   handleZoomOut: () => void;
   handleFitView: () => void;
   handleResetZoom: () => void;
-  handleViewportChange: (x: number, y: number) => void;
+  centerOnNode: (nodeId: string) => void;
 }
 
-export function useEditorViewport({
-  nodes,
-  windowSize,
-  canvasRef,
-}: UseEditorViewportProps): UseEditorViewportReturn {
-  const [viewport, setViewport] = useState<ViewportState>({
-    x: 0,
-    y: 0,
-    zoom: 1,
-  });
+/**
+ * React Flow owns the viewport. `viewport` here is a read-only mirror for
+ * the overlays (minimap, zoom readout, node placement); writes go through
+ * React Flow. Feeding the viewport back as a controlled prop would resync
+ * d3-zoom on every animation frame and cut fitView/zoom transitions short.
+ * Must be called under a ReactFlowProvider.
+ */
+export function useEditorViewport(): UseEditorViewportReturn {
+  const [viewport, syncViewport] = useState<ViewportState>({ x: 0, y: 0, zoom: 1 });
+  const flow = useReactFlow();
 
-  // React (since v17) registers `onWheel` listeners with `{ passive: true }`
-  // unconditionally, which means `e.preventDefault()` is a no-op and the
-  // browser scrolls the page instead of zooming the canvas. The console
-  // also logs "Unable to preventDefault inside passive event listener"
-  // for every tick of the scroll wheel.
-  //
-  // Workaround: attach the native wheel listener ourselves via
-  // addEventListener({ passive: false }), so preventDefault actually
-  // stops page scroll. viewportRef tracks the latest state so the
-  // listener stays in sync without re-attaching on every zoom step.
-  const viewportStateRef = useRef(viewport);
-  useEffect(() => {
-    viewportStateRef.current = viewport;
-  }, [viewport]);
-
-  useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-
-      const vp = viewportStateRef.current;
-      const delta = -e.deltaY * EDITOR_CONFIG.ZOOM.SENSITIVITY;
-      const newZoom = Math.min(
-        Math.max(vp.zoom + delta, EDITOR_CONFIG.ZOOM.MIN),
-        EDITOR_CONFIG.ZOOM.MAX
-      );
-
-      const rect = el.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      const zoomPoint = {
-        x: (mouseX - vp.x) / vp.zoom,
-        y: (mouseY - vp.y) / vp.zoom,
-      };
-
-      setViewport({
-        x: mouseX - zoomPoint.x * newZoom,
-        y: mouseY - zoomPoint.y * newZoom,
-        zoom: newZoom,
-      });
-    };
-
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, [canvasRef]);
+  const setViewport = useCallback(
+    (next: ViewportState) => {
+      flow.setViewport(next);
+    },
+    [flow]
+  );
 
   const handleZoomIn = useCallback(() => {
-    setViewport(prev => ({
-      ...prev,
-      zoom: Math.min(prev.zoom + 0.1, EDITOR_CONFIG.ZOOM.MAX),
-    }));
-  }, []);
+    flow.zoomIn({ duration: ANIMATION_MS });
+  }, [flow]);
 
   const handleZoomOut = useCallback(() => {
-    setViewport(prev => ({
-      ...prev,
-      zoom: Math.max(prev.zoom - 0.1, EDITOR_CONFIG.ZOOM.MIN),
-    }));
-  }, []);
+    flow.zoomOut({ duration: ANIMATION_MS });
+  }, [flow]);
 
   const handleFitView = useCallback(() => {
-    if (nodes.length === 0) return;
-
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    nodes.forEach(node => {
-      minX = Math.min(minX, node.position.x);
-      minY = Math.min(minY, node.position.y);
-      maxX = Math.max(maxX, node.position.x + 260);
-      maxY = Math.max(maxY, node.position.y + 120);
+    flow.fitView({
+      padding: 0.15,
+      minZoom: FIT_VIEW_MIN_ZOOM,
+      maxZoom: EDITOR_CONFIG.ZOOM.MAX,
+      duration: ANIMATION_MS,
     });
-
-    const padding = 100;
-    const width = maxX - minX + padding * 2;
-    const height = maxY - minY + padding * 2;
-    const canvasWidth = windowSize.width;
-    const canvasHeight = windowSize.height;
-
-    const zoomX = canvasWidth / width;
-    const zoomY = canvasHeight / height;
-    // Clamp fit-view zoom to [0.5, MAX] so it never zooms out so far
-    // that nodes become illegibly small. 0.5 (50%) is the sweet spot:
-    // enough to see the whole graph, readable enough to click nodes.
-    const newZoom = Math.max(0.5, Math.min(zoomX, zoomY, EDITOR_CONFIG.ZOOM.MAX));
-
-    const centerX = -(minX - padding - (canvasWidth / newZoom - width) / 2) * newZoom;
-    const centerY = -(minY - padding - (canvasHeight / newZoom - height) / 2) * newZoom;
-
-    setViewport({ x: centerX, y: centerY, zoom: newZoom });
-  }, [nodes, windowSize.width, windowSize.height]);
+  }, [flow]);
 
   const handleResetZoom = useCallback(() => {
-    setViewport({ x: 0, y: 0, zoom: 1 });
-  }, []);
+    flow.setViewport({ x: 0, y: 0, zoom: 1 }, { duration: ANIMATION_MS });
+  }, [flow]);
 
-  const handleViewportChange = useCallback((x: number, y: number) => {
-    setViewport(prev => ({ ...prev, x, y }));
-  }, []);
+  const centerOnNode = useCallback(
+    (nodeId: string) => {
+      const node = flow.getNode(nodeId);
+      if (!node) return;
+      const w = node.measured?.width ?? 0;
+      const h = node.measured?.height ?? 0;
+      flow.setCenter(node.position.x + w / 2, node.position.y + h / 2, {
+        zoom: flow.getZoom(),
+        duration: ANIMATION_MS,
+      });
+    },
+    [flow]
+  );
 
   return {
     viewport,
+    syncViewport,
     setViewport,
     handleZoomIn,
     handleZoomOut,
     handleFitView,
     handleResetZoom,
-    handleViewportChange,
+    centerOnNode,
   };
 }

@@ -1,5 +1,6 @@
 import { Connection, FrameNodeConfig, WorkflowNode } from '@operari/shared';
-import { DragEvent, MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
+import type { EdgeChange, NodeChange, XYPosition } from '@xyflow/react';
+import { DragEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   createDroppedNode,
@@ -16,8 +17,7 @@ import { useEditorDialogs } from '../hooks/useEditorDialogs';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorNodes } from '../hooks/useEditorNodes';
 import { useEditorOnboarding } from '../hooks/useEditorOnboarding';
-import { useEditorSelection } from '../hooks/useEditorSelection';
-import { SNAP_GRID_PX, useEditorSnapToGrid } from '../hooks/useEditorSnapToGrid';
+import { useEditorSnapToGrid } from '../hooks/useEditorSnapToGrid';
 import { useEditorViewport } from '../hooks/useEditorViewport';
 import { useNodeTypes } from '../hooks/useNodeTypes';
 import useWindowSize from '../hooks/useWindowSize';
@@ -94,6 +94,35 @@ function findContainingFrame(node: WorkflowNode, nodes: WorkflowNode[]): string 
   return containingFrame?.id;
 }
 
+// React Flow only reports the nodes it dragged. Frames own their children
+// through `parentId` (absolute coordinates, not React Flow sub-flows), so a
+// dragged frame has to carry its descendants along by the same delta. A
+// frame moved by its resizer (west/north edges) leaves its children put.
+function applyPositionChanges(
+  nodes: WorkflowNode[],
+  positions: Map<string, XYPosition>,
+  dragged: Set<string>
+): WorkflowNode[] {
+  const next = new Map(positions);
+  for (const [id, pos] of positions) {
+    if (!dragged.has(id)) continue;
+    const node = nodes.find(n => n.id === id);
+    if (node?.type !== 'custom.frame') continue;
+    const dx = pos.x - node.position.x;
+    const dy = pos.y - node.position.y;
+    if (dx === 0 && dy === 0) continue;
+    for (const childId of getDescendantIds(id, nodes)) {
+      if (positions.has(childId)) continue;
+      const child = nodes.find(n => n.id === childId)!;
+      next.set(childId, { x: child.position.x + dx, y: child.position.y + dy });
+    }
+  }
+  return nodes.map(n => {
+    const pos = next.get(n.id);
+    return pos ? { ...n, position: pos } : n;
+  });
+}
+
 interface UseEditorCanvasProps {
   lang: 'en' | 'es';
   /** Persist target. Defaults to 'current-workflow' (the scratchpad)
@@ -126,15 +155,10 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     selectedNodes,
     setSelectedNodes,
     highlightedNodes,
-    draggingNode,
-    setDraggingNode,
-    nodeDragStart,
-    setNodeDragStart,
     draggingNodeType,
     setDraggingNodeType,
     configNodeId,
     setConfigNodeId,
-    handleNodeSelect,
     handleNodeUpdate,
     handleNodeMove,
     handleCloseConfigPanel,
@@ -146,55 +170,30 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
   // Viewport management
   const {
     viewport,
+    syncViewport,
     setViewport,
     handleZoomIn,
     handleZoomOut,
     handleFitView,
     handleResetZoom,
-    handleViewportChange,
-  } = useEditorViewport({ nodes, windowSize, canvasRef });
+    centerOnNode,
+  } = useEditorViewport();
 
   // Connection management
   const {
     connections,
     setConnections,
-    creatingConnection,
-    setCreatingConnection,
-    hoveredInputNode,
     selectedConnection,
     setSelectedConnection,
     cyclicConnections,
     cycleError,
-    handlePortDragStart,
-    handlePortDragEnd,
     handleConfirmDeleteConnection,
-    updateCreatingConnectionPosition,
-    completeConnection,
     createConnection,
     clearConnectionSelection,
   } = useEditorConnections({
     nodes,
-    viewport,
-    canvasRef,
     executeCommand,
     announceMessage,
-  });
-
-  // Selection management
-  const {
-    selectionBox,
-    startSelectionBox,
-    updateSelectionBox,
-    clearSelectionBox,
-    getSelectionBoxStyle,
-  } = useEditorSelection({
-    nodes,
-    viewport,
-    canvasRef,
-    selectedNodes,
-    setSelectedNodes,
-    draggingNode,
-    creatingConnection,
   });
 
   // Autosave — when a real runbook is loaded via ?id= the autosave
@@ -210,8 +209,6 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
   });
 
   // Local state
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>({
     open: false,
     nodeIds: [],
@@ -266,240 +263,158 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
 
   // --- Event Handlers matching EditorCanvas logic ---
 
-  const handleMouseDown = useCallback(
-    (e: MouseEvent<HTMLDivElement>) => {
-      if (e.button === 0 && !draggingNode && !creatingConnection && canvasRef.current) {
-        const isShiftClick = e.shiftKey;
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const dragSnapshotRef = useRef<Map<
+    string,
+    { position: WorkflowNode['position']; parentId?: string }
+  > | null>(null);
 
-        // Only pan if in move mode and not shift-clicking for box selection
-        if (editorMode === 'move' && !isShiftClick) {
-          setIsPanning(!selectionBox);
-          setPanStart({
-            x: e.clientX - viewport.x,
-            y: e.clientY - viewport.y,
-          });
-        } else if (!isShiftClick) {
-          startSelectionBox(e.clientX, e.clientY);
-          setConfigNodeId(null);
+  // One undo entry per resize gesture: snapshot the frame when the
+  // resizer starts, commit the command when it reports resizing=false.
+  const resizeSnapshotRef = useRef<Map<string, WorkflowNode>>(new Map());
+
+  const handleFlowNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const positions = new Map<string, XYPosition>();
+      const dragged = new Set<string>();
+      const sizes = new Map<string, { width: number; height: number }>();
+      const resizeEnded: string[] = [];
+      const selection = new Map<string, boolean>();
+      for (const change of changes) {
+        if (change.type === 'position' && change.position) {
+          positions.set(change.id, change.position);
+          if (change.dragging !== undefined) dragged.add(change.id);
+        } else if (change.type === 'dimensions' && change.resizing !== undefined) {
+          if (!resizeSnapshotRef.current.has(change.id)) {
+            const node = nodesRef.current.find(n => n.id === change.id);
+            if (node) resizeSnapshotRef.current.set(change.id, node);
+          }
+          if (change.dimensions) sizes.set(change.id, change.dimensions);
+          if (!change.resizing) resizeEnded.push(change.id);
+        } else if (change.type === 'select') {
+          selection.set(change.id, change.selected);
         }
       }
-    },
-    [
-      viewport.x,
-      viewport.y,
-      draggingNode,
-      creatingConnection,
-      selectionBox,
-      startSelectionBox,
-      setConfigNodeId,
-      editorMode,
-    ]
-  );
-
-  const handleNodeDragStartLocal = useCallback(
-    (nodeId: string, e: MouseEvent) => {
-      const node = nodes.find(n => n.id === nodeId);
-      if (!node) return;
-
-      setDraggingNode(nodeId);
-      setNodeDragStart({
-        x: e.clientX / viewport.zoom - node.position.x,
-        y: e.clientY / viewport.zoom - node.position.y,
-      });
-    },
-    [nodes, viewport.zoom, setDraggingNode, setNodeDragStart]
-  );
-
-  const handleNodeDragLocal = useCallback(
-    (e: MouseEvent) => {
-      if (!draggingNode) return;
-
-      let nextX = e.clientX / viewport.zoom - nodeDragStart.x;
-      let nextY = e.clientY / viewport.zoom - nodeDragStart.y;
-      // Snap when enabled — round to the nearest 20px multiple
-      // so the dragged node clicks into a grid cell. The grid is
-      // not rendered visually because the existing GridLayer is
-      // already a pattern at zoom-1 — adding it would double-paint.
-      if (snapToGrid) {
-        nextX = Math.round(nextX / SNAP_GRID_PX) * SNAP_GRID_PX;
-        nextY = Math.round(nextY / SNAP_GRID_PX) * SNAP_GRID_PX;
-      }
-      const newPosition = { x: nextX, y: nextY };
-
-      setNodes((prevNodes: WorkflowNode[]) => {
-        const draggedNode = prevNodes.find(n => n.id === draggingNode);
-        if (!draggedNode) return prevNodes;
-
-        // Calculate delta from old position to new position
-        const deltaX = newPosition.x - draggedNode.position.x;
-        const deltaY = newPosition.y - draggedNode.position.y;
-
-        // If dragging a frame, move all children too
-        if (draggedNode.type === 'custom.frame') {
-          const childIds = getDescendantIds(draggingNode, prevNodes);
-          return prevNodes.map((node: WorkflowNode) => {
-            if (node.id === draggingNode) {
-              return { ...node, position: newPosition };
-            }
-            if (childIds.has(node.id)) {
-              return {
-                ...node,
-                position: {
-                  x: node.position.x + deltaX,
-                  y: node.position.y + deltaY,
-                },
-              };
-            }
-            return node;
+      if (positions.size > 0 || sizes.size > 0) {
+        setNodes(prev => {
+          const moved = positions.size > 0 ? applyPositionChanges(prev, positions, dragged) : prev;
+          if (sizes.size === 0) return moved;
+          return moved.map(n => {
+            const size = sizes.get(n.id);
+            return size ? { ...n, config: { ...n.config, ...size } } : n;
           });
-        }
-
-        // Multi-selection drag: if the node being dragged is part
-        // of the current selection AND there are other selected
-        // nodes, move every selected node by the same delta.
-        // Falls through to single-node drag when only one node is
-        // selected (or none — clicking-and-dragging an unselected
-        // node).
-        if (selectedNodes.has(draggingNode) && selectedNodes.size > 1) {
-          return prevNodes.map((node: WorkflowNode) => {
-            if (node.id === draggingNode) {
-              return { ...node, position: newPosition };
-            }
-            if (selectedNodes.has(node.id)) {
-              return {
-                ...node,
-                position: {
-                  x: node.position.x + deltaX,
-                  y: node.position.y + deltaY,
-                },
-              };
-            }
-            return node;
-          });
-        }
-
-        // Regular single-node drag
-        return prevNodes.map((node: WorkflowNode) =>
-          node.id === draggingNode ? { ...node, position: newPosition } : node
-        );
-      });
-    },
-    [draggingNode, nodeDragStart, viewport.zoom, setNodes, selectedNodes, snapToGrid]
-  );
-
-  const handleNodeDragEndLocal = useCallback(() => {
-    if (draggingNode) {
-      const node = nodes.find(n => n.id === draggingNode);
-      const initialPos = nodeDragStart;
-
-      if (node) {
-        const finalPos = node.position;
-
-        // Check if node landed inside a frame (only for non-frame nodes)
-        const newParentId = findContainingFrame(node, nodes);
-        const oldParentId = node.parentId;
-
-        // For frames, also track children positions for undo
-        const isFrame = node.type === 'custom.frame';
-        const childIds = isFrame ? getDescendantIds(draggingNode, nodes) : new Set<string>();
-        const childrenInitialPositions = isFrame
-          ? nodes
-              .filter(n => childIds.has(n.id))
-              .map(n => ({ id: n.id, position: { ...n.position } }))
-          : [];
-        const childrenFinalPositions = isFrame
-          ? nodes
-              .filter(n => childIds.has(n.id))
-              .map(n => ({ id: n.id, position: { ...n.position } }))
-          : [];
-
-        // Calculate delta for undo of children
-        const deltaX = finalPos.x - initialPos.x;
-        const deltaY = finalPos.y - initialPos.y;
-
-        executeCommand({
-          execute: () => {
-            setNodes(prev =>
-              prev.map(n => {
-                if (n.id === draggingNode) {
-                  return { ...n, position: finalPos, parentId: newParentId };
-                }
-                // Restore children final positions for frame drag
-                const childFinal = childrenFinalPositions.find(c => c.id === n.id);
-                if (childFinal) {
-                  return { ...n, position: childFinal.position };
-                }
-                return n;
-              })
-            );
-          },
-          undo: () => {
-            setNodes(prev =>
-              prev.map(n => {
-                if (n.id === draggingNode) {
-                  return {
-                    ...n,
-                    position: { x: initialPos.x, y: initialPos.y },
-                    parentId: oldParentId,
-                  };
-                }
-                // Restore children to initial positions
-                if (childIds.has(n.id)) {
-                  return {
-                    ...n,
-                    position: {
-                      x: n.position.x - deltaX,
-                      y: n.position.y - deltaY,
-                    },
-                  };
-                }
-                return n;
-              })
-            );
-          },
         });
       }
-    }
-    setDraggingNode(null);
-  }, [draggingNode, nodes, nodeDragStart, executeCommand, setNodes, setDraggingNode]);
-
-  const handleCanvasMouseMove = useCallback(
-    (e: MouseEvent<HTMLDivElement>) => {
-      if (isPanning && !draggingNode && !selectionBox) {
-        setViewport(prev => ({
-          ...prev,
-          x: e.clientX - panStart.x,
-          y: e.clientY - panStart.y,
-        }));
+      for (const id of resizeEnded) {
+        const before = resizeSnapshotRef.current.get(id);
+        resizeSnapshotRef.current.delete(id);
+        if (!before) continue;
+        // nodesRef lags the setNodes above by one render, so read the
+        // committed frame inside the updater rather than from the ref.
+        let after: WorkflowNode | undefined;
+        setNodes(prev => {
+          after = prev.find(n => n.id === id);
+          return prev;
+        });
+        const restore = (snapshot: () => WorkflowNode | undefined) =>
+          setNodes(prev => {
+            const s = snapshot();
+            return s ? prev.map(n => (n.id === id ? s : n)) : prev;
+          });
+        executeCommand({
+          execute: () => restore(() => after),
+          undo: () => restore(() => before),
+        });
       }
-
-      if (selectionBox) {
-        updateSelectionBox(e.clientX, e.clientY);
-      }
-
-      if (creatingConnection && canvasRef.current) {
-        updateCreatingConnectionPosition(e.clientX, e.clientY);
+      if (selection.size > 0) {
+        setSelectedNodes(prev => {
+          const next = new Set(prev);
+          for (const [id, selected] of selection) {
+            if (selected) next.add(id);
+            else next.delete(id);
+          }
+          return next;
+        });
       }
     },
-    [
-      isPanning,
-      panStart,
-      draggingNode,
-      creatingConnection,
-      selectionBox,
-      viewport,
-      nodes,
-      setViewport,
-      updateSelectionBox,
-      updateCreatingConnectionPosition,
-    ]
+    [setNodes, setSelectedNodes, executeCommand]
   );
 
-  const handleCanvasMouseUp = useCallback(() => {
-    setIsPanning(false);
-    clearSelectionBox();
-    completeConnection();
-  }, [completeConnection, clearSelectionBox]);
+  const handleFlowEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      for (const change of changes) {
+        if (change.type !== 'select') continue;
+        if (change.selected) setSelectedConnection(change.id);
+        else setSelectedConnection(prev => (prev === change.id ? null : prev));
+      }
+    },
+    [setSelectedConnection]
+  );
+
+  const handleFlowNodeDragStart = useCallback(() => {
+    dragSnapshotRef.current = new Map(
+      nodesRef.current.map(n => [n.id, { position: n.position, parentId: n.parentId }])
+    );
+  }, []);
+
+  const handleFlowNodeDragStop = useCallback(
+    (draggedIds: string[]) => {
+      const before = dragSnapshotRef.current;
+      dragSnapshotRef.current = null;
+      if (!before) return;
+
+      const current = nodesRef.current;
+      const dragged = new Set(draggedIds);
+      const finalState = new Map<
+        string,
+        { position: WorkflowNode['position']; parentId?: string }
+      >();
+      const initialState = new Map<
+        string,
+        { position: WorkflowNode['position']; parentId?: string }
+      >();
+      for (const node of current) {
+        const prev = before.get(node.id);
+        if (!prev) continue;
+        const parentId =
+          dragged.has(node.id) && node.type !== 'custom.frame'
+            ? findContainingFrame(node, current)
+            : node.parentId;
+        const moved =
+          prev.position.x !== node.position.x ||
+          prev.position.y !== node.position.y ||
+          prev.parentId !== parentId;
+        if (!moved) continue;
+        finalState.set(node.id, { position: node.position, parentId });
+        initialState.set(node.id, prev);
+      }
+      if (finalState.size === 0) return;
+
+      const applyState = (
+        state: Map<string, { position: WorkflowNode['position']; parentId?: string }>
+      ) =>
+        setNodes(prev =>
+          prev.map(n => {
+            const s = state.get(n.id);
+            return s ? { ...n, position: s.position, parentId: s.parentId } : n;
+          })
+        );
+
+      executeCommand({
+        execute: () => applyState(finalState),
+        undo: () => applyState(initialState),
+      });
+    },
+    [executeCommand, setNodes]
+  );
+
+  const handleFlowConnect = useCallback(
+    (source: string, target: string, sourcePort: number) => {
+      createConnection(source, target, sourcePort);
+    },
+    [createConnection]
+  );
 
   const handleExecutionStateChange = useCallback(
     (updatedNodes: WorkflowNode[]) => {
@@ -557,120 +472,6 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     [draggingNodeType, viewport, lang, setNodes, setDraggingNodeType]
   );
 
-  // Refs and global event listeners
-  const viewportRef = useRef(viewport);
-  const nodeDragStartRef = useRef(nodeDragStart);
-  const draggingNodeRef = useRef(draggingNode);
-  const isPanningRef = useRef(isPanning);
-  const panStartRef = useRef(panStart);
-  const selectionBoxRef = useRef(selectionBox);
-
-  useEffect(() => {
-    viewportRef.current = viewport;
-  }, [viewport]);
-  useEffect(() => {
-    nodeDragStartRef.current = nodeDragStart;
-  }, [nodeDragStart]);
-  useEffect(() => {
-    draggingNodeRef.current = draggingNode;
-  }, [draggingNode]);
-  useEffect(() => {
-    isPanningRef.current = isPanning;
-  }, [isPanning]);
-  useEffect(() => {
-    panStartRef.current = panStart;
-  }, [panStart]);
-  useEffect(() => {
-    selectionBoxRef.current = selectionBox;
-  }, [selectionBox]);
-
-  useEffect(() => {
-    const handleWindowMouseMove = (e: globalThis.MouseEvent) => {
-      const currentZoom = viewportRef.current.zoom;
-
-      if (draggingNodeRef.current) {
-        const dragStart = nodeDragStartRef.current;
-        const newPosition = {
-          x: e.clientX / currentZoom - dragStart.x,
-          y: e.clientY / currentZoom - dragStart.y,
-        };
-
-        setNodes(prevNodes => {
-          const draggedNode = prevNodes.find(n => n.id === draggingNodeRef.current);
-          if (!draggedNode) return prevNodes;
-
-          // Calculate delta for hierarchical drag
-          const deltaX = newPosition.x - draggedNode.position.x;
-          const deltaY = newPosition.y - draggedNode.position.y;
-
-          // If dragging a frame, move all children too
-          if (draggedNode.type === 'custom.frame') {
-            const childIds = getDescendantIds(draggingNodeRef.current!, prevNodes);
-            return prevNodes.map(n => {
-              if (n.id === draggingNodeRef.current) {
-                return { ...n, position: newPosition };
-              }
-              if (childIds.has(n.id)) {
-                return {
-                  ...n,
-                  position: {
-                    x: n.position.x + deltaX,
-                    y: n.position.y + deltaY,
-                  },
-                };
-              }
-              return n;
-            });
-          }
-
-          // Regular node drag
-          return prevNodes.map(n =>
-            n.id === draggingNodeRef.current ? { ...n, position: newPosition } : n
-          );
-        });
-      } else if (isPanningRef.current) {
-        const start = panStartRef.current;
-        setViewport(prev => ({
-          ...prev,
-          x: e.clientX - start.x,
-          y: e.clientY - start.y,
-        }));
-      } else if (selectionBoxRef.current) {
-        updateSelectionBox(e.clientX, e.clientY);
-      }
-    };
-
-    const handleWindowMouseUp = () => {
-      if (draggingNodeRef.current) handleNodeDragEndLocal();
-      if (isPanningRef.current) setIsPanning(false);
-      if (creatingConnection) setCreatingConnection(null);
-      if (draggingNodeType) setDraggingNodeType(null);
-      if (selectionBoxRef.current) clearSelectionBox();
-    };
-
-    if (draggingNode || isPanning || creatingConnection || draggingNodeType || selectionBox) {
-      window.addEventListener('mousemove', handleWindowMouseMove);
-      window.addEventListener('mouseup', handleWindowMouseUp);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleWindowMouseMove);
-      window.removeEventListener('mouseup', handleWindowMouseUp);
-    };
-  }, [
-    draggingNode,
-    isPanning,
-    creatingConnection,
-    draggingNodeType,
-    selectionBox,
-    handleNodeDragEndLocal,
-    updateSelectionBox,
-    setViewport,
-    setNodes,
-    setCreatingConnection,
-    setDraggingNodeType,
-    clearSelectionBox,
-  ]);
-
   // Deletion Logic
   const handleConfirmDelete = useCallback(() => {
     if (deleteConfirm.nodeIds.length > 0) {
@@ -721,15 +522,10 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     setDeleteConfirm({ open: false, nodeIds: [] });
   }, []);
 
-  const handleCanvasClick = useCallback(
-    (e: MouseEvent<HTMLDivElement>) => {
-      if (e.target === e.currentTarget && !e.shiftKey) {
-        setSelectedNodes(new Set());
-        clearConnectionSelection();
-      }
-    },
-    [clearConnectionSelection, setSelectedNodes]
-  );
+  const handlePaneClick = useCallback(() => {
+    setSelectedNodes(new Set());
+    clearConnectionSelection();
+  }, [clearConnectionSelection, setSelectedNodes]);
 
   const handleConnectionSelectLocal = useCallback(
     (connectionId: string) => {
@@ -839,15 +635,11 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
 
   const handleSearchNodeSelect = useCallback(
     (nodeId: string) => {
-      const node = nodes.find(n => n.id === nodeId);
-      if (node) {
-        const centerX = -(node.position.x - windowSize.width / 2 / viewport.zoom) * viewport.zoom;
-        const centerY = -(node.position.y - windowSize.height / 2 / viewport.zoom) * viewport.zoom;
-        setViewport(prev => ({ ...prev, x: centerX, y: centerY }));
-        setSelectedNodes(new Set([nodeId]));
-      }
+      if (!nodes.some(n => n.id === nodeId)) return;
+      centerOnNode(nodeId);
+      setSelectedNodes(new Set([nodeId]));
     },
-    [nodes, viewport.zoom, windowSize.width, windowSize.height, setViewport, setSelectedNodes]
+    [nodes, centerOnNode, setSelectedNodes]
   );
 
   const handleContextMenu = useCallback(
@@ -925,9 +717,10 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     }
   }, [contextMenu, handleDuplicateNode]);
 
+  // Selection itself is driven by React Flow's select changes (so
+  // shift/cmd-click multi-select works); a click only opens the panel.
   const handleNodeClick = useCallback(
     (nodeId: string) => {
-      handleNodeSelect(nodeId, false);
       // Open the config panel on a single click. Previously this only
       // happened on double-click, which was not discoverable — most
       // operators thought there was no way to configure a node and
@@ -935,7 +728,7 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
       // standard pattern in n8n / Retool / Temporal UI.
       setConfigNodeId(nodeId);
     },
-    [handleNodeSelect, setConfigNodeId]
+    [setConfigNodeId]
   );
 
   return {
@@ -963,10 +756,7 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     setSelectedNodes,
     highlightedNodes,
     focusedNodeIndex,
-    draggingNode,
-    hoveredInputNode,
     selectedConnection,
-    creatingConnection,
     cyclicConnections,
     configNodeId,
     undo,
@@ -975,24 +765,19 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     canRedo,
     undoHistory: history,
     undoIndex: currentIndex,
-    selectionBox,
-    getSelectionBoxStyle,
     editorMode,
     setEditorMode,
 
     // Handlers
-    handleMouseDown,
-    handleCanvasMouseMove,
-    handleCanvasMouseUp,
+    handleFlowNodesChange,
+    handleFlowEdgesChange,
+    handleFlowNodeDragStart,
+    handleFlowNodeDragStop,
+    handleFlowConnect,
     handleCanvasDrop,
     handleCanvasDragOver,
-    handleCanvasClick,
+    handlePaneClick,
     handleContextMenu,
-    handleNodeDragStart: handleNodeDragStartLocal,
-    handleNodeDrag: handleNodeDragLocal,
-    handleNodeDragEnd: handleNodeDragEndLocal,
-    handlePortDragStart,
-    handlePortDragEnd,
     handleCloseContextMenu,
     handleDuplicateNode,
     handleContextMenuDuplicate,
@@ -1026,6 +811,7 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     handleExecutionStateChange,
     handleNodeAddFromSearch,
     handleViewportChangeAdapter,
+    syncViewport,
     createConnection,
     handleAddNode,
     isRunDialogOpen,

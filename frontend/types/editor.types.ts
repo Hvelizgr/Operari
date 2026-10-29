@@ -13,24 +13,6 @@ export interface ViewportState {
 }
 
 /**
- * State for creating a new connection between nodes
- */
-export interface CreatingConnectionState {
-  sourceNodeId: string;
-  sourcePortId: string;
-  startPos: { x: number; y: number };
-  currentPos: { x: number; y: number };
-}
-
-/**
- * State for the selection box (marquee selection)
- */
-export interface SelectionBoxState {
-  start: { x: number; y: number };
-  end: { x: number; y: number };
-}
-
-/**
  * State for delete confirmation dialog
  */
 export interface DeleteConfirmState {

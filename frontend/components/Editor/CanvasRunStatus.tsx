@@ -23,7 +23,7 @@ import { motionFor, overlayPillVariants, reducedOverlayPillVariants } from '@/li
  *   - !executing                   → nothing (component returns null)
  *
  * This component does NOT touch node rendering or the drag-and-drop
- * path — it's purely an overlay. Zero interaction with NodesLayer.
+ * path — it's purely an overlay. Zero interaction with FlowCanvas.
  */
 
 interface CanvasRunStatusProps {

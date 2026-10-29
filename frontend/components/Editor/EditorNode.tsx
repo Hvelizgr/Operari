@@ -3,13 +3,12 @@
 import './WorkflowNode.css';
 
 import { WorkflowNode } from '@operari/shared';
+import { Handle, Position } from '@xyflow/react';
 import * as Icons from 'lucide-react';
-import { memo, MouseEvent, useLayoutEffect, useRef } from 'react';
+import { Fragment, memo } from 'react';
 
 import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
 import { NODE_TYPES, NodeType } from '../Node';
-// Import shared port utilities
-export { getNodePortInfo } from '../../utils/nodePortUtils';
 
 interface EditorNodeProps {
   node: WorkflowNode;
@@ -17,24 +16,9 @@ interface EditorNodeProps {
   /** Pluggable registry for domain-specific rendering (preview, validation, badges, colors).
    *  When omitted, falls back to the hardcoded runbook functions for backward compatibility. */
   registry?: NodeTypeRegistry;
-  onDragStart: (nodeId: string, e: MouseEvent) => void;
-  onDrag: (e: MouseEvent) => void;
-  onDragEnd: (nodeId: string) => void;
-  isDragging: boolean;
-  onPortDragStart: (
-    nodeId: string,
-    portId: string,
-    type: 'source' | 'target',
-    pos: { x: number; y: number }
-  ) => void;
-  onPortDragEnd?: () => void;
-  isConnectionTarget?: boolean;
+  isDragging?: boolean;
   isSelected: boolean;
-  isHighlighted: boolean;
-  onClick: (nodeId: string) => void;
-  onContextMenu?: (e: MouseEvent, nodeId: string) => void;
-  onMove: (nodeId: string, direction: 'up' | 'down' | 'left' | 'right') => void;
-  editorMode?: 'move' | 'connect';
+  isHighlighted?: boolean;
   status?: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'SKIPPED' | 'CANCELLED' | 'PENDING';
   /** Live or final duration in milliseconds, populated from the
    * execution socket. Null when the node has never run. */
@@ -47,8 +31,6 @@ interface EditorNodeProps {
    * (emerald after SUCCESS, red after FAILED, pulsing while RUNNING).
    * Null/undefined leaves the pole in its neutral primary color. */
   upstreamStatus?: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'SKIPPED' | 'CANCELLED' | null;
-  onNodeDoubleClick?: (nodeId: string) => void;
-  onUpdate?: (nodeId: string, updates: Partial<WorkflowNode>) => void;
   isConnected?: boolean;
 }
 
@@ -70,71 +52,16 @@ function EditorNode({
   node,
   typeDefinition,
   registry,
-  onDragStart,
-  isDragging,
+  isDragging = false,
   isSelected,
-  isHighlighted: _isHighlighted,
-  onClick,
-  onContextMenu,
-  editorMode = 'move',
+  isHighlighted = false,
   status,
-  onNodeDoubleClick,
-  onUpdate,
   isConnected = true,
-  onPortDragStart,
   durationMs = null,
   isNextInPath = false,
   upstreamStatus = null,
 }: EditorNodeProps) {
-  const nodeRef = useRef<HTMLDivElement>(null);
   const nodeType = typeDefinition || NODE_TYPES.find(t => t.type === node.type);
-
-  // Measure Height — two paths:
-  //   1) Synchronous measurement on mount (useLayoutEffect runs AFTER
-  //      DOM commit but BEFORE the browser paints). This fixes the
-  //      "first-frame miswire" where the canvas used to pick up the
-  //      120px fallback height and draw the connection at y+60 before
-  //      ResizeObserver's microtask got a chance to fire, causing the
-  //      cable to land below the actual pole on tall nodes.
-  //   2) Ongoing updates via ResizeObserver so title edits / badge
-  //      toggles that change the card height keep the connections
-  //      glued to the poles.
-  useLayoutEffect(() => {
-    if (!nodeRef.current || !onUpdate) return;
-    const element = nodeRef.current;
-    const currentH = (node as Partial<{ dimensions: { height: number } }>).dimensions?.height;
-    const measuredH = element.offsetHeight;
-    const measuredW = element.offsetWidth;
-    if (!currentH || Math.abs(currentH - measuredH) > 1) {
-      onUpdate(node.id, {
-        dimensions: { height: measuredH, width: measuredW },
-      } as Partial<WorkflowNode>);
-    }
-
-    const resizeObserver = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        const el = entry.target as HTMLElement;
-        const h = el.offsetHeight;
-        const currH = (node as Partial<{ dimensions: { height: number } }>).dimensions?.height;
-        // Tight threshold so subpixel jitter from border changes
-        // doesn't ping-pong the state, but any real height delta
-        // (>1px) syncs the line anchor.
-        if (!currH || Math.abs(currH - h) > 1) {
-          onUpdate(node.id, {
-            dimensions: { height: h, width: el.offsetWidth },
-          } as Partial<WorkflowNode>);
-        }
-      }
-    });
-
-    resizeObserver.observe(nodeRef.current);
-    return () => resizeObserver.disconnect();
-    // dimensions lives under node.*; react-hooks can't statically
-    // analyze the nested chained access, so we capture the full node
-    // reference in the dep array (safe — node changes at the same
-    // cadence as its dimensions).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node.id, onUpdate, node]);
 
   const renderIcon = (icon: unknown, size = 16) => {
     if (!icon) return <Icons.Box size={size} />;
@@ -298,39 +225,15 @@ function EditorNode({
 
   const commonProps = {
     id: `d_wfn_${node.id}`,
-    // ref: nodeRef,  <-- We will add ref to specific divs below
-    style: {
-      left: node.position.x,
-      top: node.position.y,
-      zIndex: isSelected || isDragging ? 10 : 3,
-    },
-    onMouseDown: (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest('.wf_pole_button')) return;
-      if (editorMode !== 'connect') onDragStart(node.id, e);
-    },
-    onClick: (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest('.wf_pole_button')) return;
-      e.stopPropagation();
-      onClick(node.id);
-    },
-    onDoubleClick: (e: MouseEvent) => {
-      e.stopPropagation();
-      if (onNodeDoubleClick) onNodeDoubleClick(node.id);
-    },
-    onContextMenu: (e: MouseEvent) => {
-      if (onContextMenu) onContextMenu(e, node.id);
-    },
+    style: { zIndex: isSelected || isDragging ? 10 : 3 },
   } as const;
+  const stateClass = `${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${isHighlighted ? 'highlighted' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`;
 
   // --- CONTROLLER (Pill) ---
   if (visualType === 'controller') {
     const hasMultiOutput = Array.isArray(node.outputs) && node.outputs.length > 1;
     return (
-      <div
-        ref={nodeRef}
-        className={`wf_node wf_entity ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`}
-        {...commonProps}
-      >
+      <div className={`wf_node wf_entity ${stateClass}`} {...commonProps}>
         <ValidationBadge />
         <div
           className="wf_ent_controller"
@@ -339,19 +242,17 @@ function EditorNode({
           }
         >
           {/* Input Pole — squared shape with arrow icon */}
-          <div
+          <Handle
+            type="target"
+            position={Position.Left}
+            id="in-0"
+            aria-label="Input"
             className="wf_pole_button wf_input_pole"
             data-pole-label="in"
             data-upstream-status={upstreamStatus ?? undefined}
-            onMouseDown={e => {
-              if (e.button !== 0) return;
-              e.stopPropagation();
-              e.preventDefault();
-              onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY });
-            }}
           >
             <Icons.ArrowRight size={12} />
-          </div>
+          </Handle>
 
           <span className="relative flex h-full w-full items-center justify-center">
             {renderIcon(nodeType?.icon, 32)}
@@ -361,36 +262,36 @@ function EditorNode({
           {hasMultiOutput ? (
             <div className="wf_multi_output_poles">
               {node.outputs!.map((out, i) => (
-                <div
-                  key={out.id ?? `out-${i}`}
-                  className="wf_pole_button wf_output_pole"
-                  style={{ top: `${14 + i * 26}px` }}
-                  title={out.label ?? `out-${i}`}
-                  onMouseDown={e => {
-                    if (e.button !== 0) return;
-                    e.stopPropagation();
-                    e.preventDefault();
-                    onPortDragStart(node.id, `out-${i}`, 'source', { x: e.clientX, y: e.clientY });
-                  }}
-                >
-                  <Icons.ChevronRight size={12} />
-                  <span className="wf_pole_label">{out.label ?? `out-${i}`}</span>
-                </div>
+                <Fragment key={out.id ?? `out-${i}`}>
+                  <Handle
+                    type="source"
+                    position={Position.Right}
+                    id={`out-${i}`}
+                    aria-label={`Output: ${out.label ?? `out-${i}`}`}
+                    className="wf_pole_button wf_output_pole"
+                    style={{ top: `${14 + i * 26}px` }}
+                    title={out.label ?? `out-${i}`}
+                  >
+                    <Icons.ChevronRight size={12} />
+                  </Handle>
+                  {/* Outside the Handle: the pole is rotated 45° and would tilt its text. */}
+                  <span className="wf_pole_label" style={{ top: `${14 + i * 26}px` }}>
+                    {out.label ?? `out-${i}`}
+                  </span>
+                </Fragment>
               ))}
             </div>
           ) : (
-            <div
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="out-0"
+              aria-label="Output"
               className="wf_pole_button wf_output_pole"
               data-pole-label="out"
-              onMouseDown={e => {
-                if (e.button !== 0) return;
-                e.stopPropagation();
-                e.preventDefault();
-                onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY });
-              }}
             >
               <Icons.ChevronRight size={12} />
-            </div>
+            </Handle>
           )}
         </div>
         <span className="wf_ent_title">{nodeType?.category || 'Controller'}</span>
@@ -402,28 +303,23 @@ function EditorNode({
   // --- LIMIT (Diamond) ---
   if (visualType === 'limit') {
     return (
-      <div
-        className={`wf_node wf_entity ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`}
-        {...commonProps}
-      >
+      <div className={`wf_node wf_entity ${stateClass}`} {...commonProps}>
         <ValidationBadge />
         <div className="wf_ent_limit">
           {/* Up Pole (Input) - Handled by CSS rotation magic but we need structure */}
-          <div
+          <Handle
+            type="target"
+            position={Position.Top}
+            id="in-0"
+            aria-label="Input"
             className="wf_pole_button wf_up_pole"
             data-pole-label="in"
             data-upstream-status={upstreamStatus ?? undefined}
             title="Input (Limit)"
-            onMouseDown={e => {
-              if (e.button !== 0) return;
-              e.stopPropagation();
-              e.preventDefault();
-              onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY });
-            }}
           >
             <Icons.ChevronDown size={12} style={{ transform: 'rotate(225deg)' }} />{' '}
             {/* Counter rotate? CSS handles some */}
-          </div>
+          </Handle>
 
           <span
             className="relative flex h-full w-full items-center justify-center"
@@ -445,19 +341,17 @@ function EditorNode({
                     Let's assume standard Output pole (Down) is attached to container.
                     Wait, CSS .wf_pole_button.wf_down_pole is defined generally.
                 */}
-        <div
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="out-0"
+          aria-label="Output"
           className="wf_pole_button wf_down_pole"
           data-pole-label="out"
           style={{ left: '50%', top: 'calc(100% + 5px)' }}
-          onMouseDown={e => {
-            if (e.button !== 0) return;
-            e.stopPropagation();
-            e.preventDefault();
-            onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY });
-          }}
         >
           <Icons.ChevronDown size={12} />
-        </div>
+        </Handle>
 
         <span className="wf_ent_title">{nodeType?.category || 'Limit'}</span>
         <span className="wf_ent_label">{node.title}</span>
@@ -468,10 +362,7 @@ function EditorNode({
   // --- TRIGGER ---
   if (visualType === 'trigger') {
     return (
-      <div
-        className={`wf_node wf_entity ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`}
-        {...commonProps}
-      >
+      <div className={`wf_node wf_entity ${stateClass}`} {...commonProps}>
         <ValidationBadge />
         <div className="wf_ent_trigger">
           <span
@@ -480,18 +371,16 @@ function EditorNode({
           >
             {renderIcon(nodeType?.icon, 32)}
           </span>
-          <div
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="out-0"
+            aria-label="Output"
             className="wf_pole_button wf_output_pole"
             data-pole-label="out"
-            onMouseDown={e => {
-              if (e.button !== 0) return;
-              e.stopPropagation();
-              e.preventDefault();
-              onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY });
-            }}
           >
             <Icons.ChevronRight size={12} />
-          </div>
+          </Handle>
         </div>
         <span className="wf_ent_title">{nodeType?.category || 'Trigger'}</span>
         <span className="wf_ent_label">{node.title}</span>
@@ -502,25 +391,20 @@ function EditorNode({
   // --- ACTION (Semicircle) ---
   if (visualType === 'action') {
     return (
-      <div
-        className={`wf_node wf_entity ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''}`}
-        {...commonProps}
-      >
+      <div className={`wf_node wf_entity ${stateClass}`} {...commonProps}>
         <ValidationBadge />
         <div className="wf_ent_action">
-          <div
+          <Handle
+            type="target"
+            position={Position.Left}
+            id="in-0"
+            aria-label="Input"
             className="wf_pole_button wf_input_pole"
             data-pole-label="in"
             data-upstream-status={upstreamStatus ?? undefined}
-            onMouseDown={e => {
-              if (e.button !== 0) return;
-              e.stopPropagation();
-              e.preventDefault();
-              onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY });
-            }}
           >
             <Icons.ArrowRight size={12} />
-          </div>
+          </Handle>
           <span
             className="relative flex h-full w-full items-center justify-center"
             style={{ left: '6px' }}
@@ -562,8 +446,7 @@ function EditorNode({
   // --- JOB (Standard) ---
   return (
     <div
-      className={`wf_node wf_event ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${status === 'RUNNING' ? 'wf_active' : ''} ${status === 'SUCCESS' ? 'wf_completed' : ''} ${status === 'FAILED' ? 'wf_error' : ''} ${status === 'PAUSED' ? 'wf_paused' : ''} ${status === 'SKIPPED' ? 'wf_skipped' : ''} ${status === 'CANCELLED' ? 'wf_cancelled' : ''} ${isNextInPath ? 'wf_next' : ''} ${node.enabled === false ? 'disabled' : ''} `}
-      ref={nodeRef}
+      className={`wf_node wf_event ${stateClass} ${status === 'SUCCESS' ? 'wf_completed' : ''} ${status === 'FAILED' ? 'wf_error' : ''} ${status === 'PAUSED' ? 'wf_paused' : ''} ${status === 'SKIPPED' ? 'wf_skipped' : ''} ${status === 'CANCELLED' ? 'wf_cancelled' : ''} ${isNextInPath ? 'wf_next' : ''} ${node.enabled === false ? 'disabled' : ''} `}
       {...commonProps}
       // Inline accent vars so each card paints itself with the
       // category palette without needing a class explosion. The
@@ -647,19 +530,17 @@ function EditorNode({
         )}
       </div>
 
-      <div
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="in-0"
+        aria-label="Input"
         className="wf_pole_button wf_input_pole"
         data-pole-label="in"
         data-upstream-status={upstreamStatus ?? undefined}
-        onMouseDown={e => {
-          if (e.button !== 0) return;
-          e.stopPropagation();
-          e.preventDefault();
-          onPortDragStart(node.id, 'in-0', 'target', { x: e.clientX, y: e.clientY });
-        }}
       >
         <Icons.ArrowRight size={12} />
-      </div>
+      </Handle>
       {/* Output poles. If the node declares multiple outputs (e.g.
                 `approval` with approved/rejected), render one pole per
                 output stacked vertically with the label visible. The
@@ -668,36 +549,36 @@ function EditorNode({
       {Array.isArray(node.outputs) && node.outputs.length > 1 ? (
         <div className="wf_multi_output_poles">
           {node.outputs.map((out, i) => (
-            <div
-              key={out.id ?? `out-${i}`}
-              className="wf_pole_button wf_output_pole"
-              style={{ top: `${30 + i * 26}px` }}
-              title={out.label ?? `out-${i}`}
-              onMouseDown={e => {
-                if (e.button !== 0) return;
-                e.stopPropagation();
-                e.preventDefault();
-                onPortDragStart(node.id, `out-${i}`, 'source', { x: e.clientX, y: e.clientY });
-              }}
-            >
-              <Icons.ChevronRight size={12} />
-              <span className="wf_pole_label">{out.label ?? `out-${i}`}</span>
-            </div>
+            <Fragment key={out.id ?? `out-${i}`}>
+              <Handle
+                type="source"
+                position={Position.Right}
+                id={`out-${i}`}
+                aria-label={`Output: ${out.label ?? `out-${i}`}`}
+                className="wf_pole_button wf_output_pole"
+                style={{ top: `${30 + i * 26}px` }}
+                title={out.label ?? `out-${i}`}
+              >
+                <Icons.ChevronRight size={12} />
+              </Handle>
+              {/* Outside the Handle: the pole is rotated 45° and would tilt its text. */}
+              <span className="wf_pole_label" style={{ top: `${30 + i * 26}px` }}>
+                {out.label ?? `out-${i}`}
+              </span>
+            </Fragment>
           ))}
         </div>
       ) : (
-        <div
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="out-0"
+          aria-label="Output"
           className="wf_pole_button wf_output_pole"
           data-pole-label="out"
-          onMouseDown={e => {
-            if (e.button !== 0) return;
-            e.stopPropagation();
-            e.preventDefault();
-            onPortDragStart(node.id, 'out-0', 'source', { x: e.clientX, y: e.clientY });
-          }}
         >
           <Icons.ChevronRight size={12} />
-        </div>
+        </Handle>
       )}
 
       {/* Duration footer — only when we have a real number from
@@ -726,7 +607,7 @@ function EditorNode({
   );
 }
 
-// Memoized: every pan/zoom/select tick re-renders the parent NodesLayer
+// Memoized: every pan/zoom/select tick re-renders FlowCanvas' node list
 // (and with 500+ nodes that's 500+ EditorNode instances). All props are
 // primitives, stable callbacks from useEditorCanvas, or reference-stable
 // registry/typeDefinition objects, so the default shallow compare is

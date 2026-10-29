@@ -1,12 +1,8 @@
-export { default as ConnectionBubblesLayer } from './ConnectionBubblesLayer';
-export { default as ConnectionsLayer } from './ConnectionsLayer';
 export { default as EditorCanvas } from './EditorCanvas';
-export { default as EditorConnection } from './EditorConnection';
 export { default as EditorNode } from './EditorNode';
 export { default as EditorOverlays } from './EditorOverlays';
 export { default as EditorToolbar } from './EditorToolbar';
-export { default as GridLayer } from './GridLayer';
-export { default as NodesLayer } from './NodesLayer';
+export { default as FlowCanvas } from './flow/FlowCanvas';
 export { default as NoteNode } from './NoteNode';
 export type { WorkflowProperties } from './WorkflowPropertiesPanel';
 export { default as WorkflowPropertiesPanel } from './WorkflowPropertiesPanel';

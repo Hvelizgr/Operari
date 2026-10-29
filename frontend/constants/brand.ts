@@ -7,9 +7,8 @@
  *
  *   - `og-image` routes (rendered in an isolated JSX runtime that
  *     doesn't have the app's CSS loaded)
- *   - `components/Editor/EditorConnection.tsx` + the canvas renderer,
- *     which paint on an HTML `<canvas>` / SVG from JS and need literal
- *     hex strings
+ *   - SVG attributes set from JS (e.g. React Flow edge markers in
+ *     `components/Editor/flow/`) that need literal hex strings
  *   - Third-party integrations configured by object literal (e.g.
  *     xterm.js theme in `components/Editor/terminal/LogTerminal.tsx`)
  *

@@ -1,5 +1,6 @@
 import type { WorkflowNode } from '@operari/shared';
 import type { Meta, StoryObj } from '@storybook/react';
+import { ReactFlowProvider } from '@xyflow/react';
 
 import EditorNode from '../components/Editor/EditorNode';
 
@@ -26,12 +27,13 @@ const meta: Meta<typeof EditorNode> = {
     isDragging: { control: 'boolean' },
     isSelected: { control: 'boolean' },
     isHighlighted: { control: 'boolean' },
-    isConnectionTarget: { control: 'boolean' },
   },
   decorators: [
     Story => (
       <div style={{ position: 'relative', width: '400px', height: '300px', background: '#0f172a' }}>
-        <Story />
+        <ReactFlowProvider>
+          <Story />
+        </ReactFlowProvider>
       </div>
     ),
   ],
@@ -43,15 +45,9 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   args: {
     node: mockNode,
-    onDragStart: () => {},
-    onDrag: () => {},
-    onDragEnd: () => {},
     isDragging: false,
     isSelected: false,
     isHighlighted: false,
-    isConnectionTarget: false,
-    onSelect: () => {},
-    onDelete: () => {},
   },
 };
 
@@ -87,13 +83,6 @@ export const Error: Story = {
   args: {
     ...Default.args,
     node: { ...mockNode, executionState: 'error' },
-  },
-};
-
-export const ConnectionTarget: Story = {
-  args: {
-    ...Default.args,
-    isConnectionTarget: true,
   },
 };
 

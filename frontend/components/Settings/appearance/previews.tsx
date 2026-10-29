@@ -426,8 +426,8 @@ export function LivePreview({ prefs, animsOn }: { prefs: VisualizationPrefs; ani
 }
 
 /** CSS background shorthand for the LivePreview's canvas. Kept inline
- *  so the preview stays one component; real editor background goes
- *  through GridLayer with SVG patterns (for zoom-awareness). */
+ *  so the preview stays one component; the real editor background is
+ *  React Flow's <Background> (see Editor/flow/FlowBackground.tsx). */
 export function bgLayer(pattern: BgPattern, size: number, opacity: number): string {
   if (pattern === 'none') return 'var(--app-bg)';
   if (pattern === 'dots') {

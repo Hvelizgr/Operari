@@ -12,7 +12,7 @@ interface NoteNodeProps {
 
 export default function NoteNode({ node, isSelected, onUpdate }: NoteNodeProps) {
   // NoteNode is only rendered when node.type === 'custom.note' (see
-  // NodesLayer), so treating the config as NoteNodeConfig is safe.
+  // FlowCanvas), so treating the config as NoteNodeConfig is safe.
   const cfg = (node.config ?? {}) as NoteNodeConfig;
   const [text, setText] = useState(cfg.text || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -35,8 +35,6 @@ export default function NoteNode({ node, isSelected, onUpdate }: NoteNodeProps) 
       id={`d_wfn_${node.id}`}
       className={`wf_node wf_note ${isSelected ? 'selected' : ''}`}
       style={{
-        left: node.position.x,
-        top: node.position.y,
         width: cfg.width || 275,
         height: cfg.height || 200,
       }}
@@ -48,7 +46,7 @@ export default function NoteNode({ node, isSelected, onUpdate }: NoteNodeProps) 
           onChange={handleTextChange}
           onBlur={handleBlur}
           autoFocus
-          className="h-full w-full resize-none bg-transparent p-2 font-mono text-xs focus:outline-none"
+          className="nodrag nowheel h-full w-full resize-none bg-transparent p-2 font-mono text-xs focus:outline-none"
           style={{ color: 'var(--body-text-color)' }}
         />
       ) : (

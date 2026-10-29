@@ -1,7 +1,6 @@
 /**
- * Color-string manipulation helpers used across the canvas renderer.
- * Kept in a leaf module with no imports so both `drawing.ts` and
- * `prefs.ts` can pull from here without creating a cycle.
+ * Color-string manipulation helpers for the Appearance render prefs.
+ * Kept in a leaf module with no imports.
  */
 
 /**

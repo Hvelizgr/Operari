@@ -8,31 +8,15 @@ const mockExecuteCommand = jest.fn(cmd => cmd.execute());
 const mockAnnounceMessage = jest.fn();
 
 describe('useEditorConnections', () => {
-  let canvasRef: any;
-  let defaultProps: any;
+  const defaultProps = {
+    nodes: INITIAL_NODES,
+    executeCommand: mockExecuteCommand,
+    announceMessage: mockAnnounceMessage,
+  };
 
   beforeEach(() => {
     mockExecuteCommand.mockClear();
     mockAnnounceMessage.mockClear();
-
-    canvasRef = {
-      current: {
-        getBoundingClientRect: jest.fn(() => ({
-          left: 0,
-          top: 0,
-          width: 1000,
-          height: 1000,
-        })),
-      },
-    };
-
-    defaultProps = {
-      nodes: INITIAL_NODES,
-      viewport: { x: 0, y: 0, zoom: 1 },
-      canvasRef: canvasRef,
-      executeCommand: mockExecuteCommand,
-      announceMessage: mockAnnounceMessage,
-    };
   });
 
   it('initializes with empty connections', () => {
@@ -42,64 +26,69 @@ describe('useEditorConnections', () => {
     expect(Array.isArray(result.current.connections)).toBe(true);
   });
 
-  it('starts creating a connection on port drag', () => {
+  it('creates a connection on the given source port', () => {
     const { result } = renderHook(() => useEditorConnections(defaultProps));
 
     act(() => {
-      result.current.handlePortDragStart('node-1', 'port-1', 'source', { x: 100, y: 100 });
-    });
-
-    expect(result.current.creatingConnection).toEqual({
-      sourceNodeId: 'node-1',
-      sourcePortId: 'port-1',
-      startPos: { x: 100, y: 100 },
-      currentPos: { x: 100, y: 100 },
-    });
-  });
-
-  it('updates creating connection position', () => {
-    const { result } = renderHook(() => useEditorConnections(defaultProps));
-
-    // Start creating
-    act(() => {
-      result.current.handlePortDragStart('node-1', 'port-1', 'source', { x: 0, y: 0 });
-    });
-
-    // Move
-    act(() => {
-      result.current.updateCreatingConnectionPosition(200, 200);
-    });
-
-    // Viewport 0,0 zoom 1. Rect 0,0.
-    expect(result.current.creatingConnection?.currentPos).toEqual({ x: 200, y: 200 });
-  });
-
-  it('completes connection creation', () => {
-    const { result } = renderHook(() => useEditorConnections(defaultProps));
-
-    // Start creating
-    act(() => {
-      result.current.handlePortDragStart('node-1', 'port-1', 'source', { x: 0, y: 0 });
-    });
-
-    // Simulate hovering a valid target (we need to manually set hoveredInputNode because logic is inside updateCreatingConnectionPosition which relies on DOM geometry simulation which is hard)
-    // We can just set state directly or mock the internal logic. But accessing setSelected... no wait, we can only call exposed methods.
-    // However, `updateCreatingConnectionPosition` logic sets `hoveredInputNode`.
-    // Let's manually trigger `setHoveredInputNode` exposed in return? Yes!
-
-    act(() => {
-      result.current.setHoveredInputNode('node-target');
-    });
-
-    act(() => {
-      result.current.completeConnection();
+      expect(result.current.createConnection('node-1', 'node-target', 1)).toBe(true);
     });
 
     expect(mockExecuteCommand).toHaveBeenCalled();
-    expect(
-      result.current.connections.some(c => c.source === 'node-1' && c.target === 'node-target')
-    ).toBe(true);
-    expect(result.current.creatingConnection).toBeNull();
+    expect(result.current.connections).toContainEqual(
+      expect.objectContaining({ source: 'node-1', target: 'node-target', sourcePort: 1 })
+    );
+  });
+
+  it('rejects self-loops', () => {
+    const { result } = renderHook(() => useEditorConnections(defaultProps));
+
+    act(() => {
+      expect(result.current.createConnection('node-1', 'node-1')).toBe(false);
+    });
+
+    expect(mockAnnounceMessage).toHaveBeenCalledWith('Self-loops are not allowed');
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
+
+  it('rejects a duplicate on the same port but allows another port', () => {
+    const { result } = renderHook(() => useEditorConnections(defaultProps));
+
+    act(() => {
+      result.current.setConnections([
+        { id: 'conn-1', source: 'a', target: 'b', sourcePort: 0, targetPort: 0 },
+      ]);
+    });
+
+    act(() => {
+      expect(result.current.createConnection('a', 'b', 0)).toBe(false);
+    });
+    expect(mockAnnounceMessage).toHaveBeenCalledWith('Connection already exists');
+
+    act(() => {
+      expect(result.current.createConnection('a', 'b', 1)).toBe(true);
+    });
+    expect(result.current.connections).toHaveLength(2);
+  });
+
+  it('rejects a connection that would close a cycle', () => {
+    const nodes = ['a', 'b'].map(id => ({
+      id,
+      type: 'shell',
+      title: id,
+      position: { x: 0, y: 0 },
+    }));
+    const { result } = renderHook(() => useEditorConnections({ ...defaultProps, nodes }));
+
+    act(() => {
+      result.current.setConnections([
+        { id: 'conn-1', source: 'a', target: 'b', sourcePort: 0, targetPort: 0 },
+      ]);
+    });
+
+    act(() => {
+      expect(result.current.createConnection('b', 'a')).toBe(false);
+    });
+    expect(mockAnnounceMessage).toHaveBeenCalledWith('Connection rejected — would create a cycle');
   });
 
   it('selects a connection', () => {

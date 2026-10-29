@@ -2,19 +2,17 @@
 
 import dynamic from 'next/dynamic';
 
+import { EDITOR_CONFIG } from '../../config/editor.config';
 import { useEditorCanvas } from '../../hooks/useEditorCanvas';
+import { SNAP_GRID_PX } from '../../hooks/useEditorSnapToGrid';
 import { useExecutionSocket } from '../../hooks/useExecutionSocket';
 import { useWorkflowExecution } from '../../hooks/useWorkflowExecution';
 import { getAutoLayout } from '../../utils/layoutUtils';
-import {
-  ConnectionBubblesLayer,
-  ConnectionsLayer,
-  EditorOverlays,
-  GridLayer,
-  NodesLayer,
-} from './';
+import { EditorOverlays } from './';
+import FlowCanvas from './flow/FlowCanvas';
 const LogTerminal = dynamic(() => import('./terminal/LogTerminal'), { ssr: false });
 import type { Connection, WorkflowNode } from '@operari/shared';
+import { ReactFlowProvider } from '@xyflow/react';
 import { Terminal as TerminalIcon, X } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -27,10 +25,10 @@ import './WorkflowNode.css';
 
 import { useEditorTools } from '../../hooks/useEditorTools';
 import { useSnapshots } from '../../hooks/useSnapshots';
-import ExecutionEventLog from '../Runs/ExecutionEventLog';
 import RunDialog from '../Runbook/RunDialog';
 import ScheduleDialog from '../Runbook/ScheduleDialog';
 import SnapshotDialog from '../Runbook/SnapshotDialog';
+import ExecutionEventLog from '../Runs/ExecutionEventLog';
 import CanvasRunStatus from './CanvasRunStatus';
 import CommandPalette, { CommandAction } from './CommandPalette';
 import EditorSidebar from './EditorSidebar';
@@ -44,6 +42,14 @@ import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertie
 import YamlViewModal from './YamlViewModal';
 
 export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
+  return (
+    <ReactFlowProvider>
+      <EditorCanvasInner lang={lang} />
+    </ReactFlowProvider>
+  );
+}
+
+function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [searchTrigger, setSearchTrigger] = useState<number>(0);
   const searchParams = useSearchParams();
@@ -79,7 +85,6 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     contextMenu,
     deleteConfirm,
     deleteConnectionConfirm,
-    highContrast,
     dbNodeTypes,
     executionMetrics,
     cycleError,
@@ -87,38 +92,29 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     setSelectedNodes,
     highlightedNodes,
     focusedNodeIndex,
-    draggingNode,
-    hoveredInputNode,
     selectedConnection,
-    creatingConnection,
     cyclicConnections,
     configNodeId,
     undo,
     redo,
     canUndo,
     canRedo,
-    selectionBox,
-    getSelectionBoxStyle,
     // Handlers
-    handleMouseDown,
-    handleCanvasMouseMove,
-    handleCanvasMouseUp,
+    handleFlowNodesChange,
+    handleFlowEdgesChange,
+    handleFlowNodeDragStart,
+    handleFlowNodeDragStop,
+    handleFlowConnect,
     handleCanvasDrop,
     handleCanvasDragOver,
-    handleCanvasClick,
+    handlePaneClick,
     handleContextMenu,
-    handleNodeDragStart,
-    handleNodeDrag,
-    handleNodeDragEnd,
-    handlePortDragStart,
-    handlePortDragEnd,
     handleCloseContextMenu,
 
     handleContextMenuDuplicate,
     handleDeleteFromContextMenu,
     handleContextMenuToggleEnable,
     handleNodeClick,
-    handleNodeMove,
     handleNodeUpdate,
     handleCloseConfigPanel,
     setConfigNodeId,
@@ -142,6 +138,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
     handleOnboardingClose,
     handleNodeAddFromSearch,
     handleViewportChangeAdapter,
+    syncViewport,
 
     isRunDialogOpen,
     handleOpenRunDialog,
@@ -259,6 +256,7 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
           schedule: wf.schedule ?? prev.schedule,
           inputs: Array.isArray(wf.inputs) ? wf.inputs : [],
         }));
+        setFitRequest(n => n + 1);
         setLoadError(null);
       } catch (err) {
         if (cancelled) return;
@@ -269,6 +267,15 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
       cancelled = true;
     };
   }, [urlRunbookId, handleLoadWorkflow]);
+
+  // The first-load fit in useEditorCanvas fires on the placeholder
+  // node before the fetch resolves, so frame the loaded runbook here.
+  // Kept out of the loader effect: a new dep there would cancel the
+  // in-flight fetch.
+  const [fitRequest, setFitRequest] = useState(0);
+  useEffect(() => {
+    if (fitRequest > 0) handleFitView();
+  }, [fitRequest, handleFitView]);
 
   // Persist typed input declarations via the dedicated route so
   // this write does not collide with the YAML-first autosave path.
@@ -356,10 +363,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
   };
   // -----------------------
 
-  // xyOps Tool System (kept for the move/draw mode toggle on the
-  // toolbar, even though the soldering "draw" path was removed —
-  // the move-mode bool is still consumed by NodesLayer for cursor
-  // affordances).
+  // Toolbar move/draw toggle: in "draw" mode FlowCanvas turns
+  // left-drag into box selection and locks node dragging.
   const { tool, selectTool } = useEditorTools();
 
   const handleExecuteWithInput = useCallback(
@@ -635,14 +640,8 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
               backgroundColor: 'var(--box-background-color)',
               backgroundImage: 'none',
             }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleCanvasMouseMove}
-            onMouseUp={handleCanvasMouseUp}
-            onMouseLeave={handleCanvasMouseUp}
             onDrop={handleCanvasDrop}
             onDragOver={handleCanvasDragOver}
-            onClick={handleCanvasClick}
-            onContextMenu={e => handleContextMenu(e, 'canvas')}
             role="application"
             aria-label={lang === 'en' ? 'Runbook canvas' : 'Canvas del runbook'}
           >
@@ -677,55 +676,38 @@ export default function EditorCanvas({ lang }: { lang: 'en' | 'es' }) {
                 : 'Use Tab para navegar entre nodos, teclas de flecha para mover el foco, Enter para seleccionar, Escape para deseleccionar, Delete para eliminar nodos seleccionados'}
             </div>
 
-            <GridLayer viewport={viewport} highContrast={highContrast} />
-
-            <ConnectionsLayer
-              connections={connections}
-              nodes={nodes}
-              viewport={viewport}
-              selectedConnection={selectedConnection}
-              creatingConnection={creatingConnection}
-              cyclicConnections={cyclicConnections}
-              onConnectionClick={handleConnectionSelect}
-              nodeStatuses={nodeStatuses}
-            />
-
-            <ConnectionBubblesLayer
-              connections={connections}
-              nodes={nodes}
-              viewport={viewport}
-              selectedConnection={selectedConnection}
-              onConnectionClick={handleConnectionSelect}
-            />
-
-            <NodesLayer
+            <FlowCanvas
               nodes={nodes}
               connections={connections}
               nodeTypes={dbNodeTypes}
-              viewport={viewport}
-              draggingNode={draggingNode}
-              hoveredInputNode={hoveredInputNode}
+              zoom={viewport.zoom}
+              minZoom={EDITOR_CONFIG.ZOOM.MIN}
+              maxZoom={EDITOR_CONFIG.ZOOM.MAX}
               selectedNodes={selectedNodes}
+              selectedConnection={selectedConnection}
               highlightedNodes={highlightedNodes}
               focusedNodeIndex={focusedNodeIndex}
-              onNodeDragStart={handleNodeDragStart}
-              onNodeDrag={handleNodeDrag}
-              onNodeDragEnd={handleNodeDragEnd}
-              onPortDragStart={handlePortDragStart}
-              onPortDragEnd={handlePortDragEnd}
-              onNodeClick={handleNodeClick}
-              onNodeMove={handleNodeMove}
-              onNodeUpdate={handleNodeUpdate}
-              onNodeDoubleClick={setConfigNodeId}
-              editorMode={tool === 'draw' ? 'connect' : 'move'}
+              cyclicConnections={cyclicConnections}
               nodeStatuses={nodeStatuses}
               nodeMeta={nodeMeta}
+              editorMode={tool === 'draw' ? 'connect' : 'move'}
+              snapToGrid={snapToGrid}
+              snapGridPx={SNAP_GRID_PX}
+              connectionRadius={EDITOR_CONFIG.GRID.SNAP_RADIUS}
+              ariaLabel={lang === 'en' ? 'Runbook canvas' : 'Canvas del runbook'}
+              onMove={syncViewport}
+              onNodesChange={handleFlowNodesChange}
+              onEdgesChange={handleFlowEdgesChange}
+              onNodeDragStart={handleFlowNodeDragStart}
+              onNodeDragStop={handleFlowNodeDragStop}
+              onConnect={handleFlowConnect}
+              onConnectionSelect={handleConnectionSelect}
+              onNodeClick={handleNodeClick}
+              onNodeDoubleClick={setConfigNodeId}
+              onNodeUpdate={handleNodeUpdate}
+              onPaneClick={handlePaneClick}
+              onContextMenu={handleContextMenu}
             />
-
-            {/* Selection Box */}
-            {selectionBox && getSelectionBoxStyle() && (
-              <div id="d_wf_selection_draw" style={getSelectionBoxStyle()!} />
-            )}
 
             <EditorOverlays
               nodes={nodes}
