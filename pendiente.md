@@ -97,6 +97,30 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 
 ---
 
+### 🟡 Editor canvas: cierre de la migración a React Flow
+
+**Estado:** migración hecha (sin commit todavía). El canvas de `/editor` se renderiza con `@xyflow/react` 12 desde `frontend/components/Editor/flow/`: nodos con `<Handle>`, aristas `ConditionEdge` con las prefs de Apariencia, `<Background>`, `NodeResizer` en frames, viewport propiedad de React Flow (espejo en React vía `onMove`). Se borró el canvas viejo (`NodesLayer`, `ConnectionsLayer`, `ConnectionBubblesLayer`, `GridLayer`, `EditorConnection`, `useCanvasRenderer`, `useEditorSelection`, `utils/canvas/{drawing,geometry,debug}`, `nodePortUtils`, `portAnchor`). Probado en headless Chromium con un fixture (frame + approval multi-salida + controller + nota): drag, undo, frame arrastra hijos, resize, conectar, rechazo de duplicados, zoom/fit view, menú contextual de nodo.
+
+**Pendiente:**
+
+- ~~Probarlo contra el backend real~~ — hecho 2026-10-29 contra el stack Docker (runbook demo + plantilla `db-migration-prisma`): carga, fit view, drag, autosave, recarga. Salieron y se arreglaron: falso "Conflict" del autosave tras el primer guardado, autosave YAML que no actualizaba la columna JSON (que leen el loader y el engine), sin fit view al abrir `?id=`, warning 015 de React Flow (`measured` no se pasaba a los nodos), seed del runbook demo con forma inválida, nodos de YAML sin posición superpuestos (espaciado 200 < ancho 260)
+- Runbooks demo ya sembrados en tenants existentes siguen con la forma vieja (`type: 'note'`, `data.label`, sin `title`): el autosave les da 400. Hace falta migración de datos o normalizar en el loader (~medio día)
+- Borrar la cuenta de prueba `rf-canvas-test@example.com` (tenant `rf-canvas-test`) de la base del servidor
+- Conectar nodos contra el backend real: no se llegó a probar (sí en la prueba local con fixture); usa el mismo autosave que el drag
+- Commit de la migración + del arreglo de `ajv` (overrides anidados en `package.json` raíz y entradas del lockfile regeneradas; backup del lockfile anterior en el scratchpad de la sesión)
+- Minimapa propio (`components/Navigation/MiniMap.tsx`) → reemplazar por `<MiniMap>` de React Flow; hoy mueve el canvas vía `handleViewportChangeAdapter` → `useReactFlow().setViewport` (~medio día)
+- `ZoomControls`: el botón "Fit View" queda tapado por el botón flotante de la terminal (`Toggle Terminal`, bottom-right) — preexistente (~1 hora)
+- `ContextMenu` no se cierra con Escape — preexistente (~1 hora)
+- Notas (`custom.note`): la caja es del mismo color que el fondo del canvas, solo se ve el texto — preexistente, revisar `.wf_note` en `WorkflowNode.css` (~1 hora)
+- Fondo `lines` (rayado horizontal): emulado con `BackgroundVariant.Lines` y gap horizontal gigante; si molesta, pattern SVG propio como hijo de `<ReactFlow>` (~1 hora)
+- Estilos de flujo `orbs`/`comet`/`particles` reimplementados con `<animateMotion>` SVG y `gradient` como barrido de guiones: comparar a ojo contra el canvas 2D viejo y ajustar velocidades (~medio día)
+- Tests de los handlers nuevos de `useEditorCanvas` (`handleFlowNodesChange`: frame arrastra hijos, resize con un solo undo; `handleFlowNodeDragStop`: reasignación de `parentId`) — hoy solo cubiertos por la prueba manual en navegador (~1 día)
+- Migrar `.eslintrc.json` a flat config (`eslint.config.js`): ESLint 9 solo corre con `ESLINT_USE_FLAT_CONFIG=false` o vía `next lint`, y v10 lo elimina (~medio día)
+
+**Lift estimado restante:** 3-4 días.
+
+---
+
 ## Operativos / no-código (afuera del repo)
 
 | Item | Estado |
@@ -125,8 +149,7 @@ Si un usuario pide algo de esto, agregalo arriba con un estimado.
 
 ## Tests baseline al cierre de la última sesión
 
-- Backend: **1293/1293** passing
-- Frontend: **243/243** passing
+- Backend: **1294/1301** passing (2026-10-29). Las 6 fallas también ocurren en `HEAD` sin cambios: `sdk-integration` (falta `packages/sdk/dist`, hay que buildear el SDK), `admin.overview` (403), `local.runner` (timeouts) y `seed-nodes.catalog`
+- Frontend: **237/237** passing (2026-10-29, tras la migración a React Flow + test de regresión del autosave)
 - Python SDK: **18/18** passing
 - tsc clean ambos lados (TS)
-- 6 commits locales pendientes de push (los del último push attempt fallido por falta de credenciales)
