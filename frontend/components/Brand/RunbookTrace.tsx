@@ -5,7 +5,11 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
   CheckCircle2,
+  Clock,
+  Gauge,
   Globe,
+  KeyRound,
+  Layers,
   type LucideIcon,
   MessageSquare,
   MousePointerClick,
@@ -199,6 +203,207 @@ const STEPS_ES: Step[] = [
   },
 ];
 
+const ROTATE_EN: Step[] = [
+  {
+    id: 'cron',
+    label: 'Every 30 days',
+    type: 'operari.cron',
+    icon: Clock,
+    output: '0 3 1 * *',
+    duration: '0ms',
+    tone: 'violet',
+    log: ['schedule fired · 03:00 UTC', 'vars.service = "billing-db"', 'run_7c21a0 started'],
+  },
+  {
+    id: 'newkey',
+    label: 'New credential',
+    type: 'shell',
+    icon: KeyRound,
+    output: 'key v14',
+    duration: '2.3s',
+    tone: 'emerald',
+    log: [
+      '$ vault write -f db/rotate-role/billing',
+      'new credential issued (v14)',
+      'old credential kept for rollback',
+    ],
+  },
+  {
+    id: 'approve',
+    label: 'Owner OK',
+    type: 'approval',
+    icon: ShieldCheck,
+    output: 'db-team@',
+    duration: '4m',
+    tone: 'amber',
+    log: ['waiting for db-team in #db-ops', 'approved by db-team@', 'gate passed in 4m'],
+  },
+  {
+    id: 'deploy',
+    label: 'Roll secret',
+    type: 'http',
+    icon: Globe,
+    output: '200 OK',
+    duration: '6.8s',
+    tone: 'sky',
+    log: ['PATCH /k8s/secrets/billing-db', 'pods restarted 3/3', 'health checks green'],
+  },
+  {
+    id: 'notify',
+    label: '#db-ops',
+    type: 'notify.slack',
+    icon: MessageSquare,
+    output: 'ts:1714…',
+    duration: '150ms',
+    tone: 'violet',
+    log: ['chat.postMessage → #db-ops', '"billing-db credential rotated to v14"', 'ok · ts:1714…'],
+  },
+];
+
+const ROTATE_ES: Step[] = [
+  {
+    ...ROTATE_EN[0],
+    label: 'Cada 30 días',
+    log: ['schedule disparado · 03:00 UTC', 'vars.service = "billing-db"', 'run_7c21a0 iniciado'],
+  },
+  {
+    ...ROTATE_EN[1],
+    label: 'Nueva credencial',
+    log: [
+      '$ vault write -f db/rotate-role/billing',
+      'credencial nueva emitida (v14)',
+      'la anterior se conserva para rollback',
+    ],
+  },
+  {
+    ...ROTATE_EN[2],
+    label: 'OK del dueño',
+    log: ['esperando a db-team en #db-ops', 'aprobado por db-team@', 'gate superado en 4m'],
+  },
+  {
+    ...ROTATE_EN[3],
+    label: 'Rotar secreto',
+    log: ['PATCH /k8s/secrets/billing-db', 'pods reiniciados 3/3', 'health checks en verde'],
+  },
+  {
+    ...ROTATE_EN[4],
+    log: ['chat.postMessage → #db-ops', '"credencial de billing-db rotada a v14"', 'ok · ts:1714…'],
+  },
+];
+
+const SCALE_EN: Step[] = [
+  {
+    id: 'alert',
+    label: 'Latency alert',
+    type: 'datadog.webhook',
+    icon: AlertTriangle,
+    output: 'p99 1.8s',
+    duration: '0ms',
+    tone: 'rose',
+    log: [
+      'POST /webhook/datadog · 202 Accepted',
+      'monitor checkout-latency · p99 1.8s',
+      'vars.deployment = "checkout"',
+    ],
+  },
+  {
+    id: 'metrics',
+    label: 'Read load',
+    type: 'http',
+    icon: Gauge,
+    output: 'cpu 91%',
+    duration: '640ms',
+    tone: 'sky',
+    log: [
+      'GET /api/v1/query?avg:cpu{svc:checkout}',
+      'cpu 91% · rps 4.2k',
+      'threshold exceeded (> 80%)',
+    ],
+  },
+  {
+    id: 'scale',
+    label: 'Scale out',
+    type: 'shell',
+    icon: Layers,
+    output: '6 → 10',
+    duration: '3.9s',
+    tone: 'emerald',
+    log: [
+      '$ kubectl scale deploy/checkout --replicas=10',
+      'replicas 6 → 10',
+      'rollout status: complete',
+    ],
+  },
+  {
+    id: 'verify',
+    label: 'Verify p99',
+    type: 'http',
+    icon: CheckCircle2,
+    output: 'p99 240ms',
+    duration: '30s',
+    tone: 'sky',
+    log: ['wait 30s for traffic to settle', 'p99 1.8s → 240ms', 'monitor recovered'],
+  },
+  {
+    id: 'notify',
+    label: '#incidents',
+    type: 'notify.slack',
+    icon: MessageSquare,
+    output: 'ts:1714…',
+    duration: '170ms',
+    tone: 'violet',
+    log: [
+      'chat.postMessage → #incidents',
+      '"checkout scaled to 10, p99 recovered"',
+      'ok · ts:1714…',
+    ],
+  },
+];
+
+const SCALE_ES: Step[] = [
+  { ...SCALE_EN[0], label: 'Alerta latencia' },
+  {
+    ...SCALE_EN[1],
+    label: 'Leer carga',
+    log: [
+      'GET /api/v1/query?avg:cpu{svc:checkout}',
+      'cpu 91% · rps 4.2k',
+      'umbral superado (> 80%)',
+    ],
+  },
+  {
+    ...SCALE_EN[2],
+    label: 'Escalar',
+    log: [
+      '$ kubectl scale deploy/checkout --replicas=10',
+      'réplicas 6 → 10',
+      'rollout status: completo',
+    ],
+  },
+  {
+    ...SCALE_EN[3],
+    label: 'Verificar p99',
+    log: ['esperar 30s a que se estabilice', 'p99 1.8s → 240ms', 'monitor recuperado'],
+  },
+  {
+    ...SCALE_EN[4],
+    label: '#incidentes',
+    log: [
+      'chat.postMessage → #incidentes',
+      '"checkout escalado a 10, p99 recuperado"',
+      'ok · ts:1714…',
+    ],
+  },
+];
+
+export type TraceScenario = 'rollback' | 'rotate' | 'scale';
+
+const SCENARIO_STEPS: Record<TraceScenario, { en: Step[]; es: Step[] }> = {
+  rollback: { en: STEPS_EN, es: STEPS_ES },
+  rotate: { en: ROTATE_EN, es: ROTATE_ES },
+  scale: { en: SCALE_EN, es: SCALE_ES },
+};
+
 const TRACE_TEXT = {
   en: {
     hint: 'Click any step to inspect its output',
@@ -216,6 +421,7 @@ const TRACE_TEXT = {
 
 interface RunbookTraceProps {
   lang?: 'en' | 'es';
+  scenario?: TraceScenario;
 }
 
 interface TraceLayoutProps {
@@ -230,9 +436,9 @@ interface TraceNodeProps {
   onSelect: () => void;
 }
 
-export function RunbookTrace({ lang = 'en' }: RunbookTraceProps) {
+export function RunbookTrace({ lang = 'en', scenario = 'rollback' }: RunbookTraceProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const steps = lang === 'es' ? STEPS_ES : STEPS_EN;
+  const steps = SCENARIO_STEPS[scenario][lang];
   const t = TRACE_TEXT[lang];
   // Clicking a step freezes the loop on the finished run and opens its
   // detail; Replay bumps runKey, which restarts the effect's loop.

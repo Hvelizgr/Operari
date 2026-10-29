@@ -2,8 +2,9 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import { useParams } from 'next/navigation';
+import { useState } from 'react';
 
-import { RunbookTrace } from '@/components/Brand/RunbookTrace';
+import { RunbookTrace, type TraceScenario } from '@/components/Brand/RunbookTrace';
 
 /**
  * Landing band that wraps the animated runbook trace with eyebrow +
@@ -31,6 +32,18 @@ const STRINGS = {
     eyebrow: 'Run inspector · live',
     runId: 'RUN',
     runSlug: 'sentry-rollback',
+    scenarios: [
+      ['rollback', 'Rollback', 'sentry-rollback'],
+      ['rotate', 'Rotate credentials', 'rotate-db-credential'],
+      ['scale', 'Scale on load', 'checkout-autoscale'],
+    ],
+    scenarioSubtitles: {
+      rotate:
+        'A monthly schedule issues a new database credential, waits for the owning team to approve, rolls the Kubernetes secret and reports back — every step in the same audit chain.',
+      scale:
+        'A Datadog latency alert reads the current load, scales the deployment out, waits for p99 to recover and posts the result to #incidents.',
+    },
+    scenarioLabel: 'Pick a runbook',
     title: 'A real runbook, in five beats.',
     subtitle:
       'Sentry alerts. Operari fetches logs, rolls back the deploy, asks on-call to confirm, posts to #incidents — every transition lands in a SHA-256 audit chain you can verify with a single CLI command.',
@@ -45,6 +58,18 @@ const STRINGS = {
     eyebrow: 'Run inspector · en vivo',
     runId: 'RUN',
     runSlug: 'sentry-rollback',
+    scenarios: [
+      ['rollback', 'Rollback', 'sentry-rollback'],
+      ['rotate', 'Rotar credenciales', 'rotate-db-credential'],
+      ['scale', 'Escalar por carga', 'checkout-autoscale'],
+    ],
+    scenarioSubtitles: {
+      rotate:
+        'Un schedule mensual emite una credencial nueva de base de datos, espera la aprobación del equipo dueño, rota el secreto de Kubernetes y avisa — cada paso en la misma cadena de auditoría.',
+      scale:
+        'Una alerta de latencia de Datadog lee la carga actual, escala el deployment, espera a que el p99 se recupere y publica el resultado en #incidentes.',
+    },
+    scenarioLabel: 'Elegí un runbook',
     title: 'Un runbook real, en cinco beats.',
     subtitle:
       'Sentry dispara. Operari trae los logs, hace rollback del deploy, pide confirmación al on-call y publica en #incidentes — cada transición cae en una cadena de auditoría SHA-256 verificable con un solo comando.',
@@ -62,6 +87,8 @@ export default function RunbookTraceSection() {
   const lang = (params?.lang === 'es' ? 'es' : 'en') as 'en' | 'es';
   const t = STRINGS[lang];
   const reduced = useReducedMotion();
+  const [scenario, setScenario] = useState<TraceScenario>('rollback');
+  const runSlug = t.scenarios.find(([id]) => id === scenario)?.[2] ?? t.runSlug;
 
   return (
     <section className="border-border/40 relative overflow-hidden border-b py-20 sm:py-28">
@@ -90,8 +117,36 @@ export default function RunbookTraceSection() {
           <h2 className="text-foreground text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
             {t.title}
           </h2>
-          <p className="text-muted-foreground mt-4 text-base sm:text-lg">{t.subtitle}</p>
+          <p className="text-muted-foreground mt-4 text-base sm:text-lg">
+            {scenario === 'rollback' ? t.subtitle : t.scenarioSubtitles[scenario]}
+          </p>
         </motion.div>
+
+        <div
+          role="tablist"
+          aria-label={t.scenarioLabel}
+          className="mx-auto mb-5 flex w-fit flex-wrap justify-center gap-1 rounded-xl border border-white/10 bg-black/20 p-1"
+        >
+          {t.scenarios.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={scenario === id}
+              onClick={() => setScenario(id as TraceScenario)}
+              className={`relative isolate rounded-lg px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 sm:text-sm ${scenario === id ? 'text-emerald-200' : 'text-zinc-400 hover:text-zinc-200'}`}
+            >
+              {scenario === id && (
+                <motion.span
+                  layoutId="trace-scenario-tab"
+                  className="absolute inset-0 -z-10 rounded-lg border border-emerald-500/30 bg-emerald-500/10"
+                  transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                />
+              )}
+              {label}
+            </button>
+          ))}
+        </div>
 
         <motion.div
           initial={reduced ? false : { opacity: 0, y: 24 }}
@@ -109,7 +164,7 @@ export default function RunbookTraceSection() {
                 {t.runId}
               </span>
               <span className="text-foreground truncate font-mono text-xs font-medium">
-                {t.runSlug}
+                {runSlug}
               </span>
               <span className="hidden font-mono text-[10px] text-zinc-600 sm:inline">
                 · run_3f9c2b7a
@@ -138,7 +193,9 @@ export default function RunbookTraceSection() {
             }}
           />
           <div className="relative px-4 py-12 sm:px-10 sm:py-14">
-            <RunbookTrace lang={lang} />
+            {/* key remounts the trace so a new scenario starts its loop
+                from the first step with no stale selection. */}
+            <RunbookTrace key={scenario} lang={lang} scenario={scenario} />
           </div>
         </motion.div>
 
