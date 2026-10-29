@@ -81,8 +81,8 @@ export const content = {
       {
         value: 100,
         suffix: '%',
-        label: 'open source, Apache-2.0',
-        hint: 'self-host o hosted — el mismo binario',
+        label: 'núcleo open source, AGPL-3.0',
+        hint: 'SDK + CLI son MIT · self-host o hosted — el mismo binario',
       },
       {
         value: 10,

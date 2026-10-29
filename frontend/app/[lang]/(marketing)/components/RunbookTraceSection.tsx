@@ -35,6 +35,11 @@ const STRINGS = {
     subtitle:
       'Sentry alerts. Operari fetches logs, rolls back the deploy, asks on-call to confirm, posts to #incidents — every transition lands in a SHA-256 audit chain you can verify with a single CLI command.',
     statusLabel: 'Streaming',
+    captions: [
+      ['5 steps', 'one run, alert to Slack'],
+      ['~10ms', 'tail latency to every UI'],
+      ['SHA-256 audit chain', 'verifiable with one command'],
+    ],
   },
   es: {
     eyebrow: 'Run inspector · en vivo',
@@ -44,6 +49,11 @@ const STRINGS = {
     subtitle:
       'Sentry dispara. Operari trae los logs, hace rollback del deploy, pide confirmación al on-call y publica en #incidentes — cada transición cae en una cadena de auditoría SHA-256 verificable con un solo comando.',
     statusLabel: 'Streaming',
+    captions: [
+      ['5 pasos', 'un run, de la alerta a Slack'],
+      ['~10ms', 'de latencia hasta cada UI'],
+      ['Cadena de auditoría SHA-256', 'verificable con un solo comando'],
+    ],
   },
 } as const;
 
@@ -136,21 +146,13 @@ export default function RunbookTraceSection() {
             Reinforces what the visitor just watched without needing
             to re-read the body copy above. */}
         <div className="text-muted-foreground mx-auto mt-8 grid max-w-3xl grid-cols-1 gap-4 text-center text-sm sm:grid-cols-3">
-          <span>
-            <span className="text-foreground font-medium">5 step types</span>
-            <br />
-            wired today
-          </span>
-          <span>
-            <span className="text-foreground font-medium">~10ms</span>
-            <br />
-            tail latency to every UI
-          </span>
-          <span>
-            <span className="text-foreground font-medium">SHA-256 audit chain</span>
-            <br />
-            verifiable with one command
-          </span>
+          {t.captions.map(([head, sub]) => (
+            <span key={head}>
+              <span className="text-foreground font-medium">{head}</span>
+              <br />
+              {sub}
+            </span>
+          ))}
         </div>
       </div>
     </section>
