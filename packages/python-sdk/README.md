@@ -103,6 +103,66 @@ echo '{"config":{"name":"world"},"context":{"runId":"r","stepId":"s","tenantId":
 
 You should see one `EMIT` line and one `RESULT` line.
 
+### Validating config with Pydantic (recommended)
+
+`config_schema` is any callable that takes the raw config dict and returns
+the parsed config, raising on invalid input. A Pydantic model's
+`model_validate` fits that contract, and its error message becomes the
+step's failure reason (`invalid config — ...`):
+
+```python
+from pydantic import BaseModel, Field
+
+class HelloConfig(BaseModel):
+    name: str = Field(min_length=1)
+    shout: bool = False
+
+def execute(config: HelloConfig, context: PluginContext) -> PluginResult:
+    text = f"hi {config.name}"
+    return PluginResult(success=True, output={"text": text.upper() if config.shout else text})
+
+step = define_step(
+    type="myorg.hello-world",
+    config_schema=HelloConfig.model_validate,
+    execute=execute,
+)
+```
+
+Pydantic is not a dependency of the SDK; add it to your plugin's own
+requirements.
+
+### Async steps
+
+`execute` may be an `async def`. The bridge awaits it with `asyncio.run`,
+so concurrent I/O inside one step works as usual:
+
+```python
+import asyncio
+import httpx
+
+async def execute(config, context: PluginContext) -> PluginResult:
+    async with httpx.AsyncClient() as client:
+        responses = await asyncio.gather(*(client.get(url) for url in config["urls"]))
+    return PluginResult(success=True, output={"status": [r.status_code for r in responses]})
+```
+
+### Streaming logs from long-running steps
+
+Every `context.emit(...)` is written and flushed immediately, so the run
+timeline shows it live. Emit as work progresses instead of collecting
+output for the end:
+
+```python
+def execute(config, context: PluginContext) -> PluginResult:
+    for i, host in enumerate(config["hosts"], start=1):
+        context.emit("log", f"[{i}/{len(config['hosts'])}] draining {host}")
+        drain(host)
+    return PluginResult(success=True)
+```
+
+Plain `print()` output is captured as raw stdout for debugging but does not
+become a log event; use `context.emit`.
+
 ### Plugin manifest (`operari.json`)
 
 The Operari backend's plugin loader recognizes Python plugins via a standalone
