@@ -5,7 +5,12 @@ import { AlertTriangle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { HelixSpinner } from '@/components/Brand/HelixSpinner';
-import { motionFor, overlayPillVariants, reducedOverlayPillVariants } from '@/lib/motion';
+import {
+  motionFor,
+  overlayPillVariants,
+  reducedOverlayPillVariants,
+  usePrefersReducedMotion,
+} from '@/lib/motion';
 
 /**
  * Canvas-level run status pill.
@@ -53,6 +58,7 @@ export default function CanvasRunStatus({
   startedAt,
   lang,
 }: CanvasRunStatusProps) {
+  const reducedMotion = usePrefersReducedMotion();
   // Tick every second to keep the elapsed time honest. Starts only
   // while executing so idle editors don't pay for this timer.
   const [, setTick] = useState(0);
@@ -64,7 +70,7 @@ export default function CanvasRunStatus({
 
   const t = LABELS[lang];
   const elapsed = executing && startedAt ? formatElapsed(Date.now() - startedAt) : null;
-  const variants = motionFor(overlayPillVariants, reducedOverlayPillVariants);
+  const variants = motionFor(overlayPillVariants, reducedOverlayPillVariants, reducedMotion);
 
   return (
     <AnimatePresence>

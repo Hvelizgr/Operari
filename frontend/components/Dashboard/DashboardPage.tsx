@@ -24,6 +24,7 @@ import {
   reducedStaggerContainerVariants,
   staggerChildVariants,
   staggerContainerVariants,
+  usePrefersReducedMotion,
 } from '@/lib/motion';
 
 import { EmptyState } from '../Common/EmptyState';
@@ -249,6 +250,7 @@ interface DashboardPageProps {
 }
 
 export default function DashboardPage({ lang }: DashboardPageProps) {
+  const reducedMotion = usePrefersReducedMotion();
   const t = STRINGS[lang];
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -490,18 +492,26 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
             left→right on mount. Reduced-motion variant is a flat fade. */}
         <motion.div
           className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4"
-          variants={motionFor(staggerContainerVariants, reducedStaggerContainerVariants)}
+          variants={motionFor(
+            staggerContainerVariants,
+            reducedStaggerContainerVariants,
+            reducedMotion
+          )}
           initial="initial"
           animate="animate"
         >
-          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+          <motion.div
+            variants={motionFor(staggerChildVariants, reducedStaggerChildVariants, reducedMotion)}
+          >
             <PulseCard
               icon={<Activity size={16} />}
               label={t.pulseRuns24h}
               value={data ? String(data.pulse.runs24h) : '—'}
             />
           </motion.div>
-          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+          <motion.div
+            variants={motionFor(staggerChildVariants, reducedStaggerChildVariants, reducedMotion)}
+          >
             <PulseCard
               icon={<CheckCircle2 size={16} />}
               label={t.pulseSuccess}
@@ -517,14 +527,18 @@ export default function DashboardPage({ lang }: DashboardPageProps) {
               }
             />
           </motion.div>
-          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+          <motion.div
+            variants={motionFor(staggerChildVariants, reducedStaggerChildVariants, reducedMotion)}
+          >
             <PulseCard
               icon={<Clock size={16} />}
               label={t.pulseAvg}
               value={data ? formatDuration(data.pulse.avgDurationMs24h) : '—'}
             />
           </motion.div>
-          <motion.div variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}>
+          <motion.div
+            variants={motionFor(staggerChildVariants, reducedStaggerChildVariants, reducedMotion)}
+          >
             <PulseCard
               icon={<InboxIcon size={16} />}
               label={t.pulsePending}

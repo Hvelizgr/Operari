@@ -4,7 +4,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Play, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { motionFor, overlayPillVariants, reducedOverlayPillVariants } from '@/lib/motion';
+import {
+  motionFor,
+  overlayPillVariants,
+  reducedOverlayPillVariants,
+  usePrefersReducedMotion,
+} from '@/lib/motion';
 
 /**
  * First-run hint — canvas-level.
@@ -62,6 +67,7 @@ export default function OnboardingRunHint({
   hasExecution,
   lang,
 }: OnboardingRunHintProps) {
+  const reducedMotion = usePrefersReducedMotion();
   // Mount-time check against localStorage. Gated on `mounted` so the
   // SSR pass doesn't render a hint that flashes for a user who has
   // already seen it — hydration mismatch and a visual glitch both.
@@ -94,7 +100,7 @@ export default function OnboardingRunHint({
     typeof navigator !== 'undefined' &&
     /Mac|iPhone|iPod|iPad/i.test(navigator.platform || navigator.userAgent);
   const mod = isMac ? '⌘' : 'Ctrl';
-  const variants = motionFor(overlayPillVariants, reducedOverlayPillVariants);
+  const variants = motionFor(overlayPillVariants, reducedOverlayPillVariants, reducedMotion);
 
   return (
     <AnimatePresence>

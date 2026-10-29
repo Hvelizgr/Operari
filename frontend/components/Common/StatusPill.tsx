@@ -5,7 +5,12 @@ import { AlertTriangle, Inbox as InboxIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { motionFor, overlayPillVariants, reducedOverlayPillVariants } from '@/lib/motion';
+import {
+  motionFor,
+  overlayPillVariants,
+  reducedOverlayPillVariants,
+  usePrefersReducedMotion,
+} from '@/lib/motion';
 
 interface StatusPillProps {
   lang: 'en' | 'es';
@@ -26,19 +31,10 @@ const LABELS = {
 // showing (active runs, failures, approvals). Staying visible when idle
 // would be noise — when all is well, take zero space.
 export default function StatusPill({ lang }: StatusPillProps) {
+  const reducedMotion = usePrefersReducedMotion();
   const router = useRouter();
   const [data, setData] = useState<PillData | null>(null);
-  const [reducedMotion, setReducedMotion] = useState(false);
   const t = LABELS[lang];
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReducedMotion(mq.matches);
-    const sync = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
-  }, []);
 
   useEffect(() => {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -82,7 +78,7 @@ export default function StatusPill({ lang }: StatusPillProps) {
   // state flips from active → idle so the pill fades out instead
   // of popping.
   const shouldShow = Boolean(data) && (hasUrgent || hasRunning);
-  const pillVariants = motionFor(overlayPillVariants, reducedOverlayPillVariants);
+  const pillVariants = motionFor(overlayPillVariants, reducedOverlayPillVariants, reducedMotion);
 
   return (
     <AnimatePresence>

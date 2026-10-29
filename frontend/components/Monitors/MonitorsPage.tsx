@@ -21,6 +21,7 @@ import {
   reducedStaggerContainerVariants,
   staggerChildVariants,
   staggerContainerVariants,
+  usePrefersReducedMotion,
 } from '@/lib/motion';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -174,6 +175,7 @@ interface MonitorsPageProps {
 }
 
 export default function MonitorsPage({ lang }: MonitorsPageProps) {
+  const reducedMotion = usePrefersReducedMotion();
   const t = STRINGS[lang];
   const [monitors, setMonitors] = useState<Monitor[] | null>(null);
   const [runbooks, setRunbooks] = useState<Runbook[]>([]);
@@ -278,7 +280,11 @@ export default function MonitorsPage({ lang }: MonitorsPageProps) {
         ) : (
           <motion.ul
             className="space-y-3"
-            variants={motionFor(staggerContainerVariants, reducedStaggerContainerVariants)}
+            variants={motionFor(
+              staggerContainerVariants,
+              reducedStaggerContainerVariants,
+              reducedMotion
+            )}
             initial="initial"
             animate="animate"
           >
@@ -288,7 +294,11 @@ export default function MonitorsPage({ lang }: MonitorsPageProps) {
               return (
                 <motion.li
                   key={m.id}
-                  variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
+                  variants={motionFor(
+                    staggerChildVariants,
+                    reducedStaggerChildVariants,
+                    reducedMotion
+                  )}
                   className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-white/10 bg-[#1a1f2a] px-4 py-3"
                 >
                   <span

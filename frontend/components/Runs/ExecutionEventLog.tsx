@@ -23,6 +23,7 @@ import {
   overlayPillVariants,
   reducedListRowVariants,
   reducedOverlayPillVariants,
+  usePrefersReducedMotion,
 } from '@/lib/motion';
 
 export interface ExecutionEventRow {
@@ -180,6 +181,7 @@ const LABELS = {
 // emitted (vs. what the step cards summarise) — essential for
 // debugging a failed or stuck run.
 export default function ExecutionEventLog({ runId, lang, live = false }: ExecutionEventLogProps) {
+  const reducedMotion = usePrefersReducedMotion();
   const t = LABELS[lang];
   const [preset, setPreset] = useState<Preset>('all');
   const [events, setEvents] = useState<ExecutionEventRow[]>([]);
@@ -321,7 +323,9 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
         const types = filterFor(preset);
         if (types) qs.set('type', types.join(','));
         if (afterSeqRef.current) qs.set('afterSeq', afterSeqRef.current);
-        const res = await fetch(`${apiBase}/api/runs/${runId}/events?${qs.toString()}`, { credentials: 'include' });
+        const res = await fetch(`${apiBase}/api/runs/${runId}/events?${qs.toString()}`, {
+          credentials: 'include',
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = (await res.json()) as {
           data: ExecutionEventRow[];
@@ -500,7 +504,7 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
         <AnimatePresence initial={false}>
           {events.map(e => {
             const isOpen = expanded.has(e.seq);
-            const rowVariants = motionFor(listRowVariants, reducedListRowVariants);
+            const rowVariants = motionFor(listRowVariants, reducedListRowVariants, reducedMotion);
             return (
               <motion.div
                 key={e.seq}
@@ -625,7 +629,7 @@ export default function ExecutionEventLog({ runId, lang, live = false }: Executi
         {!autoFollow && events.length > 0 && (
           <motion.button
             key="jump-to-latest"
-            variants={motionFor(overlayPillVariants, reducedOverlayPillVariants)}
+            variants={motionFor(overlayPillVariants, reducedOverlayPillVariants, reducedMotion)}
             initial="initial"
             animate="animate"
             exit="exit"

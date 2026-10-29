@@ -12,6 +12,7 @@ import {
   reducedStaggerContainerVariants,
   staggerChildVariants,
   staggerContainerVariants,
+  usePrefersReducedMotion,
 } from '@/lib/motion';
 
 type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
@@ -102,6 +103,7 @@ const STATUS_STYLES: Record<ApprovalStatus, { icon: typeof CheckCircle2; cls: st
 };
 
 export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
+  const reducedMotion = usePrefersReducedMotion();
   const t = STRINGS[lang] ?? STRINGS.en;
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -265,7 +267,11 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
           arrived" — the right mental model for a filtered list. */}
       <motion.ul
         className="space-y-3"
-        variants={motionFor(staggerContainerVariants, reducedStaggerContainerVariants)}
+        variants={motionFor(
+          staggerContainerVariants,
+          reducedStaggerContainerVariants,
+          reducedMotion
+        )}
         initial="initial"
         animate="animate"
       >
@@ -276,7 +282,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
           return (
             <motion.li
               key={a.id}
-              variants={motionFor(staggerChildVariants, reducedStaggerChildVariants)}
+              variants={motionFor(staggerChildVariants, reducedStaggerChildVariants, reducedMotion)}
               className="rounded-lg border border-zinc-800 bg-zinc-950 p-4"
             >
               <div className="flex items-start justify-between gap-4">

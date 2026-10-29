@@ -21,6 +21,7 @@
  */
 
 import type { Transition, Variants } from 'framer-motion';
+import { useSyncExternalStore } from 'react';
 
 /**
  * Browser-safe reduced-motion check. Returns true during SSR so the
@@ -137,6 +138,27 @@ export const reducedListRowVariants: Variants = {
  *   const v = motionFor(overlayPillVariants, reducedOverlayPillVariants);
  *   <motion.div variants={v} initial="initial" animate="animate" />
  */
-export function motionFor(full: Variants, reduced: Variants): Variants {
-  return prefersReducedMotion() ? reduced : full;
+export function motionFor(full: Variants, reduced: Variants, isReduced: boolean): Variants {
+  return isReduced ? reduced : full;
+}
+
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+function subscribeReducedMotion(onChange: () => void): () => void {
+  const query = window.matchMedia(REDUCED_MOTION_QUERY);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+/** Render-safe reduced-motion preference. prefersReducedMotion() reads
+ *  `window`, so calling it during render returned `true` on the server
+ *  and the real value on the client, and the variants it picked made
+ *  hydration fail. The server snapshot is `false`; React re-renders
+ *  with the real preference right after hydrating. */
+export function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia(REDUCED_MOTION_QUERY).matches,
+    () => false
+  );
 }
