@@ -14,6 +14,12 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export type SaveStatus = 'saving' | 'saved' | 'error' | 'conflict';
 
+// The editor without ?id= edits a scratchpad that only lives in
+// localStorage. The backend has no such row (and its id is a global
+// primary key, so it could not be shared per tenant), so saving it
+// remotely only produced 404s.
+const SCRATCHPAD_ID = 'current-workflow';
+
 interface AutosaveOptions {
   nodes: WorkflowNode[];
   connections: Connection[];
@@ -98,6 +104,7 @@ export function useAutosave({
 
   const saveToBackend = useCallback(
     async (data: WorkflowData): Promise<boolean> => {
+      if (runbookId === SCRATCHPAD_ID) return true;
       // The YAML route only writes RunbookStep rows (read by the YAML
       // endpoint and CLI), while the editor loader and the execution
       // engine read the nodes/connections JSON columns — so the JSON
@@ -140,6 +147,7 @@ export function useAutosave({
   );
 
   const checkForConflicts = useCallback(async (): Promise<boolean> => {
+    if (runbookId === SCRATCHPAD_ID) return false;
     try {
       const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}/metadata`);
 

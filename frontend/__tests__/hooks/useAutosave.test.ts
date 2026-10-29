@@ -199,4 +199,28 @@ describe('useAutosave', () => {
     ]);
     expect(result.current.saveStatus).toBe('saved');
   });
+
+  it('keeps the scratchpad editor local instead of saving it to the backend', async () => {
+    const { result, rerender } = renderHook(props => useAutosave(props), {
+      initialProps: { ...defaultProps, runbookId: 'current-workflow' },
+    });
+
+    rerender({
+      ...defaultProps,
+      runbookId: 'current-workflow',
+      nodes: [{ id: 'n', type: 'shell', position: { x: 0, y: 0 }, title: 'N' }],
+    });
+    act(() => {
+      jest.advanceTimersByTime(1100);
+    });
+    for (let i = 0; i < 5; i++) {
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(Storage.prototype.setItem).toHaveBeenCalled();
+    expect(result.current.saveStatus).toBe('saved');
+  });
 });
