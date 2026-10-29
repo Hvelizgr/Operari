@@ -198,7 +198,7 @@ export function fromSpec(spec: RunbookSpec): DeserializedRunbook {
       friendlyId: step.id,
       type: step.type,
       title: step.name ?? step.id,
-      positionX: step.position?.x ?? index * 200,
+      positionX: step.position?.x ?? index * 320,
       positionY: step.position?.y ?? 0,
       enabled: step.enabled !== false,
       config: Object.keys(merged).length > 0 ? merged : null,

@@ -181,7 +181,7 @@ export function specToNodes(spec: RunbookSpec): ParsedRunbook {
       type: step.type,
       title: step.name ?? step.id,
       position: {
-        x: step.position?.x ?? index * 200,
+        x: step.position?.x ?? index * 320,
         y: step.position?.y ?? 0,
       },
       config: merged,
