@@ -72,9 +72,13 @@ export class LocalRunner implements Runner {
     Object.assign(safeEnv, spec.env ?? {});
 
     return new Promise<RunnerResult>(resolve => {
+      // Own process group so a kill reaches the whole tree: dash does
+      // not exec the last command, and a surviving grandchild keeps the
+      // stdio pipes open, so 'close' would wait for it to finish.
       const proc = spawn(shell, ['-c', spec.command], {
         cwd,
         env: safeEnv,
+        detached: true,
       });
 
       this.track(context.runId, proc);
@@ -85,7 +89,7 @@ export class LocalRunner implements Runner {
 
       const timer = setTimeout(() => {
         timedOut = true;
-        proc.kill('SIGKILL');
+        killTree(proc);
       }, timeoutMs);
 
       proc.stdout?.on('data', (chunk: Buffer) => {
@@ -142,7 +146,7 @@ export class LocalRunner implements Runner {
     let count = 0;
     for (const proc of set) {
       try {
-        proc.kill('SIGKILL');
+        killTree(proc);
         count++;
       } catch {
         // process already exited between the lookup and the kill
@@ -169,3 +173,12 @@ export class LocalRunner implements Runner {
 }
 
 export const localRunner = new LocalRunner();
+
+function killTree(proc: ChildProcess): void {
+  if (proc.pid === undefined) return;
+  try {
+    process.kill(-proc.pid, 'SIGKILL');
+  } catch {
+    proc.kill('SIGKILL');
+  }
+}
