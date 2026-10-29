@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
+import { createElement, type ReactNode, StrictMode } from 'react';
 
 import { useAdvancedUndoRedo } from '@/hooks/useAdvancedUndoRedo';
 
@@ -118,5 +119,36 @@ describe('useAdvancedUndoRedo', () => {
     });
 
     expect(result.current.canRedo).toBe(false);
+  });
+
+  it('runs undo and redo exactly once each under StrictMode', () => {
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(StrictMode, null, children);
+    const { result } = renderHook(() => useAdvancedUndoRedo(), { wrapper });
+    const command = { execute: jest.fn(), undo: jest.fn() };
+
+    act(() => result.current.executeCommand(command));
+    act(() => result.current.undo());
+    act(() => result.current.redo());
+
+    expect(command.execute).toHaveBeenCalledTimes(2);
+    expect(command.undo).toHaveBeenCalledTimes(1);
+  });
+
+  it('undoes two commands when undo is called twice in the same tick', () => {
+    const { result } = renderHook(() => useAdvancedUndoRedo());
+    const first = { execute: jest.fn(), undo: jest.fn() };
+    const second = { execute: jest.fn(), undo: jest.fn() };
+
+    act(() => result.current.executeCommand(first));
+    act(() => result.current.executeCommand(second));
+    act(() => {
+      result.current.undo();
+      result.current.undo();
+    });
+
+    expect(second.undo).toHaveBeenCalledTimes(1);
+    expect(first.undo).toHaveBeenCalledTimes(1);
+    expect(result.current.canUndo).toBe(false);
   });
 });

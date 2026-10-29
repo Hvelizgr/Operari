@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 interface Command {
   execute: () => void;
@@ -18,70 +18,59 @@ interface UseAdvancedUndoRedoReturn {
 }
 
 export function useAdvancedUndoRedo(maxHistorySize: number = 50): UseAdvancedUndoRedoReturn {
-  const [state, setState] = useState<{ history: Command[]; currentIndex: number }>({
+  // Commands run setState on other components, so they must not run
+  // inside a state updater (React may call updaters during render, and
+  // twice in StrictMode). The ref is the source of truth; the state only
+  // triggers re-renders.
+  const historyRef = useRef<{ history: Command[]; currentIndex: number }>({
     history: [],
     currentIndex: -1,
   });
+  const [state, setState] = useState(historyRef.current);
+
+  const commit = useCallback((next: { history: Command[]; currentIndex: number }) => {
+    historyRef.current = next;
+    setState(next);
+  }, []);
 
   const executeCommand = useCallback(
     (command: Command) => {
       command.execute();
 
-      setState(prev => {
-        const { history, currentIndex } = prev;
-        const newHistory = history.slice(0, currentIndex + 1);
-        newHistory.push(command);
+      const { history, currentIndex } = historyRef.current;
+      const newHistory = history.slice(0, currentIndex + 1);
+      newHistory.push(command);
 
-        if (newHistory.length > maxHistorySize) {
-          return {
-            history: newHistory.slice(newHistory.length - maxHistorySize),
-            currentIndex: maxHistorySize - 1,
-          };
-        }
-        return {
-          history: newHistory,
-          currentIndex: newHistory.length - 1,
-        };
-      });
+      if (newHistory.length > maxHistorySize) {
+        commit({
+          history: newHistory.slice(newHistory.length - maxHistorySize),
+          currentIndex: maxHistorySize - 1,
+        });
+        return;
+      }
+      commit({ history: newHistory, currentIndex: newHistory.length - 1 });
     },
-    [maxHistorySize]
+    [maxHistorySize, commit]
   );
 
   const undo = useCallback(() => {
-    setState(prev => {
-      const { history, currentIndex } = prev;
-      if (currentIndex >= 0) {
-        history[currentIndex].undo();
-        return {
-          ...prev,
-          currentIndex: currentIndex - 1,
-        };
-      }
-      return prev;
-    });
-  }, []);
+    const { history, currentIndex } = historyRef.current;
+    if (currentIndex < 0) return;
+    history[currentIndex].undo();
+    commit({ history, currentIndex: currentIndex - 1 });
+  }, [commit]);
 
   const redo = useCallback(() => {
-    setState(prev => {
-      const { history, currentIndex } = prev;
-      if (currentIndex < history.length - 1) {
-        const nextIndex = currentIndex + 1;
-        history[nextIndex].execute();
-        return {
-          ...prev,
-          currentIndex: nextIndex,
-        };
-      }
-      return prev;
-    });
-  }, []);
+    const { history, currentIndex } = historyRef.current;
+    if (currentIndex >= history.length - 1) return;
+    const nextIndex = currentIndex + 1;
+    history[nextIndex].execute();
+    commit({ history, currentIndex: nextIndex });
+  }, [commit]);
 
   const clear = useCallback(() => {
-    setState({
-      history: [],
-      currentIndex: -1,
-    });
-  }, []);
+    commit({ history: [], currentIndex: -1 });
+  }, [commit]);
 
   return {
     executeCommand,
