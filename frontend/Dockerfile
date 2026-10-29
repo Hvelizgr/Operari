@@ -29,6 +29,16 @@ ENV NEXT_PUBLIC_OPERARI_ANONYMOUS_MODE=$NEXT_PUBLIC_OPERARI_ANONYMOUS_MODE
 ARG NEXT_PUBLIC_DEV_LOGIN_ENABLED=false
 ENV NEXT_PUBLIC_DEV_LOGIN_ENABLED=$NEXT_PUBLIC_DEV_LOGIN_ENABLED
 
+# Public origin the browser calls for /api and links back to. Like every
+# NEXT_PUBLIC_* value it is inlined at `next build`, so setting it only
+# as a runtime env does nothing: the bundle kept the localhost:4000
+# fallback and every visitor's browser called its own machine. Empty
+# keeps that fallback for the local compose stack.
+ARG NEXT_PUBLIC_API_URL=
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_SITE_URL=
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+
 # Install dependencies including devDependencies for the build
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/

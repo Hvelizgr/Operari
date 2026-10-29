@@ -70,6 +70,10 @@ services:
     build:
       args:
         NEXT_PUBLIC_DEV_LOGIN_ENABLED: 'false'
+        # NEXT_PUBLIC_* is baked at build time; the runtime env below
+        # only reaches server-side code.
+        NEXT_PUBLIC_API_URL: https://operari.hvelizgr.dev
+        NEXT_PUBLIC_SITE_URL: https://operari.hvelizgr.dev
       labels:
         dev.hvelizgr.proyecto: operari
         dev.hvelizgr.servicio: frontend
