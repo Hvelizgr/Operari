@@ -1,16 +1,19 @@
 'use client';
 
 import anime from 'animejs';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
   CheckCircle2,
   Globe,
   type LucideIcon,
   MessageSquare,
+  MousePointerClick,
+  RotateCcw,
   ShieldCheck,
   TerminalSquare,
 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { prefersReducedMotion } from '@/lib/motion';
 
@@ -65,6 +68,8 @@ interface Step {
   /** Status-bar accent for this step type. Pending stays neutral
    *  regardless; running + success use this tone. */
   tone: AccentTone;
+  /** Log excerpt shown when the visitor clicks the step. */
+  log: string[];
 }
 
 const TONE_CLASSES: Record<AccentTone, { running: string; success: string; chip: string }> = {
@@ -114,6 +119,11 @@ const STEPS_EN: Step[] = [
     output: 'PaymentTimeout',
     duration: '0ms',
     tone: 'rose',
+    log: [
+      'POST /webhook/sentry · 202 Accepted',
+      'issue PAYMENTS-1F3 · PaymentTimeout',
+      'vars.service = "payments-api"',
+    ],
   },
   {
     id: 'shell',
@@ -123,6 +133,11 @@ const STEPS_EN: Step[] = [
     output: '47 lines',
     duration: '1.2s',
     tone: 'emerald',
+    log: [
+      '$ kubectl logs deploy/payments-api --since=10m',
+      'ERROR upstream timeout after 30000ms (x41)',
+      '47 lines → outputs.logs',
+    ],
   },
   {
     id: 'http',
@@ -132,6 +147,11 @@ const STEPS_EN: Step[] = [
     output: '200 OK',
     duration: '4.1s',
     tone: 'sky',
+    log: [
+      'POST /helm/rollback {"release":"payments-api"}',
+      'revision 118 → 117',
+      '200 OK · rollout healthy',
+    ],
   },
   {
     id: 'approve',
@@ -141,6 +161,7 @@ const STEPS_EN: Step[] = [
     output: 'pager@ops',
     duration: '11s',
     tone: 'amber',
+    log: ['waiting for @oncall in #incidents', 'approved by pager@ops', 'gate passed in 11s'],
   },
   {
     id: 'notify',
@@ -150,24 +171,83 @@ const STEPS_EN: Step[] = [
     output: 'ts:1714…',
     duration: '180ms',
     tone: 'violet',
+    log: ['chat.postMessage → #incidents', '"Rolled back payments-api to r117"', 'ok · ts:1714…'],
   },
 ];
 
 const STEPS_ES: Step[] = [
   { ...STEPS_EN[0], label: 'Alerta' },
-  { ...STEPS_EN[1], label: 'Traer logs' },
+  {
+    ...STEPS_EN[1],
+    label: 'Traer logs',
+    log: [
+      '$ kubectl logs deploy/payments-api --since=10m',
+      'ERROR upstream timeout after 30000ms (x41)',
+      '47 líneas → outputs.logs',
+    ],
+  },
   { ...STEPS_EN[2], label: 'Helm rollback' },
-  { ...STEPS_EN[3], label: 'On-call OK' },
-  { ...STEPS_EN[4], label: '#incidentes' },
+  {
+    ...STEPS_EN[3],
+    label: 'On-call OK',
+    log: ['esperando a @oncall en #incidentes', 'aprobado por pager@ops', 'gate superado en 11s'],
+  },
+  {
+    ...STEPS_EN[4],
+    label: '#incidentes',
+    log: ['chat.postMessage → #incidentes', '"Rollback de payments-api a r117"', 'ok · ts:1714…'],
+  },
 ];
+
+const TRACE_TEXT = {
+  en: {
+    hint: 'Click any step to inspect its output',
+    replay: 'Replay run',
+    log: 'log',
+    group: 'Runbook execution trace — click a step to inspect it',
+  },
+  es: {
+    hint: 'Hacé click en un paso para ver su salida',
+    replay: 'Repetir run',
+    log: 'log',
+    group: 'Traza de ejecución del runbook — hacé click en un paso para inspeccionarlo',
+  },
+} as const;
 
 interface RunbookTraceProps {
   lang?: 'en' | 'es';
 }
 
+interface TraceLayoutProps {
+  steps: Step[];
+  selected: number | null;
+  onSelect: (index: number) => void;
+}
+
+interface TraceNodeProps {
+  step: Step;
+  selected: boolean;
+  onSelect: () => void;
+}
+
 export function RunbookTrace({ lang = 'en' }: RunbookTraceProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const steps = lang === 'es' ? STEPS_ES : STEPS_EN;
+  const t = TRACE_TEXT[lang];
+  // Clicking a step freezes the loop on the finished run and opens its
+  // detail; Replay bumps runKey, which restarts the effect's loop.
+  const [selected, setSelected] = useState<number | null>(null);
+  const [runKey, setRunKey] = useState(0);
+  const freezeRef = useRef<() => void>(() => {});
+
+  const selectStep = (i: number) => {
+    freezeRef.current();
+    setSelected(i);
+  };
+  const replay = () => {
+    setSelected(null);
+    setRunKey(k => k + 1);
+  };
 
   useEffect(() => {
     const root = rootRef.current;
@@ -212,6 +292,16 @@ export function RunbookTrace({ lang = 'en' }: RunbookTraceProps) {
     const stop = () => {
       cancelled = true;
       current?.pause();
+    };
+    freezeRef.current = () => {
+      stop();
+      allNodes.forEach(n => n.setAttribute('data-status', 'success'));
+      allEdges.forEach(e => {
+        e.style.strokeDasharray = 'none';
+        e.style.strokeDashoffset = '0';
+      });
+      allPulses.forEach(p => (p.style.opacity = '0'));
+      auditHashes.forEach(a => a.setAttribute('data-visible', 'true'));
     };
 
     const reduced = prefersReducedMotion();
@@ -371,26 +461,22 @@ export function RunbookTrace({ lang = 'en' }: RunbookTraceProps) {
 
     runOnce();
     return stop;
-  }, [steps]);
+  }, [steps, runKey]);
 
   return (
-    <div
-      ref={rootRef}
-      className="relative w-full"
-      role="img"
-      aria-label="Runbook execution trace — alert fires, logs fetched, helm rollback applied, on-call grant received, Slack notification sent, audit chain verified"
-    >
+    <div ref={rootRef} className="relative w-full" role="group" aria-label={t.group}>
       <div data-trace-layout="h" className="hidden md:block">
-        <TraceHorizontal steps={steps} />
+        <TraceHorizontal steps={steps} selected={selected} onSelect={selectStep} />
       </div>
       <div data-trace-layout="v" className="md:hidden">
-        <TraceVertical steps={steps} />
+        <TraceVertical steps={steps} selected={selected} onSelect={selectStep} />
       </div>
+      <StepDetail step={selected === null ? null : steps[selected]} text={t} onReplay={replay} />
     </div>
   );
 }
 
-function TraceHorizontal({ steps }: { steps: Step[] }) {
+function TraceHorizontal({ steps, selected, onSelect }: TraceLayoutProps) {
   // Node + label width 132px, gap 40px → 5 nodes ≈ 820px.
   const nodeW = 132;
   const gap = 40;
@@ -465,8 +551,13 @@ function TraceHorizontal({ steps }: { steps: Step[] }) {
       </svg>
       {/* Node layer */}
       <div className="relative flex items-start" style={{ gap }}>
-        {steps.map(step => (
-          <TraceNode key={step.id} step={step} />
+        {steps.map((step, i) => (
+          <TraceNode
+            key={step.id}
+            step={step}
+            selected={selected === i}
+            onSelect={() => onSelect(i)}
+          />
         ))}
       </div>
       {/* Audit hash chip */}
@@ -475,13 +566,13 @@ function TraceHorizontal({ steps }: { steps: Step[] }) {
   );
 }
 
-function TraceVertical({ steps }: { steps: Step[] }) {
+function TraceVertical({ steps, selected, onSelect }: TraceLayoutProps) {
   return (
     <div className="relative mx-auto max-w-sm">
       <div className="flex flex-col items-stretch gap-3">
         {steps.map((step, i) => (
           <div key={step.id} className="relative">
-            <TraceNodeRow step={step} />
+            <TraceNodeRow step={step} selected={selected === i} onSelect={() => onSelect(i)} />
             {i < steps.length - 1 && (
               <div className="ml-[31px] flex h-6 w-px items-center">
                 <svg viewBox="0 0 4 24" className="h-6 w-1 overflow-visible" aria-hidden="true">
@@ -523,14 +614,17 @@ function TraceVertical({ steps }: { steps: Step[] }) {
  *  the wrapper's `data-status` without contorted arbitrary CSS:
  *  `group-data-[status=success]:opacity-100` is the Tailwind-
  *  native way to say "show this when our group is done". */
-function TraceNode({ step }: { step: Step }) {
+function TraceNode({ step, selected, onSelect }: TraceNodeProps) {
   const Icon = step.icon;
   const tone = TONE_CLASSES[step.tone];
   return (
-    <div
+    <button
+      type="button"
       data-trace-node
       data-status="pending"
-      className="group flex flex-col items-center gap-3"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={`group flex cursor-pointer flex-col items-center gap-3 rounded-xl py-1 outline-none transition-colors hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-emerald-400/60 ${selected ? 'bg-white/[0.04]' : ''}`}
       style={{ width: 132 }}
     >
       <div
@@ -572,7 +666,7 @@ function TraceNode({ step }: { step: Step }) {
           <span className="font-mono text-[10px] tabular-nums text-zinc-500">{step.duration}</span>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -582,11 +676,18 @@ function TraceNode({ step }: { step: Step }) {
  * the chip on the right rather than below. The anime timeline drives
  * both via the shared `data-trace-node` selector.
  */
-function TraceNodeRow({ step }: { step: Step }) {
+function TraceNodeRow({ step, selected, onSelect }: TraceNodeProps) {
   const Icon = step.icon;
   const tone = TONE_CLASSES[step.tone];
   return (
-    <div data-trace-node data-status="pending" className="group flex items-center gap-3">
+    <button
+      type="button"
+      data-trace-node
+      data-status="pending"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={`group flex w-full cursor-pointer items-center gap-3 rounded-xl p-1 text-left outline-none transition-colors hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-emerald-400/60 ${selected ? 'bg-white/[0.04]' : ''}`}
+    >
       <div
         className={[
           'relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border transition-colors duration-200',
@@ -617,7 +718,7 @@ function TraceNodeRow({ step }: { step: Step }) {
           {step.duration}
         </span>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -641,6 +742,87 @@ function AuditHashChip() {
         <span className="hidden text-zinc-500 sm:inline">·</span>
         <span className="hidden text-emerald-300/80 sm:inline">verified</span>
       </span>
+    </div>
+  );
+}
+
+/**
+ * Detail drawer under the trace. Before a selection it is a one-line
+ * hint (so visitors know the steps are clickable); after one, it shows
+ * the step's log excerpt line by line plus a Replay control.
+ */
+function StepDetail({
+  step,
+  text,
+  onReplay,
+}: {
+  step: Step | null;
+  text: (typeof TRACE_TEXT)[keyof typeof TRACE_TEXT];
+  onReplay: () => void;
+}) {
+  return (
+    <div className="mt-6 min-h-[132px]" aria-live="polite">
+      <AnimatePresence mode="wait">
+        {step ? (
+          <motion.div
+            key={step.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="mx-auto max-w-2xl rounded-xl border border-white/10 bg-black/30 p-4 text-left"
+          >
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-zinc-100">{step.label}</span>
+              <span className="font-mono text-[10px] text-zinc-500">{step.type}</span>
+              <span
+                className={`inline-flex rounded-md border px-1.5 py-0.5 font-mono text-[10px] ${TONE_CLASSES[step.tone].chip}`}
+              >
+                {step.output}
+              </span>
+              <span className="font-mono text-[10px] tabular-nums text-zinc-500">
+                {step.duration}
+              </span>
+              <button
+                type="button"
+                onClick={onReplay}
+                className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2 py-1 text-[11px] text-zinc-300 transition-colors hover:border-emerald-500/40 hover:text-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
+              >
+                <RotateCcw size={12} />
+                {text.replay}
+              </button>
+            </div>
+            <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-zinc-600">
+              {text.log}
+            </div>
+            <ol className="space-y-1 font-mono text-[11px] text-zinc-300 sm:text-xs">
+              {step.log.map((line, i) => (
+                <motion.li
+                  key={line}
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.08 + i * 0.12, duration: 0.25 }}
+                  className="break-words"
+                >
+                  <span className="mr-2 text-emerald-400/70">›</span>
+                  {line}
+                </motion.li>
+              ))}
+            </ol>
+          </motion.div>
+        ) : (
+          <motion.p
+            key="hint"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex items-center justify-center gap-2 pt-10 text-xs text-zinc-500"
+          >
+            <MousePointerClick size={14} className="text-emerald-400/70" />
+            {text.hint}
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
