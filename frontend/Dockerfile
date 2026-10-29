@@ -35,7 +35,10 @@ COPY packages/shared/package.json ./packages/shared/
 COPY frontend/package.json ./frontend/
 COPY backend/package.json ./backend/
 
-RUN npm ci --ignore-scripts
+# The cache mount keeps fetched tarballs across builds, so a build
+# that dies on a flaky connection resumes instead of starting over.
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts --prefer-offline --fetch-retries=10 --fetch-retry-maxtimeout=180000
 
 # Copy source
 COPY . .

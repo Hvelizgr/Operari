@@ -80,44 +80,24 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 
 ---
 
-### 🔴 Python SDK: paridad completa con TS
+### 🟡 Python SDK: paridad completa con TS
 
-**Estado:** v0.2 shipped. Cliente + step authoring + IPC bridge + ejemplo + 18 tests del SDK + **loader Node-side end-to-end** (commit pending).
+**Estado:** v0.2 + paridad operativa (2026-10-29). Loader Node-side, integración end-to-end, `execute` async (`7eda448`), docs de Pydantic / async / streaming con `context.emit` (`e1c94a1`), workflow de release a PyPI con trusted publishing (`c660f08`). 20/20 tests.
 
-**Pending para paridad:**
+**Pendiente (fuera del código):**
 
-- ~~Loader Node-side que reconozca `language: python` en el manifest y haga `spawn('python', [entry])` con stdin/stdout JSON~~ — shipped (`backend/src/runbook/plugins/python-bridge.ts` + `loader.ts` reads `operari.json`)
-- ~~Test de integración end-to-end que arranque un plugin Python via el loader real~~ — shipped (`python-bridge.test.ts` spawns `examples/hello_world/hello_step.py` real)
-- Pydantic-based config schemas como camino recomendado en docs (1 hora — ejemplo + sección README)
-- Async execute (`asyncio`) para plugins que hacen I/O concurrente (~2-3 días — el bridge ya soporta async via su naturaleza subprocess; falta pulir el surface en `define_step`)
-- Publicación a PyPI (paquete actualmente sólo se instala desde repo) (~1 día — pyproject ya está, falta el workflow de release)
-- Streaming logs durante ejecuciones largas (hoy emite live via stdout pero el ejemplo solo emite al final del execute) (~1 día — patrón `context.emit()` repetido en docs)
-
-**Lift estimado restante:** 1 semana para los 4 items operativos arriba.
+- Registrar el proyecto `operari` en PyPI y agregar este repo + `release-python.yml` + environment `pypi-publish` como trusted publisher; después, tag `python-sdk-v0.2.0` (y subir `version` en `pyproject.toml`, hoy `0.1.0`)
 
 ---
 
-### 🟡 Editor canvas: cierre de la migración a React Flow
+### ✅ Editor canvas: cierre de la migración a React Flow (2026-10-29)
 
-**Estado:** migración hecha (sin commit todavía). El canvas de `/editor` se renderiza con `@xyflow/react` 12 desde `frontend/components/Editor/flow/`: nodos con `<Handle>`, aristas `ConditionEdge` con las prefs de Apariencia, `<Background>`, `NodeResizer` en frames, viewport propiedad de React Flow (espejo en React vía `onMove`). Se borró el canvas viejo (`NodesLayer`, `ConnectionsLayer`, `ConnectionBubblesLayer`, `GridLayer`, `EditorConnection`, `useCanvasRenderer`, `useEditorSelection`, `utils/canvas/{drawing,geometry,debug}`, `nodePortUtils`, `portAnchor`). Probado en headless Chromium con un fixture (frame + approval multi-salida + controller + nota): drag, undo, frame arrastra hijos, resize, conectar, rechazo de duplicados, zoom/fit view, menú contextual de nodo.
+Migración commiteada y probada contra el backend real (runbook demo + plantilla `db-migration-prisma`): carga, fit view, drag, conectar, undo, autosave y recarga persisten. Arreglado en el camino: autosave (falso "Conflict" y columna JSON sin actualizar), fit view al abrir `?id=` y tope de 100 %, warning 015, seed del demo, espaciado de YAML, minimapa de React Flow con click para centrar, esquina inferior derecha sin superposiciones, menú contextual con Escape, notas visibles, fondo `lines` sin línea vertical, undo/redo fuera de los updaters de React (en dev se ejecutaban dos veces), runbooks demo viejos normalizados al cargar, ESLint flat config en el frontend y tests de los handlers de frames.
 
 **Pendiente:**
 
-- ~~Probarlo contra el backend real~~ — hecho 2026-10-29 contra el stack Docker (runbook demo + plantilla `db-migration-prisma`): carga, fit view, drag, autosave, recarga. Salieron y se arreglaron: falso "Conflict" del autosave tras el primer guardado, autosave YAML que no actualizaba la columna JSON (que leen el loader y el engine), sin fit view al abrir `?id=`, warning 015 de React Flow (`measured` no se pasaba a los nodos), seed del runbook demo con forma inválida, nodos de YAML sin posición superpuestos (espaciado 200 < ancho 260)
-- Runbooks demo ya sembrados en tenants existentes siguen con la forma vieja (`type: 'note'`, `data.label`, sin `title`): el autosave les da 400. Hace falta migración de datos o normalizar en el loader (~medio día)
-- ~~Borrar la cuenta de prueba `rf-canvas-test@example.com` (tenant `rf-canvas-test`)~~ — borrada 2026-10-29
-- Conectar nodos contra el backend real: no se llegó a probar (sí en la prueba local con fixture); usa el mismo autosave que el drag
-- Commit de la migración + del arreglo de `ajv` (overrides anidados en `package.json` raíz y entradas del lockfile regeneradas; backup del lockfile anterior en el scratchpad de la sesión)
-- Minimapa propio (`components/Navigation/MiniMap.tsx`) → reemplazar por `<MiniMap>` de React Flow; hoy mueve el canvas vía `handleViewportChangeAdapter` → `useReactFlow().setViewport` (~medio día)
-- `ZoomControls`: el botón "Fit View" queda tapado por el botón flotante de la terminal (`Toggle Terminal`, bottom-right) — preexistente (~1 hora)
-- `ContextMenu` no se cierra con Escape — preexistente (~1 hora)
-- Notas (`custom.note`): la caja es del mismo color que el fondo del canvas, solo se ve el texto — preexistente, revisar `.wf_note` en `WorkflowNode.css` (~1 hora)
-- Fondo `lines` (rayado horizontal): emulado con `BackgroundVariant.Lines` y gap horizontal gigante; si molesta, pattern SVG propio como hijo de `<ReactFlow>` (~1 hora)
-- Estilos de flujo `orbs`/`comet`/`particles` reimplementados con `<animateMotion>` SVG y `gradient` como barrido de guiones: comparar a ojo contra el canvas 2D viejo y ajustar velocidades (~medio día)
-- Tests de los handlers nuevos de `useEditorCanvas` (`handleFlowNodesChange`: frame arrastra hijos, resize con un solo undo; `handleFlowNodeDragStop`: reasignación de `parentId`) — hoy solo cubiertos por la prueba manual en navegador (~1 día)
-- Migrar `.eslintrc.json` a flat config (`eslint.config.js`): ESLint 9 solo corre con `ESLINT_USE_FLAT_CONFIG=false` o vía `next lint`, y v10 lo elimina (~medio día)
-
-**Lift estimado restante:** 3-4 días.
+- Estilos de flujo animados (`orbs`/`comet`/`particles`/`gradient`): solo se ven con un run en curso y el canvas 2D viejo ya no existe para comparar; ajustar velocidades a ojo si no convencen
+- Los tests nunca estuvieron bajo lint: `eslint .` muestra ~70 warnings de testing-library/jest-dom (configurados como warning para no romper CI); limpiarlos y subirlos a error
 
 ---
 
@@ -127,7 +107,9 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 - `OPERARI_DEV_LOGIN_ENABLED` estaba en `true` en el sitio público → forzado a `false` en el overlay (`071fae6`)
 - `OPERARI_SECRET_KEY` nunca llegaba al contenedor → MFA daba 500 y el worker de rotación no arrancaba (`dfedc5e`); clave generada en `.env` del servidor
 - Rate limit siempre en memoria (se creaba antes de que Redis conectara) → ahora en Redis, con fallo abierto si Redis cae (`455d597`)
-- Runbooks demo con forma vieja: 0 en este servidor. Solo haría falta una migración de datos para self-hosts antiguos (baja prioridad)
+- Runbooks demo con forma vieja: 0 en este servidor; para self-hosts viejos el editor los normaliza al cargar (`eb543a7`), porque `db push` no aplica migraciones SQL
+- Paso shell colgado ignoraba su timeout y no se podía cancelar (el `SIGKILL` solo mataba el `sh`): ahora se mata el grupo de procesos (`be29863`)
+- El build de las imágenes caía por timeouts de npm con conexión lenta: caché de npm persistente en los Dockerfiles
 
 ---
 
@@ -159,7 +141,7 @@ Si un usuario pide algo de esto, agregalo arriba con un estimado.
 
 ## Tests baseline al cierre de la última sesión
 
-- Backend: **1294/1301** passing (2026-10-29). Las 6 fallas también ocurren en `HEAD` sin cambios: `sdk-integration` (falta `packages/sdk/dist`, hay que buildear el SDK), `admin.overview` (403), `local.runner` (timeouts) y `seed-nodes.catalog`
-- Frontend: **237/237** passing (2026-10-29, tras la migración a React Flow + test de regresión del autosave)
-- Python SDK: **18/18** passing
+- Backend: **1322/1323** passing, 1 skipped (2026-10-29). Las 6 fallas viejas arregladas: SDK sin buildear en CI, tests de `admin.overview` desactualizados, `operari.postgres` renombrado y el runner que no mataba el árbol de procesos
+- Frontend: **254/254** passing; `eslint .` sin errores (flat config)
+- Python SDK: **20/20** passing
 - tsc clean ambos lados (TS)
