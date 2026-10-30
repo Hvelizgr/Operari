@@ -1,4 +1,5 @@
 import {
+  credentialSecret,
   ExecutorContext,
   ExecutorResult,
   resolveTemplate,
@@ -128,7 +129,7 @@ export class GitHubCommitFileExecutor implements StepExecutor<GitHubCommitFileCo
       };
     }
 
-    const token = context.secrets?.[config.credentialId];
+    const token = credentialSecret(config.credentialId, context);
     if (!token) {
       return {
         success: false,

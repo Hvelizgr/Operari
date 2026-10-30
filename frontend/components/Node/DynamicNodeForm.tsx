@@ -15,6 +15,26 @@ export interface Property {
   description?: string;
   options?: { name: string; value: string }[];
   typeOptions?: { rows?: number; expression?: boolean; provider?: string };
+  required?: boolean;
+  /** Show the field only while other fields hold one of these values. */
+  displayOptions?: { show: Record<string, string[]> };
+}
+
+// Mirrors isVisible in backend/src/runbook/catalog/define.ts, which also
+// skips the required check for hidden fields. An untouched field counts
+// as its default, as it does when the step runs.
+function isVisible(
+  prop: Property,
+  values: Record<string, unknown>,
+  properties: Property[]
+): boolean {
+  const show = prop.displayOptions?.show;
+  if (!show) return true;
+  return Object.entries(show).every(([field, allowed]) => {
+    const current =
+      values[field] !== undefined ? values[field] : properties.find(p => p.name === field)?.default;
+    return allowed.includes(String(current ?? ''));
+  });
 }
 
 interface DynamicNodeFormProps {
@@ -60,10 +80,11 @@ export default function DynamicNodeForm({
   const inputClass =
     'w-full bg-[rgba(0,0,0,0.2)] border border-[var(--border-color)] rounded p-2 text-sm text-[var(--body-text-color)] focus:outline-none focus:border-[var(--highlight-color)] transition-colors';
   const labelClass = 'text-[11px] font-bold uppercase text-[var(--descriptor-color)]';
+  const visibleProperties = properties.filter(prop => isVisible(prop, values, properties));
 
   return (
     <div className="space-y-4">
-      {properties.map(prop => {
+      {visibleProperties.map(prop => {
         const rawValue = values[prop.name] !== undefined ? values[prop.name] : prop.default;
         const stringValue = typeof rawValue === 'string' ? rawValue : '';
         const numberValue = typeof rawValue === 'number' ? rawValue : Number(stringValue) || 0;
@@ -72,7 +93,14 @@ export default function DynamicNodeForm({
         return (
           <div key={prop.name} className="group">
             <div className="mb-1 flex items-center gap-2">
-              <label className={labelClass}>{prop.displayName}</label>
+              <label className={labelClass}>
+                {prop.displayName}
+                {prop.required && (
+                  <span className="ml-0.5 text-red-400" aria-hidden="true">
+                    *
+                  </span>
+                )}
+              </label>
               {prop.description && (
                 <div
                   className="cursor-help text-[var(--descriptor-color)] opacity-70 hover:opacity-100"

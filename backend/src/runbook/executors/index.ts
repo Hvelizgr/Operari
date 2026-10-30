@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
+import { BUILTIN_CATALOG, CatalogExecutor } from '../catalog';
+import type { CatalogDeps } from '../catalog/define';
 import { loadPluginsSync, type PluginNodeMetadata } from '../plugins/loader';
 import { upsertPluginNodeTypes } from '../plugins/upsert-node-types';
 import { getRunner } from '../runners';
@@ -7,22 +9,54 @@ import { Runner } from '../runners/runner.types';
 import { StepExecutor } from '../types/executor.types';
 import { ApprovalExecutor } from './approval.executor';
 import { DatabaseExecutor } from './database.executor';
+import { DatadogEventExecutor } from './datadog-event.executor';
+import { EmailExecutor } from './email.executor';
 import { GitHubCommitFileExecutor } from './github-commit-file.executor';
+import { GitHubIssueExecutor } from './github-issue.executor';
+import { GrafanaAnnotationExecutor } from './grafana-annotation.executor';
 import { HttpExecutor } from './http.executor';
+import { JiraExecutor } from './jira.executor';
 import { NotifyExecutor } from './notify.executor';
+import { OpsgenieExecutor } from './opsgenie.executor';
+import { PagerDutyExecutor } from './pagerduty.executor';
+import { RedisExecutor } from './redis.executor';
 import { RunbookExecutor } from './runbook.executor';
 import { ShellExecutor } from './shell.executor';
 import { SSHExecutor } from './ssh.executor';
+import { TeamsExecutor } from './teams.executor';
+import { TelegramExecutor } from './telegram.executor';
+import {
+  CryptoExecutor,
+  DateTimeExecutor,
+  SetExecutor,
+  StopAndErrorExecutor,
+} from './transform.executor';
 import { WaitExecutor } from './wait.executor';
 
 export { ApprovalExecutor } from './approval.executor';
 export { DatabaseExecutor } from './database.executor';
+export { DatadogEventExecutor } from './datadog-event.executor';
+export { EmailExecutor } from './email.executor';
 export { GitHubCommitFileExecutor } from './github-commit-file.executor';
+export { GitHubIssueExecutor } from './github-issue.executor';
+export { GrafanaAnnotationExecutor } from './grafana-annotation.executor';
 export { HttpExecutor } from './http.executor';
+export { JiraExecutor } from './jira.executor';
 export { NotifyExecutor } from './notify.executor';
+export { OpsgenieExecutor } from './opsgenie.executor';
+export { PagerDutyExecutor } from './pagerduty.executor';
+export { RedisExecutor } from './redis.executor';
 export { RunbookExecutor } from './runbook.executor';
 export { ShellExecutor } from './shell.executor';
 export { SSHExecutor } from './ssh.executor';
+export { TeamsExecutor } from './teams.executor';
+export { TelegramExecutor } from './telegram.executor';
+export {
+  CryptoExecutor,
+  DateTimeExecutor,
+  SetExecutor,
+  StopAndErrorExecutor,
+} from './transform.executor';
 export { WaitExecutor } from './wait.executor';
 
 export interface ExecutorRegistryOptions {
@@ -58,6 +92,40 @@ export function createExecutorRegistry(
   registry.set('operari.database', new DatabaseExecutor());
   registry.set('github.commitFile', new GitHubCommitFileExecutor());
   registry.set('runbook', new RunbookExecutor(prisma));
+
+  // Integrations and data steps modelled on the n8n nodes on-call
+  // runbooks reach for most.
+  for (const executor of [
+    new PagerDutyExecutor(),
+    new OpsgenieExecutor(),
+    new JiraExecutor(),
+    new GitHubIssueExecutor(),
+    new TeamsExecutor(),
+    new TelegramExecutor(),
+    new EmailExecutor(),
+    new DatadogEventExecutor(),
+    new GrafanaAnnotationExecutor(),
+    new RedisExecutor(),
+    new SetExecutor(),
+    new CryptoExecutor(),
+    new DateTimeExecutor(),
+    new StopAndErrorExecutor(),
+  ]) {
+    registry.set(executor.type, executor);
+  }
+
+  const catalogDeps = {
+    shell: registry.get('shell') as CatalogDeps['shell'],
+    findAccount: (id: string, tenantId: string) =>
+      prisma.connectedAccount.findFirst({
+        where: { id, tenantId },
+        select: { provider: true, metadata: true },
+      }),
+  };
+  for (const node of BUILTIN_CATALOG) {
+    if (!registry.has(node.type))
+      registry.set(node.type, new CatalogExecutor(node, fetch, catalogDeps));
+  }
 
   // User-authored plugins. Loaded from OPERARI_PLUGINS_DIR (opt-in
   // per deployment). The loader catches its own errors so a broken

@@ -451,6 +451,17 @@ async function main() {
       logger.info('Queued billing meter + dispatch worker started (15s interval)');
     }
 
+    // Built-in catalog steps reach the editor's node list from code, so a
+    // deploy that adds steps needs no re-seed. Failure only hides new
+    // steps from the palette; running them does not depend on it.
+    {
+      const { catalogMetadata } = await import('./runbook/catalog');
+      const { upsertPluginNodeTypes } = await import('./runbook/plugins/upsert-node-types');
+      void upsertPluginNodeTypes(prisma, catalogMetadata()).catch(err =>
+        logger.error({ err }, 'Built-in node catalog upsert failed')
+      );
+    }
+
     // G.3: local retry path for inbound webhooks whose execute() threw
     // on the live route. WebhookReceipt rows with status='error' and
     // nextRetryAt<=now get replayed through the same engine. 60s tick
