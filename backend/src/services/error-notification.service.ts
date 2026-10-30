@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
 import { CustomError, ErrorSeverity } from '../errors/custom-error';
+import { guardedFetch } from '../security/ssrf-guard';
 import { markErrorAsNotified, toPrismaErrorSeverity } from '../utils/error-persistence';
 import { Logger } from './logger.service';
 
@@ -145,7 +146,7 @@ export class ErrorNotificationService {
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
-      const response = await fetch(webhookUrl, {
+      const response = await guardedFetch(fetch, webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

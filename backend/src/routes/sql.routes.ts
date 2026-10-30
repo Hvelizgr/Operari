@@ -7,6 +7,7 @@ import { logger } from '../config/logger.config';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { SecretCipher } from '../security/secret-cipher';
 import { SecretReader } from '../security/secret-reader';
+import { blockedTarget } from '../security/ssrf-guard';
 import { prisma } from '../server';
 
 const router = Router();
@@ -58,6 +59,14 @@ async function resolveConnectionString(
  * Body: { credentialId, query, timeout? }
  * Returns: { rows, rowCount, fields, durationMs }
  */
+async function blockedConnection(connectionString: string): Promise<string | null> {
+  try {
+    return await blockedTarget('host', new URL(connectionString).hostname);
+  } catch {
+    return 'connection string is not a valid URL';
+  }
+}
+
 router.post('/query', async (req: AuthRequest, res: Response) => {
   const { credentialId, query, timeout = 30000 } = req.body;
   const tenantId = req.user!.tenantId;
@@ -80,6 +89,10 @@ router.post('/query', async (req: AuthRequest, res: Response) => {
   }
   if (!connectionString) {
     return res.status(404).json({ error: 'Database credential not found' });
+  }
+  const blocked = await blockedConnection(connectionString);
+  if (blocked) {
+    return res.status(403).json({ error: blocked });
   }
 
   const client = new PgClient({ connectionString });
@@ -139,6 +152,10 @@ router.post('/schema', async (req: AuthRequest, res: Response) => {
   }
   if (!connectionString) {
     return res.status(404).json({ error: 'Database credential not found' });
+  }
+  const blocked = await blockedConnection(connectionString);
+  if (blocked) {
+    return res.status(403).json({ error: blocked });
   }
 
   const client = new PgClient({ connectionString });

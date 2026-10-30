@@ -1,3 +1,4 @@
+import { guardedFetch } from '../../security/ssrf-guard';
 import {
   ExecutorContext,
   ExecutorResult,
@@ -75,8 +76,11 @@ export class NotifyExecutor implements StepExecutor<NotifyConfig> {
     this.httpFetch = httpFetch;
   }
 
-  async execute(config: NotifyConfig, context: ExecutorContext): Promise<ExecutorResult> {
+  async execute(rawConfig: NotifyConfig, context: ExecutorContext): Promise<ExecutorResult> {
     const startTime = Date.now();
+    // The editor shows "slack" preselected but only saves fields the user
+    // touched; without this a Slack URL got the generic payload Slack rejects.
+    const config = { ...rawConfig, channel: rawConfig.channel ?? 'slack' };
 
     // 1. Resolve templates in user-controlled fields. webhookUrl
     //    too — see the doc on the field for the secrets caveat.
@@ -172,7 +176,7 @@ export class NotifyExecutor implements StepExecutor<NotifyConfig> {
     channel: NotifyConfig['channel']
   ): Promise<{ ok: true } | { ok: false; error: string }> {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      const response = await this.httpFetch(url, {
+      const response = await guardedFetch(this.httpFetch, url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

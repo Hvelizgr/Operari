@@ -46,6 +46,7 @@ describe('isPrivateIp', () => {
 describe('checkUrlSafe', () => {
   beforeEach(() => {
     delete process.env.OPERARI_HTTP_TESTER_ALLOW_PRIVATE;
+    delete process.env.OPERARI_ALLOW_PRIVATE_TARGETS;
   });
 
   it('rejects malformed URLs', async () => {

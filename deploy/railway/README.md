@@ -55,7 +55,7 @@ Railway "service" wired to this repo's two Dockerfiles.
 6. **Run migrations once** from a local shell:
 
    ```bash
-   railway run --service operari-backend npx prisma db push --accept-data-loss
+   railway run --service operari-backend npx prisma db push
    railway run --service operari-backend node prisma/seed-nodes.js
    ```
 

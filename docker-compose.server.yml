@@ -59,6 +59,12 @@ services:
       TRUST_PROXY: '2'
       # Sitio público con tenants reales: sin atajo de login dev
       OPERARI_DEV_LOGIN_ENABLED: 'false'
+      # Ningún tenant alcanza la red interna (redis, postgres, servicios
+      # de la red `web`) desde un paso del runbook.
+      OPERARI_ALLOW_PRIVATE_TARGETS: 'false'
+      # El runner local no aísla nada: solo los tenants de confianza
+      # listados en .env pueden ejecutar pasos shell.
+      OPERARI_LOCAL_SHELL_TENANTS: ${OPERARI_LOCAL_SHELL_TENANTS:-none}
     networks:
       - default
       - web

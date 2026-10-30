@@ -1,6 +1,8 @@
 import { Client as PgClient } from 'pg';
 
+import { blockedTarget } from '../../security/ssrf-guard';
 import {
+  credentialSecret,
   ExecutorContext,
   ExecutorResult,
   resolveTemplate,
@@ -114,7 +116,7 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
     }
 
     // Resolve connection string from secrets.
-    const connectionString = context.secrets?.[config.credentialId];
+    const connectionString = credentialSecret(config.credentialId, context);
     if (!connectionString) {
       return {
         success: false,
@@ -123,13 +125,32 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
       };
     }
 
+    // Through a tunnel the SSH host is the boundary; the database behind
+    // it lives on the tenant's own network.
+    let boundaryHost: string;
+    try {
+      boundaryHost = config.sshTunnel
+        ? resolveTemplate(config.sshTunnel.host, context)
+        : new URL(connectionString).hostname;
+    } catch {
+      return {
+        success: false,
+        error: 'connection string is not a valid URL',
+        duration: Date.now() - startTime,
+      };
+    }
+    const blocked = await blockedTarget('host', boundaryHost);
+    if (blocked) {
+      return { success: false, error: `database: ${blocked}`, duration: Date.now() - startTime };
+    }
+
     let tunnel: TunnelResult | null = null;
     let effectiveConnectionString = connectionString;
 
     try {
       // Set up SSH tunnel if configured.
       if (config.sshTunnel) {
-        const sshKey = context.secrets?.[config.sshTunnel.sshCredentialId];
+        const sshKey = credentialSecret(config.sshTunnel.sshCredentialId, context);
         if (!sshKey) {
           return {
             success: false,

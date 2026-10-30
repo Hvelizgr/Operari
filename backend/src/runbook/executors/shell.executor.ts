@@ -47,6 +47,28 @@ export interface ShellOutput {
  * runners/index.ts). Default is LocalRunner for backwards compatibility
  * with existing self-host deployments.
  */
+/**
+ * The local runner executes on the backend host itself, where a step can
+ * read every server secret (e.g. /proc/1/environ). On a deployment shared
+ * by several tenants, OPERARI_LOCAL_SHELL_TENANTS limits it to trusted
+ * tenants: a comma-separated list of tenant ids, or "none". Unset keeps
+ * the single-tenant self-host behaviour of allowing everyone.
+ */
+export function localShellDenied(runner: Runner, tenantId: string): string | null {
+  if (runner.type !== 'local') return null;
+  const raw = process.env.OPERARI_LOCAL_SHELL_TENANTS?.trim();
+  if (!raw) return null;
+  const allowed = raw
+    .split(',')
+    .map(t => t.trim())
+    .filter(t => t && t !== 'none');
+  if (allowed.includes(tenantId)) return null;
+  return (
+    'Shell steps are disabled for this workspace on this server: the local runner has no ' +
+    'isolation. Ask the operator to configure the docker or fly runner.'
+  );
+}
+
 export class ShellExecutor implements StepExecutor<ShellConfig> {
   readonly type = 'shell';
 
@@ -62,25 +84,29 @@ export class ShellExecutor implements StepExecutor<ShellConfig> {
   ): string | undefined {
     if (!allowedDir) return requestedCwd; // no restriction configured
 
-    const resolved = requestedCwd
-      ? path.resolve(allowedDir, requestedCwd)
-      : allowedDir;
+    const resolved = requestedCwd ? path.resolve(allowedDir, requestedCwd) : allowedDir;
 
     // Ensure the resolved path starts with the allowed directory
     // (prevent ../../ traversal attacks)
     const normalizedAllowed = path.resolve(allowedDir) + path.sep;
     const normalizedResolved = path.resolve(resolved) + path.sep;
-    if (!normalizedResolved.startsWith(normalizedAllowed) && path.resolve(resolved) !== path.resolve(allowedDir)) {
+    if (
+      !normalizedResolved.startsWith(normalizedAllowed) &&
+      path.resolve(resolved) !== path.resolve(allowedDir)
+    ) {
       throw new Error(
         `Shell sandbox violation: working directory "${requestedCwd}" ` +
-        `escapes allowed directory "${allowedDir}". ` +
-        `Resolved path: "${resolved}"`
+          `escapes allowed directory "${allowedDir}". ` +
+          `Resolved path: "${resolved}"`
       );
     }
     return resolved;
   }
 
   async execute(config: ShellConfig, context: ExecutorContext): Promise<ExecutorResult> {
+    const denied = localShellDenied(this.runner, context.tenantId);
+    if (denied) return { success: false, error: denied, duration: 0 };
+
     const command = resolveTemplate(config.command, context);
     const failOnNonZero = config.failOnNonZeroExit ?? true;
 
@@ -88,9 +114,8 @@ export class ShellExecutor implements StepExecutor<ShellConfig> {
     // The allowed dir comes from the Project's allowedShellDir field (passed
     // via context.allowedShellDir) or the global OPERARI_SHELL_ALLOWED_DIR
     // env var. Project-level takes precedence.
-    const allowedDir = (context as any).allowedShellDir
-      ?? process.env.OPERARI_SHELL_ALLOWED_DIR
-      ?? undefined;
+    const allowedDir =
+      (context as any).allowedShellDir ?? process.env.OPERARI_SHELL_ALLOWED_DIR ?? undefined;
 
     let safeCwd: string | undefined;
     try {

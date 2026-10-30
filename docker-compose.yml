@@ -87,14 +87,13 @@ services:
     # single-tenant: it syncs the schema directly without requiring
     # a clean migration history.
     #
-    # IMPORTANT: --accept-data-loss is safe on a fresh install but
-    # can drop columns/tables on a schema downgrade. For multi-tenant
-    # cloud and any production upgrade flow, the right move is to
-    # generate proper migrations from schema.prisma and switch back
-    # to `prisma migrate deploy`. Tracked as a pre-launch backlog item.
+    # No --accept-data-loss: a schema change that would drop a column or
+    # table makes this service fail instead of silently deleting data.
+    # Review the change, back up, and apply it by hand. The long-term fix
+    # is real migrations + `prisma migrate deploy`.
     command: >
       sh -c "
-        node /app/node_modules/.bin/prisma db push --skip-generate --accept-data-loss &&
+        node /app/node_modules/.bin/prisma db push --skip-generate &&
         node prisma/seed-nodes.js
       "
     depends_on:
@@ -135,6 +134,12 @@ services:
       # default — `docker` would need docker-in-docker, `fly` needs the
       # FLY_API_TOKEN. Override only if you know what you are doing.
       OPERARI_RUNNER: local
+      # Single-tenant self-host: runbooks may target the operator's own
+      # private network. Shared deployments set this to false.
+      OPERARI_ALLOW_PRIVATE_TARGETS: ${OPERARI_ALLOW_PRIVATE_TARGETS:-true}
+      # Tenants allowed to run shell steps on the local runner (comma
+      # separated ids, or "none"). Empty = everyone, fine for one tenant.
+      OPERARI_LOCAL_SHELL_TENANTS: ${OPERARI_LOCAL_SHELL_TENANTS:-}
       # ADR 0003: durable execution engine. Enables ExecutionEventStore
       # appends in ExecutionService and the resume worker scan at boot.
       # Resume worker stays in dryRun until OPERARI_RESUME_WORKER_ACT=true.

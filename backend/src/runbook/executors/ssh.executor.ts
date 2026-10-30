@@ -1,6 +1,8 @@
 import { Client, type ClientChannel, type ConnectConfig } from 'ssh2';
 
+import { blockedTarget } from '../../security/ssrf-guard';
 import {
+  credentialSecret,
   ExecutorContext,
   ExecutorResult,
   resolveTemplate,
@@ -84,13 +86,27 @@ export class SSHExecutor implements StepExecutor<SSHConfig> {
       });
       return {
         success: true,
-        output: { dryRun: true, host, port, username, command, stdout: '', stderr: '', exitCode: 0 },
+        output: {
+          dryRun: true,
+          host,
+          port,
+          username,
+          command,
+          stdout: '',
+          stderr: '',
+          exitCode: 0,
+        },
         duration: Date.now() - startTime,
       };
     }
 
+    const blocked = await blockedTarget('host', host);
+    if (blocked) {
+      return { success: false, error: `ssh: ${blocked}`, duration: Date.now() - startTime };
+    }
+
     // Read the private key from pre-resolved secrets.
-    const privateKey = context.secrets?.[config.credentialId];
+    const privateKey = credentialSecret(config.credentialId, context);
     if (!privateKey) {
       return {
         success: false,

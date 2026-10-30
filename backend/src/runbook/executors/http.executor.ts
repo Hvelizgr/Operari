@@ -1,3 +1,4 @@
+import { guardedFetch } from '../../security/ssrf-guard';
 import {
   ExecutorContext,
   ExecutorResult,
@@ -11,7 +12,7 @@ export interface HttpConfig {
   /** Request URL. Supports {{vars.x}} and {{secrets.y}} templates. */
   url: string;
   /** Request headers. Each value supports template substitution. */
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | string;
   /** Request body (string). Supports template substitution. Ignored for GET/HEAD. */
   body?: string;
   /** Maximum time to wait for a response in milliseconds (default: 30000). */
@@ -69,9 +70,22 @@ export class HttpExecutor implements StepExecutor<HttpConfig> {
 
     // Resolve templates in each header value.
     const headers: Record<string, string> = {};
-    if (config.headers) {
-      for (const [key, value] of Object.entries(config.headers)) {
-        headers[key] = resolveTemplate(value, context);
+    let rawHeaders: unknown = config.headers;
+    if (typeof rawHeaders === 'string') {
+      // The editor form stores headers as JSON text.
+      try {
+        rawHeaders = rawHeaders.trim() ? JSON.parse(rawHeaders) : {};
+      } catch (err) {
+        return {
+          success: false,
+          error: `headers is not valid JSON: ${(err as Error).message}`,
+          duration: Date.now() - startTime,
+        };
+      }
+    }
+    if (rawHeaders && typeof rawHeaders === 'object') {
+      for (const [key, value] of Object.entries(rawHeaders as Record<string, unknown>)) {
+        headers[key] = resolveTemplate(String(value), context);
       }
     }
 
@@ -132,7 +146,7 @@ export class HttpExecutor implements StepExecutor<HttpConfig> {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await this.httpFetch(url, {
+      const response = await guardedFetch(this.httpFetch, url, {
         method,
         headers,
         body,

@@ -1,4 +1,5 @@
 import { ErrorCode, HttpError } from '../../errors/custom-error';
+import { guardedFetch } from '../../security/ssrf-guard';
 import type { ExecutionInput, HttpNodeConfig, HttpResult } from '../../types/runbook.types';
 import { withHttpRetry } from '../../utils/retry';
 import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_shared';
@@ -36,7 +37,7 @@ export class HttpNodeExecutor implements EditorNodeExecutor<HttpNodeConfig, Http
     try {
       const result = await withHttpRetry(
         async () => {
-          const response = await fetch(resolvedUrl, {
+          const response = await guardedFetch(fetch, resolvedUrl, {
             method,
             headers: {
               'Content-Type': 'application/json',

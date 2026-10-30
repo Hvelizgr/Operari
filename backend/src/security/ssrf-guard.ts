@@ -114,8 +114,19 @@ export function isPrivateIp(ip: string): SsrfBlockReason | null {
  * Closing it fully requires custom socket binding (resolve once,
  * connect to the resolved IP) which we can ship later if needed.
  */
+/**
+ * Single-tenant self-hosts point runbooks at their own private network on
+ * purpose; a shared deployment must not let tenants reach its internals.
+ */
+export function privateTargetsAllowed(): boolean {
+  return (
+    process.env.OPERARI_ALLOW_PRIVATE_TARGETS === 'true' ||
+    process.env.OPERARI_HTTP_TESTER_ALLOW_PRIVATE === 'true'
+  );
+}
+
 export async function checkUrlSafe(rawUrl: string): Promise<SsrfDecision> {
-  if (process.env.OPERARI_HTTP_TESTER_ALLOW_PRIVATE === 'true') {
+  if (privateTargetsAllowed()) {
     return { allowed: true };
   }
 
@@ -138,7 +149,15 @@ export async function checkUrlSafe(rawUrl: string): Promise<SsrfDecision> {
     };
   }
 
-  const hostname = url.hostname.toLowerCase();
+  return checkHostSafe(url.hostname);
+}
+
+/** Same checks as {@link checkUrlSafe} for non-HTTP targets (redis, smtp, postgres, ssh). */
+export async function checkHostSafe(rawHost: string): Promise<SsrfDecision> {
+  if (privateTargetsAllowed()) {
+    return { allowed: true };
+  }
+  const hostname = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
 
   if (CLOUD_METADATA_HOSTS.has(hostname)) {
     return {
@@ -198,4 +217,43 @@ export async function checkUrlSafe(rawUrl: string): Promise<SsrfDecision> {
   }
 
   return { allowed: true };
+}
+
+/** Error message for a blocked target, or null when it may be reached. */
+export async function blockedTarget(kind: 'url' | 'host', target: string): Promise<string | null> {
+  const decision = kind === 'url' ? await checkUrlSafe(target) : await checkHostSafe(target);
+  if (decision.allowed) return null;
+  return `blocked: ${decision.message ?? decision.reason}. Private and internal addresses are not reachable from runbook steps on this server.`;
+}
+
+/**
+ * fetch that re-checks every redirect hop, since a public URL can 302 to an
+ * internal one. Falls back to plain fetch when private targets are allowed.
+ */
+export async function guardedFetch(
+  fetchFn: typeof fetch,
+  url: string,
+  init: RequestInit,
+  maxRedirects = 5
+): Promise<Response> {
+  if (privateTargetsAllowed()) return fetchFn(url, init);
+  const followRedirects = init.redirect !== 'manual';
+  let current = url;
+  let currentInit = init;
+  for (let hop = 0; ; hop++) {
+    const blocked = await blockedTarget('url', current);
+    if (blocked) throw new Error(blocked);
+    const res = await fetchFn(current, { ...currentInit, redirect: 'manual' });
+    if (!followRedirects || res.status < 300 || res.status >= 400) return res;
+    const location = res.headers.get('location');
+    if (!location) return res;
+    if (hop >= maxRedirects) throw new Error(`too many redirects (>${maxRedirects})`);
+    current = new URL(location, current).toString();
+    if (
+      res.status === 303 ||
+      ((res.status === 301 || res.status === 302) && currentInit.method === 'POST')
+    ) {
+      currentInit = { ...currentInit, method: 'GET', body: undefined };
+    }
+  }
 }

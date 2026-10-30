@@ -68,7 +68,7 @@ services:
       HOME: /tmp
     command: >
       sh -c "
-        node /app/node_modules/.bin/prisma db push --skip-generate --accept-data-loss &&
+        node /app/node_modules/.bin/prisma db push --skip-generate &&
         node prisma/seed-nodes.js
       "
     depends_on:
@@ -105,6 +105,11 @@ services:
       # trusted teams. For multi-tenant cloud flip to `docker` or
       # `fly` (requires FLY_API_TOKEN).
       OPERARI_RUNNER: ${OPERARI_RUNNER:-local}
+      # Public deployment: steps cannot reach private/internal addresses,
+      # and the unisolated local runner only runs shell for tenants listed
+      # here (comma-separated ids). Set to "" only for a single tenant.
+      OPERARI_ALLOW_PRIVATE_TARGETS: ${OPERARI_ALLOW_PRIVATE_TARGETS:-false}
+      OPERARI_LOCAL_SHELL_TENANTS: ${OPERARI_LOCAL_SHELL_TENANTS:-none}
       FLY_API_TOKEN: ${FLY_API_TOKEN:-}
       # ADR 0003 durable engine.
       OPERARI_DURABLE_ENGINE: ${OPERARI_DURABLE_ENGINE:-true}

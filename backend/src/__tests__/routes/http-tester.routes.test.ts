@@ -6,6 +6,7 @@ process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://x:y@localho
 // we also use literal IPs for blocked tests where the env flip should NOT
 // apply. Keep this off and explicit.
 delete process.env.OPERARI_HTTP_TESTER_ALLOW_PRIVATE;
+delete process.env.OPERARI_ALLOW_PRIVATE_TARGETS;
 
 import express from 'express';
 import request from 'supertest';
