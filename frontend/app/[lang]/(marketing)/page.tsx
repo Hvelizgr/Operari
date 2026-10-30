@@ -3,6 +3,7 @@ import { content as contentEs } from '../content/es';
 import Comparison from './components/Comparison';
 import CTA from './components/CTA';
 import Hero from './components/Hero';
+import HowItWorks from './components/HowItWorks';
 import MetricsBar from './components/MetricsBar';
 import RunbookTraceSection from './components/RunbookTraceSection';
 import SafetyRails from './components/SafetyRails';
@@ -51,6 +52,10 @@ export default async function Page({ params }: { params: Promise<{ lang: string 
 
       <div id="trace">
         <RunbookTraceSection />
+      </div>
+
+      <div id="how-it-works">
+        <HowItWorks content={content.howItWorks} />
       </div>
 
       <div id="safety">

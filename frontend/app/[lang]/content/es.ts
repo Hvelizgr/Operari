@@ -92,6 +92,15 @@ export const content = {
       },
     ],
   },
+  howItWorks: {
+    eyebrow: 'Cómo funciona',
+    title: 'Una ejecución, del disparo al registro de auditoría.',
+    subtitle:
+      'Dibujado a partir del código, no de una slide: cada caja enlaza a las líneas que representa. Seguí una ejecución por el motor, la pausa de aprobación y el log de auditoría encadenado por hash.',
+    open: 'Abrir en pantalla completa',
+    frameTitle: 'Diagrama interactivo de cómo fluye una ejecución en Operari',
+    note: 'Mové, hacé zoom y tocá cualquier caja para ver su código. Las etiquetas del diagrama están en inglés.',
+  },
   safety: {
     eyebrow: 'Safety rails',
     title: 'Cuatro primitivas que a otros workflow tools les faltan.',

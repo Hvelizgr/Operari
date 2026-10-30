@@ -96,6 +96,15 @@ export const content = {
       },
     ],
   },
+  howItWorks: {
+    eyebrow: 'How it works',
+    title: 'One run, from trigger to audit trail.',
+    subtitle:
+      'Drawn from the code, not a slide: every box links to the lines it stands for. Follow a run through the engine, the approval pause and the hash-chained audit log.',
+    open: 'Open full screen',
+    frameTitle: 'Interactive diagram of how a run flows through Operari',
+    note: 'Pan, zoom and click any box to see its source.',
+  },
   safety: {
     eyebrow: 'Safety rails',
     title: 'Four primitives most workflow tools miss.',
