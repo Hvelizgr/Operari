@@ -14,6 +14,8 @@ import {
 
 interface StatusPillProps {
   lang: 'en' | 'es';
+  /** Drop below a page's own top bar so the pill doesn't cover its buttons. */
+  belowTopBar?: boolean;
 }
 
 interface PillData {
@@ -30,7 +32,7 @@ const LABELS = {
 // Persistent top-right indicator. Appears only when there's something worth
 // showing (active runs, failures, approvals). Staying visible when idle
 // would be noise — when all is well, take zero space.
-export default function StatusPill({ lang }: StatusPillProps) {
+export default function StatusPill({ lang, belowTopBar = false }: StatusPillProps) {
   const reducedMotion = usePrefersReducedMotion();
   const router = useRouter();
   const [data, setData] = useState<PillData | null>(null);
@@ -91,7 +93,7 @@ export default function StatusPill({ lang }: StatusPillProps) {
           exit="exit"
           onClick={() => router.push(`/${lang}/runs`)}
           aria-label={t.jump}
-          className={`fixed right-4 top-4 z-[60] flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur-md transition-colors ${
+          className={`fixed right-4 ${belowTopBar ? 'top-[4.25rem]' : 'top-4'} z-[60] flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur-md transition-colors ${
             hasUrgent
               ? 'border-red-500/40 bg-red-950/70 text-red-100 hover:bg-red-900/70'
               : 'border-white/10 bg-black/60 text-gray-200 hover:bg-zinc-900/80'

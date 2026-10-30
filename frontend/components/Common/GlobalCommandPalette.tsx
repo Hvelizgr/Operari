@@ -88,7 +88,9 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
       // ⌘K / Ctrl-K — toggle the command palette. Respect nested
       // scopes (editor's own ⌘K) so they don't double-fire.
       if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
-        if (target?.closest('[data-cmdk-scope]')) return;
+        // Pages with their own palette (the editor) mark their root; focus
+        // usually sits on <body>, so checking the event target missed it.
+        if (document.querySelector('[data-cmdk-scope]')) return;
         e.preventDefault();
         setOpen(o => !o);
         return;

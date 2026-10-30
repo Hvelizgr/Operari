@@ -58,6 +58,7 @@ export default function SearchBar({
       addNew: 'Add New',
       onCanvas: 'On Canvas',
       noResults: 'No nodes found',
+      noCatalog: 'Loading the step catalog… If this persists, the server is unreachable.',
       clickToAdd: 'Click to add',
     },
     es: {
@@ -65,6 +66,7 @@ export default function SearchBar({
       addNew: 'Agregar Nuevo',
       onCanvas: 'En Canvas',
       noResults: 'No se encontraron nodos',
+      noCatalog: 'Cargando el catálogo de pasos… Si no termina, el servidor no responde.',
       clickToAdd: 'Clic para agregar',
     },
   };
@@ -75,9 +77,8 @@ export default function SearchBar({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        if (!forceOpen) setIsOpen(false); // Only close if not forced (or maybe we want to close menu on outside click anyway?)
-        // Actually for context menu we DO want to close on outside click
         setIsOpen(false);
+        setSearchTerm('');
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -92,8 +93,9 @@ export default function SearchBar({
 
   // Filter available nodes (for adding new)
   const filteredAvailableNodes = useMemo(() => {
-    const sourceNodes =
-      availableNodeTypes && availableNodeTypes.length > 0 ? availableNodeTypes : NODE_TYPES;
+    // The catalog comes from /api/node-types; the static palette list is
+    // missing most step types, so it is not a usable stand-in.
+    const sourceNodes = availableNodeTypes ?? NODE_TYPES;
     if (!searchTerm) return sourceNodes;
     const term = searchTerm.toLowerCase();
     return sourceNodes.filter(
@@ -181,6 +183,18 @@ export default function SearchBar({
               setIsOpen(true);
             }}
             onFocus={() => setIsOpen(true)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setSearchTerm('');
+                setIsOpen(false);
+              } else if (e.key === 'Enter' && searchTerm) {
+                e.preventDefault();
+                const [firstType] = filteredAvailableNodes;
+                if (firstType) handleAddNode(firstType);
+                else if (filteredCanvasNodes[0]) handleNodeClick(filteredCanvasNodes[0].id);
+              }
+            }}
             placeholder={text.search}
             className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
           />
@@ -205,6 +219,9 @@ export default function SearchBar({
               className="overflow-hidden"
             >
               <div className="max-h-[70vh] overflow-y-auto">
+                {availableNodeTypes && availableNodeTypes.length === 0 && (
+                  <div className="p-4 text-center text-xs text-gray-500">{text.noCatalog}</div>
+                )}
                 {/* Search Results */}
                 {searchTerm ? (
                   <>

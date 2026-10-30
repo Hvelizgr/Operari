@@ -7,6 +7,7 @@ import {
   CalendarClock,
   ChevronLeft,
   ChevronRight,
+  Columns3,
   Database,
   FolderKanban,
   History,
@@ -16,6 +17,7 @@ import {
   type LucideIcon,
   Menu,
   MessageSquare,
+  Send,
   Settings,
   Share2,
   ShieldCheck,
@@ -24,6 +26,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -41,6 +44,8 @@ interface MenuItem {
   label: string;
   icon: LucideIcon;
   href: string;
+  /** Extra routes that belong to this entry (the editor is part of Runbooks). */
+  alsoActiveOn?: string[];
 }
 
 interface MenuGroup {
@@ -74,6 +79,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname() ?? '';
+  const onEditor = pathname.startsWith(`/${lang}/editor`);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -120,12 +126,19 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           label: 'Runbooks',
           icon: Share2,
           href: `/${lang}/runbooks`,
+          alsoActiveOn: [`/${lang}/editor`],
         },
         {
           id: 'projects',
           label: lang === 'en' ? 'Projects' : 'Proyectos',
           icon: FolderKanban,
           href: `/${lang}/projects`,
+        },
+        {
+          id: 'sessions',
+          label: lang === 'en' ? 'Sessions' : 'Sesiones',
+          icon: Columns3,
+          href: `/${lang}/sessions`,
         },
         {
           id: 'runs',
@@ -162,6 +175,12 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           label: lang === 'en' ? 'SQL Editor' : 'SQL Editor',
           icon: Database,
           href: `/${lang}/sql-editor`,
+        },
+        {
+          id: 'http-tester',
+          label: lang === 'en' ? 'API Tester' : 'Probador de API',
+          icon: Send,
+          href: `/${lang}/http-tester`,
         },
         {
           id: 'agents',
@@ -230,12 +249,20 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
               </span>
             </motion.div>
           )}
-          {/* Collapsed sidebar still shows the mark so the brand never
-              disappears when the user collapses the rail. */}
+          {/* Collapsed, the mark doubles as the expand control: the rail is
+              too narrow for both, and without it the rail can't be reopened. */}
           {!showLabels && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mx-auto">
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              onClick={() => setCollapsed(false)}
+              aria-label={lang === 'en' ? 'Expand sidebar' : 'Expandir barra lateral'}
+              aria-expanded={false}
+              title={lang === 'en' ? 'Expand sidebar' : 'Expandir barra lateral'}
+              className="mx-auto rounded-lg p-1 transition-colors hover:bg-[var(--panel-elevated)]"
+            >
               <DNAMark size={24} primary="var(--op-moss)" />
-            </motion.div>
+            </motion.button>
           )}
           {showLabels && !isMobile && (
             <button
@@ -279,12 +306,15 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                 <div className="mx-4 my-4 border-t border-[var(--panel-border)] opacity-30" />
               )}
               {group.items.map(item => {
-                const isActive = pathname.startsWith(item.href);
+                const isActive = [item.href, ...(item.alsoActiveOn ?? [])].some(
+                  href => pathname === href || pathname.startsWith(`${href}/`)
+                );
                 const Icon = item.icon;
                 return (
-                  <div
+                  <Link
                     key={item.id}
-                    onClick={() => router.push(item.href)}
+                    href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
                     className={`group relative mx-3 my-1 flex cursor-pointer items-center rounded-xl px-3 py-2.5 transition-all duration-300 ${
                       isActive
                         ? 'bg-[var(--accent-color)]/10 text-[var(--accent-color)]'
@@ -312,7 +342,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
                         <span className="ml-3 text-sm font-bold tracking-tight">{item.label}</span>
                       )}
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -371,7 +401,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
   if (isMobile) {
     return (
       <>
-        <StatusPill lang={lang} />
+        <StatusPill lang={lang} belowTopBar={onEditor} />
         <GlobalCommandPalette lang={lang} />
         <button
           onClick={() => setDrawerOpen(true)}
@@ -403,7 +433,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
 
   return (
     <>
-      <StatusPill lang={lang} />
+      <StatusPill lang={lang} belowTopBar={onEditor} />
       <GlobalCommandPalette lang={lang} />
       <motion.div
         className="relative z-50 flex h-screen flex-shrink-0 flex-col overflow-hidden border-r border-[var(--panel-border)] bg-[var(--panel-bg)] text-[var(--text-primary)] backdrop-blur-xl"
