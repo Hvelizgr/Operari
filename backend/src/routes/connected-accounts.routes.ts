@@ -35,6 +35,84 @@ function getService(): ConnectedAccountService {
 // Anonymous fallback gated by OPERARI_ANONYMOUS_MODE=true.
 router.use(anonymousFallback);
 
+const PROVIDER_RE = /^[a-z0-9][a-z0-9._-]{0,48}$/;
+const MAX_METADATA_BYTES = 4096;
+
+/**
+ * POST /api/connected-accounts
+ *
+ * Store an API key, token or connection string the user pastes in, so
+ * steps reference it as {{secrets.<id>}} instead of keeping it in plain
+ * text inside the runbook. `metadata` holds non-secret settings (an AI
+ * provider's base URL and models, for instance).
+ */
+router.post('/', async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  // getService() falls back to a fixed dev key so listing never crashes;
+  // real secrets must never be encrypted with it.
+  if (!env.ENCRYPTION_KEY) {
+    return res.status(503).json({
+      error:
+        'ENCRYPTION_KEY is not configured on the server, so credentials cannot be stored safely.',
+    });
+  }
+  const { provider, displayName, secret, metadata } = (req.body ?? {}) as Record<string, unknown>;
+  if (typeof provider !== 'string' || !PROVIDER_RE.test(provider)) {
+    return res
+      .status(400)
+      .json({ error: 'provider must be lowercase letters, digits, dots or dashes' });
+  }
+  if (typeof secret !== 'string' || !secret.trim() || secret.length > 16_384) {
+    return res.status(400).json({ error: 'secret is required (max 16 KB)' });
+  }
+  if (displayName !== undefined && (typeof displayName !== 'string' || displayName.length > 120)) {
+    return res.status(400).json({ error: 'displayName must be a string up to 120 characters' });
+  }
+  if (
+    metadata !== undefined &&
+    (typeof metadata !== 'object' ||
+      metadata === null ||
+      Array.isArray(metadata) ||
+      JSON.stringify(metadata).length > MAX_METADATA_BYTES)
+  ) {
+    return res.status(400).json({ error: 'metadata must be a JSON object up to 4 KB' });
+  }
+  try {
+    const account = await getService().link({
+      tenantId: req.user.tenantId,
+      userId: req.user.id,
+      provider,
+      displayName:
+        typeof displayName === 'string' && displayName.trim() ? displayName.trim() : undefined,
+      accessToken: secret.trim(),
+      scopes: [],
+      metadata: (metadata as Record<string, unknown> | undefined) ?? {},
+      actorId: req.user.id,
+      actorType: 'user',
+    });
+    return res.status(201).json({
+      data: {
+        id: account.id,
+        provider: account.provider,
+        displayName: account.displayName,
+        metadata: account.metadata ?? {},
+        createdAt: account.createdAt,
+      },
+    });
+  } catch (err) {
+    // @@unique([userId, provider, displayName])
+    if ((err as { code?: string }).code === 'P2002') {
+      return res
+        .status(409)
+        .json({ error: 'You already have a credential with that provider and name' });
+    }
+    req.log.error({ err }, 'Create connected account failed');
+    return res.status(500).json({ error: 'Failed to store the credential' });
+  }
+});
+
 /**
  * GET /api/connected-accounts
  *
@@ -51,7 +129,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const { id: userId, tenantId } = req.user!;
     const accounts = await getService().list(tenantId, userId);
     const provider = req.query.provider as string | undefined;
-    const filtered = provider ? accounts.filter(a => a.provider === provider) : accounts;
+    // `?provider=ai` also matches `ai.anthropic`, `ai.openai`, …
+    const filtered = provider
+      ? accounts.filter(a => a.provider === provider || a.provider.startsWith(`${provider}.`))
+      : accounts;
     res.json({
       data: filtered.map(a => ({
         id: a.id,
@@ -60,6 +141,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         scopes: a.scopes,
         createdAt: a.createdAt,
         tokenExpiry: a.tokenExpiry,
+        metadata: a.metadata ?? {},
       })),
     });
   } catch (err) {

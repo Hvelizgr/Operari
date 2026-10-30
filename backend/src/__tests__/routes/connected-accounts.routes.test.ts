@@ -244,3 +244,65 @@ describe('DELETE /api/connected-accounts/:id', () => {
     expect(unlinkMock).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /api/connected-accounts', () => {
+  beforeEach(() => {
+    linkMock.mockReset();
+    linkMock.mockResolvedValue({
+      id: 'acc1',
+      provider: 'ai.anthropic',
+      displayName: 'Claude',
+      metadata: { defaultModel: 'claude-opus-5-5' },
+      createdAt: new Date('2026-10-30T00:00:00Z'),
+    });
+  });
+
+  it('stores a pasted key through the vault and never echoes it', async () => {
+    const res = await request(buildApp({ authed: true }))
+      .post('/api/connected-accounts')
+      .send({
+        provider: 'ai.anthropic',
+        displayName: 'Claude',
+        secret: ' sk-ant-123 ',
+        metadata: { defaultModel: 'claude-opus-5-5' },
+      });
+    expect(res.status).toBe(201);
+    expect(JSON.stringify(res.body)).not.toContain('sk-ant-123');
+    expect(linkMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 't1',
+        userId: 'u1',
+        provider: 'ai.anthropic',
+        accessToken: 'sk-ant-123',
+        metadata: { defaultModel: 'claude-opus-5-5' },
+      })
+    );
+  });
+
+  it.each([
+    [{ provider: 'Bad Provider!', secret: 'x' }],
+    [{ provider: 'slack', secret: '' }],
+    [{ provider: 'slack', secret: 'x', metadata: ['not', 'an', 'object'] }],
+  ])('rejects invalid input %j', async body => {
+    const res = await request(buildApp({ authed: true }))
+      .post('/api/connected-accounts')
+      .send(body);
+    expect(res.status).toBe(400);
+    expect(linkMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 for a duplicate name', async () => {
+    linkMock.mockRejectedValue(Object.assign(new Error('dup'), { code: 'P2002' }));
+    const res = await request(buildApp({ authed: true }))
+      .post('/api/connected-accounts')
+      .send({ provider: 'slack', secret: 'x' });
+    expect(res.status).toBe(409);
+  });
+
+  it('requires a signed-in user', async () => {
+    const res = await request(buildApp())
+      .post('/api/connected-accounts')
+      .send({ provider: 'slack', secret: 'x' });
+    expect(res.status).toBe(401);
+  });
+});

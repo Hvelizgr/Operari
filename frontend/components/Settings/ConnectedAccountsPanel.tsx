@@ -1,7 +1,9 @@
 'use client';
 
-import { Check, Github, Link2Off, Loader2, ShieldAlert } from 'lucide-react';
+import { Check, Github, KeyRound, Link2Off, Loader2, ShieldAlert, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+
+import AddCredentialForm from './AddCredentialForm';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -11,33 +13,34 @@ interface ConnectedAccount {
   displayName: string | null;
   scopes: string[];
   createdAt: string;
+  metadata?: { defaultModel?: string; baseUrl?: string };
 }
 
 const STRINGS = {
   en: {
     title: 'Connected accounts',
-    hint: 'Link a GitHub account so the runbook engine can post commit statuses, write files, and read repo metadata. Each connected account is encrypted at rest and every read emits a `secret.accessed` audit event.',
+    hint: 'Credentials and AI providers your steps can use: link GitHub, or paste any API key, token or connection string. Everything is encrypted at rest, steps only hold a reference, and every read emits a `secret.accessed` audit event.',
     connectGithub: 'Connect GitHub',
     connecting: 'Connecting…',
     empty: 'No accounts linked yet.',
     disconnect: 'Disconnect',
     disconnecting: 'Disconnecting…',
     confirmDisconnect:
-      'Disconnect this GitHub account? Runbooks that reference it will start failing on the next run.',
+      'Remove this credential? Runbooks that reference it will start failing on the next run.',
     linkedFlash: 'GitHub account linked.',
     errorFlash: 'Could not link GitHub account.',
     scopes: 'Scopes',
   },
   es: {
     title: 'Cuentas conectadas',
-    hint: 'Vinculá una cuenta de GitHub para que el motor de runbooks pueda postear commit statuses, escribir archivos y leer metadata del repo. Cada cuenta vinculada se encripta en reposo y cada lectura emite un evento de auditoría `secret.accessed`.',
+    hint: 'Credenciales y proveedores de IA que pueden usar tus pasos: vinculá GitHub o pegá cualquier API key, token o connection string. Todo se encripta en reposo, los pasos solo guardan una referencia y cada lectura emite un evento de auditoría `secret.accessed`.',
     connectGithub: 'Conectar GitHub',
     connecting: 'Conectando…',
     empty: 'No hay cuentas vinculadas todavía.',
     disconnect: 'Desconectar',
     disconnecting: 'Desconectando…',
     confirmDisconnect:
-      '¿Desconectar esta cuenta de GitHub? Los runbooks que la referencian van a empezar a fallar en la próxima corrida.',
+      '¿Quitar esta credencial? Los runbooks que la referencian van a empezar a fallar en la próxima corrida.',
     linkedFlash: 'Cuenta de GitHub vinculada.',
     errorFlash: 'No se pudo vincular la cuenta de GitHub.',
     scopes: 'Permisos',
@@ -169,15 +172,18 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={handleConnectGithub}
-        disabled={linking}
-        className="flex items-center gap-2 rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--accent-color)] disabled:opacity-50"
-      >
-        {linking ? <Loader2 size={14} className="animate-spin" /> : <Github size={14} />}
-        {linking ? t.connecting : t.connectGithub}
-      </button>
+      <div className="flex flex-wrap items-start gap-2">
+        <button
+          type="button"
+          onClick={handleConnectGithub}
+          disabled={linking}
+          className="flex items-center gap-2 rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--accent-color)] disabled:opacity-50"
+        >
+          {linking ? <Loader2 size={14} className="animate-spin" /> : <Github size={14} />}
+          {linking ? t.connecting : t.connectGithub}
+        </button>
+        <AddCredentialForm lang={lang} onSaved={() => void refresh()} />
+      </div>
 
       {accounts === null && error === null ? (
         <div className="text-xs text-[var(--text-muted)]">…</div>
@@ -193,13 +199,22 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
                 <div className="flex items-center gap-2 text-[var(--text-primary)]">
                   {acc.provider === 'github' ? (
                     <Github size={13} />
+                  ) : acc.provider.startsWith('ai.') ? (
+                    <Sparkles size={13} />
                   ) : (
-                    <span className="font-mono text-[10px] uppercase">{acc.provider}</span>
+                    <KeyRound size={13} />
                   )}
                   <span className="truncate">{acc.displayName ?? acc.id}</span>
+                  <span className="font-mono text-[10px] text-[var(--text-muted)]">
+                    {acc.provider}
+                  </span>
                 </div>
                 <div className="mt-0.5 truncate text-[10px] text-[var(--text-muted)]">
-                  {t.scopes}: {acc.scopes.join(', ') || '—'}
+                  {acc.provider.startsWith('ai.')
+                    ? [acc.metadata?.defaultModel, acc.metadata?.baseUrl]
+                        .filter(Boolean)
+                        .join(' · ') || '—'
+                    : `${t.scopes}: ${acc.scopes.join(', ') || '—'}`}
                 </div>
               </div>
               <button
