@@ -25,6 +25,7 @@ import {
  */
 
 const SECRET_REF_PATTERN = /\{\{\s*secrets\.([A-Za-z0-9_-]+)/g;
+const BARE_ID = /^[A-Za-z0-9_-]+$/;
 
 export interface ResolveSecretsInput {
   /** Step config — walked recursively for `{{secrets.<id>}}` references. */
@@ -80,7 +81,13 @@ export class SecretTemplateResolver {
       return;
     }
     if (typeof value === 'object') {
-      for (const v of Object.values(value as Record<string, unknown>)) {
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        // Hand-written YAML may name a credential by bare id; executors
+        // accept that (see credentialSecret), so it must be fetched too.
+        if (/credentialId$/i.test(k) && typeof v === 'string' && BARE_ID.test(v.trim())) {
+          sink.add(v.trim());
+          continue;
+        }
         SecretTemplateResolver.walk(v, sink);
       }
     }

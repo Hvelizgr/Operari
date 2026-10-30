@@ -83,6 +83,21 @@ export interface StepExecutor<TConfig = unknown> {
 }
 
 /**
+ * Look up a pre-resolved credential by the value of a `credentialId`
+ * field. The editor's secret picker stores `{{secrets.<id>}}` (which is
+ * what makes the orchestrator fetch it) while hand-written YAML may
+ * hold the bare id; both must land on the same `context.secrets` key.
+ */
+export function credentialSecret(
+  ref: string | undefined,
+  context: ExecutorContext
+): string | undefined {
+  if (!ref) return undefined;
+  const match = /^\{\{\s*secrets\.([A-Za-z0-9_-]+)\s*\}\}$/.exec(ref.trim());
+  return context.secrets?.[match ? match[1] : ref];
+}
+
+/**
  * Resolve template strings like "{{vars.foo}}", "{{steps.deploy.output.url}}",
  * or "{{secrets.<connected-account-id>}}" against the executor context.
  *
@@ -95,33 +110,53 @@ export interface StepExecutor<TConfig = unknown> {
 export function resolveTemplate(template: string, context: ExecutorContext): string {
   if (typeof template !== 'string') return String(template);
 
-  return template.replace(/\{\{([^}]+)\}\}/g, (_, path: string) => {
-    const trimmed = path.trim();
-    const segments = trimmed.split('.');
-    const root = segments[0];
+  return template.replace(/\{\{([^}]+)\}\}/g, (_, path: string) =>
+    stringifyValue(lookupPath(path, context))
+  );
+}
 
-    let source: unknown;
-    if (root === 'vars') {
-      source = context.variables;
-      segments.shift();
-    } else if (root === 'steps') {
-      source = context.previousOutputs;
-      segments.shift();
-    } else if (root === 'secrets') {
-      source = context.secrets ?? {};
-      segments.shift();
-    } else {
-      // Fallback: search variables first, then previous outputs
-      source = { ...context.previousOutputs, ...context.variables };
+/** Objects render as JSON; `[object Object]` was never what anyone meant. */
+function stringifyValue(value: unknown): string {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+/** Value at a template path (`vars.x`, `steps.id.output.y`, `secrets.id`, or a bare field). */
+export function lookupPath(path: string, context: ExecutorContext): unknown {
+  const segments = path.trim().split('.');
+  const root = segments[0];
+
+  let source: unknown;
+  if (root === 'vars') {
+    source = context.variables;
+    segments.shift();
+  } else if (root === 'steps') {
+    source = context.previousOutputs;
+    segments.shift();
+  } else if (root === 'secrets') {
+    source = context.secrets ?? {};
+    segments.shift();
+  } else {
+    // Bare `{{field}}`: the parent step's output first, run inputs as fallback.
+    source = { ...context.variables, ...context.previousOutputs };
+  }
+
+  return segments.reduce<unknown>((current, key) => {
+    if (current && typeof current === 'object' && key in current) {
+      return (current as Record<string, unknown>)[key];
     }
+    return undefined;
+  }, source);
+}
 
-    const value = segments.reduce<unknown>((current, key) => {
-      if (current && typeof current === 'object' && key in current) {
-        return (current as Record<string, unknown>)[key];
-      }
-      return undefined;
-    }, source);
-
-    return value !== undefined ? String(value) : '';
-  });
+/**
+ * A field that is exactly one `{{path}}` keeps the referenced value as is
+ * (array, object, number); anything else is rendered as text.
+ */
+export function resolveValue(expression: unknown, context: ExecutorContext): unknown {
+  if (typeof expression !== 'string') return expression;
+  const whole = /^\s*\{\{([^}]+)\}\}\s*$/.exec(expression);
+  if (whole) return lookupPath(whole[1], context);
+  return resolveTemplate(expression, context);
 }

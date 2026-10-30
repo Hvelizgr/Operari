@@ -30,6 +30,17 @@ import { persistExecutionError } from '../../utils/error-persistence';
 import { NodeExecutor } from '../node-executor.service';
 import { socketService } from './socket.service';
 
+const TRIGGER_TYPES = new Set([
+  'Webhook',
+  'Trigger',
+  'Schedule',
+  'operari.webhook',
+  'operari.cron',
+  'operari.manualTrigger',
+  'operari.scheduleTrigger',
+]);
+const ORGANIZATION_TYPES = new Set(['custom.frame', 'custom.note']);
+
 interface ExecuteParams {
   runbookId: string;
   userId: string;
@@ -1003,16 +1014,19 @@ export class ExecutionService {
       } else if (startNodeId) {
         nodesToExecute = nodes.filter(n => n.id === startNodeId);
       } else {
-        const triggerNodes = nodes.filter(
-          n => n.type === 'Webhook' || n.type === 'Trigger' || n.type === 'Schedule'
-        );
-        nodesToExecute = triggerNodes.length > 0 ? triggerNodes : [nodes[0]];
+        nodesToExecute = this.startNodes(nodes, connections);
       }
+
+      // One queue entry per loop iteration, each carrying that item's
+      // input. Entries are clones so the same child can sit in the queue
+      // several times with different inputs.
+      const loopInputs = new WeakMap<WorkflowNode, ExecutionInput>();
 
       while (nodesToExecute.length > 0) {
         const currentNode = nodesToExecute.shift()!;
+        const loopInput = loopInputs.get(currentNode);
 
-        if (executedNodes.has(currentNode.id)) continue;
+        if (!loopInput && executedNodes.has(currentNode.id)) continue;
 
         // Skip disabled nodes
 
@@ -1078,7 +1092,8 @@ export class ExecutionService {
         // every predecessor has already been evaluated. This replaces
         // the old "if not all parents done, continue" busy-spin.
 
-        const nodeInput = this.getNodeInput(currentNode.id, connections, nodeOutputs, input);
+        const nodeInput =
+          loopInput ?? this.getNodeInput(currentNode.id, connections, nodeOutputs, input);
 
         const nodeLog = await this.prisma.nodeLog.create({
           data: {
@@ -1137,7 +1152,13 @@ export class ExecutionService {
             nodeInput,
             tenantId,
             executionId,
-            dryRun
+            dryRun,
+            {
+              vars: input,
+              steps: Object.fromEntries(
+                Object.entries(nodeOutputs).map(([id, out]) => [id, { output: out }])
+              ),
+            }
           );
 
           // Handle suspend signal
@@ -1274,8 +1295,13 @@ export class ExecutionService {
           } else if (isSwitchNode && nodeOutput) {
             const matchedCase = nodeOutput.matchedCase as number | undefined;
             if (matchedCase !== undefined) {
+              // No match routes through the last port, the "default" output.
+              const outputCount = Array.isArray(currentNode.outputs)
+                ? currentNode.outputs.length
+                : 0;
+              const port = matchedCase === -1 && outputCount > 1 ? outputCount - 1 : matchedCase;
               outgoingConnections = outgoingConnections.filter(
-                c => c.sourcePort === matchedCase || c.sourcePort === undefined
+                c => c.sourcePort === port || c.sourcePort === undefined
               );
             }
           }
@@ -1286,38 +1312,30 @@ export class ExecutionService {
               .map(c => nodes.find(n => n.id === c.target))
               .filter((n): n is WorkflowNode => n !== undefined && !executedNodes.has(n.id));
 
-            // Execute children once per iteration, passing item context.
-            // The inner `for (const _child of childNodes)` loop is
-            // intentionally present but unused: the loop body only writes
-            // to `nodeOutputs[currentNode.id]` (same key every iter),
-            // which means the per-child loop is a no-op today. Preserved
-            // because the planned shape is per-child output injection,
-            // currently tracked under the runner refactor (not in this
-            // scope). Prefix with `_` to silence the unused-var rule.
-            for (let i = 0; i < items.length; i++) {
-              for (const _child of childNodes) {
-                // Inject loop iteration variables into the node's input
-                nodeOutputs[currentNode.id] = {
-                  ...nodeOutput,
-                  currentItem: items[i],
-                  currentIndex: i,
-                  isFirst: i === 0,
-                  isLast: i === items.length - 1,
-                };
-              }
-              // Re-run children for this iteration by temporarily clearing their executed state
-              if (i < items.length - 1) {
-                for (const child of childNodes) {
-                  executedNodes.delete(child.id);
-                }
-              }
-              nodesToExecute.push(...childNodes);
-            }
-
             if (items.length === 0) {
-              // No items — skip children entirely
-              nodesToExecute.push(...childNodes);
+              // Nothing to iterate: the body is skipped, the flow goes on.
+              for (const child of childNodes) {
+                executedNodes.add(child.id);
+                socketService.emitNodeStatus(executionId, child.id, 'SKIPPED');
+                nodesToExecute.push(
+                  ...this.readyChildrenOf(child.id, nodes, connections, executedNodes)
+                );
+              }
             }
+            items.forEach((item, i) => {
+              const iterationInput: ExecutionInput = {
+                ...nodeOutput,
+                currentItem: item as ExecutionInput[string],
+                currentIndex: i,
+                isFirst: i === 0,
+                isLast: i === items.length - 1,
+              };
+              for (const child of childNodes) {
+                const entry = { ...child };
+                loopInputs.set(entry, iterationInput);
+                nodesToExecute.push(entry);
+              }
+            });
           } else {
             // Normal path: push only children whose every parent has
             // finished. Multi-parent joins are unblocked by whichever
@@ -1332,7 +1350,10 @@ export class ExecutionService {
             // correctly.
             nodesToExecute.push(
               ...this.readyChildrenOfFiltered(
-                outgoingConnections, nodes, connections, executedNodes
+                outgoingConnections,
+                nodes,
+                connections,
+                executedNodes
               )
             );
           }
@@ -1713,6 +1734,19 @@ export class ExecutionService {
         }
       }
     }
+  }
+
+  /**
+   * Trigger nodes when the runbook has any, otherwise every root step.
+   * Starting from `nodes[0]` alone skipped other roots and, when the
+   * array order did not match the graph, began mid-way.
+   */
+  private startNodes(nodes: WorkflowNode[], connections: WorkflowConnection[]): WorkflowNode[] {
+    const triggers = nodes.filter(n => TRIGGER_TYPES.has(n.type));
+    if (triggers.length > 0) return triggers;
+    const targets = new Set(connections.map(c => c.target));
+    const roots = nodes.filter(n => !targets.has(n.id) && !ORGANIZATION_TYPES.has(n.type));
+    return roots.length > 0 ? roots : nodes.slice(0, 1);
   }
 
   private getNodeInput(

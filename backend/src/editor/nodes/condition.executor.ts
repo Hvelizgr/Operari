@@ -21,6 +21,22 @@ import { getNestedValue, resolveTemplate } from './_shared';
  * — preserved on purpose; tightening it would change behavior for
  * existing runbooks that compare "1" to 1.
  */
+const FALSY_STRINGS = new Set(['', 'false', '0', 'no', 'null', 'undefined']);
+
+// A bare `{{path}}` keeps the raw value (so `0` or an empty array stay
+// falsy); anything else is rendered as text.
+function evaluateExpression(expression: string, input: ExecutionInput): unknown {
+  const whole = /^\s*\{\{([^}]+)\}\}\s*$/.exec(expression);
+  if (whole) return getNestedValue(input, whole[1].trim());
+  return resolveTemplate(expression, input);
+}
+
+function isTruthy(value: unknown): boolean {
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'string') return !FALSY_STRINGS.has(value.trim().toLowerCase());
+  return Boolean(value);
+}
+
 export class ConditionNodeExecutor implements EditorNodeExecutor<
   ConditionNodeConfig,
   ConditionResult
@@ -33,10 +49,12 @@ export class ConditionNodeExecutor implements EditorNodeExecutor<
     input: ExecutionInput,
     _errorContext: NodeErrorContext
   ): Promise<ConditionResult> {
-    const { field, operator, value } = config;
+    const { field, operator, value, condition } = config;
     let result = false;
 
-    if (field && operator) {
+    if (!operator && typeof condition === 'string' && condition.trim()) {
+      result = isTruthy(evaluateExpression(condition, input));
+    } else if (field && operator) {
       const fieldValue = getNestedValue(input, field);
       const compareValue = value ? resolveTemplate(value, input) : '';
 

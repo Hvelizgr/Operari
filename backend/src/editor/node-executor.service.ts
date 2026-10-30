@@ -224,7 +224,11 @@ export class NodeExecutor {
     input: ExecutionInput,
     tenantId?: string,
     executionId?: string,
-    dryRun?: boolean
+    dryRun?: boolean,
+    /** Run inputs and every finished step's output, for `{{vars.*}}` and
+     * `{{steps.<id>.output.*}}`. Without it a step only sees its parents'
+     * merged output, so run inputs vanished after the first step. */
+    scope?: { vars: ExecutionInput; steps: Record<string, { output: unknown }> }
   ): Promise<NodeExecutionResult> {
     const commonErrorContext = {
       nodeId: node.id,
@@ -324,11 +328,17 @@ export class NodeExecutor {
       }
     }
 
+    const flatInput = (input as Record<string, unknown>) ?? {};
     const context: ExecutorContext = {
       runId,
       stepId,
-      variables: (input as Record<string, unknown>) ?? {},
-      previousOutputs: (input as Record<string, unknown>) ?? {},
+      variables: scope ? (scope.vars as Record<string, unknown>) : flatInput,
+      // Native executors resolve `steps.<id>` against the top level; the
+      // legacy editor resolver walks plain paths, so it needs the
+      // `vars` / `steps` keys themselves.
+      previousOutputs: scope
+        ? { ...scope.steps, ...flatInput, vars: scope.vars, steps: scope.steps }
+        : flatInput,
       tenantId: effectiveTenantId,
       secrets,
       dryRun: dryRun ?? false,

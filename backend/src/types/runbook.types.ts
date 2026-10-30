@@ -92,13 +92,13 @@ export interface DelayNodeConfig {
 }
 
 export interface LoopNodeConfig {
-  items?: unknown[];
+  items?: unknown[] | string;
   itemsPath?: string;
 }
 
 export interface SwitchNodeConfig {
   field?: string;
-  cases?: Array<{ value: string; label?: string }>;
+  cases?: Array<{ value: string; label?: string }> | string;
 }
 
 export interface SwitchResult extends ExecutionOutput {

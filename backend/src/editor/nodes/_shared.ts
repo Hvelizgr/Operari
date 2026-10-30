@@ -39,7 +39,8 @@ export function resolveTemplate(template: string, context: ExecutionInput): stri
   if (typeof template !== 'string') return String(template);
   return template.replace(/\{\{([^}]+)\}\}/g, (_, path) => {
     const value = getNestedValue(context, String(path).trim());
-    return value !== undefined ? String(value) : '';
+    if (value === undefined || value === null) return '';
+    return typeof value === 'object' ? JSON.stringify(value) : String(value);
   });
 }
 

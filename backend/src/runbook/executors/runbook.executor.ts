@@ -40,6 +40,8 @@ import {
 export interface RunbookStepConfig {
   /** Runbook id or slug. Supports templates. */
   ref: string;
+  /** What the editor form calls `ref`. */
+  runbookId?: string;
   /** Values passed as the child run's `input`. Templates resolved per-value. */
   inputs?: Record<string, unknown>;
   /** 'sync' waits for completion (default). 'async' returns immediately. */
@@ -93,8 +95,9 @@ export class RunbookExecutor implements StepExecutor<RunbookStepConfig> {
     return this._executionService;
   }
 
-  async execute(config: RunbookStepConfig, context: ExecutorContext): Promise<ExecutorResult> {
+  async execute(rawConfig: RunbookStepConfig, context: ExecutorContext): Promise<ExecutorResult> {
     const startTime = this.now();
+    const config = { ...rawConfig, ref: rawConfig.ref ?? rawConfig.runbookId ?? '' };
 
     if (!config.ref || typeof config.ref !== 'string') {
       return {
