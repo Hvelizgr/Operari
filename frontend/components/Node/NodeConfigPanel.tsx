@@ -234,7 +234,7 @@ function SecretsReferencePanel({ lang }: { lang: 'en' | 'es' }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/connected-accounts`)
+    fetch(`${API_BASE}/api/connected-accounts`, { credentials: 'include' })
       .then(r => (r.ok ? r.json() : { data: [] }))
       .then(j => {
         const list = Array.isArray(j) ? j : (j.data ?? []);

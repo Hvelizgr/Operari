@@ -104,3 +104,39 @@ describe('useEditorCanvas React Flow handlers', () => {
     expect(result.current.canUndo).toBe(false);
   });
 });
+
+describe('useEditorCanvas undoable inserts', () => {
+  const shellType = {
+    type: 'shell',
+    label: { en: 'Shell', es: 'Shell' },
+    icon: null,
+    color: '',
+    category: 'devops',
+  };
+
+  it('undoes a node added from search', () => {
+    const { result } = setup([shell('a', 0, 0)]);
+    act(() => result.current.handleNodeAddFromSearch(shellType));
+    expect(result.current.nodes).toHaveLength(2);
+    act(() => result.current.undo());
+    expect(result.current.nodes.map(n => n.id)).toEqual(['a']);
+    act(() => result.current.redo());
+    expect(result.current.nodes).toHaveLength(2);
+  });
+
+  it('undoes a duplicate of the selection', () => {
+    const { result } = setup([shell('a', 0, 0)]);
+    act(() => result.current.setSelectedNodes(new Set(['a'])));
+    act(() => result.current.handleDuplicateSelected());
+    expect(result.current.nodes).toHaveLength(2);
+    act(() => result.current.undo());
+    expect(result.current.nodes.map(n => n.id)).toEqual(['a']);
+  });
+
+  it('undoes an auto-layout in one step', () => {
+    const { result } = setup([shell('a', 0, 0)]);
+    act(() => result.current.replaceNodes([shell('a', 500, 500)]));
+    act(() => result.current.undo());
+    expect(byId(result.current.nodes, 'a').position).toEqual({ x: 0, y: 0 });
+  });
+});

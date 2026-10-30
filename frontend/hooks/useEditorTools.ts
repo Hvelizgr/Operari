@@ -5,6 +5,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { isTypingTarget } from './useEditorKeyboard';
+
 export type EditorTool = 'draw' | 'move';
 
 export function useEditorTools() {
@@ -50,22 +52,19 @@ export function useEditorTools() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // D key for draw tool
       if (e.key === 'd' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        const target = e.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+        if (isTypingTarget(e.target)) return;
         e.preventDefault();
         selectDrawTool();
       }
       // M key for move tool
       if (e.key === 'm' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        const target = e.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+        if (isTypingTarget(e.target)) return;
         e.preventDefault();
         selectMoveTool();
       }
       // Space for quick move (hold)
       if (e.key === ' ' && !e.repeat) {
-        const target = e.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+        if (isTypingTarget(e.target)) return;
         e.preventDefault();
         quickSelectMoveTool();
       }

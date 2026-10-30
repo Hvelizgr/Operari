@@ -2,28 +2,8 @@
 
 import { Connection, WorkflowNode } from '@operari/shared';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  Database,
-  FileJson,
-  FunctionSquare,
-  Play,
-  Search,
-  Variable,
-  X,
-} from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
-
-// Extend WorkflowNode locally to avoid TS errors if shared type is incomplete
-interface ExtendedNode extends WorkflowNode {
-  data: {
-    label?: string;
-    [key: string]: unknown;
-  };
-}
+import { ChevronDown, ChevronRight, Database, FileJson, Search, Variable, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 interface ExpressionBuilderProps {
   isOpen: boolean;
@@ -34,475 +14,127 @@ interface ExpressionBuilderProps {
   lang: 'en' | 'es';
 }
 
-// Available expression functions
-const EXPRESSION_FUNCTIONS = [
-  // String functions
-  {
-    name: '$toUpper',
-    description: { en: 'Convert to uppercase', es: 'Convertir a mayúsculas' },
-    example: '$toUpper("hello") => "HELLO"',
-    category: 'string',
-  },
-  {
-    name: '$toLower',
-    description: { en: 'Convert to lowercase', es: 'Convertir a minúsculas' },
-    example: '$toLower("HELLO") => "hello"',
-    category: 'string',
-  },
-  {
-    name: '$trim',
-    description: { en: 'Remove whitespace', es: 'Eliminar espacios' },
-    example: '$trim(" hello ") => "hello"',
-    category: 'string',
-  },
-  {
-    name: '$substring',
-    description: { en: 'Extract substring', es: 'Extraer subcadena' },
-    example: '$substring(str, start, length)',
-    category: 'string',
-  },
-  {
-    name: '$replace',
-    description: { en: 'Replace text', es: 'Reemplazar texto' },
-    example: '$replace(str, "old", "new")',
-    category: 'string',
-  },
-  {
-    name: '$split',
-    description: { en: 'Split string to array', es: 'Dividir cadena en array' },
-    example: '$split("a,b,c", ",") => ["a","b","c"]',
-    category: 'string',
-  },
-  {
-    name: '$join',
-    description: { en: 'Join array to string', es: 'Unir array en cadena' },
-    example: '$join(["a","b"], "-") => "a-b"',
-    category: 'string',
-  },
-  {
-    name: '$concat',
-    description: { en: 'Concatenate strings', es: 'Concatenar cadenas' },
-    example: '$concat("Hello", " ", "World")',
-    category: 'string',
-  },
-  {
-    name: '$length',
-    description: { en: 'Get string/array length', es: 'Obtener longitud' },
-    example: '$length("hello") => 5',
-    category: 'string',
-  },
+// Fields each executor actually returns, so `steps.<id>.output.<field>`
+// resolves at run time. Types missing here (operari.set builds its own
+// fields) still offer the whole `output` object.
+const STEP_OUTPUT_FIELDS: Record<string, string[]> = {
+  shell: ['stdout', 'stderr', 'exitCode'],
+  ssh: ['stdout', 'stderr', 'exitCode'],
+  'operari.httpRequest': ['status', 'statusText', 'body', 'headers', 'url'],
+  'operari.database': ['rows', 'rowCount', 'connected', 'serverVersion', 'latencyMs'],
+  'operari.if': ['conditionResult'],
+  'operari.switch': ['matchedCase', 'matchedLabel', 'switchValue'],
+  'operari.loop': ['items', 'count'],
+  wait: ['waitedMs'],
+  approval: ['approvalId', 'status'],
+  notify: ['sent', 'channel'],
+  runbook: ['childExecutionId', 'runbookId', 'status'],
+  'github.commitFile': ['commitSha', 'htmlUrl', 'branch', 'path', 'created'],
+  'github.issue': ['number', 'url', 'id'],
+  'jira.issue': ['key', 'id', 'url'],
+  'pagerduty.event': ['dedupKey', 'result'],
+  'opsgenie.alert': ['requestId', 'result'],
+  'telegram.message': ['messageId'],
+  'email.send': ['messageId', 'accepted', 'rejected'],
+  'datadog.event': ['eventId', 'url'],
+  'grafana.annotation': ['annotationId'],
+  'operari.redis': ['result'],
+  'operari.crypto': ['value'],
+  'operari.dateTime': ['iso', 'unix', 'ms', 'local'],
+};
 
-  // Number functions
-  {
-    name: '$round',
-    description: { en: 'Round number', es: 'Redondear número' },
-    example: '$round(3.7) => 4',
-    category: 'number',
-  },
-  {
-    name: '$floor',
-    description: { en: 'Round down', es: 'Redondear hacia abajo' },
-    example: '$floor(3.7) => 3',
-    category: 'number',
-  },
-  {
-    name: '$ceil',
-    description: { en: 'Round up', es: 'Redondear hacia arriba' },
-    example: '$ceil(3.2) => 4',
-    category: 'number',
-  },
-  {
-    name: '$abs',
-    description: { en: 'Absolute value', es: 'Valor absoluto' },
-    example: '$abs(-5) => 5',
-    category: 'number',
-  },
-  {
-    name: '$min',
-    description: { en: 'Minimum value', es: 'Valor mínimo' },
-    example: '$min(1, 2, 3) => 1',
-    category: 'number',
-  },
-  {
-    name: '$max',
-    description: { en: 'Maximum value', es: 'Valor máximo' },
-    example: '$max(1, 2, 3) => 3',
-    category: 'number',
-  },
-  {
-    name: '$sum',
-    description: { en: 'Sum array values', es: 'Sumar valores de array' },
-    example: '$sum([1, 2, 3]) => 6',
-    category: 'number',
-  },
-  {
-    name: '$average',
-    description: { en: 'Average of array', es: 'Promedio de array' },
-    example: '$average([1, 2, 3]) => 2',
-    category: 'number',
-  },
+const ORGANIZATION_TYPES = new Set(['custom.frame', 'custom.note']);
 
-  // Array functions
+const VARIABLES = [
   {
-    name: '$first',
-    description: { en: 'Get first element', es: 'Obtener primer elemento' },
-    example: '$first([1,2,3]) => 1',
-    category: 'array',
+    expr: 'vars.<input>',
+    insert: 'vars.',
+    description: {
+      en: 'A run input declared in Runbook settings → Inputs',
+      es: 'Un input de ejecución declarado en Configuración del runbook → Inputs',
+    },
   },
   {
-    name: '$last',
-    description: { en: 'Get last element', es: 'Obtener último elemento' },
-    example: '$last([1,2,3]) => 3',
-    category: 'array',
+    expr: 'currentItem',
+    insert: 'currentItem',
+    description: {
+      en: 'Inside a loop body: the current item',
+      es: 'Dentro de un loop: el elemento actual',
+    },
   },
   {
-    name: '$reverse',
-    description: { en: 'Reverse array', es: 'Invertir array' },
-    example: '$reverse([1,2,3]) => [3,2,1]',
-    category: 'array',
-  },
-  {
-    name: '$sort',
-    description: { en: 'Sort array', es: 'Ordenar array' },
-    example: '$sort([3,1,2]) => [1,2,3]',
-    category: 'array',
-  },
-  {
-    name: '$unique',
-    description: { en: 'Remove duplicates', es: 'Eliminar duplicados' },
-    example: '$unique([1,1,2]) => [1,2]',
-    category: 'array',
-  },
-  {
-    name: '$filter',
-    description: { en: 'Filter array', es: 'Filtrar array' },
-    example: '$filter(array, condition)',
-    category: 'array',
-  },
-  {
-    name: '$map',
-    description: { en: 'Transform array', es: 'Transformar array' },
-    example: '$map(array, transform)',
-    category: 'array',
-  },
-  {
-    name: '$count',
-    description: { en: 'Count elements', es: 'Contar elementos' },
-    example: '$count([1,2,3]) => 3',
-    category: 'array',
-  },
-
-  // Date functions
-  {
-    name: '$now',
-    description: { en: 'Current timestamp', es: 'Timestamp actual' },
-    example: '$now() => "2024-01-15T..."',
-    category: 'date',
-  },
-  {
-    name: '$today',
-    description: { en: "Today's date", es: 'Fecha de hoy' },
-    example: '$today() => "2024-01-15"',
-    category: 'date',
-  },
-  {
-    name: '$formatDate',
-    description: { en: 'Format date', es: 'Formatear fecha' },
-    example: '$formatDate(date, "YYYY-MM-DD")',
-    category: 'date',
-  },
-  {
-    name: '$parseDate',
-    description: { en: 'Parse date string', es: 'Parsear fecha' },
-    example: '$parseDate("2024-01-15")',
-    category: 'date',
-  },
-  {
-    name: '$addDays',
-    description: { en: 'Add days to date', es: 'Agregar días' },
-    example: '$addDays(date, 7)',
-    category: 'date',
-  },
-  {
-    name: '$diffDays',
-    description: { en: 'Days between dates', es: 'Días entre fechas' },
-    example: '$diffDays(date1, date2)',
-    category: 'date',
-  },
-
-  // Object functions
-  {
-    name: '$keys',
-    description: { en: 'Get object keys', es: 'Obtener claves' },
-    example: '$keys({a:1, b:2}) => ["a","b"]',
-    category: 'object',
-  },
-  {
-    name: '$values',
-    description: { en: 'Get object values', es: 'Obtener valores' },
-    example: '$values({a:1, b:2}) => [1,2]',
-    category: 'object',
-  },
-  {
-    name: '$merge',
-    description: { en: 'Merge objects', es: 'Combinar objetos' },
-    example: '$merge(obj1, obj2)',
-    category: 'object',
-  },
-  {
-    name: '$pick',
-    description: { en: 'Pick properties', es: 'Seleccionar propiedades' },
-    example: '$pick(obj, ["a", "b"])',
-    category: 'object',
-  },
-  {
-    name: '$omit',
-    description: { en: 'Omit properties', es: 'Omitir propiedades' },
-    example: '$omit(obj, ["password"])',
-    category: 'object',
-  },
-
-  // Logic functions
-  {
-    name: '$if',
-    description: { en: 'Conditional', es: 'Condicional' },
-    example: '$if(condition, then, else)',
-    category: 'logic',
-  },
-  {
-    name: '$isEmpty',
-    description: { en: 'Check if empty', es: 'Verificar si vacío' },
-    example: '$isEmpty("") => true',
-    category: 'logic',
-  },
-  {
-    name: '$isNull',
-    description: { en: 'Check if null', es: 'Verificar si nulo' },
-    example: '$isNull(null) => true',
-    category: 'logic',
-  },
-  {
-    name: '$coalesce',
-    description: { en: 'First non-null', es: 'Primer no-nulo' },
-    example: '$coalesce(null, "default")',
-    category: 'logic',
+    expr: 'currentIndex',
+    insert: 'currentIndex',
+    description: {
+      en: 'Inside a loop body: position of the current item (0-based)',
+      es: 'Dentro de un loop: posición del elemento actual (desde 0)',
+    },
   },
 ];
 
-// Built-in variables
-const BUILTIN_VARIABLES = [
-  {
-    name: '$input',
-    description: { en: 'Input data from trigger', es: 'Datos de entrada del trigger' },
-    example: '$input.body',
+const TEXT = {
+  en: {
+    title: 'Expression builder',
+    steps: 'Step outputs',
+    variables: 'Variables',
+    search: 'Search…',
+    noSteps: 'No other steps on the canvas yet',
+    wholeOutput: 'whole output',
+    custom: 'Custom expression',
+    customHint: 'A path such as vars.service or steps.<id>.output.body',
+    insert: 'Insert',
   },
-  {
-    name: '$env',
-    description: { en: 'Environment variables', es: 'Variables de entorno' },
-    example: '$env.API_KEY',
+  es: {
+    title: 'Constructor de expresiones',
+    steps: 'Salidas de pasos',
+    variables: 'Variables',
+    search: 'Buscar…',
+    noSteps: 'Todavía no hay otros pasos en el canvas',
+    wholeOutput: 'salida completa',
+    custom: 'Expresión personalizada',
+    customHint: 'Una ruta como vars.service o steps.<id>.output.body',
+    insert: 'Insertar',
   },
-  {
-    name: '$execution',
-    description: { en: 'Current execution info', es: 'Info de ejecución actual' },
-    example: '$execution.id',
-  },
-  {
-    name: '$workflow',
-    description: { en: 'Workflow metadata', es: 'Metadatos del workflow' },
-    example: '$workflow.name',
-  },
-  {
-    name: '$timestamp',
-    description: { en: 'Current timestamp', es: 'Timestamp actual' },
-    example: '$timestamp',
-  },
-  {
-    name: '$random',
-    description: { en: 'Random number 0-1', es: 'Número aleatorio 0-1' },
-    example: '$random',
-  },
-  { name: '$uuid', description: { en: 'Generate UUID', es: 'Generar UUID' }, example: '$uuid' },
-];
-
-const FUNCTION_CATEGORIES = [
-  { id: 'string', label: { en: 'String', es: 'Cadena' } },
-  { id: 'number', label: { en: 'Number', es: 'Número' } },
-  { id: 'array', label: { en: 'Array', es: 'Array' } },
-  { id: 'date', label: { en: 'Date', es: 'Fecha' } },
-  { id: 'object', label: { en: 'Object', es: 'Objeto' } },
-  { id: 'logic', label: { en: 'Logic', es: 'Lógica' } },
-];
+};
 
 export default function ExpressionBuilder({
   isOpen,
   onClose,
   onInsert,
   nodes,
-  connections: _connections,
   lang,
 }: ExpressionBuilderProps) {
+  const [activeTab, setActiveTab] = useState<'steps' | 'variables'>('steps');
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedNodes, setExpandedNodes] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'nodes' | 'functions' | 'variables'>('nodes');
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['string']);
-  const [previewExpression, setPreviewExpression] = useState('');
-  const [copiedItem, setCopiedItem] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const [custom, setCustom] = useState('');
+  const t = TEXT[lang];
 
-  const text = {
-    en: {
-      title: 'Expression Builder',
-      search: 'Search...',
-      insert: 'Insert',
-      copy: 'Copy',
-      noNodes: 'No nodes available.',
-      output: 'Output Data',
-      preview: 'Preview',
-      previewPlaceholder: 'Enter expression to preview...',
-      tabs: {
-        nodes: 'Node Data',
-        functions: 'Functions',
-        variables: 'Variables',
-      },
-      categories: 'Categories',
-      clickToInsert: 'Click to insert',
-      result: 'Result',
-      testExpression: 'Test Expression',
-    },
-    es: {
-      title: 'Constructor de Expresiones',
-      search: 'Buscar...',
-      insert: 'Insertar',
-      copy: 'Copiar',
-      noNodes: 'No hay nodos disponibles.',
-      output: 'Datos de Salida',
-      preview: 'Vista Previa',
-      previewPlaceholder: 'Ingresa expresión para previsualizar...',
-      tabs: {
-        nodes: 'Datos de Nodo',
-        functions: 'Funciones',
-        variables: 'Variables',
-      },
-      categories: 'Categorías',
-      clickToInsert: 'Clic para insertar',
-      result: 'Resultado',
-      testExpression: 'Probar Expresión',
-    },
-  }[lang];
-
-  // Toggle node expansion
-  const toggleNode = (nodeId: string) => {
-    setExpandedNodes(prev =>
-      prev.includes(nodeId) ? prev.filter(id => id !== nodeId) : [...prev, nodeId]
-    );
+  const insert = (path: string) => {
+    onInsert(`{{${path}}}`);
+    onClose();
   };
 
-  // Toggle category expansion
-  const toggleCategory = (categoryId: string) => {
-    setExpandedCategories(prev =>
-      prev.includes(categoryId) ? prev.filter(id => id !== categoryId) : [...prev, categoryId]
-    );
-  };
-
-  // Filter nodes based on search
-  const filteredNodes = useMemo(() => {
-    return (nodes as ExtendedNode[]).filter(
+  const steps = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return nodes.filter(
       n =>
-        n.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        n.type?.toLowerCase().includes(searchTerm.toLowerCase())
+        !ORGANIZATION_TYPES.has(n.type) &&
+        (!term ||
+          (n.title || '').toLowerCase().includes(term) ||
+          n.id.toLowerCase().includes(term) ||
+          n.type.toLowerCase().includes(term))
     );
   }, [nodes, searchTerm]);
 
-  // Filter functions based on search
-  const filteredFunctions = useMemo(() => {
-    if (!searchTerm) return EXPRESSION_FUNCTIONS;
-    return EXPRESSION_FUNCTIONS.filter(
-      f =>
-        f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        f.description[lang].toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm, lang]);
-
-  // Filter variables based on search
-  const filteredVariables = useMemo(() => {
-    if (!searchTerm) return BUILTIN_VARIABLES;
-    return BUILTIN_VARIABLES.filter(
-      v =>
-        v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.description[lang].toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm, lang]);
-
-  // Mock output schema for demonstration based on node type
-  const getMockOutput = (node: WorkflowNode) => {
-    if (node.type.toLowerCase().includes('webhook'))
-      return {
-        body: { key: 'value', id: 123, user: { name: 'John', email: 'john@example.com' } },
-        query: { page: 1 },
-        headers: { 'content-type': 'application/json' },
-      };
-    if (node.type.toLowerCase().includes('openai'))
-      return { content: 'Response text...', role: 'assistant', usage: { tokens: 150 } };
-    if (node.type.toLowerCase().includes('code'))
-      return { result: 'calculated value', success: true, data: [1, 2, 3] };
-    if (node.type.toLowerCase().includes('http'))
-      return { status: 200, data: { items: [], total: 0 }, headers: {} };
-    return { data: 'sample data', id: Math.floor(Math.random() * 1000) };
-  };
-
-  const handleVariableClick = useCallback(
-    (nodeName: string, path: string[]) => {
-      const pathString = path.map(p => `["${p}"]`).join('');
-      const expression = `{{ $node["${nodeName}"].json${pathString} }}`;
-      onInsert(expression);
-      onClose();
-    },
-    [onInsert, onClose]
-  );
-
-  const handleFunctionClick = useCallback(
-    (funcName: string) => {
-      const expression = `{{ ${funcName}() }}`;
-      onInsert(expression);
-      onClose();
-    },
-    [onInsert, onClose]
-  );
-
-  const handleVariableInsert = useCallback(
-    (varName: string) => {
-      const expression = `{{ ${varName} }}`;
-      onInsert(expression);
-      onClose();
-    },
-    [onInsert, onClose]
-  );
-
-  const handleCopy = useCallback((text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedItem(text);
-    setTimeout(() => setCopiedItem(null), 2000);
-  }, []);
-
-  // Mock expression evaluation for preview
-  const evaluatePreview = useCallback((expr: string) => {
-    if (!expr.trim()) return null;
-    try {
-      // Simple mock evaluation - in production this would call the backend
-      if (expr.includes('$now')) return new Date().toISOString();
-      if (expr.includes('$today')) return new Date().toISOString().split('T')[0];
-      if (expr.includes('$random')) return Math.random().toFixed(4);
-      if (expr.includes('$uuid'))
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-          const r = (Math.random() * 16) | 0;
-          return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-        });
-      if (expr.includes('$toUpper')) return '"EXAMPLE"';
-      if (expr.includes('$toLower')) return '"example"';
-      return '(Preview available after execution)';
-    } catch {
-      return 'Invalid expression';
-    }
-  }, []);
+  const tabClass = (active: boolean) =>
+    `flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+      active
+        ? 'text-primary/70 border-primary/70 bg-primary/10 border-b-2'
+        : 'text-gray-400 hover:text-white'
+    }`;
+  const rowClass =
+    'flex w-full items-center justify-between rounded px-2 py-1.5 text-left font-mono text-xs text-gray-300 hover:bg-white/10 hover:text-white';
 
   return (
     <AnimatePresence>
@@ -514,17 +146,17 @@ export default function ExpressionBuilder({
           <motion.div
             role="dialog"
             aria-modal="true"
+            aria-label={t.title}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="flex h-[600px] w-[700px] flex-col overflow-hidden rounded-lg border border-gray-700 bg-[#1a1a2e] shadow-2xl"
+            className="flex h-[600px] max-h-[90vh] w-[700px] max-w-[95vw] flex-col overflow-hidden rounded-lg border border-gray-700 bg-[#1a1a2e] shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
-            {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-700 bg-[#16162a] p-4">
               <div className="flex items-center gap-2 font-bold text-white">
                 <Database size={18} className="text-primary/70" />
-                {text.title}
+                {t.title}
               </div>
               <button
                 onClick={onClose}
@@ -535,327 +167,140 @@ export default function ExpressionBuilder({
               </button>
             </div>
 
-            {/* Tabs */}
             <div className="flex border-b border-gray-700 bg-[#16162a]">
               <button
-                onClick={() => setActiveTab('nodes')}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                  activeTab === 'nodes'
-                    ? 'text-primary/70 border-primary/70 bg-primary/10 border-b-2'
-                    : 'text-gray-400 hover:text-white'
-                }`}
+                onClick={() => setActiveTab('steps')}
+                className={tabClass(activeTab === 'steps')}
               >
                 <FileJson size={14} />
-                {text.tabs.nodes}
-              </button>
-              <button
-                onClick={() => setActiveTab('functions')}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                  activeTab === 'functions'
-                    ? 'text-primary/70 border-primary/70 bg-primary/10 border-b-2'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <FunctionSquare size={14} />
-                {text.tabs.functions}
+                {t.steps}
               </button>
               <button
                 onClick={() => setActiveTab('variables')}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                  activeTab === 'variables'
-                    ? 'text-primary/70 border-primary/70 bg-primary/10 border-b-2'
-                    : 'text-gray-400 hover:text-white'
-                }`}
+                className={tabClass(activeTab === 'variables')}
               >
                 <Variable size={14} />
-                {text.tabs.variables}
+                {t.variables}
               </button>
             </div>
 
-            {/* Search */}
-            <div className="border-b border-gray-700 bg-black/20 p-3">
-              <div className="relative">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-                />
-                <input
-                  type="text"
-                  placeholder={text.search}
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="focus:border-primary w-full rounded-md border border-gray-700 bg-[#0d0d1a] py-2 pl-9 pr-3 text-sm text-white focus:outline-none"
-                />
+            {activeTab === 'steps' && (
+              <div className="border-b border-gray-700 bg-black/20 p-3">
+                <div className="relative">
+                  <Search
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder={t.search}
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="focus:border-primary w-full rounded-md border border-gray-700 bg-[#0d0d1a] py-2 pl-9 pr-3 text-sm text-white focus:outline-none"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Content */}
             <div className="flex-1 overflow-y-auto p-2">
-              {/* Nodes Tab */}
-              {activeTab === 'nodes' && (
-                <>
-                  {filteredNodes.length === 0 ? (
-                    <div className="mt-10 text-center text-sm text-gray-500">{text.noNodes}</div>
-                  ) : (
-                    filteredNodes.map(node => {
-                      const isExpanded = expandedNodes.includes(node.id);
-                      const mockData = getMockOutput(node);
-                      const nodeName = node.title || node.id;
-
-                      return (
-                        <div
-                          key={node.id}
-                          className="mb-2 rounded border border-gray-700/50 bg-[#1f1f35]"
-                        >
-                          <button
-                            onClick={() => toggleNode(node.id)}
-                            className="flex w-full items-center gap-2 p-2 text-left transition-colors hover:bg-white/5"
-                          >
-                            {isExpanded ? (
-                              <ChevronDown size={14} className="text-gray-400" />
-                            ) : (
-                              <ChevronRight size={14} className="text-gray-400" />
-                            )}
-                            <span className="text-sm font-semibold text-gray-200">{nodeName}</span>
-                            <span className="ml-auto rounded bg-black/30 px-1.5 py-0.5 text-[10px] text-gray-500">
-                              {node.type.split('.').pop()}
-                            </span>
-                          </button>
-
-                          {isExpanded && (
-                            <div className="border-t border-gray-700/30 bg-black/20 p-2 pl-6 font-mono text-xs">
-                              <RecursiveObjectRenderer
-                                data={mockData}
-                                path={[]}
-                                onSelect={path => handleVariableClick(nodeName, path)}
-                                onCopy={handleCopy}
-                                copiedItem={copiedItem}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </>
-              )}
-
-              {/* Functions Tab */}
-              {activeTab === 'functions' && (
-                <div className="space-y-2">
-                  {FUNCTION_CATEGORIES.map(category => {
-                    const categoryFunctions = filteredFunctions.filter(
-                      f => f.category === category.id
-                    );
-                    if (categoryFunctions.length === 0) return null;
-                    const isExpanded = expandedCategories.includes(category.id);
-
+              {activeTab === 'steps' &&
+                (steps.length === 0 ? (
+                  <div className="mt-10 text-center text-sm text-gray-500">{t.noSteps}</div>
+                ) : (
+                  steps.map(node => {
+                    const isOpenNode = expanded.includes(node.id);
+                    const base = `steps.${node.id}.output`;
                     return (
                       <div
-                        key={category.id}
-                        className="rounded border border-gray-700/50 bg-[#1f1f35]"
+                        key={node.id}
+                        className="mb-2 rounded border border-gray-700/50 bg-[#1f1f35]"
                       >
                         <button
-                          onClick={() => toggleCategory(category.id)}
+                          onClick={() =>
+                            setExpanded(prev =>
+                              prev.includes(node.id)
+                                ? prev.filter(id => id !== node.id)
+                                : [...prev, node.id]
+                            )
+                          }
                           className="flex w-full items-center gap-2 p-2 text-left transition-colors hover:bg-white/5"
                         >
-                          {isExpanded ? (
+                          {isOpenNode ? (
                             <ChevronDown size={14} className="text-gray-400" />
                           ) : (
                             <ChevronRight size={14} className="text-gray-400" />
                           )}
                           <span className="text-sm font-semibold text-gray-200">
-                            {category.label[lang]}
+                            {node.title || node.id}
                           </span>
                           <span className="ml-auto rounded bg-black/30 px-1.5 py-0.5 text-[10px] text-gray-500">
-                            {categoryFunctions.length}
+                            {node.type.split('.').pop()}
                           </span>
                         </button>
-
-                        {isExpanded && (
-                          <div className="border-t border-gray-700/30 bg-black/20">
-                            {categoryFunctions.map(func => (
-                              <div
-                                key={func.name}
-                                className="group flex cursor-pointer items-center justify-between p-2 hover:bg-white/5"
-                                onClick={() => handleFunctionClick(func.name)}
+                        {isOpenNode && (
+                          <div className="border-t border-gray-700/30 bg-black/20 p-2 pl-6">
+                            <button className={rowClass} onClick={() => insert(base)}>
+                              <span>output</span>
+                              <span className="text-[10px] text-gray-500">{t.wholeOutput}</span>
+                            </button>
+                            {(STEP_OUTPUT_FIELDS[node.type] ?? []).map(field => (
+                              <button
+                                key={field}
+                                className={rowClass}
+                                onClick={() => insert(`${base}.${field}`)}
                               >
-                                <div className="flex-1">
-                                  <div className="text-primary/40 font-mono text-sm">
-                                    {func.name}
-                                  </div>
-                                  <div className="text-[10px] text-gray-500">
-                                    {func.description[lang]}
-                                  </div>
-                                  <div className="mt-0.5 font-mono text-[10px] text-gray-600">
-                                    {func.example}
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    handleCopy(func.name);
-                                  }}
-                                  className="rounded p-1 opacity-0 transition-all hover:bg-white/10 group-hover:opacity-100"
-                                >
-                                  {copiedItem === func.name ? (
-                                    <Check size={12} className="text-green-400" />
-                                  ) : (
-                                    <Copy size={12} className="text-gray-400" />
-                                  )}
-                                </button>
-                              </div>
+                                <span>output.{field}</span>
+                              </button>
                             ))}
                           </div>
                         )}
                       </div>
                     );
-                  })}
-                </div>
-              )}
+                  })
+                ))}
 
-              {/* Variables Tab */}
-              {activeTab === 'variables' && (
-                <div className="space-y-1">
-                  {filteredVariables.map(variable => (
-                    <div
-                      key={variable.name}
-                      className="group flex cursor-pointer items-center justify-between rounded border border-gray-700/30 bg-[#1f1f35] p-3 hover:bg-white/5"
-                      onClick={() => handleVariableInsert(variable.name)}
-                    >
-                      <div className="flex-1">
-                        <div className="text-primary/40 font-mono text-sm">{variable.name}</div>
-                        <div className="text-[10px] text-gray-500">
-                          {variable.description[lang]}
-                        </div>
-                        <div className="mt-0.5 font-mono text-[10px] text-gray-600">
-                          Example: {variable.example}
-                        </div>
-                      </div>
-                      <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          handleCopy(variable.name);
-                        }}
-                        className="rounded p-1 opacity-0 transition-all hover:bg-white/10 group-hover:opacity-100"
-                      >
-                        {copiedItem === variable.name ? (
-                          <Check size={12} className="text-green-400" />
-                        ) : (
-                          <Copy size={12} className="text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {activeTab === 'variables' &&
+                VARIABLES.map(v => (
+                  <button
+                    key={v.expr}
+                    onClick={() =>
+                      v.insert.endsWith('.') ? setCustom(v.insert) : insert(v.insert)
+                    }
+                    className="mb-1 w-full rounded border border-gray-700/50 bg-[#1f1f35] p-3 text-left hover:bg-white/5"
+                  >
+                    <div className="text-primary/70 font-mono text-sm">{`{{${v.expr}}}`}</div>
+                    <div className="mt-1 text-xs text-gray-400">{v.description[lang]}</div>
+                  </button>
+                ))}
             </div>
 
-            {/* Preview Section */}
             <div className="border-t border-gray-700 bg-[#16162a] p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <Play size={12} className="text-gray-400" />
-                <span className="text-[10px] font-bold uppercase text-gray-500">
-                  {text.preview}
-                </span>
-              </div>
+              <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">
+                {t.custom}
+              </label>
               <div className="flex gap-2">
                 <input
                   type="text"
-                  value={previewExpression}
-                  onChange={e => setPreviewExpression(e.target.value)}
-                  placeholder={text.previewPlaceholder}
-                  className="focus:border-primary flex-1 rounded border border-gray-700 bg-[#0d0d1a] px-3 py-2 font-mono text-sm text-white focus:outline-none"
+                  value={custom}
+                  onChange={e => setCustom(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && custom.trim()) insert(custom.trim());
+                  }}
+                  placeholder={t.customHint}
+                  className="focus:border-primary flex-1 rounded-md border border-gray-700 bg-[#0d0d1a] px-3 py-2 font-mono text-sm text-white focus:outline-none"
                 />
                 <button
-                  onClick={() => previewExpression && onInsert(`{{ ${previewExpression} }}`)}
-                  disabled={!previewExpression.trim()}
-                  className="bg-primary hover:bg-primary rounded px-3 py-2 text-sm font-medium text-white transition-colors disabled:bg-gray-700 disabled:text-gray-500"
+                  onClick={() => custom.trim() && insert(custom.trim())}
+                  disabled={!custom.trim()}
+                  className="bg-primary rounded-md px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
                 >
-                  {text.insert}
+                  {t.insert}
                 </button>
               </div>
-              {previewExpression && (
-                <div className="mt-2 rounded border border-gray-700/50 bg-black/30 p-2">
-                  <span className="text-[10px] uppercase text-gray-500">{text.result}: </span>
-                  <span className="font-mono text-xs text-green-400">
-                    {evaluatePreview(previewExpression)}
-                  </span>
-                </div>
-              )}
             </div>
           </motion.div>
         </div>
       )}
     </AnimatePresence>
   );
-}
-
-// Recursive helper to render JSON tree with copy functionality
-function RecursiveObjectRenderer({
-  data,
-  path,
-  onSelect,
-  onCopy,
-  copiedItem,
-}: {
-  data: unknown;
-  path: string[];
-  onSelect: (path: string[]) => void;
-  onCopy: (text: string) => void;
-  copiedItem: string | null;
-}) {
-  if (typeof data === 'object' && data !== null) {
-    return (
-      <div className="flex flex-col gap-1">
-        {Object.entries(data).map(([key, value]) => {
-          const currentPath = [...path, key];
-          const pathString = currentPath.join('.');
-
-          return (
-            <div key={key}>
-              <div className="group flex items-start gap-1">
-                <span className="text-primary/40">{key}:</span>
-                {typeof value === 'object' && value !== null ? (
-                  <div className="ml-2 border-l border-gray-700 pl-2">
-                    <RecursiveObjectRenderer
-                      data={value}
-                      path={currentPath}
-                      onSelect={onSelect}
-                      onCopy={onCopy}
-                      copiedItem={copiedItem}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <span
-                      className="max-w-[200px] cursor-pointer truncate text-green-300 hover:text-green-200 hover:underline"
-                      onClick={() => onSelect(currentPath)}
-                      title="Click to insert"
-                    >
-                      {JSON.stringify(value)}
-                    </span>
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        onCopy(pathString);
-                      }}
-                      className="rounded p-0.5 opacity-0 transition-all hover:bg-white/10 group-hover:opacity-100"
-                    >
-                      {copiedItem === pathString ? (
-                        <Check size={10} className="text-green-400" />
-                      ) : (
-                        <Copy size={10} className="text-gray-400" />
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-  return null;
 }

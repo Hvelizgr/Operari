@@ -169,6 +169,7 @@ export default function RunbookAssistPanel({
     try {
       const res = await fetch(`${apiBase}/api/runbook-assist/diagnose`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -229,132 +230,143 @@ export default function RunbookAssistPanel({
 
   return (
     <AnimatePresence>
-    {open && (
-    <div className="fixed right-0 top-0 z-[90] flex h-full w-full max-w-md flex-col border-l border-zinc-800 bg-zinc-950 text-white shadow-2xl">
-      <header className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
-        <div className="flex items-start gap-2">
-          <Sparkles className="text-primary/70 mt-0.5" size={18} />
-          <div>
-            <h2 className="text-base font-semibold">{t.title}</h2>
-            <p className="mt-0.5 text-xs text-zinc-400">{t.subtitle}</p>
-          </div>
-        </div>
-        <button
-          onClick={onClose}
-          className="rounded p-1 text-zinc-400 hover:bg-zinc-900 hover:text-white"
-        >
-          <X size={18} />
-        </button>
-      </header>
-
-      <div className="flex-1 space-y-4 overflow-y-auto p-5">
-        {!hasFailureContext && (
-          <div className="rounded border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-zinc-400">
-            {t.noFailure}
-          </div>
-        )}
-
-        {failedNode && (
-          <div>
-            <div className="mb-1 text-[11px] font-bold uppercase text-zinc-500">{t.stepLabel}</div>
-            <div className="rounded bg-zinc-900 px-3 py-2 text-sm">
-              <div className="font-medium">{failedNode.title}</div>
-              <div className="font-mono text-xs text-zinc-500">{failedNode.type}</div>
+      {open && (
+        <div className="fixed right-0 top-0 z-[90] flex h-full w-full max-w-md flex-col border-l border-zinc-800 bg-zinc-950 text-white shadow-2xl">
+          <header className="flex items-start justify-between border-b border-zinc-800 px-5 py-4">
+            <div className="flex items-start gap-2">
+              <Sparkles className="text-primary/70 mt-0.5" size={18} />
+              <div>
+                <h2 className="text-base font-semibold">{t.title}</h2>
+                <p className="mt-0.5 text-xs text-zinc-400">{t.subtitle}</p>
+              </div>
             </div>
-          </div>
-        )}
+            <button
+              onClick={onClose}
+              className="rounded p-1 text-zinc-400 hover:bg-zinc-900 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+          </header>
 
-        <div>
-          <div className="mb-1 text-[11px] font-bold uppercase text-zinc-500">{t.errorLabel}</div>
-          <textarea
-            value={errorOverride || errorMessage || ''}
-            onChange={e => setErrorOverride(e.target.value)}
-            rows={4}
-            placeholder="Paste a stderr block, exit code, or error message..."
-            className="w-full rounded border border-zinc-800 bg-black p-2 font-mono text-xs text-zinc-100 focus:border-zinc-600 focus:outline-none"
-          />
-        </div>
+          <div className="flex-1 space-y-4 overflow-y-auto p-5">
+            {!hasFailureContext && (
+              <div className="rounded border border-zinc-800 bg-black/40 px-3 py-2 text-xs text-zinc-400">
+                {t.noFailure}
+              </div>
+            )}
 
-        <div>
-          <div className="mb-1 text-[11px] font-bold uppercase text-zinc-500">
-            {t.questionLabel}
-          </div>
-          <input
-            type="text"
-            value={question}
-            onChange={e => setQuestion(e.target.value)}
-            placeholder={t.questionPh}
-            className="w-full rounded border border-zinc-800 bg-black p-2 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none"
-          />
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="self-center text-[10px] uppercase text-zinc-600">{t.suggested}:</span>
-            {[t.suggestHistory, t.suggestRecent, t.suggestCompare].map(q => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => setQuestion(q)}
-                disabled={streaming}
-                className="hover:border-primary hover:text-primary/40 rounded border border-zinc-800 bg-zinc-900/50 px-2 py-0.5 text-[11px] text-zinc-400 disabled:opacity-50"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-        </div>
+            {failedNode && (
+              <div>
+                <div className="mb-1 text-[11px] font-bold uppercase text-zinc-500">
+                  {t.stepLabel}
+                </div>
+                <div className="rounded bg-zinc-900 px-3 py-2 text-sm">
+                  <div className="font-medium">{failedNode.title}</div>
+                  <div className="font-mono text-xs text-zinc-500">{failedNode.type}</div>
+                </div>
+              </div>
+            )}
 
-        <button
-          onClick={ask}
-          disabled={streaming || !hasFailureContext}
-          className="bg-primary hover:bg-primary flex w-full items-center justify-center gap-2 rounded px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {streaming ? (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              {t.thinking}
-            </>
-          ) : (
-            <>
-              <Sparkles size={14} />
-              {t.ask}
-            </>
-          )}
-        </button>
-
-        {error && (
-          <div className="flex items-start gap-2 rounded border border-red-900 bg-red-950/40 px-3 py-2 text-xs text-red-300">
-            <AlertCircle size={14} className="mt-0.5 shrink-0" />
             <div>
-              <div className="font-semibold">{t.failed}</div>
-              <div className="opacity-80">{error}</div>
+              <div className="mb-1 text-[11px] font-bold uppercase text-zinc-500">
+                {t.errorLabel}
+              </div>
+              <textarea
+                value={errorOverride || errorMessage || ''}
+                onChange={e => setErrorOverride(e.target.value)}
+                rows={4}
+                placeholder="Paste a stderr block, exit code, or error message..."
+                className="w-full rounded border border-zinc-800 bg-black p-2 font-mono text-xs text-zinc-100 focus:border-zinc-600 focus:outline-none"
+              />
             </div>
-          </div>
-        )}
 
-        {(events.length > 0 || streaming) && (
-          <div className="rounded border border-zinc-800 bg-black/40 p-3">
-            <div className="text-primary/70 mb-2 text-[11px] font-bold uppercase">{t.brand}</div>
-            <div className="space-y-2">
-              {events.map((ev, idx) =>
-                ev.kind === 'text' ? (
-                  <pre key={idx} className="whitespace-pre-wrap font-sans text-sm text-zinc-100">
-                    {ev.text}
-                    {streaming && idx === events.length - 1 && (
-                      <span className="animate-pulse">▍</span>
-                    )}
-                  </pre>
-                ) : (
-                  <ToolCallBlock key={idx} event={ev} />
-                )
-              )}
-              {streaming && events.length === 0 && (
-                <span className="animate-pulse text-zinc-500">▍</span>
-              )}
+            <div>
+              <div className="mb-1 text-[11px] font-bold uppercase text-zinc-500">
+                {t.questionLabel}
+              </div>
+              <input
+                type="text"
+                value={question}
+                onChange={e => setQuestion(e.target.value)}
+                placeholder={t.questionPh}
+                className="w-full rounded border border-zinc-800 bg-black p-2 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none"
+              />
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <span className="self-center text-[10px] uppercase text-zinc-600">
+                  {t.suggested}:
+                </span>
+                {[t.suggestHistory, t.suggestRecent, t.suggestCompare].map(q => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => setQuestion(q)}
+                    disabled={streaming}
+                    className="hover:border-primary hover:text-primary/40 rounded border border-zinc-800 bg-zinc-900/50 px-2 py-0.5 text-[11px] text-zinc-400 disabled:opacity-50"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            <button
+              onClick={ask}
+              disabled={streaming || !hasFailureContext}
+              className="bg-primary hover:bg-primary flex w-full items-center justify-center gap-2 rounded px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {streaming ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  {t.thinking}
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} />
+                  {t.ask}
+                </>
+              )}
+            </button>
+
+            {error && (
+              <div className="flex items-start gap-2 rounded border border-red-900 bg-red-950/40 px-3 py-2 text-xs text-red-300">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-semibold">{t.failed}</div>
+                  <div className="opacity-80">{error}</div>
+                </div>
+              </div>
+            )}
+
+            {(events.length > 0 || streaming) && (
+              <div className="rounded border border-zinc-800 bg-black/40 p-3">
+                <div className="text-primary/70 mb-2 text-[11px] font-bold uppercase">
+                  {t.brand}
+                </div>
+                <div className="space-y-2">
+                  {events.map((ev, idx) =>
+                    ev.kind === 'text' ? (
+                      <pre
+                        key={idx}
+                        className="whitespace-pre-wrap font-sans text-sm text-zinc-100"
+                      >
+                        {ev.text}
+                        {streaming && idx === events.length - 1 && (
+                          <span className="animate-pulse">▍</span>
+                        )}
+                      </pre>
+                    ) : (
+                      <ToolCallBlock key={idx} event={ev} />
+                    )
+                  )}
+                  {streaming && events.length === 0 && (
+                    <span className="animate-pulse text-zinc-500">▍</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </div>
-    )}
+        </div>
+      )}
     </AnimatePresence>
   );
 }

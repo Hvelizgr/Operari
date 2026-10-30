@@ -9,6 +9,23 @@ import { WorkflowNode } from '../components/Editor';
 import { EDITOR_CONFIG } from '../config/editor.config';
 import type { DeleteConfirmState, DeleteConnectionConfirmState } from '../types/editor.types';
 
+export function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.isContentEditable ||
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'SELECT'
+  );
+}
+
+// Tab/Enter only drive node focus when nothing else holds focus; otherwise
+// they would trap keyboard navigation inside dialogs and side panels.
+function isCanvasFocus(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return true;
+  return target === document.body || target.closest('.react-flow') !== null;
+}
+
 interface UseEditorKeyboardOptions {
   // Node state
   nodes: WorkflowNode[];
@@ -35,6 +52,8 @@ interface UseEditorKeyboardOptions {
   // Accessibility
   announceMessage: (message: string) => void;
   setNodes: (setter: (prevNodes: WorkflowNode[]) => WorkflowNode[]) => void;
+  /** Undoable insert, used by paste. */
+  addNodes?: (nodes: WorkflowNode[]) => void;
 }
 
 export function useEditorKeyboard({
@@ -54,12 +73,14 @@ export function useEditorKeyboard({
   deleteConnectionConfirm,
   announceMessage,
   setNodes,
+  addNodes,
 }: UseEditorKeyboardOptions) {
   const [clipboard, setClipboard] = useState<WorkflowNode[]>([]);
 
   // Copy, Cut, Paste shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
       const isCtrlOrMeta = e.ctrlKey || e.metaKey;
 
       // Copy (Ctrl+C)
@@ -98,7 +119,8 @@ export function useEditorKeyboard({
           newSelectedNodeIds.add(newNode.id);
         });
 
-        setNodes(prevNodes => [...prevNodes, ...newNodes]);
+        if (addNodes) addNodes(newNodes);
+        else setNodes(prevNodes => [...prevNodes, ...newNodes]);
         setSelectedNodes(newSelectedNodeIds);
         announceMessage(`${newNodes.length} node${newNodes.length > 1 ? 's' : ''} pasted.`);
       }
@@ -111,6 +133,7 @@ export function useEditorKeyboard({
     clipboard,
     announceMessage,
     setNodes,
+    addNodes,
     setSelectedNodes,
     setDeleteConfirm,
   ]);
@@ -118,6 +141,7 @@ export function useEditorKeyboard({
   // Toggle-enable shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'e' && selectedNodes.size > 0) {
         e.preventDefault();
         setNodes(prevNodes =>
@@ -136,6 +160,7 @@ export function useEditorKeyboard({
   // Undo/Redo shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -152,6 +177,7 @@ export function useEditorKeyboard({
   // Node navigation and nudging shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
       if (selectedNodes.size > 0) {
         // Nudging selected nodes
         let dx = 0;
@@ -176,8 +202,7 @@ export function useEditorKeyboard({
             )
           );
         }
-      } else {
-        // Focus navigation
+      } else if (isCanvasFocus(e.target)) {
         // Tab forward
         if (e.key === 'Tab' && !e.shiftKey && nodes.length > 0) {
           e.preventDefault();
@@ -225,6 +250,7 @@ export function useEditorKeyboard({
   // Delete shortcuts (Delete, Backspace)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
       const isDeleteKey = EDITOR_CONFIG.SHORTCUTS.DELETE.includes(e.key);
 
       // Delete selected nodes

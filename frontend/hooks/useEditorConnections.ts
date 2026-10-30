@@ -41,6 +41,24 @@ export function useEditorConnections({
     }
   }, [nodes, connections]);
 
+  // Removing a Switch case removes its port; a wire left on it would be
+  // invisible on the canvas yet still routed by the engine.
+  useEffect(() => {
+    const portCount = new Map(
+      nodes
+        .filter(n => n.type === 'operari.switch' && Array.isArray(n.outputs))
+        .map(n => [n.id, n.outputs!.length])
+    );
+    if (portCount.size === 0) return;
+    setConnections(prev => {
+      const kept = prev.filter(c => {
+        const count = portCount.get(c.source);
+        return count === undefined || (c.sourcePort ?? 0) < count;
+      });
+      return kept.length === prev.length ? prev : kept;
+    });
+  }, [nodes]);
+
   const handleConnectionSelect = useCallback((connectionId: string) => {
     setSelectedConnection(connectionId);
   }, []);

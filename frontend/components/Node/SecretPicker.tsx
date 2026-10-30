@@ -78,7 +78,9 @@ export default function SecretPicker({
     try {
       const params = new URLSearchParams();
       if (provider) params.set('provider', provider);
-      const res = await fetch(`${apiBase}/api/connected-accounts?${params}`);
+      const res = await fetch(`${apiBase}/api/connected-accounts?${params}`, {
+        credentials: 'include',
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setAccounts(json.data || []);

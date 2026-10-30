@@ -31,6 +31,10 @@ interface AutosaveOptions {
    * like the legacy implementation. */
   runbookHeader?: RunbookHeader;
   debounceMs?: number;
+  /** Holds saves back while the canvas still shows placeholder nodes,
+   * so they can't overwrite the runbook that is being loaded. */
+  paused?: boolean;
+  isActive?: boolean;
 }
 
 interface WorkflowData {
@@ -47,12 +51,24 @@ export function useAutosave({
   runbookId,
   runbookHeader,
   debounceMs = AUTOSAVE_DEBOUNCE_MS,
+  paused = false,
+  isActive,
 }: AutosaveOptions) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [enableAutosave, setEnableAutosave] = useState(true);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedTimestampRef = useRef<number>(0);
   const isSavingRef = useRef(false);
+  // Every PUT writes a runbook version and an audit entry, so a save
+  // only goes out when the content differs from what was last saved.
+  const lastSavedKeyRef = useRef<string | null>(null);
+  const wasPausedRef = useRef(paused);
+  const resaveRef = useRef(false);
+  const performSaveRef = useRef<() => Promise<void>>(async () => {});
+  const contentKey = useCallback(
+    () => JSON.stringify([nodes, connections, runbookHeader ?? null, isActive ?? null]),
+    [nodes, connections, runbookHeader, isActive]
+  );
 
   const saveToLocalStorage = useCallback(
     (data: WorkflowData) => {
@@ -80,6 +96,7 @@ export function useAutosave({
         const yamlBody = specToYaml(spec);
         const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}/yaml`, {
           method: 'PUT',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ yaml: yamlBody }),
         });
@@ -114,12 +131,14 @@ export function useAutosave({
       try {
         const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}`, {
           method: 'PUT',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             nodes: data.nodes,
             connections: data.connections,
+            ...(isActive !== undefined ? { isActive } : {}),
             version: data.version,
             lastModified: data.timestamp,
           }),
@@ -143,13 +162,15 @@ export function useAutosave({
         return false;
       }
     },
-    [runbookId, saveYamlToBackend]
+    [runbookId, isActive, saveYamlToBackend]
   );
 
   const checkForConflicts = useCallback(async (): Promise<boolean> => {
     if (runbookId === SCRATCHPAD_ID) return false;
     try {
-      const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}/metadata`);
+      const response = await fetch(`${API_BASE}/api/runbooks/${runbookId}/metadata`, {
+        credentials: 'include',
+      });
 
       // If it's the scratchpad and doesn't exist yet, there's no conflict.
       if (response.status === 404 && runbookId === 'current-workflow') {
@@ -173,7 +194,13 @@ export function useAutosave({
   }, [runbookId]);
 
   const performSave = useCallback(async () => {
-    if (isSavingRef.current || !enableAutosave) return;
+    if (!enableAutosave) return;
+    if (isSavingRef.current) {
+      resaveRef.current = true;
+      return;
+    }
+    const key = contentKey();
+    if (key === lastSavedKeyRef.current) return;
 
     isSavingRef.current = true;
     setSaveStatus('saving');
@@ -198,13 +225,19 @@ export function useAutosave({
       }
 
       const success = await saveToBackend(workflowData);
+      if (success) lastSavedKeyRef.current = key;
       setSaveStatus(success ? 'saved' : 'error');
     } else {
       setSaveStatus('saved');
     }
 
     isSavingRef.current = false;
+    if (resaveRef.current) {
+      resaveRef.current = false;
+      void performSaveRef.current();
+    }
   }, [
+    contentKey,
     nodes,
     connections,
     runbookId,
@@ -214,11 +247,21 @@ export function useAutosave({
     checkForConflicts,
   ]);
 
+  performSaveRef.current = performSave;
+
+  // What is on screen when loading finishes is exactly what the server
+  // holds, so it counts as saved.
+  useEffect(() => {
+    if (wasPausedRef.current && !paused) lastSavedKeyRef.current = contentKey();
+    wasPausedRef.current = paused;
+  }, [paused, contentKey]);
+
   useEffect(() => {
     if (!enableAutosave) {
       setSaveStatus('saved');
       return;
     }
+    if (paused) return;
 
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -233,18 +276,18 @@ export function useAutosave({
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [nodes, connections, enableAutosave, debounceMs, performSave]);
+  }, [nodes, connections, enableAutosave, paused, debounceMs, performSave]);
 
   useEffect(() => {
     const handleOnline = () => {
-      if (enableAutosave && saveStatus === 'error') {
+      if (enableAutosave && !paused && saveStatus === 'error') {
         performSave();
       }
     };
 
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
-  }, [enableAutosave, saveStatus, performSave]);
+  }, [enableAutosave, paused, saveStatus, performSave]);
 
   useEffect(() => {
     const savedPreference = storageRead('operari-autosave-enabled');
@@ -281,10 +324,18 @@ export function useAutosave({
 
     saveToLocalStorage(workflowData);
 
+    const key = contentKey();
     const success = await saveToBackend(workflowData);
+    if (success) lastSavedKeyRef.current = key;
     setSaveStatus(success ? 'saved' : 'error');
     isSavingRef.current = false;
-  }, [nodes, connections, runbookId, saveToLocalStorage, saveToBackend]);
+  }, [contentKey, nodes, connections, runbookId, saveToLocalStorage, saveToBackend]);
+
+  /** Another editor surface (e.g. the run-inputs PUT) wrote the row;
+   * move the baseline so the next save doesn't read it as a conflict. */
+  const noteServerWrite = useCallback((timestamp: number) => {
+    lastSavedTimestampRef.current = Math.max(lastSavedTimestampRef.current, timestamp);
+  }, []);
 
   /**
    * Discard local changes and reload from server. Called when the
@@ -302,5 +353,6 @@ export function useAutosave({
     setEnableAutosave,
     forceOverwrite,
     discardLocal,
+    noteServerWrite,
   };
 }

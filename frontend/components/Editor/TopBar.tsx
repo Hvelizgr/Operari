@@ -25,6 +25,7 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import { useTheme } from '../../context/ThemeContext';
@@ -33,6 +34,9 @@ import type { SaveStatus } from '../../hooks/useAutosave';
 interface TopBarProps {
   lang: 'en' | 'es';
   workflowName: string;
+  isActive?: boolean;
+  /** Called when the user clicks the "Conflict" save badge. */
+  onResolveConflict?: () => void;
   onRun: () => void;
   onDebug?: () => void;
   onDryRun?: () => void;
@@ -70,6 +74,8 @@ interface TopBarProps {
 export default function TopBar({
   lang,
   workflowName,
+  isActive,
+  onResolveConflict,
   onRun,
   onDebug,
   onDryRun,
@@ -130,6 +136,22 @@ export default function TopBar({
     }[saveStatus];
     if (!config) return null;
     const Icon = config.icon;
+    if (saveStatus === 'conflict' && onResolveConflict) {
+      return (
+        <button
+          onClick={onResolveConflict}
+          className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs font-medium underline-offset-2 hover:underline ${config.color}`}
+          title={
+            lang === 'en'
+              ? 'The server has a newer version — click to resolve'
+              : 'El servidor tiene una versión más nueva — click para resolver'
+          }
+        >
+          <Icon size={14} />
+          {config.text}
+        </button>
+      );
+    }
     return (
       <span className={`flex items-center gap-1.5 text-xs font-medium ${config.color}`}>
         <Icon size={14} className={saveStatus === 'saving' ? 'animate-spin' : ''} />
@@ -147,12 +169,24 @@ export default function TopBar({
         </div>
         <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
         <div className="flex items-center gap-2">
-          <span className="max-w-[200px] cursor-pointer truncate rounded px-2 py-1 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" title={workflowName}>
+          <button
+            type="button"
+            onClick={onProperties}
+            className="max-w-[200px] truncate rounded px-2 py-1 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+            title={workflowName}
+          >
             {workflowName}
-          </span>
-          <span className="rounded-full border border-green-200 bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
-            Active
-          </span>
+          </button>
+          {isActive !== undefined &&
+            (isActive ? (
+              <span className="rounded-full border border-green-200 bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
+                {lang === 'en' ? 'Active' : 'Activo'}
+              </span>
+            ) : (
+              <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                {lang === 'en' ? 'Inactive' : 'Inactivo'}
+              </span>
+            ))}
         </div>
         <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
         {renderSaveStatus()}
@@ -200,7 +234,6 @@ export default function TopBar({
               >
                 <Plus size={16} />
                 {lang === 'en' ? 'Add Node' : 'Agregar Nodo'}
-                <span className="ml-auto text-xs text-slate-400">Space</span>
               </button>
 
               {/* Auto Layout */}
@@ -475,8 +508,12 @@ export default function TopBar({
           )}
         </button>
 
-        {/* User Avatar */}
-        <div className="from-primary ml-2 h-8 w-8 cursor-pointer rounded-full bg-gradient-to-tr to-pink-500 ring-2 ring-white dark:ring-slate-900" />
+        <Link
+          href={`/${lang}/settings`}
+          aria-label={lang === 'en' ? 'Settings' : 'Configuración'}
+          title={lang === 'en' ? 'Settings' : 'Configuración'}
+          className="from-primary ml-2 h-8 w-8 rounded-full bg-gradient-to-tr to-pink-500 ring-2 ring-white dark:ring-slate-900"
+        />
       </div>
     </div>
   );

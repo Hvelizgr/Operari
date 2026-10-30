@@ -53,13 +53,11 @@ export function useExecutionSocket(executionId: string | null) {
   const MAX_LOGS = 5000;
 
   useEffect(() => {
-    if (!executionId) {
-      setLogs([]);
-      setNodeStatuses({});
-      setNodeMeta({});
-      setExecutionStatus(null);
-      return;
-    }
+    setLogs([]);
+    setNodeStatuses({});
+    setNodeMeta({});
+    setExecutionStatus(null);
+    if (!executionId) return;
 
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     const socket = io(backendUrl, {

@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { EDITOR_CONFIG } from '../../config/editor.config';
 import { useEditorCanvas } from '../../hooks/useEditorCanvas';
 import { SNAP_GRID_PX } from '../../hooks/useEditorSnapToGrid';
+import { isTypingTarget } from '../../hooks/useEditorKeyboard';
 import { useExecutionSocket } from '../../hooks/useExecutionSocket';
 import { useWorkflowExecution } from '../../hooks/useWorkflowExecution';
 import { getAutoLayout } from '../../utils/layoutUtils';
@@ -55,8 +56,8 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
   const [searchTrigger, setSearchTrigger] = useState<number>(0);
   const searchParams = useSearchParams();
   const urlRunbookId = searchParams?.get('id') ?? null;
-  const loadedRunbookIdRef = useRef<string | null>(null);
-  const [, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadedRunbookId, setLoadedRunbookId] = useState<string | null>(null);
   // Workflow properties live up here (above useEditorCanvas) so the
   // header can be passed straight into the autosave hook for the
   // YAML-native save path.
@@ -65,10 +66,18 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
     description: '',
     isActive: false,
     schedule: null,
-    tags: [],
-    errorHandling: 'stop',
-    timeout: 30000,
   });
+  const savedInputsRef = useRef<string>('[]');
+
+  // A fresh object each render would re-arm the autosave timer forever.
+  const runbookHeader = useMemo(
+    () => ({
+      name: workflowProperties.name,
+      description: workflowProperties.description,
+      schedule: workflowProperties.schedule,
+    }),
+    [workflowProperties.name, workflowProperties.description, workflowProperties.schedule]
+  );
 
   const {
     // Refs
@@ -77,10 +86,13 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
 
     // State
     nodes,
-    setNodes, // Destructure setNodes
+    addNodes,
+    replaceNodes,
     connections,
     viewport,
     saveStatus,
+    forceOverwrite,
+    noteServerWrite,
     showOnboarding,
     onboardingStep,
     contextMenu,
@@ -113,6 +125,8 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
     handleCloseContextMenu,
 
     handleContextMenuDuplicate,
+    handleDuplicateSelected,
+    handleRequestDeleteSelected,
     handleDeleteFromContextMenu,
     handleContextMenuToggleEnable,
     handleNodeClick,
@@ -148,19 +162,17 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
   } = useEditorCanvas({
     lang,
     runbookId: urlRunbookId ?? undefined,
-    runbookHeader: {
-      name: workflowProperties.name,
-      description: workflowProperties.description,
-      schedule: workflowProperties.schedule,
-    },
+    runbookHeader,
+    autosavePaused: urlRunbookId !== null && loadedRunbookId !== urlRunbookId,
+    isActive: urlRunbookId ? workflowProperties.isActive : undefined,
   });
 
   // Auto Layout Handler. Wrapped in useCallback so the command-palette
   // useMemo that captures it doesn't invalidate on every render.
   const handleAutoLayout = useCallback(() => {
     const { nodes: layoutedNodes } = getAutoLayout(nodes, connections);
-    setNodes(layoutedNodes);
-  }, [nodes, connections, setNodes]);
+    replaceNodes(layoutedNodes);
+  }, [nodes, connections, replaceNodes]);
 
   // Insert an `operari.httpRequest` step from a request stashed in
   // localStorage by the HTTP tester (`/[lang]/http-tester`). The
@@ -185,9 +197,9 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
         inputs: [{ id: 'in', label: 'Input' }],
         outputs: [{ id: 'out', label: 'Output' }],
       };
-      setNodes(prev => [...prev, newNode]);
+      addNodes([newNode]);
     },
-    [setNodes, viewport, windowSize, lang]
+    [addNodes, viewport, windowSize, lang]
   );
 
   const [showTerminal, setShowTerminal] = useState(false);
@@ -208,16 +220,17 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
   // ran, the editor showed INITIAL_NODES — a single empty shell step
   // — regardless of what the user clicked from /runbooks. This is
   // the wiring that makes the ✏ Edit button on the Runbooks page
-  // actually open the right runbook. Idempotent via loadedRunbookIdRef
-  // so React StrictMode double-invocation doesn't double-fetch.
+  // actually open the right runbook. No "already loaded" ref guard:
+  // under StrictMode it skipped the second pass after the first one had
+  // been cancelled, so nothing ever loaded.
   useEffect(() => {
     if (!urlRunbookId) return;
-    if (loadedRunbookIdRef.current === urlRunbookId) return;
-    loadedRunbookIdRef.current = urlRunbookId;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/runbooks/${urlRunbookId}`);
+        const res = await fetch(`${API_BASE}/api/runbooks/${urlRunbookId}`, {
+          credentials: 'include',
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const wf = await res.json();
         if (cancelled) return;
@@ -236,7 +249,9 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
           ));
         } else {
           try {
-            const yamlRes = await fetch(`${API_BASE}/api/runbooks/${urlRunbookId}/yaml`);
+            const yamlRes = await fetch(`${API_BASE}/api/runbooks/${urlRunbookId}/yaml`, {
+              credentials: 'include',
+            });
             if (yamlRes.ok) {
               const yamlBody = await yamlRes.text();
               const spec = yamlToSpec(yamlBody);
@@ -250,16 +265,20 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
         }
         if (cancelled) return;
         handleLoadWorkflow(loadedNodes, loadedConnections);
+        const loadedInputs = Array.isArray(wf.inputs) ? wf.inputs : [];
+        savedInputsRef.current = JSON.stringify(loadedInputs);
         setWorkflowProperties(prev => ({
           ...prev,
+          id: urlRunbookId,
           name: wf.name ?? prev.name,
           description: wf.description ?? prev.description,
           isActive: wf.isActive ?? prev.isActive,
           schedule: wf.schedule ?? prev.schedule,
-          inputs: Array.isArray(wf.inputs) ? wf.inputs : [],
+          inputs: loadedInputs,
         }));
         setFitRequest(n => n + 1);
         setLoadError(null);
+        setLoadedRunbookId(urlRunbookId);
       } catch (err) {
         if (cancelled) return;
         setLoadError(err instanceof Error ? err.message : 'unknown');
@@ -282,7 +301,6 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
   // Persist typed input declarations via the dedicated route so
   // this write does not collide with the YAML-first autosave path.
   // Debounced so rapid edits in the panel coalesce into one PUT.
-  const savedInputsRef = useRef<string>(JSON.stringify(workflowProperties.inputs ?? []));
   useEffect(() => {
     if (!urlRunbookId) return;
     const serialized = JSON.stringify(workflowProperties.inputs ?? []);
@@ -290,32 +308,51 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
     const timer = setTimeout(() => {
       fetch(`${API_BASE}/api/runbooks/${urlRunbookId}/inputs`, {
         method: 'PUT',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inputs: workflowProperties.inputs ?? [] }),
       })
-        .then(res => {
-          if (res.ok) savedInputsRef.current = serialized;
+        .then(async res => {
+          if (!res.ok) return;
+          savedInputsRef.current = serialized;
+          const body = (await res.json().catch(() => null)) as { timestamp?: number } | null;
+          if (typeof body?.timestamp === 'number') noteServerWrite(body.timestamp);
         })
         .catch(() => {
           /* best-effort — retry on next change */
         });
     }, 800);
     return () => clearTimeout(timer);
-  }, [urlRunbookId, workflowProperties.inputs]);
+  }, [urlRunbookId, workflowProperties.inputs, noteServerWrite]);
 
   // Use the real runbook ID from the URL when available. The old
   // hardcoded 'current-workflow' doesn't exist in the DB, so every
   // execution attempt returned 404. When urlRunbookId is null (new
   // unsaved runbook or template just loaded), the hook receives null
   // and executeWorkflow returns early with an error prompt.
-  const { executeWorkflow, executeFromNode, executing, currentExecutionId } =
-    useWorkflowExecution(urlRunbookId);
-  const { logs, nodeStatuses, nodeMeta } = useExecutionSocket(currentExecutionId);
+  const {
+    executeWorkflow,
+    executeFromNode,
+    executing: isStartingRun,
+    currentExecutionId,
+  } = useWorkflowExecution(urlRunbookId);
+  const { logs, nodeStatuses, nodeMeta, executionStatus } = useExecutionSocket(currentExecutionId);
 
-  // Capture run start time on executing transition. Pairs with the
-  // runStartedAt state declared above the execution hook. Setting
-  // on true-edge gives the canvas status pill a fresh elapsed-time
-  // anchor; nulling on false-edge keeps the next run's clock at 0.
+  // The hook's flag only covers the POST that starts the run. The run
+  // itself lasts until the socket reports a terminal status; a null
+  // status still counts as running because the RUNNING event is emitted
+  // before the client has joined the execution room.
+  const executing =
+    isStartingRun ||
+    (currentExecutionId !== null &&
+      executionStatus !== 'SUCCESS' &&
+      executionStatus !== 'FAILED' &&
+      executionStatus !== 'CANCELLED');
+  const failedNode = useMemo(
+    () => nodes.find(n => nodeStatuses[n.id] === 'FAILED') ?? null,
+    [nodes, nodeStatuses]
+  );
+
   useEffect(() => {
     if (executing) {
       setRunStartedAt(Date.now());
@@ -334,23 +371,21 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
   useEffect(() => {
     const prev = prevExecutingRef.current;
     prevExecutingRef.current = executing;
-    if (prev && !executing) {
-      const anyFailed = nodes.some(n => n.executionState === 'error');
-      if (!anyFailed) {
-        setRunJustCompleted(true);
-        // Flip back on the next tick so the confetti's false→true
-        // edge detector catches the transition every time (in the
-        // rare case the flag somehow clears).
-        const timer = setTimeout(() => setRunJustCompleted(false), 1200);
-        return () => clearTimeout(timer);
-      }
+    if (prev && !executing && executionStatus === 'SUCCESS') {
+      setRunJustCompleted(true);
+      // Flip back on the next tick so the confetti's false→true
+      // edge detector catches the transition every time (in the
+      // rare case the flag somehow clears).
+      const timer = setTimeout(() => setRunJustCompleted(false), 1200);
+      return () => clearTimeout(timer);
     }
-  }, [executing, nodes]);
+  }, [executing, executionStatus]);
 
   // --- SNAPSHOT SYSTEM ---
   const [isSnapshotDialogOpen, setIsSnapshotDialogOpen] = useState(false);
-  const { snapshots, createSnapshot, restoreSnapshot, deleteSnapshot } =
-    useSnapshots('current-workflow');
+  const { snapshots, createSnapshot, restoreSnapshot, deleteSnapshot } = useSnapshots(
+    urlRunbookId ?? 'current-workflow'
+  );
 
   const handleCreateSnapshot = () => {
     createSnapshot(nodes, connections);
@@ -387,10 +422,10 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
   );
 
   // Wrappers for Run/Debug
-  const handleOpenRun = () => {
+  const handleOpenRun = useCallback(() => {
     setRunMode('run');
     handleOpenRunDialog();
-  };
+  }, [handleOpenRunDialog]);
 
   const handleOpenDebug = () => {
     setRunMode('debug');
@@ -432,13 +467,11 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
       {
         id: 'zoom_in',
         label: lang === 'en' ? 'Zoom In' : 'Acercar',
-        shortcut: ['Ctrl', '+'],
         action: handleZoomIn,
       },
       {
         id: 'zoom_out',
         label: lang === 'en' ? 'Zoom Out' : 'Alejar',
-        shortcut: ['Ctrl', '-'],
         action: handleZoomOut,
       },
       {
@@ -458,13 +491,13 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
         id: 'delete',
         label: lang === 'en' ? 'Delete Selected' : 'Eliminar Selección',
         shortcut: ['Del'],
-        action: handleConfirmDelete,
+        action: handleRequestDeleteSelected,
       },
       {
         id: 'duplicate',
         label: lang === 'en' ? 'Duplicate Selected' : 'Duplicar Selección',
         shortcut: ['Ctrl', 'D'],
-        action: handleContextMenuDuplicate,
+        action: handleDuplicateSelected,
       },
       {
         id: 'select_all',
@@ -475,7 +508,6 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
       {
         id: 'add_node',
         label: lang === 'en' ? 'Add Node' : 'Agregar Nuevo Nodo',
-        shortcut: ['Space'],
         action: () => setSearchTrigger(Date.now()),
       },
       {
@@ -489,7 +521,7 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
         id: 'run',
         label: lang === 'en' ? 'Run runbook' : 'Ejecutar runbook',
         shortcut: ['Ctrl', 'Enter'],
-        action: () => handleExecuteWithInput({}),
+        action: handleOpenRun,
       },
       {
         id: 'terminal',
@@ -512,28 +544,48 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
       handleZoomOut,
       handleFitView,
       handleResetZoom,
-      handleConfirmDelete,
-      handleContextMenuDuplicate,
+      handleRequestDeleteSelected,
+      handleDuplicateSelected,
       handleAutoLayout,
-      handleExecuteWithInput,
+      handleOpenRun,
+      nodes,
+      setSelectedNodes,
     ]
   );
 
-  // Ctrl+K Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (e.key === 'k' && mod) {
         e.preventDefault();
         setIsCommandPaletteOpen(true);
+        return;
+      }
+      if (isTypingTarget(e.target)) return;
+      if (mod && e.key === 'Enter') {
+        e.preventDefault();
+        if (!executing) handleOpenRun();
+      } else if (mod && e.key === 'a') {
+        e.preventDefault();
+        setSelectedNodes(new Set(nodes.map(n => n.id)));
+      } else if (mod && e.key === 'd') {
+        e.preventDefault();
+        handleDuplicateSelected();
+      } else if (e.shiftKey && !mod && e.code === 'Digit1') {
+        e.preventDefault();
+        handleFitView();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [executing, handleOpenRun, nodes, setSelectedNodes, handleDuplicateSelected, handleFitView]);
 
   return (
     <>
-      <div className="marketing-shell flex h-screen w-full overflow-hidden bg-[var(--app-bg)]">
+      <div
+        data-cmdk-scope
+        className="marketing-shell flex h-screen w-full overflow-hidden bg-[var(--app-bg)]"
+      >
         {/* Grain overlay is applied via .marketing-shell::before in globals.css */}
 
         {/* 1. Sidebar */}
@@ -546,6 +598,16 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
             <TopBar
               lang={lang}
               workflowName={workflowProperties.name}
+              isActive={urlRunbookId ? workflowProperties.isActive : undefined}
+              onResolveConflict={() => {
+                const overwrite = window.confirm(
+                  lang === 'en'
+                    ? 'Someone else saved this runbook after you opened it.\n\nOK: overwrite it with your version.\nCancel: reload the saved version (your unsaved edits are lost).'
+                    : 'Alguien más guardó este runbook después de que lo abriste.\n\nAceptar: sobrescribirlo con tu versión.\nCancelar: recargar la versión guardada (se pierden tus cambios sin guardar).'
+                );
+                if (overwrite) void forceOverwrite();
+                else window.location.reload();
+              }}
               onRun={handleOpenRun}
               onDebug={handleOpenDebug}
               onDryRun={handleOpenDryRun}
@@ -560,7 +622,7 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
               onMetrics={() => setIsMetricsDashboardOpen(true)}
               onYaml={() => setIsYamlViewOpen(true)}
               onAssist={() => setIsAssistOpen(true)}
-              hasFailedNode={nodes.some(n => n.executionState === 'error')}
+              hasFailedNode={failedNode !== null}
               snapToGrid={snapToGrid}
               onToggleSnapToGrid={toggleSnapToGrid}
               onGitHub={() => setIsGitHubOpen(true)}
@@ -654,9 +716,20 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
               {lang === 'en' ? 'Skip to runbook canvas' : 'Saltar al lienzo del runbook'}
             </a>
 
+            {loadError && (
+              <div
+                role="alert"
+                className="absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-lg border border-red-500/40 bg-red-950/90 px-4 py-2 text-sm text-red-200 shadow-lg"
+              >
+                {lang === 'en'
+                  ? `Could not load this runbook (${loadError}). Changes will not be saved.`
+                  : `No se pudo cargar este runbook (${loadError}). Los cambios no se guardarán.`}
+              </div>
+            )}
+
             <CanvasRunStatus
               executing={executing}
-              hasFailedNode={nodes.some(n => n.executionState === 'error')}
+              hasFailedNode={failedNode !== null}
               startedAt={runStartedAt}
               lang={lang}
             />
@@ -890,7 +963,7 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
               open={isAssistOpen}
               onClose={() => setIsAssistOpen(false)}
               lang={lang}
-              failedNode={nodes.find(n => n.executionState === 'error') ?? null}
+              failedNode={failedNode}
             />
             <GitHubBranchPanel
               open={isGitHubOpen}

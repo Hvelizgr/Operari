@@ -49,9 +49,18 @@ interface UseEditorCanvasProps {
     category?: string | null;
     schedule?: string | null;
   };
+  /** True while ?id= is still loading (or failed to load). */
+  autosavePaused?: boolean;
+  isActive?: boolean;
 }
 
-export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCanvasProps) {
+export function useEditorCanvas({
+  lang,
+  runbookId,
+  runbookHeader,
+  autosavePaused,
+  isActive,
+}: UseEditorCanvasProps) {
   const windowSize = useWindowSize();
   const canvasRef = useRef<HTMLDivElement>(null);
   const { nodeTypes: dbNodeTypes } = useNodeTypes();
@@ -111,13 +120,16 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
   // targets that workflow id, so the editor edits the actual row in
   // the DB instead of the always-overwritten 'current-workflow'
   // scratchpad. The runbookHeader unlocks the YAML-native save path.
-  const { saveStatus, enableAutosave, setEnableAutosave } = useAutosave({
-    nodes,
-    connections,
-    runbookId: runbookId ?? 'current-workflow',
-    runbookHeader,
-    debounceMs: EDITOR_CONFIG.CANVAS.DEBOUNCE_MS,
-  });
+  const { saveStatus, enableAutosave, setEnableAutosave, forceOverwrite, noteServerWrite } =
+    useAutosave({
+      nodes,
+      connections,
+      runbookId: runbookId ?? 'current-workflow',
+      runbookHeader,
+      debounceMs: EDITOR_CONFIG.CANVAS.DEBOUNCE_MS,
+      paused: autosavePaused,
+      isActive,
+    });
 
   // Local state
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>({
@@ -152,6 +164,10 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
 
   const { snapToGrid, toggleSnapToGrid } = useEditorSnapToGrid();
 
+  // useEditorKeyboard runs before addNodes is declared below.
+  const addNodesRef = useRef<(added: WorkflowNode[]) => void>(() => {});
+  const addNodesLate = useCallback((added: WorkflowNode[]) => addNodesRef.current(added), []);
+
   // Keyboard shortcuts
   useEditorKeyboard({
     nodes,
@@ -170,6 +186,7 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     deleteConnectionConfirm,
     announceMessage,
     setNodes,
+    addNodes: addNodesLate,
   });
 
   // --- Event Handlers matching EditorCanvas logic ---
@@ -327,6 +344,35 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     [createConnection]
   );
 
+  const addNodes = useCallback(
+    (added: WorkflowNode[]) => {
+      if (added.length === 0) return;
+      const ids = new Set(added.map(n => n.id));
+      executeCommand({
+        execute: () => setNodes(prev => [...prev, ...added]),
+        undo: () => {
+          setNodes(prev => prev.filter(n => !ids.has(n.id)));
+          setSelectedNodes(prev => new Set([...prev].filter(id => !ids.has(id))));
+        },
+      });
+    },
+    [executeCommand, setNodes, setSelectedNodes]
+  );
+
+  /** Swap in a whole new node list (auto-layout) as one undo step. */
+  const replaceNodes = useCallback(
+    (next: WorkflowNode[]) => {
+      const before = nodesRef.current;
+      executeCommand({
+        execute: () => setNodes(next),
+        undo: () => setNodes(before),
+      });
+    },
+    [executeCommand, setNodes]
+  );
+
+  addNodesRef.current = addNodes;
+
   const handleExecutionStateChange = useCallback(
     (updatedNodes: WorkflowNode[]) => {
       setNodes((prevNodes: WorkflowNode[]) => {
@@ -343,18 +389,12 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
 
   const handleNodeAddFromSearch = useCallback(
     (nodeType: NodeType) => {
-      const newNode = createNewNode(nodeType, viewport, windowSize, lang);
-      setNodes(prev => [...prev, newNode]);
+      addNodes([createNewNode(nodeType, viewport, windowSize, lang)]);
     },
-    [viewport, lang, windowSize, setNodes]
+    [viewport, lang, windowSize, addNodes]
   );
 
-  const handleAddNode = useCallback(
-    (newNode: WorkflowNode) => {
-      setNodes(prev => [...prev, newNode]);
-    },
-    [setNodes]
-  );
+  const handleAddNode = useCallback((newNode: WorkflowNode) => addNodes([newNode]), [addNodes]);
 
   const handleCanvasDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -377,10 +417,10 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
         lang
       );
 
-      setNodes((prev: WorkflowNode[]) => [...prev, newNode]);
+      addNodes([newNode]);
       setDraggingNodeType(null);
     },
-    [draggingNodeType, viewport, lang, setNodes, setDraggingNodeType]
+    [draggingNodeType, viewport, lang, addNodes, setDraggingNodeType]
   );
 
   // Deletion Logic
@@ -574,12 +614,31 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
           id: `node-${Date.now()}`,
           position: { x: node.position.x + 50, y: node.position.y + 50 },
         };
-        setNodes(prev => [...prev, newNode]);
+        addNodes([newNode]);
       }
       handleCloseContextMenu();
     },
-    [nodes, setNodes, handleCloseContextMenu]
+    [nodes, addNodes, handleCloseContextMenu]
   );
+
+  const handleRequestDeleteSelected = useCallback(() => {
+    if (selectedNodes.size > 0) {
+      setDeleteConfirm({ open: true, nodeIds: Array.from(selectedNodes) });
+    }
+  }, [selectedNodes]);
+
+  const handleDuplicateSelected = useCallback(() => {
+    const copies = nodes
+      .filter(n => selectedNodes.has(n.id))
+      .map((node, i) => ({
+        ...node,
+        id: `node-${Date.now()}-${i}`,
+        position: { x: node.position.x + 50, y: node.position.y + 50 },
+      }));
+    if (copies.length === 0) return;
+    addNodes(copies);
+    setSelectedNodes(new Set(copies.map(n => n.id)));
+  }, [nodes, selectedNodes, addNodes, setSelectedNodes]);
 
   const handleDeleteFromContextMenu = useCallback(() => {
     if (contextMenu?.nodeId) {
@@ -647,6 +706,8 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     saveStatus,
     enableAutosave,
     setEnableAutosave,
+    forceOverwrite,
+    noteServerWrite,
     showOnboarding,
     onboardingStep,
     contextMenu,
@@ -684,6 +745,8 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     handleContextMenu,
     handleCloseContextMenu,
     handleDuplicateNode,
+    handleDuplicateSelected,
+    handleRequestDeleteSelected,
     handleContextMenuDuplicate,
     handleDeleteFromContextMenu,
     handleContextMenuToggleEnable,
@@ -692,6 +755,8 @@ export function useEditorCanvas({ lang, runbookId, runbookHeader }: UseEditorCan
     handleNodeUpdate, // This is already here, just need to use it
     onNodeUpdate: handleNodeUpdate, // Add this for clarity
     setNodes, // Expose raw setter for batch updates (Auto-Layout)
+    addNodes,
+    replaceNodes,
     handleCloseConfigPanel,
     setConfigNodeId,
     handleHighlightNodes,

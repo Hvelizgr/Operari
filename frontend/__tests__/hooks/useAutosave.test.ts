@@ -29,6 +29,33 @@ describe('useAutosave', () => {
     debounceMs: 1000,
   };
 
+  it('does not save while paused, and treats the loaded state as saved', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({ timestamp: 12345 }),
+    });
+    const props = { ...defaultProps, nodes: [{ id: 'placeholder' }] as any[], paused: true };
+    const { rerender } = renderHook(p => useAutosave(p), { initialProps: props });
+
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    const loaded = { ...props, nodes: [{ id: 'loaded' }] as any[], paused: false };
+    rerender(loaded);
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    rerender({ ...loaded, nodes: [{ id: 'loaded' }, { id: 'edited' }] as any[] });
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(global.fetch).toHaveBeenCalled();
+  });
+
   it('starts with saved status', () => {
     const { result } = renderHook(() => useAutosave(defaultProps));
     expect(result.current.saveStatus).toBe('saved');

@@ -4,8 +4,11 @@ import { ArrowRight, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { AuthError, useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth';
+import { getAutoLayout } from '@/utils/layoutUtils';
 import { specToNodes, yamlToSpec } from '@/utils/runbookYaml';
+
+class SessionExpiredError extends Error {}
 
 interface UseTemplateButtonProps {
   slug: string;
@@ -63,6 +66,9 @@ export function UseTemplateButton({
       // modal uses. Keeps the two import paths byte-identical.
       const spec = yamlToSpec(body.data.yaml);
       const parsed = specToNodes(spec);
+      // Template YAML carries no positions; without a layout pass every
+      // step lands on one row with the cards overlapping.
+      const { nodes } = getAutoLayout(parsed.nodes, parsed.connections);
 
       const createRes = await fetch('/api/runbooks', {
         method: 'POST',
@@ -71,18 +77,19 @@ export function UseTemplateButton({
         body: JSON.stringify({
           name: body.data.name,
           description: `Imported from template: ${slug}`,
-          nodes: parsed.nodes,
+          nodes,
           connections: parsed.connections,
         }),
       });
+      if (createRes.status === 401) throw new SessionExpiredError();
       if (!createRes.ok) {
         throw new Error(`create failed: ${createRes.status}`);
       }
       const created = (await createRes.json()) as { id?: string };
       if (!created.id) throw new Error('create returned no id');
-      router.push(`/${lang}/editor?runbook=${encodeURIComponent(created.id)}`);
+      router.push(`/${lang}/editor?id=${encodeURIComponent(created.id)}`);
     } catch (err) {
-      if (err instanceof AuthError && err.status === 401) {
+      if (err instanceof SessionExpiredError) {
         router.push(`/${lang}/login?redirect=${encodeURIComponent(`/${lang}/templates/${slug}`)}`);
         return;
       }

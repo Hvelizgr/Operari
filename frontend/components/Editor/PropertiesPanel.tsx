@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 
 import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
 import DynamicNodeForm from '../Node/DynamicNodeForm';
+import { switchOutputs } from './EditorCanvas.utils';
 import { NODE_TYPES, NodeType } from '../Node/NodePalette';
 import TriggerModifiersSection, {
   DEFAULT_TRIGGER_MODIFIERS,
@@ -252,9 +253,9 @@ function SettingsResolver({
   const handleConfigChange = (key: string, value: unknown) => {
     const newConfig = { ...localConfig, [key]: value };
     setLocalConfig(newConfig);
-    if (node) {
-      onUpdate(node.id, { config: newConfig });
-    }
+    if (!node) return;
+    const outputs = node.type === 'operari.switch' && key === 'cases' ? switchOutputs(value) : null;
+    onUpdate(node.id, outputs ? { config: newConfig, outputs } : { config: newConfig });
   };
 
   // ConfigField Helper

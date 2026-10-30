@@ -150,7 +150,7 @@ export default function WebhookReceiptsPanel({ lang, webhookId }: WebhookReceipt
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(buildUrl(null));
+      const res = await fetch(buildUrl(null), { credentials: 'include' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setReceipts(Array.isArray(json.data) ? json.data : []);
@@ -168,7 +168,7 @@ export default function WebhookReceiptsPanel({ lang, webhookId }: WebhookReceipt
     setLoadingMore(true);
     setError(null);
     try {
-      const res = await fetch(buildUrl(nextCursor));
+      const res = await fetch(buildUrl(nextCursor), { credentials: 'include' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const older: Receipt[] = Array.isArray(json.data) ? json.data : [];
@@ -194,6 +194,7 @@ export default function WebhookReceiptsPanel({ lang, webhookId }: WebhookReceipt
     try {
       const res = await fetch(`${apiBase}/api/webhooks/${webhookId}/receipts/${receiptId}/replay`, {
         method: 'POST',
+        credentials: 'include',
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setReplayToast({ kind: 'ok', msg: t.replayOk });

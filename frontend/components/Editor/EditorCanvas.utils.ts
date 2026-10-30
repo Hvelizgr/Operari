@@ -13,6 +13,16 @@ import { NodeType } from '../Node';
  * a freshly-dropped `shell` already has `command: 'echo "hello..."'`,
  * an `approval` has both `approved` and `rejected` outputs, and so on.
  */
+// The seeded catalog declares ports as `{ name, type }`; older palette
+// entries use bare strings. An object label would reach JSX and crash.
+export function portLabel(port: unknown, fallback: string): string {
+  if (typeof port === 'string') return port;
+  if (port && typeof port === 'object' && typeof (port as { name?: unknown }).name === 'string') {
+    return (port as { name: string }).name;
+  }
+  return fallback;
+}
+
 function applyNodeTypeDefaults(nodeType: NodeType): {
   config: Record<string, unknown>;
   inputs: Array<{ id: string; label: string }>;
@@ -30,11 +40,17 @@ function applyNodeTypeDefaults(nodeType: NodeType): {
   }
   const inputs =
     Array.isArray(nodeType.inputs) && nodeType.inputs.length > 0
-      ? nodeType.inputs.map((label, i) => ({ id: `in-${i}`, label }))
+      ? nodeType.inputs.map((port: unknown, i: number) => ({
+          id: `in-${i}`,
+          label: portLabel(port, `in-${i}`),
+        }))
       : [{ id: 'in', label: 'Input' }];
   const outputs =
     Array.isArray(nodeType.outputs) && nodeType.outputs.length > 0
-      ? nodeType.outputs.map((label, i) => ({ id: `out-${i}`, label }))
+      ? nodeType.outputs.map((port: unknown, i: number) => ({
+          id: `out-${i}`,
+          label: portLabel(port, `out-${i}`),
+        }))
       : [{ id: 'out', label: 'Output' }];
   return { config, inputs, outputs };
 }
@@ -116,3 +132,29 @@ export const generateExecutionMetrics = (
 
   return newMetrics;
 };
+
+/**
+ * Output ports for a Switch step: one per case plus a trailing "default",
+ * which the engine follows when nothing matches. Parses `cases` the same
+ * way the backend does; returns null while the text is not a usable list
+ * so a half-typed edit does not drop the existing ports.
+ */
+export function switchOutputs(cases: unknown): Array<{ id: string; label: string }> | null {
+  let list: unknown = cases;
+  if (typeof cases === 'string') {
+    try {
+      list = cases.trim() ? JSON.parse(cases) : [];
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(list)) return null;
+  const labels = list.map((c, i) => {
+    if (c && typeof c === 'object') {
+      const { label, value } = c as { label?: unknown; value?: unknown };
+      return String(label ?? value ?? `case ${i}`);
+    }
+    return String(c);
+  });
+  return [...labels, 'default'].map((label, i) => ({ id: `out-${i}`, label }));
+}

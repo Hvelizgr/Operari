@@ -9,6 +9,7 @@ import { Fragment, memo } from 'react';
 
 import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
 import { NODE_TYPES, NodeType } from '../Node';
+import { portLabel } from './EditorCanvas.utils';
 
 interface EditorNodeProps {
   node: WorkflowNode;
@@ -267,16 +268,16 @@ function EditorNode({
                     type="source"
                     position={Position.Right}
                     id={`out-${i}`}
-                    aria-label={`Output: ${out.label ?? `out-${i}`}`}
+                    aria-label={`Output: ${portLabel(out.label, `out-${i}`)}`}
                     className="wf_pole_button wf_output_pole"
                     style={{ top: `${14 + i * 26}px` }}
-                    title={out.label ?? `out-${i}`}
+                    title={portLabel(out.label, `out-${i}`)}
                   >
                     <Icons.ChevronRight size={12} />
                   </Handle>
                   {/* Outside the Handle: the pole is rotated 45° and would tilt its text. */}
                   <span className="wf_pole_label" style={{ top: `${14 + i * 26}px` }}>
-                    {out.label ?? `out-${i}`}
+                    {portLabel(out.label, `out-${i}`)}
                   </span>
                 </Fragment>
               ))}
@@ -554,16 +555,16 @@ function EditorNode({
                 type="source"
                 position={Position.Right}
                 id={`out-${i}`}
-                aria-label={`Output: ${out.label ?? `out-${i}`}`}
+                aria-label={`Output: ${portLabel(out.label, `out-${i}`)}`}
                 className="wf_pole_button wf_output_pole"
                 style={{ top: `${30 + i * 26}px` }}
-                title={out.label ?? `out-${i}`}
+                title={portLabel(out.label, `out-${i}`)}
               >
                 <Icons.ChevronRight size={12} />
               </Handle>
               {/* Outside the Handle: the pole is rotated 45° and would tilt its text. */}
               <span className="wf_pole_label" style={{ top: `${30 + i * 26}px` }}>
-                {out.label ?? `out-${i}`}
+                {portLabel(out.label, `out-${i}`)}
               </span>
             </Fragment>
           ))}
