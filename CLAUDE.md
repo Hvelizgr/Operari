@@ -16,6 +16,7 @@ operari/
 │   ├── runbook editor       visual canvas + YAML round-trip
 │   ├── execution engine     local / docker / fly runners
 │   ├── audit chain          SHA-256 hash-chained event log
+│   ├── sessions board       /sessions — running / waiting on you / finished
 │   └── ai assist            failure diagnosis side-panel
 │
 ├── team helpers — same UI shell, different jobs
@@ -32,7 +33,9 @@ operari/
 ├── integrations — outbound
 │   ├── connected accounts   postgres, github, slack, datadog
 │   ├── webhooks             receivers + outbound triggers
-│   └── ai providers         Anthropic + OpenAI via Vercel AI SDK
+│   ├── credentials          Settings → paste any key into the vault (connected accounts)
+│   └── ai providers         user-added: Anthropic SDK + OpenAI-compatible; Managed Agents
+│                            sessions (assist panel still uses the Vercel AI SDK)
 │
 └── delivery
     ├── backend/             Express + Prisma + Postgres + Redis
@@ -47,7 +50,8 @@ operari/
 
 | You want to...                         | Look in                                                                                                                       |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Add a step type executor               | [backend/src/runbook/executors/](./backend/src/runbook/executors/)                                                            |
+| Add a step type (form + behaviour)     | [backend/src/runbook/catalog/](./backend/src/runbook/catalog/) — one object per step; upserted into the editor at boot        |
+| Add a step type executor (legacy)      | [backend/src/runbook/executors/](./backend/src/runbook/executors/) + an entry in `backend/prisma/seed-nodes.js`               |
 | Add a UI route                         | [frontend/app/\[lang\]/](./frontend/app/%5Blang%5D/)                                                                          |
 | Add a backend HTTP route               | [backend/src/routes/](./backend/src/routes/) (web UI) or [backend/src/routes/v1/](./backend/src/routes/v1/) (SDK/CLI API key) |
 | Understand a non-obvious design choice | [docs/adr/](./docs/adr/)                                                                                                      |
