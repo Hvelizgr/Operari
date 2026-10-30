@@ -17,6 +17,8 @@ RUN --mount=type=cache,target=/root/.npm \
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+# npm nests version-conflicting deps (e.g. mongodb) under the workspace instead of hoisting them
+COPY --from=deps /app/backend/node_modules ./backend/node_modules
 COPY . .
 
 # Build shared
@@ -42,6 +44,7 @@ COPY --from=builder /app/packages/shared ./packages/shared
 
 # Copy backend artifacts
 COPY --from=builder /app/backend/package.json ./backend/
+COPY --from=builder /app/backend/node_modules ./backend/node_modules
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/backend/prisma ./backend/prisma
 COPY --from=builder /app/templates ./templates
