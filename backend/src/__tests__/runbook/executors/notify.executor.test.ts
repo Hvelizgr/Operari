@@ -34,7 +34,7 @@ function buildFakeFetch(responses: FakeFetchResponse[]): {
 } {
   const calls: FakeFetchCall[] = [];
   let idx = 0;
-  const fakeFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fakeFetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     calls.push({
       url: String(input),
       init: {

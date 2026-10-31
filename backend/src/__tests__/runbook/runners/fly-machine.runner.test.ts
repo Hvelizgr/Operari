@@ -17,7 +17,7 @@ interface ScriptedResponse {
 const buildFetch = (responses: ScriptedResponse[]) => {
   const calls: FetchCall[] = [];
   let i = 0;
-  const fn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fn = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
     const method = init?.method ?? 'GET';
     const body = init?.body ? JSON.parse(init.body as string) : null;

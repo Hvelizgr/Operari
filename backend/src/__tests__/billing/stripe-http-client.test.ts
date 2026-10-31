@@ -10,7 +10,7 @@ interface CapturedRequest {
 function buildFetch(responses: Array<{ status: number; body?: string }>) {
   const calls: CapturedRequest[] = [];
   let i = 0;
-  const fn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fn = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
     const headers: Record<string, string> = {};
     if (init?.headers) {

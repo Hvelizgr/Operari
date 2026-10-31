@@ -29,7 +29,7 @@ const ctx = (overrides: Partial<ExecutorContext> = {}): ExecutorContext => ({
 
 function fakeFetch(status = 200, body: unknown = {}) {
   const calls: { url: string; init: RequestInit }[] = [];
-  const fn = (async (url: RequestInfo | URL, init?: RequestInit) => {
+  const fn = (async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
     calls.push({ url: String(url), init: init ?? {} });
     return new Response(typeof body === 'string' ? body : JSON.stringify(body), {
       status,
