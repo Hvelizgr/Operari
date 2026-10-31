@@ -16,11 +16,12 @@ import {
   Settings,
   Share2,
   ShieldCheck,
+  SquareTerminal,
   Wrench,
   Zap,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import CommandPalette, { type CommandAction } from '@/components/Editor/CommandPalette';
 
@@ -43,6 +44,7 @@ const LABELS = {
     sqlEditor: 'SQL Editor',
     httpTester: 'API Tester',
     mcpTester: 'MCP Tester',
+    terminal: 'Terminal',
     agents: 'Agents',
     chat: 'AI Assistant',
     utilities: 'Utilities',
@@ -64,6 +66,7 @@ const LABELS = {
     sqlEditor: 'SQL Editor',
     httpTester: 'Probador de API',
     mcpTester: 'Probador MCP',
+    terminal: 'Terminal',
     agents: 'Agentes',
     chat: 'Asistente IA',
     utilities: 'Utilidades',
@@ -75,6 +78,28 @@ const LABELS = {
   },
 } as const;
 
+export const G_ROUTES: Record<string, string> = {
+  h: 'dashboard',
+  r: 'runbooks',
+  p: 'projects',
+  i: 'inbox',
+  s: 'sql-editor',
+  a: 'http-tester',
+  m: 'mcp-tester',
+  t: 'terminal',
+};
+const G_WINDOW_MS = 1200;
+
+function isTyping(target: HTMLElement | null): boolean {
+  return Boolean(
+    target &&
+    (target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT' ||
+      target.isContentEditable)
+  );
+}
+
 // App-wide ⌘K / Ctrl-K palette. Mounted once per app shell (inside the
 // sidebar component) so every authenticated page gets it without each
 // page having to wire its own listener.
@@ -83,10 +108,27 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
   const [open, setOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const t = LABELS[lang];
+  const gPressedAt = useRef(0);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
+
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && !isTyping(target)) {
+        const key = e.key.toLowerCase();
+        if (gPressedAt.current && Date.now() - gPressedAt.current <= G_WINDOW_MS) {
+          gPressedAt.current = 0;
+          const route = G_ROUTES[key];
+          if (route) {
+            e.preventDefault();
+            router.push(`/${lang}/${route}`);
+            return;
+          }
+        } else if (key === 'g' && !e.shiftKey) {
+          gPressedAt.current = Date.now();
+          return;
+        }
+      }
 
       // ⌘K / Ctrl-K — toggle the command palette. Respect nested
       // scopes (editor's own ⌘K) so they don't double-fire.
@@ -115,7 +157,7 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [lang, router]);
 
   const go = (path: string) => () => router.push(path);
 
@@ -187,6 +229,14 @@ export default function GlobalCommandPalette({ lang }: GlobalCommandPaletteProps
       icon: <Database size={16} />,
       shortcut: ['G', 'S'],
       action: go(`/${lang}/sql-editor`),
+    },
+    {
+      id: 'nav:terminal',
+      label: t.terminal,
+      subLabel: t.navigate,
+      icon: <SquareTerminal size={16} />,
+      shortcut: ['G', 'T'],
+      action: go(`/${lang}/terminal`),
     },
     {
       id: 'nav:http-tester',

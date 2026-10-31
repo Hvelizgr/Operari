@@ -51,6 +51,7 @@ const STRINGS = {
       goSql: 'Go to SQL editor',
       goHttpTester: 'Go to API tester',
       goMcpTester: 'Go to MCP tester',
+      goTerminal: 'Go to Terminal',
       runCanvas: 'Run current runbook',
       saveCanvas: 'Save runbook',
       closeDialog: 'Close any dialog/palette',
@@ -76,6 +77,7 @@ const STRINGS = {
       goSql: 'Ir al SQL editor',
       goHttpTester: 'Ir al probador de API',
       goMcpTester: 'Ir al probador MCP',
+      goTerminal: 'Ir a la terminal',
       runCanvas: 'Ejecutar runbook actual',
       saveCanvas: 'Guardar runbook',
       closeDialog: 'Cerrar diálogo/paleta',
@@ -121,6 +123,7 @@ export default function ShortcutHelpModal({ isOpen, onClose, lang }: ShortcutHel
         { keys: ['G', 'S'], label: t.labels.goSql },
         { keys: ['G', 'A'], label: t.labels.goHttpTester },
         { keys: ['G', 'M'], label: t.labels.goMcpTester },
+        { keys: ['G', 'T'], label: t.labels.goTerminal },
       ],
     },
     {
