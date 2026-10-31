@@ -38,6 +38,8 @@ export default function robots(): MetadataRoute.Robots {
           '/es/utilities',
           '/en/sql-editor',
           '/es/sql-editor',
+          '/en/terminal',
+          '/es/terminal',
           '/api/',
         ],
       },

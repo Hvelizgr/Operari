@@ -49,6 +49,8 @@ Legend:
 | —                    | `invite.revoked`            | `routes/invites.routes.ts` DELETE /:id                                                    |   ✅   |
 | —                    | `quota.exceeded`            | `routes/runbook.routes.ts` POST / (fires from executions in a future pass)                |   ✅   |
 | —                    | `mcp.tool_called`           | `routes/mcp-tester.routes.ts` POST /call                                                  |   ✅   |
+| —                    | `terminal.opened`           | `terminal/terminal.socket.ts` `open` event on the `/terminal` namespace                   |   ✅   |
+| —                    | `terminal.closed`           | `terminal/terminal.socket.ts` session exit / disconnect / idle (recording SHA-256)        |   ✅   |
 
 ## Gaps and decisions
 

@@ -37,6 +37,8 @@ ENV NODE_ENV production
 
 RUN groupadd --system --gid 1001 nodejs
 RUN useradd --system --uid 1001 expressjs
+# Owned by the runtime user so a fresh named volume mounted here inherits it.
+RUN mkdir -p /var/lib/operari/terminal && chown -R 1001:1001 /var/lib/operari
 
 # Copy node_modules and shared package
 COPY --from=builder /app/node_modules ./node_modules

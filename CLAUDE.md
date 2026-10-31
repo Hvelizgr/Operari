@@ -23,7 +23,9 @@ operari/
 │   ├── runbook canvas       /editor         (G R)
 │   ├── sql editor           /sql-editor     (G S)
 │   ├── api tester           /http-tester    (G A)
-│   └── mcp tester           /mcp-tester     (G M) — inspect/call MCP servers, pin a tool into a step
+│   ├── mcp tester           /mcp-tester     (G M) — inspect/call MCP servers, pin a tool into a step
+│   └── terminal             /terminal       — interactive PTY on the local/docker runner over the
+│                                              /terminal socket namespace; recorded + audited
 │
 ├── cross-cutting — under every feature
 │   ├── auth + multi-tenant  JWT/cookie, RBAC, MFA, OAuth (Google/GitHub)

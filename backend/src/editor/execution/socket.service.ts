@@ -1,12 +1,23 @@
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Server as HttpServer } from 'http';
-import { Server as SocketServer } from 'socket.io';
+import { Server as SocketServer, Socket } from 'socket.io';
 
 import { logger } from '../../config/logger.config';
+import { type SocketAuthResult, socketError, type SocketUser } from '../../realtime/socket-auth';
+
+/**
+ * Gate for the default namespace. Without it any client that guessed or
+ * scraped an execution id could tail that run's stdout across tenants.
+ */
+export interface ExecutionRoomGuard {
+  authenticate(socket: Socket): Promise<SocketAuthResult>;
+  canJoin(user: SocketUser, executionId: string): Promise<boolean>;
+}
 
 export class SocketService {
   private static instance: SocketService;
   private io: SocketServer | null = null;
+  private guard: ExecutionRoomGuard | null = null;
 
   private constructor() {}
 
@@ -55,10 +66,37 @@ export class SocketService {
       logger.error({ err }, 'Failed to wire Socket.io Redis adapter; continuing without fanout');
     }
 
+    this.io.use(async (socket, next) => {
+      if (!this.guard) return next();
+      try {
+        const auth = await this.guard.authenticate(socket);
+        if (!auth.ok) return next(socketError(auth.code, auth.message));
+        socket.data.user = auth.user;
+        next();
+      } catch (err) {
+        logger.error({ err }, 'Socket.io handshake failed');
+        next(socketError('internal', 'Realtime unavailable'));
+      }
+    });
+
     this.io.on('connection', socket => {
       logger.info({ socketId: socket.id }, 'Client connected to Socket.io');
 
-      socket.on('join_execution', (executionId: string) => {
+      socket.on('join_execution', async (executionId: unknown) => {
+        if (typeof executionId !== 'string' || !executionId) return;
+        if (this.guard) {
+          const user = socket.data.user as SocketUser | undefined;
+          let allowed = false;
+          try {
+            allowed = Boolean(user) && (await this.guard.canJoin(user as SocketUser, executionId));
+          } catch (err) {
+            logger.error({ err, executionId }, 'execution room check failed');
+          }
+          if (!allowed) {
+            socket.emit('join_denied', { executionId });
+            return;
+          }
+        }
         socket.join(`execution:${executionId}`);
         logger.debug({ socketId: socket.id, executionId }, 'Client joined execution room');
       });
@@ -73,6 +111,14 @@ export class SocketService {
       });
     });
 
+    return this.io;
+  }
+
+  setGuard(guard: ExecutionRoomGuard | null): void {
+    this.guard = guard;
+  }
+
+  getServer(): SocketServer | null {
     return this.io;
   }
 

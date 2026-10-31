@@ -97,6 +97,33 @@ const PORT = env.PORT;
 import { socketService } from './editor/execution/socket.service';
 socketService.initialize(httpServer, env.FRONTEND_URL);
 
+import { getAuthProvider } from './auth';
+import { allowedOriginsFrom, authenticateHandshake } from './realtime/socket-auth';
+import { attachTerminal } from './terminal/terminal.socket';
+{
+  const allowedOrigins = allowedOriginsFrom(env.FRONTEND_URL);
+  const anonymousUser =
+    process.env.OPERARI_ANONYMOUS_MODE === 'true'
+      ? { id: 'anonymous', email: 'anonymous@operari.local', tenantId: 'default-tenant' }
+      : null;
+  socketService.setGuard({
+    authenticate: socket =>
+      authenticateHandshake(socket, {
+        allowedOrigins,
+        anonymousUser,
+        verifyToken: async token => {
+          const user = await getAuthProvider(prisma).verifyToken(token);
+          return user ? { id: user.id, email: user.email, tenantId: user.tenantId } : null;
+        },
+      }),
+    canJoin: async (user, executionId) =>
+      (await prisma.execution.count({ where: { id: executionId, tenantId: user.tenantId } })) > 0,
+  });
+  const io = socketService.getServer();
+  const terminalManager = io ? attachTerminal(io, prisma) : null;
+  if (terminalManager) process.on('SIGTERM', () => terminalManager.closeAll());
+}
+
 // helmet defaults cover the obvious headers (X-Frame-Options,
 // X-Content-Type-Options, Strict-Transport-Security, Referrer-Policy,
 // …). We override contentSecurityPolicy explicitly so the API cannot

@@ -9,3 +9,6 @@ api
 coverage
 dist
 Test
+**/node_modules
+**/.next
+**/coverage

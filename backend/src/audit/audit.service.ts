@@ -99,7 +99,14 @@ export type AuditEventType =
    * A tool call from the MCP tester. Calls made by run steps are already
    * covered by `step.completed` / `step.failed`.
    */
-  | 'mcp.tool_called';
+  | 'mcp.tool_called'
+  /**
+   * Interactive terminal lifecycle. `terminal.closed` carries the SHA-256
+   * of the asciicast recording so a stored copy can be checked against
+   * the chain.
+   */
+  | 'terminal.opened'
+  | 'terminal.closed';
 
 export type ActorType = 'user' | 'apikey' | 'system' | 'webhook';
 

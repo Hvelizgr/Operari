@@ -150,7 +150,9 @@ services:
       OPERARI_PASSWORD_BREACH_CHECK: ${OPERARI_PASSWORD_BREACH_CHECK:-true}
       # Custom plugin directory. Mount a volume at /app/plugins to use.
       OPERARI_PLUGINS_DIR: ${OPERARI_PLUGINS_DIR:-}
+      OPERARI_TERMINAL_RECORDINGS_DIR: /var/lib/operari/terminal
     volumes:
+      - terminal-recordings:/var/lib/operari/terminal
       # Optional: mount local plugin packages at /app/plugins and set
       # OPERARI_PLUGINS_DIR=/app/plugins in your .env. Commented out
       # by default because most deployments don't ship custom plugins.
@@ -214,6 +216,8 @@ volumes:
   postgres-data:
     driver: local
   redis-data:
+    driver: local
+  terminal-recordings:
     driver: local
   caddy-data:
     driver: local

@@ -32,6 +32,9 @@ export const Permissions = {
     Read: 'secret:read',
     Write: 'secret:write',
   },
+  Terminal: {
+    Open: 'terminal:open',
+  },
   Tenant: {
     Admin: 'tenant:admin',
     BillingRead: 'tenant:billing:read',

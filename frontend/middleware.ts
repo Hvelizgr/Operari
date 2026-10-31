@@ -27,6 +27,7 @@ const PROTECTED_SEGMENTS = new Set([
   'schedules',
   'settings',
   'sql-editor',
+  'terminal',
   'utilities',
 ]);
 

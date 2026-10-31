@@ -185,6 +185,10 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:-}
+      # Terminal session recordings (asciicast), kept across restarts.
+      OPERARI_TERMINAL_RECORDINGS_DIR: /var/lib/operari/terminal
+    volumes:
+      - terminal-recordings:/var/lib/operari/terminal
     ports:
       - '4000:4000'
     depends_on:
@@ -259,4 +263,6 @@ volumes:
   postgres-data:
     driver: local
   redis-data:
+    driver: local
+  terminal-recordings:
     driver: local

@@ -22,6 +22,7 @@ import {
   Settings,
   Share2,
   ShieldCheck,
+  SquareTerminal,
   User,
   Wrench,
   X,
@@ -176,6 +177,12 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           label: lang === 'en' ? 'SQL Editor' : 'SQL Editor',
           icon: Database,
           href: `/${lang}/sql-editor`,
+        },
+        {
+          id: 'terminal',
+          label: 'Terminal',
+          icon: SquareTerminal,
+          href: `/${lang}/terminal`,
         },
         {
           id: 'http-tester',
