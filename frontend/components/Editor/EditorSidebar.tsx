@@ -17,6 +17,7 @@ import {
   type LucideIcon,
   Menu,
   MessageSquare,
+  Plug,
   Send,
   Settings,
   Share2,
@@ -181,6 +182,12 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           label: lang === 'en' ? 'API Tester' : 'Probador de API',
           icon: Send,
           href: `/${lang}/http-tester`,
+        },
+        {
+          id: 'mcp-tester',
+          label: lang === 'en' ? 'MCP Tester' : 'Probador MCP',
+          icon: Plug,
+          href: `/${lang}/mcp-tester`,
         },
         {
           id: 'agents',

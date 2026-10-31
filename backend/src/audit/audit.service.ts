@@ -94,7 +94,12 @@ export type AuditEventType =
    * without scraping 4xx logs. Payload carries `resource`,
    * `current`, `limit` so dashboards can pivot by resource.
    */
-  | 'quota.exceeded';
+  | 'quota.exceeded'
+  /**
+   * A tool call from the MCP tester. Calls made by run steps are already
+   * covered by `step.completed` / `step.failed`.
+   */
+  | 'mcp.tool_called';
 
 export type ActorType = 'user' | 'apikey' | 'system' | 'webhook';
 

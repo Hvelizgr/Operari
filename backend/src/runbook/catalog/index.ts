@@ -7,6 +7,7 @@ import { DATA_NODES } from './data';
 import type { CatalogNode } from './define';
 import { DEVOPS_NODES } from './devops';
 import { GOOGLE_NODES } from './google';
+import { MCP_NODES } from './mcp';
 import { MESSAGING_NODES } from './messaging';
 import { MONITORING_NODES } from './monitoring';
 import { NETWORK_NODES } from './network';
@@ -23,6 +24,7 @@ export { CatalogExecutor, type CatalogNode, type CatalogProperty, isVisible } fr
 export const BUILTIN_CATALOG: CatalogNode[] = [
   ...AI_NODES,
   ...AGENT_NODES,
+  ...MCP_NODES,
   ...DATA_NODES,
   ...NETWORK_NODES,
   ...MESSAGING_NODES,

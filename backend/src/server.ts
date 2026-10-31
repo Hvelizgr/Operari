@@ -51,6 +51,7 @@ import eventsRoutes from './routes/events.routes';
 import executionRoutes from './routes/execution.routes';
 import githubExplorerRoutes from './routes/github-explorer.routes';
 import httpTesterRoutes from './routes/http-tester.routes';
+import mcpTesterRoutes from './routes/mcp-tester.routes';
 import invitesRoutes from './routes/invites.routes';
 import mfaRoutes from './routes/mfa.routes';
 import monitorsRoutes from './routes/monitors.routes';
@@ -193,6 +194,7 @@ app.use('/api/events', standardRateLimiter, eventsRoutes);
 app.use('/api/admin', standardRateLimiter, adminRoutes);
 app.use('/api/sql', standardRateLimiter, sqlRoutes);
 app.use('/api/http-tester', executionRateLimiter, httpTesterRoutes);
+app.use('/api/mcp-tester', executionRateLimiter, mcpTesterRoutes);
 app.use('/api/github', standardRateLimiter, githubExplorerRoutes);
 app.use('/api/contact', standardRateLimiter, contactRoutes);
 

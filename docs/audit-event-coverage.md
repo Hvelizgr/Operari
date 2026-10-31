@@ -48,6 +48,7 @@ Legend:
 | —                    | `invite.accepted`           | `routes/invites.routes.ts` POST /accept                                                   |   ✅   |
 | —                    | `invite.revoked`            | `routes/invites.routes.ts` DELETE /:id                                                    |   ✅   |
 | —                    | `quota.exceeded`            | `routes/runbook.routes.ts` POST / (fires from executions in a future pass)                |   ✅   |
+| —                    | `mcp.tool_called`           | `routes/mcp-tester.routes.ts` POST /call                                                  |   ✅   |
 
 ## Gaps and decisions
 

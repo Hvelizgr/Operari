@@ -22,7 +22,8 @@ operari/
 ├── team helpers — same UI shell, different jobs
 │   ├── runbook canvas       /editor         (G R)
 │   ├── sql editor           /sql-editor     (G S)
-│   └── api tester           /http-tester    (G A)
+│   ├── api tester           /http-tester    (G A)
+│   └── mcp tester           /mcp-tester     (G M) — inspect/call MCP servers, pin a tool into a step
 │
 ├── cross-cutting — under every feature
 │   ├── auth + multi-tenant  JWT/cookie, RBAC, MFA, OAuth (Google/GitHub)
@@ -34,6 +35,8 @@ operari/
 │   ├── connected accounts   postgres, github, slack, datadog
 │   ├── webhooks             receivers + outbound triggers
 │   ├── credentials          Settings → paste any key into the vault (connected accounts)
+│   ├── mcp servers          `mcp.callTool` step + tester; Streamable HTTP client, SSRF-guarded,
+│   │                        tool definitions pinned by hash
 │   └── ai providers         user-added: Anthropic SDK + OpenAI-compatible; Managed Agents
 │                            sessions (assist panel still uses the Vercel AI SDK)
 │

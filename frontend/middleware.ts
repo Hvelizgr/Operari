@@ -17,6 +17,7 @@ const PROTECTED_SEGMENTS = new Set([
   'editor',
   'events',
   'http-tester',
+  'mcp-tester',
   'inbox',
   'monitors',
   'projects',

@@ -33,6 +33,7 @@ const CREDENTIAL_KINDS = [
   ['resend', 'Resend API key'],
   ['telegram', 'Telegram bot token'],
   ['webhook', 'Webhook URL'],
+  ['mcp', 'MCP server (URL + bearer token)'],
   ['custom', 'Other…'],
 ] as const;
 
@@ -127,6 +128,8 @@ const TEXT = {
     apiKey: 'API key',
     noKeyHint: 'Ollama ignores the key; type anything.',
     baseUrl: 'Base URL',
+    mcpUrl: 'Server URL',
+    bearer: 'Bearer token',
     model: 'Default model',
     modelHint: 'Steps can override it.',
     save: 'Save',
@@ -146,6 +149,8 @@ const TEXT = {
     apiKey: 'API key',
     noKeyHint: 'Ollama ignora la key; escribí cualquier cosa.',
     baseUrl: 'URL base',
+    mcpUrl: 'URL del servidor',
+    bearer: 'Token (Bearer)',
     model: 'Modelo por defecto',
     modelHint: 'Cada paso puede cambiarlo.',
     save: 'Guardar',
@@ -201,7 +206,9 @@ export default function AddCredentialForm({ lang, onSaved }: Props) {
             ...(baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
             ...(model.trim() ? { defaultModel: model.trim() } : {}),
           }
-        : {};
+        : kind === 'mcp'
+          ? { url: baseUrl.trim() }
+          : {};
     try {
       const token = csrfToken();
       const res = await fetch(`${API_BASE}/api/connected-accounts`, {
@@ -341,7 +348,7 @@ export default function AddCredentialForm({ lang, onSaved }: Props) {
 
           <div>
             <label className={label} htmlFor="cred-secret">
-              {mode === 'ai' ? t.apiKey : t.secret}
+              {mode === 'ai' ? t.apiKey : kind === 'mcp' ? t.bearer : t.secret}
             </label>
             {mode === 'credential' && (kind === 'ssh' || kind === 'custom') ? (
               <textarea
@@ -369,6 +376,23 @@ export default function AddCredentialForm({ lang, onSaved }: Props) {
               <p className="mt-1 text-[10px] text-[var(--text-muted)]">{t.noKeyHint}</p>
             )}
           </div>
+
+          {mode === 'credential' && kind === 'mcp' && (
+            <div>
+              <label className={label} htmlFor="cred-mcp-url">
+                {t.mcpUrl}
+              </label>
+              <input
+                id="cred-mcp-url"
+                type="url"
+                className={`${input} font-mono`}
+                value={baseUrl}
+                onChange={e => setBaseUrl(e.target.value)}
+                placeholder="https://mcp.example.com/mcp"
+                required
+              />
+            </div>
+          )}
 
           {mode === 'ai' && (
             <div className="grid gap-3 sm:grid-cols-2">

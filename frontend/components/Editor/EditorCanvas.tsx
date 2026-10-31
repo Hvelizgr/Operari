@@ -4,8 +4,8 @@ import dynamic from 'next/dynamic';
 
 import { EDITOR_CONFIG } from '../../config/editor.config';
 import { useEditorCanvas } from '../../hooks/useEditorCanvas';
-import { SNAP_GRID_PX } from '../../hooks/useEditorSnapToGrid';
 import { isTypingTarget } from '../../hooks/useEditorKeyboard';
+import { SNAP_GRID_PX } from '../../hooks/useEditorSnapToGrid';
 import { useExecutionSocket } from '../../hooks/useExecutionSocket';
 import { useWorkflowExecution } from '../../hooks/useWorkflowExecution';
 import { getAutoLayout } from '../../utils/layoutUtils';
@@ -37,7 +37,7 @@ import EditorSidebar from './EditorSidebar';
 import FirstRunConfetti from './FirstRunConfetti';
 import GitHubBranchPanel from './GitHubBranchPanel';
 import OnboardingRunHint from './OnboardingRunHint';
-import PendingHttpStepBanner from './PendingHttpStepBanner';
+import PendingHttpStepBanner, { type PendingStep } from './PendingHttpStepBanner';
 import RunbookAssistPanel from './RunbookAssistPanel';
 import TopBar from './TopBar';
 import WorkflowPropertiesPanel, { WorkflowProperties } from './WorkflowPropertiesPanel';
@@ -180,20 +180,22 @@ function EditorCanvasInner({ lang }: { lang: 'en' | 'es' }) {
   // overlay; this handler owns the actual node creation so we can
   // reuse the same setNodes path the rest of the editor uses.
   const handleImportPendingHttpStep = useCallback(
-    (config: { method: string; url: string; headers?: Record<string, string>; body?: string }) => {
+    (step: PendingStep) => {
       const centerX = (windowSize.width / 2 - viewport.x) / viewport.zoom;
       const centerY = (windowSize.height / 2 - viewport.y) / viewport.zoom;
+      const isMcp = step.type === 'mcp.callTool';
       const newNode: WorkflowNode = {
-        id: `node-${Date.now()}-http`,
+        id: `node-${Date.now()}-${isMcp ? 'mcp' : 'http'}`,
         position: { x: centerX - 128, y: centerY - 32 },
-        title: lang === 'es' ? 'Solicitud HTTP' : 'HTTP request',
-        type: 'operari.httpRequest',
-        config: {
-          method: config.method,
-          url: config.url,
-          ...(config.headers ? { headers: config.headers } : {}),
-          ...(config.body ? { body: config.body } : {}),
-        },
+        title: isMcp
+          ? `MCP · ${step.config.tool}`
+          : lang === 'es'
+            ? 'Solicitud HTTP'
+            : 'HTTP request',
+        type: step.type,
+        config: Object.fromEntries(
+          Object.entries(step.config).filter(([, v]) => v !== undefined && v !== '')
+        ),
         inputs: [{ id: 'in', label: 'Input' }],
         outputs: [{ id: 'out', label: 'Output' }],
       };

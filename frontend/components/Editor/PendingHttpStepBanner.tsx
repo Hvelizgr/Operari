@@ -3,77 +3,100 @@
 import { ArrowRightToLine, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-const PENDING_STEP_KEY = 'operari:pendingHttpStep';
+const PENDING_HTTP_KEY = 'operari:pendingHttpStep';
+const PENDING_MCP_KEY = 'operari:pendingMcpStep';
 const STALE_AFTER_MS = 30 * 60 * 1000; // 30 minutes
 
-interface PendingHttpStep {
-  type: 'operari.httpRequest';
-  config: {
-    method: string;
-    url: string;
-    headers?: Record<string, string>;
-    body?: string;
-  };
-  createdAt: number;
-}
+export type PendingStep =
+  | {
+      type: 'operari.httpRequest';
+      config: {
+        method: string;
+        url: string;
+        headers?: Record<string, string>;
+        body?: string;
+      };
+      createdAt: number;
+    }
+  | {
+      type: 'mcp.callTool';
+      config: {
+        credential?: string;
+        url?: string;
+        tool: string;
+        arguments: string;
+        toolHash: string;
+      };
+      /** Shown in the banner; the credential id alone says nothing. */
+      server: string;
+      createdAt: number;
+    };
 
 interface Props {
   lang: 'en' | 'es';
-  onImport: (config: PendingHttpStep['config']) => void;
+  onImport: (step: PendingStep) => void;
+}
+
+function isUsable(step: PendingStep | null): step is PendingStep {
+  if (!step?.config) return false;
+  return step.type === 'mcp.callTool' ? Boolean(step.config.tool) : Boolean(step.config.url);
 }
 
 /**
- * Watches `operari:pendingHttpStep` in localStorage and surfaces a
- * one-click "Import as step" banner when the user has stashed a
- * request from the HTTP tester. Dismissing or accepting clears the
- * key. Stale stashes (>30min old) are auto-cleared so the banner
- * does not haunt the editor across sessions.
+ * Watches the HTTP and MCP testers' localStorage handoff keys and
+ * surfaces a one-click "Import as step" banner when the user has
+ * stashed a request. Dismissing or accepting clears the key. Stale
+ * stashes (>30min old) are auto-cleared so the banner does not haunt
+ * the editor across sessions.
  */
 export default function PendingHttpStepBanner({ lang, onImport }: Props) {
-  const [pending, setPending] = useState<PendingHttpStep | null>(null);
+  const [pending, setPending] = useState<{ key: string; step: PendingStep } | null>(null);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(PENDING_STEP_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as PendingHttpStep;
-      if (!parsed?.config?.url) {
-        window.localStorage.removeItem(PENDING_STEP_KEY);
+    for (const key of [PENDING_HTTP_KEY, PENDING_MCP_KEY]) {
+      try {
+        const raw = window.localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw) as PendingStep;
+        if (!isUsable(parsed) || Date.now() - parsed.createdAt > STALE_AFTER_MS) {
+          window.localStorage.removeItem(key);
+          continue;
+        }
+        setPending({ key, step: parsed });
         return;
+      } catch {
+        window.localStorage.removeItem(key);
       }
-      if (Date.now() - parsed.createdAt > STALE_AFTER_MS) {
-        window.localStorage.removeItem(PENDING_STEP_KEY);
-        return;
-      }
-      setPending(parsed);
-    } catch {
-      window.localStorage.removeItem(PENDING_STEP_KEY);
     }
   }, []);
 
   if (!pending) return null;
+  const { key, step } = pending;
+  const isMcp = step.type === 'mcp.callTool';
 
   const t =
     lang === 'es'
       ? {
-          headline: 'Solicitud HTTP lista para importar',
+          headline: isMcp
+            ? 'Herramienta MCP lista para importar'
+            : 'Solicitud HTTP lista para importar',
           import: 'Insertar como step',
           dismiss: 'Descartar',
         }
       : {
-          headline: 'HTTP request ready to import',
+          headline: isMcp ? 'MCP tool ready to import' : 'HTTP request ready to import',
           import: 'Insert as step',
           dismiss: 'Dismiss',
         };
 
   const handleImport = () => {
-    onImport(pending.config);
-    window.localStorage.removeItem(PENDING_STEP_KEY);
+    onImport(step);
+    window.localStorage.removeItem(key);
     setPending(null);
   };
 
   const handleDismiss = () => {
-    window.localStorage.removeItem(PENDING_STEP_KEY);
+    window.localStorage.removeItem(key);
     setPending(null);
   };
 
@@ -83,7 +106,9 @@ export default function PendingHttpStepBanner({ lang, onImport }: Props) {
       <div className="min-w-0">
         <div className="text-[11px] font-semibold text-zinc-100">{t.headline}</div>
         <div className="truncate font-mono text-[10px] text-zinc-400">
-          {pending.config.method} {pending.config.url}
+          {step.type === 'mcp.callTool'
+            ? `${step.config.tool} · ${step.server}`
+            : `${step.config.method} ${step.config.url}`}
         </div>
       </div>
       <button
@@ -105,3 +130,5 @@ export default function PendingHttpStepBanner({ lang, onImport }: Props) {
     </div>
   );
 }
+
+export { PENDING_HTTP_KEY, PENDING_MCP_KEY };

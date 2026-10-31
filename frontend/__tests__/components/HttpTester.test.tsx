@@ -197,7 +197,9 @@ describe('PendingHttpStepBanner', () => {
     render(<PendingHttpStepBanner lang="en" onImport={onImport} />);
     const importBtn = await screen.findByRole('button', { name: /insert as step/i });
     fireEvent.click(importBtn);
-    expect(onImport).toHaveBeenCalledWith(config);
+    expect(onImport).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'operari.httpRequest', config })
+    );
     expect(window.localStorage.getItem(PENDING_KEY)).toBeNull();
   });
 
