@@ -82,6 +82,7 @@ backend/prisma/*.db-journal
 !/docs/audit-event-coverage.md
 !/docs/rebranding-and-editor-audit.md
 !/docs/OPS.md
+!/docs/diagrams/
 
 # Internal planning notes (kept local, never committed)
 /IMPLEMENTACION_NANORUN.md
@@ -90,3 +91,7 @@ backend/prisma/*.db-journal
 # Internal documentation (local only)
 /doc/
 /PENDIENTE.md
+
+# Archify receipts written next to the rendered diagrams
+frontend/public/diagrams/*.delivery.json
+frontend/public/diagrams/*.browser-check.json

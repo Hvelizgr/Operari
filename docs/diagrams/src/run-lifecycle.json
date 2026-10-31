@@ -1,0 +1,171 @@
+{
+  "schema_version": 3,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "The life of an Operari run",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "output": "frontend/public/diagrams/run-lifecycle.html",
+    "repository": {
+      "url": "https://github.com/Hvelizgr/Operari",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "f77671a1cabda09b691c30a065750c7107a85ec7"
+    }
+  },
+  "mainPath": ["running", "success"],
+  "states": [
+    {
+      "id": "running",
+      "type": "start",
+      "label": "Running",
+      "sublabel": "created on trigger",
+      "tag": "RUNNING",
+      "step": "01",
+      "sources": [
+        {
+          "path": "backend/src/editor/execution/execution.service.ts",
+          "line": 528,
+          "end_line": 535,
+          "label": "run row created"
+        }
+      ]
+    },
+    {
+      "id": "success",
+      "type": "success",
+      "label": "Succeeded",
+      "sublabel": "every step done",
+      "tag": "SUCCESS",
+      "step": "02",
+      "sources": [
+        {
+          "path": "backend/src/editor/execution/execution.service.ts",
+          "line": 1478,
+          "end_line": 1482,
+          "label": "status SUCCESS"
+        }
+      ]
+    },
+    {
+      "id": "paused",
+      "type": "waiting",
+      "label": "Waiting on you",
+      "sublabel": "approval in Inbox",
+      "tag": "PAUSED",
+      "sources": [
+        {
+          "path": "backend/src/editor/execution/execution.service.ts",
+          "line": 1165,
+          "end_line": 1186,
+          "label": "step suspends run"
+        },
+        {
+          "path": "backend/src/runbook/services/approval.service.ts",
+          "line": 163,
+          "end_line": 166,
+          "label": "grant resumes"
+        }
+      ]
+    },
+    {
+      "id": "failed",
+      "type": "failure",
+      "label": "Failed",
+      "sublabel": "a step errored",
+      "tag": "FAILED",
+      "sources": [
+        {
+          "path": "backend/src/editor/execution/execution.service.ts",
+          "line": 1551,
+          "end_line": 1555,
+          "label": "status FAILED"
+        }
+      ]
+    },
+    {
+      "id": "cancelled",
+      "type": "neutral",
+      "label": "Cancelled",
+      "sublabel": "stopped or rejected",
+      "tag": "CANCELLED",
+      "sources": [
+        {
+          "path": "backend/src/routes/execution.routes.ts",
+          "line": 452,
+          "end_line": 470,
+          "label": "POST /:id/cancel"
+        },
+        {
+          "path": "backend/src/runbook/services/approval.service.ts",
+          "line": 143,
+          "end_line": 151,
+          "label": "approval rejected"
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "id": "running-success",
+      "from": "running",
+      "to": "success",
+      "label": "all steps pass",
+      "variant": "emphasis"
+    },
+    {
+      "id": "running-paused",
+      "from": "running",
+      "to": "paused",
+      "label": "approval step",
+      "variant": "security"
+    },
+    {
+      "id": "paused-running",
+      "from": "paused",
+      "to": "running",
+      "label": "granted",
+      "variant": "emphasis"
+    },
+    {
+      "id": "paused-cancelled",
+      "from": "paused",
+      "to": "cancelled",
+      "label": "rejected",
+      "variant": "security"
+    },
+    {
+      "id": "running-failed",
+      "from": "running",
+      "to": "failed",
+      "label": "step fails",
+      "note": "after its retries"
+    },
+    {
+      "id": "running-cancelled",
+      "from": "running",
+      "to": "cancelled",
+      "label": "cancel",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "Waiting is a real state",
+      "items": [
+        "An approval step pauses the run without holding a worker",
+        "Granting it in the Inbox resumes from the paused step",
+        "Rejecting it ends the run as Cancelled, with the reason"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Where you see it",
+      "items": [
+        "The sessions board groups runs by these states",
+        "A failed run can be replayed as a new run"
+      ]
+    }
+  ]
+}

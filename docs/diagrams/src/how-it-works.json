@@ -1,0 +1,482 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "How a run flows through Operari",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "output": "frontend/public/diagrams/how-it-works.html",
+    "repository": {
+      "url": "https://github.com/Hvelizgr/Operari",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "f77671a1cabda09b691c30a065750c7107a85ec7"
+    },
+    "legend": {
+      "entries": {
+        "frontend": { "label": "Web UI" },
+        "backend": { "label": "Server logic" },
+        "security": { "label": "Secrets + gates" },
+        "messagebus": { "label": "Event triggers" },
+        "database": { "label": "Audit store" },
+        "cloud": { "label": "Isolated execution" },
+        "external": { "label": "API clients" }
+      }
+    }
+  },
+  "lanes": [
+    { "id": "clients", "label": "Operators" },
+    { "id": "engine", "label": "Engine" },
+    { "id": "delegated", "label": "Delegated work" },
+    { "id": "gate", "label": "Human gate", "variant": "exception" },
+    { "id": "evidence", "label": "Events + evidence" }
+  ],
+  "phases": [
+    { "id": "trigger", "label": "Trigger", "fromCol": 0, "toCol": 1 },
+    { "id": "walk", "label": "Walk the DAG", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "execute", "label": "Execute + report", "fromCol": 4, "toCol": 5, "variant": "dashed" }
+  ],
+  "mainPath": ["editor", "runroute", "engine", "dispatch", "steps", "runner"],
+  "nodes": [
+    {
+      "id": "editor",
+      "lane": "clients",
+      "col": 0,
+      "type": "frontend",
+      "label": "Editor",
+      "sublabel": "Run · Debug · Dry run",
+      "sources": [
+        {
+          "path": "frontend/hooks/useWorkflowExecution.ts",
+          "line": 46,
+          "end_line": 54,
+          "label": "POST …/run"
+        }
+      ]
+    },
+    {
+      "id": "runroute",
+      "lane": "clients",
+      "col": 1,
+      "type": "backend",
+      "label": "Run route",
+      "sublabel": "typed input check",
+      "tag": "POST /executions/:id/run",
+      "sources": [
+        {
+          "path": "backend/src/routes/execution.routes.ts",
+          "line": 377,
+          "end_line": 410,
+          "label": "validateRunInputs → execute"
+        }
+      ]
+    },
+    {
+      "id": "board",
+      "lane": "clients",
+      "col": 4,
+      "type": "frontend",
+      "label": "Sessions board",
+      "sublabel": "running · waiting · done",
+      "sources": [
+        {
+          "path": "frontend/components/Runs/SessionsBoard.tsx",
+          "line": 71,
+          "end_line": 91,
+          "label": "groups polled runs"
+        }
+      ]
+    },
+    {
+      "id": "liveview",
+      "lane": "clients",
+      "col": 5,
+      "type": "frontend",
+      "label": "Editor live view",
+      "sublabel": "node status + logs",
+      "sources": [
+        {
+          "path": "frontend/hooks/useExecutionSocket.ts",
+          "line": 74,
+          "end_line": 90,
+          "label": "join room, node_status"
+        }
+      ]
+    },
+    {
+      "id": "apiv1",
+      "lane": "engine",
+      "col": 0,
+      "type": "external",
+      "label": "API v1 / CLI",
+      "sublabel": "API key trigger",
+      "sources": [
+        {
+          "path": "backend/src/routes/v1/runbooks.routes.ts",
+          "line": 59,
+          "end_line": 101,
+          "label": "/:slug/trigger"
+        }
+      ]
+    },
+    {
+      "id": "engine",
+      "lane": "engine",
+      "col": 2,
+      "type": "backend",
+      "label": "Execution engine",
+      "sublabel": "DAG walk, branches",
+      "tag": "If · Switch · Loop",
+      "sources": [
+        {
+          "path": "backend/src/editor/execution/execution.service.ts",
+          "line": 462,
+          "end_line": 551,
+          "label": "execute → RUNNING"
+        },
+        {
+          "path": "backend/src/editor/execution/execution.service.ts",
+          "line": 981,
+          "end_line": 1025,
+          "label": "runWorkflow queue"
+        },
+        {
+          "path": "backend/src/editor/execution/execution.service.ts",
+          "line": 1274,
+          "end_line": 1309,
+          "label": "branches + loop items"
+        }
+      ]
+    },
+    {
+      "id": "dispatch",
+      "lane": "engine",
+      "col": 3,
+      "type": "security",
+      "label": "Node dispatcher",
+      "sublabel": "secrets from vault",
+      "sources": [
+        {
+          "path": "backend/src/editor/node-executor.service.ts",
+          "line": 247,
+          "end_line": 254,
+          "label": "registry lookup"
+        },
+        {
+          "path": "backend/src/editor/node-executor.service.ts",
+          "line": 299,
+          "end_line": 319,
+          "label": "resolve {{secrets.*}}"
+        },
+        {
+          "path": "backend/src/editor/node-executor.service.ts",
+          "line": 356,
+          "end_line": 356,
+          "label": "executor.execute"
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "lane": "engine",
+      "col": 4,
+      "type": "backend",
+      "label": "Step catalog",
+      "sublabel": "integrations, data, AI",
+      "tag": "SSRF guard",
+      "sources": [
+        {
+          "path": "backend/src/runbook/catalog/index.ts",
+          "line": 23,
+          "end_line": 35,
+          "label": "BUILTIN_CATALOG"
+        },
+        {
+          "path": "backend/src/runbook/executors/index.ts",
+          "line": 125,
+          "end_line": 127,
+          "label": "registered as executors"
+        },
+        {
+          "path": "backend/src/security/ssrf-guard.ts",
+          "line": 223,
+          "end_line": 259,
+          "label": "blockedTarget, guardedFetch"
+        }
+      ]
+    },
+    {
+      "id": "runner",
+      "lane": "engine",
+      "col": 5,
+      "type": "cloud",
+      "label": "Runner",
+      "sublabel": "local · docker · fly",
+      "sources": [
+        {
+          "path": "backend/src/runbook/runners/index.ts",
+          "line": 28,
+          "end_line": 36,
+          "label": "createRunner"
+        },
+        {
+          "path": "backend/src/runbook/executors/shell.executor.ts",
+          "line": 57,
+          "end_line": 57,
+          "label": "local shell allowlist"
+        },
+        {
+          "path": "backend/src/runbook/executors/shell.executor.ts",
+          "line": 107,
+          "end_line": 107,
+          "label": "checked per step"
+        }
+      ]
+    },
+    {
+      "id": "agents",
+      "lane": "delegated",
+      "col": 5,
+      "type": "cloud",
+      "label": "Agent sessions",
+      "sublabel": "Managed Agents · CLI",
+      "sources": [
+        {
+          "path": "backend/src/runbook/catalog/agents.ts",
+          "line": 44,
+          "end_line": 117,
+          "label": "Claude Managed Agents"
+        },
+        {
+          "path": "backend/src/runbook/catalog/agents.ts",
+          "line": 268,
+          "end_line": 268,
+          "label": "Claude Code / Codex"
+        }
+      ]
+    },
+    {
+      "id": "approval",
+      "lane": "gate",
+      "col": 4,
+      "type": "security",
+      "label": "Approval step",
+      "sublabel": "run pauses",
+      "tag": "PENDING",
+      "sources": [
+        {
+          "path": "backend/src/runbook/executors/approval.executor.ts",
+          "line": 96,
+          "end_line": 153,
+          "label": "create approval, paused"
+        },
+        {
+          "path": "backend/src/editor/execution/execution.service.ts",
+          "line": 1165,
+          "end_line": 1186,
+          "label": "run → PAUSED"
+        }
+      ]
+    },
+    {
+      "id": "inbox",
+      "lane": "gate",
+      "col": 5,
+      "type": "frontend",
+      "label": "Inbox",
+      "sublabel": "grant or reject",
+      "sources": [
+        {
+          "path": "backend/src/routes/approvals.routes.ts",
+          "line": 162,
+          "end_line": 162,
+          "label": "POST /:id/grant"
+        },
+        {
+          "path": "backend/src/routes/approvals.routes.ts",
+          "line": 20,
+          "end_line": 20,
+          "label": "wired to resume"
+        },
+        {
+          "path": "backend/src/editor/execution/execution.service.ts",
+          "line": 738,
+          "end_line": 745,
+          "label": "resumeExecution"
+        }
+      ]
+    },
+    {
+      "id": "events",
+      "lane": "evidence",
+      "col": 0,
+      "type": "messagebus",
+      "label": "Webhooks + cron",
+      "sublabel": "event and timer triggers",
+      "sources": [
+        {
+          "path": "backend/src/routes/webhook.routes.ts",
+          "line": 338,
+          "end_line": 339,
+          "label": "POST /webhook/:token"
+        },
+        {
+          "path": "backend/src/routes/webhook.routes.ts",
+          "line": 222,
+          "end_line": 222,
+          "label": "execute"
+        },
+        {
+          "path": "backend/src/services/scheduler.service.ts",
+          "line": 112,
+          "end_line": 123,
+          "label": "due job → execute"
+        }
+      ]
+    },
+    {
+      "id": "audit",
+      "lane": "evidence",
+      "col": 3,
+      "type": "database",
+      "label": "Audit chain",
+      "sublabel": "SHA-256 linked log",
+      "tag": "prevHash → hash",
+      "sources": [
+        {
+          "path": "backend/src/audit/audit.service.ts",
+          "line": 143,
+          "end_line": 176,
+          "label": "record: prevHash + hash"
+        },
+        {
+          "path": "backend/src/editor/execution/execution.service.ts",
+          "line": 1234,
+          "end_line": 1241,
+          "label": "step.completed"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "editor-run",
+      "from": "editor",
+      "to": "runroute",
+      "label": "run",
+      "variant": "emphasis"
+    },
+    {
+      "id": "route-engine",
+      "from": "runroute",
+      "to": "engine",
+      "label": "execute",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-engine",
+      "from": "apiv1",
+      "to": "engine",
+      "label": "trigger",
+      "variant": "default"
+    },
+    {
+      "id": "events-engine",
+      "from": "events",
+      "to": "engine",
+      "label": "execute",
+      "variant": "default"
+    },
+    {
+      "id": "engine-dispatch",
+      "from": "engine",
+      "to": "dispatch",
+      "label": "each step",
+      "variant": "emphasis"
+    },
+    { "id": "dispatch-steps", "from": "dispatch", "to": "steps", "variant": "emphasis" },
+    {
+      "id": "steps-runner",
+      "from": "steps",
+      "to": "runner",
+      "label": "shell",
+      "variant": "default"
+    },
+    {
+      "id": "steps-agents",
+      "from": "steps",
+      "to": "agents",
+      "label": "delegate",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "steps-approval",
+      "from": "steps",
+      "to": "approval",
+      "label": "approval",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "approval-inbox",
+      "from": "approval",
+      "to": "inbox",
+      "label": "waits",
+      "variant": "security"
+    },
+    {
+      "id": "inbox-resume",
+      "from": "inbox",
+      "to": "engine",
+      "label": "grant → resume",
+      "variant": "security",
+      "role": "return"
+    },
+    {
+      "id": "engine-live",
+      "from": "engine",
+      "to": "liveview",
+      "label": "socket status",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "engine-board",
+      "from": "engine",
+      "to": "board",
+      "label": "run status",
+      "variant": "dashed",
+      "role": "async"
+    },
+    {
+      "id": "engine-audit",
+      "from": "engine",
+      "to": "audit",
+      "label": "append",
+      "variant": "dashed",
+      "role": "async"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "What the engine guarantees",
+      "items": [
+        "Typed run inputs are checked before a run is created",
+        "Secrets are resolved per step and never stored in the runbook",
+        "Steps cannot reach private addresses on a shared server",
+        "Every step outcome is appended to a hash-chained audit log"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Reading this diagram",
+      "items": [
+        "Webhooks and cron are separate entry points, drawn as one node",
+        "API v1, webhooks and cron call the engine directly",
+        "The editor view listens on the socket; the sessions board polls /api/runs"
+      ]
+    }
+  ]
+}

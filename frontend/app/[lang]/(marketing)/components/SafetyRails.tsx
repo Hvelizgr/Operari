@@ -1,18 +1,29 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { GitBranch, Puzzle, Shield, Zap } from 'lucide-react';
+import { ArrowUpRight, GitBranch, Puzzle, Shield, Zap } from 'lucide-react';
 
 type SafetyContent = {
   eyebrow: string;
   title: string;
   subtitle: string;
+  seeDiagram: string;
+  seeCode: string;
   rails: Array<{ title: string; description: string; example?: string }>;
 };
 
 const ICONS = [Shield, GitBranch, Zap, Puzzle];
 // public/illustrations/safety/, one per rail in content order, each with a -light twin.
 const ART = ['dry-run', 'error-rollback', 'compose', 'sdk'];
+// Where each rail lives, in content order. Code links are pinned to the
+// commit the run diagram was drawn from so the line numbers stay right.
+const CODE = 'https://github.com/Hvelizgr/Operari/blob/f77671a1cabda09b691c30a065750c7107a85ec7';
+const PROOF: Array<{ href: string; kind: 'diagram' | 'code' }> = [
+  { href: '/diagrams/how-it-works.html#focus=editor', kind: 'diagram' },
+  { href: `${CODE}/backend/src/editor/execution/execution.service.ts#L346-L373`, kind: 'code' },
+  { href: `${CODE}/backend/src/runbook/executors/runbook.executor.ts#L20-L38`, kind: 'code' },
+  { href: `${CODE}/backend/src/runbook/plugins/loader.ts#L539`, kind: 'code' },
+];
 
 /**
  * Safety Rails — the "why NOT another n8n" section.
@@ -45,6 +56,7 @@ export default function SafetyRails({ content }: { content: SafetyContent }) {
           {content.rails.map((rail, i) => {
             const Icon = ICONS[i % ICONS.length];
             const art = ART[i];
+            const proof = PROOF[i];
             return (
               <motion.div
                 key={rail.title}
@@ -89,6 +101,17 @@ export default function SafetyRails({ content }: { content: SafetyContent }) {
                   <pre className="border-border/60 bg-background/40 text-foreground/80 overflow-x-auto rounded-lg border p-3 font-mono text-[11px] leading-relaxed">
                     <code>{rail.example}</code>
                   </pre>
+                )}
+                {proof && (
+                  <a
+                    href={proof.href}
+                    target="_blank"
+                    rel="noopener"
+                    className="text-primary hover:text-primary/80 mt-4 inline-flex items-center gap-1 text-xs font-medium"
+                  >
+                    {proof.kind === 'diagram' ? content.seeDiagram : content.seeCode}
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </a>
                 )}
               </motion.div>
             );

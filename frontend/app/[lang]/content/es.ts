@@ -99,6 +99,11 @@ export const content = {
       'Dibujado a partir del código, no de una slide: cada caja enlaza a las líneas que representa. Seguí una ejecución por el motor, la pausa de aprobación y el log de auditoría encadenado por hash.',
     open: 'Abrir en pantalla completa',
     frameTitle: 'Diagrama interactivo de cómo fluye una ejecución en Operari',
+    views: [
+      { id: 'path', label: 'Recorrido', src: '/diagrams/how-it-works.html' },
+      { id: 'states', label: 'Estados', src: '/diagrams/run-lifecycle.html' },
+    ],
+    stateFrameTitle: 'Diagrama interactivo de los estados por los que pasa una ejecución',
     note: 'Mové, hacé zoom y tocá cualquier caja para ver su código. Las etiquetas del diagrama están en inglés.',
   },
   safety: {
@@ -106,6 +111,8 @@ export const content = {
     title: 'Cuatro primitivas que a otros workflow tools les faltan.',
     subtitle:
       "Estas features son la línea real entre 'Zapier para devs backend' y una herramienta que confiás con tráfico de producción.",
+    seeDiagram: 'Verlo en el diagrama',
+    seeCode: 'Ver el código',
     rails: [
       {
         title: 'Dry-run contra producción.',
@@ -318,6 +325,10 @@ export const content = {
     cta: 'OK, dame el repo',
   },
   cta: {
+    selfHostTitle: 'Qué levanta docker compose up',
+    selfHostNote: 'Generado desde docker-compose.yml. Leé la tarjeta roja antes de exponerlo.',
+    selfHostFrameTitle: 'Diagrama interactivo de un despliegue self-hosted de Operari',
+    selfHostOpen: 'Abrir en pantalla completa',
     eyebrow: 'Self-host',
     pricing: 'Gratis. Sin tarjeta. Sin tiers.',
     title: 'Dos minutos hasta tu primer runbook.',

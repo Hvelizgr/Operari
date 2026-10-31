@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Self-hosting Operari with docker compose",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "output": "frontend/public/diagrams/self-host.html",
+    "repository": {
+      "url": "https://github.com/Hvelizgr/Operari",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "f77671a1cabda09b691c30a065750c7107a85ec7"
+    }
+  },
+  "layout": { "mode": "grid", "cols": 5 },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Your browser",
+      "sublabel": "editor, sessions",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "id": "frontend",
+      "type": "frontend",
+      "label": "frontend",
+      "sublabel": "Next.js :3000",
+      "tag": "/api proxy",
+      "row": 0,
+      "col": 1,
+      "sources": [
+        { "path": "docker-compose.yml", "line": 199, "end_line": 242, "label": "frontend service" }
+      ]
+    },
+    {
+      "id": "migrate",
+      "type": "backend",
+      "label": "migrate",
+      "sublabel": "schema + seed, once",
+      "row": 2,
+      "col": 1,
+      "sources": [
+        {
+          "path": "docker-compose.yml",
+          "line": 68,
+          "end_line": 101,
+          "label": "db push, seed-nodes"
+        }
+      ]
+    },
+    {
+      "id": "backend",
+      "type": "backend",
+      "label": "backend",
+      "sublabel": "API + engine :4000",
+      "tag": "local runner",
+      "row": 1,
+      "col": 2,
+      "sources": [
+        { "path": "docker-compose.yml", "line": 104, "end_line": 197, "label": "backend service" },
+        {
+          "path": "backend/src/runbook/runners/index.ts",
+          "line": 28,
+          "end_line": 36,
+          "label": "local, docker or fly"
+        }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "postgres",
+      "sublabel": "runbooks, vault, audit",
+      "tag": "postgres-data",
+      "row": 2,
+      "col": 2,
+      "sources": [
+        { "path": "docker-compose.yml", "line": 25, "end_line": 34, "label": "postgres:16, volume" }
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "redis",
+      "sublabel": "rate limits, logs",
+      "tag": "redis-data",
+      "row": 1,
+      "col": 3,
+      "sources": [
+        { "path": "docker-compose.yml", "line": 43, "end_line": 48, "label": "redis:7, volume" }
+      ]
+    },
+    {
+      "id": "jaeger",
+      "type": "cloud",
+      "label": "jaeger",
+      "sublabel": "traces, optional",
+      "tag": "profile: traces",
+      "row": 2,
+      "col": 3,
+      "sources": [
+        { "path": "docker-compose.yml", "line": 248, "end_line": 256, "label": "--profile traces" }
+      ]
+    },
+    {
+      "id": "vendors",
+      "type": "external",
+      "label": "Vendor APIs",
+      "sublabel": "Slack, AWS, GitHub…",
+      "row": 0,
+      "col": 4,
+      "sources": [
+        {
+          "path": "backend/src/security/ssrf-guard.ts",
+          "line": 223,
+          "end_line": 259,
+          "label": "outbound guard"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "docker compose project",
+      "wraps": ["frontend", "migrate", "backend", "postgres", "redis", "jaeger"]
+    }
+  ],
+  "connections": [
+    { "from": "browser", "to": "frontend", "label": "HTTP :3000", "variant": "emphasis" },
+    { "from": "frontend", "to": "backend", "label": "/api :4000", "variant": "emphasis" },
+    { "from": "browser", "to": "backend", "label": "socket :4000", "variant": "dashed" },
+    { "from": "backend", "to": "postgres", "label": "SQL", "variant": "default" },
+    { "from": "backend", "to": "redis", "label": "streams", "variant": "default" },
+    { "from": "migrate", "to": "postgres", "label": "schema", "variant": "default" },
+    { "from": "backend", "to": "jaeger", "label": "OTLP", "variant": "dashed" },
+    { "from": "backend", "to": "vendors", "label": "HTTPS steps", "variant": "security" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Start it",
+      "items": [
+        "docker compose up -d starts postgres, redis, migrate, backend and frontend",
+        "migrate runs once; the backend waits for it to finish",
+        "Open localhost:3000; the API listens on :4000"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Before exposing it",
+      "items": [
+        "Postgres (5433) and Redis (6380) are published for local use; unpublish them",
+        "Set ENCRYPTION_KEY to store credentials; set OPERARI_ALLOW_PRIVATE_TARGETS=false for shared use",
+        "The local runner runs shell steps inside the backend: use docker or fly for untrusted tenants"
+      ]
+    }
+  ]
+}

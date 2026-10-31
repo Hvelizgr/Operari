@@ -18,6 +18,7 @@ import {
 import Link from 'next/link';
 
 import type { content as contentEn } from '../../content/en';
+import DiagramEmbed from '../_shared/DiagramEmbed';
 
 type Security = typeof contentEn.security;
 
@@ -168,6 +169,34 @@ export default function SecurityView({ content, lang }: { content: Security; lan
               </a>
             </div>
           </div>
+        </section>
+
+        <section className="container mx-auto mb-20 max-w-5xl px-4 sm:mb-24 sm:px-6">
+          <div className="mb-6 max-w-2xl">
+            <h2 className="text-foreground mb-2 text-2xl font-bold tracking-tight sm:text-3xl">
+              {lang === 'es' ? 'El camino de un secreto' : 'The path of a secret'}
+            </h2>
+            <p className="text-muted-foreground text-sm leading-relaxed sm:text-base">
+              {lang === 'es'
+                ? 'De la clave que pegás en Settings a la llamada al proveedor: dónde se cifra, quién la descifra, qué queda en la auditoría. Cada caja abre las líneas de código que la implementan.'
+                : 'From the key you paste in Settings to the call to the vendor: where it is encrypted, who decrypts it, what lands in the audit log. Every box opens the lines of code behind it.'}
+            </p>
+          </div>
+          <DiagramEmbed
+            src="/diagrams/secret-flow.html"
+            frameTitle={
+              lang === 'es'
+                ? 'Diagrama interactivo del recorrido de un secreto en Operari'
+                : 'Interactive diagram of how a secret moves through Operari'
+            }
+            open={lang === 'es' ? 'Abrir en pantalla completa' : 'Open full screen'}
+            note={
+              lang === 'es'
+                ? 'Generado desde el código en el commit f77671a.'
+                : 'Drawn from the code at commit f77671a.'
+            }
+            heightClass="h-[480px] sm:h-[640px]"
+          />
         </section>
 
         {/* Report sections — alternating icon-on-left rows */}

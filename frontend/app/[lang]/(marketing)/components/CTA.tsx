@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { content } from '@/app/[lang]/content/en';
 import { repo } from '@/config/repo.config';
 
+import DiagramEmbed from '../_shared/DiagramEmbed';
 import AuroraBackground from './AuroraBackground';
 
 type CTAProps = {
@@ -149,6 +150,19 @@ export default function CTA({ content }: CTAProps) {
             </Link>
           </div>
         </motion.div>
+
+        <div className="mx-auto mt-16 max-w-5xl sm:mt-20">
+          <h3 className="text-foreground mb-4 text-center text-xl font-bold tracking-tight sm:text-2xl">
+            {content.selfHostTitle}
+          </h3>
+          <DiagramEmbed
+            src="/diagrams/self-host.html"
+            frameTitle={content.selfHostFrameTitle}
+            open={content.selfHostOpen}
+            note={content.selfHostNote}
+            heightClass="h-[480px] sm:h-[640px]"
+          />
+        </div>
       </div>
     </section>
   );
