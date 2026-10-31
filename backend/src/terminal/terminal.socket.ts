@@ -69,12 +69,12 @@ export function registerTerminalNamespace(io: SocketServer, deps: TerminalSocket
     const user = socket.data.user as TerminalUser;
     let session: TerminalSession | null = null;
 
-    socket.on('open', (payload: { cols?: unknown; rows?: unknown } | undefined) => {
+    socket.on('open', (payload: { cols?: unknown; rows?: unknown; lang?: unknown } | undefined) => {
       if (session) return;
       try {
         session = deps.manager.open(
           { tenantId: user.tenantId, userId: user.id },
-          { cols: payload?.cols, rows: payload?.rows },
+          { cols: payload?.cols, rows: payload?.rows, lang: payload?.lang },
           {
             onData: data => socket.emit('output', data),
             onExit: info => {
@@ -105,7 +105,11 @@ export function registerTerminalNamespace(io: SocketServer, deps: TerminalSocket
         })
         .catch(err => logger.error({ err }, 'terminal.opened audit failed'));
 
-      socket.emit('opened', { sessionId: session.id, runner: session.runner });
+      socket.emit('opened', {
+        sessionId: session.id,
+        runner: session.runner,
+        persistent: session.persistent,
+      });
     });
 
     socket.on('input', (data: unknown) => {
@@ -178,6 +182,7 @@ export function attachTerminal(
       image: env.OPERARI_TERMINAL_IMAGE || env.OPERARI_RUNNER_IMAGE || undefined,
       network: env.OPERARI_TERMINAL_NETWORK || undefined,
       recordingsDir: env.OPERARI_TERMINAL_RECORDINGS_DIR || undefined,
+      workspacesDir: env.OPERARI_WORKSPACES_DIR || undefined,
       idleTimeoutMs: env.OPERARI_TERMINAL_IDLE_MS
         ? Number(env.OPERARI_TERMINAL_IDLE_MS)
         : undefined,

@@ -7,6 +7,7 @@ import {
   clampSize,
   PtyProcess,
   PtySpawnOptions,
+  safeSegment,
   TerminalClosedInfo,
   TerminalLimitError,
   TerminalSessionManager,
@@ -63,6 +64,7 @@ function setup(overrides: Partial<ConstructorParameters<typeof TerminalSessionMa
       return p;
     },
     recordingsDir: null,
+    workspacesDir: null,
     killContainer: (_bin, name) => killedContainers.push(name),
     now: () => clock,
     ...overrides,
@@ -207,6 +209,59 @@ describe('TerminalSessionManager — local runner', () => {
   });
 });
 
+describe('TerminalSessionManager — persistent workspace', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'term-ws-test-'));
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('uses one home per user that survives the session', () => {
+    const { manager, ptys } = setup({ workspacesDir: root });
+    const first = manager.open(owner, {}, { onData: jest.fn(), onExit: jest.fn() });
+    const home = join(root, 't1', 'u1');
+    expect(ptys[0].options.env.HOME).toBe(home);
+    expect(ptys[0].options.cwd).toBe(home);
+    expect(ptys[0].options.env.NPM_CONFIG_PREFIX).toBe(join(home, '.npm-global'));
+    expect(ptys[0].options.env.TMPDIR).not.toBe(home);
+    first.close('client');
+    expect(existsSync(home)).toBe(true);
+
+    manager.open(owner, {}, { onData: jest.fn(), onExit: jest.fn() });
+    expect(ptys[1].options.env.HOME).toBe(home);
+    manager.closeAll();
+  });
+
+  it('starts bash with an rc that loads the venv, the user bashrc and a localized welcome', () => {
+    if (!existsSync('/bin/bash')) return;
+    const { manager, ptys } = setup({ workspacesDir: root });
+    manager.open(owner, { lang: 'es' }, { onData: jest.fn(), onExit: jest.fn() });
+    const args = ptys[0].args;
+    const rc = readFileSync(args[args.indexOf('--rcfile') + 1], 'utf8');
+    expect(rc).toContain('.venv/bin/activate');
+    expect(rc).toContain('. "$HOME/.bashrc"');
+    expect(rc).toContain('Workspace persistente');
+    manager.closeAll();
+  });
+
+  it('keeps hostile ids out of the path', () => {
+    const { manager, ptys } = setup({ workspacesDir: root });
+    manager.open(
+      { tenantId: '../../etc', userId: 'u1' },
+      {},
+      { onData: jest.fn(), onExit: jest.fn() }
+    );
+    expect(ptys[0].options.env.HOME.startsWith(root + '/h')).toBe(true);
+    manager.closeAll();
+  });
+
+  it('hashes ids that are not plain tokens', () => {
+    expect(safeSegment('abc-123')).toBe('abc-123');
+    expect(safeSegment('../x')).toMatch(/^h[0-9a-f]{32}$/);
+    expect(safeSegment('')).toMatch(/^h[0-9a-f]{32}$/);
+  });
+});
+
 describe('TerminalSessionManager — docker runner', () => {
   it('runs a hardened throwaway container and kills it on close', () => {
     const { manager, ptys, killedContainers } = setup({
@@ -225,5 +280,15 @@ describe('TerminalSessionManager — docker runner', () => {
 
     session.close('disconnect');
     expect(killedContainers).toEqual([`operari-term-${session.id}`]);
+  });
+
+  it('mounts a per-user named volume when workspaces are persistent', () => {
+    const { manager, ptys } = setup({ runner: 'docker', workspacesDir: '/unused' });
+    manager.open(owner, {}, { onData: jest.fn(), onExit: jest.fn() });
+    expect(ptys[0].args).toEqual(
+      expect.arrayContaining(['-v', 'operari-ws-t1-u1:/workspace', '-e', 'HOME=/workspace'])
+    );
+    expect(ptys[0].args).not.toContain('--tmpfs');
+    manager.closeAll();
   });
 });

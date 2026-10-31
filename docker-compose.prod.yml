@@ -151,8 +151,10 @@ services:
       # Custom plugin directory. Mount a volume at /app/plugins to use.
       OPERARI_PLUGINS_DIR: ${OPERARI_PLUGINS_DIR:-}
       OPERARI_TERMINAL_RECORDINGS_DIR: /var/lib/operari/terminal
+      OPERARI_WORKSPACES_DIR: /var/lib/operari/workspaces
     volumes:
       - terminal-recordings:/var/lib/operari/terminal
+      - workspaces:/var/lib/operari/workspaces
       # Optional: mount local plugin packages at /app/plugins and set
       # OPERARI_PLUGINS_DIR=/app/plugins in your .env. Commented out
       # by default because most deployments don't ship custom plugins.
@@ -218,6 +220,8 @@ volumes:
   redis-data:
     driver: local
   terminal-recordings:
+    driver: local
+  workspaces:
     driver: local
   caddy-data:
     driver: local

@@ -187,8 +187,11 @@ services:
       OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:-}
       # Terminal session recordings (asciicast), kept across restarts.
       OPERARI_TERMINAL_RECORDINGS_DIR: /var/lib/operari/terminal
+      # Per-user terminal home directories, kept across sessions/restarts.
+      OPERARI_WORKSPACES_DIR: /var/lib/operari/workspaces
     volumes:
       - terminal-recordings:/var/lib/operari/terminal
+      - workspaces:/var/lib/operari/workspaces
     ports:
       - '4000:4000'
     depends_on:
@@ -265,4 +268,6 @@ volumes:
   redis-data:
     driver: local
   terminal-recordings:
+    driver: local
+  workspaces:
     driver: local

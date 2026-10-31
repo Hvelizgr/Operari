@@ -61,6 +61,11 @@ export interface TerminalManagerOptions {
   recordingsDir?: string | null;
   maxRecordingBytes?: number;
   killContainer?: (dockerBinary: string, name: string) => void;
+  /**
+   * Root for per-user persistent workspaces. `null` keeps the old
+   * throwaway home that is deleted when the session closes.
+   */
+  workspacesDir?: string | null;
   now?: () => number;
 }
 
@@ -75,6 +80,7 @@ interface SessionConfig {
   recordingsDir: string | null;
   maxRecordingBytes: number;
   killContainer: (dockerBinary: string, name: string) => void;
+  workspacesDir: string | null;
   now: () => number;
 }
 
@@ -87,6 +93,42 @@ export class TerminalLimitError extends Error {
 
 const TERM_NAME = 'xterm-256color';
 const PASSTHROUGH_ENV = ['PATH', 'LANG', 'LC_ALL', 'TZ'];
+const PROMPT = '\\[\\e[32m\\]operari\\[\\e[0m\\]:\\[\\e[34m\\]\\w\\[\\e[0m\\]$ ';
+
+/** Ids end up in paths and docker volume names, so anything unusual is hashed. */
+export function safeSegment(id: string): string {
+  if (/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(id)) return id;
+  return 'h' + createHash('sha256').update(id).digest('hex').slice(0, 32);
+}
+
+export function workspaceVolumeName(owner: TerminalOwner): string {
+  return `operari-ws-${safeSegment(owner.tenantId)}-${safeSegment(owner.userId)}`;
+}
+
+const WELCOME = {
+  en: 'Persistent workspace at ~ : files and installs (npm -g, pip, ~/.venv) are kept for your next session.',
+  es: 'Workspace persistente en ~ : lo que guardes o instales aquí (npm -g, pip, ~/.venv) sigue en la próxima sesión.',
+};
+
+export type TerminalLang = keyof typeof WELCOME;
+
+function shellRc(persistent: boolean, lang: TerminalLang): string {
+  const lines = [
+    'export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"',
+    '[ -f "$HOME/.venv/bin/activate" ] && . "$HOME/.venv/bin/activate"',
+    `PS1='${PROMPT}'`,
+  ];
+  if (persistent) {
+    lines.push(
+      'if [ ! -f "$HOME/.operari-welcome" ]; then',
+      `  printf "\\033[2m${WELCOME[lang]}\\033[0m\\n"`,
+      '  touch "$HOME/.operari-welcome"',
+      'fi'
+    );
+  }
+  lines.push('[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"', '');
+  return lines.join('\n');
+}
 
 export function clampSize(cols: unknown, rows: unknown): { cols: number; rows: number } {
   const c = Number.isFinite(Number(cols)) ? Math.trunc(Number(cols)) : 80;
@@ -163,7 +205,8 @@ export class TerminalSession {
   private maxTimer: NodeJS.Timeout | null = null;
   private readonly recorder: Recorder;
   private pty: PtyProcess | null = null;
-  private workDir: string | null = null;
+  private scratchDir: string | null = null;
+  private ephemeralHome: string | null = null;
   private containerName: string | null = null;
 
   constructor(
@@ -171,7 +214,8 @@ export class TerminalSession {
     readonly owner: TerminalOwner,
     private readonly hooks: TerminalSessionHooks,
     private readonly cfg: SessionConfig,
-    size: { cols: number; rows: number }
+    size: { cols: number; rows: number },
+    private readonly lang: TerminalLang = 'en'
   ) {
     this.startedAt = cfg.now();
     this.lastActivity = this.startedAt;
@@ -180,6 +224,10 @@ export class TerminalSession {
 
   get runner(): TerminalRunnerType {
     return this.cfg.runner;
+  }
+
+  get persistent(): boolean {
+    return this.cfg.workspacesDir !== null;
   }
 
   start(size: { cols: number; rows: number }): void {
@@ -259,8 +307,9 @@ export class TerminalSession {
           `TERM=${TERM_NAME}`,
           '-w',
           '/workspace',
-          '--tmpfs',
-          '/workspace:rw,exec,size=256m',
+          ...(this.persistent
+            ? ['-v', `${workspaceVolumeName(this.owner)}:/workspace`, '-e', 'HOME=/workspace']
+            : ['--tmpfs', '/workspace:rw,exec,size=256m']),
           this.cfg.image,
           'sh',
           '-c',
@@ -271,13 +320,30 @@ export class TerminalSession {
       };
     }
 
-    this.workDir = mkdtempSync(join(tmpdir(), `operari-term-${this.id}-`));
-    env.HOME = this.workDir;
-    env.TMPDIR = this.workDir;
-    env.PS1 = '\\[\\e[32m\\]operari\\[\\e[0m\\]:\\[\\e[34m\\]\\w\\[\\e[0m\\]$ ';
-    const shell = existsSync('/bin/bash') ? '/bin/bash' : '/bin/sh';
-    const args = shell === '/bin/bash' ? ['--noprofile', '--norc', '-i'] : ['-i'];
-    return { file: shell, args, cwd: this.workDir, env };
+    this.scratchDir = mkdtempSync(join(tmpdir(), `operari-term-${this.id}-`));
+    let home: string;
+    if (this.cfg.workspacesDir) {
+      home = join(
+        this.cfg.workspacesDir,
+        safeSegment(this.owner.tenantId),
+        safeSegment(this.owner.userId)
+      );
+      mkdirSync(home, { recursive: true, mode: 0o700 });
+    } else {
+      home = this.ephemeralHome = mkdtempSync(join(tmpdir(), `operari-home-${this.id}-`));
+    }
+    env.HOME = home;
+    env.TMPDIR = this.scratchDir;
+    env.NPM_CONFIG_PREFIX = join(home, '.npm-global');
+    // Debian marks the system Python as externally managed; installs land in
+    // ~/.local because the system site-packages is not writable anyway.
+    env.PIP_BREAK_SYSTEM_PACKAGES = '1';
+    env.PS1 = PROMPT;
+
+    if (!existsSync('/bin/bash')) return { file: '/bin/sh', args: ['-i'], cwd: home, env };
+    const rc = join(this.scratchDir, 'operari.bashrc');
+    writeFileSync(rc, shellRc(this.persistent, this.lang), { mode: 0o600 });
+    return { file: '/bin/bash', args: ['--noprofile', '--rcfile', rc, '-i'], cwd: home, env };
   }
 
   private touch(): void {
@@ -300,9 +366,10 @@ export class TerminalSession {
     if (this.idleTimer) clearInterval(this.idleTimer);
     if (this.maxTimer) clearTimeout(this.maxTimer);
     if (this.containerName) this.cfg.killContainer(this.cfg.dockerBinary, this.containerName);
-    if (this.workDir) {
+    for (const dir of [this.scratchDir, this.ephemeralHome]) {
+      if (!dir) continue;
       try {
-        rmSync(this.workDir, { recursive: true, force: true });
+        rmSync(dir, { recursive: true, force: true });
       } catch {
         // Best effort; tmp is reaped by the OS eventually.
       }
@@ -362,13 +429,17 @@ export class TerminalSessionManager {
           : options.recordingsDir,
       maxRecordingBytes: options.maxRecordingBytes ?? 10 * 1024 * 1024,
       killContainer: options.killContainer ?? defaultKillContainer,
+      workspacesDir:
+        options.workspacesDir === undefined
+          ? join(tmpdir(), 'operari-workspaces')
+          : options.workspacesDir,
       now: options.now ?? Date.now,
     };
   }
 
   open(
     owner: TerminalOwner,
-    size: { cols?: unknown; rows?: unknown },
+    size: { cols?: unknown; rows?: unknown; lang?: unknown },
     hooks: TerminalSessionHooks
   ): TerminalSession {
     const active = this.countFor(owner.userId);
@@ -378,7 +449,8 @@ export class TerminalSessionManager {
       );
     }
     const clamped = clampSize(size.cols, size.rows);
-    const session = new TerminalSession(this, owner, hooks, this.cfg, clamped);
+    const lang: TerminalLang = size.lang === 'es' ? 'es' : 'en';
+    const session = new TerminalSession(this, owner, hooks, this.cfg, clamped, lang);
     this.sessions.set(session.id, session);
     try {
       session.start(clamped);

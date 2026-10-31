@@ -64,6 +64,7 @@ describe('terminal socket namespace', () => {
       manager: new TerminalSessionManager({
         runner: 'local',
         recordingsDir: null,
+        workspacesDir: null,
         spawnPty: (_f, _a, options) => {
           const p = new FakePty(options);
           ptys.push(p);
@@ -134,11 +135,13 @@ describe('terminal socket namespace', () => {
 
   it('opens a session over a same-origin cookie, round-trips input and audits both ends', async () => {
     const c = connect({ cookie: 'operari_session=good', origin: ORIGIN });
-    const opened = await new Promise<{ sessionId: string; runner: string }>(resolve => {
-      c.on('connect', () => c.emit('open', { cols: 90, rows: 20 }));
-      c.on('opened', resolve);
-    });
-    expect(opened.runner).toBe('local');
+    const opened = await new Promise<{ sessionId: string; runner: string; persistent: boolean }>(
+      resolve => {
+        c.on('connect', () => c.emit('open', { cols: 90, rows: 20 }));
+        c.on('opened', resolve);
+      }
+    );
+    expect(opened).toMatchObject({ runner: 'local', persistent: false });
     expect(ptys[0].options.cols).toBe(90);
 
     const output = new Promise<string>(resolve => c.on('output', resolve));

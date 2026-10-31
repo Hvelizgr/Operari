@@ -4,7 +4,7 @@ import '@xterm/xterm/css/xterm.css';
 
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
-import { Circle, RotateCcw, ShieldCheck, SquareTerminal } from 'lucide-react';
+import { Circle, HardDrive, RotateCcw, ShieldCheck, SquareTerminal } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
@@ -21,6 +21,8 @@ const TEXT = {
     error: 'Unavailable',
     newSession: 'New session',
     recorded: 'Sessions are recorded and audited',
+    persistent: 'Persistent workspace',
+    persistentHint: 'Files in ~ are kept between sessions',
     runner: { local: 'host shell', docker: 'container' } as Record<string, string>,
     ended: (reason: string, code: number | null) =>
       `Session ended (${reason}${code !== null ? `, exit ${code}` : ''}).`,
@@ -40,6 +42,8 @@ const TEXT = {
     error: 'No disponible',
     newSession: 'Nueva sesión',
     recorded: 'Las sesiones se graban y quedan en la auditoría',
+    persistent: 'Workspace persistente',
+    persistentHint: 'Lo que guardes en ~ se conserva entre sesiones',
     runner: { local: 'shell del host', docker: 'contenedor' } as Record<string, string>,
     ended: (reason: string, code: number | null) =>
       `Sesión terminada (${reason}${code !== null ? `, código ${code}` : ''}).`,
@@ -65,6 +69,7 @@ export default function TerminalCanvas({ lang }: { lang: 'en' | 'es' }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<Status>('connecting');
   const [runner, setRunner] = useState<string | null>(null);
+  const [persistent, setPersistent] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
 
@@ -76,6 +81,7 @@ export default function TerminalCanvas({ lang }: { lang: 'en' | 'es' }) {
 
     setStatus('connecting');
     setRunner(null);
+    setPersistent(false);
     setMessage(null);
 
     const term = new Terminal({
@@ -97,9 +103,10 @@ export default function TerminalCanvas({ lang }: { lang: 'en' | 'es' }) {
       reconnection: false,
     });
 
-    socket.on('connect', () => socket.emit('open', { cols: term.cols, rows: term.rows }));
-    socket.on('opened', (info: { runner: string }) => {
+    socket.on('connect', () => socket.emit('open', { cols: term.cols, rows: term.rows, lang }));
+    socket.on('opened', (info: { runner: string; persistent?: boolean }) => {
       setRunner(info.runner);
+      setPersistent(Boolean(info.persistent));
       setStatus('open');
       term.focus();
     });
@@ -155,6 +162,15 @@ export default function TerminalCanvas({ lang }: { lang: 'en' | 'es' }) {
         {runner && (
           <span className="rounded border border-zinc-700 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
             {t.runner[runner] ?? runner}
+          </span>
+        )}
+        {persistent && (
+          <span
+            title={t.persistentHint}
+            className="flex items-center gap-1 rounded border border-emerald-900/60 px-1.5 py-0.5 text-[10px] text-emerald-400"
+          >
+            <HardDrive size={10} />
+            {t.persistent}
           </span>
         )}
         <span className="ml-auto hidden items-center gap-1 text-[11px] text-zinc-500 sm:flex">

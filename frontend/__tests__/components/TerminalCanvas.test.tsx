@@ -89,10 +89,11 @@ describe('TerminalCanvas', () => {
     expect(socket.opts).toMatchObject({ withCredentials: true, transports: ['websocket'] });
 
     socket.fire('connect');
-    expect(socket.emitted).toContainEqual(['open', { cols: 80, rows: 24 }]);
+    expect(socket.emitted).toContainEqual(['open', { cols: 80, rows: 24, lang: 'en' }]);
 
-    socket.fire('opened', { sessionId: 's1', runner: 'docker' });
+    socket.fire('opened', { sessionId: 's1', runner: 'docker', persistent: true });
     expect(screen.getByText('Connected')).toBeInTheDocument();
+    expect(screen.getByText('Persistent workspace')).toBeInTheDocument();
     expect(screen.getByText('container')).toBeInTheDocument();
 
     socket.fire('output', 'hello');

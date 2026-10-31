@@ -37,8 +37,14 @@ ENV NODE_ENV production
 
 RUN groupadd --system --gid 1001 nodejs
 RUN useradd --system --uid 1001 expressjs
-# Owned by the runtime user so a fresh named volume mounted here inherits it.
-RUN mkdir -p /var/lib/operari/terminal && chown -R 1001:1001 /var/lib/operari
+# pip/venv so terminal users can install Python SDKs into their workspace.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3-pip python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Owned by the runtime user so fresh named volumes mounted here inherit it.
+RUN mkdir -p /var/lib/operari/terminal /var/lib/operari/workspaces \
+    && chown -R 1001:1001 /var/lib/operari
 
 # Copy node_modules and shared package
 COPY --from=builder /app/node_modules ./node_modules
