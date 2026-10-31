@@ -1,9 +1,9 @@
 'use client';
 
-import { AnimatePresence, motion } from 'framer-motion';
-import { Hand } from 'lucide-react';
+import { AnimatePresence, motion, useInView, useReducedMotion } from 'framer-motion';
+import { Check, Hand, Loader2, MousePointer2, Play, RotateCcw } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { type PointerEvent as ReactPointerEvent, useRef, useState } from 'react';
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 
 import { content } from '@/app/[lang]/content/en';
 
@@ -135,55 +135,163 @@ function StoryBlock({
 }
 
 /* ------------------------------------------------------------------
- * Block 1 — Visual canvas mockup
+ * Block 1 — Build-and-run canvas
  *
- * Stylized representation of the editor: nodes appear one by one,
- * then the connecting lines DRAW between them with stroke-dasharray.
- * The whole sequence triggers on viewport entry via framer-motion's
- * `whileInView` so visitors who scroll fast still catch the animation.
+ * A scripted scene: a cursor drags an approval step from the palette
+ * into a three-step runbook, presses Run, approves the paused step and
+ * the run ends green. It only plays while on screen; with reduced
+ * motion it shows the finished run. Nodes stay draggable throughout.
  * ------------------------------------------------------------------ */
-type NodeId = 'trigger' | 'shell' | 'approve' | 'notify';
+type SceneId = 'alert' | 'approval' | 'restart' | 'slack';
 type Point = { x: number; y: number };
+type StepStatus = 'idle' | 'running' | 'waiting' | 'done';
 
-const CANVAS_NODES: { id: NodeId; label: string; color: keyof typeof nodeColor; delay: number }[] =
-  [
-    { id: 'trigger', label: 'trigger', color: 'mono', delay: 0.1 },
-    { id: 'shell', label: 'shell', color: 'primary', delay: 0.3 },
-    { id: 'approve', label: 'approve', color: 'primary', delay: 0.5 },
-    { id: 'notify', label: 'notify', color: 'emerald', delay: 0.7 },
-  ];
-const CANVAS_EDGES: [NodeId, NodeId, number][] = [
-  ['trigger', 'shell', 0.55],
-  ['shell', 'approve', 0.85],
-  ['shell', 'notify', 1.0],
-];
-const START: Record<NodeId, Point> = {
-  trigger: { x: 20, y: 30 },
-  shell: { x: 50, y: 30 },
-  approve: { x: 80, y: 30 },
-  notify: { x: 50, y: 70 },
+type Frame = {
+  ms: number;
+  cursor: 'chip' | 'drop' | 'run' | 'approve';
+  press?: boolean;
+  ghost?: boolean;
+  placed: boolean;
+  running?: boolean;
+  ok?: boolean;
+  status?: Partial<Record<SceneId, StepStatus>>;
 };
 
-/* A tiny playable editor: nodes drag (mouse or touch) inside the canvas
- * and the connectors follow, which says "this is a canvas" faster than
- * any copy. Positions are percentages so the layout survives resizes. */
+const ALL_DONE = { alert: 'done', approval: 'done', restart: 'done', slack: 'done' } as const;
+
+const FRAMES: Frame[] = [
+  { ms: 1000, cursor: 'chip', placed: false },
+  { ms: 250, cursor: 'chip', press: true, placed: false },
+  { ms: 1100, cursor: 'drop', press: true, ghost: true, placed: false },
+  { ms: 700, cursor: 'drop', placed: true },
+  { ms: 800, cursor: 'run', placed: true },
+  { ms: 250, cursor: 'run', press: true, placed: true },
+  { ms: 700, cursor: 'run', placed: true, running: true, status: { alert: 'running' } },
+  {
+    ms: 900,
+    cursor: 'approve',
+    placed: true,
+    running: true,
+    status: { alert: 'done', approval: 'waiting' },
+  },
+  {
+    ms: 250,
+    cursor: 'approve',
+    press: true,
+    placed: true,
+    running: true,
+    status: { alert: 'done', approval: 'waiting' },
+  },
+  {
+    ms: 800,
+    cursor: 'approve',
+    placed: true,
+    running: true,
+    status: { alert: 'done', approval: 'done', restart: 'running' },
+  },
+  {
+    ms: 700,
+    cursor: 'run',
+    placed: true,
+    running: true,
+    status: { alert: 'done', approval: 'done', restart: 'done', slack: 'running' },
+  },
+  { ms: 3800, cursor: 'run', placed: true, ok: true, status: ALL_DONE },
+];
+const FINAL_FRAME = FRAMES.length - 1;
+
+const SCENE_START: Record<SceneId, Point> = {
+  alert: { x: 37, y: 30 },
+  approval: { x: 50, y: 64 },
+  restart: { x: 71, y: 38 },
+  slack: { x: 87, y: 66 },
+};
+const SCENE_KIND: Record<SceneId, keyof typeof nodeColor> = {
+  alert: 'mono',
+  approval: 'primary',
+  restart: 'primary',
+  slack: 'emerald',
+};
+const CHIP: Point = { x: 9, y: 30 };
+const RUN_BUTTON: Point = { x: 90, y: 9 };
+
+const statusColor: Record<Exclude<StepStatus, 'idle'>, string> = {
+  running: 'bg-sky-500/15 border-sky-400/60 text-sky-300',
+  waiting: 'bg-amber-500/15 border-amber-400/60 text-amber-300',
+  done: 'bg-emerald-500/15 border-emerald-400/60 text-emerald-300',
+};
+
 function CanvasMockup() {
   const params = useParams();
   const es = params?.lang === 'es';
+  const t = es
+    ? {
+        labels: {
+          alert: 'alerta datadog',
+          approval: 'aprobación',
+          restart: 'reiniciar pod',
+          slack: 'slack',
+        },
+        palette: ['aprobación', 'http', 'shell'],
+        run: 'Ejecutar',
+        running: 'Ejecutando…',
+        approve: 'Aprobar',
+        ok: 'Ejecución exitosa · 4 pasos · 3,2 s',
+        replay: 'Repetir',
+        hint: 'Arrastrá los nodos',
+      }
+    : {
+        labels: {
+          alert: 'datadog alert',
+          approval: 'approval',
+          restart: 'restart pod',
+          slack: 'slack',
+        },
+        palette: ['approval', 'http', 'shell'],
+        run: 'Run',
+        running: 'Running…',
+        approve: 'Approve',
+        ok: 'Run succeeded · 4 steps · 3.2s',
+        replay: 'Replay',
+        hint: 'Drag the nodes',
+      };
+
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState(START);
-  const [dragging, setDragging] = useState<NodeId | null>(null);
+  const inView = useInView(canvasRef, { margin: '-100px' });
+  const reduced = useReducedMotion();
+  const [frameIdx, setFrameIdx] = useState(0);
+  const [pos, setPos] = useState(SCENE_START);
+  const [dragging, setDragging] = useState<SceneId | null>(null);
   const [touched, setTouched] = useState(false);
 
-  const moveTo = (id: NodeId, e: ReactPointerEvent) => {
+  useEffect(() => {
+    if (reduced || !inView) return;
+    const timer = setTimeout(() => setFrameIdx(i => (i + 1) % FRAMES.length), FRAMES[frameIdx].ms);
+    return () => clearTimeout(timer);
+  }, [frameIdx, inView, reduced]);
+
+  const frame = FRAMES[reduced ? FINAL_FRAME : frameIdx];
+  const statusOf = (id: SceneId): StepStatus => frame.status?.[id] ?? 'idle';
+  const visible: SceneId[] = frame.placed
+    ? ['alert', 'approval', 'restart', 'slack']
+    : ['alert', 'restart', 'slack'];
+  const edges: [SceneId, SceneId][] = visible.slice(1).map((to, i) => [visible[i], to]);
+  const cursorAt: Point = {
+    chip: CHIP,
+    drop: pos.approval,
+    run: RUN_BUTTON,
+    approve: { x: pos.approval.x, y: pos.approval.y + 13 },
+  }[frame.cursor];
+
+  const moveTo = (id: SceneId, e: ReactPointerEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const clamp = (v: number) => Math.min(90, Math.max(10, v));
+    const clamp = (v: number, min: number) => Math.min(90, Math.max(min, v));
     setPos(p => ({
       ...p,
       [id]: {
-        x: clamp(((e.clientX - rect.left) / rect.width) * 100),
-        y: clamp(((e.clientY - rect.top) / rect.height) * 100),
+        x: clamp(((e.clientX - rect.left) / rect.width) * 100, 26),
+        y: clamp(((e.clientY - rect.top) / rect.height) * 100, 22),
       },
     }));
   };
@@ -191,8 +299,7 @@ function CanvasMockup() {
   return (
     <div className="border-border/60 bg-card/60 relative overflow-hidden rounded-2xl border p-4 shadow-2xl shadow-black/30 backdrop-blur-md sm:p-6">
       <MockHeader />
-      <div ref={canvasRef} className="relative mt-4 h-56 select-none sm:h-64">
-        {/* Background grid — static */}
+      <div ref={canvasRef} className="relative mt-4 h-60 select-none sm:h-64">
         <div
           className="absolute inset-0 opacity-[0.07]"
           style={{
@@ -202,79 +309,145 @@ function CanvasMockup() {
           }}
         />
 
-        <motion.svg
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-100px' }}
+        <div className="border-border/50 bg-background/50 absolute inset-y-0 left-0 flex w-[18%] min-w-[64px] flex-col gap-2 rounded-lg border p-1.5 pt-[18%] sm:p-2 sm:pt-[18%]">
+          {t.palette.map((chip, i) => (
+            <div
+              key={chip}
+              className={`truncate rounded-md border px-1.5 py-1 font-mono text-[9px] sm:text-[10px] ${i === 0 ? nodeColor.primary : nodeColor.mono}`}
+            >
+              {chip}
+            </div>
+          ))}
+        </div>
+
+        <div
+          className={`absolute right-0 top-0 flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${frame.running ? 'border-sky-400/50 bg-sky-500/15 text-sky-300' : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'}`}
         >
-          {CANVAS_EDGES.map(([from, to, delay]) => (
+          {frame.running ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
+          {frame.running ? t.running : t.run}
+          <kbd className="ml-1 hidden font-mono text-[9px] opacity-60 sm:inline">⌘↵</kbd>
+        </div>
+
+        <svg aria-hidden="true" className="absolute inset-0 h-full w-full">
+          {edges.map(([from, to]) => (
             <motion.line
               key={`${from}-${to}`}
               x1={`${pos[from].x}%`}
               y1={`${pos[from].y}%`}
               x2={`${pos[to].x}%`}
               y2={`${pos[to].y}%`}
-              stroke="rgb(62 207 142 / 0.65)"
+              stroke={
+                statusOf(from) === 'done' ? 'rgb(62 207 142 / 0.85)' : 'rgb(148 163 184 / 0.4)'
+              }
               strokeWidth={2}
               strokeLinecap="round"
-              variants={{
-                hidden: { opacity: 0 },
-                visible: { opacity: 1, transition: { duration: 0.4, delay } },
-              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
             />
           ))}
-        </motion.svg>
+        </svg>
 
-        {CANVAS_NODES.map(node => (
-          // Centering lives on the wrapper: motion's scale writes an
-          // inline transform that would override the translate classes.
-          <div
-            key={node.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2 touch-none"
-            style={{ left: `${pos[node.id].x}%`, top: `${pos[node.id].y}%` }}
-            onPointerDown={e => {
-              e.currentTarget.setPointerCapture(e.pointerId);
-              setDragging(node.id);
-              setTouched(true);
-            }}
-            onPointerMove={e => dragging === node.id && moveTo(node.id, e)}
-            onPointerUp={() => setDragging(null)}
-            onPointerCancel={() => setDragging(null)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.7 }}
-              whileInView={{ opacity: 1, scale: dragging === node.id ? 1.08 : 1 }}
-              viewport={{ once: true, margin: '-100px' }}
-              transition={{
-                duration: 0.4,
-                delay: dragging ? 0 : node.delay,
-                ease: [0.22, 1, 0.36, 1],
+        {visible.map(id => {
+          const status = statusOf(id);
+          return (
+            <div
+              key={id}
+              className="absolute -translate-x-1/2 -translate-y-1/2 touch-none"
+              style={{ left: `${pos[id].x}%`, top: `${pos[id].y}%` }}
+              onPointerDown={e => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                setDragging(id);
+                setTouched(true);
               }}
-              className={`relative isolate rounded-lg border px-3 py-2 font-mono text-[11px] backdrop-blur-sm ${nodeColor[node.color]} ${dragging === node.id ? 'cursor-grabbing shadow-lg shadow-emerald-500/20' : 'cursor-grab'}`}
+              onPointerMove={e => dragging === id && moveTo(id, e)}
+              onPointerUp={() => setDragging(null)}
+              onPointerCancel={() => setDragging(null)}
             >
-              {/* Opaque base under the tinted fill so connectors stop at
-                  the node edge instead of showing through it. */}
-              <span aria-hidden="true" className="bg-card absolute inset-0 -z-10 rounded-lg" />
-              {node.label}
-            </motion.div>
-          </div>
-        ))}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: dragging === id ? 1.08 : 1 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 22 }}
+                className={`relative isolate flex items-center gap-1 whitespace-nowrap rounded-lg border px-2 py-1.5 font-mono text-[10px] backdrop-blur-sm transition-colors sm:px-3 sm:py-2 sm:text-[11px] ${status === 'idle' ? nodeColor[SCENE_KIND[id]] : statusColor[status]} ${dragging === id ? 'cursor-grabbing' : 'cursor-grab'}`}
+              >
+                {/* Opaque base under the tinted fill so connectors stop at
+                      the node edge instead of showing through it. */}
+                <span aria-hidden="true" className="bg-card absolute inset-0 -z-10 rounded-lg" />
+                {status === 'running' && <Loader2 size={11} className="animate-spin" />}
+                {status === 'done' && <Check size={11} />}
+                {t.labels[id]}
+              </motion.div>
+              {status === 'waiting' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-amber-400/50 bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-200"
+                >
+                  {t.approve}
+                </motion.div>
+              )}
+            </div>
+          );
+        })}
 
         <AnimatePresence>
-          {!touched && (
+          {frame.ok && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1, transition: { delay: 1.6 } }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="text-muted-foreground pointer-events-none absolute bottom-2 right-2 flex items-center gap-1.5 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-[10px]"
+              className="absolute bottom-0 left-[20%] right-0 flex items-center justify-between gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5"
             >
-              <Hand size={12} className="text-emerald-400/80" />
-              {es ? 'Arrastrá los nodos' : 'Drag the nodes'}
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-300">
+                  <Check size={12} className="shrink-0" />
+                  <span className="leading-tight">{t.ok}</span>
+                </div>
+                <div className="text-muted-foreground truncate font-mono text-[9px]">
+                  audit · step.completed ×4 · a91f…e2c7
+                </div>
+              </div>
+              {!reduced && (
+                <button
+                  type="button"
+                  onClick={() => setFrameIdx(0)}
+                  className="text-muted-foreground hover:text-foreground flex shrink-0 items-center gap-1 text-[10px]"
+                >
+                  <RotateCcw size={11} />
+                  {t.replay}
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
+
+        {!reduced && (
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none absolute z-20"
+            initial={false}
+            animate={{ left: `${cursorAt.x}%`, top: `${cursorAt.y}%` }}
+            transition={{ duration: frame.ghost ? 1 : 0.75, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <motion.div animate={{ scale: frame.press ? 0.82 : 1 }} transition={{ duration: 0.12 }}>
+              <MousePointer2 size={18} className="fill-white text-black drop-shadow" />
+            </motion.div>
+            {frame.ghost && (
+              <div
+                className={`absolute left-3 top-4 whitespace-nowrap rounded-md border px-1.5 py-1 font-mono text-[10px] opacity-90 shadow-lg ${nodeColor.primary}`}
+              >
+                {t.labels.approval}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {!touched && !frame.ok && frameIdx !== 0 && (
+          <div className="text-muted-foreground pointer-events-none absolute bottom-0 right-0 flex items-center gap-1.5 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-[10px]">
+            <Hand size={12} className="text-emerald-400/80" />
+            {t.hint}
+          </div>
+        )}
       </div>
     </div>
   );
