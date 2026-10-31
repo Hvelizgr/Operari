@@ -265,3 +265,15 @@ describe('POST /api/http-tester/execute', () => {
     });
   });
 });
+
+describe('without a session', () => {
+  it('refuses the request instead of running it as the default tenant', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/http-tester', httpTesterRouter);
+    const res = await request(app)
+      .post('/api/http-tester/execute')
+      .send({ method: 'GET', url: 'https://example.com' });
+    expect(res.status).toBe(401);
+  });
+});

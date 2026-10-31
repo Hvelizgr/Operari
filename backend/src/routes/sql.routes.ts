@@ -1,10 +1,10 @@
-import { Response, Router } from 'express';
+import { NextFunction, Response, Router } from 'express';
 import { Client as PgClient } from 'pg';
 
 import { AuditService } from '../audit/audit.service';
 import { env } from '../config/env.config';
 import { logger } from '../config/logger.config';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
 import { SecretCipher } from '../security/secret-cipher';
 import { SecretReader } from '../security/secret-reader';
 import { blockedTarget } from '../security/ssrf-guard';
@@ -12,16 +12,12 @@ import { prisma } from '../server';
 
 const router = Router();
 
-// Anonymous fallback for dev
-router.use((req: AuthRequest, _res, next) => {
-  if (!req.user) {
-    req.user = {
-      id: 'anonymous',
-      email: 'anonymous@operari.local',
-      role: 'USER',
-      tenantId: 'default-tenant',
-    };
-  }
+// Same rule as every other web route: a session, or OPERARI_ANONYMOUS_MODE
+// on a single-tenant self-host. Without this gate anyone could use the
+// tester as the default tenant.
+router.use(anonymousFallback);
+router.use((req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
   next();
 });
 

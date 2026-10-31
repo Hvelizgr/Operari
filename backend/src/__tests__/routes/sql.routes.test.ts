@@ -319,3 +319,13 @@ describe('SQL routes', () => {
     });
   });
 });
+
+describe('without a session', () => {
+  it('refuses the request instead of running it as the default tenant', async () => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/sql', sqlRouter);
+    const res = await request(app).post('/api/sql/query').send({ query: 'SELECT 1' });
+    expect(res.status).toBe(401);
+  });
+});
