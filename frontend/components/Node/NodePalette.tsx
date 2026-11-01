@@ -9,12 +9,17 @@ import {
   ChevronRight,
   Clock,
   Cloud,
+  Code2,
   Container,
   Database,
   Folder,
   GitBranch,
   Globe,
+  Handshake,
+  HardDrive,
   KeyRound,
+  LifeBuoy,
+  Megaphone,
   MessagesSquare,
   Network,
   Play,
@@ -22,6 +27,7 @@ import {
   Repeat,
   Route,
   Search,
+  ShoppingCart,
   Sparkles,
   Square,
   SquareKanban,
@@ -135,12 +141,53 @@ const CATEGORIES = [
     color: 'text-indigo-400',
   },
   {
+    id: 'crm',
+    label: { en: 'CRM & sales', es: 'CRM y ventas' },
+    icon: Handshake,
+    color: 'text-orange-400',
+  },
+  {
+    id: 'commerce',
+    label: { en: 'Commerce & payments', es: 'Comercio y pagos' },
+    icon: ShoppingCart,
+    color: 'text-emerald-400',
+  },
+  {
+    id: 'marketing',
+    label: { en: 'Marketing & email', es: 'Marketing y email' },
+    icon: Megaphone,
+    color: 'text-pink-400',
+  },
+  {
+    id: 'support',
+    label: { en: 'Support & ITSM', es: 'Soporte e ITSM' },
+    icon: LifeBuoy,
+    color: 'text-lime-400',
+  },
+  {
+    id: 'storage',
+    label: { en: 'Files & storage', es: 'Archivos y almacenamiento' },
+    icon: HardDrive,
+    color: 'text-yellow-400',
+  },
+  {
+    id: 'devtools',
+    label: { en: 'Developer platforms', es: 'Plataformas para developers' },
+    icon: Code2,
+    color: 'text-sky-300',
+  },
+  {
     id: 'organization',
     label: { en: 'Organization', es: 'Organización' },
     icon: Folder,
     color: 'text-slate-400',
   },
 ];
+
+/** Steps whose category the palette does not know land in Integrations instead of vanishing. */
+export function categoryOf(node: { category: string }, known: Array<{ id: string }>): string {
+  return known.some(c => c.id === node.category) ? node.category : 'integrations';
+}
 
 // Curated runbook step palette — see docs/rebranding-and-editor-audit.md
 // section 3.5 for the full rationale. Down from 72 nodes to ~20.
@@ -707,7 +754,9 @@ export default function NodePalette({
   const nodesByCategory = useMemo(() => {
     const grouped: Record<string, NodeType[]> = {};
     effectiveCategories.forEach(cat => {
-      grouped[cat.id] = filteredNodes.filter(node => node.category === cat.id);
+      grouped[cat.id] = filteredNodes.filter(
+        node => categoryOf(node, effectiveCategories) === cat.id
+      );
     });
     return grouped;
   }, [filteredNodes, effectiveCategories]);

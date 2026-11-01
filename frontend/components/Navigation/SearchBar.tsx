@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight, Plus, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { WorkflowNode } from '../Editor';
-import { CATEGORIES, NODE_TYPES, NodeType } from '../Node';
+import { CATEGORIES, categoryOf, NODE_TYPES, NodeType } from '../Node';
 
 interface SearchBarProps {
   nodes: WorkflowNode[];
@@ -120,7 +120,9 @@ export default function SearchBar({
   const nodesByCategory = useMemo(() => {
     const grouped: Record<string, NodeType[]> = {};
     CATEGORIES.forEach(cat => {
-      grouped[cat.id] = filteredAvailableNodes.filter(node => node.category === cat.id);
+      grouped[cat.id] = filteredAvailableNodes.filter(
+        node => categoryOf(node, CATEGORIES) === cat.id
+      );
     });
     return grouped;
   }, [filteredAvailableNodes]);

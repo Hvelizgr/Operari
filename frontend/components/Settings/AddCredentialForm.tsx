@@ -1,7 +1,7 @@
 'use client';
 
 import { KeyRound, Loader2, Plus, Sparkles, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { csrfToken } from '@/lib/auth';
 
@@ -180,6 +180,57 @@ export default function AddCredentialForm({ lang, onSaved }: Props) {
 
   const preset = AI_PRESETS.find(p => p.id === presetId) ?? AI_PRESETS[0];
 
+  // Every provider a catalog step asks for (Stripe, HubSpot, Shopify…), so a
+  // new integration is offered here without editing this list.
+  const [catalogKinds, setCatalogKinds] = useState<Array<[string, string]>>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/api/node-types`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : []))
+      .then((nodes: Array<{ label?: { en?: string; es?: string }; properties?: unknown }>) => {
+        const found = new Map<string, string>();
+        for (const n of Array.isArray(nodes) ? nodes : []) {
+          const props = Array.isArray(n.properties) ? n.properties : [];
+          for (const p of props as Array<{
+            type?: string;
+            displayName?: string;
+            typeOptions?: { provider?: string };
+          }>) {
+            const provider = p.typeOptions?.provider;
+            if (
+              p.type !== 'secret' ||
+              !provider ||
+              provider === 'ai' ||
+              provider.startsWith('ai.') ||
+              provider === 'mcp'
+            )
+              continue;
+            if (!found.has(provider))
+              found.set(
+                provider,
+                `${n.label?.[lang] ?? n.label?.en ?? provider} — ${p.displayName ?? 'secret'}`
+              );
+          }
+        }
+        if (!cancelled) setCatalogKinds([...found.entries()]);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [lang]);
+  const kinds = useMemo(() => {
+    const fixed = CREDENTIAL_KINDS.filter(([id]) => id !== 'custom') as ReadonlyArray<
+      readonly [string, string]
+    >;
+    const known = new Set(fixed.map(([id]) => id));
+    const extra = catalogKinds.filter(([id]) => !known.has(id));
+    return [...fixed, ...extra]
+      .slice()
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .concat([['custom', lang === 'es' ? 'Otro…' : 'Other…']]);
+  }, [catalogKinds, lang]);
+
   const open = (next: Mode) => {
     setMode(next);
     setMessage(null);
@@ -307,7 +358,7 @@ export default function AddCredentialForm({ lang, onSaved }: Props) {
                   value={kind}
                   onChange={e => setKind(e.target.value)}
                 >
-                  {CREDENTIAL_KINDS.map(([id, text]) => (
+                  {kinds.map(([id, text]) => (
                     <option key={id} value={id}>
                       {text}
                     </option>
