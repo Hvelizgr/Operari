@@ -2,6 +2,7 @@ import { FileCode } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import Reveal from '../_shared/Reveal';
 import { fetchTemplates } from './fetch-templates';
 import { type TemplateLang, templateStrings } from './strings';
 import TemplatesRegistry from './TemplatesRegistry';
@@ -54,7 +55,7 @@ export default async function TemplatesPage({ params }: { params: Promise<{ lang
         {/* Compact header — the H1 is smaller; the catalog UI below is the
                     real visual anchor. */}
         <div className="border-border/40 mb-10 flex flex-col gap-6 border-b pb-8 md:flex-row md:items-end md:justify-between">
-          <div>
+          <Reveal>
             <span className="border-primary/30 bg-primary/10 text-primary inline-flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider">
               <FileCode className="h-3 w-3" />
               {t.eyebrow}
@@ -65,7 +66,7 @@ export default async function TemplatesPage({ params }: { params: Promise<{ lang
             <p className="text-muted-foreground mt-3 max-w-2xl text-sm leading-relaxed sm:text-base">
               {t.subtitle}
             </p>
-          </div>
+          </Reveal>
         </div>
 
         {templates.length === 0 ? (

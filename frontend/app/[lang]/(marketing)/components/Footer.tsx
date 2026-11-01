@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { Github } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -31,7 +32,13 @@ export default function Footer({ content }: FooterProps) {
       <div className="container mx-auto max-w-6xl px-4 md:px-6">
         <div className="mb-12 grid grid-cols-2 gap-8 md:grid-cols-5">
           {/* Brand block */}
-          <div className="col-span-2">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            className="col-span-2"
+          >
             <div className="mb-4 flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-md border border-emerald-500/30 bg-emerald-500/10 shadow-md shadow-emerald-500/10">
                 <DNAMark size={20} />
@@ -50,11 +57,17 @@ export default function Footer({ content }: FooterProps) {
               <Github className="h-4 w-4" />
               {repo.displayHost}
             </a>
-          </div>
+          </motion.div>
 
           {/* Link columns from content */}
-          {content.columns.map(column => (
-            <div key={column.title}>
+          {content.columns.map((column, colIdx) => (
+            <motion.div
+              key={column.title}
+              initial={{ opacity: 0, y: 14 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.5, delay: 0.08 * (colIdx + 1), ease: [0.22, 1, 0.36, 1] }}
+            >
               <h4 className="text-foreground mb-4 text-xs font-semibold uppercase tracking-wider">
                 {column.title}
               </h4>
@@ -66,25 +79,27 @@ export default function Footer({ content }: FooterProps) {
                       {isInternal ? (
                         <Link
                           href={`/${lang}${link.href}`}
-                          className="hover:text-foreground transition-colors"
+                          className="hover:text-foreground group relative inline-block transition-colors"
                         >
                           {link.label}
+                          <span className="bg-primary absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100" />
                         </Link>
                       ) : (
                         <a
                           href={link.href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="hover:text-foreground transition-colors"
+                          className="hover:text-foreground group relative inline-block transition-colors"
                         >
                           {link.label}
+                          <span className="bg-primary absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100" />
                         </a>
                       )}
                     </li>
                   );
                 })}
               </ul>
-            </div>
+            </motion.div>
           ))}
         </div>
 

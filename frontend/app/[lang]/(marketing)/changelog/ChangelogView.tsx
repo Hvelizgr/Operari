@@ -162,6 +162,14 @@ export default function ChangelogView({ content, lang }: { content: Changelog; l
               <div className="relative pl-8">
                 {/* Vertical rail */}
                 <div className="bg-border/40 absolute bottom-2 left-2 top-2 w-px" />
+                <motion.div
+                  aria-hidden="true"
+                  initial={{ scaleY: 0 }}
+                  whileInView={{ scaleY: 1 }}
+                  viewport={{ once: true, margin: '-80px' }}
+                  transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+                  className="from-primary/70 absolute bottom-2 left-2 top-2 w-px origin-top bg-gradient-to-b to-transparent"
+                />
 
                 <div className="space-y-8">
                   {entries.map((entry, i) => (

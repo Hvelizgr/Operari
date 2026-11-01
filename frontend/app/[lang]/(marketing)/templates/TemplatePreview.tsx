@@ -1,6 +1,7 @@
 'use client';
 
 import type { Connection, WorkflowNode } from '@operari/shared';
+import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 
 import { getAutoLayout } from '@/utils/layoutUtils';
@@ -121,6 +122,15 @@ export default function TemplatePreview({
   if (nodes.length === 0) return null;
 
   const nodeById = new Map(layout.positioned.map(n => [n.id, n]));
+  // Reveal order follows the flow: left to right, then top to bottom.
+  const order = new Map(
+    [...layout.positioned]
+      .sort(
+        (a, b) =>
+          (a.position?.x ?? 0) - (b.position?.x ?? 0) || (a.position?.y ?? 0) - (b.position?.y ?? 0)
+      )
+      .map((n, i) => [n.id, i])
+  );
 
   return (
     <svg
@@ -165,13 +175,17 @@ export default function TemplatePreview({
         const dx = Math.max(40, Math.abs(tx - sx) / 2);
         const path = `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
         return (
-          <path
+          <motion.path
             key={c.id}
             d={path}
             fill="none"
             stroke="hsl(0 0% 55% / 0.55)"
             strokeWidth="1.4"
             markerEnd="url(#tpl-arrow)"
+            initial={{ pathLength: 0, opacity: 0 }}
+            whileInView={{ pathLength: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.15 + (order.get(c.source) ?? 0) * 0.12 }}
           />
         );
       })}
@@ -184,37 +198,50 @@ export default function TemplatePreview({
         const label = n.title || n.type;
         return (
           <g key={n.id} transform={`translate(${x} ${y})`}>
-            <rect
-              width={NODE_W}
-              height={NODE_H}
-              rx={10}
-              ry={10}
-              fill={tone.fill}
-              stroke={tone.stroke}
-              strokeWidth="1.2"
-            />
-            <text
-              x={12}
-              y={21}
-              fontFamily="ui-sans-serif, system-ui, sans-serif"
-              fontSize="11"
-              fontWeight={700}
-              fill={tone.text}
-              letterSpacing="0.06em"
-              style={{ textTransform: 'uppercase' }}
+            <motion.g
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{
+                type: 'spring',
+                stiffness: 320,
+                damping: 22,
+                delay: (order.get(n.id) ?? 0) * 0.12,
+              }}
+              style={{ transformOrigin: `${NODE_W / 2}px ${NODE_H / 2}px` }}
             >
-              {n.type}
-            </text>
-            <text
-              x={12}
-              y={39}
-              fontFamily="ui-sans-serif, system-ui, sans-serif"
-              fontSize="13"
-              fontWeight={500}
-              fill="hsl(0 0% 92%)"
-            >
-              {truncate(label, 22)}
-            </text>
+              <rect
+                width={NODE_W}
+                height={NODE_H}
+                rx={10}
+                ry={10}
+                fill={tone.fill}
+                stroke={tone.stroke}
+                strokeWidth="1.2"
+              />
+              <text
+                x={12}
+                y={21}
+                fontFamily="ui-sans-serif, system-ui, sans-serif"
+                fontSize="11"
+                fontWeight={700}
+                fill={tone.text}
+                letterSpacing="0.06em"
+                style={{ textTransform: 'uppercase' }}
+              >
+                {n.type}
+              </text>
+              <text
+                x={12}
+                y={39}
+                fontFamily="ui-sans-serif, system-ui, sans-serif"
+                fontSize="13"
+                fontWeight={500}
+                fill="hsl(0 0% 92%)"
+              >
+                {truncate(label, 22)}
+              </text>
+            </motion.g>
           </g>
         );
       })}

@@ -1,6 +1,9 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+
+import ScrollProgress from '../components/ScrollProgress';
 
 interface DocsSection {
   heading: string;
@@ -60,6 +63,7 @@ export default function DocsPage({
 
   return (
     <main className="bg-background relative">
+      <ScrollProgress />
       {/* Faux-paper rule: a thin top stripe + a parchment-warm tint to
           keep the page from looking like the rest of the dark marketing
           surface. Subtle on purpose. */}
@@ -81,7 +85,12 @@ export default function DocsPage({
 
       <div className="container mx-auto max-w-6xl px-4 pb-24 pt-28 sm:px-6 sm:pt-32">
         {/* Header — serif, no eyebrow pill */}
-        <header className="border-border/40 mb-14 border-b pb-8 sm:mb-16">
+        <motion.header
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="border-border/40 mb-14 border-b pb-8 sm:mb-16"
+        >
           <div className="mb-5 flex flex-wrap items-baseline gap-x-4 gap-y-2">
             <p className="text-muted-foreground font-mono text-[11px] uppercase tracking-[0.18em]">
               {updated}
@@ -96,7 +105,7 @@ export default function DocsPage({
           <p className="text-foreground/70 max-w-2xl font-serif text-lg italic sm:text-xl">
             {subtitle}
           </p>
-        </header>
+        </motion.header>
 
         <div className="grid gap-10 sm:gap-14 md:grid-cols-[220px,1fr]">
           {/* TOC — sticky sidebar on desktop, top bar on mobile */}
@@ -112,12 +121,20 @@ export default function DocsPage({
                   <a
                     key={id}
                     href={`#${id}`}
-                    className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs transition-all md:shrink md:whitespace-normal md:text-[13px] ${
+                    className={`relative isolate shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs transition-colors md:shrink md:whitespace-normal md:pl-2.5 md:text-[13px] ${
                       isActive
-                        ? 'bg-primary/10 text-primary border-primary border-l-2 font-semibold md:rounded-l-none md:pl-2.5'
-                        : 'text-muted-foreground hover:text-foreground md:border-l-2 md:border-transparent md:pl-2.5'
+                        ? 'text-primary font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
+                    {isActive && (
+                      <motion.span
+                        layoutId="docs-toc-active"
+                        aria-hidden="true"
+                        className="bg-primary/10 border-primary absolute inset-0 -z-10 rounded-md border-l-2 md:rounded-l-none"
+                        transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+                      />
+                    )}
                     <span className="text-muted-foreground/60 mr-2 font-serif italic">
                       {format(i + 1, numberStyle)}
                     </span>
@@ -134,7 +151,15 @@ export default function DocsPage({
               const id = slugify(s.heading);
               const isFirst = i === 0;
               return (
-                <section key={id} id={id} className="scroll-mt-28">
+                <motion.section
+                  key={id}
+                  id={id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-60px' }}
+                  transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                  className="scroll-mt-28"
+                >
                   <div className="text-primary/80 mb-2 font-mono text-[10px] uppercase tracking-[0.22em]">
                     {format(i + 1, numberStyle)}
                   </div>
@@ -150,7 +175,7 @@ export default function DocsPage({
                   >
                     {s.body}
                   </p>
-                </section>
+                </motion.section>
               );
             })}
           </article>
