@@ -109,7 +109,7 @@ export default function Hero({ content }: HeroProps) {
       />
 
       <div className="container relative z-10 mx-auto w-full px-4 sm:px-6">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 sm:gap-12 lg:grid-cols-[1.05fr,1.1fr] lg:gap-16">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 sm:gap-12 lg:grid-cols-[1.05fr,1.1fr] lg:gap-16">
           {/* LEFT — copy + CTAs */}
           <div className="flex min-w-0 flex-col items-start text-left">
             <motion.a
@@ -217,7 +217,7 @@ export default function Hero({ content }: HeroProps) {
               slower than the left column as the page scrolls. The
               drift is tiny (<60px over the hero height) so visitors
               read it as parallax depth, not movement. */}
-          <motion.div style={{ y: terminalY, opacity: terminalOpacity }}>
+          <motion.div className="min-w-0" style={{ y: terminalY, opacity: terminalOpacity }}>
             <ApiTerminal content={content.scenario} lang={lang} />
           </motion.div>
         </div>
