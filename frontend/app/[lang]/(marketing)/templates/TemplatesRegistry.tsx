@@ -5,6 +5,7 @@ import { ArrowUpRight, FileCode, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
+import { MiniPipeline } from '../components/Templates';
 import type { TemplateLang, TemplateMeta } from './strings';
 
 type Strings = {
@@ -191,6 +192,12 @@ function RegistryCard({
           {template.description && (
             <p className="text-muted-foreground text-sm leading-relaxed">{template.description}</p>
           )}
+          <div className="mt-4">
+            <MiniPipeline
+              offset={index * 0.45}
+              steps={Math.min(Math.max(template.stepCount, 2), 8)}
+            />
+          </div>
         </div>
 
         <AnimatePresence initial={false}>

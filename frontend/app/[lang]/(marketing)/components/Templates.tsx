@@ -184,19 +184,18 @@ function TemplateCard({
   );
 }
 
-const PIPE_STEPS = 4;
 const PIPE_STEP_S = 0.55;
-const PIPE_CYCLE_S = PIPE_STEPS * PIPE_STEP_S + 1.6;
 
 /** A tiny run of the template: each step lights up in turn, the last one settles green. */
-function MiniPipeline({ offset }: { offset: number }) {
+export function MiniPipeline({ offset, steps = 4 }: { offset: number; steps?: number }) {
   const reduce = useReducedMotion();
+  const cycle = steps * PIPE_STEP_S + 1.6;
   return (
     <div aria-hidden="true" className="relative flex shrink-0 items-center gap-1.5">
       <div className="bg-border/70 absolute inset-x-1 top-1/2 h-px -translate-y-1/2" />
-      {Array.from({ length: PIPE_STEPS }, (_, i) => {
-        const last = i === PIPE_STEPS - 1;
-        const on = (i * PIPE_STEP_S) / PIPE_CYCLE_S;
+      {Array.from({ length: steps }, (_, i) => {
+        const last = i === steps - 1;
+        const on = (i * PIPE_STEP_S) / cycle;
         return (
           <span key={i} className="border-border bg-card relative h-2 w-2 rounded-full border">
             <motion.span
@@ -215,7 +214,7 @@ function MiniPipeline({ offset }: { offset: number }) {
                     }
               }
               transition={{
-                duration: PIPE_CYCLE_S,
+                duration: cycle,
                 times: [on, on + 0.06, 0.92, 1],
                 repeat: Infinity,
                 delay: offset,

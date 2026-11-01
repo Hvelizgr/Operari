@@ -1,6 +1,6 @@
 'use client';
 
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useInView, useReducedMotion } from 'framer-motion';
 import {
   Activity,
   AlertOctagon,
@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Webhook,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { content as contentEn } from '../../content/en';
 
@@ -135,6 +135,18 @@ export default function TriggersView({ triggers, lang }: { triggers: Triggers; l
   });
   const [active, setActive] = useState<SourceKey>(sources[0].key);
   const current = sources.find(s => s.key === active)!;
+  const payloadLines = current.payload.split('\n');
+  const panelRef = useRef<HTMLDivElement>(null);
+  // step: 1..lines → payload lines, +1 HMAC checking, +2 HMAC ok, then one per var, then run started
+  const hmacAt = payloadLines.length + 1;
+  const step = useDelivery(
+    panelRef,
+    current.key,
+    payloadLines.length + 2 + current.vars.length + 1,
+    hmacAt
+  );
+  const varsAt = hmacAt + 2;
+  const runAt = varsAt + current.vars.length;
 
   return (
     <main className="bg-background relative min-h-[88vh]">
@@ -197,6 +209,7 @@ export default function TriggersView({ triggers, lang }: { triggers: Triggers; l
         <AnimatePresence mode="wait">
           <motion.div
             key={current.key}
+            ref={panelRef}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -221,11 +234,34 @@ export default function TriggersView({ triggers, lang }: { triggers: Triggers; l
                 </span>
               </div>
               <pre className="text-foreground/90 overflow-x-auto whitespace-pre p-5 font-mono text-[12px] leading-relaxed">
-                {current.payload}
+                {payloadLines.map((line, i) => (
+                  <span
+                    key={i}
+                    className={`block transition-all duration-200 ${step > i ? 'translate-x-0 opacity-100' : '-translate-x-1 opacity-0'}`}
+                  >
+                    {line || ' '}
+                  </span>
+                ))}
               </pre>
               <div className="border-border/40 bg-background/40 text-muted-foreground flex items-center gap-2 border-t px-5 py-3 font-mono text-[11px]">
-                <ShieldCheck className="text-primary h-3.5 w-3.5" />
-                <span className="truncate">{current.hmac}</span>
+                {step >= hmacAt + 1 ? (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="inline-flex"
+                  >
+                    <ShieldCheck className="text-primary h-3.5 w-3.5" />
+                  </motion.span>
+                ) : (
+                  <span
+                    className={`border-primary/60 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-t-transparent ${step >= hmacAt ? 'animate-spin' : 'opacity-30'}`}
+                  />
+                )}
+                <span
+                  className={`truncate transition-opacity ${step >= hmacAt ? 'opacity-100' : 'opacity-40'}`}
+                >
+                  {current.hmac}
+                </span>
               </div>
             </div>
 
@@ -235,18 +271,38 @@ export default function TriggersView({ triggers, lang }: { triggers: Triggers; l
                 {lang === 'es' ? 'Mapping de variables' : 'Variable mapping'}
               </div>
               <ul className="space-y-3">
-                {current.vars.map(v => (
-                  <li key={v.to} className="flex items-center gap-3 font-mono text-xs">
+                {current.vars.map((v, i) => (
+                  <li
+                    key={v.to}
+                    className={`flex items-center gap-3 font-mono text-xs transition-all duration-300 ${step > varsAt + i - 1 ? 'opacity-100' : 'opacity-30'}`}
+                  >
                     <span className="border-border/60 bg-background/40 text-foreground/80 flex-1 truncate rounded-md border px-2 py-1">
                       {v.from}
                     </span>
-                    <ArrowRight className="text-primary h-3.5 w-3.5 shrink-0" />
+                    <ArrowRight
+                      className={`text-primary h-3.5 w-3.5 shrink-0 transition-transform duration-300 ${step > varsAt + i - 1 ? 'translate-x-0' : '-translate-x-1'}`}
+                    />
                     <span className="border-primary/40 bg-primary/10 text-primary flex-1 truncate rounded-md border px-2 py-1">
                       {v.to}
                     </span>
                   </li>
                 ))}
               </ul>
+
+              <AnimatePresence>
+                {step >= runAt && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="border-primary/40 bg-primary/10 text-primary mt-5 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 font-mono text-[11px]"
+                  >
+                    <span className="bg-primary h-1.5 w-1.5 animate-pulse rounded-full" />
+                    {lang === 'es' ? 'run iniciado' : 'run started'} · run_{current.key.slice(0, 2)}
+                    7f3a
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <div className="border-border/40 mt-6 border-t pt-5">
                 <p className="text-muted-foreground text-xs leading-relaxed">
@@ -338,4 +394,34 @@ function ToolsMarquee({ tools }: { tools: readonly string[] }) {
       `}</style>
     </div>
   );
+}
+
+/**
+ * Plays one webhook delivery: counts 0 → total once the panel is on screen,
+ * and starts over whenever the selected source changes.
+ */
+function useDelivery(
+  ref: React.RefObject<HTMLElement | null>,
+  key: string,
+  total: number,
+  slowAt: number
+) {
+  const inView = useInView(ref, { once: true, margin: '-80px' });
+  const reduce = useReducedMotion();
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    setStep(reduce ? total : 0);
+  }, [key, reduce, total]);
+
+  useEffect(() => {
+    if (!inView || reduce || step >= total) return;
+    const id = setTimeout(
+      () => setStep(n => n + 1),
+      step === 0 ? 300 : step === slowAt ? 800 : 110
+    );
+    return () => clearTimeout(id);
+  }, [inView, reduce, step, total, slowAt]);
+
+  return step;
 }

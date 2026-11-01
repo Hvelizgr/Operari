@@ -221,7 +221,7 @@ const statusColor: Record<Exclude<StepStatus, 'idle'>, string> = {
   done: 'bg-emerald-500/15 border-emerald-400/60 text-emerald-300',
 };
 
-function CanvasMockup() {
+export function CanvasMockup() {
   const params = useParams();
   const es = params?.lang === 'es';
   const t = es
@@ -480,7 +480,7 @@ const YAML_LINES = [
 /* The diff can be flipped between the old file, the change and the new
  * file, so the "approval gate added in code review" beat is something
  * the visitor does rather than reads. */
-function YamlDiffMockup() {
+export function YamlDiffMockup() {
   const params = useParams();
   const es = params?.lang === 'es';
   const [view, setView] = useState<DiffView>('diff');
@@ -586,7 +586,7 @@ function YamlDiffMockup() {
  * hash strip slides up from the bottom at the very end with a
  * "verified" checkmark.
  * ------------------------------------------------------------------ */
-function RunTimelineMockup() {
+export function RunTimelineMockup() {
   const steps = [
     { label: 'webhook → received', ms: '12ms' },
     { label: 'fetch service logs', ms: '1.2s' },

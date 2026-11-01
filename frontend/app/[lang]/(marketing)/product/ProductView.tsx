@@ -1,11 +1,17 @@
 'use client';
 
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useInView, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { ArrowDown, ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import type { content as contentEn } from '../../content/en';
+import { CanvasMockup, RunTimelineMockup, YamlDiffMockup } from '../components/Story';
+
+// Story chapters reuse the landing's animated mockups; safety chapters get the
+// rail illustrations from public/illustrations/safety/ in content order.
+const STORY_MOCKUPS = [CanvasMockup, YamlDiffMockup, RunTimelineMockup];
+const SAFETY_ART = ['dry-run', 'error-rollback', 'compose', 'sdk'];
 
 type Story = typeof contentEn.story;
 type Safety = typeof contentEn.safety;
@@ -254,20 +260,27 @@ function Chapter({
           {chapter.body}
         </p>
 
-        {chapter.code && (
-          <div className="border-border/60 bg-card/60 overflow-hidden rounded-xl border shadow-xl shadow-black/30 backdrop-blur-md">
-            <div className="border-border/40 bg-background/40 flex items-center gap-1.5 border-b px-4 py-2.5">
-              <span className="h-2 w-2 rounded-full bg-red-500/50" />
-              <span className="h-2 w-2 rounded-full bg-amber-500/50" />
-              <span className="bg-primary/60 h-2 w-2 rounded-full" />
-              <span className="text-muted-foreground ml-3 font-mono text-[10px] uppercase tracking-wider">
-                {isCode ? 'snippet' : 'note'}
-              </span>
-            </div>
-            <pre className="text-foreground/90 overflow-x-auto whitespace-pre p-5 font-mono text-[12px] leading-relaxed sm:text-[13px]">
-              {chapter.code}
-            </pre>
-          </div>
+        {chapter.kind === 'story' && STORY_MOCKUPS[index] ? (
+          <>
+            {chapter.code && (
+              <p className="text-foreground/70 border-primary/40 mb-6 border-l-2 pl-4 text-sm italic">
+                {chapter.code}
+              </p>
+            )}
+            {(() => {
+              const Mockup = STORY_MOCKUPS[index];
+              return <Mockup />;
+            })()}
+          </>
+        ) : (
+          <>
+            {chapter.kind === 'safety' && SAFETY_ART[index - STORY_MOCKUPS.length] && (
+              <SafetyArt name={SAFETY_ART[index - STORY_MOCKUPS.length]} />
+            )}
+            {chapter.code && (
+              <TypedSnippet code={chapter.code} label={isCode ? 'snippet' : 'note'} />
+            )}
+          </>
         )}
       </div>
     </motion.section>
@@ -309,5 +322,81 @@ function ProgressRail({ chapters, active }: { chapters: Chapter[]; active: strin
         ))}
       </div>
     </aside>
+  );
+}
+
+function SafetyArt({ name }: { name: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, margin: '-80px' }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="mb-6 flex justify-center sm:justify-start"
+      aria-hidden="true"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- animated SVG, CSS motion runs only as a plain img */}
+      <img
+        src={`/illustrations/safety/${name}-light.svg`}
+        alt=""
+        width={176}
+        height={176}
+        className="h-44 w-44 dark:hidden"
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element -- see above */}
+      <img
+        src={`/illustrations/safety/${name}.svg`}
+        alt=""
+        width={176}
+        height={176}
+        className="hidden h-44 w-44 dark:block"
+      />
+    </motion.div>
+  );
+}
+
+/** The chapter's snippet, revealed line by line the first time it scrolls into view. */
+function TypedSnippet({ code, label }: { code: string; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-80px' });
+  const reduce = useReducedMotion();
+  const lines = code.split('\n');
+  const [shown, setShown] = useState(0);
+
+  useEffect(() => {
+    if (!inView) return;
+    if (reduce) {
+      setShown(lines.length);
+      return;
+    }
+    if (shown >= lines.length) return;
+    const id = setTimeout(() => setShown(n => n + 1), shown === 0 ? 250 : 90);
+    return () => clearTimeout(id);
+  }, [inView, reduce, shown, lines.length]);
+
+  return (
+    <div
+      ref={ref}
+      className="border-border/60 bg-card/60 overflow-hidden rounded-xl border shadow-xl shadow-black/30 backdrop-blur-md"
+    >
+      <div className="border-border/40 bg-background/40 flex items-center gap-1.5 border-b px-4 py-2.5">
+        <span className="h-2 w-2 rounded-full bg-red-500/50" />
+        <span className="h-2 w-2 rounded-full bg-amber-500/50" />
+        <span className="bg-primary/60 h-2 w-2 rounded-full" />
+        <span className="text-muted-foreground ml-3 font-mono text-[10px] uppercase tracking-wider">
+          {label}
+        </span>
+      </div>
+      <pre className="text-foreground/90 overflow-x-auto whitespace-pre p-5 font-mono text-[12px] leading-relaxed sm:text-[13px]">
+        {lines.map((line, i) => (
+          <span
+            key={i}
+            className={`block transition-all duration-300 ${i < shown ? 'translate-x-0 opacity-100' : '-translate-x-1 opacity-0'}`}
+          >
+            {line || ' '}
+          </span>
+        ))}
+      </pre>
+    </div>
   );
 }
