@@ -4,7 +4,6 @@ import AuditChain from './components/AuditChain';
 import Comparison from './components/Comparison';
 import CTA from './components/CTA';
 import Hero from './components/Hero';
-import HowItWorks from './components/HowItWorks';
 import MetricsBar from './components/MetricsBar';
 import OnCall from './components/OnCall';
 import RunbookAsCode from './components/RunbookAsCode';
@@ -63,9 +62,6 @@ export default async function Page({ params }: { params: Promise<{ lang: string 
         <RunbookAsCode />
       </div>
 
-      <div id="how-it-works">
-        <HowItWorks content={content.howItWorks} />
-      </div>
 
       <div id="safety">
         <SafetyRails content={content.safety} />

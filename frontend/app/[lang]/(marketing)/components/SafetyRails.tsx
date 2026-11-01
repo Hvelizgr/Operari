@@ -18,8 +18,8 @@ const ART = ['dry-run', 'error-rollback', 'compose', 'sdk'];
 // Where each rail lives, in content order. Code links are pinned to the
 // commit the run diagram was drawn from so the line numbers stay right.
 const CODE = 'https://github.com/Hvelizgr/Operari/blob/f77671a1cabda09b691c30a065750c7107a85ec7';
-const PROOF: Array<{ href: string; kind: 'diagram' | 'code' }> = [
-  { href: '/diagrams/how-it-works.html#focus=editor', kind: 'diagram' },
+const PROOF: Array<{ href: string; kind: 'diagram' | 'code' } | null> = [
+  null,
   { href: `${CODE}/backend/src/editor/execution/execution.service.ts#L346-L373`, kind: 'code' },
   { href: `${CODE}/backend/src/runbook/executors/runbook.executor.ts#L20-L38`, kind: 'code' },
   { href: `${CODE}/backend/src/runbook/plugins/loader.ts#L539`, kind: 'code' },
