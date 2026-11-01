@@ -2,8 +2,8 @@ import type { PluginNodeMetadata } from '../plugins/loader';
 import { AGENT_NODES } from './agents';
 import { AI_NODES } from './ai';
 import { AWS_NODES } from './aws';
-import { DATABASE_NODES } from './databases';
 import { DATA_NODES } from './data';
+import { DATABASE_NODES } from './databases';
 import type { CatalogNode } from './define';
 import { DEVOPS_NODES } from './devops';
 import { GOOGLE_NODES } from './google';
@@ -12,8 +12,11 @@ import { MESSAGING_NODES } from './messaging';
 import { MONITORING_NODES } from './monitoring';
 import { NETWORK_NODES } from './network';
 import { PRODUCTIVITY_NODES } from './productivity';
+import { SERVICE_NODES } from './services';
+import { UTILITY_NODES } from './utilities';
 
 export { CatalogExecutor, type CatalogNode, type CatalogProperty, isVisible } from './define';
+export { SERVICE_NODES } from './services';
 
 /**
  * Built-in steps defined in code: one object per step carries its form,
@@ -26,6 +29,7 @@ export const BUILTIN_CATALOG: CatalogNode[] = [
   ...AGENT_NODES,
   ...MCP_NODES,
   ...DATA_NODES,
+  ...UTILITY_NODES,
   ...NETWORK_NODES,
   ...MESSAGING_NODES,
   ...MONITORING_NODES,
@@ -34,6 +38,7 @@ export const BUILTIN_CATALOG: CatalogNode[] = [
   ...DATABASE_NODES,
   ...AWS_NODES,
   ...GOOGLE_NODES,
+  ...SERVICE_NODES,
 ];
 
 export function catalogMetadata(): PluginNodeMetadata[] {
