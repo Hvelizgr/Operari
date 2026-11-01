@@ -2,11 +2,58 @@
 
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
-Última actualización: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
+Última actualización: 2026-11-01 (integraciones: research de n8n y fase 1 del catálogo). Antes: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
 
 ---
 
 ## Código pendiente
+
+### 🔴 Sandbox para terminal y runbooks; sudo solo por SSH a servidores propios (2026-11-01)
+
+**Detalle y diseño:** [`docs/sandbox-research.md`](docs/sandbox-research.md).
+
+**Hallazgo:** el runner `local` comparte el uid del backend: desde la terminal se lee
+`/proc/1/environ` (`DATABASE_URL`, `ENCRYPTION_KEY`, `JWT_SECRET`, API keys) y se llega a Postgres,
+Redis y los otros sitios de la red `web`. `OPERARI_LOCAL_SHELL_TENANTS=none` en prod hasta resolverlo.
+
+**Fases:**
+
+1. Endurecer el runner `docker`: `--cap-drop=ALL`, `--read-only`, `--user`, red `operari-sandbox`
+   aislada + reglas `DOCKER-USER` (sin ruta a redes privadas ni al host). Tests de aceptación.
+2. `sandbox-runner` con Docker/Podman rootless + gVisor; el backend sin `docker.sock`.
+3. Registro de servidores propios con huella de host fijada; `ssh` solo por `serverId`; aprobación
+   obligatoria para pasos `privileged`; sudo acotado en el servidor (forced command / sudoers).
+4. Política por workspace en la UI, proxy de egreso con lista permitida, certificados SSH de corta vida.
+
+### 🔴 Catálogo de integraciones: lo que falta después de la fase 1 (2026-11-01)
+
+**Detalle completo, inventario de n8n y auditoría:** [`docs/integrations-research.md`](docs/integrations-research.md).
+
+**Lo que shipeó** (`deb2c15`, `fe74d97`): constructor declarativo `service()`, 94 servicios con 667
+operaciones, 9 utilitarios, 6 categorías nuevas en la paleta y formulario de credenciales que ofrece
+todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso. Cobertura frente a n8n:
+~1/3 de sus integraciones (324), sin contar triggers (116).
+
+**Pendiente, en este orden:**
+
+1. **OAuth2 genérico con refresh** (Google, Microsoft, Slack, HubSpot, Salesforce, Zoom, Dropbox, Zoho).
+   Hoy se pega un access token; los de Google/Microsoft vencen en ~1 h. Es lo que más limita el uso real.
+2. **Listas dinámicas** (`loadOptions`): elegir canal de Slack, base de Notion, proyecto de Jira, repo de
+   GitHub desde la API. Requiere endpoint que descifre la credencial fuera de un run → diseño de seguridad.
+3. **Paginación "traer todo"** en las operaciones de listado.
+4. **Archivos binarios entre pasos + multipart** (subir a Drive/Dropbox/S3, adjuntos de email, OCR).
+5. **Triggers por aplicación** (n8n: 116; Operari: cron + webhook). Webhook auto-registrado o polling con cursor.
+6. **Más servicios:** Excel/SharePoint/Dynamics, QuickBooks, Xero, Trello/Asana/ClickUp/Linear/GitLab
+   completos (hoy son pasos de una acción), AWS (DynamoDB, SES, Textract…), BigQuery, Sheets completo,
+   Snowflake, Databricks, Kafka, RabbitMQ, MQTT, FTP/SFTP, LDAP, IMAP, X/Twitter, LinkedIn, Meta, Reddit,
+   Typeform, Calendly, Cal.com, Webflow, WordPress, Contentful, Strapi, Ghost, PayPal, Wise, Plaid.
+7. **Formularios:** multi-selección, colecciones clave-valor, editor JSON, fecha/hora; etiquetas de campo
+   bilingües; botón "Probar credencial"; los pasos viejos (`slack.message`, `jira.issue`…) todavía no
+   filtran el selector de credenciales por proveedor.
+8. **Nodo Code** (JS/Python) sobre el runner sandboxeado.
+9. **Validar contra las APIs reales.** Los tests cubren la construcción de cada request con `fetch`
+   simulado, no respuestas reales: probar cada servicio con una cuenta real a medida que se use.
+
 
 ### 🟡 Plugin loader: tenant-scoped runtime
 

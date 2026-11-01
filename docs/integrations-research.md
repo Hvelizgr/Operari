@@ -2,6 +2,9 @@
 
 _Noviembre 2026. Fuente: clon de `n8n-io/n8n` (commit `f5ed6cc72c`)._
 
+> **Estado:** fase 1 completa (`deb2c15`, `fe74d97`). Lo que falta está priorizado en
+> [`pendiente.md`](../pendiente.md) → "Catálogo de integraciones" y detallado en la hoja de ruta al final.
+
 ## Licencia: por qué no se copió nada
 
 n8n se distribuye bajo la **Sustainable Use License** (fair-code), que no permite reutilizar su código en
