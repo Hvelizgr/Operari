@@ -159,10 +159,10 @@ export default function ProductView({
           </p>
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              href={`/${lang}/signup`}
+              href={`/${lang}/register`}
               className="bg-primary text-primary-foreground shadow-primary/25 hover:bg-primary/90 inline-flex h-12 items-center gap-2 rounded-xl px-6 text-sm font-semibold shadow-md"
             >
-              {lang === 'es' ? 'Probar la API' : 'Try the API'}
+              {lang === 'es' ? 'Crear cuenta' : 'Create account'}
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link

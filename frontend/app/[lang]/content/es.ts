@@ -16,7 +16,7 @@ export const content = {
     docs: 'Docs',
     github: 'GitHub',
     login: 'Entrar',
-    getStarted: 'Obtener API key',
+    getStarted: 'Crear cuenta',
   },
   hero: {
     badge: 'Self-serve · alpha pre-lanzamiento',

@@ -81,7 +81,10 @@ export default function Navbar({ content, lang }: NavbarProps) {
           >
             {lang === 'es' ? 'Precios' : 'Pricing'}
           </Link>
-          <a href="#compare" className="nav-link-slide hover:text-foreground transition-colors">
+          <a
+            href={`/${lang}#compare`}
+            className="nav-link-slide hover:text-foreground transition-colors"
+          >
             {lang === 'es' ? 'Comparar' : 'Compare'}
           </a>
           <a
@@ -107,13 +110,13 @@ export default function Navbar({ content, lang }: NavbarProps) {
             <Github className="h-5 w-5" />
           </a>
           <Link
-            href={`/${lang}/editor`}
+            href={`/${lang}/login`}
             className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
           >
-            {lang === 'es' ? 'Entrar' : 'Sign in'}
+            {lang === 'es' ? 'Iniciar sesión' : 'Sign in'}
           </Link>
           <Link
-            href={`/${lang}/signup`}
+            href={`/${lang}/register`}
             className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold shadow-md transition-colors"
           >
             {content.getStarted}
@@ -168,7 +171,7 @@ export default function Navbar({ content, lang }: NavbarProps) {
               {lang === 'es' ? 'Precios' : 'Pricing'}
             </Link>
             <a
-              href="#compare"
+              href={`/${lang}#compare`}
               onClick={() => setMobileMenuOpen(false)}
               className="hover:text-primary"
             >
@@ -197,7 +200,7 @@ export default function Navbar({ content, lang }: NavbarProps) {
             </a>
           </div>
           <Link
-            href={`/${lang}/signup`}
+            href={`/${lang}/register`}
             onClick={() => setMobileMenuOpen(false)}
             className="bg-primary text-primary-foreground shadow-primary/20 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-center font-semibold shadow-md"
           >
@@ -205,11 +208,11 @@ export default function Navbar({ content, lang }: NavbarProps) {
             <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
-            href={`/${lang}/editor`}
+            href={`/${lang}/login`}
             onClick={() => setMobileMenuOpen(false)}
-            className="text-muted-foreground hover:text-foreground text-center text-sm"
+            className="border-border text-foreground hover:bg-secondary/40 inline-flex w-full items-center justify-center rounded-xl border py-3 text-center font-semibold"
           >
-            {lang === 'es' ? 'Abrir editor' : 'Open editor'}
+            {lang === 'es' ? 'Iniciar sesión' : 'Sign in'}
           </Link>
         </motion.div>
       )}
