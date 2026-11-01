@@ -10,6 +10,7 @@ import { repo } from '@/config/repo.config';
 
 import DiagramEmbed from '../_shared/DiagramEmbed';
 import AuroraBackground from './AuroraBackground';
+import ComposeBoot from './ComposeBoot';
 
 type CTAProps = {
   content: typeof content.cta;
@@ -126,6 +127,7 @@ export default function CTA({ content }: CTAProps) {
                 </div>
               ))}
             </pre>
+            <ComposeBoot />
           </div>
 
           {/* Two CTAs — primary readme, secondary "what does NOT work" */}

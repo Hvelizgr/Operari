@@ -1,12 +1,16 @@
 import { content as contentEn } from '../content/en';
 import { content as contentEs } from '../content/es';
+import AuditChain from './components/AuditChain';
 import Comparison from './components/Comparison';
 import CTA from './components/CTA';
 import Hero from './components/Hero';
 import HowItWorks from './components/HowItWorks';
 import MetricsBar from './components/MetricsBar';
+import OnCall from './components/OnCall';
+import RunbookAsCode from './components/RunbookAsCode';
 import RunbookTraceSection from './components/RunbookTraceSection';
 import SafetyRails from './components/SafetyRails';
+import ScrollProgress from './components/ScrollProgress';
 import Story from './components/Story';
 import Templates from './components/Templates';
 import TriggerSources from './components/TriggerSources';
@@ -40,6 +44,7 @@ export default async function Page({ params }: { params: Promise<{ lang: string 
 
   return (
     <main className="bg-background selection:bg-primary/20 flex-1">
+      <ScrollProgress />
       <Hero content={content.hero} />
 
       <TrustBar content={content.trust} />
@@ -54,12 +59,24 @@ export default async function Page({ params }: { params: Promise<{ lang: string 
         <RunbookTraceSection />
       </div>
 
+      <div id="as-code">
+        <RunbookAsCode />
+      </div>
+
       <div id="how-it-works">
         <HowItWorks content={content.howItWorks} />
       </div>
 
       <div id="safety">
         <SafetyRails content={content.safety} />
+      </div>
+
+      <div id="audit">
+        <AuditChain />
+      </div>
+
+      <div id="on-call">
+        <OnCall />
       </div>
 
       <div id="templates">

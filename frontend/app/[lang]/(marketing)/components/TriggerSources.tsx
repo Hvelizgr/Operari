@@ -1,6 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion, useInView, useReducedMotion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 
 import { content } from '@/app/[lang]/content/en';
 import { useAnimeStaggerOnView } from '@/hooks/useAnimeStaggerOnView';
@@ -121,8 +122,8 @@ export default function TriggerSources({ content }: TriggerSourcesProps) {
           ref={cardsRef}
           className="mb-14 grid grid-cols-1 gap-3 sm:mb-20 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4"
         >
-          {content.items.map(item => (
-            <TriggerCard key={item.name} item={item} />
+          {content.items.map((item, i) => (
+            <TriggerCard key={item.name} item={item} index={i} />
           ))}
         </div>
 
@@ -143,14 +144,15 @@ export default function TriggerSources({ content }: TriggerSourcesProps) {
             </p>
           </div>
           <div ref={toolsRef} className="flex flex-wrap items-center justify-center gap-2">
-            {content.callsAnything.tools.map(tool => (
-              <span
-                key={tool}
-                data-tool-chip
-                className="bg-background/60 border-border/60 text-foreground/80 hover:border-primary/40 hover:text-foreground cursor-default rounded-lg border px-3 py-1.5 font-mono text-sm transition-all hover:-translate-y-0.5"
-              >
-                {tool}
-              </span>
+            {content.callsAnything.tools.map((tool, i) => (
+              <FloatChip key={tool} index={i}>
+                <span
+                  data-tool-chip
+                  className="bg-background/60 border-border/60 text-foreground/80 hover:border-primary/40 hover:text-foreground cursor-default rounded-lg border px-3 py-1.5 font-mono text-sm transition-all hover:-translate-y-0.5"
+                >
+                  {tool}
+                </span>
+              </FloatChip>
             ))}
           </div>
         </motion.div>
@@ -159,21 +161,109 @@ export default function TriggerSources({ content }: TriggerSourcesProps) {
   );
 }
 
-function TriggerCard({ item }: { item: (typeof content.triggers.items)[number] }) {
+function TriggerCard({
+  item,
+  index,
+}: {
+  item: (typeof content.triggers.items)[number];
+  index: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const event = useWebhookEvents(ref, index);
   return (
     <div
+      ref={ref}
       data-trigger-card
-      className="border-border/60 bg-card/60 hover:border-primary/40 group relative rounded-2xl border p-6 backdrop-blur-md transition-all hover:-translate-y-0.5"
+      className="border-border/60 bg-card/60 hover:border-primary/40 group relative flex flex-col rounded-2xl border p-6 backdrop-blur-md transition-all hover:-translate-y-0.5"
     >
       <div className="mb-4 flex items-start justify-between">
-        <ProviderIcon name={item.name} />
+        <div className="relative">
+          <ProviderIcon name={item.name} />
+          <AnimatePresence>
+            {event && (
+              <motion.span
+                key={event.id}
+                aria-hidden="true"
+                initial={{ opacity: 0.7, scale: 1 }}
+                animate={{ opacity: 0, scale: 1.9 }}
+                transition={{ duration: 1.1, ease: 'easeOut' }}
+                className="border-primary/70 pointer-events-none absolute inset-0 rounded-lg border-2"
+              />
+            )}
+          </AnimatePresence>
+        </div>
         <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
           {item.status}
         </span>
       </div>
       <h3 className="text-foreground mb-2 font-semibold">{item.name}</h3>
       <p className="text-muted-foreground text-xs leading-relaxed">{item.description}</p>
+      <div
+        aria-hidden="true"
+        className="border-border/50 mt-auto h-[46px] overflow-hidden border-t pt-3 font-mono text-[10px] leading-relaxed"
+      >
+        <AnimatePresence mode="wait" initial={false}>
+          {event && (
+            <motion.div
+              key={event.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="text-foreground/80 truncate">
+                {EVENTS[item.name.toLowerCase()] ?? 'POST /hooks/generic'}
+              </div>
+              <div className="text-primary/80 truncate">→ 202 · HMAC ✓ · {event.run}</div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
+  );
+}
+
+const EVENTS: Record<string, string> = {
+  sentry: 'issue.alert · api · fatal',
+  datadog: 'monitor.triggered · p99 > 800ms',
+  github: 'workflow_run · conclusion=failure',
+};
+const RUN_IDS = ['run_8f3a', 'run_c21d', 'run_47be', 'run_e90f', 'run_1b6c', 'run_d5a2'];
+
+/** A fake webhook landing on this card every few seconds while it is on screen, staggered per card. */
+function useWebhookEvents(ref: React.RefObject<HTMLElement | null>, index: number) {
+  const inView = useInView(ref, { margin: '-60px' });
+  const reduce = useReducedMotion();
+  const [event, setEvent] = useState<{ id: number; run: string } | null>(null);
+
+  useEffect(() => {
+    if (!inView || reduce) return;
+    let n = index;
+    const fire = () => {
+      n += 1;
+      setEvent({ id: n, run: RUN_IDS[n % RUN_IDS.length] });
+    };
+    const start = setTimeout(fire, 400 + index * 1100);
+    const every = setInterval(fire, 4400 + index * 300);
+    return () => {
+      clearTimeout(start);
+      clearInterval(every);
+    };
+  }, [inView, reduce, index]);
+
+  return reduce ? { id: 0, run: RUN_IDS[index] } : event;
+}
+
+function FloatChip({ index, children }: { index: number; children: React.ReactNode }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.span
+      className="inline-block"
+      animate={reduce ? undefined : { y: [0, -4, 0] }}
+      transition={{ duration: 2.4, repeat: Infinity, delay: (index % 8) * 0.18, ease: 'easeInOut' }}
+    >
+      {children}
+    </motion.span>
   );
 }
 

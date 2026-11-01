@@ -1,8 +1,9 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowRight, Check, Minus, X } from 'lucide-react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 
 import { content } from '@/app/[lang]/content/en';
 import { useAnimeStaggerOnView } from '@/hooks/useAnimeStaggerOnView';
@@ -149,7 +150,11 @@ export default function Comparison({ content }: ComparisonProps) {
                         key={cellIdx}
                         className={`px-4 py-4 text-sm md:px-5 ${cellIdx === 0 ? 'bg-primary/[0.05]' : ''}`}
                       >
-                        <Cell value={cell} highlighted={cellIdx === 0} />
+                        <Cell
+                          value={cell}
+                          highlighted={cellIdx === 0}
+                          delay={rowIdx * 0.06 + cellIdx * 0.04}
+                        />
                       </td>
                     ))}
                   </tr>
@@ -202,6 +207,7 @@ export default function Comparison({ content }: ComparisonProps) {
  * "what we do" before "how we compare to X".
  */
 function MobileComparison({ content }: { content: ComparisonProps['content'] }) {
+  const es = useParams()?.lang === 'es';
   const competitors = content.headers.slice(1); // skip the empty first header
   return (
     <div className="space-y-4">
@@ -217,8 +223,9 @@ function MobileComparison({ content }: { content: ComparisonProps['content'] }) 
             className={`bg-card/60 overflow-hidden rounded-2xl border shadow-lg shadow-black/20 backdrop-blur-md ${isUs ? 'border-primary/50 ring-primary/30 ring-1' : 'border-border/60'}`}
           >
             <div
-              className={`border-border/40 flex items-center justify-between border-b px-4 py-3 ${isUs ? 'bg-primary/[0.08]' : 'bg-background/40'}`}
+              className={`border-border/40 relative flex items-center justify-between overflow-hidden border-b px-4 py-3 ${isUs ? 'bg-primary/[0.08]' : 'bg-background/40'}`}
             >
+              {isUs && <Sheen />}
               <span
                 className={`text-sm font-semibold ${isUs ? 'text-primary' : 'text-foreground'}`}
               >
@@ -226,18 +233,18 @@ function MobileComparison({ content }: { content: ComparisonProps['content'] }) 
               </span>
               {isUs && (
                 <span className="text-primary/80 text-[10px] font-semibold uppercase tracking-wider">
-                  this is us
+                  {es ? 'somos nosotros' : 'this is us'}
                 </span>
               )}
             </div>
             <div className="divide-border/30 divide-y">
-              {content.rows.map(row => (
+              {content.rows.map((row, rowIdx) => (
                 <div key={row.feature} className="flex items-start justify-between gap-3 px-4 py-3">
                   <span className="text-muted-foreground flex-1 text-xs leading-snug">
                     {row.feature}
                   </span>
                   <div className="shrink-0">
-                    <Cell value={row.cells[colIdx]} highlighted={isUs} />
+                    <Cell value={row.cells[colIdx]} highlighted={isUs} delay={rowIdx * 0.05} />
                   </div>
                 </div>
               ))}
@@ -257,7 +264,32 @@ function MobileComparison({ content }: { content: ComparisonProps['content'] }) 
  * prices) is rendered as styled text. The highlighted variant is
  * used for the Operari column so the green checks read brighter.
  */
-function Cell({ value, highlighted }: { value: string; highlighted: boolean }) {
+function Cell({
+  value,
+  highlighted,
+  delay = 0,
+}: {
+  value: string;
+  highlighted: boolean;
+  delay?: number;
+}) {
+  const v = value.toLowerCase();
+  const isIcon = ['yes', 'sí', 'no', 'partial', 'parcial'].includes(v);
+  if (!isIcon) return <CellBody value={value} highlighted={highlighted} />;
+  return (
+    <motion.div
+      className="inline-flex"
+      initial={{ scale: 0, rotate: -30, opacity: 0 }}
+      whileInView={{ scale: 1, rotate: 0, opacity: 1 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ type: 'spring', stiffness: 420, damping: 18, delay }}
+    >
+      <CellBody value={value} highlighted={highlighted} />
+    </motion.div>
+  );
+}
+
+function CellBody({ value, highlighted }: { value: string; highlighted: boolean }) {
   const v = value.toLowerCase();
 
   if (v === 'yes' || v === 'sí') {
@@ -289,5 +321,20 @@ function Cell({ value, highlighted }: { value: string; highlighted: boolean }) {
     >
       {value}
     </span>
+  );
+}
+
+/** A light sweep across Operari's own card so it reads as the highlighted option. */
+function Sheen() {
+  const reduce = useReducedMotion();
+  if (reduce) return null;
+  return (
+    <motion.span
+      aria-hidden="true"
+      className="via-primary/25 pointer-events-none absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent to-transparent"
+      initial={{ left: '-40%' }}
+      animate={{ left: '140%' }}
+      transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 2.6, ease: 'easeInOut' }}
+    />
   );
 }

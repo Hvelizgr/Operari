@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpRight, Github } from 'lucide-react';
 
 import { content } from '@/app/[lang]/content/en';
@@ -92,8 +92,8 @@ export default function Templates({ content }: TemplatesProps) {
             `useAnimeStaggerOnView` hook) so the cards enter with the
             same motion curve as the TriggerSources section. */}
         <div ref={gridRef} className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
-          {content.items.map(tpl => (
-            <TemplateCard key={tpl.slug} item={tpl} />
+          {content.items.map((tpl, i) => (
+            <TemplateCard key={tpl.slug} item={tpl} index={i} />
           ))}
         </div>
 
@@ -144,7 +144,13 @@ const accentClasses: Record<string, { ring: string; bg: string; text: string }> 
   },
 };
 
-function TemplateCard({ item }: { item: (typeof content.templates.items)[number] }) {
+function TemplateCard({
+  item,
+  index,
+}: {
+  item: (typeof content.templates.items)[number];
+  index: number;
+}) {
   const accent = accentClasses[item.accent] ?? accentClasses.primary;
   return (
     <a
@@ -168,9 +174,57 @@ function TemplateCard({ item }: { item: (typeof content.templates.items)[number]
       <p className="text-muted-foreground mb-4 text-xs leading-relaxed sm:text-sm">
         {item.description}
       </p>
-      <div className="text-muted-foreground/70 truncate font-mono text-[10px] sm:text-[11px]">
-        templates/{item.slug}.yaml
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-muted-foreground/70 min-w-0 truncate font-mono text-[10px] sm:text-[11px]">
+          templates/{item.slug}.yaml
+        </div>
+        <MiniPipeline offset={index * 0.7} />
       </div>
     </a>
+  );
+}
+
+const PIPE_STEPS = 4;
+const PIPE_STEP_S = 0.55;
+const PIPE_CYCLE_S = PIPE_STEPS * PIPE_STEP_S + 1.6;
+
+/** A tiny run of the template: each step lights up in turn, the last one settles green. */
+function MiniPipeline({ offset }: { offset: number }) {
+  const reduce = useReducedMotion();
+  return (
+    <div aria-hidden="true" className="relative flex shrink-0 items-center gap-1.5">
+      <div className="bg-border/70 absolute inset-x-1 top-1/2 h-px -translate-y-1/2" />
+      {Array.from({ length: PIPE_STEPS }, (_, i) => {
+        const last = i === PIPE_STEPS - 1;
+        const on = (i * PIPE_STEP_S) / PIPE_CYCLE_S;
+        return (
+          <span key={i} className="border-border bg-card relative h-2 w-2 rounded-full border">
+            <motion.span
+              className="absolute inset-0 rounded-full"
+              animate={
+                reduce
+                  ? undefined
+                  : {
+                      backgroundColor: [
+                        'rgba(62,207,142,0)',
+                        last ? 'rgba(52,211,153,1)' : 'rgba(62,207,142,1)',
+                        last ? 'rgba(52,211,153,1)' : 'rgba(62,207,142,0.35)',
+                        'rgba(62,207,142,0)',
+                      ],
+                      scale: [1, 1.5, 1, 1],
+                    }
+              }
+              transition={{
+                duration: PIPE_CYCLE_S,
+                times: [on, on + 0.06, 0.92, 1],
+                repeat: Infinity,
+                delay: offset,
+                ease: 'easeOut',
+              }}
+            />
+          </span>
+        );
+      })}
+    </div>
   );
 }
