@@ -1,0 +1,14 @@
+[Unit]
+Description=Operari sandbox network and firewall rules
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Adjust the path to where the repo lives on this host.
+ExecStart=/home/hvelizgr/servidor/Proyectos/Operari/deploy/sandbox/setup-network.sh
+ExecStop=/home/hvelizgr/servidor/Proyectos/Operari/deploy/sandbox/setup-network.sh --remove
+
+[Install]
+WantedBy=multi-user.target

@@ -52,6 +52,7 @@ export function createRunner(options: RunnerRegistryOptions): Runner {
  *   OPERARI_RUNNER         = "local" | "docker" | "fly"   (default: "local")
  *   OPERARI_RUNNER_IMAGE   = "ghcr.io/operari/runner:..." (optional default image for docker/fly)
  *   DOCKER_BINARY          = "podman" | "docker"          (optional, docker only)
+ *   OPERARI_SANDBOX_NETWORK = "operari-sandbox"           (optional, docker only)
  *   FLY_API_TOKEN          = ...                          (required if "fly")
  *   FLY_APP_NAME           = ...                          (required if "fly")
  *   FLY_REGION             = "iad" | "sjc" | ...          (optional)
@@ -77,6 +78,7 @@ export function runnerOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): Runn
       docker: {
         defaultImage: env.OPERARI_RUNNER_IMAGE,
         dockerBinary: env.DOCKER_BINARY,
+        sandboxNetwork: env.OPERARI_SANDBOX_NETWORK || undefined,
       },
     };
   }

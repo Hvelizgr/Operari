@@ -1,8 +1,16 @@
-import { spawn as nodeSpawn } from 'child_process';
+import { spawn as nodeSpawn, spawnSync } from 'child_process';
 import { createHash, randomUUID } from 'crypto';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+
+import {
+  assertSandboxNetwork,
+  DEFAULT_SANDBOX_NETWORK,
+  SANDBOX_GID,
+  SANDBOX_UID,
+  sandboxHardeningArgs,
+} from '../runbook/runners/sandbox-profile';
 
 export interface PtyProcess {
   readonly pid: number;
@@ -61,6 +69,8 @@ export interface TerminalManagerOptions {
   recordingsDir?: string | null;
   maxRecordingBytes?: number;
   killContainer?: (dockerBinary: string, name: string) => void;
+  /** Makes a workspace volume writable by the sandbox uid before first use. */
+  prepareVolume?: PrepareVolume;
   /**
    * Root for per-user persistent workspaces. `null` keeps the old
    * throwaway home that is deleted when the session closes.
@@ -80,9 +90,13 @@ interface SessionConfig {
   recordingsDir: string | null;
   maxRecordingBytes: number;
   killContainer: (dockerBinary: string, name: string) => void;
+  prepareVolume: PrepareVolume;
+  preparedVolumes: Set<string>;
   workspacesDir: string | null;
   now: () => number;
 }
+
+export type PrepareVolume = (dockerBinary: string, volume: string, image: string) => void;
 
 export class TerminalLimitError extends Error {
   constructor(message: string) {
@@ -141,6 +155,54 @@ function loadNodePty(): PtySpawn {
   // disable the terminal instead of failing the whole backend at boot.
   const pty = require('node-pty') as { spawn: PtySpawn };
   return pty.spawn;
+}
+
+const SANDBOX_HOME = '/workspace';
+const SANDBOX_PATH = [
+  `${SANDBOX_HOME}/.local/bin`,
+  `${SANDBOX_HOME}/.npm-global/bin`,
+  '/usr/local/sbin',
+  '/usr/local/bin',
+  '/usr/sbin',
+  '/usr/bin',
+  '/sbin',
+  '/bin',
+].join(':');
+
+/**
+ * Docker creates named volumes owned by root, and the sandbox runs as an
+ * unprivileged uid, so the volume root is handed over once. Volumes from
+ * before the hardening hold root-owned files, hence the recursive chown
+ * when the root is not already ours.
+ */
+function defaultPrepareVolume(dockerBinary: string, volume: string, image: string): void {
+  const result = spawnSync(
+    dockerBinary,
+    [
+      'run',
+      '--rm',
+      '--network',
+      'none',
+      '--cap-drop=ALL',
+      '--cap-add=CHOWN',
+      '--cap-add=DAC_OVERRIDE',
+      '--cap-add=FOWNER',
+      '--security-opt',
+      'no-new-privileges',
+      '--user',
+      '0:0',
+      '-v',
+      `${volume}:/w`,
+      image,
+      'sh',
+      '-c',
+      `[ "$(stat -c %u /w)" = "${SANDBOX_UID}" ] || chown -R ${SANDBOX_UID}:${SANDBOX_GID} /w`,
+    ],
+    { stdio: 'ignore', timeout: 120_000 }
+  );
+  if (result.status !== 0) {
+    throw new Error(`Could not prepare workspace volume ${volume}`);
+  }
 }
 
 function defaultKillContainer(dockerBinary: string, name: string): void {
@@ -281,6 +343,20 @@ export class TerminalSession {
 
     if (this.cfg.runner === 'docker') {
       this.containerName = `operari-term-${this.id}`;
+      let workspaceArgs: string[];
+      if (this.persistent) {
+        const volume = workspaceVolumeName(this.owner);
+        if (!this.cfg.preparedVolumes.has(volume)) {
+          this.cfg.prepareVolume(this.cfg.dockerBinary, volume, this.cfg.image);
+          this.cfg.preparedVolumes.add(volume);
+        }
+        workspaceArgs = ['-v', `${volume}:${SANDBOX_HOME}`];
+      } else {
+        workspaceArgs = [
+          '--tmpfs',
+          `${SANDBOX_HOME}:rw,exec,nosuid,nodev,size=256m,uid=${SANDBOX_UID},gid=${SANDBOX_GID}`,
+        ];
+      }
       return {
         file: this.cfg.dockerBinary,
         args: [
@@ -293,23 +369,26 @@ export class TerminalSession {
           `operari.tenant=${this.owner.tenantId}`,
           '--label',
           `operari.terminal=${this.id}`,
+          ...sandboxHardeningArgs({ tmpSize: '256m' }),
           '--network',
           this.cfg.network,
           '--memory',
           '512m',
           '--cpus',
           '1',
-          '--pids-limit',
-          '256',
-          '--security-opt',
-          'no-new-privileges',
           '-e',
           `TERM=${TERM_NAME}`,
+          '-e',
+          `HOME=${SANDBOX_HOME}`,
+          '-e',
+          `PATH=${SANDBOX_PATH}`,
+          '-e',
+          `NPM_CONFIG_PREFIX=${SANDBOX_HOME}/.npm-global`,
+          '-e',
+          `PIP_CACHE_DIR=${SANDBOX_HOME}/.cache/pip`,
           '-w',
-          '/workspace',
-          ...(this.persistent
-            ? ['-v', `${workspaceVolumeName(this.owner)}:/workspace`, '-e', 'HOME=/workspace']
-            : ['--tmpfs', '/workspace:rw,exec,size=256m']),
+          SANDBOX_HOME,
+          ...workspaceArgs,
           this.cfg.image,
           'sh',
           '-c',
@@ -420,7 +499,7 @@ export class TerminalSessionManager {
       spawnPty: options.spawnPty ?? loadNodePty(),
       dockerBinary: options.dockerBinary ?? 'docker',
       image: options.image ?? 'alpine:3.20',
-      network: options.network ?? 'bridge',
+      network: assertSandboxNetwork(options.network ?? DEFAULT_SANDBOX_NETWORK),
       idleTimeoutMs: options.idleTimeoutMs ?? 15 * 60_000,
       maxDurationMs: options.maxDurationMs ?? 4 * 60 * 60_000,
       recordingsDir:
@@ -429,6 +508,8 @@ export class TerminalSessionManager {
           : options.recordingsDir,
       maxRecordingBytes: options.maxRecordingBytes ?? 10 * 1024 * 1024,
       killContainer: options.killContainer ?? defaultKillContainer,
+      prepareVolume: options.prepareVolume ?? defaultPrepareVolume,
+      preparedVolumes: new Set(),
       workspacesDir:
         options.workspacesDir === undefined
           ? join(tmpdir(), 'operari-workspaces')

@@ -55,6 +55,7 @@ class FakePty implements PtyProcess {
 function setup(overrides: Partial<ConstructorParameters<typeof TerminalSessionManager>[0]> = {}) {
   const ptys: FakePty[] = [];
   const killedContainers: string[] = [];
+  const preparedVolumes: string[] = [];
   let clock = 1_700_000_000_000;
   const manager = new TerminalSessionManager({
     runner: 'local',
@@ -66,6 +67,7 @@ function setup(overrides: Partial<ConstructorParameters<typeof TerminalSessionMa
     recordingsDir: null,
     workspacesDir: null,
     killContainer: (_bin, name) => killedContainers.push(name),
+    prepareVolume: (_bin, volume) => preparedVolumes.push(volume),
     now: () => clock,
     ...overrides,
   });
@@ -73,6 +75,7 @@ function setup(overrides: Partial<ConstructorParameters<typeof TerminalSessionMa
     manager,
     ptys,
     killedContainers,
+    preparedVolumes,
     advance: (ms: number) => {
       clock += ms;
     },
@@ -274,7 +277,20 @@ describe('TerminalSessionManager — docker runner', () => {
 
     expect(file).toBe('docker');
     expect(args.slice(0, 3)).toEqual(['run', '--rm', '-it']);
-    expect(args).toEqual(expect.arrayContaining(['--network', 'none', '--pids-limit', '256']));
+    expect(args).toEqual(
+      expect.arrayContaining([
+        '--network',
+        'none',
+        '--pids-limit',
+        '256',
+        '--cap-drop=ALL',
+        '--read-only',
+        '--user',
+        '1000:1000',
+        'no-new-privileges',
+      ])
+    );
+    expect(args.some(a => /^\/workspace:rw,.*uid=1000,gid=1000/.test(a))).toBe(true);
     expect(args).toContain('operari.tenant=t1');
     expect(args).toContain('ghcr.io/acme/tools:1');
 
@@ -283,12 +299,32 @@ describe('TerminalSessionManager — docker runner', () => {
   });
 
   it('mounts a per-user named volume when workspaces are persistent', () => {
-    const { manager, ptys } = setup({ runner: 'docker', workspacesDir: '/unused' });
+    const { manager, ptys, preparedVolumes } = setup({
+      runner: 'docker',
+      workspacesDir: '/unused',
+    });
+    manager.open(owner, {}, { onData: jest.fn(), onExit: jest.fn() });
     manager.open(owner, {}, { onData: jest.fn(), onExit: jest.fn() });
     expect(ptys[0].args).toEqual(
       expect.arrayContaining(['-v', 'operari-ws-t1-u1:/workspace', '-e', 'HOME=/workspace'])
     );
-    expect(ptys[0].args).not.toContain('--tmpfs');
+    expect(ptys[0].args.some(a => a.startsWith('/workspace:'))).toBe(false);
+    expect(preparedVolumes).toEqual(['operari-ws-t1-u1']);
     manager.closeAll();
   });
+
+  it('defaults to the isolated sandbox network', () => {
+    const { manager, ptys } = setup({ runner: 'docker' });
+    manager.open(owner, {}, { onData: jest.fn(), onExit: jest.fn() });
+    const args = ptys[0].args;
+    expect(args[args.indexOf('--network') + 1]).toBe('operari-sandbox');
+    manager.closeAll();
+  });
+
+  it.each(['bridge', 'host', 'container:operari-backend', 'web;rm'])(
+    'refuses network %s',
+    network => {
+      expect(() => setup({ runner: 'docker', network })).toThrow();
+    }
+  );
 });

@@ -2,6 +2,11 @@ import { ChildProcessWithoutNullStreams, spawn as nodeSpawn } from 'child_proces
 import { randomBytes } from 'crypto';
 
 import { Runner, RunnerContext, RunnerError, RunnerResult, RunnerSpec } from './runner.types';
+import {
+  assertSandboxNetwork,
+  DEFAULT_SANDBOX_NETWORK,
+  sandboxHardeningArgs,
+} from './sandbox-profile';
 
 /**
  * Function shape compatible with `child_process.spawn`. Exposed so tests
@@ -18,6 +23,8 @@ export interface DockerRunnerOptions {
   defaultImage?: string;
   /** Override for the docker binary (e.g. "podman") */
   dockerBinary?: string;
+  /** Network used when a step asks for network access (never `bridge`). */
+  sandboxNetwork?: string;
   /** Inject a custom spawn implementation — used by tests */
   spawnImpl?: SpawnFn;
 }
@@ -41,7 +48,9 @@ const DEFAULT_IMAGE = 'alpine:3.20';
  * Hardening defaults applied to every run:
  *
  *   --rm                    auto-remove container on exit
- *   --network none          when spec.network === 'none'
+ *   --cap-drop=ALL, no-new-privileges, --user 1000:1000
+ *   --network none          by default; `operari-sandbox` (internet only,
+ *                           no private ranges or host) when the step opts in
  *   --read-only             root filesystem is read-only
  *   --tmpfs /tmp:rw,size=64m  scratch space the runbook can use
  *   --memory <Mi>           hard memory cap
@@ -57,6 +66,7 @@ export class DockerRunner implements Runner {
 
   private readonly defaultImage: string;
   private readonly dockerBinary: string;
+  private readonly sandboxNetwork: string;
   private readonly spawnImpl: SpawnFn;
 
   /**
@@ -69,6 +79,7 @@ export class DockerRunner implements Runner {
   constructor(options: DockerRunnerOptions = {}) {
     this.defaultImage = options.defaultImage ?? DEFAULT_IMAGE;
     this.dockerBinary = options.dockerBinary ?? 'docker';
+    this.sandboxNetwork = assertSandboxNetwork(options.sandboxNetwork ?? DEFAULT_SANDBOX_NETWORK);
     this.spawnImpl = options.spawnImpl ?? (nodeSpawn as SpawnFn);
   }
 
@@ -174,20 +185,15 @@ export class DockerRunner implements Runner {
     }
 
     // ---- isolation ----
-    args.push('--read-only');
-    args.push('--tmpfs', '/tmp:rw,size=64m,mode=1777');
-    args.push('--pids-limit', '256');
+    args.push(...sandboxHardeningArgs());
 
     // ---- network policy ----
-    if (spec.network === 'none' || spec.network === undefined) {
-      // Default to none — runbooks must opt in to network access
+    // `allowlist` is not enforced per host yet; it gets the same internet-only
+    // network as `open` until the egress proxy (phase 4) lands.
+    if (spec.network === 'open' || spec.network === 'allowlist') {
+      args.push('--network', this.sandboxNetwork);
+    } else {
       args.push('--network', 'none');
-    } else if (spec.network === 'open') {
-      args.push('--network', 'bridge');
-    } else if (spec.network === 'allowlist') {
-      // Docker has no native allowlist; treat as bridge and let an
-      // outer policy (iptables, gVisor, etc.) enforce. Document loud.
-      args.push('--network', 'bridge');
     }
 
     // ---- resource limits ----

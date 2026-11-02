@@ -104,10 +104,32 @@ describe('DockerRunner.buildDockerArgs', () => {
     expect(args[idx + 1]).toBe('none');
   });
 
-  it('respects network=open', () => {
-    const args = runner.buildDockerArgs({ command: 'true', network: 'open' }, ctx());
-    const idx = args.indexOf('--network');
-    expect(args[idx + 1]).toBe('bridge');
+  it('puts network=open and allowlist on the isolated sandbox network, never bridge', () => {
+    for (const network of ['open', 'allowlist'] as const) {
+      const args = runner.buildDockerArgs({ command: 'true', network }, ctx());
+      expect(args[args.indexOf('--network') + 1]).toBe('operari-sandbox');
+    }
+  });
+
+  it('honors a custom sandbox network', () => {
+    const custom = new DockerRunner({ spawnImpl: buildFakeSpawn().fn, sandboxNetwork: 'egress-1' });
+    const args = custom.buildDockerArgs({ command: 'true', network: 'open' }, ctx());
+    expect(args[args.indexOf('--network') + 1]).toBe('egress-1');
+  });
+
+  it.each(['bridge', 'host', 'container:operari-postgres'])(
+    'refuses sandbox network %s',
+    sandboxNetwork => {
+      expect(() => new DockerRunner({ sandboxNetwork })).toThrow(/Refusing/);
+    }
+  );
+
+  it('drops every capability and runs as an unprivileged user', () => {
+    const args = runner.buildDockerArgs({ command: 'true' }, ctx());
+    expect(args).toContain('--cap-drop=ALL');
+    expect(args[args.indexOf('--user') + 1]).toBe('1000:1000');
+    expect(args[args.indexOf('--security-opt') + 1]).toBe('no-new-privileges');
+    expect(args.indexOf('--user')).toBeLessThan(args.indexOf('alpine:3.20'));
   });
 
   it('encodes resource limits in docker units', () => {

@@ -133,7 +133,7 @@ automáticamente; las cuentas siguientes nunca reciben `local` por registrarse.
 | Fase | Qué | Esfuerzo |
 |---|---|---|
 | 0 | ✅ Runner `local` desactivado en prod. Documentar el riesgo. | hecho |
-| 1 | Endurecer el runner `docker` existente: `--cap-drop=ALL`, `--read-only`, `--user`, red `operari-sandbox` + reglas `DOCKER-USER`; tests de "no llega a postgres / no lee secretos". | 1–2 días |
+| 1 | ✅ código (2026-11-02) · ⏳ reglas en el servidor. Endurecer el runner `docker` existente: `--cap-drop=ALL`, `--read-only`, `--user`, red `operari-sandbox` + reglas `DOCKER-USER`; tests de "no llega a postgres / no lee secretos". | 1–2 días |
 | 2 | `sandbox-runner` con Docker o Podman **rootless** + **gVisor**; backend sin socket. | 3–5 días |
 | 3 | Registro de servidores con huella fijada; `ssh` solo por `serverId`; aprobación obligatoria para `privileged`. | 2–3 días |
 | 4 | Política por workspace en UI; proxy de egreso con lista permitida; certificados SSH de corta vida. | 1 semana |
@@ -150,3 +150,28 @@ mount -t tmpfs x /mnt                     # Operation not permitted
 ```
 
 y deben funcionar: `pip install anthropic`, `npm i -g @anthropic-ai/sdk`, `curl https://api.anthropic.com`.
+
+## Estado de la fase 1 (2026-11-02)
+
+- `backend/src/runbook/runners/sandbox-profile.ts`: flags comunes (`--cap-drop=ALL`,
+  `no-new-privileges`, `--user 1000:1000`, `--read-only`, `/tmp` en tmpfs, `--pids-limit 256`) que
+  usan el runner `docker` y la terminal. Las redes `bridge`, `host`, `default` y `container:*` se
+  rechazan al arrancar.
+- Runner `docker`: `network: open | allowlist` va a `operari-sandbox` (`OPERARI_SANDBOX_NETWORK`),
+  nunca a `bridge`. `allowlist` todavía no filtra por host (fase 4).
+- Terminal `docker`: red por defecto `operari-sandbox`; `HOME=/workspace` con `PATH`,
+  `NPM_CONFIG_PREFIX` y caché de pip dentro del home. El volumen persistente se pasa a uid 1000 la
+  primera vez que se usa en el proceso (chown recursivo si venía de antes con archivos de root).
+- `deploy/sandbox/setup-network.sh` (root): crea la red (`br-opsandbox`, `172.30.250.0/24`, sin ICC)
+  y la cadena `OPERARI-SANDBOX` en `DOCKER-USER` + `DROP` en `INPUT` desde el bridge. Hace falta
+  `INPUT` porque el host escucha en sus propias IPs (sshd en `0.0.0.0:22`, ollama en
+  `172.22.0.1:11434`) y ese tráfico no pasa por `FORWARD`. `operari-sandbox-net.service` lo reaplica
+  después de cada arranque de Docker.
+- `deploy/sandbox/acceptance.sh`: 17 pruebas. En el servidor, con la red creada y **sin** las
+  reglas: 13/17; las 4 que fallan son justo las conexiones al host (172.17.0.1:22, 172.22.0.1:11434,
+  gateway del bridge, IP pública). Con las reglas deben pasar las 17.
+
+**Falta para usarlo en prod:** aplicar las reglas como root, y que el backend pueda lanzar
+contenedores. Montarle `docker.sock` equivale a darle root del host; eso es la fase 2
+(`sandbox-runner` rootless), así que prod sigue con `OPERARI_LOCAL_SHELL_TENANTS=none` hasta entonces.
+

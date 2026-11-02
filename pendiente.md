@@ -2,7 +2,7 @@
 
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
-Última actualización: 2026-11-01 (integraciones: research de n8n y fase 1 del catálogo). Antes: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
+Última actualización: 2026-11-02 (sandbox fase 1). Antes: 2026-11-01 (integraciones: research de n8n y fase 1 del catálogo). Antes: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
 
 ---
 
@@ -18,8 +18,10 @@ Redis y los otros sitios de la red `web`. `OPERARI_LOCAL_SHELL_TENANTS=none` en 
 
 **Fases:**
 
-1. Endurecer el runner `docker`: `--cap-drop=ALL`, `--read-only`, `--user`, red `operari-sandbox`
-   aislada + reglas `DOCKER-USER` (sin ruta a redes privadas ni al host). Tests de aceptación.
+1. ✅ (código, 2026-11-02) Endurecer el runner `docker`: `--cap-drop=ALL`, `--read-only`, `--user`,
+   red `operari-sandbox` aislada + reglas `DOCKER-USER`/`INPUT`. Tests de aceptación en
+   `deploy/sandbox/acceptance.sh`. **Falta:** correr `sudo deploy/sandbox/setup-network.sh` en el
+   servidor e instalar `operari-sandbox-net.service` (hoy 13/17: el sandbox todavía llega al host).
 2. `sandbox-runner` con Docker/Podman rootless + gVisor; el backend sin `docker.sock`.
 3. Registro de servidores propios con huella de host fijada; `ssh` solo por `serverId`; aprobación
    obligatoria para pasos `privileged`; sudo acotado en el servidor (forced command / sudoers).
