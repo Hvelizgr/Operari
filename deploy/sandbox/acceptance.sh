@@ -21,13 +21,13 @@ fail=0
 # shellcheck disable=SC2016
 run() {
   # shellcheck disable=SC2086
-  docker run --rm -i ${OPERARI_SANDBOX_RUNTIME:+--runtime $OPERARI_SANDBOX_RUNTIME} \
+  docker run --rm ${OPERARI_SANDBOX_RUNTIME:+--runtime $OPERARI_SANDBOX_RUNTIME} \
     --cap-drop=ALL --security-opt no-new-privileges --user 1000:1000 \
     --read-only --tmpfs /tmp:rw,nosuid,nodev,size=256m,mode=1777 \
     --tmpfs /workspace:rw,exec,nosuid,nodev,size=256m,uid=1000,gid=1000 \
     -e HOME=/workspace -w /workspace \
     --pids-limit 256 --memory 512m --cpus 1 \
-    --network "$NET" "$IMAGE" sh -c "$1" >/dev/null 2>&1
+    --network "$NET" "$IMAGE" sh -c "$1" </dev/null >/dev/null 2>&1
 }
 # Probes run inside the sandbox, so they use the shell's /dev/tcp-free tools:
 # python is in the default image; nc/wget from busybox otherwise.
