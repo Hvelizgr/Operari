@@ -134,7 +134,7 @@ automáticamente; las cuentas siguientes nunca reciben `local` por registrarse.
 |---|---|---|
 | 0 | ✅ Runner `local` desactivado en prod. Documentar el riesgo. | hecho |
 | 1 | ✅ código (2026-11-02) · ⏳ reglas en el servidor. Endurecer el runner `docker` existente: `--cap-drop=ALL`, `--read-only`, `--user`, red `operari-sandbox` + reglas `DOCKER-USER`; tests de "no llega a postgres / no lee secretos". | 1–2 días |
-| 2 | `sandbox-runner` con Docker o Podman **rootless** + **gVisor**; backend sin socket. | 3–5 días |
+| 2 | ✅ código (2026-11-02) · ⏳ instalación en el servidor. `sandbox-runner` con Docker o Podman **rootless** + **gVisor**; backend sin socket. | 3–5 días |
 | 3 | Registro de servidores con huella fijada; `ssh` solo por `serverId`; aprobación obligatoria para `privileged`. | 2–3 días |
 | 4 | Política por workspace en UI; proxy de egreso con lista permitida; certificados SSH de corta vida. | 1 semana |
 
@@ -174,4 +174,37 @@ y deben funcionar: `pip install anthropic`, `npm i -g @anthropic-ai/sdk`, `curl 
 **Falta para usarlo en prod:** aplicar las reglas como root, y que el backend pueda lanzar
 contenedores. Montarle `docker.sock` equivale a darle root del host; eso es la fase 2
 (`sandbox-runner` rootless), así que prod sigue con `OPERARI_LOCAL_SHELL_TENANTS=none` hasta entonces.
+
+## Estado de la fase 2 (2026-11-02)
+
+- **Servicio** `backend/src/sandbox/` (`node dist/sandbox/main.js`, imagen `--target sandbox`):
+  HTTP con token Bearer (≥ 32 caracteres, comparación en tiempo constante). Endpoints:
+  `GET /v1/health`, `POST /v1/runs` (respuesta NDJSON con stdout/stderr y resultado),
+  `POST /v1/runs/cancel`, `POST /v1/terminals`, `GET …/output` (NDJSON), `POST …/input`,
+  `POST …/resize`, `DELETE …`. El cuerpo se valida con zod (`protocol.ts`): no acepta flags,
+  volúmenes ni nombres de red. Las imágenes tienen que estar en `OPERARI_SANDBOX_IMAGES`. Topes:
+  1 h, 2 GB, 2 CPU, 20 terminales y 20 runs simultáneos. Una terminal sin lector se mata a los 60 s
+  (si el backend se cae, no quedan contenedores colgados).
+- **Backend:** runner `sandbox` (`OPERARI_RUNNER=sandbox`, `OPERARI_SANDBOX_URL`,
+  `OPERARI_SANDBOX_TOKEN`) para los pasos, y `RemotePty` para la terminal: implementa la misma
+  interfaz que node-pty, encola lo tipeado antes de que abra y manda la entrada en orden. En ese
+  modo el backend no carga node-pty ni ve ningún socket de Docker.
+- **Host** (`deploy/sandbox/install-rootless.sh`, root): usuario de sistema `operari-sandbox`
+  con subuids propios, perfil de AppArmor para `rootlesskit` (Ubuntu 24.04 restringe user
+  namespaces), dockerd rootless con linger y la red `operari-sandbox` dentro de ese daemon.
+  gVisor es opcional (`--with-gvisor`, `runsc --ignore-cgroups`).
+- **Red en modo rootless:** los contenedores salen por slirp4netns como el usuario
+  `operari-sandbox`, así que `DOCKER-USER` no los ve. `rootless-firewall.sh` filtra en `OUTPUT`
+  con `-m owner`: deja pasar solo el DNS a `127.0.0.53`, y bloquea el resto de loopback, los
+  rangos privados, la metadata y las IPs del host. IPv6 bloqueado.
+- **Compose:** `docker-compose.sandbox.yml` agrega `sandbox-runner` (solo lectura, sin
+  capabilities, uid del usuario rootless, solo la red interna `sandbox-control`) y pasa el
+  backend a `OPERARI_RUNNER=sandbox`.
+- **Tests:** `src/__tests__/sandbox/` levanta el servidor real por HTTP con Docker/PTY falsos:
+  token, allowlist de imágenes, topes, streaming, cancelación, terminal de punta a punta,
+  limpieza de huérfanas y sandbox caído.
+
+**Falta:** correr `install-rootless.sh` y el firewall como root, `acceptance.sh` contra el daemon
+rootless (18/18), y después activar el overlay en prod. Con gVisor, repetir las pruebas con
+`OPERARI_SANDBOX_RUNTIME=runsc`.
 

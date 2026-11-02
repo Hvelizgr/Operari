@@ -2,7 +2,7 @@
 
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
-Última actualización: 2026-11-02 (sandbox fase 1). Antes: 2026-11-01 (integraciones: research de n8n y fase 1 del catálogo). Antes: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
+Última actualización: 2026-11-02 (sandbox fases 1 y 2). Antes: 2026-11-01 (integraciones: research de n8n y fase 1 del catálogo). Antes: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
 
 ---
 
@@ -22,7 +22,10 @@ Redis y los otros sitios de la red `web`. `OPERARI_LOCAL_SHELL_TENANTS=none` en 
    red `operari-sandbox` aislada + reglas `DOCKER-USER`/`INPUT`. Tests de aceptación en
    `deploy/sandbox/acceptance.sh`. **Falta:** correr `sudo deploy/sandbox/setup-network.sh` en el
    servidor e instalar `operari-sandbox-net.service` (hoy 13/17: el sandbox todavía llega al host).
-2. `sandbox-runner` con Docker/Podman rootless + gVisor; el backend sin `docker.sock`.
+2. ✅ (código, 2026-11-02) `sandbox-runner` con Docker rootless (+ gVisor opcional); el backend sin
+   `docker.sock` (`OPERARI_RUNNER=sandbox`, `docker-compose.sandbox.yml`). **Falta (root):**
+   `sudo deploy/sandbox/install-rootless.sh`, habilitar `operari-sandbox-firewall.service`,
+   `acceptance.sh` contra el daemon rootless y activar el overlay. Pasos en `deploy/sandbox/README.md`.
 3. Registro de servidores propios con huella de host fijada; `ssh` solo por `serverId`; aprobación
    obligatoria para pasos `privileged`; sudo acotado en el servidor (forced command / sudoers).
 4. Política por workspace en la UI, proxy de egreso con lista permitida, certificados SSH de corta vida.

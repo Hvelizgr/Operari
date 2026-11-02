@@ -1,0 +1,56 @@
+# Sandbox phase 2: steps and terminals run on a rootless Docker daemon through
+# the sandbox-runner; the backend switches to OPERARI_RUNNER=sandbox and never
+# gets a Docker socket. Host setup first: deploy/sandbox/README.md.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.server.yml \
+#     -f docker-compose.sandbox.yml up -d --build
+#
+# Needs in .env: OPERARI_SANDBOX_UID, OPERARI_SANDBOX_GID, OPERARI_SANDBOX_TOKEN.
+
+services:
+  sandbox-runner:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: sandbox
+    image: hvelizgr/operari-sandbox-runner:latest
+    # Same uid as the rootless daemon's owner: the socket is 0660 for it only.
+    user: '${OPERARI_SANDBOX_UID:?set OPERARI_SANDBOX_UID}:${OPERARI_SANDBOX_GID:?set OPERARI_SANDBOX_GID}'
+    environment:
+      DOCKER_HOST: unix:///run/sandbox/docker.sock
+      HOME: /tmp
+      OPERARI_SANDBOX_LISTEN: 0.0.0.0:4100
+      OPERARI_SANDBOX_TOKEN: ${OPERARI_SANDBOX_TOKEN:?set OPERARI_SANDBOX_TOKEN}
+      OPERARI_SANDBOX_IMAGES: ${OPERARI_SANDBOX_IMAGES:-alpine:3.20,python:3.12-alpine}
+      OPERARI_SANDBOX_TERMINAL_IMAGE: ${OPERARI_SANDBOX_TERMINAL_IMAGE:-python:3.12-alpine}
+      OPERARI_SANDBOX_RUNTIME: ${OPERARI_SANDBOX_RUNTIME:-}
+      OPERARI_SANDBOX_NETWORK: operari-sandbox
+    volumes:
+      - /run/user/${OPERARI_SANDBOX_UID}/docker.sock:/run/sandbox/docker.sock
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    networks:
+      - sandbox-control
+    restart: unless-stopped
+    labels:
+      dev.hvelizgr.proyecto: operari
+      dev.hvelizgr.servicio: sandbox-runner
+
+  backend:
+    environment:
+      OPERARI_RUNNER: sandbox
+      OPERARI_SANDBOX_URL: http://sandbox-runner:4100
+      OPERARI_SANDBOX_TOKEN: ${OPERARI_SANDBOX_TOKEN}
+    depends_on:
+      sandbox-runner:
+        condition: service_started
+    networks:
+      - sandbox-control
+
+networks:
+  # Backend ↔ sandbox-runner only; no route out.
+  sandbox-control:
+    internal: true

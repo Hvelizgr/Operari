@@ -1,0 +1,12 @@
+[Unit]
+Description=Operari sandbox egress firewall (rootless daemon)
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@HERE@/rootless-firewall.sh
+ExecStop=@HERE@/rootless-firewall.sh --remove
+
+[Install]
+WantedBy=multi-user.target

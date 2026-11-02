@@ -1,14 +1,17 @@
+import { SandboxClient } from '../../sandbox/client';
 import { DockerRunner, DockerRunnerOptions } from './docker.runner';
 import { FlyMachineRunner, FlyMachineRunnerOptions } from './fly-machine.runner';
 import { LocalRunner } from './local.runner';
 import { Runner, RunnerError } from './runner.types';
+import { SandboxRunner } from './sandbox.runner';
 
 export { DockerRunner } from './docker.runner';
 export { FlyMachineRunner } from './fly-machine.runner';
 export { LocalRunner, localRunner } from './local.runner';
 export * from './runner.types';
+export { SandboxRunner } from './sandbox.runner';
 
-export type RunnerType = 'local' | 'docker' | 'fly';
+export type RunnerType = 'local' | 'docker' | 'fly' | 'sandbox';
 
 export interface RunnerRegistryOptions {
   /** Which backend to use as the default runner */
@@ -17,6 +20,8 @@ export interface RunnerRegistryOptions {
   docker?: DockerRunnerOptions;
   /** Required when type === "fly" */
   fly?: FlyMachineRunnerOptions;
+  /** Required when type === "sandbox" */
+  sandbox?: { url: string; token: string };
 }
 
 /**
@@ -31,6 +36,13 @@ export function createRunner(options: RunnerRegistryOptions): Runner {
       return new LocalRunner();
     case 'docker':
       return new DockerRunner(options.docker);
+    case 'sandbox':
+      if (!options.sandbox?.url || !options.sandbox.token) {
+        throw new RunnerError(
+          'The sandbox runner needs OPERARI_SANDBOX_URL and OPERARI_SANDBOX_TOKEN'
+        );
+      }
+      return new SandboxRunner(new SandboxClient(options.sandbox));
     case 'fly':
       if (!options.fly) {
         throw new RunnerError(
@@ -53,6 +65,8 @@ export function createRunner(options: RunnerRegistryOptions): Runner {
  *   OPERARI_RUNNER_IMAGE   = "ghcr.io/operari/runner:..." (optional default image for docker/fly)
  *   DOCKER_BINARY          = "podman" | "docker"          (optional, docker only)
  *   OPERARI_SANDBOX_NETWORK = "operari-sandbox"           (optional, docker only)
+ *   OPERARI_SANDBOX_URL    = "http://sandbox-runner:4100" | "unix:///path" (required if "sandbox")
+ *   OPERARI_SANDBOX_TOKEN  = shared secret, >= 32 chars   (required if "sandbox")
  *   FLY_API_TOKEN          = ...                          (required if "fly")
  *   FLY_APP_NAME           = ...                          (required if "fly")
  *   FLY_REGION             = "iad" | "sjc" | ...          (optional)
@@ -69,6 +83,13 @@ export function runnerOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): Runn
         region: env.FLY_REGION,
         defaultImage: env.OPERARI_RUNNER_IMAGE,
       },
+    };
+  }
+
+  if (type === 'sandbox') {
+    return {
+      type: 'sandbox',
+      sandbox: { url: env.OPERARI_SANDBOX_URL ?? '', token: env.OPERARI_SANDBOX_TOKEN ?? '' },
     };
   }
 

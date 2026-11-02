@@ -14,7 +14,8 @@ This file is the _orientation map_: where things are and how the pieces relate.
 operari/
 ├── core — the product itself
 │   ├── runbook editor       visual canvas + YAML round-trip
-│   ├── execution engine     local / docker / fly runners
+│   ├── execution engine     local / docker / fly / sandbox runners (sandbox = remote
+│   │                        sandbox-runner on rootless Docker, backend/src/sandbox/)
 │   ├── audit chain          SHA-256 hash-chained event log
 │   ├── sessions board       /sessions — running / waiting on you / finished
 │   └── ai assist            failure diagnosis side-panel
@@ -24,7 +25,7 @@ operari/
 │   ├── sql editor           /sql-editor     (G S)
 │   ├── api tester           /http-tester    (G A)
 │   ├── mcp tester           /mcp-tester     (G M) — inspect/call MCP servers, pin a tool into a step
-│   └── terminal             /terminal       — interactive PTY on the local/docker runner over the
+│   └── terminal             /terminal       — interactive PTY on the local/docker/sandbox runner over the
 │                                              /terminal socket namespace; recorded + audited
 │
 ├── cross-cutting — under every feature

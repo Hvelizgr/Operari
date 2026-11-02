@@ -31,6 +31,24 @@ RUN npx prisma generate
 ENV NODE_OPTIONS="--max-old-space-size=6144"
 RUN node --max-old-space-size=6144 /app/node_modules/typescript/bin/tsc
 
+# sandbox-runner: the only process that talks to the (rootless) Docker
+# daemon. Build with --target sandbox; see deploy/sandbox/README.md.
+FROM docker:27-cli AS docker-cli
+
+FROM base AS sandbox
+WORKDIR /app
+ENV NODE_ENV production
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/shared ./packages/shared
+COPY --from=builder /app/backend/package.json ./backend/
+COPY --from=builder /app/backend/node_modules ./backend/node_modules
+COPY --from=builder /app/backend/dist ./backend/dist
+WORKDIR /app/backend
+USER node
+EXPOSE 4100
+CMD ["node", "dist/sandbox/main.js"]
+
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV production

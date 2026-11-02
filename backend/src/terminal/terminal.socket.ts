@@ -14,6 +14,8 @@ import {
 } from '../realtime/socket-auth';
 import { localShellDenied } from '../runbook/executors/shell.executor';
 import { getRunner } from '../runbook/runners';
+import { SandboxRunner } from '../runbook/runners/sandbox.runner';
+import { RemotePty } from './remote-pty';
 import {
   TerminalClosedInfo,
   TerminalLimitError,
@@ -169,7 +171,7 @@ export function attachTerminal(
     return null;
   }
   const runner = getRunner();
-  if (runner.type !== 'local' && runner.type !== 'docker') {
+  if (runner.type !== 'local' && runner.type !== 'docker' && runner.type !== 'sandbox') {
     logger.warn({ runner: runner.type }, 'Terminal not available on this runner');
     return null;
   }
@@ -178,6 +180,10 @@ export function attachTerminal(
   try {
     manager = new TerminalSessionManager({
       runner: runner.type as TerminalRunnerType,
+      openRemotePty:
+        runner instanceof SandboxRunner
+          ? (owner, size, persistent) => new RemotePty(runner.client, owner, size, persistent)
+          : undefined,
       dockerBinary: env.DOCKER_BINARY,
       image: env.OPERARI_TERMINAL_IMAGE || env.OPERARI_RUNNER_IMAGE || undefined,
       network: env.OPERARI_TERMINAL_NETWORK || undefined,

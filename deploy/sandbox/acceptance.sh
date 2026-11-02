@@ -20,7 +20,8 @@ pass=0
 fail=0
 # shellcheck disable=SC2016
 run() {
-  docker run --rm -i \
+  # shellcheck disable=SC2086
+  docker run --rm -i ${OPERARI_SANDBOX_RUNTIME:+--runtime $OPERARI_SANDBOX_RUNTIME} \
     --cap-drop=ALL --security-opt no-new-privileges --user 1000:1000 \
     --read-only --tmpfs /tmp:rw,nosuid,nodev,size=256m,mode=1777 \
     --tmpfs /workspace:rw,exec,nosuid,nodev,size=256m,uid=1000,gid=1000 \
@@ -51,7 +52,7 @@ must_work() {
   fi
 }
 
-echo "image $IMAGE, network $NET, gateway $GATEWAY, host $HOST_IP"
+echo "image $IMAGE, network $NET, runtime ${OPERARI_SANDBOX_RUNTIME:-default}, gateway $GATEWAY, host $HOST_IP"
 must_fail "no Operari secrets in the environment" \
   'env | grep -Eq "DATABASE_URL|ENCRYPTION_KEY|JWT_SECRET|OPERARI_SECRET_KEY"'
 must_fail "pid 1 is not the backend" 'tr "\\0" " " </proc/1/cmdline | grep -q "^node "'
@@ -63,6 +64,7 @@ must_fail "ollama on the web bridge (172.22.0.1:11434)" "$(tcp 172.22.0.1 11434)
 must_fail "own bridge gateway ($GATEWAY:22)" "$(tcp "$GATEWAY" 22)"
 must_fail "host public IP ($HOST_IP:22)" "$(tcp "$HOST_IP" 22)"
 must_fail "cloud metadata (169.254.169.254:80)" "$(tcp 169.254.169.254 80)"
+must_fail "no docker socket inside" '[ -S /var/run/docker.sock ] || [ -S /run/docker.sock ]'
 must_fail "root inside the container" '[ "$(id -u)" = 0 ]'
 must_fail "sudo" 'sudo -n true'
 must_fail "mount" 'mount -t tmpfs x /tmp/m'

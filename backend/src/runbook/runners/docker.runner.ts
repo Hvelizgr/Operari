@@ -25,6 +25,8 @@ export interface DockerRunnerOptions {
   dockerBinary?: string;
   /** Network used when a step asks for network access (never `bridge`). */
   sandboxNetwork?: string;
+  /** OCI runtime, e.g. `runsc` for gVisor. */
+  runtime?: string;
   /** Inject a custom spawn implementation — used by tests */
   spawnImpl?: SpawnFn;
 }
@@ -67,6 +69,7 @@ export class DockerRunner implements Runner {
   private readonly defaultImage: string;
   private readonly dockerBinary: string;
   private readonly sandboxNetwork: string;
+  private readonly runtime?: string;
   private readonly spawnImpl: SpawnFn;
 
   /**
@@ -80,6 +83,7 @@ export class DockerRunner implements Runner {
     this.defaultImage = options.defaultImage ?? DEFAULT_IMAGE;
     this.dockerBinary = options.dockerBinary ?? 'docker';
     this.sandboxNetwork = assertSandboxNetwork(options.sandboxNetwork ?? DEFAULT_SANDBOX_NETWORK);
+    this.runtime = options.runtime || undefined;
     this.spawnImpl = options.spawnImpl ?? (nodeSpawn as SpawnFn);
   }
 
@@ -185,6 +189,7 @@ export class DockerRunner implements Runner {
     }
 
     // ---- isolation ----
+    if (this.runtime) args.push('--runtime', this.runtime);
     args.push(...sandboxHardeningArgs());
 
     // ---- network policy ----

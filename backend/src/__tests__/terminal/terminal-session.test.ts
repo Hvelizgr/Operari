@@ -306,7 +306,12 @@ describe('TerminalSessionManager — docker runner', () => {
     manager.open(owner, {}, { onData: jest.fn(), onExit: jest.fn() });
     manager.open(owner, {}, { onData: jest.fn(), onExit: jest.fn() });
     expect(ptys[0].args).toEqual(
-      expect.arrayContaining(['-v', 'operari-ws-t1-u1:/workspace', '-e', 'HOME=/workspace'])
+      expect.arrayContaining([
+        '--mount',
+        'type=volume,source=operari-ws-t1-u1,target=/workspace,volume-nocopy=true',
+        '-e',
+        'HOME=/workspace',
+      ])
     );
     expect(ptys[0].args.some(a => a.startsWith('/workspace:'))).toBe(false);
     expect(preparedVolumes).toEqual(['operari-ws-t1-u1']);
