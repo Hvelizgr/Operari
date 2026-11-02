@@ -133,8 +133,8 @@ automáticamente; las cuentas siguientes nunca reciben `local` por registrarse.
 | Fase | Qué | Esfuerzo |
 |---|---|---|
 | 0 | ✅ Runner `local` desactivado en prod. Documentar el riesgo. | hecho |
-| 1 | ✅ código (2026-11-02) · ⏳ reglas en el servidor. Endurecer el runner `docker` existente: `--cap-drop=ALL`, `--read-only`, `--user`, red `operari-sandbox` + reglas `DOCKER-USER`; tests de "no llega a postgres / no lee secretos". | 1–2 días |
-| 2 | ✅ código (2026-11-02) · ⏳ instalación en el servidor. `sandbox-runner` con Docker o Podman **rootless** + **gVisor**; backend sin socket. | 3–5 días |
+| 1 | ✅ (2026-11-02; en prod lo cubre la fase 2). Endurecer el runner `docker` existente: `--cap-drop=ALL`, `--read-only`, `--user`, red `operari-sandbox` + reglas `DOCKER-USER`; tests de "no llega a postgres / no lee secretos". | 1–2 días |
+| 2 | ✅ en prod (2026-11-02, acceptance 18/18 sobre el daemon rootless). `sandbox-runner` con Docker o Podman **rootless** + **gVisor**; backend sin socket. | 3–5 días |
 | 3 | Registro de servidores con huella fijada; `ssh` solo por `serverId`; aprobación obligatoria para `privileged`. | 2–3 días |
 | 4 | Política por workspace en UI; proxy de egreso con lista permitida; certificados SSH de corta vida. | 1 semana |
 
@@ -204,7 +204,9 @@ contenedores. Montarle `docker.sock` equivale a darle root del host; eso es la f
   token, allowlist de imágenes, topes, streaming, cancelación, terminal de punta a punta,
   limpieza de huérfanas y sandbox caído.
 
-**Falta:** correr `install-rootless.sh` y el firewall como root, `acceptance.sh` contra el daemon
-rootless (18/18), y después activar el overlay en prod. Con gVisor, repetir las pruebas con
-`OPERARI_SANDBOX_RUNTIME=runsc`.
+**En prod (2026-11-02):** `install-rootless.sh` + `operari-sandbox-firewall.service`;
+`acceptance.sh` contra el daemon rootless 18/18; overlay activo. Verificado desde el backend: el
+paso corre como uid 1000, no ve secretos, `postgres` no resuelve, internet sí. Al arrancar, el
+runner mata los contenedores de un proceso anterior y descarga las imágenes permitidas.
+gVisor sin instalar.
 

@@ -10,6 +10,7 @@ import { chmodSync, existsSync, unlinkSync } from 'fs';
 
 import { DEFAULT_SANDBOX_NETWORK } from '../runbook/runners/sandbox-profile';
 import type { PtySpawn } from '../terminal/terminal-session';
+import { killOrphans, prefetchImages } from './housekeeping';
 import { createSandboxServer } from './server';
 import { prepareWorkspaceVolume } from './terminal-args';
 
@@ -24,13 +25,22 @@ const env = process.env;
 const token = env.OPERARI_SANDBOX_TOKEN ?? '';
 const images = list(env.OPERARI_SANDBOX_IMAGES);
 
+const dockerBinary = env.DOCKER_BINARY || 'docker';
+const allowedImages = images.length ? images : ['alpine:3.20'];
+const orphans = killOrphans(dockerBinary);
+if (orphans.length) console.warn(`killed ${orphans.length} container(s) left by a previous run`);
+prefetchImages(
+  dockerBinary,
+  [...allowedImages, env.OPERARI_SANDBOX_TERMINAL_IMAGE || ''].filter(Boolean)
+);
+
 const server = createSandboxServer({
   token,
-  images: images.length ? images : ['alpine:3.20'],
+  images: allowedImages,
   terminalImage: env.OPERARI_SANDBOX_TERMINAL_IMAGE || undefined,
   network: env.OPERARI_SANDBOX_NETWORK || DEFAULT_SANDBOX_NETWORK,
   runtime: env.OPERARI_SANDBOX_RUNTIME || undefined,
-  dockerBinary: env.DOCKER_BINARY || undefined,
+  dockerBinary,
   maxTerminals: env.OPERARI_SANDBOX_MAX_TERMINALS
     ? Number(env.OPERARI_SANDBOX_MAX_TERMINALS)
     : undefined,

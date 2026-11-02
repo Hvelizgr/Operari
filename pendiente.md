@@ -8,13 +8,16 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 
 ## Código pendiente
 
-### 🔴 Sandbox para terminal y runbooks; sudo solo por SSH a servidores propios (2026-11-01)
+### 🟠 Sandbox para terminal y runbooks; sudo solo por SSH a servidores propios (2026-11-01)
 
 **Detalle y diseño:** [`docs/sandbox-research.md`](docs/sandbox-research.md).
 
-**Hallazgo:** el runner `local` comparte el uid del backend: desde la terminal se lee
+**Estado (2026-11-02):** fases 1 y 2 en producción; los pasos shell y la terminal corren en el
+sandbox para todos los workspaces. Quedan las fases 3 y 4.
+
+**Hallazgo original:** el runner `local` comparte el uid del backend: desde la terminal se lee
 `/proc/1/environ` (`DATABASE_URL`, `ENCRYPTION_KEY`, `JWT_SECRET`, API keys) y se llega a Postgres,
-Redis y los otros sitios de la red `web`. `OPERARI_LOCAL_SHELL_TENANTS=none` en prod hasta resolverlo.
+Redis y los otros sitios de la red `web`. `OPERARI_LOCAL_SHELL_TENANTS=none` ya no aplica: prod usa el runner `sandbox`.
 
 **Fases:**
 
@@ -22,10 +25,9 @@ Redis y los otros sitios de la red `web`. `OPERARI_LOCAL_SHELL_TENANTS=none` en 
    red `operari-sandbox` aislada + reglas `DOCKER-USER`/`INPUT`. Tests de aceptación en
    `deploy/sandbox/acceptance.sh`. **Falta:** correr `sudo deploy/sandbox/setup-network.sh` en el
    servidor e instalar `operari-sandbox-net.service` (hoy 13/17: el sandbox todavía llega al host).
-2. ✅ (código, 2026-11-02) `sandbox-runner` con Docker rootless (+ gVisor opcional); el backend sin
-   `docker.sock` (`OPERARI_RUNNER=sandbox`, `docker-compose.sandbox.yml`). **Falta (root):**
-   `sudo deploy/sandbox/install-rootless.sh`, habilitar `operari-sandbox-firewall.service`,
-   `acceptance.sh` contra el daemon rootless y activar el overlay. Pasos en `deploy/sandbox/README.md`.
+2. ✅ **En prod desde 2026-11-02.** `sandbox-runner` con Docker rootless (usuario `operari-sandbox`,
+   uid 997); el backend usa `OPERARI_RUNNER=sandbox` y no tiene `docker.sock`.
+   `acceptance.sh` contra el daemon rootless: 18/18. gVisor sin instalar (opcional, `--with-gvisor`).
 3. Registro de servidores propios con huella de host fijada; `ssh` solo por `serverId`; aprobación
    obligatoria para pasos `privileged`; sudo acotado en el servidor (forced command / sudoers).
 4. Política por workspace en la UI, proxy de egreso con lista permitida, certificados SSH de corta vida.
