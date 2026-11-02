@@ -2,9 +2,10 @@ import type { Role } from '@prisma/client';
 import { type Response, Router } from 'express';
 import { z } from 'zod';
 
-import { AuditService, type AuditEventType } from '../audit/audit.service';
+import { type AuditEventType,AuditService } from '../audit/audit.service';
 import { type AuditExportRow, buildDeletedActorSet, redactRow } from '../audit/audit-redaction';
 import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
+import { normalizePolicy, policyUpdateSchema, tenantPolicyStore } from '../policy/tenant-policy';
 import { prisma } from '../server';
 
 const router = Router();
@@ -200,6 +201,75 @@ router.patch('/security', authenticate, async (req: AuthRequest, res: Response) 
     .catch(() => undefined);
 
   res.json({ data: updated });
+});
+
+const POLICY_FIELDS = {
+  sshPolicy: true,
+  sandboxEgress: true,
+  egressAllowlist: true,
+  privilegedApprovals: true,
+} as const;
+
+/**
+ * GET /api/tenants/execution-policy
+ *
+ * How this workspace runs ssh and sandboxed steps. Readable by every
+ * member so the editor can explain why a step is refused.
+ */
+router.get('/execution-policy', authenticate, async (req: AuthRequest, res: Response) => {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: req.user!.tenantId },
+    select: POLICY_FIELDS,
+  });
+  if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+  res.json({ data: normalizePolicy(tenant) });
+});
+
+/**
+ * PATCH /api/tenants/execution-policy
+ *
+ * Admin-only. `sandboxEgress: allowlist` with an empty list is refused:
+ * it would silently mean "no network", which is what `none` is for.
+ */
+router.patch('/execution-policy', authenticate, async (req: AuthRequest, res: Response) => {
+  if (req.user!.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Only admins can change the execution policy' });
+  }
+  const parsed = policyUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: parsed.error.issues[0].message, details: parsed.error.errors });
+  }
+  const current = await prisma.tenant.findUnique({
+    where: { id: req.user!.tenantId },
+    select: POLICY_FIELDS,
+  });
+  if (!current) return res.status(404).json({ error: 'Tenant not found' });
+  const next = { ...normalizePolicy(current), ...parsed.data };
+  next.egressAllowlist = Array.from(new Set(next.egressAllowlist));
+  if (next.sandboxEgress === 'allowlist' && next.egressAllowlist.length === 0) {
+    return res
+      .status(400)
+      .json({ error: 'Add at least one host to the allowlist, or choose "none"' });
+  }
+  const updated = await prisma.tenant.update({
+    where: { id: req.user!.tenantId },
+    data: next,
+    select: POLICY_FIELDS,
+  });
+  tenantPolicyStore(prisma).invalidate(req.user!.tenantId);
+  void getAudit()
+    .record({
+      tenantId: req.user!.tenantId,
+      type: 'tenant.execution_policy_changed',
+      actorId: req.user!.id,
+      actorType: 'user',
+      resource: req.user!.tenantId,
+      payload: { before: normalizePolicy(current), after: normalizePolicy(updated) },
+    })
+    .catch(() => undefined);
+  res.json({ data: normalizePolicy(updated) });
 });
 
 /**

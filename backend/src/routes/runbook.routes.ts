@@ -15,7 +15,11 @@ import {
 } from '../runbook/yaml/runbook-serializer';
 import { validateRunbookSpec } from '../runbook/yaml/schema-validator';
 import { prisma } from '../server';
-import { RunbookValidatorService } from '../services/runbook-validator.service';
+import { tenantPolicyStore } from '../policy/tenant-policy';
+import {
+  RunbookValidatorService,
+  type ValidationIssue,
+} from '../services/runbook-validator.service';
 import { computeNextRunAt } from '../services/scheduler.service';
 import {
   runbookInputDefinitionSchema,
@@ -511,7 +515,10 @@ router.post('/', async (req: AuthRequest, res) => {
 
     // Validate logic
     const validator = new RunbookValidatorService();
-    const validation = validator.validate(data as WorkflowDefinition);
+    const policy = await tenantPolicyStore(prisma).get(req.user!.tenantId);
+    const validation = validator.validate(data as WorkflowDefinition, {
+      privilegedApprovals: policy.privilegedApprovals,
+    });
 
     if (!validation.isValid) {
       return res.status(400).json({
@@ -735,6 +742,31 @@ router.put('/:id/yaml', async (req: AuthRequest, res) => {
       throw err;
     }
 
+    const policy = await tenantPolicyStore(prisma).get(req.user!.tenantId);
+    const privilegedIssues: ValidationIssue[] = [];
+    new RunbookValidatorService().checkPrivileged(
+      parsed.nodes.map(n => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        enabled: n.enabled,
+        config: n.config as WorkflowNode['config'],
+        position: { x: n.positionX, y: n.positionY },
+      })),
+      parsed.connections.map((c, i) => ({
+        id: `yaml-${i}`,
+        source: c.sourceNodeId,
+        target: c.targetNodeId,
+      })) as unknown as WorkflowConnection[],
+      policy.privilegedApprovals,
+      privilegedIssues
+    );
+    if (privilegedIssues.length > 0) {
+      return res
+        .status(400)
+        .json({ error: 'Workflow validation failed', issues: privilegedIssues });
+    }
+
     const updated = await prisma.$transaction(async tx => {
       await tx.runbookConnection.deleteMany({ where: { runbookId } });
       await tx.runbookStep.deleteMany({ where: { runbookId } });
@@ -946,7 +978,10 @@ router.put('/:id', async (req: AuthRequest, res) => {
     };
 
     const validator = new RunbookValidatorService();
-    const validation = validator.validate(fullWorkflowForValidation);
+    const policy = await tenantPolicyStore(prisma).get(req.user!.tenantId);
+    const validation = validator.validate(fullWorkflowForValidation, {
+      privilegedApprovals: policy.privilegedApprovals,
+    });
 
     if (!validation.isValid) {
       return res.status(400).json({

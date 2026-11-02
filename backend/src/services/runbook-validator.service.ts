@@ -18,11 +18,16 @@ export interface ValidationResult {
   issues: ValidationIssue[];
 }
 
+export interface ValidationOptions {
+  /** Approval steps a privileged ssh step needs upstream (workspace policy). */
+  privilegedApprovals?: number;
+}
+
 export class RunbookValidatorService {
   /**
    * Validate a runbook definition
    */
-  public validate(runbook: WorkflowDefinition): ValidationResult {
+  public validate(runbook: WorkflowDefinition, options: ValidationOptions = {}): ValidationResult {
     const issues: ValidationIssue[] = [];
 
     // 1. Basic empty check
@@ -50,6 +55,16 @@ export class RunbookValidatorService {
     // would re-queue forever and burn a worker. Catch it at save time
     // so the cycle never reaches the runtime.
     this.checkCycles(runbook.nodes, runbook.connections, issues);
+
+    // 7. A privileged ssh step (`sudo -n`) must sit behind enough approval
+    // steps that every path to it crosses them. Re-checked at run time
+    // against real approvers, so this is the early, visible half.
+    this.checkPrivileged(
+      runbook.nodes,
+      runbook.connections,
+      options.privilegedApprovals ?? 1,
+      issues
+    );
 
     // Determine validity based on errors
     const hasErrors = issues.some(i => i.severity === ValidationSeverity.ERROR);
@@ -256,6 +271,65 @@ export class RunbookValidatorService {
 
     for (const n of nodes) {
       if (color.get(n.id) === WHITE) dfs(n.id, []);
+    }
+  }
+
+  /**
+   * For each privileged ssh node, the minimum number of enabled approval
+   * nodes on any path from a root to it. A side branch that skips the
+   * approval would otherwise reach sudo unapproved.
+   */
+  public checkPrivileged(
+    nodes: WorkflowNode[],
+    connections: WorkflowConnection[],
+    required: number,
+    issues: ValidationIssue[]
+  ): void {
+    const privileged = nodes.filter(
+      n =>
+        n.type === 'ssh' &&
+        n.enabled !== false &&
+        (n.config as Record<string, unknown> | undefined)?.privileged === true
+    );
+    if (privileged.length === 0) return;
+
+    const byId = new Map(nodes.map(n => [n.id, n]));
+    const parents = new Map<string, string[]>();
+    for (const c of connections) {
+      if (!byId.has(c.source) || !byId.has(c.target) || c.source === c.target) continue;
+      parents.set(c.target, [...(parents.get(c.target) ?? []), c.source]);
+    }
+    const memo = new Map<string, number>();
+    const visiting = new Set<string>();
+    const minApprovals = (id: string): number => {
+      const cached = memo.get(id);
+      if (cached !== undefined) return cached;
+      if (visiting.has(id)) return Infinity;
+      visiting.add(id);
+      const node = byId.get(id);
+      const own = node?.type === 'approval' && node.enabled !== false ? 1 : 0;
+      const ps = parents.get(id) ?? [];
+      const upstream = ps.length === 0 ? 0 : Math.min(...ps.map(minApprovals));
+      visiting.delete(id);
+      const value = own + upstream;
+      memo.set(id, value);
+      return value;
+    };
+
+    for (const node of privileged) {
+      const ps = parents.get(node.id) ?? [];
+      const found = ps.length === 0 ? 0 : Math.min(...ps.map(minApprovals));
+      if (found < required) {
+        issues.push({
+          severity: ValidationSeverity.ERROR,
+          message:
+            required === 1
+              ? `Privileged SSH step "${node.title}" needs an approval step before it on every path`
+              : `Privileged SSH step "${node.title}" needs ${required} approval steps before it on every path (found ${found})`,
+          nodeId: node.id,
+          field: 'privileged',
+        });
+      }
     }
   }
 }

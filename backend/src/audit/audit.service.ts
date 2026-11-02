@@ -63,6 +63,14 @@ export type AuditEventType =
    * compliance report can trace the flip at incident-review time.
    */
   | 'tenant.mfa_policy_changed'
+  /** Execution policy (ssh, sandbox egress, approvers) changed. */
+  | 'tenant.execution_policy_changed'
+  /** Registered-server lifecycle; payload carries the pinned fingerprint. */
+  | 'server.registered'
+  | 'server.updated'
+  | 'server.removed'
+  /** A `sudo -n` ssh step ran: exact command, server, approvers, exit code. */
+  | 'ssh.privileged'
   /**
    * Compliance export of the audit log. Written once per download
    * request so a reviewer can see "who pulled the chain and when".

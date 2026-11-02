@@ -43,6 +43,12 @@ export interface RunnerSpec {
   /** Hosts allowed when network = "allowlist" */
   allowedHosts?: string[];
   /**
+   * Docker runner only: network to join instead of the one `network`
+   * selects. Set by the sandbox-runner for per-sandbox egress networks,
+   * never from step config.
+   */
+  containerNetwork?: string;
+  /**
    * Resource limits. LocalRunner ignores. Other runners enforce.
    */
   resources?: {

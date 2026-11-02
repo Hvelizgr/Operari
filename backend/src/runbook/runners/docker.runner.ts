@@ -193,11 +193,13 @@ export class DockerRunner implements Runner {
     args.push(...sandboxHardeningArgs());
 
     // ---- network policy ----
-    // `allowlist` is not enforced per host yet; it gets the same internet-only
-    // network as `open` until the egress proxy (phase 4) lands.
-    if (spec.network === 'open' || spec.network === 'allowlist') {
+    if (spec.containerNetwork) {
+      args.push('--network', assertSandboxNetwork(spec.containerNetwork));
+    } else if (spec.network === 'open') {
       args.push('--network', this.sandboxNetwork);
     } else {
+      // `allowlist` without a per-sandbox egress network (set by the
+      // sandbox-runner) has nothing to enforce it, so it gets no network.
       args.push('--network', 'none');
     }
 

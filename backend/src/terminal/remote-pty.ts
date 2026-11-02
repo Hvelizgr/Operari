@@ -1,4 +1,5 @@
 import type { SandboxClient } from '../sandbox/client';
+import type { TerminalOpenRequest } from '../sandbox/protocol';
 import type { PtyProcess, TerminalOwner } from './terminal-session';
 
 type DataListener = (data: string) => void;
@@ -23,10 +24,14 @@ export class RemotePty implements PtyProcess {
     private readonly client: SandboxClient,
     owner: TerminalOwner,
     size: { cols: number; rows: number },
-    persistent: boolean
+    persistent: boolean,
+    egress: () => Promise<Pick<TerminalOpenRequest, 'network' | 'allowedHosts'>> = async () => ({
+      network: 'open',
+    })
   ) {
-    this.chain = client
-      .openTerminal({ ...owner, ...size, persistent })
+    this.chain = egress()
+      .catch(() => ({ network: 'none' as const }))
+      .then(net => client.openTerminal({ ...owner, ...size, persistent, ...net }))
       .then(id => {
         if (this.exited) {
           void client.closeTerminal(id).catch(() => undefined);

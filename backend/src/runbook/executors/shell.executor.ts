@@ -23,6 +23,11 @@ export interface ShellConfig {
   failOnNonZeroExit?: boolean;
   /** Container image (used by Docker / Fly runners; ignored by LocalRunner) */
   image?: string;
+  /**
+   * `internet` asks for network access. On the sandbox runner the
+   * workspace egress policy is the ceiling (open, allowlist or none).
+   */
+  network?: 'none' | 'internet';
 }
 
 export interface ShellOutput {
@@ -160,6 +165,7 @@ export class ShellExecutor implements StepExecutor<ShellConfig> {
       env: config.env,
       timeoutMs: config.timeout ?? 60_000,
       image: config.image,
+      network: config.network === 'internet' ? 'open' : 'none',
     };
 
     const result = await this.runner.run(spec, {

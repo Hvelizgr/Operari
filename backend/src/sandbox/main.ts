@@ -10,6 +10,7 @@ import { chmodSync, existsSync, unlinkSync } from 'fs';
 
 import { DEFAULT_SANDBOX_NETWORK } from '../runbook/runners/sandbox-profile';
 import type { PtySpawn } from '../terminal/terminal-session';
+import { DockerEgressController, removeOrphanEgressNetworks } from './egress-controller';
 import { killOrphans, prefetchImages } from './housekeeping';
 import { createSandboxServer } from './server';
 import { prepareWorkspaceVolume } from './terminal-args';
@@ -34,11 +35,34 @@ prefetchImages(
   [...allowedImages, env.OPERARI_SANDBOX_TERMINAL_IMAGE || ''].filter(Boolean)
 );
 
+removeOrphanEgressNetworks(dockerBinary);
+
+const sandboxNetwork = env.OPERARI_SANDBOX_NETWORK || DEFAULT_SANDBOX_NETWORK;
+let egress: DockerEgressController | undefined;
+if (env.OPERARI_SANDBOX_EGRESS !== 'off') {
+  const controller = new DockerEgressController({
+    dockerBinary,
+    upstreamNetwork: sandboxNetwork,
+    proxyImage: env.OPERARI_SANDBOX_EGRESS_IMAGE || undefined,
+    runtime: env.OPERARI_SANDBOX_RUNTIME || undefined,
+  });
+  try {
+    controller.start();
+    egress = controller;
+    console.warn('egress proxy started; allowlist sandboxes enabled');
+  } catch (err) {
+    console.error(
+      `egress proxy unavailable, allowlist sandboxes refused: ${(err as Error).message}`
+    );
+  }
+}
+
 const server = createSandboxServer({
   token,
   images: allowedImages,
   terminalImage: env.OPERARI_SANDBOX_TERMINAL_IMAGE || undefined,
-  network: env.OPERARI_SANDBOX_NETWORK || DEFAULT_SANDBOX_NETWORK,
+  network: sandboxNetwork,
+  egress,
   runtime: env.OPERARI_SANDBOX_RUNTIME || undefined,
   dockerBinary,
   maxTerminals: env.OPERARI_SANDBOX_MAX_TERMINALS

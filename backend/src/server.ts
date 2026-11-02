@@ -25,9 +25,9 @@ import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env.config';
 import { logger } from './config/logger.config';
 import { swaggerSpec } from './config/swagger.config';
+import { attachUserIfPresent } from './middleware/auth.middleware';
 import { csrfProtection } from './middleware/csrf.middleware';
 import { errorHandler } from './middleware/error.middleware';
-import { attachUserIfPresent } from './middleware/auth.middleware';
 import { addUserContext, requestLogger } from './middleware/logger.middleware';
 import {
   authRateLimiter,
@@ -38,6 +38,7 @@ import {
   webhookRateLimiter,
 } from './middleware/ratelimit.middleware';
 import { installTenantScopeGuard } from './middleware/tenant-scope-guard';
+import { tenantPolicyStore } from './policy/tenant-policy';
 import adminRoutes from './routes/admin.routes';
 import approvalRoutes from './routes/approvals.routes';
 import authRoutes from './routes/auth.routes';
@@ -51,18 +52,19 @@ import eventsRoutes from './routes/events.routes';
 import executionRoutes from './routes/execution.routes';
 import githubExplorerRoutes from './routes/github-explorer.routes';
 import httpTesterRoutes from './routes/http-tester.routes';
-import mcpTesterRoutes from './routes/mcp-tester.routes';
 import invitesRoutes from './routes/invites.routes';
+import mcpTesterRoutes from './routes/mcp-tester.routes';
+import metricsRoutes from './routes/metrics.routes';
 import mfaRoutes from './routes/mfa.routes';
 import monitorsRoutes from './routes/monitors.routes';
 import nodeTypesRoutes from './routes/node-types.routes'; // Added import
 import oauthRoutes from './routes/oauth.routes';
 import projectRoutes from './routes/projects.routes';
-import workosRoutes from './routes/workos.routes';
 import runbookRoutes from './routes/runbook.routes';
 import runbookAssistRoutes from './routes/runbook-assist.routes';
 import runRoutes from './routes/runs.routes';
 import schedulesRoutes from './routes/schedules.routes';
+import { createServersRouter } from './routes/servers.routes';
 import sqlRoutes from './routes/sql.routes';
 import templatesRoutes from './routes/templates.routes';
 import tenantsRoutes from './routes/tenants.routes';
@@ -73,8 +75,9 @@ import v1RunbookRoutes from './routes/v1/runbooks.routes';
 import v1RunRoutes from './routes/v1/runs.routes';
 import v1WebhookRoutes from './routes/v1/webhooks.routes';
 import webhookRoutes from './routes/webhook.routes';
-import metricsRoutes from './routes/metrics.routes';
 import webhooksAdminRoutes from './routes/webhooks-admin.routes';
+import workosRoutes from './routes/workos.routes';
+import { getRunner, SandboxRunner } from './runbook/runners';
 import runbookJsonSchema from './runbook/yaml/runbook.schema.json';
 import { MonitorService } from './services/monitor.service';
 import { computeRoles } from './services/roles';
@@ -201,6 +204,13 @@ app.use('/api/auth/workos', workosRoutes);
 app.use('/api/billing', standardRateLimiter, billingRoutes);
 app.use('/api/invites', standardRateLimiter, invitesRoutes);
 app.use('/api/tenants', standardRateLimiter, tenantsRoutes);
+app.use('/api/servers', standardRateLimiter, createServersRouter({ prisma }));
+{
+  const runner = getRunner();
+  if (runner instanceof SandboxRunner) {
+    runner.usePolicy(tenantId => tenantPolicyStore(prisma).get(tenantId));
+  }
+}
 app.use('/api/executions', executionRateLimiter, executionRoutes);
 app.use('/api/runbooks', standardRateLimiter, runbookRoutes);
 app.use('/api/node-types', standardRateLimiter, nodeTypesRoutes);

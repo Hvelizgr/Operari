@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { egressHostSchema } from '../policy/tenant-policy';
+
 /**
  * Wire format between the backend and the sandbox-runner. The backend only
  * describes what to run; every container flag is decided by the runner, so
@@ -22,6 +24,8 @@ export const runRequestSchema = z.object({
     timeoutMs: z.number().int().positive().optional(),
     image: z.string().max(300).optional(),
     network: z.enum(['none', 'allowlist', 'open']).optional(),
+    /** Required for `allowlist`: the hosts the egress proxy lets through. */
+    allowedHosts: z.array(egressHostSchema).max(200).optional(),
     resources: z
       .object({
         cpuMillis: z.number().int().positive().optional(),
@@ -41,8 +45,10 @@ export const terminalOpenSchema = z.object({
   cols: z.number().int().min(10).max(500),
   rows: z.number().int().min(5).max(200),
   persistent: z.boolean(),
+  network: z.enum(['none', 'allowlist', 'open']).default('open'),
+  allowedHosts: z.array(egressHostSchema).max(200).optional(),
 });
-export type TerminalOpenRequest = z.infer<typeof terminalOpenSchema>;
+export type TerminalOpenRequest = z.input<typeof terminalOpenSchema>;
 
 export const terminalInputSchema = z.object({ data: z.string().max(64 * 1024) });
 export const terminalResizeSchema = z.object({

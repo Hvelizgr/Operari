@@ -104,11 +104,22 @@ describe('DockerRunner.buildDockerArgs', () => {
     expect(args[idx + 1]).toBe('none');
   });
 
-  it('puts network=open and allowlist on the isolated sandbox network, never bridge', () => {
-    for (const network of ['open', 'allowlist'] as const) {
-      const args = runner.buildDockerArgs({ command: 'true', network }, ctx());
-      expect(args[args.indexOf('--network') + 1]).toBe('operari-sandbox');
-    }
+  it('puts network=open on the isolated sandbox network, never bridge', () => {
+    const args = runner.buildDockerArgs({ command: 'true', network: 'open' }, ctx());
+    expect(args[args.indexOf('--network') + 1]).toBe('operari-sandbox');
+  });
+
+  it('gives allowlist no network unless the sandbox-runner supplies an egress network', () => {
+    const none = runner.buildDockerArgs({ command: 'true', network: 'allowlist' }, ctx());
+    expect(none[none.indexOf('--network') + 1]).toBe('none');
+    const scoped = runner.buildDockerArgs(
+      { command: 'true', network: 'allowlist', containerNetwork: 'operari-eg-r1' },
+      ctx()
+    );
+    expect(scoped[scoped.indexOf('--network') + 1]).toBe('operari-eg-r1');
+    expect(() =>
+      runner.buildDockerArgs({ command: 'true', containerNetwork: 'bridge' }, ctx())
+    ).toThrow(/Refusing/);
   });
 
   it('honors a custom sandbox network', () => {

@@ -24,6 +24,8 @@ export interface TerminalContainerSpec {
   /** Named volume mounted as the home; `null` for a throwaway tmpfs home. */
   volume: string | null;
   runtime?: string;
+  /** Extra variables set by the runner (egress proxy). */
+  env?: Record<string, string>;
 }
 
 export function buildTerminalDockerArgs(spec: TerminalContainerSpec): string[] {
@@ -64,6 +66,7 @@ export function buildTerminalDockerArgs(spec: TerminalContainerSpec): string[] {
     `NPM_CONFIG_PREFIX=${SANDBOX_HOME}/.npm-global`,
     '-e',
     `PIP_CACHE_DIR=${SANDBOX_HOME}/.cache/pip`,
+    ...Object.entries(spec.env ?? {}).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
     '-w',
     SANDBOX_HOME,
     ...home,

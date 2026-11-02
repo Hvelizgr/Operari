@@ -4,6 +4,7 @@ import type { Namespace, Server as SocketServer } from 'socket.io';
 import { AuditService } from '../audit/audit.service';
 import { getAuthProvider } from '../auth';
 import { logger } from '../config/logger.config';
+import { tenantPolicyStore } from '../policy/tenant-policy';
 import { PermissionService } from '../rbac/permission.service';
 import { Permissions } from '../rbac/permissions';
 import {
@@ -14,7 +15,8 @@ import {
 } from '../realtime/socket-auth';
 import { localShellDenied } from '../runbook/executors/shell.executor';
 import { getRunner } from '../runbook/runners';
-import { SandboxRunner } from '../runbook/runners/sandbox.runner';
+import { egressFor, SandboxRunner } from '../runbook/runners/sandbox.runner';
+import type { TerminalOpenRequest } from '../sandbox/protocol';
 import { RemotePty } from './remote-pty';
 import {
   TerminalClosedInfo,
@@ -182,7 +184,14 @@ export function attachTerminal(
       runner: runner.type as TerminalRunnerType,
       openRemotePty:
         runner instanceof SandboxRunner
-          ? (owner, size, persistent) => new RemotePty(runner.client, owner, size, persistent)
+          ? (owner, size, persistent) =>
+              new RemotePty(runner.client, owner, size, persistent, async () => {
+                const policy = await tenantPolicyStore(prisma).get(owner.tenantId);
+                return egressFor(policy, 'open') as Pick<
+                  TerminalOpenRequest,
+                  'network' | 'allowedHosts'
+                >;
+              })
           : undefined,
       dockerBinary: env.DOCKER_BINARY,
       image: env.OPERARI_TERMINAL_IMAGE || env.OPERARI_RUNNER_IMAGE || undefined,

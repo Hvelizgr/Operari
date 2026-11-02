@@ -1,3 +1,4 @@
+import type { TenantPolicy } from '../../policy/tenant-policy';
 import { SandboxClient } from '../../sandbox/client';
 import type { RunRequest } from '../../sandbox/protocol';
 import { Runner, RunnerContext, RunnerError, RunnerResult, RunnerSpec } from './runner.types';
@@ -10,7 +11,34 @@ import { Runner, RunnerContext, RunnerError, RunnerResult, RunnerSpec } from './
 export class SandboxRunner implements Runner {
   readonly type = 'sandbox';
 
+  private policyFor: ((tenantId: string) => Promise<TenantPolicy>) | null = null;
+
   constructor(readonly client: SandboxClient) {}
+
+  /** Workspace egress policy becomes the ceiling for every step's network. */
+  usePolicy(policyFor: (tenantId: string) => Promise<TenantPolicy>): void {
+    this.policyFor = policyFor;
+  }
+
+  /**
+   * What the step asked for, capped by the workspace. Fails closed: if the
+   * policy cannot be read the step gets no network.
+   */
+  async effectiveNetwork(
+    spec: RunnerSpec,
+    tenantId: string
+  ): Promise<Pick<RunnerSpec, 'network' | 'allowedHosts'>> {
+    const requested = spec.network ?? 'none';
+    if (requested === 'none') return { network: 'none' };
+    if (!this.policyFor) return { network: requested, allowedHosts: spec.allowedHosts };
+    let policy: TenantPolicy;
+    try {
+      policy = await this.policyFor(tenantId);
+    } catch {
+      return { network: 'none' };
+    }
+    return egressFor(policy, requested, spec.allowedHosts);
+  }
 
   async healthcheck(): Promise<void> {
     try {
@@ -26,6 +54,7 @@ export class SandboxRunner implements Runner {
     if (shell !== 'sh' && shell !== 'bash') {
       throw new RunnerError(`Unsupported shell for the sandbox runner: ${shell}`);
     }
+    const net = await this.effectiveNetwork(spec, context.tenantId);
     const payload: RunRequest = {
       spec: {
         command: spec.command,
@@ -34,7 +63,8 @@ export class SandboxRunner implements Runner {
         env: spec.env,
         timeoutMs: spec.timeoutMs,
         image: spec.image,
-        network: spec.network,
+        network: net.network,
+        allowedHosts: net.allowedHosts,
         resources: spec.resources
           ? { cpuMillis: spec.resources.cpuMillis, memoryMb: spec.resources.memoryMb }
           : undefined,
@@ -86,4 +116,21 @@ export class SandboxRunner implements Runner {
       return 0;
     }
   }
+}
+
+export function egressFor(
+  policy: TenantPolicy,
+  requested: 'open' | 'allowlist',
+  stepHosts?: string[]
+): Pick<RunnerSpec, 'network' | 'allowedHosts'> {
+  if (policy.sandboxEgress === 'none') return { network: 'none' };
+  if (policy.sandboxEgress === 'allowlist') {
+    return policy.egressAllowlist.length
+      ? { network: 'allowlist', allowedHosts: policy.egressAllowlist }
+      : { network: 'none' };
+  }
+  if (requested === 'allowlist' && stepHosts?.length) {
+    return { network: 'allowlist', allowedHosts: stepHosts };
+  }
+  return { network: 'open' };
 }

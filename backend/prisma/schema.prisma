@@ -213,6 +213,20 @@ model Tenant {
   /// Used to show the user when the next renewal hits.
   planCurrentPeriodEnd DateTime?
 
+  /// Execution policy (docs/sandbox-research.md, phase 4).
+  /// `registered`: ssh steps only reach rows of `Server`; `any` also
+  /// allows ad-hoc host/username steps (self-host compatibility).
+  sshPolicy           String   @default("registered")
+  /// Sandbox egress for shell steps and the terminal: `open` (internet,
+  /// never private ranges), `allowlist` (only `egressAllowlist` through
+  /// the egress proxy) or `none`.
+  sandboxEgress       String   @default("open")
+  /// Hostnames for `sandboxEgress = allowlist`; `*.example.com` matches
+  /// subdomains.
+  egressAllowlist     String[] @default([])
+  /// Distinct approvers required before a privileged ssh step runs (1 or 2).
+  privilegedApprovals Int      @default(1)
+
   users             User[]
   runbooks         Runbook[]
   storageBuckets    StorageBucket[]
@@ -234,8 +248,55 @@ model Tenant {
   nodeTypes         NodeType[]
   alertChannels     TenantAlertChannel[]
   projects          Project[]
+  servers           Server[]
+  sshAuthority      SshCertificateAuthority?
 
   @@index([slug])
+}
+
+/// A host the workspace admin registered as its own. ssh steps reach
+/// servers only through this table, with the host key pinned at
+/// registration so a DNS or network attacker cannot swap the machine.
+model Server {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  host        String
+  port        Int      @default(22)
+  username    String
+  /// Full OpenSSH public host key ("ssh-ed25519 AAAA…"), pinned.
+  hostKey     String
+  /// OpenSSH SHA256 fingerprint of `hostKey`, for display.
+  hostKeyFingerprint String
+  /// `key`: ConnectedAccount private key. `certificate`: a short-lived
+  /// certificate signed per step by the workspace SSH CA.
+  authMode    String   @default("key")
+  credentialId String?
+  /// Privileged steps (`sudo -n`) are refused unless this is on.
+  sudoAllowed Boolean  @default(false)
+  createdBy   String
+  lastCheckedAt DateTime?
+  lastCheckError String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+/// Per-workspace SSH certificate authority. Servers trust `publicKey`
+/// via TrustedUserCAKeys; each certificate-mode ssh step gets a fresh
+/// key and a certificate valid for a few minutes.
+model SshCertificateAuthority {
+  tenantId            String   @id
+  publicKey           String
+  /// OpenSSH private key, encrypted with SecretCipher.
+  privateKeyEncrypted String
+  createdAt           DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 /// Tenant-wide alert channel defaults for monitors. When a Monitor

@@ -7,6 +7,7 @@ import { DockerRunner } from '../runbook/runners/docker.runner';
 import type { RunnerSpec } from '../runbook/runners/runner.types';
 import { assertSandboxNetwork } from '../runbook/runners/sandbox-profile';
 import { PtyProcess, PtySpawn, workspaceVolumeName } from '../terminal/terminal-session';
+import type { EgressAttachment, EgressController } from './egress-controller';
 import {
   cancelRequestSchema,
   LIMITS,
@@ -35,6 +36,8 @@ export interface SandboxServerConfig {
   prepareVolume: (dockerBinary: string, volume: string, image: string) => void;
   killContainer?: (dockerBinary: string, name: string) => void;
   runner?: DockerRunner;
+  /** Enables `network: allowlist`; without it such requests are refused. */
+  egress?: EgressController;
 }
 
 interface TerminalEntry {
@@ -46,10 +49,13 @@ interface TerminalEntry {
   consumer: ServerResponse | null;
   exitCode: number | null | undefined;
   orphanTimer: NodeJS.Timeout | null;
+  release: () => void;
 }
 
 const MAX_BODY = 2 * 1024 * 1024;
 const MAX_BUFFER = 1024 * 1024;
+/** Backend caps terminals at 4 h; the grant outlives that slightly. */
+const TERMINAL_GRANT_SECONDS = 4 * 60 * 60 + 600;
 
 class HttpError extends Error {
   constructor(
@@ -155,6 +161,21 @@ export function createSandboxServer(config: SandboxServerConfig): SandboxServer 
     entry.orphanTimer.unref?.();
   }
 
+  function attachEgress(
+    id: string,
+    hosts: string[] | undefined,
+    ttlSeconds: number
+  ): EgressAttachment {
+    if (!config.egress)
+      throw new HttpError(400, 'allowlist egress is not configured on this sandbox');
+    if (!hosts || hosts.length === 0) throw new HttpError(400, 'allowlist needs at least one host');
+    try {
+      return config.egress.attach(id, hosts, ttlSeconds);
+    } catch (err) {
+      throw new HttpError(503, (err as Error).message);
+    }
+  }
+
   function closeTerminal(entry: TerminalEntry): void {
     if (entry.orphanTimer) clearTimeout(entry.orphanTimer);
     terminals.delete(entry.id);
@@ -167,6 +188,8 @@ export function createSandboxServer(config: SandboxServerConfig): SandboxServer 
       kill(dockerBinary, entry.containerName);
     }
     entry.consumer?.end();
+    // The container may still be dying; detaching -f from the network is fine.
+    entry.release();
   }
 
   async function handleRun(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -188,6 +211,17 @@ export function createSandboxServer(config: SandboxServerConfig): SandboxServer 
         cpuMillis: Math.min(body.spec.resources?.cpuMillis ?? 1000, LIMITS.maxCpuMillis),
       },
     };
+
+    let egress: EgressAttachment | null = null;
+    if (spec.network === 'allowlist') {
+      egress = attachEgress(
+        `r${randomUUID().slice(0, 12)}`,
+        body.spec.allowedHosts,
+        Math.ceil((spec.timeoutMs ?? 60_000) / 1000) + 120
+      );
+      spec.containerNetwork = egress.network;
+      spec.env = { ...(spec.env ?? {}), ...egress.env };
+    }
 
     activeRuns++;
     let finished = false;
@@ -217,6 +251,7 @@ export function createSandboxServer(config: SandboxServerConfig): SandboxServer 
     } finally {
       finished = true;
       activeRuns--;
+      egress?.release();
       res.end();
     }
   }
@@ -234,14 +269,21 @@ export function createSandboxServer(config: SandboxServerConfig): SandboxServer 
         preparedVolumes.add(volume);
       }
     }
+    let egress: EgressAttachment | null = null;
+    let terminalNetwork = body.network === 'none' ? 'none' : network;
+    if (body.network === 'allowlist') {
+      egress = attachEgress(`t${id.slice(0, 12)}`, body.allowedHosts, TERMINAL_GRANT_SECONDS);
+      terminalNetwork = egress.network;
+    }
     const args = buildTerminalDockerArgs({
       containerName,
       tenantId: body.tenantId,
       sessionId: id,
-      network,
+      network: terminalNetwork,
       image: terminalImage,
       volume,
       runtime: config.runtime,
+      env: egress?.env,
     });
     const pty = config.spawnPty(dockerBinary, args, {
       name: 'xterm-256color',
@@ -259,6 +301,7 @@ export function createSandboxServer(config: SandboxServerConfig): SandboxServer 
       consumer: null,
       exitCode: undefined,
       orphanTimer: null,
+      release: () => egress?.release(),
     };
     terminals.set(id, entry);
     pty.onData(data => {
@@ -274,6 +317,7 @@ export function createSandboxServer(config: SandboxServerConfig): SandboxServer 
     });
     pty.onExit(({ exitCode }) => {
       entry.exitCode = exitCode;
+      entry.release();
       if (entry.consumer) {
         writeLine(entry.consumer, { t: 'exit', code: exitCode });
         entry.consumer.end();

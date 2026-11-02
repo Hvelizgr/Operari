@@ -7,6 +7,7 @@ import { upsertPluginNodeTypes } from '../plugins/upsert-node-types';
 import { getRunner } from '../runners';
 import { Runner } from '../runners/runner.types';
 import { StepExecutor } from '../types/executor.types';
+import { PrismaServerDirectory } from '../../servers/server-directory';
 import { ApprovalExecutor } from './approval.executor';
 import { DatabaseExecutor } from './database.executor';
 import { DatadogEventExecutor } from './datadog-event.executor';
@@ -87,7 +88,7 @@ export function createExecutorRegistry(
   registry.set('approval', new ApprovalExecutor(prisma));
   registry.set('notify', new NotifyExecutor());
   registry.set('wait', new WaitExecutor());
-  registry.set('ssh', new SSHExecutor());
+  registry.set('ssh', new SSHExecutor(undefined, { directory: new PrismaServerDirectory(prisma) }));
   registry.set('operari.httpRequest', new HttpExecutor());
   registry.set('operari.database', new DatabaseExecutor());
   registry.set('github.commitFile', new GitHubCommitFileExecutor());

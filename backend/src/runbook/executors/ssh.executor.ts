@@ -1,6 +1,14 @@
-import { Client, type ClientChannel, type ConnectConfig } from 'ssh2';
+import { Client } from 'ssh2';
 
 import { blockedTarget } from '../../security/ssrf-guard';
+import type { ServerDirectory, ServerRecord, StepRef } from '../../servers/server-directory';
+import {
+  runOverOpenSsh,
+  runOverSsh2,
+  type SpawnFn,
+  type SshRunResult,
+  type SshStreams,
+} from '../../servers/ssh-transport';
 import {
   credentialSecret,
   ExecutorContext,
@@ -12,17 +20,26 @@ import {
 export interface SSHConfig {
   /** Shell command to execute on the remote host. Supports {{vars.x}} template substitution. */
   command: string;
-  /** Remote host (IP or hostname). Supports templates. */
-  host: string;
-  /** SSH port (default: 22). */
-  port?: number;
-  /** SSH username. Supports templates. */
-  username: string;
   /**
-   * ConnectedAccount ID whose accessToken holds the PEM-encoded private key.
-   * Pre-resolved by SecretTemplateResolver into context.secrets[credentialId].
+   * Registered server (Settings → Servers). Host, port, user, credential
+   * and the pinned host key all come from that row; the fields below are
+   * ignored when this is set.
    */
-  credentialId: string;
+  serverId?: string;
+  /**
+   * Run the command with `sudo -n`. Needs a registered server with sudo
+   * allowed and, before it, the number of approvals the workspace policy
+   * requires.
+   */
+  privileged?: boolean;
+  /** Ad-hoc remote host. Only when the workspace ssh policy is `any`. */
+  host?: string;
+  /** SSH port (default: 22). Ad-hoc only. */
+  port?: number;
+  /** SSH username. Ad-hoc only. */
+  username?: string;
+  /** ConnectedAccount with the PEM private key. Ad-hoc only. */
+  credentialId?: string;
   /** Working directory — prepended as `cd <cwd> &&` before the command. */
   cwd?: string;
   /** Environment variables to set on the remote shell. */
@@ -39,49 +56,86 @@ export interface SSHOutput {
   exitCode: number | null;
   command: string;
   host: string;
+  server?: { id: string; name: string; fingerprint: string };
+  privileged?: boolean;
+}
+
+export interface SSHExecutorDeps {
+  /** Without it (tests, bare setups) only ad-hoc steps run, as before. */
+  directory?: ServerDirectory;
+  spawn?: SpawnFn;
 }
 
 /**
  * SSH command executor.
  *
- * Connects to a remote host via SSH and runs a shell command.
- * Credentials are read from ConnectedAccount (provider="ssh") via
- * the pre-resolved secrets map in ExecutorContext.
- *
- * Unlike ShellExecutor, this does NOT delegate to a Runner — it
- * manages the SSH connection internally (same pattern as NotifyExecutor
- * managing its own HTTP calls).
+ * With `serverId`, the step targets a server the workspace registered:
+ * the host key is pinned, the credential is read from the server row (or
+ * a certificate is minted for this step), and `privileged` steps run as
+ * `sudo -n` only after the required approvals. Ad-hoc host/username steps
+ * remain for workspaces whose ssh policy is `any`.
  */
 export class SSHExecutor implements StepExecutor<SSHConfig> {
   readonly type = 'ssh';
 
   /** Active connections indexed by `${runId}:${stepId}` for cancel support. */
-  private readonly activeConnections = new Map<string, Client>();
+  private readonly active = new Map<string, () => void>();
 
-  /** Injectable for testing. */
   private readonly createClient: () => Client;
 
-  constructor(createClient?: () => Client) {
+  constructor(
+    createClient?: () => Client,
+    private readonly deps: SSHExecutorDeps = {}
+  ) {
     this.createClient = createClient ?? (() => new Client());
   }
 
   async execute(config: SSHConfig, context: ExecutorContext): Promise<ExecutorResult> {
     const startTime = Date.now();
+    const fail = (error: string): ExecutorResult => ({
+      success: false,
+      error,
+      duration: Date.now() - startTime,
+    });
     const timeoutMs = config.timeout ?? 60_000;
     const failOnNonZero = config.failOnNonZeroExit ?? true;
-
-    const host = resolveTemplate(config.host, context);
-    const username = resolveTemplate(config.username, context);
     const command = resolveTemplate(config.command, context);
-    const port = config.port ?? 22;
+    const ref: StepRef = {
+      tenantId: context.tenantId,
+      runId: context.runId,
+      stepId: context.stepId,
+    };
+    const directory = this.deps.directory;
 
-    // Dry-run: never open a real SSH connection. Emit a log line so the
-    // run timeline shows what would have been executed, then return a
-    // success result with `dryRun: true`.
+    let server: ServerRecord | null = null;
+    if (config.serverId) {
+      if (!directory) return fail('ssh: registered servers are not available on this backend');
+      server = await directory.get(context.tenantId, config.serverId);
+      if (!server)
+        return fail(`ssh: server "${config.serverId}" is not registered in this workspace`);
+    } else if (directory) {
+      const policy = await directory.policy(context.tenantId);
+      if (policy.sshPolicy === 'registered') {
+        return fail(
+          'ssh: this workspace only allows registered servers. Register the host in Settings → Servers and pick it in the step.'
+        );
+      }
+    }
+    if (config.privileged && !server) {
+      return fail('ssh: privileged steps need a registered server');
+    }
+
+    const host = server ? server.host : resolveTemplate(config.host ?? '', context);
+    const port = server ? server.port : (config.port ?? 22);
+    const username = server ? server.username : resolveTemplate(config.username ?? '', context);
+    if (!host || !username) return fail('ssh: host and username are required');
+
+    const remoteCommand = buildRemoteCommand(command, config, context);
+
     if (context.dryRun) {
       context.emit?.({
         type: 'log',
-        text: `[dry-run] Would SSH to ${username}@${host}:${port} and run: ${command}`,
+        text: `[dry-run] Would SSH to ${username}@${host}:${port}${server ? ` (${server.name})` : ''} and run: ${remoteCommand}`,
         timestamp: new Date(),
       });
       return {
@@ -91,7 +145,7 @@ export class SSHExecutor implements StepExecutor<SSHConfig> {
           host,
           port,
           username,
-          command,
+          command: remoteCommand,
           stdout: '',
           stderr: '',
           exitCode: 0,
@@ -101,78 +155,120 @@ export class SSHExecutor implements StepExecutor<SSHConfig> {
     }
 
     const blocked = await blockedTarget('host', host);
-    if (blocked) {
-      return { success: false, error: `ssh: ${blocked}`, duration: Date.now() - startTime };
-    }
+    if (blocked) return fail(`ssh: ${blocked}`);
 
-    // Read the private key from pre-resolved secrets.
-    const privateKey = credentialSecret(config.credentialId, context);
-    if (!privateKey) {
-      return {
-        success: false,
-        error: `SSH key not found: credentialId "${config.credentialId}" is not in context.secrets. Add a ConnectedAccount with provider="ssh" and reference it in the step config.`,
-        duration: Date.now() - startTime,
-      };
+    let approvers: string[] = [];
+    if (config.privileged && server && directory) {
+      if (!server.sudoAllowed) {
+        return fail(`ssh: privileged steps are not allowed on server "${server.name}"`);
+      }
+      const policy = await directory.policy(context.tenantId);
+      approvers = await directory.approvers(context.runId);
+      if (approvers.length < policy.privilegedApprovals) {
+        return fail(
+          `ssh: privileged step needs ${policy.privilegedApprovals} approval(s) earlier in this run, found ${approvers.length}`
+        );
+      }
     }
-
-    const fullCommand = config.cwd
-      ? `cd ${shellEscape(resolveTemplate(config.cwd, context))} && ${command}`
-      : command;
 
     const connKey = `${context.runId}:${context.stepId}`;
-    const client = this.createClient();
-    this.activeConnections.set(connKey, client);
+    const streams: SshStreams = {
+      onConnected: () =>
+        context.emit?.({
+          type: 'log',
+          text: `Connected to ${host}:${port}${server ? ` (${server.name}, ${server.hostKeyFingerprint})` : ''}`,
+          timestamp: new Date(),
+        }),
+      onStdout: text => context.emit?.({ type: 'stdout', text, timestamp: new Date() }),
+      onStderr: text => context.emit?.({ type: 'stderr', text, timestamp: new Date() }),
+    };
 
+    let result: SshRunResult;
     try {
-      const result = await this.runCommand(
-        client,
-        {
-          host,
-          port,
-          username,
-          privateKey,
-        },
-        fullCommand,
-        config.env,
-        timeoutMs,
-        context
-      );
-
-      const output: SSHOutput = {
-        stdout: result.stdout,
-        stderr: result.stderr,
-        exitCode: result.exitCode,
-        command,
-        host,
-      };
-
-      if (result.timedOut) {
-        return {
-          success: false,
-          error: `SSH command timed out after ${timeoutMs}ms`,
-          output: output as unknown as Record<string, unknown>,
-          duration: Date.now() - startTime,
-        };
+      if (server && server.authMode === 'certificate' && directory) {
+        const cert = await directory.certificate(server, ref);
+        result = await runOverOpenSsh(
+          { host, port, username, hostKey: server.hostKey, ...cert },
+          remoteCommand,
+          {
+            ...streams,
+            env: config.env,
+            timeoutMs,
+            spawn: this.deps.spawn,
+            register: kill => this.active.set(connKey, kill),
+          }
+        );
+      } else {
+        const privateKey =
+          server && directory
+            ? await directory.privateKey(server, ref)
+            : credentialSecret(config.credentialId ?? '', context);
+        if (!privateKey) {
+          return fail(
+            `SSH key not found: credentialId "${config.credentialId}" is not in context.secrets. Add a ConnectedAccount with provider="ssh" and reference it in the step config.`
+          );
+        }
+        result = await runOverSsh2(
+          { host, port, username, privateKey, hostKey: server?.hostKey },
+          remoteCommand,
+          {
+            ...streams,
+            env: config.env,
+            timeoutMs,
+            createClient: this.createClient,
+            register: client => this.active.set(connKey, () => client.destroy()),
+          }
+        );
       }
-
-      const success = failOnNonZero ? result.exitCode === 0 : true;
-
-      return {
-        success,
-        output: output as unknown as Record<string, unknown>,
-        error: success ? undefined : `SSH command exited with code ${result.exitCode}`,
-        duration: Date.now() - startTime,
-      };
     } catch (err) {
+      return fail(err instanceof Error ? err.message : String(err));
+    } finally {
+      this.active.delete(connKey);
+    }
+
+    if (config.privileged && server && directory) {
+      await directory
+        .record(ref, 'ssh.privileged', {
+          serverId: server.id,
+          server: server.name,
+          host,
+          fingerprint: server.hostKeyFingerprint,
+          command: remoteCommand,
+          approvers,
+          exitCode: result.exitCode,
+          timedOut: result.timedOut,
+        })
+        .catch(() => undefined);
+    }
+
+    const output: SSHOutput = {
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      command,
+      host,
+      ...(server
+        ? { server: { id: server.id, name: server.name, fingerprint: server.hostKeyFingerprint } }
+        : {}),
+      ...(config.privileged ? { privileged: true } : {}),
+    };
+
+    if (result.timedOut) {
       return {
         success: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: `SSH command timed out after ${timeoutMs}ms`,
+        output: output as unknown as Record<string, unknown>,
         duration: Date.now() - startTime,
       };
-    } finally {
-      this.activeConnections.delete(connKey);
-      client.end();
     }
+
+    const success = failOnNonZero ? result.exitCode === 0 : true;
+    return {
+      success,
+      output: output as unknown as Record<string, unknown>,
+      error: success ? undefined : `SSH command exited with code ${result.exitCode}`,
+      duration: Date.now() - startTime,
+    };
   }
 
   /**
@@ -181,81 +277,28 @@ export class SSHExecutor implements StepExecutor<SSHConfig> {
    */
   cancel(runId: string): number {
     let count = 0;
-    for (const [key, client] of this.activeConnections) {
+    for (const [key, stop] of this.active) {
       if (key.startsWith(`${runId}:`)) {
-        client.destroy();
-        this.activeConnections.delete(key);
+        stop();
+        this.active.delete(key);
         count++;
       }
     }
     return count;
   }
-
-  private runCommand(
-    client: Client,
-    connectConfig: ConnectConfig,
-    command: string,
-    env: Record<string, string> | undefined,
-    timeoutMs: number,
-    context: ExecutorContext
-  ): Promise<{ stdout: string; stderr: string; exitCode: number | null; timedOut: boolean }> {
-    return new Promise((resolve, reject) => {
-      let stdout = '';
-      let stderr = '';
-      let timedOut = false;
-      let channel: ClientChannel | null = null;
-
-      const timer = setTimeout(() => {
-        timedOut = true;
-        channel?.close();
-        client.end();
-      }, timeoutMs);
-
-      client.on('ready', () => {
-        context.emit?.({
-          type: 'log',
-          text: `Connected to ${connectConfig.host}:${connectConfig.port ?? 22}`,
-          timestamp: new Date(),
-        });
-
-        client.exec(command, { env }, (err, stream) => {
-          if (err) {
-            clearTimeout(timer);
-            return reject(err);
-          }
-
-          channel = stream;
-
-          stream.on('data', (data: Buffer) => {
-            const text = data.toString();
-            stdout += text;
-            context.emit?.({ type: 'stdout', text, timestamp: new Date() });
-          });
-
-          stream.stderr.on('data', (data: Buffer) => {
-            const text = data.toString();
-            stderr += text;
-            context.emit?.({ type: 'stderr', text, timestamp: new Date() });
-          });
-
-          stream.on('close', (code: number | null) => {
-            clearTimeout(timer);
-            resolve({ stdout, stderr, exitCode: code, timedOut });
-          });
-        });
-      });
-
-      client.on('error', err => {
-        clearTimeout(timer);
-        reject(new Error(`SSH connection failed: ${err.message}`));
-      });
-
-      client.connect(connectConfig);
-    });
-  }
 }
 
-/** Minimal shell escaping for the cwd path. */
+/**
+ * `sudo -n` goes straight before the command, not around a `sh -c`, so a
+ * sudoers rule listing exact commands (`/usr/bin/systemctl restart nginx`)
+ * still matches. -n fails instead of prompting: Operari never holds a sudo
+ * password.
+ */
+function buildRemoteCommand(command: string, config: SSHConfig, context: ExecutorContext): string {
+  const body = config.privileged ? `sudo -n ${command}` : command;
+  return config.cwd ? `cd ${shellEscape(resolveTemplate(config.cwd, context))} && ${body}` : body;
+}
+
 function shellEscape(s: string): string {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
