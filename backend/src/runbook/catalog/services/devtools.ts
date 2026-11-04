@@ -19,6 +19,14 @@ export const DEVTOOLS_NODES: CatalogNode[] = [
     base: 'https://api.github.com',
     headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
     optionLoaders: { repo: { loader: 'github.repos' } },
+    paginate: {
+      ops: ['repo.list', 'issue.list', 'pr.list', 'run.list', 'branch.list', 'commit.list'],
+      strategy: {
+        kind: 'link',
+        items: { 'run.list': 'workflow_runs' },
+        pageSize: { param: 'per_page', value: 100 },
+      },
+    },
     operations: [
       {
         value: 'repo.get',

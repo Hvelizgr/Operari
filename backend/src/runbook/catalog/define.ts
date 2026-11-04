@@ -1,4 +1,10 @@
-import { type ApiRequest, type ApiResponseHandling, sendApiRequest } from '../executors/_api-step';
+import {
+  type ApiRequest,
+  type ApiResponseHandling,
+  type PaginationPlan,
+  sendApiRequest,
+  sendPaginated,
+} from '../executors/_api-step';
 import {
   type ExecutorContext,
   type ExecutorResult,
@@ -245,14 +251,18 @@ export function fail(error: string, startTime = Date.now()): ExecutorResult {
 export function apiNode(
   meta: CatalogNodeMeta & {
     request(t: StepTools): ApiRequest | string;
+    /** "Return all": a plan when the operation pages and the step asked for every page. */
+    paginate?(t: StepTools, first: ApiRequest): PaginationPlan | null;
   } & ApiResponseHandling
 ): CatalogNode {
-  const { request, shape, bodyError, ...rest } = meta;
+  const { request, paginate, shape, bodyError, ...rest } = meta;
   return {
     ...rest,
     run: t => {
       const req = request(t);
       if (typeof req === 'string') return fail(req);
+      const plan = paginate?.(t, req);
+      if (plan) return sendPaginated(meta.type, req, plan, t.context, t.fetch, { bodyError });
       return sendApiRequest(meta.type, req, t.context, t.fetch, { shape, bodyError });
     },
   };

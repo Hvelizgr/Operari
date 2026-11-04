@@ -67,11 +67,13 @@ todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso
 
 **Pendiente, en este orden:**
 
-1. **OAuth2 genérico con refresh** (Google, Microsoft, Slack, HubSpot, Salesforce, Zoom, Dropbox, Zoho).
-   Hoy se pega un access token; los de Google/Microsoft vencen en ~1 h. Es lo que más limita el uso real.
-2. **Listas dinámicas** (`loadOptions`): elegir canal de Slack, base de Notion, proyecto de Jira, repo de
-   GitHub desde la API. Requiere endpoint que descifre la credencial fuera de un run → diseño de seguridad.
-3. **Paginación "traer todo"** en las operaciones de listado.
+1. ✅ **OAuth2 genérico con refresh** (2026-11-04, `c00f821`): "Conectar con…" para Google, Microsoft,
+   Slack, HubSpot, Salesforce, Zoom, Dropbox y Zoho; el token se renueva solo antes de cada paso.
+   **Falta (tuyo):** URI de redirección en cada consola y `OAUTH_<PROVEEDOR>_CLIENT_ID/_SECRET` en `.env`.
+2. ✅ **Listas dinámicas** (2026-11-04, `efe31a6`): canales/usuarios de Slack, repos de GitHub, bases de
+   Notion, proyectos de Jira, calendarios de Google, equipos/canales de Teams. Loaders fijos del lado del
+   servidor, sin URLs del cliente; cada lectura auditada.
+3. ✅ **Paginación "traer todo"** (2026-11-04): opción *Return all* con tope de ítems en los listados de Slack, GitHub, Jira, Notion, Stripe y más; estrategias cursor, `Link`, último id y offset. Un `Link` a otro origen no se sigue (llevaría la credencial).
 4. **Archivos binarios entre pasos + multipart** (subir a Drive/Dropbox/S3, adjuntos de email, OCR).
 5. **Triggers por aplicación** (n8n: 116; Operari: cron + webhook). Webhook auto-registrado o polling con cursor.
 6. **Más servicios:** Excel/SharePoint/Dynamics, QuickBooks, Xero, Trello/Asana/ClickUp/Linear/GitLab

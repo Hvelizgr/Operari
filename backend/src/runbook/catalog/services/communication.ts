@@ -21,6 +21,21 @@ export const COMMUNICATION_NODES: CatalogNode[] = [
     base: 'https://slack.com/api',
     bodyError: slackOk,
     optionLoaders: { channel: { loader: 'slack.channels' }, user: { loader: 'slack.users' } },
+    paginate: {
+      ops: ['conversation.history', 'conversation.replies', 'conversation.list', 'user.list'],
+      strategy: {
+        kind: 'cursor',
+        items: {
+          'conversation.history': 'messages',
+          'conversation.replies': 'messages',
+          'conversation.list': 'channels',
+          'user.list': 'members',
+        },
+        next: 'response_metadata.next_cursor',
+        param: 'cursor',
+        pageSize: { param: 'limit', value: 200 },
+      },
+    },
     operations: [
       {
         value: 'message.post',

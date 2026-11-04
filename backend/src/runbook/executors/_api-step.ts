@@ -58,6 +58,62 @@ export async function sendApiRequest(
     };
   }
 
+  try {
+    const page = await requestPage(req, httpFetch);
+    if (!page.ok) {
+      return {
+        success: false,
+        error: `${type}: HTTP ${page.status} ${page.statusText} — ${page.text.slice(0, 300)}`,
+        output: { status: page.status, body: page.body },
+        duration: Date.now() - startTime,
+      };
+    }
+    const bodyError = handling.bodyError?.(page.body);
+    if (bodyError) {
+      return {
+        success: false,
+        error: `${type}: ${bodyError}`,
+        output: { status: page.status, body: page.body },
+        duration: Date.now() - startTime,
+      };
+    }
+
+    context.emit?.({ type: 'log', text: `${type}: HTTP ${page.status}`, timestamp: new Date() });
+    return {
+      success: true,
+      output: handling.shape
+        ? handling.shape(page.body, page.status)
+        : { status: page.status, body: page.body },
+      duration: Date.now() - startTime,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: `${type}: ${requestErrorMessage(err, req)}`,
+      duration: Date.now() - startTime,
+    };
+  }
+}
+
+export interface ApiPage {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  text: string;
+  body: unknown;
+  headers: Headers;
+}
+
+function requestErrorMessage(err: unknown, req: ApiRequest): string {
+  return err instanceof Error && err.name === 'AbortError'
+    ? `timed out after ${req.timeoutMs ?? 30_000}ms`
+    : err instanceof Error
+      ? err.message
+      : String(err);
+}
+
+/** One HTTP call through the SSRF guard, parsed as JSON when it is JSON. */
+export async function requestPage(req: ApiRequest, httpFetch: typeof fetch): Promise<ApiPage> {
   let body: string | undefined;
   let contentType: string | undefined;
   if (req.form) {
@@ -91,48 +147,113 @@ export async function sendApiRequest(
     } catch {
       // Some endpoints (Teams workflows) answer with plain text.
     }
-
-    if (!res.ok) {
-      return {
-        success: false,
-        error: `${type}: HTTP ${res.status} ${res.statusText} — ${text.slice(0, 300)}`,
-        output: { status: res.status, body: parsed },
-        duration: Date.now() - startTime,
-      };
-    }
-    const bodyError = handling.bodyError?.(parsed);
-    if (bodyError) {
-      return {
-        success: false,
-        error: `${type}: ${bodyError}`,
-        output: { status: res.status, body: parsed },
-        duration: Date.now() - startTime,
-      };
-    }
-
-    context.emit?.({ type: 'log', text: `${type}: HTTP ${res.status}`, timestamp: new Date() });
     return {
-      success: true,
-      output: handling.shape
-        ? handling.shape(parsed, res.status)
-        : { status: res.status, body: parsed },
-      duration: Date.now() - startTime,
-    };
-  } catch (err) {
-    const message =
-      err instanceof Error && err.name === 'AbortError'
-        ? `timed out after ${req.timeoutMs ?? 30_000}ms`
-        : err instanceof Error
-          ? err.message
-          : String(err);
-    return {
-      success: false,
-      error: `${type}: ${message}`,
-      duration: Date.now() - startTime,
+      ok: res.ok,
+      status: res.status,
+      statusText: res.statusText,
+      text,
+      body: parsed,
+      headers: res.headers,
     };
   } finally {
     clearTimeout(timer);
   }
+}
+
+export interface PaginationPlan {
+  /** Items of one page, or null when the page has no list where expected. */
+  items(body: unknown): unknown[] | null;
+  /** The request for the following page, or null when this was the last one. */
+  next(prev: ApiRequest, page: ApiPage, items: unknown[]): ApiRequest | null;
+  maxItems: number;
+}
+
+const MAX_PAGES = 200;
+
+/**
+ * "Return all": follows the provider's pagination until the last page,
+ * `maxItems` or MAX_PAGES, and returns the items flattened into one list.
+ */
+export async function sendPaginated(
+  type: string,
+  first: ApiRequest,
+  plan: PaginationPlan,
+  context: ExecutorContext,
+  httpFetch: typeof fetch,
+  handling: ApiResponseHandling = {}
+): Promise<ExecutorResult> {
+  const startTime = Date.now();
+  context.emit?.({ type: 'log', text: `${first.describe} (all pages)`, timestamp: new Date() });
+  if (context.dryRun) {
+    context.emit?.({
+      type: 'log',
+      text: `[dry-run] would ${first.describe}, following every page`,
+      timestamp: new Date(),
+    });
+    return {
+      success: true,
+      output: { dryRun: true, action: first.describe },
+      duration: Date.now() - startTime,
+    };
+  }
+  const all: unknown[] = [];
+  let req: ApiRequest | null = first;
+  let pages = 0;
+  let status = 0;
+  try {
+    while (req && pages < MAX_PAGES && all.length < plan.maxItems) {
+      const page = await requestPage(req, httpFetch);
+      pages++;
+      status = page.status;
+      if (!page.ok) {
+        return {
+          success: false,
+          error: `${type}: HTTP ${page.status} ${page.statusText} on page ${pages} — ${page.text.slice(0, 300)}`,
+          output: { status: page.status, body: page.body, pages, items: all },
+          duration: Date.now() - startTime,
+        };
+      }
+      const bodyError = handling.bodyError?.(page.body);
+      if (bodyError) {
+        return {
+          success: false,
+          error: `${type}: ${bodyError} (page ${pages})`,
+          output: { status: page.status, body: page.body, pages, items: all },
+          duration: Date.now() - startTime,
+        };
+      }
+      const items = plan.items(page.body);
+      if (!items) {
+        return {
+          success: false,
+          error: `${type}: page ${pages} has no item list where one was expected`,
+          output: { status: page.status, body: page.body, pages, items: all },
+          duration: Date.now() - startTime,
+        };
+      }
+      all.push(...items);
+      req = items.length ? plan.next(req, page, items) : null;
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: `${type}: ${requestErrorMessage(err, req ?? first)} (page ${pages + 1})`,
+      output: { pages, items: all },
+      duration: Date.now() - startTime,
+    };
+  }
+  const truncated = req !== null || all.length > plan.maxItems;
+  const items = all.slice(0, plan.maxItems);
+  context.emit?.({
+    type: 'log',
+    text: `${type}: ${items.length} items in ${pages} page${pages === 1 ? '' : 's'}${truncated ? ' (stopped at the limit)' : ''}`,
+    timestamp: new Date(),
+  });
+  return {
+    success: true,
+    output: { status, data: { items, count: items.length, pages, truncated } },
+    duration: Date.now() - startTime,
+  };
 }
 
 /**

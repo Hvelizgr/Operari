@@ -21,7 +21,8 @@ const URL_FIELD = /(url|host|homeserver)$/i;
 function fill(node: CatalogNode, operation: string): Record<string, unknown> {
   const config: Record<string, unknown> = { operation };
   for (const p of node.properties) {
-    if (p.name === 'operation' || p.name === 'additionalFields') continue;
+    // returnAll changes the step into a page loop; pagination.test.ts covers it.
+    if (p.name === 'operation' || p.name === 'additionalFields' || p.name === 'returnAll') continue;
     if (!isVisible(p, config)) continue;
     if (p.type === 'secret') config[p.name] = TOKEN;
     else if (p.type === 'number') config[p.name] = 1;

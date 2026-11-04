@@ -17,6 +17,16 @@ export const COMMERCE_NODES: CatalogNode[] = [
     auth: { kind: 'bearer', provider: 'stripe', label: 'Secret key (sk_…)' },
     base: 'https://api.stripe.com/v1',
     bodyType: 'form',
+    paginate: {
+      ops: ['charge.list', 'invoice.list', 'product.list', 'subscription.list'],
+      strategy: {
+        kind: 'lastId',
+        items: 'data',
+        hasMore: 'has_more',
+        param: 'starting_after',
+        pageSize: { param: 'limit', value: 100 },
+      },
+    },
     operations: [
       ...crud(
         'customer',

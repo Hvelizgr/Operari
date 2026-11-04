@@ -1,5 +1,5 @@
 import { optionLoader } from '../../integrations/option-loaders';
-import type { ApiRequest, ApiResponseHandling } from '../executors/_api-step';
+import type { ApiRequest, ApiResponseHandling, PaginationPlan } from '../executors/_api-step';
 import {
   apiNode,
   baseUrl,
@@ -95,9 +95,144 @@ export interface ServiceDef {
   bodyError?: ApiResponseHandling['bodyError'];
   /** Fields the editor can fill from the API (integrations/option-loaders). */
   optionLoaders?: Record<string, { loader: string; params?: string[] }>;
+  /** List operations that can follow every page ("Return all"). */
+  paginate?: { ops: string[]; strategy: Paginator };
 }
 
+/**
+ * How a provider pages. `items` is the dotted path of the list in the body
+ * ('' for a top-level array), per operation when it differs.
+ */
+export type Paginator = {
+  items: string | Record<string, string>;
+  /** Page size parameter to send at its maximum while following pages. */
+  pageSize?: { param: string; value: number };
+} & (
+  | {
+      /** Opaque cursor in the body (Slack, Notion, HubSpot, Jira nextPageToken). */
+      kind: 'cursor';
+      next: string;
+      param: string;
+      /** Where the cursor goes; default query for GET, body otherwise. */
+      in?: 'query' | 'body';
+    }
+  /** RFC 8288 `Link: <…>; rel="next"` (GitHub). */
+  | { kind: 'link' }
+  /** `has_more` plus the last item's id as `starting_after` (Stripe). */
+  | { kind: 'lastId'; hasMore: string; param: string; idField?: string }
+  /** Numeric offset advanced by the page length (Jira startAt). */
+  | { kind: 'offset'; param: string; done?: string }
+);
+
 const CREDENTIAL = 'credential';
+const RETURN_ALL = 'returnAll';
+const MAX_ITEMS = 'maxItems';
+const MAX_ITEMS_CAP = 10_000;
+
+function getPath(body: unknown, path: string): unknown {
+  if (!path) return body;
+  let cur: unknown = body;
+  for (const k of path.split('.')) {
+    if (!cur || typeof cur !== 'object') return undefined;
+    cur = (cur as Record<string, unknown>)[k];
+  }
+  return cur;
+}
+
+function withQuery(url: string, params: Record<string, string>): string {
+  const u = new URL(url);
+  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+  return u.toString();
+}
+
+function nextLink(headers: Headers): string | null {
+  const link = headers.get('link');
+  if (!link) return null;
+  for (const part of link.split(',')) {
+    const m = /<([^>]+)>\s*;\s*rel="?next"?/.exec(part);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+/** Applies a page parameter where the strategy says, on a copy of the request. */
+function setParam(
+  req: ApiRequest,
+  name: string,
+  value: string | number,
+  where: 'query' | 'body'
+): ApiRequest {
+  if (where === 'query') return { ...req, url: withQuery(req.url, { [name]: String(value) }) };
+  const body =
+    req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+      ? { ...(req.body as Record<string, unknown>), [name]: value }
+      : { [name]: value };
+  return { ...req, body };
+}
+
+export function paginationPlan(
+  strategy: Paginator,
+  op: string,
+  first: ApiRequest,
+  maxItems: number
+): { plan: PaginationPlan; first: ApiRequest } {
+  const itemsPath =
+    typeof strategy.items === 'string' ? strategy.items : (strategy.items[op] ?? '');
+  const where = (s: { in?: 'query' | 'body' }): 'query' | 'body' =>
+    s.in ?? (first.method === 'GET' || first.method === 'DELETE' ? 'query' : 'body');
+  let start = first;
+  if (strategy.pageSize) {
+    start = setParam(
+      start,
+      strategy.pageSize.param,
+      strategy.pageSize.value,
+      strategy.kind === 'cursor' ? where(strategy) : 'query'
+    );
+  }
+  let offset = 0;
+  const plan: PaginationPlan = {
+    maxItems,
+    items: body => {
+      const list = getPath(body, itemsPath);
+      return Array.isArray(list) ? list : null;
+    },
+    next: (prev, page, items) => {
+      switch (strategy.kind) {
+        case 'cursor': {
+          const cursor = getPath(page.body, strategy.next);
+          if (typeof cursor !== 'string' && typeof cursor !== 'number') return null;
+          if (cursor === '') return null;
+          return setParam(prev, strategy.param, cursor, where(strategy));
+        }
+        case 'link': {
+          const link = nextLink(page.headers);
+          if (!link) return null;
+          // The request carries the credential: a next link to another
+          // origin would hand it to that host.
+          let url: URL;
+          try {
+            url = new URL(link, prev.url);
+          } catch {
+            return null;
+          }
+          return url.origin === new URL(first.url).origin ? { ...prev, url: url.toString() } : null;
+        }
+        case 'lastId': {
+          if (getPath(page.body, strategy.hasMore) !== true) return null;
+          const last = items[items.length - 1] as Record<string, unknown> | undefined;
+          const id = last?.[strategy.idField ?? 'id'];
+          return typeof id === 'string' ? setParam(prev, strategy.param, id, 'query') : null;
+        }
+        case 'offset': {
+          if (strategy.done && getPath(page.body, strategy.done) === true) return null;
+          offset += items.length;
+          return setParam(prev, strategy.param, offset, where({}));
+        }
+      }
+    },
+  };
+  return { plan, first: start };
+}
 const OPERATION = 'operation';
 const EXTRA = 'additionalFields';
 
@@ -277,6 +412,31 @@ export function service(def: ServiceDef): CatalogNode {
         ]
       : []),
   ];
+  if (def.paginate) {
+    const known = new Set(ops.map(o => o.value));
+    const missing = def.paginate.ops.filter(o => !known.has(o));
+    if (missing.length)
+      throw new Error(`${def.type}: paginate lists unknown operations ${missing}`);
+    const show = { displayOptions: { show: { [OPERATION]: def.paginate.ops } } };
+    properties.push(
+      {
+        name: RETURN_ALL,
+        displayName: 'Return all (follow every page)',
+        type: 'boolean',
+        default: false,
+        description: 'Output becomes { items, count, pages, truncated } instead of the raw page.',
+        ...show,
+      },
+      {
+        name: MAX_ITEMS,
+        displayName: 'Max items when returning all',
+        type: 'number',
+        default: 1000,
+        description: `Stops after this many items (at most ${MAX_ITEMS_CAP}).`,
+        ...show,
+      }
+    );
+  }
   for (const p of properties) {
     const loader = def.optionLoaders?.[p.name];
     if (loader) p.typeOptions = { ...p.typeOptions, loadOptions: loader };
@@ -368,6 +528,25 @@ export function service(def: ServiceDef): CatalogNode {
       }
       return req;
     },
+    paginate: def.paginate
+      ? (t, first) => {
+          const op = t.str(OPERATION);
+          if (!def.paginate!.ops.includes(op) || t.config[RETURN_ALL] !== true) return null;
+          const requested = Number(t.config[MAX_ITEMS] ?? 1000);
+          const maxItems = Math.max(
+            1,
+            Math.min(Number.isFinite(requested) ? requested : 1000, MAX_ITEMS_CAP)
+          );
+          const { plan, first: start } = paginationPlan(
+            def.paginate!.strategy,
+            op,
+            first,
+            maxItems
+          );
+          Object.assign(first, start);
+          return plan;
+        }
+      : undefined,
     bodyError: def.bodyError,
     shape: (body, status) => ({ status, data: body }),
   });
