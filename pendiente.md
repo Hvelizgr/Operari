@@ -74,7 +74,11 @@ todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso
    Notion, proyectos de Jira, calendarios de Google, equipos/canales de Teams. Loaders fijos del lado del
    servidor, sin URLs del cliente; cada lectura auditada.
 3. ✅ **Paginación "traer todo"** (2026-11-04): opción *Return all* con tope de ítems en los listados de Slack, GitHub, Jira, Notion, Stripe y más; estrategias cursor, `Link`, último id y offset. Un `Link` a otro origen no se sigue (llevaría la credencial).
-4. **Archivos binarios entre pasos + multipart** (subir a Drive/Dropbox/S3, adjuntos de email, OCR).
+4. 🟡 **Archivos binarios entre pasos + multipart** (2026-11-04): modelo `StepFile` (bytes en disco,
+   SHA-256, 7 días), el paso HTTP guarda la respuesta como archivo (`output.file`) y manda un archivo
+   como cuerpo binario (subidas a Drive/Dropbox/S3) o en multipart; descarga en `GET /api/files/:id`.
+   **Falta:** adjuntos en el paso de email, archivos en el paso Code y en los pasos del catálogo, y un
+   enlace de descarga en la vista del run.
 5. **Triggers por aplicación** (n8n: 116; Operari: cron + webhook). Webhook auto-registrado o polling con cursor.
 6. **Más servicios:** Excel/SharePoint/Dynamics, QuickBooks, Xero, Trello/Asana/ClickUp/Linear/GitLab
    completos (hoy son pasos de una acción), AWS (DynamoDB, SES, Textract…), BigQuery, Sheets completo,

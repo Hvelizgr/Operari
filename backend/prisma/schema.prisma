@@ -250,6 +250,7 @@ model Tenant {
   projects          Project[]
   servers           Server[]
   sshAuthority      SshCertificateAuthority?
+  stepFiles         StepFile[]
 
   @@index([slug])
 }
@@ -1392,4 +1393,24 @@ model KeyRotationJob {
   createdBy User? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
+}
+
+/// A file produced or consumed by a step (a download, an upload body, an
+/// attachment). Bytes live on disk under OPERARI_FILES_DIR; steps pass a
+/// small reference ({ kind: "file", id, … }) instead of the content.
+model StepFile {
+  id          String   @id @default(uuid())
+  tenantId    String
+  executionId String?
+  name        String
+  mimeType    String
+  size        Int
+  sha256      String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([expiresAt])
 }

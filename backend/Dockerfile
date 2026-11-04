@@ -61,7 +61,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Owned by the runtime user so fresh named volumes mounted here inherit it.
-RUN mkdir -p /var/lib/operari/terminal /var/lib/operari/workspaces \
+RUN mkdir -p /var/lib/operari/terminal /var/lib/operari/workspaces /var/lib/operari/files \
     && chown -R 1001:1001 /var/lib/operari
 
 # Copy node_modules and shared package

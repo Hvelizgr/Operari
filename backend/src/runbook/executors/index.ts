@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
 import { PrismaServerDirectory } from '../../servers/server-directory';
+import { FileStore } from '../../files/file-store';
 import { Logger } from '../../services/logger.service';
 import { BUILTIN_CATALOG, CatalogExecutor } from '../catalog';
 import type { CatalogDeps } from '../catalog/define';
@@ -97,7 +98,7 @@ export function createExecutorRegistry(
   registry.set('wait', new WaitExecutor());
   const servers = new PrismaServerDirectory(prisma);
   registry.set('ssh', new SSHExecutor(undefined, { directory: servers }));
-  registry.set('operari.httpRequest', new HttpExecutor());
+  registry.set('operari.httpRequest', new HttpExecutor(fetch, { files: new FileStore(prisma) }));
   registry.set('operari.database', new DatabaseExecutor(undefined, { directory: servers }));
   registry.set('github.commitFile', new GitHubCommitFileExecutor());
   registry.set('runbook', new RunbookExecutor(prisma));

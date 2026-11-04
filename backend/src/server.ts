@@ -65,6 +65,7 @@ import runbookAssistRoutes from './routes/runbook-assist.routes';
 import runRoutes from './routes/runs.routes';
 import schedulesRoutes from './routes/schedules.routes';
 import { createRunnerLogsRouter } from './routes/runner-logs.routes';
+import { createFilesRouter } from './routes/files.routes';
 import { createServersRouter } from './routes/servers.routes';
 import sqlRoutes from './routes/sql.routes';
 import templatesRoutes from './routes/templates.routes';
@@ -206,6 +207,7 @@ app.use('/api/billing', standardRateLimiter, billingRoutes);
 app.use('/api/invites', standardRateLimiter, invitesRoutes);
 app.use('/api/tenants', standardRateLimiter, tenantsRoutes);
 app.use('/api/servers', standardRateLimiter, createServersRouter({ prisma }));
+app.use('/api/files', standardRateLimiter, createFilesRouter(prisma));
 {
   const runner = getRunner();
   if (runner instanceof SandboxRunner || runner instanceof DockerRunner) {
@@ -523,6 +525,14 @@ async function main() {
     }, 60_000);
     process.on('SIGTERM', () => clearInterval(webhookRetryInterval));
     logger.info('Webhook retry worker started (60s interval)');
+
+    // Step files expire after 7 days; drop their bytes and rows hourly.
+    const { FileStore } = await import('./files/file-store');
+    const fileStore = new FileStore(prisma);
+    const fileSweepInterval = setInterval(() => {
+      fileStore.sweep().catch(err => logger.error({ err }, 'Step file sweep failed'));
+    }, 60 * 60_000);
+    process.on('SIGTERM', () => clearInterval(fileSweepInterval));
 
     // S3.4: KeyRotationService tick. Most of the time this is a
     // cheap SELECT (no active job, no work). Only when an admin

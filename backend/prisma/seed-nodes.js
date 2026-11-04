@@ -224,11 +224,58 @@ const NODES = [
         typeOptions: { expression: true },
       },
       {
+        name: 'bodyType',
+        displayName: 'Body',
+        type: 'options',
+        default: 'text',
+        options: [
+          { name: 'Text / JSON', value: 'text' },
+          { name: 'File (raw bytes)', value: 'file' },
+          { name: 'Multipart form', value: 'multipart' },
+        ],
+      },
+      {
         name: 'body',
+        displayOptions: { show: { bodyType: ['text'] } },
         displayName: 'Body',
         type: 'string',
         description: 'Request body. Empty for GET/HEAD.',
         typeOptions: { rows: 6, expression: true },
+      },
+      {
+        name: 'bodyFile',
+        displayName: 'File to send',
+        type: 'string',
+        description: 'A file from an earlier step, e.g. {{steps.download.output.file}}.',
+        typeOptions: { expression: true },
+        displayOptions: { show: { bodyType: ['file'] } },
+      },
+      {
+        name: 'multipart',
+        displayName: 'Form fields',
+        type: 'keyValue',
+        description:
+          'Values accept templates; a value that is a file ({{steps.x.output.file}}) is sent as a file part.',
+        typeOptions: { expression: true },
+        displayOptions: { show: { bodyType: ['multipart'] } },
+      },
+      {
+        name: 'responseFormat',
+        displayName: 'Response',
+        type: 'options',
+        default: 'text',
+        options: [
+          { name: 'Text / JSON', value: 'text' },
+          { name: 'File (pass it to later steps as output.file)', value: 'file' },
+        ],
+      },
+      {
+        name: 'fileName',
+        displayName: 'File name',
+        type: 'string',
+        description: 'Defaults to the server-provided name or the last part of the URL.',
+        typeOptions: { expression: true },
+        displayOptions: { show: { responseFormat: ['file'] } },
       },
       {
         name: 'timeout',
