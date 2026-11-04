@@ -81,7 +81,8 @@ todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso
    Snowflake, Databricks, Kafka, RabbitMQ, MQTT, FTP/SFTP, LDAP, IMAP, X/Twitter, LinkedIn, Meta, Reddit,
    Typeform, Calendly, Cal.com, Webflow, WordPress, Contentful, Strapi, Ghost, PayPal, Wise, Plaid.
 7. **Formularios:** multi-selección, colecciones clave-valor, editor JSON, fecha/hora; etiquetas de campo
-   bilingües; botón "Probar credencial"; los pasos viejos ya filtran el selector de credenciales por proveedor (2026-11-04).
+   bilingües; ✅ botón "Probar credencial" (2026-11-04: GitHub, Slack, Google, Microsoft, Notion,
+   HubSpot, Dropbox, Zoom, Stripe, Salesforce, Anthropic, OpenAI y compatibles); los pasos viejos ya filtran el selector de credenciales por proveedor (2026-11-04).
 8. ✅ **Nodo Code** (2026-11-04): `operari.code`, Python 3.12 o Node 20 en el sandbox; código y entrada viajan en base64 por env (nunca en la línea de shell), resultado tras un marcador por run, red apagada salvo que se pida (con la política como techo). Probado con Docker real.
 9. **Validar contra las APIs reales.** Los tests cubren la construcción de cada request con `fetch`
    simulado, no respuestas reales: probar cada servicio con una cuenta real a medida que se use.

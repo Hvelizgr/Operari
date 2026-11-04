@@ -23,6 +23,8 @@ interface ConnectedAccount {
   scopes: string[];
   createdAt: string;
   metadata?: { defaultModel?: string; baseUrl?: string; oauth?: boolean };
+  /** The backend has a read-only check for this provider. */
+  testable?: boolean;
 }
 
 const STRINGS = {
@@ -40,6 +42,9 @@ const STRINGS = {
     errorFlash: 'Could not link GitHub account.',
     scopes: 'Scopes',
     connectWith: (label: string) => `Connect ${label}`,
+    test: 'Test',
+    testing: 'Testing…',
+    works: 'Works',
     linkedProvider: (label: string) =>
       `${label} account linked. Its access token renews automatically.`,
     errorProvider: 'Could not link the account',
@@ -61,6 +66,9 @@ const STRINGS = {
     errorFlash: 'No se pudo vincular la cuenta de GitHub.',
     scopes: 'Permisos',
     connectWith: (label: string) => `Conectar ${label}`,
+    test: 'Probar',
+    testing: 'Probando…',
+    works: 'Funciona',
     linkedProvider: (label: string) =>
       `Cuenta de ${label} vinculada. Su token de acceso se renueva solo.`,
     errorProvider: 'No se pudo vincular la cuenta',
@@ -89,6 +97,35 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [oauthProviders, setOauthProviders] = useState<OAuthProvider[]>([]);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [tests, setTests] = useState<
+    Record<string, { ok: boolean; identity?: string; error?: string }>
+  >({});
+
+  const handleTest = useCallback(async (id: string) => {
+    setTesting(id);
+    try {
+      const res = await fetch(`${API_BASE}/api/connected-accounts/${encodeURIComponent(id)}/test`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        data?: { ok: boolean; identity?: string; error?: string };
+        error?: string;
+      };
+      setTests(t => ({
+        ...t,
+        [id]: body.data ?? { ok: false, error: body.error ?? `HTTP ${res.status}` },
+      }));
+    } catch (err) {
+      setTests(t => ({
+        ...t,
+        [id]: { ok: false, error: err instanceof Error ? err.message : String(err) },
+      }));
+    } finally {
+      setTesting(null);
+    }
+  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/connected-accounts/oauth/providers`, { credentials: 'include' })
@@ -312,19 +349,46 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
                       }`}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => handleDisconnect(acc.id)}
-                disabled={unlinkingId === acc.id}
-                className="flex shrink-0 items-center gap-1 rounded border border-rose-500/40 px-2 py-1 text-[11px] text-rose-300 transition-colors hover:border-rose-400 hover:text-rose-200 disabled:opacity-50"
-              >
-                {unlinkingId === acc.id ? (
-                  <Loader2 size={11} className="animate-spin" />
-                ) : (
-                  <Link2Off size={11} />
+              <div className="flex shrink-0 items-center gap-1.5">
+                {tests[acc.id] && (
+                  <span
+                    className={`max-w-[16rem] truncate text-[10px] ${tests[acc.id].ok ? 'text-emerald-400' : 'text-rose-400'}`}
+                    title={tests[acc.id].error ?? tests[acc.id].identity}
+                  >
+                    {tests[acc.id].ok
+                      ? `${t.works}${tests[acc.id].identity ? ` · ${tests[acc.id].identity}` : ''}`
+                      : tests[acc.id].error}
+                  </span>
                 )}
-                {unlinkingId === acc.id ? t.disconnecting : t.disconnect}
-              </button>
+                {acc.testable && (
+                  <button
+                    type="button"
+                    onClick={() => void handleTest(acc.id)}
+                    disabled={testing === acc.id}
+                    className="flex items-center gap-1 rounded border border-[var(--panel-border)] px-2 py-1 text-[11px] text-[var(--text-primary)] hover:border-[var(--accent-color)] disabled:opacity-50"
+                  >
+                    {testing === acc.id ? (
+                      <Loader2 size={11} className="animate-spin" />
+                    ) : (
+                      <Check size={11} />
+                    )}
+                    {testing === acc.id ? t.testing : t.test}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleDisconnect(acc.id)}
+                  disabled={unlinkingId === acc.id}
+                  className="flex shrink-0 items-center gap-1 rounded border border-rose-500/40 px-2 py-1 text-[11px] text-rose-300 transition-colors hover:border-rose-400 hover:text-rose-200 disabled:opacity-50"
+                >
+                  {unlinkingId === acc.id ? (
+                    <Loader2 size={11} className="animate-spin" />
+                  ) : (
+                    <Link2Off size={11} />
+                  )}
+                  {unlinkingId === acc.id ? t.disconnecting : t.disconnect}
+                </button>
+              </div>
             </li>
           ))}
         </ul>

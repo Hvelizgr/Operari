@@ -10,6 +10,7 @@ import {
   exchangeCode as exchangeConnectCode,
   isConfigured as isConnectConfigured,
 } from '../integrations/oauth-connect';
+import { canCheck, checkCredential } from '../integrations/credential-checks';
 import {
   loadOptions,
   optionLoader,
@@ -23,6 +24,7 @@ import {
   ConnectedAccountService,
 } from '../security/connected-account.service';
 import { SecretCipher } from '../security/secret-cipher';
+import { guardedFetch } from '../security/ssrf-guard';
 import { SecretReader } from '../security/secret-reader';
 import { prisma } from '../server';
 
@@ -155,6 +157,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
         createdAt: a.createdAt,
         tokenExpiry: a.tokenExpiry,
         metadata: a.metadata ?? {},
+        testable: canCheck(a.provider),
       })),
     });
   } catch (err) {
@@ -474,6 +477,47 @@ router.get('/oauth/:provider/callback', async (req: AuthRequest, res: Response) 
     if ((err as { code?: string }).code === 'P2002') return back('ca_error=already_linked');
     req.log.error({ err, provider: provider.id }, 'connected-account OAuth callback failed');
     return back('ca_error=oauth_failed');
+  }
+});
+
+/**
+ * POST /api/connected-accounts/:id/test
+ *
+ * One read-only call to the provider with the stored secret ("does this
+ * key work, and whose is it?"). Audited as secret.accessed with reason
+ * credential-test; the request goes through the SSRF guard because some
+ * accounts carry their own base URL.
+ */
+router.post('/:id/test', async (req: AuthRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+  const accountId = String(req.params.id);
+  const account = await getService().getMetadata(accountId, req.user.tenantId);
+  if (!account) return res.status(404).json({ error: 'Credential not found' });
+  if (!canCheck(account.provider)) {
+    return res
+      .status(400)
+      .json({ error: `No test is defined for ${account.provider} credentials` });
+  }
+  try {
+    const secret = await getService().getAccessToken({
+      accountId,
+      tenantId: req.user.tenantId,
+      actorId: req.user.id,
+      actorType: 'user',
+      reason: 'credential-test',
+    });
+    const result = await checkCredential(
+      account.provider,
+      secret,
+      (account.metadata ?? {}) as Record<string, unknown>,
+      (url, init) => guardedFetch(fetch, url, init ?? {})
+    );
+    return res.json({ data: result });
+  } catch (err) {
+    if (err instanceof ConnectedAccountError) {
+      return res.json({ data: { ok: false, error: err.message } });
+    }
+    return res.json({ data: { ok: false, error: (err as Error).message } });
   }
 });
 
