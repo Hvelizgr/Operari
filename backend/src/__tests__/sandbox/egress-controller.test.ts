@@ -21,7 +21,7 @@ describe('DockerEgressController', () => {
       dockerBinary: 'docker',
       upstreamNetwork: 'operari-sandbox',
       spawnSync: d.spawnSync,
-      proxyScript: 'SCRIPT',
+      proxyScript: 'SCRIPT\n//# sourceMappingURL=egress-proxy.js.map',
     }).start();
     expect(d.calls[0]).toEqual(['rm', '-f', 'operari-egress']);
     const run = d.calls[1];
@@ -37,7 +37,7 @@ describe('DockerEgressController', () => {
       ])
     );
     expect(run[run.indexOf('-e') + 1]).toBe('OPERARI_EGRESS_PROXY_MAIN=1');
-    expect(run.slice(-3)).toEqual(['node', '-e', 'SCRIPT']);
+    expect(run.slice(-3)).toEqual(['node', '-e', 'SCRIPT\n']);
   });
 
   it('gives each sandbox its own internal /29 and a grant only for its hosts', () => {

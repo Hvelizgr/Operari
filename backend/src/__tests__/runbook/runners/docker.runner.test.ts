@@ -135,6 +135,14 @@ describe('DockerRunner.buildDockerArgs', () => {
     }
   );
 
+  it('gives the step a writable HOME unless it sets one', () => {
+    const args = runner.buildDockerArgs({ command: 'true' }, ctx());
+    expect(args).toEqual(expect.arrayContaining(['-e', 'HOME=/tmp']));
+    const own = runner.buildDockerArgs({ command: 'true', env: { HOME: '/work' } }, ctx());
+    expect(own).not.toContain('HOME=/tmp');
+    expect(own).toContain('HOME=/work');
+  });
+
   it('drops every capability and runs as an unprivileged user', () => {
     const args = runner.buildDockerArgs({ command: 'true' }, ctx());
     expect(args).toContain('--cap-drop=ALL');

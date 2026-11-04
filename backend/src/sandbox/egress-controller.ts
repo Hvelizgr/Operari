@@ -70,8 +70,13 @@ export class DockerEgressController implements EgressController {
       encoding: 'utf8',
       timeout: 30_000,
     });
+    // `node -e` appends its own wrapper to the last line, so a trailing
+    // `//# sourceMappingURL=` comment would swallow it.
     const script =
-      this.opts.proxyScript ?? readFileSync(join(__dirname, 'egress-proxy.js'), 'utf8');
+      (this.opts.proxyScript ?? readFileSync(join(__dirname, 'egress-proxy.js'), 'utf8')).replace(
+        /\n\/\/# sourceMappingURL=.*$/,
+        ''
+      ) + '\n';
     this.docker(
       [
         'run',

@@ -210,6 +210,9 @@ export class DockerRunner implements Runner {
     args.push('--cpus', (cpuMillis / 1000).toFixed(3));
 
     // ---- env ----
+    // The root filesystem is read-only and uid 1000 has no home in stock
+    // images, so HOME would be `/` and `pip --user` / `npm` caches would fail.
+    if (!spec.env?.HOME) args.push('-e', 'HOME=/tmp');
     if (spec.env) {
       for (const [key, value] of Object.entries(spec.env)) {
         if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
