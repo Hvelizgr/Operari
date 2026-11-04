@@ -22,7 +22,13 @@ export interface CatalogProperty {
   required?: boolean;
   options?: Array<{ name: string; value: string }>;
   /** `provider` narrows a secret picker to credentials of that kind (`ai` matches `ai.*`). */
-  typeOptions?: { rows?: number; expression?: boolean; provider?: string };
+  typeOptions?: {
+    rows?: number;
+    expression?: boolean;
+    provider?: string;
+    /** Option list the editor can fetch with the step's credential (integrations/option-loaders). */
+    loadOptions?: { loader: string; params?: string[] };
+  };
   /** Show (and require) the field only when other fields hold one of these values. */
   displayOptions?: { show: Record<string, string[]> };
 }

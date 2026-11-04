@@ -33,6 +33,7 @@ export const WORKSPACE_NODES: CatalogNode[] = [
     description: ['Events, availability and calendars', 'Eventos, disponibilidad y calendarios'],
     auth: googleAuth,
     base: 'https://www.googleapis.com/calendar/v3',
+    optionLoaders: { calendarId: { loader: 'google.calendars' } },
     operations: [
       {
         value: 'event.list',
@@ -833,6 +834,10 @@ export const WORKSPACE_NODES: CatalogNode[] = [
     ],
     auth: msAuth,
     base: graph,
+    optionLoaders: {
+      teamId: { loader: 'microsoft.teams' },
+      channelId: { loader: 'microsoft.channels', params: ['teamId'] },
+    },
     operations: [
       {
         value: 'channel.message',

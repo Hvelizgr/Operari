@@ -1,3 +1,4 @@
+import { optionLoader } from '../../integrations/option-loaders';
 import type { ApiRequest, ApiResponseHandling } from '../executors/_api-step';
 import {
   apiNode,
@@ -92,6 +93,8 @@ export interface ServiceDef {
   headersFrom?: (t: StepTools) => Record<string, string>;
   operations: ServiceOp[];
   bodyError?: ApiResponseHandling['bodyError'];
+  /** Fields the editor can fill from the API (integrations/option-loaders). */
+  optionLoaders?: Record<string, { loader: string; params?: string[] }>;
 }
 
 const CREDENTIAL = 'credential';
@@ -204,6 +207,15 @@ function applyAuth(
 export function service(def: ServiceDef): CatalogNode {
   const ops = def.operations;
   if (!ops.length) throw new Error(`${def.type}: no operations`);
+  for (const [field, { loader }] of Object.entries(def.optionLoaders ?? {})) {
+    const known = optionLoader(loader);
+    if (!known) throw new Error(`${def.type}: unknown option loader ${loader}`);
+    if (def.auth.kind === 'none' || known.provider !== def.auth.provider) {
+      throw new Error(
+        `${def.type}: loader ${loader} for "${field}" needs a ${known.provider} credential`
+      );
+    }
+  }
 
   // Merge fields by name across operations; visibility is the union.
   // A merged field is required in the form only when every operation that
@@ -265,6 +277,10 @@ export function service(def: ServiceDef): CatalogNode {
         ]
       : []),
   ];
+  for (const p of properties) {
+    const loader = def.optionLoaders?.[p.name];
+    if (loader) p.typeOptions = { ...p.typeOptions, loadOptions: loader };
+  }
 
   const byValue = new Map(ops.map(o => [o.value, o]));
 

@@ -18,6 +18,7 @@ export const DEVTOOLS_NODES: CatalogNode[] = [
     auth: { kind: 'bearer', provider: 'github', label: 'Token' },
     base: 'https://api.github.com',
     headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    optionLoaders: { repo: { loader: 'github.repos' } },
     operations: [
       {
         value: 'repo.get',

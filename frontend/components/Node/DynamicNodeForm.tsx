@@ -3,6 +3,7 @@ import { ChevronDown, Database, HelpCircle } from 'lucide-react';
 import React, { lazy, Suspense, useState } from 'react';
 
 import ExpressionBuilder from './ExpressionBuilder';
+import OptionLoader from './OptionLoader';
 import SecretPicker from './SecretPicker';
 import ServerPicker from './ServerPicker';
 
@@ -15,7 +16,12 @@ export interface Property {
   default?: unknown;
   description?: string;
   options?: { name: string; value: string }[];
-  typeOptions?: { rows?: number; expression?: boolean; provider?: string };
+  typeOptions?: {
+    rows?: number;
+    expression?: boolean;
+    provider?: string;
+    loadOptions?: { loader: string; params?: string[] };
+  };
   required?: boolean;
   /** Show the field only while other fields hold one of these values. */
   displayOptions?: { show: Record<string, string[]> };
@@ -151,6 +157,19 @@ export default function DynamicNodeForm({
                   )}
                 </div>
               ))}
+
+            {prop.type === 'string' && prop.typeOptions?.loadOptions && (
+              <OptionLoader
+                lang={lang}
+                loader={prop.typeOptions.loadOptions.loader}
+                params={prop.typeOptions.loadOptions.params}
+                values={values}
+                onPick={(value, also) => {
+                  onChange(prop.name, value);
+                  for (const [k, v] of Object.entries(also ?? {})) onChange(k, v);
+                }}
+              />
+            )}
 
             {prop.type === 'secret' && (
               <SecretPicker

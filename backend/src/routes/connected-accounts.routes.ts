@@ -10,6 +10,12 @@ import {
   exchangeCode as exchangeConnectCode,
   isConfigured as isConnectConfigured,
 } from '../integrations/oauth-connect';
+import {
+  loadOptions,
+  optionLoader,
+  OptionLoaderError,
+  validateParams,
+} from '../integrations/option-loaders';
 import { env } from '../config/env.config';
 import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
 import {
@@ -468,6 +474,49 @@ router.get('/oauth/:provider/callback', async (req: AuthRequest, res: Response) 
     if ((err as { code?: string }).code === 'P2002') return back('ca_error=already_linked');
     req.log.error({ err, provider: provider.id }, 'connected-account OAuth callback failed');
     return back('ca_error=oauth_failed');
+  }
+});
+
+/**
+ * POST /api/connected-accounts/:id/options/:loader  { params }
+ *
+ * Option list for a step form field (Slack channels, GitHub repos…). The
+ * loader is a fixed read-only call; the account must belong to the
+ * caller's workspace and to the loader's provider. The read is audited as
+ * secret.accessed (reason load-options:<loader>) and renews OAuth tokens
+ * like a step would.
+ */
+router.post('/:id/options/:loader', async (req: AuthRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+  const loader = optionLoader(String(req.params.loader));
+  if (!loader) return res.status(404).json({ error: 'Unknown option list' });
+  const accountId = String(req.params.id);
+  const account = await getService().getMetadata(accountId, req.user.tenantId);
+  if (!account) return res.status(404).json({ error: 'Credential not found' });
+  if (account.provider !== loader.provider) {
+    return res.status(400).json({
+      error: `This list needs a ${loader.provider} credential, not ${account.provider}`,
+    });
+  }
+  try {
+    const params = validateParams(loader, (req.body as { params?: unknown } | undefined)?.params);
+    const secret = await getService().getAccessToken({
+      accountId,
+      tenantId: req.user.tenantId,
+      actorId: req.user.id,
+      actorType: 'user',
+      reason: `load-options:${loader.id}`,
+    });
+    return res.json({ data: await loadOptions(loader, secret, params) });
+  } catch (err) {
+    if (err instanceof OptionLoaderError) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    if (err instanceof ConnectedAccountError) {
+      return res.status(400).json({ error: err.message, code: err.code.toLowerCase() });
+    }
+    req.log.error({ err, loader: loader.id }, 'load options failed');
+    return res.status(502).json({ error: 'Could not load options' });
   }
 });
 

@@ -25,6 +25,7 @@ export const PROJECT_NODES: CatalogNode[] = [
       field: atlassianSite,
       build: v => `https://${v.replace(/\.atlassian\.net.*$/, '')}.atlassian.net/rest/api/3`,
     },
+    optionLoaders: { projectKey: { loader: 'jira.projects', params: ['site', 'email'] } },
     operations: [
       {
         value: 'issue.search',
@@ -431,6 +432,7 @@ export const PROJECT_NODES: CatalogNode[] = [
     auth: { kind: 'bearer', provider: 'notion', label: 'Integration secret' },
     base: 'https://api.notion.com/v1',
     headers: { 'Notion-Version': '2022-06-28' },
+    optionLoaders: { databaseId: { loader: 'notion.databases' } },
     operations: [
       {
         value: 'database.query',

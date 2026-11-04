@@ -20,6 +20,7 @@ export const COMMUNICATION_NODES: CatalogNode[] = [
     auth: { kind: 'bearer', provider: 'slack', label: 'Bot token (xoxb-…)' },
     base: 'https://slack.com/api',
     bodyError: slackOk,
+    optionLoaders: { channel: { loader: 'slack.channels' }, user: { loader: 'slack.users' } },
     operations: [
       {
         value: 'message.post',
