@@ -152,6 +152,16 @@ GET de los servicios del catálogo (hoy cuentan como no seguros).
 
 ---
 
+### 🟠 Salidas de los pasos `core` crecen de forma cuadrática (hallado 2026-11-04)
+
+Los pasos de flujo/datos heredados (`StoreGet`, `Switch`, `Condition`, …) devuelven su entrada
+plana completa más su resultado, y esa entrada ya trae `steps.*` con las salidas anteriores. En un
+runbook de 9 pasos la salida de `StoreGet` ya pesa ~6 KB con el mismo dato repetido varias veces;
+en runbooks largos infla `NodeLog.output` y los eventos de `ExecutionEvent`. Arreglo: que cada paso
+devuelva solo lo que produce (`{ value }`, `{ conditionResult }`…) y que la entrada plana se arme
+en el motor. Toca la forma de la salida que ven los templates (`{{steps.x.output.*}}`), así que
+necesita una ronda de compatibilidad.
+
 ### ✅ ADR 0004: consolidar dual executor system (2026-11-04)
 
 Hecho. Una sola interfaz (`StepExecutor`), un solo registro (`createExecutorRegistry`) y un solo
