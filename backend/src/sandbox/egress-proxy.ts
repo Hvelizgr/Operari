@@ -96,8 +96,6 @@ export function isPrivateAddress(ip: string): boolean {
   });
 }
 
-const ALLOWED_PORTS = new Set([80, 443]);
-
 export interface EgressProxyOptions {
   secret: string;
   now?: () => number;
@@ -105,6 +103,8 @@ export interface EgressProxyOptions {
   log?: (line: string) => void;
   /** Tests only: let allowed names resolve to loopback. */
   refusePrivate?: boolean;
+  /** Default 80 and 443. */
+  ports?: number[];
 }
 
 function defaultResolve(host: string): Promise<string> {
@@ -125,10 +125,11 @@ function grantFrom(req: IncomingMessage, opts: EgressProxyOptions): EgressGrant 
 export function createEgressProxy(opts: EgressProxyOptions): Server {
   const resolve = opts.resolve ?? defaultResolve;
   const log = opts.log ?? (() => undefined);
+  const ports = new Set(opts.ports ?? [80, 443]);
 
   async function target(host: string, port: number, grant: EgressGrant | null): Promise<string> {
     if (!grant) throw Object.assign(new Error('proxy authentication required'), { status: 407 });
-    if (!ALLOWED_PORTS.has(port))
+    if (!ports.has(port))
       throw Object.assign(new Error(`port ${port} not allowed`), { status: 403 });
     if (!hostAllowed(host, grant.hosts)) {
       throw Object.assign(new Error(`${host} is not in this workspace's allowlist`), {

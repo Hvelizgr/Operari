@@ -33,6 +33,8 @@ export interface DockerEgressOptions {
   upstreamNetwork: string;
   proxyImage?: string;
   runtime?: string;
+  /** Proxy source run with `node -e`; defaults to the compiled egress-proxy.js next to this file. */
+  proxyScript?: string;
   spawnSync?: SpawnSync;
   now?: () => number;
 }
@@ -68,7 +70,8 @@ export class DockerEgressController implements EgressController {
       encoding: 'utf8',
       timeout: 30_000,
     });
-    const script = readFileSync(join(__dirname, 'egress-proxy.js'), 'utf8');
+    const script =
+      this.opts.proxyScript ?? readFileSync(join(__dirname, 'egress-proxy.js'), 'utf8');
     this.docker(
       [
         'run',

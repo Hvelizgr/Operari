@@ -1,9 +1,11 @@
 import { AddressInfo } from 'net';
 
+import { DEFAULT_POLICY, type TenantPolicy } from '../../policy/tenant-policy';
 import type { DockerRunner } from '../../runbook/runners/docker.runner';
 import type { RunnerContext, RunnerSpec } from '../../runbook/runners/runner.types';
 import { SandboxRunner } from '../../runbook/runners/sandbox.runner';
 import { SandboxClient } from '../../sandbox/client';
+import type { EgressController } from '../../sandbox/egress-controller';
 import { createSandboxServer, SandboxServer } from '../../sandbox/server';
 import { RemotePty } from '../../terminal/remote-pty';
 import type { PtyProcess, PtySpawnOptions } from '../../terminal/terminal-session';
@@ -65,7 +67,9 @@ const waitFor = async (check: () => boolean, ms = 2000) => {
   }
 };
 
-async function start(overrides: { orphanMs?: number } = {}): Promise<Harness> {
+async function start(
+  overrides: { orphanMs?: number; egress?: EgressController } = {}
+): Promise<Harness> {
   const h = {
     ptys: [] as FakePty[],
     killed: [] as string[],
@@ -262,5 +266,114 @@ describe('sandbox-runner server', () => {
     await waitFor(() => exitCode !== null);
     expect(exitCode).toBe(1);
     expect(output.join('')).toMatch(/sandbox unreachable/);
+  });
+
+  describe('allowlist egress', () => {
+    const fakeEgress = () => {
+      const calls: Array<{ id: string; hosts: string[]; ttl: number }> = [];
+      const released: string[] = [];
+      const egress: EgressController = {
+        attach: (id, hosts, ttl) => {
+          calls.push({ id, hosts, ttl });
+          return {
+            network: `operari-eg-${id}`,
+            env: { HTTPS_PROXY: 'http://operari:tok@operari-egress:3128' },
+            release: () => released.push(id),
+          };
+        },
+      };
+      return { egress, calls, released };
+    };
+
+    it('puts a run on its own egress network with proxy env that the step cannot override', async () => {
+      const e = fakeEgress();
+      h = await start({ egress: e.egress });
+      await new SandboxRunner(h.client).run(
+        {
+          command: 'pip install six',
+          network: 'allowlist',
+          allowedHosts: ['pypi.org', 'files.pythonhosted.org'],
+          env: { HTTPS_PROXY: 'http://attacker:1' },
+          timeoutMs: 30_000,
+        },
+        { runId: 'r1', stepId: 's1', tenantId: 't1' }
+      );
+      expect(e.calls).toEqual([
+        expect.objectContaining({ hosts: ['pypi.org', 'files.pythonhosted.org'], ttl: 150 }),
+      ]);
+      const { spec } = h.runs[0];
+      expect(spec.containerNetwork).toBe(`operari-eg-${e.calls[0].id}`);
+      expect(spec.env?.HTTPS_PROXY).toBe('http://operari:tok@operari-egress:3128');
+      expect(e.released).toEqual([e.calls[0].id]);
+    });
+
+    it('refuses allowlist without hosts or without a configured proxy', async () => {
+      h = await start({ egress: fakeEgress().egress });
+      const runner = new SandboxRunner(h.client);
+      const ctx = { runId: 'r', stepId: 's', tenantId: 't' };
+      const noHosts = await runner.run({ command: 'id', network: 'allowlist' }, ctx);
+      expect(noHosts.stderr).toMatch(/at least one host/);
+      h.server.closeAllConnections();
+      await new Promise(r => h.server.close(r));
+      h = await start();
+      const noProxy = await new SandboxRunner(h.client).run(
+        { command: 'id', network: 'allowlist', allowedHosts: ['pypi.org'] },
+        ctx
+      );
+      expect(noProxy.stderr).toMatch(/not configured/);
+      expect(h.runs).toHaveLength(0);
+    });
+
+    it('releases the terminal egress network when the shell exits', async () => {
+      const e = fakeEgress();
+      h = await start({ egress: e.egress });
+      await h.client.openTerminal({
+        tenantId: 't1',
+        userId: 'u1',
+        cols: 80,
+        rows: 24,
+        persistent: false,
+        network: 'allowlist',
+        allowedHosts: ['pypi.org'],
+      });
+      await waitFor(() => h.ptys.length === 1);
+      const args = h.ptys[0].args;
+      expect(args[args.indexOf('--network') + 1]).toBe(`operari-eg-${e.calls[0].id}`);
+      expect(args).toContain('HTTPS_PROXY=http://operari:tok@operari-egress:3128');
+      h.ptys[0].end(0);
+      await waitFor(() => e.released.length === 1);
+    });
+  });
+
+  describe('workspace egress policy in SandboxRunner', () => {
+    const policy = (p: Partial<TenantPolicy>) => async () => ({ ...DEFAULT_POLICY, ...p });
+
+    it('caps a step that asks for internet', async () => {
+      h = await start({
+        egress: { attach: () => ({ network: 'operari-eg-x', env: {}, release: () => undefined }) },
+      });
+      const runner = new SandboxRunner(h.client);
+      const ctx = { runId: 'r', stepId: 's', tenantId: 't' };
+
+      runner.usePolicy(policy({ sandboxEgress: 'none' }));
+      await runner.run({ command: 'id', network: 'open' }, ctx);
+      runner.usePolicy(policy({ sandboxEgress: 'allowlist', egressAllowlist: ['pypi.org'] }));
+      await runner.run({ command: 'id', network: 'open' }, ctx);
+      runner.usePolicy(policy({ sandboxEgress: 'open' }));
+      await runner.run({ command: 'id', network: 'open' }, ctx);
+      await runner.run({ command: 'id' }, ctx);
+      runner.usePolicy(async () => {
+        throw new Error('db down');
+      });
+      await runner.run({ command: 'id', network: 'open' }, ctx);
+
+      expect(h.runs.map(r => r.spec.network)).toEqual([
+        'none',
+        'allowlist',
+        'open',
+        'none',
+        'none',
+      ]);
+    });
   });
 });

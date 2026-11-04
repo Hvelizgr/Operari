@@ -38,7 +38,16 @@ describe('egress grants', () => {
   });
 
   it('classifies private addresses', () => {
-    for (const ip of ['10.1.2.3', '172.19.0.1', '192.168.1.1', '127.0.0.1', '169.254.169.254', '::1', '::ffff:10.0.0.1', 'fd00::1']) {
+    for (const ip of [
+      '10.1.2.3',
+      '172.19.0.1',
+      '192.168.1.1',
+      '127.0.0.1',
+      '169.254.169.254',
+      '::1',
+      '::ffff:10.0.0.1',
+      'fd00::1',
+    ]) {
       expect(isPrivateAddress(ip)).toBe(true);
     }
     for (const ip of ['1.1.1.1', '151.101.0.223', '172.32.0.1']) {
@@ -56,7 +65,9 @@ describe('egress proxy', () => {
     'Basic ' + Buffer.from(`operari:${signGrant(SECRET, { hosts, exp })}`).toString('base64');
 
   beforeAll(async () => {
-    upstream = createServer((req, res) => res.end(`hello ${req.headers.host} ${req.url}`));
+    upstream = createServer((req, res) =>
+      res.end(`hello ${req.headers.host} ${req.url} auth=${!!req.headers['proxy-authorization']}`)
+    );
     await new Promise<void>(r => upstream.listen(0, '127.0.0.1', r));
     upstreamPort = (upstream.address() as AddressInfo).port;
     proxy = createEgressProxy({
@@ -114,7 +125,9 @@ describe('egress proxy', () => {
 
   it('needs a valid grant', async () => {
     expect((await viaProxy('http://pypi.org/simple')).status).toBe(407);
-    expect((await viaProxy('http://pypi.org/simple', auth(['pypi.org'], NOW - 1))).status).toBe(407);
+    expect((await viaProxy('http://pypi.org/simple', auth(['pypi.org'], NOW - 1))).status).toBe(
+      407
+    );
   });
 
   it('refuses hosts outside the grant and ports other than 80/443', async () => {
@@ -123,20 +136,72 @@ describe('egress proxy', () => {
     expect(await connectVia('example.com:443', auth(['pypi.org']))).toMatch(/^HTTP\/1.1 403/);
   });
 
-  it('opens a tunnel for an allowed host', async () => {
-    expect(await connectVia('pypi.org:443', auth(['pypi.org']))).toBe(
-      'HTTP/1.1 200 Connection Established'
-    );
+  it('tunnels to an allowed host and passes bytes both ways', async () => {
+    const wide = createEgressProxy({
+      secret: SECRET,
+      now: () => NOW * 1000,
+      resolve: async () => '127.0.0.1',
+      refusePrivate: false,
+      ports: [upstreamPort],
+    });
+    await new Promise<void>(r => wide.listen(0, '127.0.0.1', r));
+    const port = (wide.address() as AddressInfo).port;
+    const reply = await new Promise<string>((resolve, reject) => {
+      const sock = connect(port, '127.0.0.1', () =>
+        sock.write(
+          `CONNECT pypi.org:${upstreamPort} HTTP/1.1\r\nProxy-Authorization: ${auth(['pypi.org'])}\r\n\r\n`
+        )
+      );
+      let data = '';
+      let sent = false;
+      sock.on('data', c => {
+        data += c.toString();
+        if (!sent && data.includes('200 Connection Established\r\n\r\n')) {
+          sent = true;
+          sock.write('GET /x HTTP/1.1\r\nHost: pypi.org\r\nConnection: close\r\n\r\n');
+        }
+      });
+      sock.on('end', () => resolve(data));
+      sock.on('error', reject);
+    });
+    expect(reply).toMatch(/^HTTP\/1.1 200 Connection Established/);
+    expect(reply).toContain('hello pypi.org /x auth=false');
+
+    const http = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+      const req = request(
+        {
+          host: '127.0.0.1',
+          port,
+          path: `http://pypi.org:${upstreamPort}/y`,
+          headers: { 'proxy-authorization': auth(['pypi.org']) },
+        },
+        res => {
+          let body = '';
+          res.on('data', c => (body += c));
+          res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
+        }
+      );
+      req.on('error', reject);
+      req.end();
+    });
+    expect(http).toEqual({ status: 200, body: `hello pypi.org:${upstreamPort} /y auth=false` });
+    await new Promise(r => wide.close(r));
   });
 
   it('refuses plain http to non-standard ports even for allowed hosts', async () => {
-    expect((await viaProxy(`http://pypi.org:${upstreamPort}/`, auth(['pypi.org']))).status).toBe(403);
+    expect((await viaProxy(`http://pypi.org:${upstreamPort}/`, auth(['pypi.org']))).status).toBe(
+      403
+    );
   });
 });
 
 describe('egress proxy private resolution', () => {
   it('refuses an allowed name that resolves to a private address', async () => {
-    const proxy = createEgressProxy({ secret: SECRET, now: () => NOW * 1000, resolve: async () => '10.0.0.5' });
+    const proxy = createEgressProxy({
+      secret: SECRET,
+      now: () => NOW * 1000,
+      resolve: async () => '10.0.0.5',
+    });
     await new Promise<void>(r => proxy.listen(0, '127.0.0.1', r));
     const port = (proxy.address() as AddressInfo).port;
     const status = await new Promise<string>((resolve, reject) => {
