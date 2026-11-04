@@ -115,7 +115,11 @@ todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso
 
 **Pendiente para production multi-tenant** (no para self-host):
 
-- Endpoint `POST /api/tenants/plugins/install` con tarball upload (UX, no runtime — runtime ya funciona)
+- Endpoint `POST /api/tenants/plugins/install` con tarball upload. **Decisión (2026-11-04): no hacerlo
+  antes del aislamiento en worker.** Los plugins corren dentro del proceso del backend (opción B del ADR
+  0006), que tiene `ENCRYPTION_KEY`, `DATABASE_URL` y todas las credenciales: dejar que un workspace suba
+  código sería ejecución remota con acceso a los secretos de todos. El camino seguro es correr los
+  plugins de tenants en el sandbox (como el paso Code) y recién ahí abrir la subida.
 - Opción A (worker pool) como escape hatch via `OPERARI_PLUGIN_ISOLATION=worker` env (~1 semana cuando cloud beta lo necesite — el ADR documenta el path)
 
 ---
