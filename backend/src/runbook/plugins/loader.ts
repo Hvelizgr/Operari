@@ -378,6 +378,29 @@ function loadDescriptor(
 }
 
 /**
+ * Fields the form shows as JSON boxes (`typeOptions.json`, from arrays,
+ * objects or unions in the zod schema) arrive as text; parse them so the
+ * schema sees the array or object it declares. Text that is not valid
+ * JSON is left as is and the schema reports the field.
+ */
+export function parseJsonFields(config: unknown, properties: unknown[] | undefined): unknown {
+  if (!config || typeof config !== 'object' || Array.isArray(config) || !properties) return config;
+  const out: Record<string, unknown> = { ...(config as Record<string, unknown>) };
+  for (const p of properties) {
+    const prop = p as { name?: unknown; typeOptions?: { json?: unknown } };
+    if (typeof prop.name !== 'string' || prop.typeOptions?.json !== true) continue;
+    const value = out[prop.name];
+    if (typeof value !== 'string' || !value.trim()) continue;
+    try {
+      out[prop.name] = JSON.parse(value);
+    } catch {
+      // Leave it; the schema error names the field.
+    }
+  }
+  return out;
+}
+
+/**
  * Turn a loaded plugin descriptor into the backend's StepExecutor
  * contract. Catches schema validation failures + execute throws so
  * a buggy plugin never escapes to the engine uncaught.
@@ -390,7 +413,7 @@ function adaptToExecutor(plugin: LoadedPlugin): StepExecutor {
       const startTime = Date.now();
       let parsed: unknown;
       try {
-        parsed = plugin.schema.parse(config);
+        parsed = plugin.schema.parse(parseJsonFields(config, plugin.metadata.properties));
       } catch (err) {
         return {
           success: false,

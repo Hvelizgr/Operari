@@ -1,4 +1,16 @@
-import type { DefineStepOptions, PluginContext, PluginResult, PluginStep } from './types';
+import { propertiesFromZod } from './properties-from-zod';
+import type {
+  DefineStepOptions,
+  PluginContext,
+  PluginResult,
+  PluginStep,
+  PluginStepProperty,
+} from './types';
+
+function derivedProperties(schema: unknown): PluginStepProperty[] | undefined {
+  const props = propertiesFromZod(schema);
+  return props.length > 0 ? props : undefined;
+}
 
 /**
  * Author a custom step executor loaded by Operari at boot.
@@ -68,7 +80,9 @@ export function defineStep<TConfig>(options: DefineStepOptions<TConfig>): Plugin
     category: options.category,
     inputs: options.inputs,
     outputs: options.outputs,
-    properties: options.properties,
+    // Without explicit form fields, derive them from a zod schema so the
+    // schema is written once. Non-zod schemas derive nothing.
+    properties: options.properties ?? derivedProperties(options.configSchema),
   };
 }
 

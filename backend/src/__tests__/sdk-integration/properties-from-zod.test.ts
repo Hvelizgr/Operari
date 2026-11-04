@@ -20,7 +20,8 @@ interface PluginStepProperty {
   default?: unknown;
   description?: string;
   options?: { name: string; value: string }[];
-  typeOptions?: { rows?: number; expression?: boolean; provider?: string };
+  required?: boolean;
+  typeOptions?: { rows?: number; expression?: boolean; provider?: string; json?: boolean };
 }
 
 interface PropertiesFromZodFn {
@@ -148,14 +149,37 @@ describe('propertiesFromZod', () => {
     expect(out.find(p => p.name === 'lower')?.type).toBe('string');
   });
 
-  it('drops fields whose zod type has no corresponding renderer (ZodArray, ZodRecord)', () => {
+  it('offers arrays, objects, records and unions as JSON fields instead of dropping them', () => {
     const schema = z.object({
-      tags: z.array(z.string()),
+      tags: z.array(z.string()).default(['a']),
       meta: z.record(z.string()),
+      target: z.union([z.string(), z.object({ host: z.string() })]),
+      when: z.date(),
       keep: z.string(),
     });
     const out = propertiesFromZod(schema);
-    expect(out.map(p => p.name)).toEqual(['keep']);
+    expect(out.map(p => p.name)).toEqual(['tags', 'meta', 'target', 'keep']);
+    const tags = out.find(p => p.name === 'tags')!;
+    expect(tags).toMatchObject({ type: 'string', typeOptions: { rows: 4, json: true } });
+    expect(JSON.parse(tags.default as string)).toEqual(['a']);
+    expect(out.find(p => p.name === 'keep')!.typeOptions).toBeUndefined();
+  });
+
+  it('marks fields without optional, nullable or default as required', () => {
+    const out = propertiesFromZod(
+      z.object({
+        must: z.string(),
+        maybe: z.string().optional(),
+        empty: z.string().nullable(),
+        preset: z.number().default(3),
+      })
+    );
+    expect(Object.fromEntries(out.map(p => [p.name, !!p.required]))).toEqual({
+      must: true,
+      maybe: false,
+      empty: false,
+      preset: false,
+    });
   });
 
   it('round-trips a realistic plugin schema end-to-end', () => {

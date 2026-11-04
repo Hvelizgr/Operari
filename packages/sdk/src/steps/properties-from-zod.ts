@@ -38,9 +38,14 @@
  *   ZodNullable<T>     → unwrap T
  *   ZodDefault<T>      → unwrap T + carry default value
  *   ZodEffects<T>      → unwrap T (covers .refine + .transform)
+ *   ZodArray / ZodObject / ZodRecord / ZodTuple / ZodUnion
+ *                      → string with typeOptions.json; the loader
+ *                        JSON-parses it before validation
  *
- * Anything else is dropped silently — the editor falls back to its
- * normal JSON textarea fallback for that field. We deliberately do
+ * A field that is not optional, nullable or defaulted is `required`.
+ *
+ * Anything else (ZodAny, ZodDate, …) is dropped; write that field by
+ * hand in `properties` if the form needs it. We deliberately do
  * NOT throw on unknown shapes because adding an unsupported zod type
  * (ZodIntersection, ZodUnion of primitives, etc.) shouldn't break a
  * plugin that uses the helper for the supported subset and writes
@@ -75,9 +80,14 @@ function isZodLikeObject(value: unknown): value is ZodLikeObject {
   return v._def?.typeName === 'ZodObject' && typeof v.shape === 'object' && v.shape !== null;
 }
 
-function unwrap(schema: ZodLike): { inner: ZodLike; defaultValue: unknown | undefined } {
+function unwrap(schema: ZodLike): {
+  inner: ZodLike;
+  defaultValue: unknown | undefined;
+  optional: boolean;
+} {
   let current: ZodLike = schema;
   let defaultValue: unknown | undefined;
+  let optional = false;
 
   // Unwrap up to a fixed depth — a deeply nested chain like
   // .optional().nullable().default(x).optional() is unusual but the
@@ -86,12 +96,14 @@ function unwrap(schema: ZodLike): { inner: ZodLike; defaultValue: unknown | unde
     const def = current._def;
     if (!def) break;
     if (def.typeName === 'ZodOptional' || def.typeName === 'ZodNullable') {
+      optional = true;
       if (def.innerType) {
         current = def.innerType;
         continue;
       }
     }
     if (def.typeName === 'ZodDefault') {
+      optional = true;
       if (typeof def.defaultValue === 'function') {
         try {
           defaultValue = def.defaultValue();
@@ -115,12 +127,14 @@ function unwrap(schema: ZodLike): { inner: ZodLike; defaultValue: unknown | unde
     break;
   }
 
-  return { inner: current, defaultValue };
+  return { inner: current, defaultValue, optional };
 }
 
-function describePropertyType(
-  inner: ZodLike
-): { type: PluginStepProperty['type']; options?: PluginStepProperty['options'] } | null {
+function describePropertyType(inner: ZodLike): {
+  type: PluginStepProperty['type'];
+  options?: PluginStepProperty['options'];
+  json?: boolean;
+} | null {
   const typeName = inner._def?.typeName;
 
   switch (typeName) {
@@ -158,6 +172,15 @@ function describePropertyType(
         options: [{ name: value, value }],
       };
     }
+    case 'ZodArray':
+    case 'ZodObject':
+    case 'ZodRecord':
+    case 'ZodTuple':
+    case 'ZodUnion':
+    case 'ZodDiscriminatedUnion':
+      // No form widget for these; a JSON box the loader parses before
+      // validation keeps the field instead of silently dropping it.
+      return { type: 'string', json: true };
     default:
       return null;
   }
@@ -177,7 +200,7 @@ export function propertiesFromZod(schema: unknown): PluginStepProperty[] {
 
   const props: PluginStepProperty[] = [];
   for (const [name, field] of Object.entries(schema.shape)) {
-    const { inner, defaultValue } = unwrap(field);
+    const { inner, defaultValue, optional } = unwrap(field);
     const described = describePropertyType(inner);
     if (!described) continue;
 
@@ -187,6 +210,8 @@ export function propertiesFromZod(schema: unknown): PluginStepProperty[] {
       type: described.type,
     };
     if (described.options) property.options = described.options;
+    if (described.json) property.typeOptions = { rows: 4, json: true };
+    if (!optional) property.required = true;
     if (typeof field.description === 'string' && field.description.length > 0) {
       property.description = field.description;
     } else if (typeof inner.description === 'string' && inner.description.length > 0) {
@@ -195,7 +220,10 @@ export function propertiesFromZod(schema: unknown): PluginStepProperty[] {
       property.description = inner.description;
     }
     if (defaultValue !== undefined) {
-      property.default = defaultValue;
+      property.default =
+        described.json && typeof defaultValue !== 'string'
+          ? JSON.stringify(defaultValue, null, 2)
+          : defaultValue;
     }
     props.push(property);
   }

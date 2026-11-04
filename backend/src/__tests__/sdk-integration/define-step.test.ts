@@ -182,4 +182,60 @@ describe('defineStep', () => {
     expect(step.configSchema).toBeDefined();
     expect(step.execute).toBeDefined();
   });
+
+  it('derives form fields from a zod schema when none are given', () => {
+    const { z } = require('zod') as typeof import('zod');
+    const step = defineStep({
+      type: 'acme.ping',
+      configSchema: z.object({
+        host: z.string().describe('Host to ping'),
+        count: z.number().default(3),
+      }),
+      execute: async () => ({ success: true }),
+    }) as { properties?: Array<{ name: string; required?: boolean }> };
+    expect(step.properties?.map(p => [p.name, !!p.required])).toEqual([
+      ['host', true],
+      ['count', false],
+    ]);
+  });
+
+  it('keeps hand-written fields and derives nothing from non-zod schemas', () => {
+    const { z } = require('zod') as typeof import('zod');
+    const manual = [{ name: 'x', displayName: 'X', type: 'string' }];
+    const own = defineStep({
+      type: 'acme.own',
+      configSchema: z.object({ host: z.string() }),
+      properties: manual,
+      execute: async () => ({ success: true }),
+    } as never) as { properties?: unknown };
+    expect(own.properties).toBe(manual);
+    const yup = defineStep({
+      type: 'acme.other',
+      configSchema: { parse: (v: unknown) => v },
+      execute: async () => ({ success: true }),
+    }) as { properties?: unknown };
+    expect(yup.properties).toBeUndefined();
+  });
+});
+
+describe('plugin loader JSON fields', () => {
+  const { parseJsonFields } = require('../../runbook/plugins/loader') as {
+    parseJsonFields: (config: unknown, properties: unknown[] | undefined) => unknown;
+  };
+  const props = [
+    { name: 'tags', typeOptions: { json: true } },
+    { name: 'note', typeOptions: { rows: 3 } },
+  ];
+
+  it('parses JSON fields before validation and leaves the rest alone', () => {
+    expect(parseJsonFields({ tags: '["a","b"]', note: '["not parsed"]' }, props)).toEqual({
+      tags: ['a', 'b'],
+      note: '["not parsed"]',
+    });
+  });
+
+  it('leaves invalid JSON for the schema to report and ignores missing metadata', () => {
+    expect(parseJsonFields({ tags: '[oops' }, props)).toEqual({ tags: '[oops' });
+    expect(parseJsonFields({ tags: '[1]' }, undefined)).toEqual({ tags: '[1]' });
+  });
 });

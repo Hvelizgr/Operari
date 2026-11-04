@@ -71,7 +71,7 @@ contract Operari's plugin loader expects. A plugin module's default export is
 the descriptor returned by `defineStep`:
 
 ```ts
-import { defineStep, propertiesFromZod } from '@operari/sdk/steps';
+import { defineStep } from '@operari/sdk/steps';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -83,11 +83,10 @@ const schema = z.object({
 
 export default defineStep({
   type: 'myorg.slack-notify',
+  // The form is derived from the schema: text inputs, a select for
+  // `severity`, a toggle for `verbose`, `webhookUrl` and `message` required.
+  // Pass `properties` to write the form by hand instead.
   configSchema: schema,
-  // Auto-derived form metadata. The editor's PropertiesPanel renders
-  // a real form (text inputs, select for `severity`, toggle for
-  // `verbose`) instead of falling back to a JSON textarea.
-  properties: propertiesFromZod(schema),
   label: { en: 'Slack notify', es: 'Notificar Slack' },
   icon: 'Send',
   color: 'bg-pink-500',
@@ -102,9 +101,10 @@ export default defineStep({
 });
 ```
 
-`zod` is an optional peer dependency. Plugin authors who use yup or arktype
-can write the `properties` array by hand (or skip it; the editor falls back
-to the JSON textarea automatically).
+`zod` is an optional peer dependency. With a zod object schema and no
+`properties`, `defineStep` derives the form with `propertiesFromZod`. Plugin
+authors who use yup or arktype write the `properties` array by hand (or skip
+it; the editor falls back to the JSON textarea).
 
 ### `propertiesFromZod(schema)`
 
@@ -123,10 +123,11 @@ can render. Supports:
 | `.default(value)`                  | unwrapped + populated `default`       |
 | `.refine(...)` / `.transform(...)` | unwrapped to the underlying primitive |
 | `.describe('...')`                 | populated `description`               |
+| `z.array` / `z.object` / `z.record` / `z.tuple` / `z.union` | JSON box (`typeOptions.json`); the loader parses it before validation |
 
-Anything else (arrays, unions of mixed kinds, intersections, records) is
-silently dropped from the form — the runtime parse still validates it, the
-editor just falls back to its default behavior for that field.
+A field that is not `.optional()`, `.nullable()` or `.default(...)` is marked
+`required`. Anything else (`z.date()`, `z.any()`, intersections) is left out of
+the form; the runtime parse still validates it.
 
 ## License
 

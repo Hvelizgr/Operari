@@ -126,15 +126,12 @@ todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso
 
 ---
 
-### 🟠 Plugin manifest: declarativo via JSON Schema (no Zod)
+### ✅ Plugin manifest: una sola fuente (zod) (2026-11-04)
 
-**Estado:** `defineStep` SDK ya acepta `properties: PluginStepProperty[]` (commit `98b0251`). **Falta:** convertir el `configSchema` (zod) en JSON Schema automáticamente para el editor.
-
-**Hoy:** un autor de plugin escribe el schema dos veces — una vez como `configSchema` (zod, runtime) y otra vez como `properties[]` (form metadata). Idealmente sería una sola fuente.
-
-**Lift estimado:** 3-5 días. Agregar `zod-to-json-schema`, derivar el `properties[]` automáticamente, dejar el override manual cuando el autor quiera.
-
-**Por qué no entró:** scope creep en una sesión que ya tocó SDK + loader + DB. Mejor en su propio batch.
+`defineStep` deriva el formulario del `configSchema` de zod cuando no se pasa `properties`
+(`propertiesFromZod` ya existía pero había que llamarlo a mano). Ahora marca los campos
+obligatorios y ofrece arrays, objetos, records y uniones como campo JSON que el loader parsea antes
+de validar, en vez de descartarlos. `properties` escrito a mano sigue teniendo prioridad.
 
 ---
 

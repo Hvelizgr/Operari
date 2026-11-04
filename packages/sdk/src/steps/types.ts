@@ -90,13 +90,24 @@ export interface PluginStepProperty {
   description?: string;
   /** For `type: 'options'` — the dropdown choices. */
   options?: { name: string; value: string }[];
+  /** The editor refuses to save the step while this field is empty. */
+  required?: boolean;
   /**
    * Renderer hints. `rows` makes a string input multi-line.
    * `expression` adds the expression-builder badge for `{{vars.x}}`
    * templates. `provider` scopes the SecretPicker to one ConnectedAccount
    * provider (e.g. `'github'`, `'postgres'`).
    */
-  typeOptions?: { rows?: number; expression?: boolean; provider?: string };
+  typeOptions?: {
+    rows?: number;
+    expression?: boolean;
+    provider?: string;
+    /**
+     * The field holds JSON (an array, object or union the form cannot
+     * model). The loader parses the text before `configSchema.parse`.
+     */
+    json?: boolean;
+  };
 }
 
 /** I18n string accepted by Operari's editor. Plain strings are also fine. */
