@@ -70,6 +70,7 @@ export function createRunner(options: RunnerRegistryOptions): Runner {
  *   FLY_API_TOKEN          = ...                          (required if "fly")
  *   FLY_APP_NAME           = ...                          (required if "fly")
  *   FLY_REGION             = "iad" | "sjc" | ...          (optional)
+ *   OPERARI_RUNNER_CALLBACK_URL = public backend URL       (optional, fly: stream output back)
  */
 export function runnerOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): RunnerRegistryOptions {
   const type = (env.OPERARI_RUNNER ?? 'local') as RunnerType;
@@ -82,6 +83,7 @@ export function runnerOptionsFromEnv(env: NodeJS.ProcessEnv = process.env): Runn
         appName: env.FLY_APP_NAME ?? '',
         region: env.FLY_REGION,
         defaultImage: env.OPERARI_RUNNER_IMAGE,
+        logCallbackUrl: env.OPERARI_RUNNER_CALLBACK_URL || undefined,
       },
     };
   }

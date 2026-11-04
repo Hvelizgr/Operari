@@ -1,3 +1,10 @@
+import {
+  type LogCallbackRegistry,
+  type LogChunk,
+  type LogStream,
+  LOG_WRAPPER_SCRIPT,
+  runnerLogCallbacks,
+} from './log-callbacks';
 import { Runner, RunnerContext, RunnerError, RunnerResult, RunnerSpec } from './runner.types';
 
 /**
@@ -21,10 +28,45 @@ export interface FlyMachineRunnerOptions {
   fetchImpl?: FetchFn;
   /** Override the wait poll timeout per attempt (default 60s) */
   waitTimeoutSeconds?: number;
+  /**
+   * Public base URL of this backend (OPERARI_RUNNER_CALLBACK_URL). When
+   * set, each machine streams its stdout/stderr to
+   * `<base>/webhook/runner-logs/<token>`; without it output stays empty.
+   */
+  logCallbackUrl?: string;
+  logRegistry?: LogCallbackRegistry;
+  /** How long to wait after the machine stops for the last lines in flight. */
+  logGraceMs?: number;
 }
 
 const DEFAULT_API_BASE = 'https://api.machines.dev';
 const DEFAULT_IMAGE = 'alpine:3.20';
+const WRAPPER_PATH = '/operari/run.sh';
+
+/** Lines delivered by the machine, re-ordered by sequence per stream. */
+class OutputCapture {
+  private readonly lines: Record<LogStream, Map<number, string>> = {
+    stdout: new Map(),
+    stderr: new Map(),
+  };
+
+  constructor(private readonly emit?: RunnerContext['emit']) {}
+
+  add(chunk: LogChunk): void {
+    const stream = this.lines[chunk.stream];
+    if (stream.has(chunk.seq)) return;
+    stream.set(chunk.seq, chunk.text);
+    this.emit?.({ type: chunk.stream, text: chunk.text, timestamp: new Date() });
+  }
+
+  text(stream: LogStream): string {
+    return [...this.lines[stream].entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([, t]) => t)
+      .join('')
+      .trimEnd();
+  }
+}
 
 interface FlyMachineCreateResponse {
   id: string;
@@ -69,9 +111,10 @@ interface FlyMachineState {
  * inline; logs go through Fly's NATS-based log stream which requires a
  * persistent consumer. For v1 this runner returns the exit code (the
  * most security-critical signal — "did the runbook step succeed?") and
- * leaves stdout/stderr empty. v1.1 will add log capture via a sidecar
- * pattern: the runner image POSTs its own stdout to a Operari callback
- * webhook tagged with the machine id.
+ * leaves stdout/stderr empty unless `logCallbackUrl` is set: then the
+ * machine runs LOG_WRAPPER_SCRIPT (injected as a file, so any image with a
+ * POSIX shell and curl or busybox wget works) which POSTs each line to
+ * /webhook/runner-logs/<token>; the lines are emitted live and returned.
  *
  * Pricing reference (verified Q1 2026): shared 256MB ≈ $0.0027/hour,
  * per-second billed, ~125ms cold start.
@@ -88,6 +131,9 @@ export class FlyMachineRunner implements Runner {
   private readonly apiBase: string;
   private readonly fetchImpl: FetchFn;
   private readonly waitTimeoutSeconds: number;
+  private readonly logCallbackUrl?: string;
+  private readonly logRegistry: LogCallbackRegistry;
+  private readonly logGraceMs: number;
 
   /**
    * Tracks live machine IDs by runId so `cancel(runId)` can issue
@@ -110,6 +156,9 @@ export class FlyMachineRunner implements Runner {
     this.apiBase = (options.apiBase ?? DEFAULT_API_BASE).replace(/\/$/, '');
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.waitTimeoutSeconds = options.waitTimeoutSeconds ?? 60;
+    this.logCallbackUrl = options.logCallbackUrl?.replace(/\/$/, '') || undefined;
+    this.logRegistry = options.logRegistry ?? runnerLogCallbacks;
+    this.logGraceMs = options.logGraceMs ?? 1500;
   }
 
   async healthcheck(): Promise<void> {
@@ -131,7 +180,11 @@ export class FlyMachineRunner implements Runner {
    * testability — every detail of the security profile is verifiable
    * from a unit test.
    */
-  buildCreateBody(spec: RunnerSpec, context: RunnerContext): Record<string, unknown> {
+  buildCreateBody(
+    spec: RunnerSpec,
+    context: RunnerContext,
+    logToken?: string
+  ): Record<string, unknown> {
     const image = spec.image ?? this.defaultImage;
     const shell = spec.shell ?? 'sh';
     const memoryMb = spec.resources?.memoryMb ?? 256;
@@ -148,8 +201,18 @@ export class FlyMachineRunner implements Runner {
       config: {
         image,
         init: {
-          exec: [shell, '-c', spec.command],
+          exec: logToken ? ['/bin/sh', WRAPPER_PATH] : [shell, '-c', spec.command],
         },
+        ...(logToken
+          ? {
+              files: [
+                {
+                  guest_path: WRAPPER_PATH,
+                  raw_value: Buffer.from(LOG_WRAPPER_SCRIPT).toString('base64'),
+                },
+              ],
+            }
+          : {}),
         restart: { policy: 'no' },
         auto_destroy: false, // We destroy explicitly so we can read final state
         guest: {
@@ -158,7 +221,14 @@ export class FlyMachineRunner implements Runner {
           memory_mb: memoryMb,
         },
         services,
-        env: this.buildEnv(spec),
+        env: logToken
+          ? {
+              ...this.buildEnv(spec),
+              OPERARI_COMMAND_B64: Buffer.from(spec.command).toString('base64'),
+              OPERARI_SHELL: shell,
+              OPERARI_LOG_URL: `${this.logCallbackUrl}/webhook/runner-logs/${logToken}`,
+            }
+          : this.buildEnv(spec),
         metadata: {
           'operari.run.id': context.runId,
           'operari.step.id': context.stepId,
@@ -190,9 +260,13 @@ export class FlyMachineRunner implements Runner {
     const overallTimeoutMs = spec.timeoutMs ?? 60_000;
 
     let machineId: string | null = null;
+    const capture = this.logCallbackUrl ? new OutputCapture(context.emit) : null;
+    const logs = capture
+      ? this.logRegistry.register(c => capture.add(c), overallTimeoutMs + 5 * 60_000)
+      : null;
     try {
       // 1. CREATE
-      const createBody = this.buildCreateBody(spec, context);
+      const createBody = this.buildCreateBody(spec, context, logs?.token);
       const createRes = await this.callApi(
         'POST',
         `/v1/apps/${encodeURIComponent(this.appName)}/machines`,
@@ -228,6 +302,7 @@ export class FlyMachineRunner implements Runner {
           exitCode: null,
           timedOut: true,
           machineId,
+          capture,
         });
       }
       if (!waitRes.ok) {
@@ -256,15 +331,19 @@ export class FlyMachineRunner implements Runner {
       }
       const state = (await stateRes.json()) as FlyMachineState;
       const exitCode = FlyMachineRunner.extractExitCode(state);
+      // The machine stopped; its last POSTs may still be on the wire.
+      if (capture) await new Promise(r => setTimeout(r, this.logGraceMs));
 
       return this.finish(startTime, {
         exitCode,
         timedOut: false,
         machineId,
+        capture,
       });
     } catch (err) {
       return this.fail(startTime, `Fly runner error: ${(err as Error).message}`, machineId);
     } finally {
+      logs?.close();
       // 4. DESTROY (best effort)
       if (machineId) {
         try {
@@ -372,12 +451,17 @@ export class FlyMachineRunner implements Runner {
 
   private finish(
     startTime: number,
-    params: { exitCode: number | null; timedOut: boolean; machineId: string }
+    params: {
+      exitCode: number | null;
+      timedOut: boolean;
+      machineId: string;
+      capture?: OutputCapture | null;
+    }
   ): RunnerResult {
     return {
       exitCode: params.exitCode,
-      stdout: '',
-      stderr: '',
+      stdout: params.capture?.text('stdout') ?? '',
+      stderr: params.capture?.text('stderr') ?? '',
       timedOut: params.timedOut,
       durationMs: Date.now() - startTime,
       metadata: { backend: 'fly', machineId: params.machineId },

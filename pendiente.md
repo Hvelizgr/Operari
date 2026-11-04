@@ -110,19 +110,20 @@ todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso
 
 ---
 
-### 🟠 Runner isolation: Fly Machines stdout/stderr sidecar
+### 🟡 Runner isolation: Fly Machines stdout/stderr (2026-11-04)
 
-**Estado:** `FlyMachineRunner` está 80% real (CREATE/WAIT/STATE/DELETE + cancellation working). **Falta:** captura de stdout/stderr — hoy retorna vacío, marcado en código como "v1.1 sidecar pattern pending".
+**Hecho:** con `OPERARI_RUNNER_CALLBACK_URL` (URL pública del backend), cada máquina corre un
+wrapper POSIX inyectado como archivo (sin imagen especial: alcanza con `sh` + `curl` o `wget` de
+busybox) que manda cada línea de stdout/stderr, numerada, a `/webhook/runner-logs/<token>`; el token
+es aleatorio por máquina y vence al terminar el run. El runner emite las líneas en vivo y las
+devuelve ordenadas; el exit code sigue saliendo del estado de la máquina.
 
-**Diseño pendiente:** la imagen del runner POSTea sus chunks de output a un webhook callback de Operari. Requiere:
+**Probado:** el wrapper con Docker real en `alpine` (busybox wget) y `curlimages/curl` (exit code,
+stdout/stderr separados, comillas y `$HOME` intactos, última línea sin salto); runner y ruta con
+tests (orden, duplicados, tokens vencidos o inventados).
 
-1. Endpoint `POST /api/internal/runs/:runId/chunk` con HMAC firmado
-2. Imagen Docker base con sidecar agent que tail-ea stdout y postea
-3. Routing en `ExecutionService` para mergear los chunks contra el step en curso
-
-**Lift estimado:** 1-2 semanas. Necesita infra de prueba real (Fly account o emulador) — no mockeable end-to-end.
-
-**Por qué no entró:** sin Fly account + un environment de prueba, los tests serían mocks puros que no prueban el contrato real.
+**Falta (necesita cuenta de Fly):** una corrida real en Fly Machines: confirmar que `files` con
+`raw_value` y `init.exec` se aplican como en la doc, y medir la latencia de las líneas.
 
 ---
 
