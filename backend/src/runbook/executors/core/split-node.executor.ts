@@ -1,15 +1,16 @@
-import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
-import { ExecutionInput, NodeExecutionResult } from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
+import { ErrorCode, NodeExecutionError } from '../../../errors/custom-error';
+import { ExecutionInput, NodeExecutionResult } from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 
 export interface SplitNodeConfig {
   itemsPath?: string; // Path in the input to find the array to split
 }
 
-export class SplitNodeExecutor implements EditorNodeExecutor<SplitNodeConfig, NodeExecutionResult> {
+export class SplitNodeExecutor extends FlatInputStep<SplitNodeConfig> {
   readonly type = 'Split';
 
-  async execute(
+  async run(
     config: SplitNodeConfig,
     input: ExecutionInput,
     _errorContext: NodeErrorContext

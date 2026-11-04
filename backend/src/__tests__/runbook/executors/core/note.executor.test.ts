@@ -1,4 +1,4 @@
-import { NoteNodeExecutor } from '../../../editor/nodes/note.executor';
+import { NoteNodeExecutor } from '../../../../runbook/executors/core/note.executor';
 
 describe('NoteNodeExecutor', () => {
   const exec = new NoteNodeExecutor();
@@ -10,7 +10,7 @@ describe('NoteNodeExecutor', () => {
 
   it('passes input through unchanged', async () => {
     const input = { foo: 'bar', nested: { x: 1 } };
-    const result = await exec.execute({}, input, errCtx);
+    const result = await exec.run({}, input, errCtx);
     expect(result).toEqual(input);
     // Same reference: passthrough must not clone
     expect(result).toBe(input);

@@ -1,5 +1,6 @@
-import type { ExecutionInput, LoopNodeConfig, LoopResult } from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
+import type { ExecutionInput, LoopNodeConfig, LoopResult } from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 import { getNestedValue, resolveTemplate } from './_shared';
 
 /**
@@ -22,11 +23,11 @@ function resolveItems(expression: string, input: ExecutionInput): unknown {
   }
 }
 
-export class LoopNodeExecutor implements EditorNodeExecutor<LoopNodeConfig, LoopResult> {
+export class LoopNodeExecutor extends FlatInputStep<LoopNodeConfig> {
   readonly type = 'Loop';
   readonly aliases = ['Iterator', 'operari.loop'] as const;
 
-  async execute(
+  async run(
     config: LoopNodeConfig,
     input: ExecutionInput,
     _errorContext: NodeErrorContext

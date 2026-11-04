@@ -4,7 +4,11 @@ import * as nodemailer from 'nodemailer';
 import { AuditService } from '../audit/audit.service';
 import { ErrorCode, NodeExecutionError } from '../errors/custom-error';
 import { createExecutorRegistry } from '../runbook/executors';
-import { EditorExecutorAdapter } from '../runbook/executors/_editor-adapter';
+import { isFlatInputStep } from '../runbook/executors/core';
+import {
+  getNestedValue as sharedGetNestedValue,
+  resolveTemplate as sharedResolveTemplate,
+} from '../runbook/executors/core/_shared';
 import {
   SecretReferenceError,
   SecretTemplateResolver,
@@ -17,56 +21,16 @@ import { Logger } from '../services/logger.service';
 import type { ExecutionInput } from '../types/runbook.types';
 import { NodeExecutionResult, WorkflowNode } from '../types/runbook.types';
 import { socketService } from './execution/socket.service';
-import { JoinNodeExecutor } from './logic/join-node.executor';
-import { MultiplexNodeExecutor } from './logic/multiplex-node.executor';
-import { RepeatNodeExecutor } from './logic/repeat-node.executor';
-import { SplitNodeExecutor } from './logic/split-node.executor';
-import type { EditorNodeExecutor } from './nodes/_shared';
-import {
-  getNestedValue as sharedGetNestedValue,
-  resolveTemplate as sharedResolveTemplate,
-} from './nodes/_shared';
-import { ConditionNodeExecutor } from './nodes/condition.executor';
-import { DelayNodeExecutor } from './nodes/delay.executor';
-import { EmailNodeExecutor } from './nodes/email.executor';
-import { FrameNodeExecutor } from './nodes/frame.executor';
-import { HttpNodeExecutor } from './nodes/http.executor';
-import { LoopNodeExecutor } from './nodes/loop.executor';
-import { NoteNodeExecutor } from './nodes/note.executor';
-import { SetMetadataNodeExecutor } from './nodes/set-metadata.executor';
-import { ShellCommandNodeExecutor } from './nodes/shell-command.executor';
-import { StoreGetNodeExecutor } from './nodes/store-get.executor';
-import { StoreSetNodeExecutor } from './nodes/store-set.executor';
-import { SuspendNodeExecutor } from './nodes/suspend.executor';
-import { SwitchNodeExecutor } from './nodes/switch.executor';
-import { TransformNodeExecutor } from './nodes/transform.executor';
-import { TriggerNodeExecutor } from './nodes/trigger.executor';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyEditorExecutor = EditorNodeExecutor<any, any>;
 
 export class NodeExecutor {
   private emailTransporter: nodemailer.Transporter | null = null;
   private prisma: PrismaClient;
   private logger: Logger;
   /**
-   * Unified registry: every node type the engine can run, native
-   * (StepExecutor) or wrapped legacy (EditorExecutorAdapter), keyed by
-   * canonical type and by every alias. The dispatcher does one
-   * `Map.get()`; pre-pivot the same call had to try a runbook map and
-   * fall through to an editor map.
-   *
-   * Built once in the constructor; immutable thereafter.
+   * Every step type the engine can run, keyed by type and alias (and by
+   * `${tenantId}::${type}` for tenant plugins). Built once.
    */
   private registry: Map<string, StepExecutor>;
-  /**
-   * The native runbook half of the registry. Kept around as a separate
-   * reference because `ShellCommandNodeExecutor` looks up the runbook
-   * `shell` executor lazily through a getter — the editor registry it
-   * lives in needs to read the runbook registry at call time, not
-   * registration time.
-   */
-  private runbookRegistry: Map<string, StepExecutor>;
   /**
    * Pre-resolves `{{secrets.<id>}}` references before each runbook
    * step runs. Lazily built the first time a step config actually
@@ -102,89 +66,9 @@ export class NodeExecutor {
       });
     }
 
-    this.runbookRegistry = createExecutorRegistry(this.prisma);
-    this.registry = this.buildUnifiedRegistry();
-  }
-
-  /**
-   * Build the unified registry. Native runbook executors land first;
-   * each legacy editor executor is then wrapped in
-   * `EditorExecutorAdapter` and registered under its canonical type
-   * and every alias. Native registrations win on collision so node
-   * types like `operari.httpRequest` (in the runbook registry as
-   * `HttpExecutor`, in the editor registry as an alias of
-   * `HttpNodeExecutor`) consistently route to the canonical
-   * implementation.
-   *
-   * Throws on duplicate registration WITHIN the editor side so a
-   * copy/paste bug surfaces immediately. Cross-half collisions are
-   * silent because the precedence rule is documented and intended.
-   */
-  private buildUnifiedRegistry(): Map<string, StepExecutor> {
-    const registry = new Map<string, StepExecutor>(this.runbookRegistry);
-    const editorTypesSeen = new Set<string>();
-
-    const register = (executor: AnyEditorExecutor) => {
-      const wrapped = new EditorExecutorAdapter(executor);
-      const types = [executor.type, ...(executor.aliases ?? [])];
-      for (const t of types) {
-        if (editorTypesSeen.has(t)) {
-          throw new Error(
-            `Duplicate editor node type registration: ${t} (already mapped to ${executor.type})`
-          );
-        }
-        editorTypesSeen.add(t);
-        // Native runbook executors win on cross-half collision — for
-        // example, `operari.httpRequest` is owned by the runbook
-        // HttpExecutor; the editor HttpNodeExecutor's alias for the
-        // same type is silently shadowed.
-        if (registry.has(t)) continue;
-        registry.set(t, wrapped);
-      }
-    };
-
-    const editorNodeDeps = { logger: this.logger };
-
-    // Pure-logic nodes
-    register(new DelayNodeExecutor());
-    register(new TransformNodeExecutor(editorNodeDeps));
-    register(new ConditionNodeExecutor());
-    register(new SwitchNodeExecutor());
-    register(new NoteNodeExecutor());
-    register(new FrameNodeExecutor());
-
-    // IO nodes
-    register(new HttpNodeExecutor({ logger: this.logger }));
-    register(
-      new EmailNodeExecutor({
-        logger: this.logger,
-        getEmailTransporter: () => this.emailTransporter,
-      })
-    );
-
-    // State nodes
-    register(new TriggerNodeExecutor());
-    register(new LoopNodeExecutor());
-    register(new SuspendNodeExecutor());
-    register(new StoreSetNodeExecutor(this.prisma));
-    register(new StoreGetNodeExecutor(this.prisma));
-    register(new SetMetadataNodeExecutor(this.prisma));
-
-    // Shell command — adapter that delegates to the runbook ShellExecutor
-    // through `this.runbookRegistry.get('shell')`. Looking it up via a
-    // getter means tests can swap the runbook executor without rebuilding
-    // the registry.
-    register(
-      new ShellCommandNodeExecutor({ logger: this.logger }, () => this.runbookRegistry.get('shell'))
-    );
-
-    // Multi-target / fan-out logic nodes
-    register(new SplitNodeExecutor());
-    register(new JoinNodeExecutor());
-    register(new RepeatNodeExecutor());
-    register(new MultiplexNodeExecutor());
-
-    return registry;
+    this.registry = createExecutorRegistry(this.prisma, {
+      getEmailTransporter: () => this.emailTransporter,
+    });
   }
 
   /**
@@ -273,7 +157,7 @@ export class NodeExecutor {
 
     const stepId = node.id;
     const runId = executionId ?? 'unknown';
-    const isEditorWrapped = executor instanceof EditorExecutorAdapter;
+    const isEditorWrapped = isFlatInputStep(executor);
     // Native runbook executors get a 'default-tenant' fallback so
     // editor "test this step" previews (which run without an
     // authenticated request context) don't blow up on the
@@ -289,7 +173,7 @@ export class NodeExecutor {
 
     // Pre-resolve `{{secrets.<id>}}` references for native runbook
     // executors only. Editor executors (wrapped in
-    // EditorExecutorAdapter) use a flat ExecutionInput dict and never
+    // FlatInputStep) use a flat ExecutionInput dict and never
     // had secret resolution wired in — running the resolver for them
     // would emit `secret.accessed` audit events for refs that the
     // editor template engine then resolves to the empty string, which

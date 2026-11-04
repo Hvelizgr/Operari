@@ -1,13 +1,11 @@
-import { ExecutionInput, NodeExecutionResult } from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
+import { ExecutionInput, NodeExecutionResult } from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 
-export class JoinNodeExecutor implements EditorNodeExecutor<
-  Record<string, unknown>,
-  NodeExecutionResult
-> {
+export class JoinNodeExecutor extends FlatInputStep<Record<string, unknown>> {
   readonly type = 'Join';
 
-  async execute(
+  async run(
     _config: Record<string, unknown>,
     input: ExecutionInput,
     _errorContext: NodeErrorContext

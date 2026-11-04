@@ -1,5 +1,6 @@
-import type { ExecutionInput, SwitchNodeConfig, SwitchResult } from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
+import type { ExecutionInput, SwitchNodeConfig, SwitchResult } from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 import { getNestedValue, resolveTemplate } from './_shared';
 
 /**
@@ -35,11 +36,11 @@ function parseCases(raw: unknown): Array<{ value: string; label?: string }> {
   );
 }
 
-export class SwitchNodeExecutor implements EditorNodeExecutor<SwitchNodeConfig, SwitchResult> {
+export class SwitchNodeExecutor extends FlatInputStep<SwitchNodeConfig> {
   readonly type = 'Switch';
   readonly aliases = ['operari.switch'] as const;
 
-  async execute(
+  async run(
     config: SwitchNodeConfig,
     input: ExecutionInput,
     _errorContext: NodeErrorContext

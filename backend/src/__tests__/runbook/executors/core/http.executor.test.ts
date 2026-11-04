@@ -1,6 +1,6 @@
-import { HttpNodeExecutor } from '../../../editor/nodes/http.executor';
-import { ErrorCode, HttpError } from '../../../errors/custom-error';
-import type { Logger } from '../../../services/logger.service';
+import { ErrorCode, HttpError } from '../../../../errors/custom-error';
+import { HttpNodeExecutor } from '../../../../runbook/executors/core/http.executor';
+import type { Logger } from '../../../../services/logger.service';
 
 const buildLogger = () => {
   const logger = {
@@ -39,7 +39,7 @@ describe('HttpNodeExecutor', () => {
     });
 
     const exec = new HttpNodeExecutor(buildLogger());
-    const result = await exec.execute(
+    const result = await exec.run(
       { url: 'https://api.test/users/{{id}}', method: 'GET' },
       { id: 'alice' },
       errCtx
@@ -66,7 +66,7 @@ describe('HttpNodeExecutor', () => {
     });
 
     const exec = new HttpNodeExecutor(buildLogger());
-    const result = await exec.execute({ url: 'https://api.test' }, {}, errCtx);
+    const result = await exec.run({ url: 'https://api.test' }, {}, errCtx);
     expect(result.data).toBe('plaintext');
   });
 
@@ -80,7 +80,7 @@ describe('HttpNodeExecutor', () => {
     const exec = new HttpNodeExecutor(buildLogger());
 
     try {
-      await exec.execute({ url: 'https://api.test', retries: 1 }, {}, errCtx);
+      await exec.run({ url: 'https://api.test', retries: 1 }, {}, errCtx);
       fail('expected throw');
     } catch (err) {
       expect(err).toBeInstanceOf(HttpError);
@@ -106,7 +106,7 @@ describe('HttpNodeExecutor', () => {
     const exec = new HttpNodeExecutor({ logger });
 
     await expect(
-      exec.execute({ url: 'https://api.test', retries: 1 }, {}, errCtx)
+      exec.run({ url: 'https://api.test', retries: 1 }, {}, errCtx)
     ).rejects.toBeInstanceOf(HttpError);
 
     expect(spy.error).toHaveBeenCalled();

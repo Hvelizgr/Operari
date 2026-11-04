@@ -1,5 +1,6 @@
-import type { ExecutionInput, TriggerResult } from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
+import type { ExecutionInput, TriggerResult } from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 
 /**
  * Trigger node — entry point of an execution. Stamps the input with
@@ -9,14 +10,11 @@ import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
  * editor; they all behave identically at execution time (the difference
  * is in how the run was started, which the runtime already knows).
  */
-export class TriggerNodeExecutor implements EditorNodeExecutor<
-  Record<string, unknown>,
-  TriggerResult
-> {
+export class TriggerNodeExecutor extends FlatInputStep<Record<string, unknown>> {
   readonly type = 'Trigger';
   readonly aliases = ['Webhook', 'Schedule', 'operari.webhook', 'operari.cron'] as const;
 
-  async execute(
+  async run(
     _config: Record<string, unknown>,
     input: ExecutionInput,
     _errorContext: NodeErrorContext

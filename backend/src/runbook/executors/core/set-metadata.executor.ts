@@ -1,12 +1,13 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 
-import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
+import { ErrorCode, NodeExecutionError } from '../../../errors/custom-error';
 import type {
   ExecutionInput,
   SetMetadataNodeConfig,
   SetMetadataResult,
-} from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
+} from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 import { resolveTemplate } from './_shared';
 
 /**
@@ -26,15 +27,14 @@ import { resolveTemplate } from './_shared';
  *
  * Requires `executionId` from the dispatcher.
  */
-export class SetMetadataNodeExecutor implements EditorNodeExecutor<
-  SetMetadataNodeConfig,
-  SetMetadataResult
-> {
+export class SetMetadataNodeExecutor extends FlatInputStep<SetMetadataNodeConfig> {
   readonly type = 'SetMetadata';
 
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaClient) {
+    super();
+  }
 
-  async execute(
+  async run(
     config: SetMetadataNodeConfig,
     input: ExecutionInput,
     errorContext: NodeErrorContext,

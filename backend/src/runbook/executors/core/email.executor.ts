@@ -1,12 +1,8 @@
-import { ErrorCode, ExternalServiceError } from '../../errors/custom-error';
-import type { EmailNodeConfig, EmailResult, ExecutionInput } from '../../types/runbook.types';
-import { withExternalServiceRetry } from '../../utils/retry';
-import type {
-  EditorNodeExecutor,
-  EmailTransporterLike,
-  NodeErrorContext,
-  NodeExecutorDeps,
-} from './_shared';
+import { ErrorCode, ExternalServiceError } from '../../../errors/custom-error';
+import type { EmailNodeConfig, EmailResult, ExecutionInput } from '../../../types/runbook.types';
+import { withExternalServiceRetry } from '../../../utils/retry';
+import { FlatInputStep } from './_flat-input';
+import type { EmailTransporterLike, NodeErrorContext, NodeExecutorDeps } from './_shared';
 import { resolveTemplate } from './_shared';
 
 /**
@@ -26,7 +22,7 @@ import { resolveTemplate } from './_shared';
  * so the executor can be constructed before SMTP env vars are read,
  * and so tests can swap the transporter at runtime.
  */
-export class EmailNodeExecutor implements EditorNodeExecutor<EmailNodeConfig, EmailResult> {
+export class EmailNodeExecutor extends FlatInputStep<EmailNodeConfig> {
   readonly type = 'Email';
   readonly aliases = ['custom.email'] as const;
 
@@ -34,9 +30,11 @@ export class EmailNodeExecutor implements EditorNodeExecutor<EmailNodeConfig, Em
     private readonly deps: Pick<NodeExecutorDeps, 'logger'> & {
       getEmailTransporter: () => EmailTransporterLike | null;
     }
-  ) {}
+  ) {
+    super();
+  }
 
-  async execute(
+  async run(
     config: EmailNodeConfig,
     input: ExecutionInput,
     errorContext: NodeErrorContext

@@ -2,8 +2,9 @@ import type {
   ConditionNodeConfig,
   ConditionResult,
   ExecutionInput,
-} from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
+} from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 import { getNestedValue, resolveTemplate } from './_shared';
 
 /**
@@ -37,14 +38,11 @@ function isTruthy(value: unknown): boolean {
   return Boolean(value);
 }
 
-export class ConditionNodeExecutor implements EditorNodeExecutor<
-  ConditionNodeConfig,
-  ConditionResult
-> {
+export class ConditionNodeExecutor extends FlatInputStep<ConditionNodeConfig> {
   readonly type = 'Condition';
   readonly aliases = ['If', 'operari.if'] as const;
 
-  async execute(
+  async run(
     config: ConditionNodeConfig,
     input: ExecutionInput,
     _errorContext: NodeErrorContext

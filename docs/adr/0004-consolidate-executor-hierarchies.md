@@ -1,6 +1,6 @@
 # ADR 0004 — Consolidate `editor/nodes/` and `runbook/executors/`
 
-- **Status:** proposed (defer until P1 #7 phase 4 lands)
+- **Status:** accepted and done (2026-11-04)
 - **Date:** 2026-04-07
 - **Related:** ADR 0001, ADR 0002, ADR 0003, `docs/post-pivot-cleanup-audit.md`
 
@@ -160,4 +160,19 @@ ADR 0003 phase 4 lands"_. When the time comes:
 
 ## Status
 
-Proposed. Tracked as backlog item, blocked on **ADR 0003 phase 4**.
+Done (2026-11-04), after ADR 0003 phase 4.
+
+- `EditorNodeExecutor`, `editor/nodes/`, `editor/logic/` and `EditorExecutorAdapter` are gone.
+  The 19 steps live in `runbook/executors/core/` and extend `FlatInputStep`, a `StepExecutor`
+  whose `execute(config, context)` does what the adapter did; their logic stays in `run(config,
+  input, errorContext, tenantId, executionId)`, so behaviour is unchanged (flat input, thrown
+  `NodeExecutionError` codes, Suspend → `paused`).
+- One registry: `createExecutorRegistry` registers native steps, catalog steps, then the core
+  steps (a type already taken keeps its executor, so `operari.httpRequest` stays HttpExecutor),
+  then plugins. Plugins can no longer claim a core type such as `Condition`.
+- The dispatcher asks `isFlatInputStep(executor)` instead of `instanceof EditorExecutorAdapter`
+  to pick the flat input and skip secret pre-resolution for those steps.
+- Not done, on purpose: rewriting `transform` / `condition` / `store*` to read
+  `ExecutorContext`, and moving `editor/execution/` to `runbook/realtime/`. Both are renames with
+  no behaviour change and would touch every import of the execution service; the goal of the ADR
+  (one interface, one registry, one dispatch path) does not need them.

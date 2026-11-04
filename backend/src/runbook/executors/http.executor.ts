@@ -39,9 +39,8 @@ export interface HttpOutput {
  * is applied to url, headers, and body so steps can reference variables,
  * previous outputs, and secrets.
  *
- * This replaces the legacy HttpNodeExecutor in editor/nodes/ — once
- * registered in the runbook registry, tryRunbookExecutor() picks it up
- * first and the legacy executor is no longer reached.
+ * Owns `operari.httpRequest`; the core HttpNodeExecutor keeps only the
+ * older `HTTP` type.
  */
 export class HttpExecutor implements StepExecutor<HttpConfig> {
   readonly type = 'operari.httpRequest';

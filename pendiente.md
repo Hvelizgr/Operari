@@ -152,15 +152,13 @@ GET de los servicios del catálogo (hoy cuentan como no seguros).
 
 ---
 
-### 🔴 ADR 0004: consolidar dual executor system
+### ✅ ADR 0004: consolidar dual executor system (2026-11-04)
 
-**Estado:** ADR existe, dos jerarquías paralelas (`backend/src/runbook/executors/` con 10 native + `backend/src/editor/nodes/` con 13 legacy). El `EditorExecutorAdapter` es un bridge táctico que difiere la consolidación real.
-
-**Scope:** ~3500 LOC across 23 files. Mover los 13 editor executors al runbook registry, reescribir 3 (transform, condition, storeGet/Set), borrar el adapter + el `EditorNodeExecutor` interface, aplanar el dispatcher en `NodeExecutor`.
-
-**Lift estimado:** 2-3 semanas. Riesgo medio — el socket emit al frontend pasa por la rama editor; un cambio mal hecho rompe el live log streaming.
-
-**Por qué no entró:** half-done es worse-than-nothing. La rama intermedia (mover archivos sin consolidar) confunde más que ayuda.
+Hecho. Una sola interfaz (`StepExecutor`), un solo registro (`createExecutorRegistry`) y un solo
+camino de despacho. Los 19 pasos heredados viven en `runbook/executors/core/` sobre `FlatInputStep`,
+con el mismo comportamiento; se borraron `editor/nodes/`, `editor/logic/`, el adaptador y la
+interfaz vieja. Queda a propósito sin hacer el renombre de `editor/execution/` (solo cosmético).
+Detalle en el ADR.
 
 ---
 

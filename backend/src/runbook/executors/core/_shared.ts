@@ -12,19 +12,10 @@
  * (introduced in step 2).
  */
 
-import type { Logger } from '../../services/logger.service';
-import type { ExecutionInput, NodeExecutionResult } from '../../types/runbook.types';
+import type { Logger } from '../../../services/logger.service';
+import type { ExecutionInput } from '../../../types/runbook.types';
 
-/**
- * The minimal identification block that every NodeExecutionError carries.
- * Spread into the error constructor with `...commonErrorContext` to keep
- * call sites short and consistent.
- */
-export interface NodeErrorContext {
-  nodeId: string;
-  nodeName: string;
-  nodeType: string;
-}
+export type { NodeErrorContext } from './_flat-input';
 
 /**
  * Resolve `{{path.to.value}}` placeholders against the execution input.
@@ -99,43 +90,4 @@ export interface NodeExecutorDeps {
    * swap the transporter without rebuilding the executor.
    */
   getEmailTransporter?: () => EmailTransporterLike | null;
-}
-
-/**
- * Per-class editor node executor. Each implementation handles ONE node
- * type (plus any aliases) and returns a typed result. The result is
- * assignable to `NodeExecutionResult` so the dispatcher in
- * `node-executor.service.ts` can hand it back to the engine unchanged.
- *
- * NOT the same shape as the runbook `StepExecutor` — that one targets
- * the runbook engine's `ExecutorContext` (runId/stepId/tenantId/emit).
- * Step 6 of the ADR merges the two interfaces; until then we deliberately
- * keep this one editor-shaped to avoid touching every existing call site
- * in a single PR.
- */
-export interface EditorNodeExecutor<TConfig, TResult extends NodeExecutionResult> {
-  /** Canonical node type, e.g. "Transform" */
-  readonly type: string;
-  /** Other node types that should route to this executor, e.g. ["Code"] */
-  readonly aliases?: readonly string[];
-  /**
-   * Run the node. The two trailing parameters (`tenantId`, `executionId`)
-   * are optional because most executors do not need them — pure-logic and
-   * IO nodes ignore them. State nodes (store-set, store-get, set-metadata)
-   * REQUIRE tenantId or executionId at the call site and throw a
-   * configuration error when missing. The dispatcher in
-   * `node-executor.service.ts` is responsible for refusing to invoke a
-   * state node without the required scoping.
-   *
-   * Step 6 of the ADR collapses this into a single context object; the
-   * positional form is preserved here to keep the diff small while
-   * steps 2-5 land incrementally.
-   */
-  execute(
-    config: TConfig,
-    input: ExecutionInput,
-    errorContext: NodeErrorContext,
-    tenantId?: string,
-    executionId?: string
-  ): Promise<TResult>;
 }

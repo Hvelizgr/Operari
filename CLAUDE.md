@@ -57,7 +57,7 @@ operari/
 | You want to...                         | Look in                                                                                                                       |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Add a step type (form + behaviour)     | [backend/src/runbook/catalog/](./backend/src/runbook/catalog/) — one object per step; upserted into the editor at boot        |
-| Add a step type executor (legacy)      | [backend/src/runbook/executors/](./backend/src/runbook/executors/) + an entry in `backend/prisma/seed-nodes.js`               |
+| Add a step type executor (hand-written) | [backend/src/runbook/executors/](./backend/src/runbook/executors/) + an entry in `backend/prisma/seed-nodes.js`; flow/data steps that read the flat parent output extend `FlatInputStep` in `executors/core/` |
 | Add a UI route                         | [frontend/app/\[lang\]/](./frontend/app/%5Blang%5D/)                                                                          |
 | Add a backend HTTP route               | [backend/src/routes/](./backend/src/routes/) (web UI) or [backend/src/routes/v1/](./backend/src/routes/v1/) (SDK/CLI API key) |
 | Understand a non-obvious design choice | [docs/adr/](./docs/adr/)                                                                                                      |

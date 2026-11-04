@@ -1,5 +1,5 @@
-import { TransformNodeExecutor } from '../../../editor/nodes/transform.executor';
-import type { Logger } from '../../../services/logger.service';
+import { TransformNodeExecutor } from '../../../../runbook/executors/core/transform.executor';
+import type { Logger } from '../../../../services/logger.service';
 
 const buildDeps = () => {
   const logger = {
@@ -21,7 +21,7 @@ describe('TransformNodeExecutor', () => {
 
   it('resolves a static mapping with template substitution', async () => {
     const exec = new TransformNodeExecutor(buildDeps());
-    const result = await exec.execute(
+    const result = await exec.run(
       { mapping: { greeting: 'hello {{name}}', original: '{{name}}' } },
       { name: 'world' },
       errCtx
@@ -31,7 +31,7 @@ describe('TransformNodeExecutor', () => {
 
   it('passes input through when no mapping is set', async () => {
     const exec = new TransformNodeExecutor(buildDeps());
-    const result = await exec.execute({}, { foo: 'bar' }, errCtx);
+    const result = await exec.run({}, { foo: 'bar' }, errCtx);
     expect(result).toEqual({ foo: 'bar' });
   });
 });

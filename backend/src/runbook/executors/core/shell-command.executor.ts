@@ -1,12 +1,13 @@
-import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
-import type { ShellConfig } from '../../runbook/executors/shell.executor';
-import type { ExecutorContext, StepExecutor } from '../../runbook/types/executor.types';
+import { ErrorCode, NodeExecutionError } from '../../../errors/custom-error';
 import type {
   ExecutionInput,
   ShellCommandNodeConfig,
   ShellCommandResult,
-} from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_shared';
+} from '../../../types/runbook.types';
+import type { ExecutorContext, StepExecutor } from '../../types/executor.types';
+import type { ShellConfig } from '../shell.executor';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext, NodeExecutorDeps } from './_shared';
 
 /**
  * ShellCommand node — adapter that delegates to the runbook
@@ -29,18 +30,17 @@ import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_
  * registry can be mutated (e.g. tests swapping the shell executor) and
  * the adapter still sees the latest entry.
  */
-export class ShellCommandNodeExecutor implements EditorNodeExecutor<
-  ShellCommandNodeConfig,
-  ShellCommandResult
-> {
+export class ShellCommandNodeExecutor extends FlatInputStep<ShellCommandNodeConfig> {
   readonly type = 'ShellCommand';
 
   constructor(
     private readonly deps: Pick<NodeExecutorDeps, 'logger'>,
     private readonly getShellExecutor: () => StepExecutor | undefined
-  ) {}
+  ) {
+    super();
+  }
 
-  async execute(
+  async run(
     config: ShellCommandNodeConfig,
     input: ExecutionInput,
     errorContext: NodeErrorContext,

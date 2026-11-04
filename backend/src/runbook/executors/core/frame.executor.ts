@@ -1,5 +1,6 @@
-import type { ExecutionInput, NodeExecutionResult } from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
+import type { ExecutionInput, NodeExecutionResult } from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 
 /**
  * Frame node — pure passthrough. The editor uses `custom.frame` for
@@ -11,13 +12,10 @@ import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
  * canvas and running the runbook throws "Unknown node type: custom.frame"
  * because the palette exposes the type but no executor handled it.
  */
-export class FrameNodeExecutor implements EditorNodeExecutor<
-  Record<string, unknown>,
-  NodeExecutionResult
-> {
+export class FrameNodeExecutor extends FlatInputStep<Record<string, unknown>> {
   readonly type = 'custom.frame';
 
-  async execute(
+  async run(
     _config: Record<string, unknown>,
     input: ExecutionInput,
     _errorContext: NodeErrorContext

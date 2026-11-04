@@ -1,4 +1,4 @@
-import { DelayNodeExecutor } from '../../../editor/nodes/delay.executor';
+import { DelayNodeExecutor } from '../../../../runbook/executors/core/delay.executor';
 
 describe('DelayNodeExecutor', () => {
   const executor = new DelayNodeExecutor();
@@ -11,7 +11,7 @@ describe('DelayNodeExecutor', () => {
 
   it('sleeps for the configured duration and returns delayed=true', async () => {
     const start = Date.now();
-    const result = await executor.execute({ duration: 80 }, {}, errCtx);
+    const result = await executor.run({ duration: 80 }, {}, errCtx);
     const elapsed = Date.now() - start;
     expect(result.delayed).toBe(true);
     expect(result.duration).toBe(80);
@@ -23,7 +23,7 @@ describe('DelayNodeExecutor', () => {
   it('defaults to 1000 ms when duration is omitted', async () => {
     // Use a fake to avoid actually waiting 1s
     jest.useFakeTimers();
-    const promise = executor.execute({}, {}, errCtx);
+    const promise = executor.run({}, {}, errCtx);
     jest.advanceTimersByTime(1000);
     const result = await promise;
     jest.useRealTimers();

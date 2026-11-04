@@ -1,7 +1,7 @@
 import { NodeExecutor } from '../../../editor/node-executor.service';
-import { ConditionNodeExecutor } from '../../../editor/nodes/condition.executor';
-import { LoopNodeExecutor } from '../../../editor/nodes/loop.executor';
-import { SwitchNodeExecutor } from '../../../editor/nodes/switch.executor';
+import { ConditionNodeExecutor } from '../../../runbook/executors/core/condition.executor';
+import { LoopNodeExecutor } from '../../../runbook/executors/core/loop.executor';
+import { SwitchNodeExecutor } from '../../../runbook/executors/core/switch.executor';
 import { EmailExecutor } from '../../../runbook/executors/email.executor';
 import { HttpExecutor } from '../../../runbook/executors/http.executor';
 import { NotifyExecutor } from '../../../runbook/executors/notify.executor';
@@ -37,7 +37,7 @@ describe('operari.if condition expression', () => {
     ['{{missing}}', {}, false],
     ['deploy-{{env}}', { env: 'prod' }, true],
   ])('%s with %j → %s', async (condition, input, expected) => {
-    const out = await exec.execute({ condition }, input, errCtx);
+    const out = await exec.run({ condition }, input, errCtx);
     expect(out.conditionResult).toBe(expected);
   });
 });
@@ -46,7 +46,7 @@ describe('operari.switch cases stored as text', () => {
   const exec = new SwitchNodeExecutor();
 
   it('matches against a JSON array of plain values', async () => {
-    const out = await exec.execute(
+    const out = await exec.run(
       { field: 'env', cases: '["staging", "prod"]' },
       { env: 'prod' },
       errCtx
@@ -55,7 +55,7 @@ describe('operari.switch cases stored as text', () => {
   });
 
   it('accepts the field wrapped in {{ }}', async () => {
-    const out = await exec.execute(
+    const out = await exec.run(
       { field: '{{env}}', cases: '[{"value": "staging", "label": "stg"}]' },
       { env: 'staging' },
       errCtx
@@ -69,12 +69,12 @@ describe('operari.loop items stored as text', () => {
   const exec = new LoopNodeExecutor();
 
   it('reads an array from a {{path}}', async () => {
-    const out = await exec.execute({ items: '{{hosts}}' }, { hosts: ['a', 'b'] }, errCtx);
+    const out = await exec.run({ items: '{{hosts}}' }, { hosts: ['a', 'b'] }, errCtx);
     expect(out).toEqual({ items: ['a', 'b'], count: 2 });
   });
 
   it('parses a JSON array literal', async () => {
-    const out = await exec.execute({ items: '[1, 2, 3]' }, {}, errCtx);
+    const out = await exec.run({ items: '[1, 2, 3]' }, {}, errCtx);
     expect(out.count).toBe(3);
   });
 });

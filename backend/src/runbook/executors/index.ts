@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
 import { PrismaServerDirectory } from '../../servers/server-directory';
+import { Logger } from '../../services/logger.service';
 import { BUILTIN_CATALOG, CatalogExecutor } from '../catalog';
 import type { CatalogDeps } from '../catalog/define';
 import { loadPluginsSync, type PluginNodeMetadata } from '../plugins/loader';
@@ -9,6 +10,8 @@ import { getRunner } from '../runners';
 import { Runner } from '../runners/runner.types';
 import { StepExecutor } from '../types/executor.types';
 import { ApprovalExecutor } from './approval.executor';
+import { registerCoreSteps } from './core';
+import type { EmailTransporterLike } from './core/_shared';
 import { DatabaseExecutor } from './database.executor';
 import { DatadogEventExecutor } from './datadog-event.executor';
 import { EmailExecutor } from './email.executor';
@@ -66,6 +69,8 @@ export interface ExecutorRegistryOptions {
    * If not provided, builds one from process.env via runnerOptionsFromEnv().
    */
   runner?: Runner;
+  /** SMTP transporter for the core Email step; null when SMTP is not configured. */
+  getEmailTransporter?: () => EmailTransporterLike | null;
 }
 
 /**
@@ -128,6 +133,13 @@ export function createExecutorRegistry(
     if (!registry.has(node.type))
       registry.set(node.type, new CatalogExecutor(node, fetch, catalogDeps));
   }
+
+  registerCoreSteps(registry, {
+    prisma,
+    logger: Logger.getInstance(),
+    getEmailTransporter: options.getEmailTransporter,
+    shell: () => registry.get('shell'),
+  });
 
   // User-authored plugins. Loaded from OPERARI_PLUGINS_DIR (opt-in
   // per deployment). The loader catches its own errors so a broken

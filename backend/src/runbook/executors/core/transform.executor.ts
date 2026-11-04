@@ -1,10 +1,11 @@
-import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
+import { ErrorCode, NodeExecutionError } from '../../../errors/custom-error';
 import type {
   ExecutionInput,
   ExecutionOutput,
   TransformNodeConfig,
-} from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_shared';
+} from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext, NodeExecutorDeps } from './_shared';
 import { resolveTemplate } from './_shared';
 
 /**
@@ -19,17 +20,16 @@ import { resolveTemplate } from './_shared';
  *      `{{template}}` against the input and return the new object.
  *   2. Otherwise pass the input through unchanged.
  */
-export class TransformNodeExecutor implements EditorNodeExecutor<
-  TransformNodeConfig,
-  ExecutionOutput
-> {
+export class TransformNodeExecutor extends FlatInputStep<TransformNodeConfig> {
   readonly type = 'Transform';
 
   // Reserved for future logging needs (e.g. mapping diagnostics).
 
-  constructor(private readonly _deps: Pick<NodeExecutorDeps, 'logger'>) {}
+  constructor(private readonly _deps: Pick<NodeExecutorDeps, 'logger'>) {
+    super();
+  }
 
-  async execute(
+  async run(
     config: TransformNodeConfig,
     input: ExecutionInput,
     _errorContext: NodeErrorContext

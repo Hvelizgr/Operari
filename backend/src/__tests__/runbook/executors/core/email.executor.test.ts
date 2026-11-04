@@ -1,7 +1,7 @@
-import type { EmailTransporterLike } from '../../../editor/nodes/_shared';
-import { EmailNodeExecutor } from '../../../editor/nodes/email.executor';
-import { ErrorCode, ExternalServiceError } from '../../../errors/custom-error';
-import type { Logger } from '../../../services/logger.service';
+import { ErrorCode, ExternalServiceError } from '../../../../errors/custom-error';
+import type { EmailTransporterLike } from '../../../../runbook/executors/core/_shared';
+import { EmailNodeExecutor } from '../../../../runbook/executors/core/email.executor';
+import type { Logger } from '../../../../services/logger.service';
 
 const buildLogger = () => {
   const logger = {
@@ -39,7 +39,7 @@ describe('EmailNodeExecutor', () => {
       getEmailTransporter: () => null,
     });
     try {
-      await exec.execute({ to: 'a@b.test', subject: 's', body: 'b' }, {}, errCtx);
+      await exec.run({ to: 'a@b.test', subject: 's', body: 'b' }, {}, errCtx);
       fail('expected throw');
     } catch (err) {
       expect(err).toBeInstanceOf(ExternalServiceError);
@@ -58,7 +58,7 @@ describe('EmailNodeExecutor', () => {
       getEmailTransporter: () => buildTransporter(sendMail),
     });
 
-    const result = await exec.execute(
+    const result = await exec.run(
       {
         to: '{{owner}}@example.test',
         subject: 'Run {{runId}} done',
@@ -88,7 +88,7 @@ describe('EmailNodeExecutor', () => {
     });
 
     await expect(
-      exec.execute({ to: 'x@y', subject: 's', body: 'b' }, {}, errCtx)
+      exec.run({ to: 'x@y', subject: 's', body: 'b' }, {}, errCtx)
     ).rejects.toBeInstanceOf(ExternalServiceError);
 
     expect(spy.error).toHaveBeenCalled();

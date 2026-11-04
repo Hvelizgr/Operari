@@ -1,11 +1,12 @@
-import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
-import { ExecutionInput, RepeatNodeConfig, RepeatResult } from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
+import { ErrorCode, NodeExecutionError } from '../../../errors/custom-error';
+import { ExecutionInput, RepeatNodeConfig, RepeatResult } from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 
-export class RepeatNodeExecutor implements EditorNodeExecutor<RepeatNodeConfig, RepeatResult> {
+export class RepeatNodeExecutor extends FlatInputStep<RepeatNodeConfig> {
   readonly type = 'Repeat';
 
-  async execute(
+  async run(
     config: RepeatNodeConfig,
     input: ExecutionInput,
     _errorContext: NodeErrorContext

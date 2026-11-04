@@ -1,12 +1,13 @@
 import type { PrismaClient } from '@prisma/client';
 
-import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
+import { ErrorCode, NodeExecutionError } from '../../../errors/custom-error';
 import type {
   ExecutionInput,
   ExecutionOutput,
   StoreGetNodeConfig,
-} from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
+} from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 import { resolveTemplate } from './_shared';
 
 /**
@@ -23,15 +24,14 @@ import { resolveTemplate } from './_shared';
  *
  * Requires `tenantId` from the dispatcher.
  */
-export class StoreGetNodeExecutor implements EditorNodeExecutor<
-  StoreGetNodeConfig,
-  ExecutionOutput
-> {
+export class StoreGetNodeExecutor extends FlatInputStep<StoreGetNodeConfig> {
   readonly type = 'StoreGet';
 
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaClient) {
+    super();
+  }
 
-  async execute(
+  async run(
     config: StoreGetNodeConfig,
     input: ExecutionInput,
     errorContext: NodeErrorContext,

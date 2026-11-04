@@ -1,12 +1,12 @@
 import type { PrismaClient } from '@prisma/client';
 
-import { LoopNodeExecutor } from '../../../editor/nodes/loop.executor';
-import { SetMetadataNodeExecutor } from '../../../editor/nodes/set-metadata.executor';
-import { StoreGetNodeExecutor } from '../../../editor/nodes/store-get.executor';
-import { StoreSetNodeExecutor } from '../../../editor/nodes/store-set.executor';
-import { SuspendNodeExecutor } from '../../../editor/nodes/suspend.executor';
-import { TriggerNodeExecutor } from '../../../editor/nodes/trigger.executor';
-import { ErrorCode, NodeExecutionError } from '../../../errors/custom-error';
+import { ErrorCode, NodeExecutionError } from '../../../../errors/custom-error';
+import { LoopNodeExecutor } from '../../../../runbook/executors/core/loop.executor';
+import { SetMetadataNodeExecutor } from '../../../../runbook/executors/core/set-metadata.executor';
+import { StoreGetNodeExecutor } from '../../../../runbook/executors/core/store-get.executor';
+import { StoreSetNodeExecutor } from '../../../../runbook/executors/core/store-set.executor';
+import { SuspendNodeExecutor } from '../../../../runbook/executors/core/suspend.executor';
+import { TriggerNodeExecutor } from '../../../../runbook/executors/core/trigger.executor';
 
 const errCtx = (type = 'Test') => ({ nodeId: 'n', nodeName: type, nodeType: type });
 
@@ -22,7 +22,7 @@ describe('TriggerNodeExecutor', () => {
   });
 
   it('stamps triggered=true and an ISO timestamp on the input', async () => {
-    const result = await exec.execute({}, { source: 'cron' }, errCtx('Trigger'));
+    const result = await exec.run({}, { source: 'cron' }, errCtx('Trigger'));
     expect(result.triggered).toBe(true);
     expect(typeof result.timestamp).toBe('string');
     expect(() => new Date(result.timestamp).toISOString()).not.toThrow();
@@ -42,13 +42,13 @@ describe('LoopNodeExecutor', () => {
   });
 
   it('uses inline items when itemsPath is not set', async () => {
-    const result = await exec.execute({ items: [1, 2, 3] }, {}, errCtx('Loop'));
+    const result = await exec.run({ items: [1, 2, 3] }, {}, errCtx('Loop'));
     expect(result.items).toEqual([1, 2, 3]);
     expect(result.count).toBe(3);
   });
 
   it('reads items from a nested path on the input', async () => {
-    const result = await exec.execute(
+    const result = await exec.run(
       { itemsPath: 'data.users' },
       { data: { users: ['a', 'b'] } },
       errCtx('Loop')
@@ -58,7 +58,7 @@ describe('LoopNodeExecutor', () => {
   });
 
   it('returns an empty array when the resolved value is not iterable', async () => {
-    const result = await exec.execute({ itemsPath: 'data.missing' }, { data: {} }, errCtx('Loop'));
+    const result = await exec.run({ itemsPath: 'data.missing' }, { data: {} }, errCtx('Loop'));
     expect(result.items).toEqual([]);
     expect(result.count).toBe(0);
   });
@@ -75,7 +75,7 @@ describe('SuspendNodeExecutor', () => {
   });
 
   it('signals isSuspended=true while preserving the input', async () => {
-    const result = await exec.execute({}, { runId: 'r-1', x: 7 }, errCtx('Suspend'));
+    const result = await exec.run({}, { runId: 'r-1', x: 7 }, errCtx('Suspend'));
     expect(result.isSuspended).toBe(true);
     expect((result as Record<string, unknown>).runId).toBe('r-1');
     expect((result as Record<string, unknown>).x).toBe(7);
@@ -130,7 +130,7 @@ describe('StoreSetNodeExecutor', () => {
     const { prisma } = buildPrisma();
     const exec = new StoreSetNodeExecutor(prisma);
     try {
-      await exec.execute({ key: 'k', value: 'v' }, {}, errCtx('StoreSet'));
+      await exec.run({ key: 'k', value: 'v' }, {}, errCtx('StoreSet'));
       fail('expected throw');
     } catch (err) {
       expect((err as NodeExecutionError).code).toBe(ErrorCode.CONFIGURATION_ERROR);
@@ -140,16 +140,16 @@ describe('StoreSetNodeExecutor', () => {
   it('throws CONFIGURATION_ERROR when key is missing', async () => {
     const { prisma } = buildPrisma();
     const exec = new StoreSetNodeExecutor(prisma);
-    await expect(exec.execute({ value: 'v' }, {}, errCtx('StoreSet'), 't-1')).rejects.toMatchObject(
-      { code: ErrorCode.CONFIGURATION_ERROR }
-    );
+    await expect(exec.run({ value: 'v' }, {}, errCtx('StoreSet'), 't-1')).rejects.toMatchObject({
+      code: ErrorCode.CONFIGURATION_ERROR,
+    });
   });
 
   it('upserts the bucket and merges the resolved key/value', async () => {
     const { buckets, prisma } = buildPrisma();
     const exec = new StoreSetNodeExecutor(prisma);
 
-    const result = await exec.execute(
+    const result = await exec.run(
       { bucketName: 'env-{{stage}}', key: 'last-{{action}}', value: '{{value}}' },
       { stage: 'prod', action: 'deploy', value: 'v1.2.3' },
       errCtx('StoreSet'),
@@ -190,7 +190,7 @@ describe('StoreGetNodeExecutor', () => {
 
   it('throws CONFIGURATION_ERROR when tenantId is missing', async () => {
     const exec = new StoreGetNodeExecutor(buildPrisma([]));
-    await expect(exec.execute({ key: 'k' }, {}, errCtx('StoreGet'))).rejects.toMatchObject({
+    await expect(exec.run({ key: 'k' }, {}, errCtx('StoreGet'))).rejects.toMatchObject({
       code: ErrorCode.CONFIGURATION_ERROR,
     });
   });
@@ -198,7 +198,7 @@ describe('StoreGetNodeExecutor', () => {
   it('returns the value merged into the input under the resolved key', async () => {
     const prisma = buildPrisma([{ tenantId: 't-1', name: 'default', data: { foo: 'bar' } }]);
     const exec = new StoreGetNodeExecutor(prisma);
-    const result = await exec.execute(
+    const result = await exec.run(
       { key: '{{lookup}}' },
       { lookup: 'foo' },
       errCtx('StoreGet'),
@@ -210,14 +210,14 @@ describe('StoreGetNodeExecutor', () => {
   it('returns null for missing buckets', async () => {
     const prisma = buildPrisma([]);
     const exec = new StoreGetNodeExecutor(prisma);
-    const result = await exec.execute({ key: 'foo' }, {}, errCtx('StoreGet'), 't-1');
+    const result = await exec.run({ key: 'foo' }, {}, errCtx('StoreGet'), 't-1');
     expect((result as Record<string, unknown>).foo).toBeNull();
   });
 
   it('returns null for missing keys in an existing bucket', async () => {
     const prisma = buildPrisma([{ tenantId: 't-1', name: 'default', data: { other: 1 } }]);
     const exec = new StoreGetNodeExecutor(prisma);
-    const result = await exec.execute({ key: 'missing' }, {}, errCtx('StoreGet'), 't-1');
+    const result = await exec.run({ key: 'missing' }, {}, errCtx('StoreGet'), 't-1');
     expect((result as Record<string, unknown>).missing).toBeNull();
   });
 });
@@ -245,23 +245,23 @@ describe('SetMetadataNodeExecutor', () => {
   it('throws CONFIGURATION_ERROR when executionId is missing', async () => {
     const { prisma } = buildPrisma();
     const exec = new SetMetadataNodeExecutor(prisma);
-    await expect(
-      exec.execute({ metadata: { x: 1 } }, {}, errCtx('SetMetadata'))
-    ).rejects.toMatchObject({ code: ErrorCode.CONFIGURATION_ERROR });
+    await expect(exec.run({ metadata: { x: 1 } }, {}, errCtx('SetMetadata'))).rejects.toMatchObject(
+      { code: ErrorCode.CONFIGURATION_ERROR }
+    );
   });
 
   it('throws NODE_EXECUTION_FAILED when metadata payload is missing', async () => {
     const { prisma } = buildPrisma();
     const exec = new SetMetadataNodeExecutor(prisma);
     await expect(
-      exec.execute({} as never, {}, errCtx('SetMetadata'), undefined, 'exec-1')
+      exec.run({} as never, {}, errCtx('SetMetadata'), undefined, 'exec-1')
     ).rejects.toMatchObject({ code: ErrorCode.NODE_EXECUTION_FAILED });
   });
 
   it('shallow-merges new metadata into the existing execution row', async () => {
     const { state, prisma } = buildPrisma({ existing: 'keep' });
     const exec = new SetMetadataNodeExecutor(prisma);
-    const result = await exec.execute(
+    const result = await exec.run(
       { metadata: { release: '{{version}}', actor: 'cron' } },
       { version: '1.4.0' },
       errCtx('SetMetadata'),

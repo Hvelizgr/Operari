@@ -1,4 +1,4 @@
-import { ConditionNodeExecutor } from '../../../editor/nodes/condition.executor';
+import { ConditionNodeExecutor } from '../../../../runbook/executors/core/condition.executor';
 
 const errCtx = { nodeId: 'n', nodeName: 'Condition', nodeType: 'Condition' };
 
@@ -12,7 +12,7 @@ describe('ConditionNodeExecutor', () => {
   describe('declarative operators', () => {
     const run = async (config: Record<string, unknown>, input: Record<string, unknown>) => {
       const exec = new ConditionNodeExecutor();
-      return (await exec.execute(config as never, input, errCtx)).conditionResult;
+      return (await exec.run(config as never, input, errCtx)).conditionResult;
     };
 
     it('equals (loose) is true for "5" == 5', async () => {

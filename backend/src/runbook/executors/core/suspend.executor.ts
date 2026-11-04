@@ -1,5 +1,10 @@
-import type { ExecutionInput, SuspendNodeConfig, SuspendResult } from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
+import type {
+  ExecutionInput,
+  SuspendNodeConfig,
+  SuspendResult,
+} from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 
 /**
  * Suspend node — signals the execution service to pause the run.
@@ -11,10 +16,10 @@ import type { EditorNodeExecutor, NodeErrorContext } from './_shared';
  *
  * Behavior preserved exactly from the legacy `executeSuspend` method.
  */
-export class SuspendNodeExecutor implements EditorNodeExecutor<SuspendNodeConfig, SuspendResult> {
+export class SuspendNodeExecutor extends FlatInputStep<SuspendNodeConfig> {
   readonly type = 'Suspend';
 
-  async execute(
+  async run(
     _config: SuspendNodeConfig,
     input: ExecutionInput,
     _errorContext: NodeErrorContext

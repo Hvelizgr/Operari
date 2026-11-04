@@ -1,8 +1,9 @@
-import { ErrorCode, HttpError } from '../../errors/custom-error';
-import { guardedFetch } from '../../security/ssrf-guard';
-import type { ExecutionInput, HttpNodeConfig, HttpResult } from '../../types/runbook.types';
-import { withHttpRetry } from '../../utils/retry';
-import type { EditorNodeExecutor, NodeErrorContext, NodeExecutorDeps } from './_shared';
+import { ErrorCode, HttpError } from '../../../errors/custom-error';
+import { guardedFetch } from '../../../security/ssrf-guard';
+import type { ExecutionInput, HttpNodeConfig, HttpResult } from '../../../types/runbook.types';
+import { withHttpRetry } from '../../../utils/retry';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext, NodeExecutorDeps } from './_shared';
 import { resolveTemplate } from './_shared';
 
 /**
@@ -18,13 +19,15 @@ import { resolveTemplate } from './_shared';
  * Uses the global `fetch` rather than axios so the existing test suite
  * (which mocks `global.fetch`) keeps working without changes.
  */
-export class HttpNodeExecutor implements EditorNodeExecutor<HttpNodeConfig, HttpResult> {
+export class HttpNodeExecutor extends FlatInputStep<HttpNodeConfig> {
   readonly type = 'HTTP';
   readonly aliases = ['Api', 'operari.httpRequest'] as const;
 
-  constructor(private readonly deps: Pick<NodeExecutorDeps, 'logger'>) {}
+  constructor(private readonly deps: Pick<NodeExecutorDeps, 'logger'>) {
+    super();
+  }
 
-  async execute(
+  async run(
     config: HttpNodeConfig,
     input: ExecutionInput,
     errorContext: NodeErrorContext

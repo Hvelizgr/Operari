@@ -1,14 +1,12 @@
-import { ErrorCode, NodeExecutionError } from '../../errors/custom-error';
-import { ExecutionInput, MultiplexNodeConfig, MultiplexResult } from '../../types/runbook.types';
-import type { EditorNodeExecutor, NodeErrorContext } from '../nodes/_shared';
+import { ErrorCode, NodeExecutionError } from '../../../errors/custom-error';
+import { ExecutionInput, MultiplexNodeConfig, MultiplexResult } from '../../../types/runbook.types';
+import { FlatInputStep } from './_flat-input';
+import type { NodeErrorContext } from './_shared';
 
-export class MultiplexNodeExecutor implements EditorNodeExecutor<
-  MultiplexNodeConfig,
-  MultiplexResult
-> {
+export class MultiplexNodeExecutor extends FlatInputStep<MultiplexNodeConfig> {
   readonly type = 'Multiplex';
 
-  async execute(
+  async run(
     config: MultiplexNodeConfig,
     input: ExecutionInput,
     _errorContext: NodeErrorContext
