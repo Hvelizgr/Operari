@@ -136,13 +136,17 @@ todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso
 
 ---
 
-### 🔴 ADR 0003 fase 4: step replay (event-sourced)
+### ✅ ADR 0003 fase 4: step replay (event-sourced) (2026-11-04)
 
-**Estado:** fases 1-3 landed. ExecutionEvent table + RunState reducer + resume-worker scanner. **Falta:** la fase 4 real — caminar el event log y reconstruir `nodeOutputs`, retomar ejecución desde `lastSeq + 1`.
+Hecho. El replay ya existía (`049395a`) pero estaba apagado y tenía dos bugs: seguía todas las
+ramas al reanudar (ejecutaba la rama que una condición había descartado) y un crash antes del primer
+paso terminaba en "éxito" sin ejecutar nada. Arreglados con una frontera compartida con el motor;
+los pasos interrumpidos se repiten solo si son seguros (flujo, datos, esperas, GET), si no el run se
+marca fallado con el motivo. Probado con un SIGKILL real a mitad de un paso. Encendido en prod
+(`OPERARI_RESUME_WORKER_ACT/REPLAY=true`). Detalle en el ADR.
 
-**Lift estimado:** 2-3 semanas. Tocar `ExecutionService` (1714 líneas), reescribir el resume path, pin de tests de replay con fixtures de event logs reales.
-
-**Por qué no entró:** es la pieza más alto-valor del roadmap durable engine, pero también la más arriesgada. Requiere un plan de migración + un período de doble-write antes de cortar.
+**Pendiente menor:** reanudar a mitad de un loop (hoy abandona) y clasificar como seguros los
+GET de los servicios del catálogo (hoy cuentan como no seguros).
 
 ---
 

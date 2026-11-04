@@ -54,15 +54,15 @@ describe('ResumeWorker.decide (pure)', () => {
     expect(decision.reason).toMatch(/replay is safe/i);
   });
 
-  it('RUNNING + replay flag + inFlightSteps non-empty → ABANDON', () => {
+  it('RUNNING + replay flag + inFlightSteps non-empty → RESUME that retries them (checked in resume)', () => {
     const decision = ResumeWorker.decide(
       baseState({ status: 'RUNNING', inFlightSteps: ['n-1'] }),
       't-1',
       { replay: true }
     );
-    expect(decision.action).toBe('ABANDON');
+    expect(decision.action).toBe('RESUME');
+    expect(decision.retrySteps).toEqual(['n-1']);
     expect(decision.reason).toMatch(/mid-execution at crash/i);
-    expect(decision.reason).toContain('n-1');
   });
 
   it('PAUSED → SKIP (waiting on human resume)', () => {
@@ -245,7 +245,11 @@ describe('ResumeWorker.runOnce', () => {
       name: 'Deploy',
       description: null,
       category: null,
-      nodes: [{ id: 'n-1', type: 'HTTP' }],
+      nodes: [
+        { id: 'n-1', type: 'HTTP' },
+        { id: 'get', type: 'operari.httpRequest', config: { method: 'GET' } },
+        { id: 'post', type: 'operari.httpRequest', config: { method: 'POST' } },
+      ],
       connections: [],
       inputs: [],
       onErrorRunbookId: null,
@@ -360,5 +364,38 @@ describe('ResumeWorker.runOnce', () => {
     expect(first.counts.ABANDON).toBe(1);
     expect(second.counts.ABANDON).toBe(0);
     expect(second.scannedRuns).toBe(0);
+  });
+
+  describe('interrupted steps on resume', () => {
+    const runWith = async (inFlight: string[]) => {
+      const { store } = buildStore({
+        tenants: ['t-1'],
+        inFlightByTenant: { 't-1': ['exec-A'] },
+        statesByExecution: {
+          'exec-A': baseState({
+            executionId: 'exec-A',
+            status: 'RUNNING',
+            completedSteps: ['n-1'],
+            inFlightSteps: inFlight,
+          }),
+        },
+      });
+      const r = buildResumeDeps();
+      await new ResumeWorker(store, buildLogger(), r.deps).runOnce({ dryRun: false, replay: true });
+      return { store, ...r };
+    };
+
+    it('re-runs a step that only reads', async () => {
+      const { executionService } = await runWith(['get']);
+      expect(executionService.resumeFromEventLog).toHaveBeenCalledTimes(1);
+    });
+
+    it('abandons when an interrupted step could repeat a side effect', async () => {
+      const { executionService, store } = await runWith(['get', 'post']);
+      expect(executionService.resumeFromEventLog).not.toHaveBeenCalled();
+      const appended = (store.append as jest.Mock).mock.calls.map(c => c[2]);
+      expect(JSON.stringify(appended)).toContain('post');
+      expect(JSON.stringify(appended)).toContain('side effect');
+    });
   });
 });

@@ -14,6 +14,11 @@ import {
 import { getRunTracer, RunTracer } from '../../observability';
 import { ExecutionEventStore } from '../../runbook/engine/execution-event.store';
 import type { ExecutionEventPayload } from '../../runbook/engine/execution-event.types';
+import {
+  followedConnections,
+  LOOP_TYPES,
+  resumeFrontier,
+} from '../../runbook/engine/resume-frontier';
 import { getRunner } from '../../runbook/runners';
 import { GitHubStatusService } from '../../runbook/services/github-status.service';
 import { applyRunbookVersionSnapshot } from '../../runbook/services/runbook-version.service';
@@ -872,29 +877,38 @@ export class ExecutionService {
       nodeOutputsTyped[nodeId] = output as ExecutionOutput;
     }
 
-    // Seed nodesToExecute = children of completed nodes that haven't
-    // themselves completed. The runWorkflow loop already walks
-    // children of executedNodes once the queue drains, so this gives
-    // it a starting frontier without asking it to re-enter from the
-    // original triggers (which would re-execute the whole chain).
     const executedSet = new Set(completedNodeIds);
-    const nextFrontier = new Map<string, WorkflowNode>();
-    for (const conn of allConnections) {
-      if (!executedSet.has(conn.source)) continue;
-      if (executedSet.has(conn.target)) continue;
-      const targetNode = allNodes.find(n => n.id === conn.target);
-      if (targetNode) nextFrontier.set(targetNode.id, targetNode);
+    const next = resumeFrontier({
+      nodes: allNodes,
+      connections: allConnections,
+      done: executedSet,
+      outputs: nodeOutputsTyped,
+      startNodes: this.startNodes(allNodes, allConnections),
+    });
+    if ('abandon' in next) {
+      throw new Error(next.abandon);
     }
 
     const initialState: RunState = {
       nodeOutputs: nodeOutputsTyped,
       executedNodes: executedSet,
-      nodesToExecute: Array.from(nextFrontier.values()),
+      nodesToExecute: next.frontier,
     };
 
     await this.prisma.execution.update({
       where: { id: executionId },
       data: { status: 'RUNNING' },
+    });
+
+    // The crashed process left the interrupted steps' logs open; close them
+    // so the run view shows the attempt that died next to the retry.
+    await this.prisma.nodeLog.updateMany({
+      where: { executionId, status: 'RUNNING' },
+      data: {
+        status: 'FAILED',
+        error: 'Interrupted by a backend restart; the step was retried on resume',
+        completedAt: new Date(),
+      },
     });
 
     await this.safeAppendEvent(executionId, tenantId, {
@@ -1271,40 +1285,8 @@ export class ExecutionService {
           // matching matchedCase. Loop nodes: iterate children once per
           // item, injecting currentItem/currentIndex into the context.
           const nodeOutput = nodeOutputs[currentNode.id] as Record<string, unknown> | undefined;
-          const isConditionNode =
-            currentNode.type === 'Condition' ||
-            currentNode.type === 'If' ||
-            currentNode.type === 'operari.if';
-          const isSwitchNode =
-            currentNode.type === 'Switch' || currentNode.type === 'operari.switch';
-          const isLoopNode =
-            currentNode.type === 'Loop' ||
-            currentNode.type === 'Iterator' ||
-            currentNode.type === 'operari.loop';
-
-          let outgoingConnections = connections.filter(c => c.source === currentNode.id);
-
-          if (isConditionNode && nodeOutput) {
-            const passed = Boolean(nodeOutput.conditionResult);
-            // Port 0 = true branch, port 1 = false branch.
-            // Connections without sourcePort follow the true branch (backward compat).
-            outgoingConnections = outgoingConnections.filter(c => {
-              if (passed) return c.sourcePort === 0 || c.sourcePort === undefined;
-              return c.sourcePort === 1;
-            });
-          } else if (isSwitchNode && nodeOutput) {
-            const matchedCase = nodeOutput.matchedCase as number | undefined;
-            if (matchedCase !== undefined) {
-              // No match routes through the last port, the "default" output.
-              const outputCount = Array.isArray(currentNode.outputs)
-                ? currentNode.outputs.length
-                : 0;
-              const port = matchedCase === -1 && outputCount > 1 ? outputCount - 1 : matchedCase;
-              outgoingConnections = outgoingConnections.filter(
-                c => c.sourcePort === port || c.sourcePort === undefined
-              );
-            }
-          }
+          const isLoopNode = LOOP_TYPES.has(currentNode.type);
+          const outgoingConnections = followedConnections(currentNode, nodeOutput, connections);
 
           if (isLoopNode && nodeOutput) {
             const items = Array.isArray(nodeOutput.items) ? nodeOutput.items : [];

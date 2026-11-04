@@ -5,6 +5,7 @@ import type { Logger } from '../../services/logger.service';
 import { applyRunbookVersionSnapshot } from '../services/runbook-version.service';
 import type { ExecutionEventStore } from './execution-event.store';
 import type { RunState, RunStatus } from './execution-event.types';
+import { isReplaySafe } from './replay-safety';
 
 /**
  * ResumeWorker — startup-time scanner for in-flight execution runs
@@ -57,6 +58,8 @@ export interface ResumeDecision {
   tenantId: string;
   status: RunStatus;
   action: ResumeAction;
+  /** Steps interrupted mid-execution that RESUME will run again. */
+  retrySteps?: string[];
   /** Free-form reason recorded in logs and (for ABANDON) in the failure payload */
   reason: string;
   /** Last seq seen by the reducer at scan time — useful for debug */
@@ -217,10 +220,22 @@ export class ResumeWorker {
               'crash landed between steps — every started step committed a terminal event, replay is safe',
           };
         }
-        const why = opts.replay
-          ? `step(s) ${state.inFlightSteps.join(',')} were mid-execution at crash; replay would re-issue partial side effects`
-          : 'run was running when backend restarted; replay feature flag is off';
-        return { ...base, action: 'ABANDON', reason: why };
+        if (opts.replay) {
+          // Whether the interrupted steps may run again depends on their
+          // type and config, which only the runbook knows; resume() checks
+          // them and abandons if any could repeat a side effect.
+          return {
+            ...base,
+            action: 'RESUME',
+            retrySteps: [...state.inFlightSteps],
+            reason: `step(s) ${state.inFlightSteps.join(',')} were mid-execution at crash; they re-run only if replay-safe`,
+          };
+        }
+        return {
+          ...base,
+          action: 'ABANDON',
+          reason: 'run was running when backend restarted; replay feature flag is off',
+        };
       }
       case 'PAUSED':
         return {
@@ -281,6 +296,23 @@ export class ResumeWorker {
       const effectiveWorkflow: Runbook = execution.runbookVersion
         ? applyRunbookVersionSnapshot(execution.runbook, execution.runbookVersion.snapshot)
         : execution.runbook;
+
+      if (decision.retrySteps?.length) {
+        const nodes = (effectiveWorkflow.nodes ?? []) as unknown as Array<{
+          id: string;
+          type: string;
+          config?: unknown;
+        }>;
+        const unsafe = decision.retrySteps.filter(id => {
+          const node = nodes.find(n => n.id === id);
+          return !node || !isReplaySafe(node);
+        });
+        if (unsafe.length) {
+          throw new Error(
+            `step(s) ${unsafe.join(',')} were mid-execution and could repeat a side effect if re-run`
+          );
+        }
+      }
 
       // Union everything that must not re-execute: successful,
       // skipped, and failed steps. Failed steps had a terminal event

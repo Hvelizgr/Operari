@@ -65,6 +65,11 @@ services:
       # El runner local no aísla nada: solo los tenants de confianza
       # listados en .env pueden ejecutar pasos shell.
       OPERARI_LOCAL_SHELL_TENANTS: ${OPERARI_LOCAL_SHELL_TENANTS:-none}
+      # Runs interrupted by a restart: resume them when every interrupted
+      # step is safe to re-run (ADR 0003), otherwise mark them failed with
+      # the reason instead of leaving them RUNNING forever.
+      OPERARI_RESUME_WORKER_ACT: 'true'
+      OPERARI_RESUME_WORKER_REPLAY: 'true'
     networks:
       - default
       - web

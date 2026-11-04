@@ -1,6 +1,6 @@
 # ADR 0003 — Durable execution engine on Postgres
 
-- **Status:** accepted (foundation), in progress (full integration)
+- **Status:** accepted; phases 1–4 shipped (replay on in production since 2026-11-04)
 - **Date:** 2026-04-07
 - **Related:** `IMPLEMENTACION_NANORUN.md` P1 #7
 
@@ -174,3 +174,26 @@ Components:
 - We need cross-region durability (multi-Postgres replication, or
   a move to a distributed log like Aurora). Out of scope until cloud
   beta.
+
+## Phase 4 status (2026-11-04)
+
+- **Resume frontier** (`runbook/engine/resume-frontier.ts`): children are reached only through
+  the branches the finished nodes took (the same `followedConnections` the live loop now uses),
+  joins wait for every parent, and start nodes that never finished are re-seeded. Before this a
+  resumed run followed every outgoing edge, so it ran the branch a condition had rejected, and a
+  crash before the first step completed resumed into an empty queue and reported success.
+- **Loops:** a run whose loop step already finished is abandoned; resuming mid-iteration would
+  need per-iteration events.
+- **Interrupted steps** (`step.started` with no terminal event): re-run when replay-safe
+  (`runbook/engine/replay-safety.ts`: flow control, waits, pure data steps, HTTP GET/HEAD,
+  database introspect/health); any other interrupted step abandons the run with the step ids in
+  the reason. Integration steps count as unsafe because the service operation's method is not
+  known at that layer.
+- The interrupted attempt's NodeLog is closed as FAILED ("interrupted by a backend restart")
+  next to the retry.
+- Verified with a real crash: a process killed with SIGKILL during a `wait` step, a second
+  process running the worker resumed it, re-ran only the wait, never ran the untaken branch,
+  and finished SUCCESS.
+- Production: `OPERARI_RESUME_WORKER_ACT=true`, `OPERARI_RESUME_WORKER_REPLAY=true` in
+  `docker-compose.server.yml`.
+
