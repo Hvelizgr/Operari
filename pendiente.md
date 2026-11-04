@@ -2,7 +2,7 @@
 
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
-Última actualización: 2026-11-02 (sandbox fases 1 y 2). Antes: 2026-11-01 (integraciones: research de n8n y fase 1 del catálogo). Antes: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
+Última actualización: 2026-11-04 (sandbox: fases 3 y 4 a medio camino). Antes: 2026-11-02 (sandbox fases 1 y 2). Antes: 2026-11-01 (integraciones: research de n8n y fase 1 del catálogo). Antes: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
 
 ---
 
@@ -12,8 +12,9 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 
 **Detalle y diseño:** [`docs/sandbox-research.md`](docs/sandbox-research.md).
 
-**Estado (2026-11-02):** fases 1 y 2 en producción; los pasos shell y la terminal corren en el
-sandbox para todos los workspaces. Quedan las fases 3 y 4.
+**Estado (2026-11-04):** fases 1 y 2 en producción; los pasos shell y la terminal corren en el
+sandbox para todos los workspaces. Fases 3 y 4: backend escrito y en `main` (`2bc8756`), **sin
+desplegar y sin UI**.
 
 **Hallazgo original:** el runner `local` comparte el uid del backend: desde la terminal se lee
 `/proc/1/environ` (`DATABASE_URL`, `ENCRYPTION_KEY`, `JWT_SECRET`, API keys) y se llega a Postgres,
@@ -21,16 +22,49 @@ Redis y los otros sitios de la red `web`. `OPERARI_LOCAL_SHELL_TENANTS=none` ya 
 
 **Fases:**
 
-1. ✅ (código, 2026-11-02) Endurecer el runner `docker`: `--cap-drop=ALL`, `--read-only`, `--user`,
-   red `operari-sandbox` aislada + reglas `DOCKER-USER`/`INPUT`. Tests de aceptación en
-   `deploy/sandbox/acceptance.sh`. **Falta:** correr `sudo deploy/sandbox/setup-network.sh` en el
-   servidor e instalar `operari-sandbox-net.service` (hoy 13/17: el sandbox todavía llega al host).
+1. ✅ Endurecer el runner `docker` (`--cap-drop=ALL`, `--read-only`, `--user 1000`, red
+   `operari-sandbox`). En prod lo cubre la fase 2, así que `setup-network.sh` (Docker con root) ya no
+   hace falta en este servidor.
 2. ✅ **En prod desde 2026-11-02.** `sandbox-runner` con Docker rootless (usuario `operari-sandbox`,
    uid 997); el backend usa `OPERARI_RUNNER=sandbox` y no tiene `docker.sock`.
    `acceptance.sh` contra el daemon rootless: 18/18. gVisor sin instalar (opcional, `--with-gvisor`).
-3. Registro de servidores propios con huella de host fijada; `ssh` solo por `serverId`; aprobación
-   obligatoria para pasos `privileged`; sudo acotado en el servidor (forced command / sudoers).
-4. Política por workspace en la UI, proxy de egreso con lista permitida, certificados SSH de corta vida.
+3. 🟡 **Backend hecho, falta lo de abajo.** Modelo `Server` (clave del host fijada), rutas
+   `/api/servers` (scan / alta / check / CA), paso `ssh` por `serverId` con verificación de la clave
+   del host, `privileged` → `sudo -n` solo si el servidor lo permite y con N aprobadores distintos
+   (al guardar y al ejecutar), auditoría `ssh.privileged` y `server.*`.
+4. 🟡 **Backend hecho, falta lo de abajo.** Política por workspace (`sshPolicy`, `sandboxEgress`,
+   `egressAllowlist`, `privilegedApprovals`) en `/api/tenants/execution-policy`; proxy de salida con
+   grant HMAC por sandbox y una red `--internal /29` propia por sandbox; CA SSH por workspace con
+   certificados de 5 min vía `ssh-keygen` + `ssh` del sistema (ssh2 no soporta certificados).
+
+**Falta para cerrar fases 3 y 4, en este orden:**
+
+1. **Tests nuevos** (los existentes pasan: 141/141): `egress-proxy.test.ts` está escrito pero sin
+   correr; faltan host-key, executor ssh en modo servidor (clave del host distinta → falla,
+   aprobaciones, `sudo -n`, política `registered`), validador `privileged`, egress-controller con
+   `spawnSync` falso, sandbox-server con `allowlist`, rutas `servers` y `execution-policy`.
+2. **Frontend:**
+   - Settings → *Servidores*: escanear host → mostrar huella → confirmar → registrar; "Probar
+     conexión"; CA pública + snippet de `sshd_config` para el modo certificado.
+   - Settings → *Política de ejecución*: SSH (`registered`/`any`), salida del sandbox (abierta /
+     lista / ninguna) + editor de la lista, 1 o 2 aprobadores.
+   - `ServerPicker` en `DynamicNodeForm` para el tipo de propiedad `server`; comprobar que el tipo
+     `boolean` (`privileged`) se renderiza.
+3. **Deploy:** `db push` agrega columnas y tablas (el servicio `migrate` ya lo hace); recrear backend
+   y sandbox-runner.
+4. **Pruebas de punta a punta en prod:**
+   - Proxy en el daemon rootless: que `node -e` con el módulo compilado arranque en `node:20-alpine`;
+     `pip install` con un host permitido funciona y uno fuera de la lista falla; dos sandboxes no se ven.
+   - SSH a este mismo servidor como servidor registrado (clave de host fijada, modo `key`) y en modo
+     `certificate` con la CA instalada en `sshd`; paso privilegiado con sudoers acotado.
+5. **Pendiente menor:**
+   - El túnel SSH del paso de base de datos (`ssh-tunnel.ts`) sigue con host ad-hoc y sin fijar la
+     clave del host: pasarlo a `serverId`.
+   - La política de salida solo se aplica en el runner `sandbox`; `docker` y `local` la ignoran.
+   - Verificación de propiedad del servidor (token en `~/.operari-verify`): no implementada; hoy
+     la confianza es "un admin lo registró y confirmó la huella".
+   - Para servidores registrados se mantiene el SSRF guard (más estricto que el diseño original): con
+     `OPERARI_ALLOW_PRIVATE_TARGETS=false` no se puede registrar una IP privada.
 
 ### 🔴 Catálogo de integraciones: lo que falta después de la fase 1 (2026-11-01)
 
