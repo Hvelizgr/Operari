@@ -96,26 +96,31 @@ describe('ConnectedAccountsPanel', () => {
   });
 
   it('calls DELETE on disconnect after user confirmation', async () => {
+    let listCalls = 0;
     const fetchMock = jest.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === 'DELETE') {
         return { ok: true, status: 204 } as unknown as Response;
       }
+      if (!/\/api\/connected-accounts$/.test(url)) {
+        return { ok: true, json: async () => ({ data: [] }) } as unknown as Response;
+      }
       // Two list calls: initial + post-delete refresh.
+      listCalls++;
+      const first = listCalls === 1;
       return {
         ok: true,
         json: async () => ({
-          data:
-            fetchMock.mock.calls.length <= 1
-              ? [
-                  {
-                    id: 'ca-9',
-                    provider: 'github',
-                    displayName: 'bob',
-                    scopes: ['repo'],
-                    createdAt: 't',
-                  },
-                ]
-              : [],
+          data: first
+            ? [
+                {
+                  id: 'ca-9',
+                  provider: 'github',
+                  displayName: 'bob',
+                  scopes: ['repo'],
+                  createdAt: 't',
+                },
+              ]
+            : [],
         }),
       } as unknown as Response;
     });

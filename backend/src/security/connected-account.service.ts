@@ -1,6 +1,13 @@
 import type { ConnectedAccount, Prisma, PrismaClient } from '@prisma/client';
 
 import type { ActorType, AuditService } from '../audit/audit.service';
+import {
+  connectProvider,
+  type FetchFn,
+  isConfigured,
+  OAuthTokenError,
+  refreshTokens,
+} from '../integrations/oauth-connect';
 import type { SecretCipher } from './secret-cipher';
 import type { SecretReader } from './secret-reader';
 
@@ -75,19 +82,35 @@ export interface ReadTokenInput {
 export class ConnectedAccountError extends Error {
   constructor(
     message: string,
-    public readonly code: 'NOT_FOUND' | 'CROSS_TENANT' | 'NO_REFRESH_TOKEN'
+    public readonly code: 'NOT_FOUND' | 'CROSS_TENANT' | 'NO_REFRESH_TOKEN' | 'REFRESH_FAILED'
   ) {
     super(message);
     this.name = 'ConnectedAccountError';
   }
 }
 
+/** Renew this long before expiry so a step never starts with a dying token. */
+const REFRESH_SKEW_MS = 2 * 60_000;
+
+export interface TokenRefreshOptions {
+  fetchImpl?: FetchFn;
+  now?: () => number;
+}
+
 export class ConnectedAccountService {
+  /**
+   * Concurrent steps reading the same account share one refresh; providers
+   * that rotate refresh tokens (Dropbox, Zoho, Microsoft) would otherwise
+   * invalidate each other's.
+   */
+  private static readonly inflight = new Map<string, Promise<ConnectedAccount>>();
+
   constructor(
     private readonly prisma: PrismaClient,
     private readonly cipher: SecretCipher,
     private readonly reader: SecretReader,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly refreshOptions: TokenRefreshOptions = {}
   ) {}
 
   /**
@@ -169,7 +192,10 @@ export class ConnectedAccountService {
    * which emits `secret.accessed` per call (success or failure).
    */
   async getAccessToken(input: ReadTokenInput): Promise<string> {
-    const account = await this.loadAndVerify(input.accountId, input.tenantId);
+    let account = await this.loadAndVerify(input.accountId, input.tenantId);
+    if (this.needsRefresh(account)) {
+      account = await this.refreshShared(account, input);
+    }
     return this.reader.read({
       ciphertext: account.accessToken,
       tenantId: input.tenantId,
@@ -202,6 +228,94 @@ export class ConnectedAccountService {
       resource: `connected-account:${account.id}`,
       reason: input.reason,
     });
+  }
+
+  private now(): number {
+    return (this.refreshOptions.now ?? Date.now)();
+  }
+
+  private needsRefresh(account: ConnectedAccount): boolean {
+    if (!account.refreshToken || !account.tokenExpiry) return false;
+    const provider = connectProvider(account.provider);
+    if (!provider || !isConfigured(provider)) return false;
+    return account.tokenExpiry.getTime() - this.now() < REFRESH_SKEW_MS;
+  }
+
+  private refreshShared(
+    account: ConnectedAccount,
+    input: ReadTokenInput
+  ): Promise<ConnectedAccount> {
+    const pending = ConnectedAccountService.inflight.get(account.id);
+    if (pending) return pending;
+    const run = this.refresh(account, input).finally(() =>
+      ConnectedAccountService.inflight.delete(account.id)
+    );
+    ConnectedAccountService.inflight.set(account.id, run);
+    return run;
+  }
+
+  /**
+   * Exchanges the stored refresh token for a new access token and persists
+   * both (some providers rotate the refresh token too). If the provider
+   * refuses but the old access token has not expired yet, the step keeps
+   * using it; once it has expired the read fails with REFRESH_FAILED and a
+   * message telling the user to reconnect.
+   */
+  private async refresh(
+    account: ConnectedAccount,
+    input: ReadTokenInput
+  ): Promise<ConnectedAccount> {
+    const provider = connectProvider(account.provider)!;
+    const refreshToken = await this.reader.read({
+      ciphertext: account.refreshToken as string,
+      tenantId: account.tenantId,
+      actorId: input.actorId,
+      actorType: input.actorType ?? 'system',
+      resource: `connected-account:${account.id}`,
+      reason: 'oauth-refresh',
+    });
+    try {
+      const tokens = await refreshTokens(
+        provider,
+        refreshToken,
+        this.refreshOptions.fetchImpl ?? fetch,
+        this.now()
+      );
+      const updated = await this.prisma.connectedAccount.update({
+        where: { id: account.id },
+        data: {
+          accessToken: this.cipher.encryptForTenant(tokens.accessToken, account.tenantId),
+          ...(tokens.refreshToken
+            ? { refreshToken: this.cipher.encryptForTenant(tokens.refreshToken, account.tenantId) }
+            : {}),
+          tokenExpiry: tokens.expiresAt,
+        },
+      });
+      await this.recordSafe('connectedaccount.refreshed', {
+        tenantId: account.tenantId,
+        actorId: input.actorId,
+        actorType: input.actorType ?? 'system',
+        resource: `connected-account:${account.id}`,
+        payload: {
+          accountId: account.id,
+          provider: account.provider,
+          expiresAt: tokens.expiresAt?.toISOString() ?? null,
+          refreshTokenRotated: !!tokens.refreshToken,
+        },
+      });
+      return updated;
+    } catch (err) {
+      const stillValid = !!account.tokenExpiry && account.tokenExpiry.getTime() > this.now();
+      if (stillValid) return account;
+      const revoked = err instanceof OAuthTokenError && err.revoked;
+      throw new ConnectedAccountError(
+        `${provider.label} access for "${account.displayName ?? account.id}" expired and could not be renewed` +
+          (revoked
+            ? ': access was revoked, reconnect it in Settings → Connected accounts'
+            : `: ${(err as Error).message}`),
+        'REFRESH_FAILED'
+      );
+    }
   }
 
   /**
@@ -268,7 +382,7 @@ export class ConnectedAccountService {
    * successful operation.
    */
   private async recordSafe(
-    type: 'connectedaccount.linked' | 'connectedaccount.unlinked',
+    type: 'connectedaccount.linked' | 'connectedaccount.unlinked' | 'connectedaccount.refreshed',
     params: {
       tenantId: string;
       actorId: string;

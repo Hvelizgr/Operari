@@ -1,6 +1,15 @@
 'use client';
 
-import { Check, Github, KeyRound, Link2Off, Loader2, ShieldAlert, Sparkles } from 'lucide-react';
+import {
+  Check,
+  Github,
+  KeyRound,
+  Link2,
+  Link2Off,
+  Loader2,
+  ShieldAlert,
+  Sparkles,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import AddCredentialForm from './AddCredentialForm';
@@ -13,7 +22,7 @@ interface ConnectedAccount {
   displayName: string | null;
   scopes: string[];
   createdAt: string;
-  metadata?: { defaultModel?: string; baseUrl?: string };
+  metadata?: { defaultModel?: string; baseUrl?: string; oauth?: boolean };
 }
 
 const STRINGS = {
@@ -30,6 +39,13 @@ const STRINGS = {
     linkedFlash: 'GitHub account linked.',
     errorFlash: 'Could not link GitHub account.',
     scopes: 'Scopes',
+    connectWith: (label: string) => `Connect ${label}`,
+    linkedProvider: (label: string) =>
+      `${label} account linked. Its access token renews automatically.`,
+    errorProvider: 'Could not link the account',
+    autoRenew: 'renews automatically',
+    notConfigured: (labels: string) =>
+      `Not set up on this server: ${labels}. Add OAUTH_<PROVIDER>_CLIENT_ID and _CLIENT_SECRET to enable them.`,
   },
   es: {
     title: 'Cuentas conectadas',
@@ -44,11 +60,24 @@ const STRINGS = {
     linkedFlash: 'Cuenta de GitHub vinculada.',
     errorFlash: 'No se pudo vincular la cuenta de GitHub.',
     scopes: 'Permisos',
+    connectWith: (label: string) => `Conectar ${label}`,
+    linkedProvider: (label: string) =>
+      `Cuenta de ${label} vinculada. Su token de acceso se renueva solo.`,
+    errorProvider: 'No se pudo vincular la cuenta',
+    autoRenew: 'se renueva solo',
+    notConfigured: (labels: string) =>
+      `Sin configurar en este servidor: ${labels}. Agregá OAUTH_<PROVEEDOR>_CLIENT_ID y _CLIENT_SECRET para habilitarlos.`,
   },
 } as const;
 
 interface Props {
   lang: 'en' | 'es';
+}
+
+interface OAuthProvider {
+  id: string;
+  label: string;
+  configured: boolean;
 }
 
 export default function ConnectedAccountsPanel({ lang }: Props) {
@@ -58,6 +87,15 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
   const [linking, setLinking] = useState(false);
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [oauthProviders, setOauthProviders] = useState<OAuthProvider[]>([]);
+  const [connecting, setConnecting] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/connected-accounts/oauth/providers`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : { data: [] }))
+      .then((b: { data?: OAuthProvider[] }) => setOauthProviders(b.data ?? []))
+      .catch(() => setOauthProviders([]));
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -88,7 +126,9 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
     const linked = params.get('ca_linked');
     const errParam = params.get('ca_error');
     if (linked) {
-      setFlash({ kind: 'ok', text: t.linkedFlash });
+      const label =
+        linked === 'github' ? null : (oauthProviders.find(p => p.id === linked)?.label ?? linked);
+      setFlash({ kind: 'ok', text: label ? t.linkedProvider(label) : t.linkedFlash });
       params.delete('ca_linked');
       window.history.replaceState(
         null,
@@ -104,7 +144,32 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
         `${window.location.pathname}${params.toString() ? `?${params}` : ''}`
       );
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t.linkedFlash, t.errorFlash]);
+
+  const handleConnect = useCallback(
+    async (provider: OAuthProvider) => {
+      setConnecting(provider.id);
+      setFlash(null);
+      try {
+        const here = window.location.pathname;
+        const res = await fetch(
+          `${API_BASE}/api/connected-accounts/oauth/${provider.id}/start?redirect=${encodeURIComponent(here)}`,
+          { credentials: 'include' }
+        );
+        const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+        if (!res.ok || !body.url) throw new Error(body.error ?? `HTTP ${res.status}`);
+        window.location.assign(body.url);
+      } catch (err) {
+        setConnecting(null);
+        setFlash({
+          kind: 'err',
+          text: `${t.errorProvider}: ${err instanceof Error ? err.message : String(err)}`,
+        });
+      }
+    },
+    [t]
+  );
 
   const handleConnectGithub = useCallback(async () => {
     setLinking(true);
@@ -182,8 +247,36 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
           {linking ? <Loader2 size={14} className="animate-spin" /> : <Github size={14} />}
           {linking ? t.connecting : t.connectGithub}
         </button>
+        {oauthProviders
+          .filter(p => p.configured)
+          .map(p => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => void handleConnect(p)}
+              disabled={connecting !== null}
+              className="flex items-center gap-2 rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--accent-color)] disabled:opacity-50"
+            >
+              {connecting === p.id ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Link2 size={14} />
+              )}
+              {connecting === p.id ? t.connecting : t.connectWith(p.label)}
+            </button>
+          ))}
         <AddCredentialForm lang={lang} onSaved={() => void refresh()} />
       </div>
+      {oauthProviders.some(p => !p.configured) && (
+        <p className="text-[10px] text-[var(--text-muted)]">
+          {t.notConfigured(
+            oauthProviders
+              .filter(p => !p.configured)
+              .map(p => p.label)
+              .join(', ')
+          )}
+        </p>
+      )}
 
       {accounts === null && error === null ? (
         <div className="text-xs text-[var(--text-muted)]">…</div>
@@ -214,7 +307,9 @@ export default function ConnectedAccountsPanel({ lang }: Props) {
                     ? [acc.metadata?.defaultModel, acc.metadata?.baseUrl]
                         .filter(Boolean)
                         .join(' · ') || '—'
-                    : `${t.scopes}: ${acc.scopes.join(', ') || '—'}`}
+                    : `${t.scopes}: ${acc.scopes.join(', ') || '—'}${
+                        acc.metadata?.oauth ? ` · ${t.autoRenew}` : ''
+                      }`}
                 </div>
               </div>
               <button

@@ -3,6 +3,13 @@ import { type CookieOptions, type Request, type Response, Router } from 'express
 import { AuditService } from '../audit/audit.service';
 import { exchangeCodeForTokenAndProfile, newState } from '../auth/oauth/oauth-service';
 import { isProviderConfigured, PROVIDERS } from '../auth/oauth/providers';
+import {
+  authorizeUrl as connectAuthorizeUrl,
+  CONNECT_PROVIDERS,
+  connectProvider,
+  exchangeCode as exchangeConnectCode,
+  isConfigured as isConnectConfigured,
+} from '../integrations/oauth-connect';
 import { env } from '../config/env.config';
 import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
 import {
@@ -325,6 +332,142 @@ router.get('/github/oauth/callback', async (req: AuthRequest, res: Response) => 
   } catch (err) {
     req.log.error({ err }, 'GitHub connected-account OAuth callback failed');
     return res.redirect(`${frontendUrl()}${returnPath}?ca_error=oauth_failed`);
+  }
+});
+
+// ---------------------------------------------------------------------
+// Generic "Connect with…" for integration providers (Google, Microsoft,
+// Slack, HubSpot, Salesforce, Zoom, Dropbox, Zoho). The refresh token is
+// stored so ConnectedAccountService renews the access token before a step
+// reads it. GitHub keeps its own flow above.
+// ---------------------------------------------------------------------
+
+const NAME_COOKIE = 'operari_ca_oauth_name';
+
+function connectCallbackUrl(req: Request, provider: string): string {
+  const base =
+    process.env.OAUTH_REDIRECT_BASE_URL ||
+    process.env.FRONTEND_URL ||
+    `${req.protocol}://${req.get('host')}`;
+  return `${base.replace(/\/$/, '')}/api/connected-accounts/oauth/${provider}/callback`;
+}
+
+/** Display-only: the email claim of an id_token, without verifying it. */
+function emailFromIdToken(raw: Record<string, unknown>): string | null {
+  const idToken = typeof raw.id_token === 'string' ? raw.id_token : null;
+  const payload = idToken?.split('.')[1];
+  if (!payload) return null;
+  try {
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      email?: unknown;
+      preferred_username?: unknown;
+    };
+    const email = claims.email ?? claims.preferred_username;
+    return typeof email === 'string' ? email : null;
+  } catch {
+    return null;
+  }
+}
+
+/** GET /api/connected-accounts/oauth/providers — which "Connect with…" buttons to show. */
+router.get('/oauth/providers', (req: AuthRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+  res.json({
+    data: Object.values(CONNECT_PROVIDERS).map(p => ({
+      id: p.id,
+      label: p.label,
+      configured: isConnectConfigured(p),
+      scopes: p.scopes,
+      redirectUri: connectCallbackUrl(req, p.id),
+    })),
+  });
+});
+
+/** GET /api/connected-accounts/oauth/:provider/start?redirect=&name= → { url } */
+router.get('/oauth/:provider/start', (req: AuthRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+  const provider = connectProvider(String(req.params.provider));
+  if (!provider) return res.status(404).json({ error: 'Unknown provider' });
+  if (!isConnectConfigured(provider)) {
+    return res.status(501).json({
+      error: `${provider.label} is not configured on this server (OAUTH_${provider.id.toUpperCase()}_CLIENT_ID / _CLIENT_SECRET)`,
+    });
+  }
+  // The state is bound to the provider and the user so a callback for one
+  // cannot be replayed into another.
+  const state = `${provider.id}.${req.user.id}.${newState()}`;
+  res.cookie(STATE_COOKIE, state, stateCookieOptions(req));
+  const requestedReturn = safeReturnPath(req.query.redirect);
+  if (requestedReturn) res.cookie(RETURN_COOKIE, requestedReturn, stateCookieOptions(req));
+  else res.clearCookie(RETURN_COOKIE, { path: '/' });
+  const name = typeof req.query.name === 'string' ? req.query.name.trim().slice(0, 80) : '';
+  if (name) res.cookie(NAME_COOKIE, name, stateCookieOptions(req));
+  else res.clearCookie(NAME_COOKIE, { path: '/' });
+  return res.json({
+    url: connectAuthorizeUrl(provider, connectCallbackUrl(req, provider.id), state),
+  });
+});
+
+/** GET /api/connected-accounts/oauth/:provider/callback */
+router.get('/oauth/:provider/callback', async (req: AuthRequest, res: Response) => {
+  const cookies = (req as Request & { cookies?: Record<string, string> }).cookies ?? {};
+  const returnPath = safeReturnPath(cookies[RETURN_COOKIE]) || '/en/settings';
+  const back = (query: string) => {
+    res.clearCookie(STATE_COOKIE, { path: '/' });
+    res.clearCookie(RETURN_COOKIE, { path: '/' });
+    res.clearCookie(NAME_COOKIE, { path: '/' });
+    return res.redirect(`${frontendUrl()}${returnPath}?${query}`);
+  };
+  const provider = connectProvider(String(req.params.provider));
+  if (!provider || !isConnectConfigured(provider)) return back('ca_error=oauth_not_configured');
+  if (typeof req.query.error === 'string') {
+    return back(`ca_error=${encodeURIComponent(req.query.error)}`);
+  }
+  if (!req.user) return res.redirect(`${frontendUrl()}/en/login?error=oauth_not_authenticated`);
+
+  const code = typeof req.query.code === 'string' ? req.query.code : null;
+  const state = typeof req.query.state === 'string' ? req.query.state : null;
+  const expected = cookies[STATE_COOKIE];
+  if (
+    !code ||
+    !state ||
+    !expected ||
+    state !== expected ||
+    !state.startsWith(`${provider.id}.${req.user.id}.`)
+  ) {
+    return back('ca_error=oauth_state_mismatch');
+  }
+
+  try {
+    const tokens = await exchangeConnectCode(provider, code, connectCallbackUrl(req, provider.id));
+    const displayName =
+      cookies[NAME_COOKIE] ||
+      provider.describe?.(tokens.raw) ||
+      emailFromIdToken(tokens.raw) ||
+      `${provider.label} (${new Date().toISOString().slice(0, 10)})`;
+    await getService().link({
+      tenantId: req.user.tenantId,
+      userId: req.user.id,
+      provider: provider.id,
+      displayName: `${displayName}`.slice(0, 120),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken ?? undefined,
+      tokenExpiry: tokens.expiresAt ?? undefined,
+      scopes: tokens.scopes ?? provider.scopes,
+      metadata: {
+        oauth: true,
+        ...(typeof tokens.raw.instance_url === 'string'
+          ? { instanceUrl: tokens.raw.instance_url }
+          : {}),
+      },
+      actorId: req.user.id,
+      actorType: 'user',
+    });
+    return back(`ca_linked=${provider.id}`);
+  } catch (err) {
+    if ((err as { code?: string }).code === 'P2002') return back('ca_error=already_linked');
+    req.log.error({ err, provider: provider.id }, 'connected-account OAuth callback failed');
+    return back('ca_error=oauth_failed');
   }
 });
 

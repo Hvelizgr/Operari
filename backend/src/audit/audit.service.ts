@@ -31,6 +31,8 @@ export type AuditEventType =
   | 'role.revoked'
   | 'connectedaccount.linked'
   | 'connectedaccount.unlinked'
+  /** OAuth access token renewed with the stored refresh token. */
+  | 'connectedaccount.refreshed'
   | 'apikey.created'
   | 'apikey.used'
   | 'apikey.revoked'
