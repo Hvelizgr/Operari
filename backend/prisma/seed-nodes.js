@@ -583,6 +583,52 @@ const NODES = [
     ],
   },
   {
+    type: 'operari.code',
+    category: 'core',
+    icon: 'Code',
+    color: 'bg-indigo-600',
+    label: { en: 'Code', es: 'Código' },
+    description: {
+      en: 'Run Python or JavaScript in the sandbox on the previous steps\' data',
+      es: 'Ejecutar Python o JavaScript en el sandbox con los datos de los pasos anteriores',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'language',
+        displayName: 'Language',
+        type: 'options',
+        default: 'python',
+        options: [
+          { name: 'Python 3.12', value: 'python' },
+          { name: 'JavaScript (Node 20)', value: 'javascript' },
+        ],
+      },
+      {
+        name: 'code',
+        displayName: 'Code',
+        type: 'string',
+        required: true,
+        default: 'result = {"count": len(input.get("vars", {}))}',
+        description:
+          'Read `input` (vars and earlier step outputs). Python: assign `result`. JavaScript: `return` a value. print/console.log go to the step log.',
+        typeOptions: { rows: 12 },
+      },
+      {
+        name: 'network',
+        displayName: 'Network',
+        type: 'options',
+        default: 'none',
+        options: [
+          { name: 'No network', value: 'none' },
+          { name: 'Internet (workspace egress policy applies)', value: 'internet' },
+        ],
+      },
+      { name: 'timeout', displayName: 'Timeout (ms)', type: 'number', default: 60000 },
+    ],
+  },
+  {
     type: 'operari.switch',
     category: 'core',
     icon: 'Route',
