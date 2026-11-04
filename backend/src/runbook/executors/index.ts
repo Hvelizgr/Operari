@@ -12,6 +12,7 @@ import { Runner } from '../runners/runner.types';
 import { StepExecutor } from '../types/executor.types';
 import { ApprovalExecutor } from './approval.executor';
 import { CodeExecutor } from './code.executor';
+import { NewItemsExecutor } from './new-items.executor';
 import { registerCoreSteps } from './core';
 import type { EmailTransporterLike } from './core/_shared';
 import { DatabaseExecutor } from './database.executor';
@@ -93,6 +94,7 @@ export function createExecutorRegistry(
 
   registry.set('shell', new ShellExecutor(runner));
   registry.set('operari.code', new CodeExecutor(runner));
+  registry.set('operari.newItems', new NewItemsExecutor(prisma));
   registry.set('approval', new ApprovalExecutor(prisma));
   registry.set('notify', new NotifyExecutor());
   registry.set('wait', new WaitExecutor());

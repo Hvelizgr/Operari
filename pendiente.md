@@ -79,7 +79,11 @@ todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso
    como cuerpo binario (subidas a Drive/Dropbox/S3) o en multipart; descarga en `GET /api/files/:id`.
    El paso de email adjunta archivos de pasos anteriores (hasta 20 MB). La vista del run muestra un enlace de
    descarga por cada archivo de la salida. **Falta:** archivos en el paso Code y en los pasos del catálogo.
-5. **Triggers por aplicación** (n8n: 116; Operari: cron + webhook). Webhook auto-registrado o polling con cursor.
+5. 🟡 **Triggers por aplicación** (n8n: 116; Operari: cron + webhook). ✅ (2026-11-04) Polling genérico:
+   paso "Solo ítems nuevos" (`operari.newItems`) que recuerda entre corridas qué ítems ya dejó pasar;
+   cron + cualquier listado del catálogo + este paso = trigger "nuevo X" para cualquier servicio (probado
+   en Postgres real, sin duplicados con corridas superpuestas). **Falta:** webhooks auto-registrados por
+   proveedor (Stripe, GitHub, Slack Events) para los casos que necesitan inmediatez.
 6. **Más servicios:** Excel/SharePoint/Dynamics, QuickBooks, Xero, Trello/Asana/ClickUp/Linear/GitLab
    completos (hoy son pasos de una acción), AWS (DynamoDB, SES, Textract…), BigQuery, Sheets completo,
    Snowflake, Databricks, Kafka, RabbitMQ, MQTT, FTP/SFTP, LDAP, IMAP, X/Twitter, LinkedIn, Meta, Reddit,

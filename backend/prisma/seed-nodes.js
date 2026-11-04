@@ -677,6 +677,47 @@ const NODES = [
     ],
   },
   {
+    type: 'operari.newItems',
+    category: 'core',
+    icon: 'Sparkles',
+    color: 'bg-emerald-600',
+    label: { en: 'Only new items', es: 'Solo ítems nuevos' },
+    description: {
+      en: 'Pass on only items earlier runs have not seen; with a schedule, a "new X" trigger for any list',
+      es: 'Dejar pasar solo lo que corridas anteriores no vieron; con un cron, un trigger "nuevo X" para cualquier listado',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'items',
+        displayName: 'Items',
+        type: 'string',
+        required: true,
+        description: 'A list from an earlier step, e.g. {{steps.list.output.data.items}}.',
+        typeOptions: { expression: true },
+      },
+      {
+        name: 'idField',
+        displayName: 'Id field',
+        type: 'string',
+        default: 'id',
+        description: 'Field that identifies an item (dotted path). Empty compares whole items.',
+      },
+      {
+        name: 'firstRun',
+        displayName: 'First run',
+        type: 'options',
+        default: 'skip',
+        options: [
+          { name: 'Only record what exists (no flood)', value: 'skip' },
+          { name: 'Emit everything', value: 'emit' },
+        ],
+      },
+      { name: 'remember', displayName: 'Ids to remember', type: 'number', default: 5000 },
+    ],
+  },
+  {
     type: 'operari.switch',
     category: 'core',
     icon: 'Route',
