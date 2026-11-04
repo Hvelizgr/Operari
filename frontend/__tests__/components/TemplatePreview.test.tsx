@@ -103,7 +103,7 @@ describe('TemplatePreview', () => {
     const { container } = render(
       <TemplatePreview nodes={[mkNode('a', 'totally-made-up', 'X', 0, 0)]} connections={[]} />
     );
-    const nodeRects = container.querySelectorAll('svg > g > rect');
+    const nodeRects = container.querySelectorAll('svg > g > g > rect');
     expect(nodeRects.length).toBe(1);
   });
 

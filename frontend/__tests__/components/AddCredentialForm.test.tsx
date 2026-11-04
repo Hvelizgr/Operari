@@ -27,7 +27,10 @@ describe('AddCredentialForm', () => {
     fireEvent.click(screen.getByText('Save'));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    // The form also asks /api/node-types which providers the catalog uses.
+    const [url, init] = (fetchMock.mock.calls as unknown as Array<[string, RequestInit]>).find(
+      ([, i]) => i?.method === 'POST'
+    )!;
     expect(url).toMatch(/\/api\/connected-accounts$/);
     expect(JSON.parse(init.body as string)).toEqual({
       provider: 'ai.openai-compatible',

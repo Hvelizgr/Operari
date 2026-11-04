@@ -19,3 +19,18 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
   unobserve: jest.fn(),
   disconnect: jest.fn(),
 }));
+
+// jsdom has no IntersectionObserver; scroll-reveal animations (framer-motion
+// whileInView) construct one on mount.
+class IntersectionObserverStub {
+  readonly root = null;
+  readonly rootMargin = '';
+  readonly thresholds: number[] = [];
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+global.IntersectionObserver = IntersectionObserverStub as unknown as typeof IntersectionObserver;
