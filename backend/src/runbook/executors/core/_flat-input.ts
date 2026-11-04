@@ -53,11 +53,35 @@ export abstract class FlatInputStep<
     const paused = (result as Record<string, unknown> | null)?.isSuspended === true;
     return {
       success: true,
-      output: (result as Record<string, unknown>) ?? {},
+      output: withoutScopeCopies((result as Record<string, unknown>) ?? {}, context),
       ...(paused ? { paused: true } : {}),
       duration: Date.now() - startTime,
     };
   }
+}
+
+/**
+ * Flow steps return `{ ...input, ...theirResult }` so children keep seeing
+ * the parents' data. The input they get also carries the run scope (`vars`,
+ * `steps`, one key per finished step), and copying that into every output
+ * nested all earlier outputs into each step, growing quadratically with the
+ * run. Keys that are scope copies (absent from the parents' own output and
+ * still the same value) are dropped; everything the step produced or its
+ * parents passed stays.
+ */
+function withoutScopeCopies(
+  output: Record<string, unknown>,
+  context: ExecutorContext
+): Record<string, unknown> {
+  if (!context.input) return output;
+  const parents = context.input;
+  const scoped = context.previousOutputs;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(output)) {
+    if (!(key in parents) && key in scoped && scoped[key] === value) continue;
+    out[key] = value;
+  }
+  return out;
 }
 
 export function isFlatInputStep(executor: StepExecutor): boolean {

@@ -14,6 +14,12 @@ export interface ExecutorContext {
   variables: Record<string, unknown>;
   /** Outputs from previously executed steps */
   previousOutputs: Record<string, unknown>;
+  /**
+   * The merged output of this step's parents alone, without the run scope
+   * (`vars`, `steps`, per-step keys) that previousOutputs adds. Flow steps
+   * pass this through to their children.
+   */
+  input?: Record<string, unknown>;
   /** Tenant ID for multi-tenancy isolation */
   tenantId: string;
   /**

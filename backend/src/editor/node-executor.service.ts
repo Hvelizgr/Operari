@@ -223,6 +223,7 @@ export class NodeExecutor {
       previousOutputs: scope
         ? { ...scope.steps, ...flatInput, vars: scope.vars, steps: scope.steps }
         : flatInput,
+      input: flatInput,
       tenantId: effectiveTenantId,
       secrets,
       dryRun: dryRun ?? false,
