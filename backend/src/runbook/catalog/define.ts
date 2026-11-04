@@ -22,7 +22,12 @@ import {
 export interface CatalogProperty {
   name: string;
   displayName: string;
-  type: 'string' | 'number' | 'boolean' | 'options' | 'secret';
+  /**
+   * `json`: JSON text (or an expression) the step parses; `dateTime`: an
+   * ISO 8601 string with a date picker; `keyValue`: an object edited as
+   * rows. The step reads all three as strings or values like before.
+   */
+  type: 'string' | 'number' | 'boolean' | 'options' | 'secret' | 'json' | 'dateTime' | 'keyValue';
   default?: unknown;
   description?: string;
   required?: boolean;

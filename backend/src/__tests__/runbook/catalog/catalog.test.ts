@@ -15,7 +15,17 @@ const { NODES: SEEDED } = require('../../../../prisma/seed-nodes') as {
   NODES: Array<{ type: string }>;
 };
 
-const FORM_TYPES = new Set(['string', 'number', 'boolean', 'options', 'secret']);
+// Every type DynamicNodeForm renders a widget for.
+const FORM_TYPES = new Set([
+  'string',
+  'number',
+  'boolean',
+  'options',
+  'secret',
+  'json',
+  'dateTime',
+  'keyValue',
+]);
 const byType = (type: string) => BUILTIN_CATALOG.find(n => n.type === type)!;
 
 describe('built-in catalog definitions', () => {

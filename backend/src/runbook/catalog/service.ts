@@ -236,17 +236,36 @@ export function paginationPlan(
 const OPERATION = 'operation';
 const EXTRA = 'additionalFields';
 
+/**
+ * Form widget for a field: JSON fields get the JSON editor, and string
+ * fields whose label ends in "(ISO)" (every timestamp the catalog sends as
+ * ISO 8601) get the date picker.
+ */
+function widgetType(f: OpField): CatalogProperty['type'] {
+  const type = f.type ?? 'string';
+  if (type !== 'string') return type;
+  if (f.json) return 'json';
+  if (/\(ISO\)$/.test(f.displayName)) return 'dateTime';
+  return 'string';
+}
+
 function toProperty(f: OpField, ops?: string[]): CatalogProperty {
+  const type = widgetType(f);
   return {
     name: f.name,
     displayName: f.displayName,
-    type: f.type ?? 'string',
+    type,
     ...(f.default !== undefined ? { default: f.default } : {}),
     ...(f.description ? { description: f.description } : {}),
     ...(f.required ? { required: true } : {}),
     ...(f.options ? { options: f.options } : {}),
-    ...((f.type ?? 'string') === 'string'
-      ? { typeOptions: { expression: true, ...(f.rows ? { rows: f.rows } : {}) } }
+    ...(type === 'string' || type === 'json' || type === 'dateTime'
+      ? {
+          typeOptions: {
+            expression: true,
+            ...(f.rows ? { rows: f.rows } : type === 'json' ? { rows: 4 } : {}),
+          },
+        }
       : {}),
     ...(ops ? { displayOptions: { show: { [OPERATION]: ops } } } : {}),
   };
@@ -402,7 +421,7 @@ export function service(def: ServiceDef): CatalogNode {
           {
             name: EXTRA,
             displayName: 'Additional fields (JSON)',
-            type: 'string' as const,
+            type: 'json' as const,
             description: 'Any other API parameter, merged into the request.',
             typeOptions: { rows: 3, expression: true },
             ...(extraOps.length === ops.length

@@ -218,10 +218,10 @@ const NODES = [
       },
       {
         name: 'headers',
-        displayName: 'Headers (JSON)',
-        type: 'string',
-        description: 'JSON object, e.g. {"Authorization": "Bearer {{secrets.<id>}}"}.',
-        typeOptions: { rows: 3, expression: true },
+        displayName: 'Headers',
+        type: 'keyValue',
+        description: 'Values accept templates, e.g. Authorization: Bearer {{secrets.<id>}}.',
+        typeOptions: { expression: true },
       },
       {
         name: 'body',

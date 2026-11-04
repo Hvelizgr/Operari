@@ -35,6 +35,9 @@ const RENDERABLE_TYPES = new Set([
   'secret',
   'sql',
   'color',
+  'json',
+  'dateTime',
+  'keyValue',
 ]);
 
 function nodeOf(type: string) {

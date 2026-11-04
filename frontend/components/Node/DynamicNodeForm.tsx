@@ -3,6 +3,7 @@ import { ChevronDown, Database, HelpCircle } from 'lucide-react';
 import React, { lazy, Suspense, useState } from 'react';
 
 import ExpressionBuilder from './ExpressionBuilder';
+import { DateTimeField, JsonField, KeyValueField } from './FormFields';
 import OptionLoader from './OptionLoader';
 import SecretPicker from './SecretPicker';
 import ServerPicker from './ServerPicker';
@@ -12,7 +13,18 @@ const SQLCodeEditor = lazy(() => import('../SQLEditor/SQLCodeEditor'));
 export interface Property {
   name: string;
   displayName: string;
-  type: 'string' | 'boolean' | 'options' | 'number' | 'secret' | 'sql' | 'color' | 'server';
+  type:
+    | 'string'
+    | 'boolean'
+    | 'options'
+    | 'number'
+    | 'secret'
+    | 'sql'
+    | 'color'
+    | 'server'
+    | 'json'
+    | 'dateTime'
+    | 'keyValue';
   default?: unknown;
   description?: string;
   options?: { name: string; value: string }[];
@@ -178,6 +190,34 @@ export default function DynamicNodeForm({
                 onChange={next => onChange(prop.name, next)}
                 provider={prop.typeOptions?.provider}
                 label={prop.displayName}
+              />
+            )}
+
+            {prop.type === 'json' && (
+              <JsonField
+                lang={lang}
+                value={rawValue}
+                onChange={next => onChange(prop.name, next)}
+                rows={prop.typeOptions?.rows}
+                className={inputClass}
+              />
+            )}
+
+            {prop.type === 'dateTime' && (
+              <DateTimeField
+                lang={lang}
+                value={stringValue}
+                onChange={next => onChange(prop.name, next)}
+                className={inputClass}
+              />
+            )}
+
+            {prop.type === 'keyValue' && (
+              <KeyValueField
+                lang={lang}
+                value={rawValue}
+                onChange={next => onChange(prop.name, next)}
+                className={inputClass}
               />
             )}
 
