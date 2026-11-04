@@ -394,3 +394,38 @@ describe('DockerRunner.healthcheck', () => {
     await expect(runner.healthcheck()).rejects.toThrow(RunnerError);
   });
 });
+
+describe('DockerRunner workspace egress policy', () => {
+  const policy = (sandboxEgress: 'open' | 'allowlist' | 'none') => async () => ({
+    sshPolicy: 'registered' as const,
+    sandboxEgress,
+    egressAllowlist: ['pypi.org'],
+    privilegedApprovals: 1 as const,
+  });
+
+  it.each([
+    ['open', 'operari-sandbox'],
+    ['allowlist', 'none'],
+    ['none', 'none'],
+  ] as const)(
+    'policy %s gives a step asking for internet --network %s',
+    async (egress, expected) => {
+      const { fn, calls } = buildFakeSpawn({ exitCode: 0 });
+      const runner = new DockerRunner({ spawnImpl: fn });
+      runner.usePolicy(policy(egress));
+      await runner.run({ command: 'true', network: 'open' }, ctx());
+      const args = calls[0].args;
+      expect(args[args.indexOf('--network') + 1]).toBe(expected);
+    }
+  );
+
+  it('fails closed when the policy cannot be read', async () => {
+    const { fn, calls } = buildFakeSpawn({ exitCode: 0 });
+    const runner = new DockerRunner({ spawnImpl: fn });
+    runner.usePolicy(async () => {
+      throw new Error('db down');
+    });
+    await runner.run({ command: 'true', network: 'open' }, ctx());
+    expect(calls[0].args[calls[0].args.indexOf('--network') + 1]).toBe('none');
+  });
+});

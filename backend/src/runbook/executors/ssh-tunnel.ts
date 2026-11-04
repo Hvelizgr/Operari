@@ -1,6 +1,8 @@
 import * as net from 'net';
 import { Client } from 'ssh2';
 
+import { fingerprintOf, parseHostKey } from '../../servers/host-key';
+
 export interface TunnelOptions {
   sshHost: string;
   sshPort: number;
@@ -10,6 +12,8 @@ export interface TunnelOptions {
   forwardHost: string;
   /** Remote port to forward to. */
   forwardPort: number;
+  /** Pinned "type base64" host key; the handshake aborts on any other key. */
+  hostKey?: string;
 }
 
 export interface TunnelResult {
@@ -69,9 +73,12 @@ export function createSSHTunnel(
       });
     });
 
+    const pinned = options.hostKey ? parseHostKey(options.hostKey) : null;
+    let mismatch: string | null = null;
+
     client.on('error', err => {
       server.close();
-      reject(new Error(`SSH tunnel failed: ${err.message}`));
+      reject(new Error(mismatch ?? `SSH tunnel failed: ${err.message}`));
     });
 
     client.connect({
@@ -79,6 +86,17 @@ export function createSSHTunnel(
       port: options.sshPort,
       username: options.sshUsername,
       privateKey: options.privateKey,
+      ...(pinned
+        ? {
+            hostVerifier: (key: Buffer) => {
+              if (Buffer.isBuffer(key) && key.equals(pinned.blob)) return true;
+              mismatch = `SSH tunnel failed: host key mismatch: expected ${pinned.fingerprint}, server presented ${
+                Buffer.isBuffer(key) ? fingerprintOf(key) : 'unknown'
+              }`;
+              return false;
+            },
+          }
+        : {}),
     });
   });
 }

@@ -1,6 +1,7 @@
 import { Client as PgClient } from 'pg';
 
 import { blockedTarget } from '../../security/ssrf-guard';
+import type { ServerDirectory } from '../../servers/server-directory';
 import {
   credentialSecret,
   ExecutorContext,
@@ -25,11 +26,18 @@ export interface DatabaseConfig {
   credentialId: string;
   /** Optional SSH tunnel for accessing databases behind a bastion. */
   sshTunnel?: {
-    host: string;
+    /**
+     * Registered server (Settings → Servers) used as the bastion: host,
+     * user, key and the pinned host key come from it; the fields below are
+     * then ignored.
+     */
+    serverId?: string;
+    /** Ad-hoc bastion, only when the workspace ssh policy is `any`. */
+    host?: string;
     port?: number;
-    username: string;
-    /** ConnectedAccount ID for the SSH private key. */
-    sshCredentialId: string;
+    username?: string;
+    /** ConnectedAccount ID for the SSH private key (ad-hoc only). */
+    sshCredentialId?: string;
   };
   /** SQL query for operation='query'. Supports template substitution. */
   query?: string;
@@ -90,8 +98,72 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
   /** Injectable for tests. */
   private readonly createPgClient: (connectionString: string) => PgClient;
 
-  constructor(createPgClient?: (connectionString: string) => PgClient) {
+  constructor(
+    createPgClient?: (connectionString: string) => PgClient,
+    private readonly deps: { directory?: ServerDirectory } = {}
+  ) {
     this.createPgClient = createPgClient ?? (cs => new PgClient({ connectionString: cs }));
+  }
+
+  private async resolveBastion(
+    tunnel: NonNullable<DatabaseConfig['sshTunnel']>,
+    context: ExecutorContext
+  ): Promise<
+    | {
+        host: string;
+        port: number;
+        username: string;
+        privateKey?: string;
+        hostKey?: string;
+        label: string;
+      }
+    | { error: string }
+  > {
+    const directory = this.deps.directory;
+    if (tunnel.serverId) {
+      if (!directory)
+        return { error: 'database: registered servers are not available on this backend' };
+      const server = await directory.get(context.tenantId, tunnel.serverId);
+      if (!server) {
+        return {
+          error: `database: server "${tunnel.serverId}" is not registered in this workspace`,
+        };
+      }
+      if (server.authMode !== 'key') {
+        return {
+          error: `database: server "${server.name}" uses certificates; SSH tunnels need key auth`,
+        };
+      }
+      const privateKey = await directory.privateKey(server, {
+        tenantId: context.tenantId,
+        runId: context.runId,
+        stepId: context.stepId,
+      });
+      return {
+        host: server.host,
+        port: server.port,
+        username: server.username,
+        privateKey,
+        hostKey: server.hostKey,
+        label: `${server.name} (${server.hostKeyFingerprint})`,
+      };
+    }
+    if (directory && (await directory.policy(context.tenantId)).sshPolicy === 'registered') {
+      return {
+        error:
+          'database: this workspace only allows registered servers as SSH tunnels. Register the bastion in Settings → Servers.',
+      };
+    }
+    const host = resolveTemplate(tunnel.host ?? '', context);
+    const username = resolveTemplate(tunnel.username ?? '', context);
+    if (!host || !username) return { error: 'database: ssh tunnel needs a host and a username' };
+    return {
+      host,
+      port: tunnel.port ?? 22,
+      username,
+      privateKey: credentialSecret(tunnel.sshCredentialId ?? '', context) || undefined,
+      label: host,
+    };
   }
 
   async execute(config: DatabaseConfig, context: ExecutorContext): Promise<ExecutorResult> {
@@ -127,11 +199,25 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
 
     // Through a tunnel the SSH host is the boundary; the database behind
     // it lives on the tenant's own network.
+    let bastion: {
+      host: string;
+      port: number;
+      username: string;
+      privateKey?: string;
+      hostKey?: string;
+      label: string;
+    } | null = null;
+    if (config.sshTunnel) {
+      const resolved = await this.resolveBastion(config.sshTunnel, context);
+      if ('error' in resolved) {
+        return { success: false, error: resolved.error, duration: Date.now() - startTime };
+      }
+      bastion = resolved;
+    }
+
     let boundaryHost: string;
     try {
-      boundaryHost = config.sshTunnel
-        ? resolveTemplate(config.sshTunnel.host, context)
-        : new URL(connectionString).hostname;
+      boundaryHost = bastion ? bastion.host : new URL(connectionString).hostname;
     } catch {
       return {
         success: false,
@@ -149,19 +235,19 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
 
     try {
       // Set up SSH tunnel if configured.
-      if (config.sshTunnel) {
-        const sshKey = credentialSecret(config.sshTunnel.sshCredentialId, context);
+      if (bastion) {
+        const sshKey = bastion.privateKey;
         if (!sshKey) {
           return {
             success: false,
-            error: `SSH key not found for tunnel: sshCredentialId "${config.sshTunnel.sshCredentialId}" is not in context.secrets.`,
+            error: `SSH key not found for tunnel: sshCredentialId "${config.sshTunnel?.sshCredentialId}" is not in context.secrets.`,
             duration: Date.now() - startTime,
           };
         }
 
         context.emit?.({
           type: 'log',
-          text: `Opening SSH tunnel to ${config.sshTunnel.host}...`,
+          text: `Opening SSH tunnel to ${bastion.label}...`,
           timestamp: new Date(),
         });
 
@@ -171,10 +257,11 @@ export class DatabaseExecutor implements StepExecutor<DatabaseConfig> {
         const dbPort = parseInt(dbUrl.port || '5432', 10);
 
         tunnel = await createSSHTunnel({
-          sshHost: resolveTemplate(config.sshTunnel.host, context),
-          sshPort: config.sshTunnel.port ?? 22,
-          sshUsername: resolveTemplate(config.sshTunnel.username, context),
+          sshHost: bastion.host,
+          sshPort: bastion.port,
+          sshUsername: bastion.username,
           privateKey: sshKey,
+          hostKey: bastion.hostKey,
           forwardHost: dbHost,
           forwardPort: dbPort,
         });

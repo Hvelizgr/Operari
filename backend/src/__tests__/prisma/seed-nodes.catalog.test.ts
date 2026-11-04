@@ -27,6 +27,8 @@ const { NODES } = require('../../../prisma/seed-nodes.js') as {
 
 const RENDERABLE_TYPES = new Set([
   'string',
+  // ServerPicker in frontend/components/Node/DynamicNodeForm.tsx
+  'server',
   'boolean',
   'options',
   'number',

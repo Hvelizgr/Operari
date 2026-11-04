@@ -1,6 +1,7 @@
 import { ChildProcessWithoutNullStreams, spawn as nodeSpawn } from 'child_process';
 import { randomBytes } from 'crypto';
 
+import type { TenantPolicy } from '../../policy/tenant-policy';
 import { Runner, RunnerContext, RunnerError, RunnerResult, RunnerSpec } from './runner.types';
 import {
   assertSandboxNetwork,
@@ -98,9 +99,32 @@ export class DockerRunner implements Runner {
     }
   }
 
+  private policyFor: ((tenantId: string) => Promise<TenantPolicy>) | null = null;
+
+  /**
+   * Workspace egress policy as a ceiling. There is no egress proxy on this
+   * runner, so `allowlist` resolves to no network rather than to open.
+   */
+  usePolicy(policyFor: (tenantId: string) => Promise<TenantPolicy>): void {
+    this.policyFor = policyFor;
+  }
+
+  private async cappedNetwork(spec: RunnerSpec, tenantId: string): Promise<RunnerSpec['network']> {
+    if (spec.network !== 'open' || !this.policyFor) return spec.network;
+    try {
+      const policy = await this.policyFor(tenantId);
+      return policy.sandboxEgress === 'open' ? 'open' : 'none';
+    } catch {
+      return 'none';
+    }
+  }
+
   async run(spec: RunnerSpec, context: RunnerContext): Promise<RunnerResult> {
     const containerName = DockerRunner.buildContainerName(context);
-    const args = this.buildDockerArgs(spec, context, containerName);
+    const network = spec.containerNetwork
+      ? spec.network
+      : await this.cappedNetwork(spec, context.tenantId);
+    const args = this.buildDockerArgs({ ...spec, network }, context, containerName);
     this.track(context.runId, containerName);
     try {
       return await this.runProcess(args, {

@@ -135,8 +135,8 @@ automáticamente; las cuentas siguientes nunca reciben `local` por registrarse.
 | 0 | ✅ Runner `local` desactivado en prod. Documentar el riesgo. | hecho |
 | 1 | ✅ (2026-11-02; en prod lo cubre la fase 2). Endurecer el runner `docker` existente: `--cap-drop=ALL`, `--read-only`, `--user`, red `operari-sandbox` + reglas `DOCKER-USER`; tests de "no llega a postgres / no lee secretos". | 1–2 días |
 | 2 | ✅ en prod (2026-11-02, acceptance 18/18 sobre el daemon rootless). `sandbox-runner` con Docker o Podman **rootless** + **gVisor**; backend sin socket. | 3–5 días |
-| 3 | Registro de servidores con huella fijada; `ssh` solo por `serverId`; aprobación obligatoria para `privileged`. | 2–3 días |
-| 4 | Política por workspace en UI; proxy de egreso con lista permitida; certificados SSH de corta vida. | 1 semana |
+| 3 | ✅ en prod (2026-11-04). Registro de servidores con huella fijada; `ssh` solo por `serverId`; aprobación obligatoria para `privileged`. | 2–3 días |
+| 4 | ✅ en prod (2026-11-04); falta probar login con certificado y sudo con sudoers reales. Política por workspace en UI; proxy de egreso con lista permitida; certificados SSH de corta vida. | 1 semana |
 
 ## Pruebas de aceptación (deben fallar dentro del sandbox)
 
@@ -209,4 +209,27 @@ contenedores. Montarle `docker.sock` equivale a darle root del host; eso es la f
 paso corre como uid 1000, no ve secretos, `postgres` no resuelve, internet sí. Al arrancar, el
 runner mata los contenedores de un proceso anterior y descarga las imágenes permitidas.
 gVisor sin instalar.
+
+## Estado de las fases 3 y 4 (2026-11-04)
+
+- **Servidores** (`Server`, `/api/servers`): el admin escanea la clave del host, confirma la huella y
+  registra. El paso `ssh` y el túnel del paso de base de datos usan `serverId`; la clave del host
+  queda fijada (ssh2 `hostVerifier` o `known_hosts` de una línea con `StrictHostKeyChecking=yes`).
+  Los campos host/usuario del paso se ignoran cuando hay `serverId`.
+- **Privilegiados:** `sudo -n <comando>` (sin `sh -c`, para que las reglas exactas de sudoers sigan
+  coincidiendo). Requiere que el servidor tenga sudo permitido y N aprobadores distintos en el run
+  (al guardar: N pasos de aprobación en todo camino hacia el paso; al ejecutar: N `approvedBy`
+  distintos). Evento `ssh.privileged` con el comando exacto, la huella y los aprobadores.
+- **Política** (`/api/tenants/execution-policy`): `sshPolicy` (`registered` por defecto),
+  `sandboxEgress` (`open`/`allowlist`/`none`), `egressAllowlist`, `privilegedApprovals` (1/2). Es un
+  techo: un paso sin red sigue sin red. Si no se puede leer, el sandbox queda sin red.
+- **Proxy de salida:** contenedor `operari-egress` en el daemon rootless (`node -e` en
+  `node:20-alpine`, uid 1000, sin capabilities, solo lectura). Cada sandbox en modo lista tiene su
+  propia red `--internal` /29 compartida solo con el proxy (una red compartida necesitaría ICC, y
+  sin ICC tampoco llegarían al proxy). El grant (hosts + vencimiento) va firmado con HMAC en
+  `HTTPS_PROXY`; el secreto cambia en cada arranque del runner. Solo 80/443, nunca IPs, y un nombre
+  permitido que resuelve a una IP privada se rechaza.
+- **Certificados:** CA ed25519 por workspace, cifrada con AAD del tenant. Por paso: clave nueva y
+  certificado de 5 min (+1 min de desfase) para el usuario del servidor, `-O clear -O permit-pty`.
+  Se usa el `ssh` del sistema porque ssh2 no soporta certificados de cliente.
 

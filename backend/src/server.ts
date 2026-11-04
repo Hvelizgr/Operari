@@ -77,7 +77,7 @@ import v1WebhookRoutes from './routes/v1/webhooks.routes';
 import webhookRoutes from './routes/webhook.routes';
 import webhooksAdminRoutes from './routes/webhooks-admin.routes';
 import workosRoutes from './routes/workos.routes';
-import { getRunner, SandboxRunner } from './runbook/runners';
+import { DockerRunner, getRunner, SandboxRunner } from './runbook/runners';
 import runbookJsonSchema from './runbook/yaml/runbook.schema.json';
 import { MonitorService } from './services/monitor.service';
 import { computeRoles } from './services/roles';
@@ -207,7 +207,7 @@ app.use('/api/tenants', standardRateLimiter, tenantsRoutes);
 app.use('/api/servers', standardRateLimiter, createServersRouter({ prisma }));
 {
   const runner = getRunner();
-  if (runner instanceof SandboxRunner) {
+  if (runner instanceof SandboxRunner || runner instanceof DockerRunner) {
     runner.usePolicy(tenantId => tenantPolicyStore(prisma).get(tenantId));
   }
 }

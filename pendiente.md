@@ -2,64 +2,59 @@
 
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
-Última actualización: 2026-11-04 (sandbox: fases 3 y 4 a medio camino). Antes: 2026-11-02 (sandbox fases 1 y 2). Antes: 2026-11-01 (integraciones: research de n8n y fase 1 del catálogo). Antes: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
+Última actualización: 2026-11-04 (sandbox: fases 1–4 en prod). Antes: 2026-11-02 (sandbox fases 1 y 2). Antes: 2026-11-01 (integraciones: research de n8n y fase 1 del catálogo). Antes: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
 
 ---
 
 ## Código pendiente
 
-### 🟠 Sandbox para terminal y runbooks; sudo solo por SSH a servidores propios (2026-11-01)
+### 🟢 Sandbox para terminal y runbooks; sudo solo por SSH a servidores propios (2026-11-01)
 
 **Detalle y diseño:** [`docs/sandbox-research.md`](docs/sandbox-research.md).
 
-**Estado (2026-11-04):** fases 1 y 2 en producción; los pasos shell y la terminal corren en el
-sandbox para todos los workspaces. Fases 3 y 4: backend (`2bc8756`), tests (`8168653`) y UI en
-`main`, **sin desplegar**.
+**Estado (2026-11-04):** fases 1 a 4 **en producción**. Pasos shell y terminal en el sandbox
+rootless; servidores registrados con clave del host fijada; política de ejecución por workspace;
+proxy de salida con lista permitida; CA SSH por workspace.
 
 **Hallazgo original:** el runner `local` comparte el uid del backend: desde la terminal se lee
 `/proc/1/environ` (`DATABASE_URL`, `ENCRYPTION_KEY`, `JWT_SECRET`, API keys) y se llega a Postgres,
-Redis y los otros sitios de la red `web`. `OPERARI_LOCAL_SHELL_TENANTS=none` ya no aplica: prod usa el runner `sandbox`.
+Redis y los otros sitios de la red `web`. Prod usa el runner `sandbox` desde 2026-11-02.
 
-**Fases:**
+**Hecho y verificado en prod (2026-11-04):**
 
-1. ✅ Endurecer el runner `docker` (`--cap-drop=ALL`, `--read-only`, `--user 1000`, red
-   `operari-sandbox`). En prod lo cubre la fase 2, así que `setup-network.sh` (Docker con root) ya no
-   hace falta en este servidor.
-2. ✅ **En prod desde 2026-11-02.** `sandbox-runner` con Docker rootless (usuario `operari-sandbox`,
-   uid 997); el backend usa `OPERARI_RUNNER=sandbox` y no tiene `docker.sock`.
-   `acceptance.sh` contra el daemon rootless: 18/18. gVisor sin instalar (opcional, `--with-gvisor`).
-3. 🟡 **Backend hecho, falta lo de abajo.** Modelo `Server` (clave del host fijada), rutas
-   `/api/servers` (scan / alta / check / CA), paso `ssh` por `serverId` con verificación de la clave
-   del host, `privileged` → `sudo -n` solo si el servidor lo permite y con N aprobadores distintos
-   (al guardar y al ejecutar), auditoría `ssh.privileged` y `server.*`.
-4. 🟡 **Backend hecho, falta lo de abajo.** Política por workspace (`sshPolicy`, `sandboxEgress`,
-   `egressAllowlist`, `privilegedApprovals`) en `/api/tenants/execution-policy`; proxy de salida con
-   grant HMAC por sandbox y una red `--internal /29` propia por sandbox; CA SSH por workspace con
-   certificados de 5 min vía `ssh-keygen` + `ssh` del sistema (ssh2 no soporta certificados).
+- Proxy de salida en el daemon rootless: `pip install` con `pypi.org` permitido funciona;
+  `example.com` → 403; sin proxy no hay ruta; un sandbox en modo lista y otro con internet abierta
+  no llegan a un tercer sandbox; una IP por el proxy → 403. (Dos bugs encontrados y arreglados en
+  `f76d1db`: el proxy no arrancaba por el comentario de source map con `node -e`, y los pasos
+  tenían `HOME=/` de solo lectura.)
+- SSH a este servidor desde el backend: la huella escaneada coincide con `ssh-keygen -lf` del host;
+  con la clave correcta autentica y corre el comando forzado; con otra clave fijada se rechaza antes
+  de autenticar. (`~/bin/operari-ssh` no tenía `+x`: la clave de deploy no servía; arreglado.)
+- Certificados: emisión real con `ssh-keygen` en el backend (6 min de validez, principal = usuario
+  del servidor, sin reenvíos, solo `permit-pty`), CA guardada cifrada.
+- Túnel SSH del paso de base de datos por `serverId`, con la clave del host fijada y la misma
+  política SSH; el runner `docker` también respeta la política de salida (lista → sin red, porque
+  no tiene proxy). Tests de rutas `servers` y `execution-policy`.
 
-**Falta para cerrar fases 3 y 4, en este orden:**
+**Falta (requiere `sudo` en el servidor):**
 
-1. ✅ **Tests** (2026-11-04): 45 nuevos (proxy de punta a punta, clave del host, paso ssh en modo
-   servidor, validador `privileged`, egress-controller, sandbox-server con `allowlist`, techo de
-   política). Faltan solo las rutas `servers` y `execution-policy` (sin tests de ruta).
-2. ✅ **Frontend** (2026-11-04): Configuración → *Servidores* (leer la clave → confirmar la huella →
-   registrar, probar conexión y sudo, CA + snippet de sshd) y *Política de ejecución*;
-   `ServerPicker` en el formulario del paso.
-3. **Deploy:** `db push` agrega columnas y tablas (el servicio `migrate` ya lo hace); recrear backend
-   y sandbox-runner.
-4. **Pruebas de punta a punta en prod:**
-   - Proxy en el daemon rootless (`node -e` con el módulo compilado ya probado en `node:20-alpine`
-     con Docker normal: arranca y responde 407 sin grant); `pip install` con un host permitido funciona y uno fuera de la lista falla; dos sandboxes no se ven.
-   - SSH a este mismo servidor como servidor registrado (clave de host fijada, modo `key`) y en modo
-     `certificate` con la CA instalada en `sshd`; paso privilegiado con sudoers acotado.
-5. **Pendiente menor:**
-   - El túnel SSH del paso de base de datos (`ssh-tunnel.ts`) sigue con host ad-hoc y sin fijar la
-     clave del host: pasarlo a `serverId`.
-   - La política de salida solo se aplica en el runner `sandbox`; `docker` y `local` la ignoran.
-   - Verificación de propiedad del servidor (token en `~/.operari-verify`): no implementada; hoy
-     la confianza es "un admin lo registró y confirmó la huella".
-   - Para servidores registrados se mantiene el SSRF guard (más estricto que el diseño original): con
-     `OPERARI_ALLOW_PRIVATE_TARGETS=false` no se puede registrar una IP privada.
+1. Login real con certificado: en Configuración → Servidores → *Mostrar CA*, copiar el snippet y
+   correrlo en el servidor (`TrustedUserCAKeys` + `systemctl reload ssh`); registrar el servidor en
+   modo certificado y *Probar conexión*.
+2. Paso privilegiado de punta a punta: un usuario con `sudoers` acotado, p. ej.
+   `operari-deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart nginx`, registrado con *sudo
+   permitido*, y un runbook aprobación → `ssh` con *Run with sudo*.
+
+**Decisiones (no se van a hacer salvo que haga falta):**
+
+- El runner `local` no puede aplicar la política de salida (corre en el host); en prod no se usa.
+- Verificación de propiedad del servidor (token en `~/.operari-verify`): no implementada. La raíz de
+  confianza es el admin del workspace confirmando la huella; un token no protege contra ese admin y
+  solo agrega pasos.
+- Los servidores registrados siguen pasando por el SSRF guard: con
+  `OPERARI_ALLOW_PRIVATE_TARGETS=false` no se registran IPs privadas.
+- gVisor: sin instalar (opcional, `install-rootless.sh --with-gvisor` + `acceptance.sh` con
+  `OPERARI_SANDBOX_RUNTIME=runsc`).
 
 ### 🔴 Catálogo de integraciones: lo que falta después de la fase 1 (2026-11-01)
 
