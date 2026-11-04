@@ -13,8 +13,8 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 **Detalle y diseño:** [`docs/sandbox-research.md`](docs/sandbox-research.md).
 
 **Estado (2026-11-04):** fases 1 y 2 en producción; los pasos shell y la terminal corren en el
-sandbox para todos los workspaces. Fases 3 y 4: backend escrito y en `main` (`2bc8756`), **sin
-desplegar y sin UI**.
+sandbox para todos los workspaces. Fases 3 y 4: backend (`2bc8756`), tests (`8168653`) y UI en
+`main`, **sin desplegar**.
 
 **Hallazgo original:** el runner `local` comparte el uid del backend: desde la terminal se lee
 `/proc/1/environ` (`DATABASE_URL`, `ENCRYPTION_KEY`, `JWT_SECRET`, API keys) y se llega a Postgres,
@@ -39,22 +39,17 @@ Redis y los otros sitios de la red `web`. `OPERARI_LOCAL_SHELL_TENANTS=none` ya 
 
 **Falta para cerrar fases 3 y 4, en este orden:**
 
-1. **Tests nuevos** (los existentes pasan: 141/141): `egress-proxy.test.ts` está escrito pero sin
-   correr; faltan host-key, executor ssh en modo servidor (clave del host distinta → falla,
-   aprobaciones, `sudo -n`, política `registered`), validador `privileged`, egress-controller con
-   `spawnSync` falso, sandbox-server con `allowlist`, rutas `servers` y `execution-policy`.
-2. **Frontend:**
-   - Settings → *Servidores*: escanear host → mostrar huella → confirmar → registrar; "Probar
-     conexión"; CA pública + snippet de `sshd_config` para el modo certificado.
-   - Settings → *Política de ejecución*: SSH (`registered`/`any`), salida del sandbox (abierta /
-     lista / ninguna) + editor de la lista, 1 o 2 aprobadores.
-   - `ServerPicker` en `DynamicNodeForm` para el tipo de propiedad `server`; comprobar que el tipo
-     `boolean` (`privileged`) se renderiza.
+1. ✅ **Tests** (2026-11-04): 45 nuevos (proxy de punta a punta, clave del host, paso ssh en modo
+   servidor, validador `privileged`, egress-controller, sandbox-server con `allowlist`, techo de
+   política). Faltan solo las rutas `servers` y `execution-policy` (sin tests de ruta).
+2. ✅ **Frontend** (2026-11-04): Configuración → *Servidores* (leer la clave → confirmar la huella →
+   registrar, probar conexión y sudo, CA + snippet de sshd) y *Política de ejecución*;
+   `ServerPicker` en el formulario del paso.
 3. **Deploy:** `db push` agrega columnas y tablas (el servicio `migrate` ya lo hace); recrear backend
    y sandbox-runner.
 4. **Pruebas de punta a punta en prod:**
-   - Proxy en el daemon rootless: que `node -e` con el módulo compilado arranque en `node:20-alpine`;
-     `pip install` con un host permitido funciona y uno fuera de la lista falla; dos sandboxes no se ven.
+   - Proxy en el daemon rootless (`node -e` con el módulo compilado ya probado en `node:20-alpine`
+     con Docker normal: arranca y responde 407 sin grant); `pip install` con un host permitido funciona y uno fuera de la lista falla; dos sandboxes no se ven.
    - SSH a este mismo servidor como servidor registrado (clave de host fijada, modo `key`) y en modo
      `certificate` con la CA instalada en `sshd`; paso privilegiado con sudoers acotado.
 5. **Pendiente menor:**
