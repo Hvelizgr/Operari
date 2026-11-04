@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  Download,
   Loader2,
   Pause,
   RotateCcw,
@@ -54,6 +55,34 @@ interface RunDetailPayload {
   dryRun?: boolean;
 }
 
+interface FileRefView {
+  id: string;
+  name: string;
+  size: number;
+}
+
+/** Files a step produced ({ kind: 'file', … } anywhere in its output), deduplicated. */
+export function filesIn(output: unknown): FileRefView[] {
+  const found = new Map<string, FileRefView>();
+  const walk = (v: unknown, depth: number) => {
+    if (!v || typeof v !== 'object' || depth > 6 || found.size >= 20) return;
+    const o = v as Record<string, unknown>;
+    if (o.kind === 'file' && typeof o.id === 'string' && typeof o.name === 'string') {
+      found.set(o.id, { id: o.id, name: o.name, size: typeof o.size === 'number' ? o.size : 0 });
+      return;
+    }
+    for (const child of Array.isArray(v) ? v : Object.values(o)) walk(child, depth + 1);
+  };
+  walk(output, 0);
+  return [...found.values()];
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
 const STRINGS: Record<'en' | 'es', Record<string, string>> = {
   en: {
     back: 'Back to runs',
@@ -69,6 +98,7 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     replaying: 'Starting replay...',
     replaySuccess: 'Replay started',
     output: 'Output',
+    files: 'Files',
     error: 'Error',
     noOutput: 'No output recorded.',
   },
@@ -86,6 +116,7 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     replaying: 'Iniciando replay...',
     replaySuccess: 'Replay iniciado',
     output: 'Salida',
+    files: 'Archivos',
     error: 'Error',
     noOutput: 'Sin salida registrada.',
   },
@@ -409,6 +440,22 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
                       <div className="mb-1 text-[10px] font-bold uppercase text-zinc-500">
                         {t.output}
                       </div>
+                      {filesIn(step.output).length > 0 && (
+                        <div className="mb-2 flex flex-wrap gap-2" aria-label={t.files}>
+                          {filesIn(step.output).map(f => (
+                            <a
+                              key={f.id}
+                              href={`${apiBase}/api/files/${encodeURIComponent(f.id)}`}
+                              download={f.name}
+                              className="inline-flex items-center gap-1.5 rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-900"
+                            >
+                              <Download size={12} />
+                              {f.name}
+                              <span className="text-zinc-500">{formatBytes(f.size)}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
                       {step.output ? (
                         <pre className="overflow-x-auto whitespace-pre-wrap rounded border border-zinc-800 bg-black p-2 text-xs text-zinc-200">
                           {JSON.stringify(step.output, null, 2)}
