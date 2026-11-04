@@ -2,17 +2,18 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  Activity,
   BarChart3,
   CheckCircle,
   Clock,
+  Timer,
   TrendingUp,
   X,
   XCircle,
   Zap,
-  Activity,
-  Timer,
 } from 'lucide-react';
 import { useState } from 'react';
+
 import { StaggeredMetricCard } from './StaggeredMetricCard';
 
 interface ExecutionMetric {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 import { AuditChainInspector } from '@/components/Settings/AuditChainInspector';
 
@@ -179,7 +179,7 @@ describe('AuditChainInspector', () => {
     expect(await screen.findByText('run.started')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /next/i }));
 
-    await waitFor(() => expect(screen.getByText('run.completed')).toBeInTheDocument());
+    expect(await screen.findByText('run.completed')).toBeInTheDocument();
 
     const calls = fetchMock.mock.calls as unknown[][];
     const secondCallUrl = String(calls[1][0]);

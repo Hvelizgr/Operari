@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import SchedulesPage from '@/components/Schedules/SchedulesPage';
 
@@ -50,9 +50,7 @@ afterEach(() => {
 describe('SchedulesPage', () => {
   it('fires an in-app toast after run-now instead of native alert()', async () => {
     const nativeAlert = jest.spyOn(window, 'alert');
-    await act(async () => {
-      render(<SchedulesPage lang="en" />);
-    });
+    render(<SchedulesPage lang="en" />);
     await waitFor(() => expect(screen.getAllByText('Payments runbook').length).toBeGreaterThan(0));
 
     // Fire "Run now" on the only row.
@@ -65,9 +63,7 @@ describe('SchedulesPage', () => {
 
   it('uses inline delete confirm instead of native confirm()', async () => {
     const nativeConfirm = jest.spyOn(window, 'confirm');
-    await act(async () => {
-      render(<SchedulesPage lang="en" />);
-    });
+    render(<SchedulesPage lang="en" />);
     await waitFor(() => expect(screen.getAllByText('Payments runbook').length).toBeGreaterThan(0));
 
     fireEvent.click(screen.getByRole('button', { name: /unschedule/i }));
@@ -84,7 +80,9 @@ describe('SchedulesPage', () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve({ ok: true, status: 200, json: async () => ({ data: [] }) })
     );
-    const { container } = await act(async () => render(<SchedulesPage lang="en" />));
+    const { container } = render(<SchedulesPage lang="en" />);
+    // Layout classes have no role or text to query by.
+    // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
     const root = container.querySelector('.mx-auto.max-w-6xl');
     expect(root?.className).toContain('px-4');
     expect(root?.className).toContain('sm:px-6');

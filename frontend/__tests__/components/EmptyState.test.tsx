@@ -49,8 +49,8 @@ describe('EmptyState', () => {
       />
     );
 
-    const primary = screen.getByText('Browse templates').closest('a');
-    const secondary = screen.getByText('Open editor').closest('a');
+    const primary = screen.getByRole('link', { name: 'Browse templates' });
+    const secondary = screen.getByRole('link', { name: 'Open editor' });
     expect(primary).toHaveAttribute('href', '/en/templates');
     expect(secondary).toHaveAttribute('href', '/en/editor');
   });
@@ -109,7 +109,7 @@ describe('EmptyState', () => {
     // No throw when clicked — confirms it's a plain anchor, not a
     // button wrapper that would swallow the navigation.
     fireEvent.click(screen.getByText('Go'));
-    expect(screen.getByText('Go').closest('a')).toHaveAttribute('href', '/en/templates');
+    expect(screen.getByRole('link', { name: 'Go' })).toHaveAttribute('href', '/en/templates');
   });
 
   it('renders a button + fires primaryAction when provided (dashboard CTA shape)', () => {

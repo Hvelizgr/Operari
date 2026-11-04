@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import WebhookReceiptsPanel from '@/components/Editor/WebhookReceiptsPanel';
 
@@ -91,9 +91,7 @@ describe('WebhookReceiptsPanel', () => {
 
     expect(await screen.findByText('Load older')).toBeInTheDocument();
 
-    await act(async () => {
-      fireEvent.click(screen.getByText('Load older'));
-    });
+    fireEvent.click(screen.getByText('Load older'));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const secondUrl = (fetchMock.mock.calls[1] as [string])[0];

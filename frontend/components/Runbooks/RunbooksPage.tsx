@@ -1,9 +1,11 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
 import anime from 'animejs';
+import { AnimatePresence,motion } from 'framer-motion';
 import {
+  Activity,
   ChevronDown,
+  Clock,
   Copy,
   Edit3,
   FileCode,
@@ -14,9 +16,7 @@ import {
   Share2,
   Trash2,
   X,
-  Activity,
   Zap,
-  Clock,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

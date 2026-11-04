@@ -7,11 +7,11 @@ import { useEffect, useState } from 'react';
 
 import type { NodeTypeRegistry } from '../../lib/canvas/node-type-registry';
 import DynamicNodeForm from '../Node/DynamicNodeForm';
-import { switchOutputs } from './EditorCanvas.utils';
 import { NODE_TYPES, NodeType } from '../Node/NodePalette';
 import TriggerModifiersSection, {
   DEFAULT_TRIGGER_MODIFIERS,
 } from '../Node/TriggerModifiersSection';
+import { switchOutputs } from './EditorCanvas.utils';
 
 // Default trigger/org type sets — used when no registry is provided.
 const DEFAULT_TRIGGER_TYPES = new Set([

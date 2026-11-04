@@ -39,16 +39,16 @@ const renderForm = (values: Record<string, unknown>) =>
 describe('DynamicNodeForm conditional fields', () => {
   it('hides a field while the untouched selector sits on its default', () => {
     renderForm({});
-    expect(screen.queryByText('JSONPath')).toBeNull();
+    expect(screen.queryByText('JSONPath')).not.toBeInTheDocument();
   });
 
   it('shows it once the selector picks a matching value', () => {
     renderForm({ action: 'query' });
-    expect(screen.getByText('JSONPath')).toBeTruthy();
+    expect(screen.getByText('JSONPath')).toBeInTheDocument();
   });
 
   it('marks required fields', () => {
     renderForm({});
-    expect(screen.getByText('Value').textContent).toContain('*');
+    expect(screen.getByText('Value')).toHaveTextContent(/\*/);
   });
 });

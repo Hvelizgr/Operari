@@ -4,9 +4,9 @@
 // the tests.
 //
 // Next's shareable configs are still eslintrc-only, so they go through
-// FlatCompat. Test-only plugin presets are downgraded to warnings: the
-// tests were never linted before, and their findings should surface
-// without failing CI in one go.
+// FlatCompat. The testing-library and jest-dom presets run at their own
+// severity (errors) on the tests; files that assert SVG/DOM structure turn
+// the node-access rules off at the top with the reason.
 
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,16 +18,6 @@ import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import testingLibrary from 'eslint-plugin-testing-library';
 
 const compat = new FlatCompat({ baseDirectory: dirname(fileURLToPath(import.meta.url)) });
-
-const asWarnings = config => ({
-  ...config,
-  rules: Object.fromEntries(
-    Object.entries(config.rules ?? {}).map(([rule, value]) => [
-      rule,
-      Array.isArray(value) ? ['warn', ...value.slice(1)] : value === 'off' ? 'off' : 'warn',
-    ])
-  ),
-});
 
 const TEST_FILES = ['**/*.test.ts', '**/*.test.tsx'];
 
@@ -64,7 +54,7 @@ export default [
     files: ['tailwind.config.ts', '**/*.js'],
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
-  { files: TEST_FILES, ...asWarnings(testingLibrary.configs['flat/react']) },
-  { files: TEST_FILES, ...asWarnings(jestDom.configs['flat/recommended']) },
+  { files: TEST_FILES, ...testingLibrary.configs['flat/react'] },
+  { files: TEST_FILES, ...jestDom.configs['flat/recommended'] },
   prettierConfig,
 ];

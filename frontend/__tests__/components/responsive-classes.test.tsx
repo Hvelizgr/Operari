@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-container, testing-library/no-node-access -- these tests assert SVG/DOM structure (rects, paths, layout classes) that has no role or text to query by */
 /**
  * Mobile responsive pins for /approvals and /runs/:id surfaces.
  *

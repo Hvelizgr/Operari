@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 import SessionsBoard, { type BoardRun, groupRuns } from '../../components/Runs/SessionsBoard';
 
@@ -41,9 +41,9 @@ describe('SessionsBoard', () => {
       json: async () => ({ data: [run('p', 'PAUSED'), run('f', 'FAILED')] }),
     })) as unknown as typeof fetch;
     render(<SessionsBoard lang="en" />);
-    await waitFor(() => expect(screen.getByText('rb-p')).toBeTruthy());
-    expect(screen.getByText(/Review in Inbox/)).toBeTruthy();
-    expect(screen.getByText('boom')).toBeTruthy();
-    expect(screen.getByText('rb-p').closest('a')?.getAttribute('href')).toBe('/en/runs/p');
+    expect(await screen.findByText('rb-p')).toBeInTheDocument();
+    expect(screen.getByText(/Review in Inbox/)).toBeInTheDocument();
+    expect(screen.getByText('boom')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /rb-p/ })).toHaveAttribute('href', '/en/runs/p');
   });
 });

@@ -184,7 +184,7 @@ Migración commiteada y probada contra el backend real (runbook demo + plantilla
 **Pendiente:**
 
 - Estilos de flujo animados (`orbs`/`comet`/`particles`/`gradient`): solo se ven con un run en curso y el canvas 2D viejo ya no existe para comparar; ajustar velocidades a ojo si no convencen
-- Los tests nunca estuvieron bajo lint: `eslint .` muestra ~70 warnings de testing-library/jest-dom (configurados como warning para no romper CI); limpiarlos y subirlos a error
+- ✅ (2026-11-04) Lint de los tests: testing-library y jest-dom ya corren como `error` y pasan limpios; los tests que verifican estructura SVG/DOM apagan las reglas de acceso a nodos con el motivo. Quedan 41 warnings generales en código de la app (`any`, variables sin usar, `console`).
 
 ---
 

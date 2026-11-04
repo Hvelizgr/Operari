@@ -1,9 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import PendingHttpStepBanner from '@/components/Editor/PendingHttpStepBanner';
 import ConvertToStepButton from '@/components/HttpTester/ConvertToStepButton';
 import RequestForm, { type RequestPayload } from '@/components/HttpTester/RequestForm';
 import ResponseViewer from '@/components/HttpTester/ResponseViewer';
-import PendingHttpStepBanner from '@/components/Editor/PendingHttpStepBanner';
 
 const PENDING_KEY = 'operari:pendingHttpStep';
 
@@ -101,7 +101,7 @@ describe('RequestForm', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /^body/i }));
     const textarea = screen.getByPlaceholderText(/request body/i);
-    expect(textarea).not.toBeDisabled();
+    expect(textarea).toBeEnabled();
   });
 });
 

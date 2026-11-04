@@ -5,8 +5,8 @@ import {
   FolderKanban,
   Plus,
   Search,
-  Users,
   Share2,
+  Users,
   X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';

@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 
 import FirstRunConfetti from '@/components/Editor/FirstRunConfetti';
 
@@ -34,9 +34,7 @@ describe('FirstRunConfetti', () => {
     const { rerender } = render(<FirstRunConfetti runCompleted={false} />);
     expect(anime).not.toHaveBeenCalled();
 
-    act(() => {
-      rerender(<FirstRunConfetti runCompleted={true} />);
-    });
+    rerender(<FirstRunConfetti runCompleted={true} />);
     expect(anime).toHaveBeenCalledTimes(1);
     expect(window.localStorage.getItem('operari:sawFirstRunConfetti')).toBe('1');
   });
@@ -53,11 +51,11 @@ describe('FirstRunConfetti', () => {
   it('never fires twice within the same mount', () => {
     const anime = jest.requireMock('animejs').default as jest.Mock;
     const { rerender } = render(<FirstRunConfetti runCompleted={false} />);
-    act(() => rerender(<FirstRunConfetti runCompleted={true} />));
+    rerender(<FirstRunConfetti runCompleted={true} />);
     // Simulate a second completion (without the parent clearing the
     // flag between runs — the component's own ref guard must catch).
-    act(() => rerender(<FirstRunConfetti runCompleted={false} />));
-    act(() => rerender(<FirstRunConfetti runCompleted={true} />));
+    rerender(<FirstRunConfetti runCompleted={false} />);
+    rerender(<FirstRunConfetti runCompleted={true} />);
     expect(anime).toHaveBeenCalledTimes(1);
   });
 });

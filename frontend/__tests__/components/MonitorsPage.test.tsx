@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 
 import MonitorsPage from '@/components/Monitors/MonitorsPage';
@@ -68,20 +68,16 @@ const primeLoad = (monitors: unknown[], runbooks: unknown[] = []) => {
 describe('MonitorsPage', () => {
   it('links the runbook name to its own page (not a dead text)', async () => {
     primeLoad([monitor()]);
-    await act(async () => {
-      render(<MonitorsPage lang="en" />);
-    });
+    render(<MonitorsPage lang="en" />);
     expect(await screen.findByText('Payments runbook')).toBeInTheDocument();
 
-    const link = screen.getByText('Payments runbook').closest('a');
+    const link = screen.getByRole('link', { name: 'Payments runbook' });
     expect(link).toHaveAttribute('href', '/en/runbooks/payments');
   });
 
   it('shows inline delete confirm instead of native confirm() dialog', async () => {
     primeLoad([monitor()]);
-    await act(async () => {
-      render(<MonitorsPage lang="en" />);
-    });
+    render(<MonitorsPage lang="en" />);
     expect(await screen.findByText('Payments 5xx')).toBeInTheDocument();
 
     const deleteBtn = screen.getByRole('button', { name: /delete/i });
@@ -103,9 +99,7 @@ describe('MonitorsPage', () => {
 
   it('dismisses the confirm state without calling DELETE when cancel is clicked', async () => {
     primeLoad([monitor()]);
-    await act(async () => {
-      render(<MonitorsPage lang="en" />);
-    });
+    render(<MonitorsPage lang="en" />);
     expect(await screen.findByText('Payments 5xx')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }));
@@ -123,9 +117,7 @@ describe('MonitorsPage', () => {
 
   it('fires DELETE when the user confirms', async () => {
     primeLoad([monitor()]);
-    await act(async () => {
-      render(<MonitorsPage lang="en" />);
-    });
+    render(<MonitorsPage lang="en" />);
     expect(await screen.findByText('Payments 5xx')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }));
@@ -142,7 +134,9 @@ describe('MonitorsPage', () => {
 
   it('uses narrow-viewport padding classes (px-4 with sm:px-6)', async () => {
     primeLoad([]);
-    const { container } = await act(async () => render(<MonitorsPage lang="en" />));
+    const { container } = render(<MonitorsPage lang="en" />);
+    // Layout classes have no role or text to query by.
+    // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access
     const root = container.querySelector('.mx-auto.max-w-6xl');
     expect(root?.className).toContain('px-4');
     expect(root?.className).toContain('sm:px-6');
@@ -150,13 +144,9 @@ describe('MonitorsPage', () => {
 
   it('surfaces inline validation errors on submit of an empty form', async () => {
     primeLoad([], [{ id: 'wf-1', slug: 'payments', name: 'Payments' }]);
-    await act(async () => {
-      render(<MonitorsPage lang="en" />);
-    });
+    render(<MonitorsPage lang="en" />);
     // Open the form modal via the "New monitor" button.
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /new monitor/i }));
-    });
+    fireEvent.click(screen.getByRole('button', { name: /new monitor/i }));
     // Wait for modal to mount (form's Save button appears inside it).
     expect(await screen.findByRole('button', { name: /^save$/i })).toBeInTheDocument();
     // Submit the form directly (fireEvent.click on the button is
@@ -164,10 +154,10 @@ describe('MonitorsPage', () => {
     // on the <form> dispatches the synthetic event React listens to).
     // Every required field should flash an error. POST must never fire.
     const before = fetchMock.mock.calls.length;
+    // The form has no accessible name; submit it through its Save button's form.
+    // eslint-disable-next-line testing-library/no-node-access
     const form = screen.getByRole('button', { name: /^save$/i }).closest('form') as HTMLFormElement;
-    await act(async () => {
-      fireEvent.submit(form);
-    });
+    fireEvent.submit(form);
     expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
     expect(screen.getByText(/pick a runbook/i)).toBeInTheDocument();
     // No new fetch call — validation short-circuited the submit.

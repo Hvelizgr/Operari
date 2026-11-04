@@ -1,5 +1,6 @@
-import canonical from '../../../backend/src/runbook/yaml/runbook.schema.json';
 import { FALLBACK_SCHEMA } from '@/utils/runbookSchemaValidator';
+
+import canonical from '../../../backend/src/runbook/yaml/runbook.schema.json';
 
 /**
  * Drift guard for the inline fallback copy of the JSON Schema.

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 import PendingHttpStepBanner from '@/components/Editor/PendingHttpStepBanner';
 import McpTesterCanvas from '@/components/McpTester/McpTesterCanvas';
@@ -69,9 +69,7 @@ describe('McpTesterCanvas', () => {
   it('hands the tool to the editor pinned to its hash, with the credential but no typed token', async () => {
     mockFetch();
     render(<McpTesterCanvas lang="en" />);
-    await waitFor(() =>
-      expect(screen.getByRole('option', { name: 'Prod MCP' })).toBeInTheDocument()
-    );
+    expect(await screen.findByRole('option', { name: 'Prod MCP' })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Saved server'), { target: { value: 'acc-1' } });
     fireEvent.click(screen.getByRole('button', { name: /connect/i }));
     fireEvent.click(await screen.findByText('restart_service'));

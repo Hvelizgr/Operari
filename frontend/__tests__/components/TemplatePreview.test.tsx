@@ -1,5 +1,6 @@
+/* eslint-disable testing-library/no-container, testing-library/no-node-access -- these tests assert SVG/DOM structure (rects, paths, layout classes) that has no role or text to query by */
 import type { Connection, WorkflowNode } from '@operari/shared';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 import TemplatePreview from '@/app/[lang]/(marketing)/templates/TemplatePreview';
 
@@ -108,10 +109,8 @@ describe('TemplatePreview', () => {
   });
 
   it('exposes an accessible role + label on the SVG for screen readers', () => {
-    const { getByRole } = render(
-      <TemplatePreview nodes={[mkNode('a', 'shell', 'A', 0, 0)]} connections={[]} />
-    );
-    const svg = getByRole('img');
+    render(<TemplatePreview nodes={[mkNode('a', 'shell', 'A', 0, 0)]} connections={[]} />);
+    const svg = screen.getByRole('img');
     expect(svg).toHaveAttribute('aria-label', 'Runbook graph preview');
   });
 });

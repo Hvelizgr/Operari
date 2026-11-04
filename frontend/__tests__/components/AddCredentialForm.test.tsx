@@ -54,6 +54,6 @@ describe('AddCredentialForm', () => {
     fireEvent.click(screen.getByText('Add credential'));
     fireEvent.change(screen.getByLabelText('Secret'), { target: { value: 'xoxb' } });
     fireEvent.click(screen.getByText('Save'));
-    expect(await screen.findByText(/ENCRYPTION_KEY/)).toBeTruthy();
+    expect(await screen.findByText(/ENCRYPTION_KEY/)).toBeInTheDocument();
   });
 });

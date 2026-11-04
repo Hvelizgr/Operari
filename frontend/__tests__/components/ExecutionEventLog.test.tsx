@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-container, testing-library/no-node-access -- these tests assert SVG/DOM structure (rects, paths, layout classes) that has no role or text to query by */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import ExecutionEventLog, { type ExecutionEventRow } from '@/components/Runs/ExecutionEventLog';

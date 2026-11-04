@@ -1,6 +1,6 @@
 import type { WorkflowNode } from '@operari/shared';
-import type { NodeChange } from '@xyflow/react';
 import { act, renderHook } from '@testing-library/react';
+import type { NodeChange } from '@xyflow/react';
 
 import { useEditorCanvas } from '../../hooks/useEditorCanvas';
 
@@ -36,9 +36,9 @@ const frame = (id: string, x: number, y: number): WorkflowNode =>
   }) as WorkflowNode;
 
 function setup(nodes: WorkflowNode[]) {
-  const hook = renderHook(() => useEditorCanvas({ lang: 'en' }));
-  act(() => hook.result.current.handleLoadWorkflow(nodes, []));
-  return hook;
+  const view = renderHook(() => useEditorCanvas({ lang: 'en' }));
+  act(() => view.result.current.handleLoadWorkflow(nodes, []));
+  return view;
 }
 
 const byId = (nodes: WorkflowNode[], id: string) => nodes.find(n => n.id === id)!;
