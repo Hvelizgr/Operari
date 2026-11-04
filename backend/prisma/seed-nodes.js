@@ -570,7 +570,8 @@ const NODES = [
         name: 'host',
         displayName: 'Ad-hoc host',
         type: 'string',
-        description: 'Only when the workspace SSH policy allows unregistered hosts; no host key pinning.',
+        description:
+          'Only when the workspace SSH policy allows unregistered hosts; no host key pinning.',
       },
       { name: 'port', displayName: 'Ad-hoc port', type: 'number', default: 22 },
       { name: 'username', displayName: 'Ad-hoc username', type: 'string' },
@@ -589,7 +590,7 @@ const NODES = [
     color: 'bg-indigo-600',
     label: { en: 'Code', es: 'Código' },
     description: {
-      en: 'Run Python or JavaScript in the sandbox on the previous steps\' data',
+      en: "Run Python or JavaScript in the sandbox on the previous steps' data",
       es: 'Ejecutar Python o JavaScript en el sandbox con los datos de los pasos anteriores',
     },
     inputs: [MAIN_PORT],
@@ -685,6 +686,7 @@ const NODES = [
         name: 'routingKey',
         displayName: 'Integration key',
         type: 'secret',
+        typeOptions: { provider: 'pagerduty' },
         description: 'Events API v2 routing key of the PagerDuty service.',
       },
       {
@@ -735,7 +737,12 @@ const NODES = [
           { name: 'Close alert', value: 'close' },
         ],
       },
-      { name: 'apiKey', displayName: 'API key', type: 'secret' },
+      {
+        name: 'apiKey',
+        displayName: 'API key',
+        type: 'secret',
+        typeOptions: { provider: 'opsgenie' },
+      },
       {
         name: 'region',
         displayName: 'Region',
@@ -806,7 +813,12 @@ const NODES = [
         description: 'e.g. https://acme.atlassian.net',
       },
       { name: 'email', displayName: 'Account email', type: 'string' },
-      { name: 'apiToken', displayName: 'API token', type: 'secret' },
+      {
+        name: 'apiToken',
+        displayName: 'API token',
+        type: 'secret',
+        typeOptions: { provider: 'jira' },
+      },
       { name: 'projectKey', displayName: 'Project key', type: 'string', description: 'e.g. OPS' },
       { name: 'issueType', displayName: 'Issue type', type: 'string', default: 'Task' },
       {
@@ -900,7 +912,12 @@ const NODES = [
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],
     properties: [
-      { name: 'webhookUrl', displayName: 'Webhook URL', type: 'secret' },
+      {
+        name: 'webhookUrl',
+        displayName: 'Webhook URL',
+        type: 'secret',
+        typeOptions: { provider: 'teams' },
+      },
       { name: 'title', displayName: 'Title', type: 'string', typeOptions: { expression: true } },
       {
         name: 'text',
@@ -920,7 +937,12 @@ const NODES = [
     inputs: [MAIN_PORT],
     outputs: [MAIN_PORT],
     properties: [
-      { name: 'botToken', displayName: 'Bot token', type: 'secret' },
+      {
+        name: 'botToken',
+        displayName: 'Bot token',
+        type: 'secret',
+        typeOptions: { provider: 'telegram' },
+      },
       { name: 'chatId', displayName: 'Chat id', type: 'string' },
       {
         name: 'text',
@@ -956,6 +978,7 @@ const NODES = [
         name: 'smtpUrl',
         displayName: 'SMTP URL',
         type: 'secret',
+        typeOptions: { provider: 'smtp' },
         description: 'smtps://user:pass@host:465. Empty uses the server SMTP_* settings.',
       },
       {
@@ -1047,7 +1070,12 @@ const NODES = [
     outputs: [MAIN_PORT],
     properties: [
       { name: 'baseUrl', displayName: 'Grafana URL', type: 'string' },
-      { name: 'apiToken', displayName: 'Service account token', type: 'secret' },
+      {
+        name: 'apiToken',
+        displayName: 'Service account token',
+        type: 'secret',
+        typeOptions: { provider: 'grafana' },
+      },
       {
         name: 'text',
         displayName: 'Text',
@@ -1080,6 +1108,7 @@ const NODES = [
         name: 'url',
         displayName: 'Redis URL',
         type: 'secret',
+        typeOptions: { provider: 'redis' },
         description: 'redis://user:pass@host:6379/0',
       },
       {
