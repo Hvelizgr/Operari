@@ -4,13 +4,14 @@ import React, { lazy, Suspense, useState } from 'react';
 
 import ExpressionBuilder from './ExpressionBuilder';
 import SecretPicker from './SecretPicker';
+import ServerPicker from './ServerPicker';
 
 const SQLCodeEditor = lazy(() => import('../SQLEditor/SQLCodeEditor'));
 
 export interface Property {
   name: string;
   displayName: string;
-  type: 'string' | 'boolean' | 'options' | 'number' | 'secret' | 'sql' | 'color';
+  type: 'string' | 'boolean' | 'options' | 'number' | 'secret' | 'sql' | 'color' | 'server';
   default?: unknown;
   description?: string;
   options?: { name: string; value: string }[];
@@ -158,6 +159,14 @@ export default function DynamicNodeForm({
                 onChange={next => onChange(prop.name, next)}
                 provider={prop.typeOptions?.provider}
                 label={prop.displayName}
+              />
+            )}
+
+            {prop.type === 'server' && (
+              <ServerPicker
+                lang={lang}
+                value={stringValue}
+                onChange={next => onChange(prop.name, next)}
               />
             )}
 

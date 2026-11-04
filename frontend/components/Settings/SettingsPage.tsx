@@ -8,7 +8,9 @@ import {
   Link2,
   Palette,
   Save,
+  Server,
   Settings as SettingsIcon,
+  ShieldCheck,
   Sparkles,
   User,
 } from 'lucide-react';
@@ -22,6 +24,8 @@ import { storageRead, storageWrite } from '@/lib/storage-compat';
 import { BillingPanel } from './BillingPanel';
 import ConnectedAccountsPanel from './ConnectedAccountsPanel';
 import { DangerZone } from './DangerZone';
+import { ExecutionPolicyCard } from './ExecutionPolicyCard';
+import { ServersPanel } from './ServersPanel';
 import { TeamPanel } from './TeamPanel';
 import { UpgradeWelcomeModal } from './UpgradeWelcomeModal';
 
@@ -230,6 +234,25 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
           title={lang === 'es' ? 'Cuentas conectadas' : 'Connected accounts'}
         >
           <ConnectedAccountsPanel lang={lang} />
+        </Section>
+
+        <Section
+          icon={<Server size={16} />}
+          title={lang === 'es' ? 'Servidores' : 'Servers'}
+          hint={
+            lang === 'es'
+              ? 'Hosts propios a los que llegan los pasos SSH, con la clave del host fijada al registrarlos.'
+              : 'Your own hosts that SSH steps can reach, with the host key pinned at registration.'
+          }
+        >
+          <ServersPanel lang={lang} />
+        </Section>
+
+        <Section
+          icon={<ShieldCheck size={16} />}
+          title={lang === 'es' ? 'Política de ejecución' : 'Execution policy'}
+        >
+          <ExecutionPolicyCard lang={lang} />
         </Section>
 
         {/* Plan & billing */}
