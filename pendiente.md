@@ -77,8 +77,8 @@ todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso
 4. 🟡 **Archivos binarios entre pasos + multipart** (2026-11-04): modelo `StepFile` (bytes en disco,
    SHA-256, 7 días), el paso HTTP guarda la respuesta como archivo (`output.file`) y manda un archivo
    como cuerpo binario (subidas a Drive/Dropbox/S3) o en multipart; descarga en `GET /api/files/:id`.
-   **Falta:** adjuntos en el paso de email, archivos en el paso Code y en los pasos del catálogo, y un
-   enlace de descarga en la vista del run.
+   El paso de email adjunta archivos de pasos anteriores (hasta 20 MB). **Falta:** archivos en el paso
+   Code y en los pasos del catálogo, y un enlace de descarga en la vista del run.
 5. **Triggers por aplicación** (n8n: 116; Operari: cron + webhook). Webhook auto-registrado o polling con cursor.
 6. **Más servicios:** Excel/SharePoint/Dynamics, QuickBooks, Xero, Trello/Asana/ClickUp/Linear/GitLab
    completos (hoy son pasos de una acción), AWS (DynamoDB, SES, Textract…), BigQuery, Sheets completo,

@@ -1054,6 +1054,14 @@ const NODES = [
         type: 'string',
         typeOptions: { rows: 6, expression: true },
       },
+      {
+        name: 'attachments',
+        displayName: 'Attachments',
+        type: 'string',
+        description:
+          'Files from earlier steps, e.g. {{steps.download.output.file}}; separate several with commas.',
+        typeOptions: { expression: true },
+      },
     ],
   },
   {

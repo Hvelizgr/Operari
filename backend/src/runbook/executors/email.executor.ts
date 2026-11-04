@@ -1,10 +1,12 @@
 import nodemailer from 'nodemailer';
 
+import { type FileRef, type FileStore, FileStoreError, isFileRef } from '../../files/file-store';
 import { blockedTarget } from '../../security/ssrf-guard';
 import {
   ExecutorContext,
   ExecutorResult,
   resolveTemplate,
+  resolveValue,
   StepExecutor,
 } from '../types/executor.types';
 
@@ -19,7 +21,15 @@ export interface EmailConfig {
   to: string;
   subject: string;
   body: string;
+  /**
+   * Files from earlier steps: one expression ({{steps.x.output.file}}) or
+   * several separated by commas or new lines; each may resolve to a file
+   * or a list of files.
+   */
+  attachments?: string;
 }
+
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
 type Transport = Pick<nodemailer.Transporter, 'sendMail'>;
 
@@ -39,8 +49,43 @@ export class EmailExecutor implements StepExecutor<EmailConfig> {
           ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
           : undefined,
       });
-    }
+    },
+    private readonly files?: FileStore
   ) {}
+
+  private async attachmentsFor(
+    config: EmailConfig,
+    context: ExecutorContext
+  ): Promise<Array<{ filename: string; content: Buffer; contentType: string }>> {
+    const raw = (config.attachments ?? '').trim();
+    if (!raw) return [];
+    if (!this.files) throw new FileStoreError('file storage is not available on this backend');
+    const refs: FileRef[] = [];
+    for (const piece of raw
+      .split(/[\n,]+/)
+      .map(p => p.trim())
+      .filter(Boolean)) {
+      const value = resolveValue(piece, context);
+      for (const item of Array.isArray(value) ? value : [value]) {
+        if (!isFileRef(item)) {
+          throw new FileStoreError(`attachment "${piece}" is not a file from an earlier step`);
+        }
+        refs.push(item);
+      }
+    }
+    const total = refs.reduce((n, f) => n + f.size, 0);
+    if (total > MAX_ATTACHMENT_BYTES) {
+      throw new FileStoreError(
+        `attachments add up to ${total} bytes, over the ${MAX_ATTACHMENT_BYTES} limit`
+      );
+    }
+    const out: Array<{ filename: string; content: Buffer; contentType: string }> = [];
+    for (const ref of refs) {
+      const { data } = await this.files.read(context.tenantId, ref.id);
+      out.push({ filename: ref.name, content: data, contentType: ref.mimeType });
+    }
+    return out;
+  }
 
   async execute(config: EmailConfig, context: ExecutorContext): Promise<ExecutorResult> {
     const startTime = Date.now();
@@ -79,6 +124,13 @@ export class EmailExecutor implements StepExecutor<EmailConfig> {
       };
     }
 
+    let attachments: Awaited<ReturnType<EmailExecutor['attachmentsFor']>>;
+    try {
+      attachments = await this.attachmentsFor(config, context);
+    } catch (err) {
+      return fail(`email: ${(err as Error).message}`);
+    }
+
     const transport = this.createTransport(smtpUrl || undefined);
     if (!transport)
       return fail('no SMTP server: set smtpUrl or the SMTP_HOST environment variable');
@@ -94,10 +146,16 @@ export class EmailExecutor implements StepExecutor<EmailConfig> {
         to,
         subject,
         text: r(config.body),
+        ...(attachments.length ? { attachments } : {}),
       });
       return {
         success: true,
-        output: { messageId: info.messageId, accepted: info.accepted, rejected: info.rejected },
+        output: {
+          messageId: info.messageId,
+          accepted: info.accepted,
+          rejected: info.rejected,
+          attachments: attachments.map(a => a.filename),
+        },
         duration: Date.now() - startTime,
       };
     } catch (err) {

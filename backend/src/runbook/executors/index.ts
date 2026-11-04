@@ -98,7 +98,8 @@ export function createExecutorRegistry(
   registry.set('wait', new WaitExecutor());
   const servers = new PrismaServerDirectory(prisma);
   registry.set('ssh', new SSHExecutor(undefined, { directory: servers }));
-  registry.set('operari.httpRequest', new HttpExecutor(fetch, { files: new FileStore(prisma) }));
+  const files = new FileStore(prisma);
+  registry.set('operari.httpRequest', new HttpExecutor(fetch, { files }));
   registry.set('operari.database', new DatabaseExecutor(undefined, { directory: servers }));
   registry.set('github.commitFile', new GitHubCommitFileExecutor());
   registry.set('runbook', new RunbookExecutor(prisma));
@@ -112,7 +113,7 @@ export function createExecutorRegistry(
     new GitHubIssueExecutor(),
     new TeamsExecutor(),
     new TelegramExecutor(),
-    new EmailExecutor(),
+    new EmailExecutor(undefined, files),
     new DatadogEventExecutor(),
     new GrafanaAnnotationExecutor(),
     new RedisExecutor(),

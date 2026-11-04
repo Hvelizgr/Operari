@@ -3,6 +3,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { FileStore, isFileRef } from '../../files/file-store';
+import { EmailExecutor } from '../../runbook/executors/email.executor';
 import { HttpExecutor } from '../../runbook/executors/http.executor';
 
 jest.mock('../../security/ssrf-guard', () => ({
@@ -143,5 +144,63 @@ describe('HttpExecutor with files', () => {
       ctx() as any
     );
     expect(res.error).toMatch(/must reference a file/);
+  });
+});
+
+describe('EmailExecutor attachments', () => {
+  it('attaches files from earlier steps and refuses non-files', async () => {
+    const store = new FileStore(fakePrisma() as any, { dir });
+    const a = await store.save({
+      tenantId: 't1',
+      name: 'report.csv',
+      mimeType: 'text/csv',
+      data: Buffer.from('a,b'),
+    });
+    const b = await store.save({
+      tenantId: 't1',
+      name: 'logo.png',
+      mimeType: 'image/png',
+      data: Buffer.from([1]),
+    });
+    const sent: any[] = [];
+    const email = new EmailExecutor(
+      () =>
+        ({
+          sendMail: async (m: any) => (
+            sent.push(m),
+            { messageId: 'm', accepted: [], rejected: [] }
+          ),
+        }) as any,
+      store
+    );
+    const ctx = {
+      runId: 'r',
+      stepId: 's',
+      tenantId: 't1',
+      variables: {},
+      previousOutputs: { x: { output: { files: [a, b] } } },
+    };
+    const res = await email.execute(
+      {
+        to: 'ops@example.com',
+        subject: 'Report',
+        body: 'see attached',
+        attachments: '{{x.output.files}}',
+      },
+      ctx as any
+    );
+    expect(res.success).toBe(true);
+    expect(
+      sent[0].attachments.map((f: any) => [f.filename, f.contentType, f.content.toString('hex')])
+    ).toEqual([
+      ['report.csv', 'text/csv', Buffer.from('a,b').toString('hex')],
+      ['logo.png', 'image/png', '01'],
+    ]);
+    const bad = await email.execute(
+      { to: 'a@b.co', subject: 's', body: '', attachments: 'not-a-file' },
+      ctx as any
+    );
+    expect(bad.error).toMatch(/is not a file from an earlier step/);
+    expect(sent).toHaveLength(1);
   });
 });
