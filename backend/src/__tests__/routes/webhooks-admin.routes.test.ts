@@ -389,7 +389,7 @@ describe('POST /api/webhooks/:id/rotate-secret', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ id: 'hook-1', secret: 'rotated-secret-base64url' });
-    expect(rotateSecretMock).toHaveBeenCalledWith('t1', 'hook-1');
+    expect(rotateSecretMock).toHaveBeenCalledWith('t1', 'hook-1', undefined);
   });
 
   it('returns 404 when the webhook id does not match the tenant', async () => {
@@ -398,7 +398,21 @@ describe('POST /api/webhooks/:id/rotate-secret', () => {
     const res = await request(makeApp(USER)).post('/api/webhooks/wrong-id/rotate-secret');
 
     expect(res.status).toBe(404);
-    expect(rotateSecretMock).toHaveBeenCalledWith('t1', 'wrong-id');
+    expect(rotateSecretMock).toHaveBeenCalledWith('t1', 'wrong-id', undefined);
+  });
+
+  it('stores a secret the provider generated, and rejects a weak one', async () => {
+    rotateSecretMock.mockResolvedValue({ secret: 'pd-generated-secret-0123' });
+    const ok = await request(makeApp(USER))
+      .post('/api/webhooks/hook-1/rotate-secret')
+      .send({ secret: 'pd-generated-secret-0123' });
+    expect(ok.status).toBe(200);
+    expect(rotateSecretMock).toHaveBeenCalledWith('t1', 'hook-1', 'pd-generated-secret-0123');
+    const weak = await request(makeApp(USER))
+      .post('/api/webhooks/hook-1/rotate-secret')
+      .send({ secret: 'short' });
+    expect(weak.status).toBe(400);
+    expect(rotateSecretMock).toHaveBeenCalledTimes(1);
   });
 
   it('returns 500 when the service throws', async () => {

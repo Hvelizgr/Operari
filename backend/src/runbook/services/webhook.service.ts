@@ -80,8 +80,13 @@ export class WebhookService {
    * provider's UI. There is intentionally no grace window — once the
    * new secret is stored, the old one stops verifying immediately.
    */
-  async rotateSecret(tenantId: string, id: string): Promise<{ secret: string } | null> {
-    const newSecret = crypto.randomBytes(32).toString('base64url');
+  /** `provided`: a secret the sender generated (PagerDuty does), instead of a new random one. */
+  async rotateSecret(
+    tenantId: string,
+    id: string,
+    provided?: string
+  ): Promise<{ secret: string } | null> {
+    const newSecret = provided ?? crypto.randomBytes(32).toString('base64url');
     const result = await this.prisma.webhook.updateMany({
       where: { id, tenantId },
       data: { secret: newSecret },
@@ -148,6 +153,14 @@ export class WebhookService {
     // legacy senders capitalize it.
     if (provided.toLowerCase().startsWith('sha256=')) {
       provided = provided.substring(7);
+    }
+
+    // PagerDuty: "v1=<hex>", several comma-separated while a secret rotates.
+    if (/^v1=/i.test(provided)) {
+      return provided
+        .split(',')
+        .map(part => part.trim().replace(/^v1=/i, ''))
+        .some(hex => this.verifySignature(secret, bodyBuffer, hex, _source));
     }
 
     // Both buffers must be the same length for timingSafeEqual to

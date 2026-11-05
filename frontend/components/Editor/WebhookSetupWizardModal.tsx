@@ -9,10 +9,29 @@ interface WebhookSetupWizardModalProps {
   open: boolean;
   onClose: () => void;
   lang: 'en' | 'es';
-  source: 'sentry' | 'datadog' | 'github' | 'custom';
+  source: WebhookSource;
   url: string;
   secret: string | null;
+  /** Stores a secret the provider generated (PagerDuty) as this webhook's secret. */
+  onUseProviderSecret?: (secret: string) => Promise<void>;
 }
+
+export const WEBHOOK_SOURCES = [
+  'sentry',
+  'datadog',
+  'github',
+  'alertmanager',
+  'grafana',
+  'pagerduty',
+  'opsgenie',
+  'custom',
+] as const;
+export type WebhookSource = (typeof WEBHOOK_SOURCES)[number];
+
+const ALERT_VARS = {
+  en: 'Each new alert starts one run with vars.alert.name, vars.alert.title, vars.alert.severity (critical/error/warning/info), vars.alert.status, vars.alert.labels.*, vars.alert.summary, vars.alert.description, vars.alert.url, vars.alert.fingerprint and vars.alert.startsAt; vars.payload holds the raw body. Repeated notifications of the same alert do not start more runs; a resolution is recorded on the run it started.',
+  es: 'Cada alerta nueva inicia una corrida con vars.alert.name, vars.alert.title, vars.alert.severity (critical/error/warning/info), vars.alert.status, vars.alert.labels.*, vars.alert.summary, vars.alert.description, vars.alert.url, vars.alert.fingerprint y vars.alert.startsAt; vars.payload tiene el body original. Las notificaciones repetidas de la misma alerta no inician más corridas; la resolución queda registrada en la corrida que inició.',
+};
 
 const STRINGS = {
   en: {
@@ -25,6 +44,10 @@ const STRINGS = {
     secretMissing:
       'No HMAC secret on this webhook. Anyone who learns the URL can fire it. Recreate with the signed-secret option for production.',
     openProvider: 'Open provider docs',
+    providerSecret: "Provider's signing secret",
+    providerSecretSave: 'Use this secret',
+    providerSecretSaved: 'Saved',
+    providerSecretFailed: 'Could not save the secret',
     sentry: {
       header: 'Wire this to a Sentry alert',
       steps: [
@@ -64,6 +87,49 @@ const STRINGS = {
       varsHint:
         'Variables exposed depend on the event. Most events expose vars.repository, vars.sender, and the event-specific top-level fields (e.g. vars.pull_request, vars.commits, vars.release).',
     },
+    alertmanager: {
+      header: 'Wire this to Prometheus Alertmanager',
+      steps: [
+        '1. Add a receiver to alertmanager.yml with webhook_configs: - url: <the URL above>, send_resolved: true.',
+        '2. Alertmanager cannot sign the body: put the signing secret above under http_config.authorization (type: Bearer, credentials: <secret>). Operari accepts it as Authorization: Bearer.',
+        '3. Route the alerts that should run this runbook to that receiver (match on alertname, severity or team labels).',
+        '4. Reload Alertmanager (POST /-/reload or SIGHUP).',
+      ],
+      docsUrl: 'https://prometheus.io/docs/alerting/latest/configuration/#webhook_config',
+      varsHint: ALERT_VARS.en,
+    },
+    grafana: {
+      header: 'Wire this to a Grafana contact point',
+      steps: [
+        '1. In Grafana: Alerting → Contact points → Add contact point, integration "Webhook".',
+        '2. URL: paste the URL above. Under Optional settings, set Authorization header scheme "Bearer" and credentials = the signing secret above (or HMAC signature with the same secret).',
+        '3. Use the contact point in a notification policy that matches the alerts for this runbook.',
+      ],
+      docsUrl:
+        'https://grafana.com/docs/grafana/latest/alerting/configure-notifications/manage-contact-points/integrations/webhook-notifier/',
+      varsHint: ALERT_VARS.en,
+    },
+    pagerduty: {
+      header: 'Wire this to PagerDuty',
+      steps: [
+        '1. In PagerDuty: Integrations → Generic Webhooks (v3) → New Webhook.',
+        '2. Webhook URL: paste the URL above. Scope: the service (or team) whose incidents should run this runbook.',
+        '3. Events: incident.triggered and incident.resolved (incident.reopened is also handled).',
+        '4. PagerDuty generates its own signing secret when you save the webhook. Paste it below so Operari verifies X-PagerDuty-Signature with it.',
+      ],
+      docsUrl: 'https://developer.pagerduty.com/docs/webhooks/v3-overview/',
+      varsHint: ALERT_VARS.en,
+    },
+    opsgenie: {
+      header: 'Wire this to Opsgenie',
+      steps: [
+        '1. In Opsgenie: Settings → Integrations → Add integration → Webhook.',
+        '2. Webhook URL: paste the URL above. Add a custom header Authorization = Bearer <the signing secret above>.',
+        '3. Enable "Add Alert Description to Payload" and "Add Alert Details to Payload"; keep the Create and Close actions.',
+      ],
+      docsUrl: 'https://support.atlassian.com/opsgenie/docs/integrate-opsgenie-with-webhook/',
+      varsHint: ALERT_VARS.en,
+    },
     custom: {
       header: 'Custom HTTP source',
       steps: [
@@ -87,6 +153,10 @@ const STRINGS = {
     secretMissing:
       'Este webhook no tiene secreto HMAC. Cualquiera con la URL puede dispararlo. Recreá con la opción de firma para producción.',
     openProvider: 'Abrir docs del proveedor',
+    providerSecret: 'Secreto de firma del proveedor',
+    providerSecretSave: 'Usar este secreto',
+    providerSecretSaved: 'Guardado',
+    providerSecretFailed: 'No se pudo guardar el secreto',
     sentry: {
       header: 'Conectar con una alerta de Sentry',
       steps: [
@@ -126,6 +196,49 @@ const STRINGS = {
       varsHint:
         'Las variables expuestas dependen del evento. La mayoría exponen vars.repository, vars.sender, y los campos top-level del evento (ej. vars.pull_request, vars.commits, vars.release).',
     },
+    alertmanager: {
+      header: 'Conectar con Prometheus Alertmanager',
+      steps: [
+        '1. Agrega un receiver en alertmanager.yml con webhook_configs: - url: <la URL de arriba>, send_resolved: true.',
+        '2. Alertmanager no puede firmar el body: pon el secreto de arriba en http_config.authorization (type: Bearer, credentials: <secreto>). Operari lo acepta como Authorization: Bearer.',
+        '3. Enruta a ese receiver las alertas que deben ejecutar este runbook (por alertname, severity o team).',
+        '4. Recarga Alertmanager (POST /-/reload o SIGHUP).',
+      ],
+      docsUrl: 'https://prometheus.io/docs/alerting/latest/configuration/#webhook_config',
+      varsHint: ALERT_VARS.es,
+    },
+    grafana: {
+      header: 'Conectar con un contact point de Grafana',
+      steps: [
+        '1. En Grafana: Alerting → Contact points → Add contact point, integración "Webhook".',
+        '2. URL: pega la URL de arriba. En Optional settings, Authorization header scheme "Bearer" y credentials = el secreto de arriba (o firma HMAC con el mismo secreto).',
+        '3. Usa el contact point en una notification policy que coincida con las alertas de este runbook.',
+      ],
+      docsUrl:
+        'https://grafana.com/docs/grafana/latest/alerting/configure-notifications/manage-contact-points/integrations/webhook-notifier/',
+      varsHint: ALERT_VARS.es,
+    },
+    pagerduty: {
+      header: 'Conectar con PagerDuty',
+      steps: [
+        '1. En PagerDuty: Integrations → Generic Webhooks (v3) → New Webhook.',
+        '2. Webhook URL: pega la URL de arriba. Scope: el servicio (o equipo) cuyos incidentes deben ejecutar este runbook.',
+        '3. Eventos: incident.triggered e incident.resolved (también se maneja incident.reopened).',
+        '4. PagerDuty genera su propio secreto de firma al guardar el webhook. Pégalo abajo para que Operari verifique X-PagerDuty-Signature con él.',
+      ],
+      docsUrl: 'https://developer.pagerduty.com/docs/webhooks/v3-overview/',
+      varsHint: ALERT_VARS.es,
+    },
+    opsgenie: {
+      header: 'Conectar con Opsgenie',
+      steps: [
+        '1. En Opsgenie: Settings → Integrations → Add integration → Webhook.',
+        '2. Webhook URL: pega la URL de arriba. Agrega un header Authorization = Bearer <el secreto de arriba>.',
+        '3. Activa "Add Alert Description to Payload" y "Add Alert Details to Payload"; deja las acciones Create y Close.',
+      ],
+      docsUrl: 'https://support.atlassian.com/opsgenie/docs/integrate-opsgenie-with-webhook/',
+      varsHint: ALERT_VARS.es,
+    },
     custom: {
       header: 'Fuente HTTP genérica',
       steps: [
@@ -148,11 +261,16 @@ export default function WebhookSetupWizardModal({
   source,
   url,
   secret,
+  onUseProviderSecret,
 }: WebhookSetupWizardModalProps) {
   useEscapeKey(open, onClose);
   const t = STRINGS[lang];
   const provider = t[source];
   const [copied, setCopied] = useState<'url' | 'secret' | null>(null);
+  const [providerSecret, setProviderSecret] = useState('');
+  const [providerState, setProviderState] = useState<'idle' | 'saving' | 'saved' | 'failed'>(
+    'idle'
+  );
 
   if (!open) return null;
 
@@ -249,6 +367,44 @@ export default function WebhookSetupWizardModal({
               </li>
             ))}
           </ol>
+
+          {source === 'pagerduty' && onUseProviderSecret && (
+            <form
+              className="flex items-center gap-2"
+              onSubmit={async e => {
+                e.preventDefault();
+                setProviderState('saving');
+                try {
+                  await onUseProviderSecret(providerSecret.trim());
+                  setProviderState('saved');
+                  setProviderSecret('');
+                } catch {
+                  setProviderState('failed');
+                }
+              }}
+            >
+              <input
+                type="password"
+                aria-label={t.providerSecret}
+                placeholder={t.providerSecret}
+                value={providerSecret}
+                onChange={e => setProviderSecret(e.target.value)}
+                className="flex-1 rounded border border-[var(--panel-border)] bg-[var(--weathered,#1a1a1a)] px-2 py-1.5 font-mono text-[11px] text-[var(--text-primary)]"
+              />
+              <button
+                type="submit"
+                disabled={providerSecret.trim().length < 16 || providerState === 'saving'}
+                className="rounded border border-[var(--panel-border)] px-2 py-1.5 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-50"
+              >
+                {providerState === 'saved' ? t.providerSecretSaved : t.providerSecretSave}
+              </button>
+              {providerState === 'failed' && (
+                <span role="alert" className="text-[11px] text-red-400">
+                  {t.providerSecretFailed}
+                </span>
+              )}
+            </form>
+          )}
 
           <div className="bg-[var(--weathered,#1a1a1a)]/40 rounded border border-[var(--panel-border)] px-3 py-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
             {provider.varsHint}

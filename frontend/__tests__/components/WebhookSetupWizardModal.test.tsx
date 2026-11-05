@@ -138,4 +138,43 @@ describe('WebhookSetupWizardModal', () => {
 
     expect(screen.getByText(/conectar con un repo de github/i)).toBeInTheDocument();
   });
+
+  it('shows the Alertmanager guide with the bearer secret and the alert variables', () => {
+    render(
+      <WebhookSetupWizardModal
+        open
+        onClose={() => {}}
+        lang="es"
+        source="alertmanager"
+        url="https://example.test/webhook/abc"
+        secret="s3cret"
+      />
+    );
+    expect(screen.getByText('Conectar con Prometheus Alertmanager')).toBeInTheDocument();
+    expect(screen.getByText(/http_config.authorization/)).toBeInTheDocument();
+    expect(screen.getByText(/vars.alert.fingerprint/)).toBeInTheDocument();
+  });
+
+  it("stores PagerDuty's own secret", async () => {
+    const onUse = jest.fn().mockResolvedValue(undefined);
+    render(
+      <WebhookSetupWizardModal
+        open
+        onClose={() => {}}
+        lang="en"
+        source="pagerduty"
+        url="https://example.test/webhook/abc"
+        secret="s3cret"
+        onUseProviderSecret={onUse}
+      />
+    );
+    const save = screen.getByRole('button', { name: 'Use this secret' });
+    expect(save).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Provider's signing secret"), {
+      target: { value: 'pd-secret-0123456789' },
+    });
+    fireEvent.click(save);
+    expect(await screen.findByRole('button', { name: 'Saved' })).toBeInTheDocument();
+    expect(onUse).toHaveBeenCalledWith('pd-secret-0123456789');
+  });
 });

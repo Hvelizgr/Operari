@@ -1,6 +1,9 @@
+import { createHash, timingSafeEqual } from 'crypto';
 import { Request, Response, Router } from 'express';
 
 import { EventAgentService } from '../agent/services/event-agent.service';
+import { triggerAlertRuns } from '../alerts/alert-trigger';
+import { isAlertSource } from '../alerts/normalize';
 import { logger } from '../config/logger.config';
 import { ExecutionService } from '../editor/execution/execution.service';
 import { getMetrics, NULL_METRICS } from '../observability/metrics';
@@ -69,6 +72,12 @@ function sourceIpOf(req: Request): string | null {
  * The payload is normalized into runbook variables and the bound
  * runbook is triggered immediately.
  */
+function sameSecret(given: string, expected: string): boolean {
+  const a = createHash('sha256').update(given).digest();
+  const b = createHash('sha256').update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
 async function handleWebhook(req: Request, res: Response) {
   const { token, event } = req.params;
   const service = getWebhookService();
@@ -122,10 +131,17 @@ async function handleWebhook(req: Request, res: Response) {
       (req.headers['x-hub-signature-256'] as string) ??
       (req.headers['x-sentry-hook-signature'] as string) ??
       (req.headers['x-datadog-signature'] as string) ??
+      (req.headers['x-pagerduty-signature'] as string) ??
       (req.headers['x-webhook-signature'] as string);
     const rawBody = (req as unknown as { rawBody?: Buffer }).rawBody;
 
-    const valid = service.verifySignature(webhook.secret, rawBody, sigHeader, webhook.source);
+    // Alertmanager and Opsgenie cannot sign a body; for alert sources the
+    // secret may come as a bearer token instead.
+    const bearer = /^Bearer\s+(.+)$/i.exec(String(req.headers.authorization ?? ''))?.[1];
+    const valid =
+      (isAlertSource(webhook.source) && !sigHeader && bearer
+        ? sameSecret(bearer.trim(), webhook.secret)
+        : false) || service.verifySignature(webhook.secret, rawBody, sigHeader, webhook.source);
 
     if (!valid) {
       await receipts.record({
@@ -207,6 +223,78 @@ async function handleWebhook(req: Request, res: Response) {
         'webhook dedup write failed, proceeding without dedup'
       );
     }
+  }
+
+  if (isAlertSource(webhook.source)) {
+    const alertSource = webhook.source;
+    let outcome;
+    try {
+      outcome = await triggerAlertRuns(
+        prisma,
+        {
+          id: webhook.id,
+          tenantId: webhook.tenantId,
+          runbookId: webhook.runbookId,
+          source: alertSource,
+          userId: webhook.runbook.userId,
+        },
+        req.body ?? {},
+        input =>
+          getExecutionService().execute({
+            runbookId: webhook.runbookId,
+            userId: webhook.runbook.userId,
+            trigger: 'WEBHOOK',
+            input,
+            tenantId: webhook.tenantId,
+          })
+      );
+    } catch (err) {
+      // No local retry: alert senders retry on 5xx, and the occurrences
+      // that did start are already claimed, so a retry starts only the rest.
+      await receipts.record({
+        webhookId: webhook.id,
+        tenantId: webhook.tenantId,
+        source: webhook.source,
+        status: 'error',
+        statusCode: 500,
+        reason: err instanceof Error ? err.message : 'execution failed',
+        headers,
+        body,
+        sourceIp,
+      });
+      throw err;
+    }
+    const started = outcome.started.length;
+    receipts
+      .record({
+        webhookId: webhook.id,
+        tenantId: webhook.tenantId,
+        source: webhook.source,
+        status: started ? 'accepted' : 'rejected_inactive',
+        statusCode: started ? 202 : 200,
+        reason: `alerts=${outcome.alerts} started=${started} duplicate=${outcome.duplicates} resolved=${outcome.resolved} skipped=${outcome.skipped}`,
+        headers,
+        body,
+        sourceIp,
+        executionId: outcome.started[0]?.runId,
+      })
+      .catch(() => {
+        /* already swallowed inside the service */
+      });
+    if (started) {
+      service.recordTrigger(webhook.id).catch(() => {
+        /* ignore */
+      });
+    }
+    return res.status(started ? 202 : 200).json({
+      triggered: started > 0,
+      runIds: outcome.started.map(r => r.runId),
+      runbook: { id: webhook.runbook.id, name: webhook.runbook.name },
+      alerts: outcome.alerts,
+      duplicates: outcome.duplicates,
+      resolved: outcome.resolved,
+      skipped: outcome.skipped,
+    });
   }
 
   // Map payload → variables

@@ -37,6 +37,8 @@ operari/
 ├── integrations — outbound
 │   ├── connected accounts   postgres, github, slack, datadog
 │   ├── webhooks             receivers + outbound triggers
+│   ├── alerts               Alertmanager/Grafana/PagerDuty/Opsgenie webhooks → one run per alert
+│   │                        occurrence, resolutions stamped on the run (backend/src/alerts/)
 │   ├── credentials          Settings → paste any key into the vault (connected accounts)
 │   ├── mcp servers          `mcp.callTool` step + tester; Streamable HTTP client, SSRF-guarded,
 │   │                        tool definitions pinned by hash

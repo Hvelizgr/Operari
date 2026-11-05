@@ -14,7 +14,10 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 
 import WebhookReceiptsPanel from './WebhookReceiptsPanel';
-import WebhookSetupWizardModal from './WebhookSetupWizardModal';
+import WebhookSetupWizardModal, {
+  WEBHOOK_SOURCES,
+  type WebhookSource,
+} from './WebhookSetupWizardModal';
 
 interface TriggerRecord {
   id: string;
@@ -34,12 +37,16 @@ interface TriggersPanelProps {
 }
 
 const SOURCES: Array<{
-  key: 'sentry' | 'datadog' | 'github' | 'custom';
+  key: WebhookSource;
   label: Record<'en' | 'es', string>;
 }> = [
   { key: 'github', label: { en: 'GitHub', es: 'GitHub' } },
   { key: 'sentry', label: { en: 'Sentry', es: 'Sentry' } },
   { key: 'datadog', label: { en: 'Datadog', es: 'Datadog' } },
+  { key: 'alertmanager', label: { en: 'Prometheus Alertmanager', es: 'Prometheus Alertmanager' } },
+  { key: 'grafana', label: { en: 'Grafana alerts', es: 'Alertas de Grafana' } },
+  { key: 'pagerduty', label: { en: 'PagerDuty', es: 'PagerDuty' } },
+  { key: 'opsgenie', label: { en: 'Opsgenie', es: 'Opsgenie' } },
   { key: 'custom', label: { en: 'Custom', es: 'Personalizado' } },
 ];
 
@@ -112,7 +119,10 @@ export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBase}/api/webhooks?runbookId=${encodeURIComponent(runbookId)}`, { credentials: 'include' });
+      const res = await fetch(
+        `${apiBase}/api/webhooks?runbookId=${encodeURIComponent(runbookId)}`,
+        { credentials: 'include' }
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setTriggers(json.data || []);
@@ -178,7 +188,10 @@ export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
 
   const remove = async (id: string) => {
     try {
-      const res = await fetch(`${apiBase}/api/webhooks/${id}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetch(`${apiBase}/api/webhooks/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setTriggers(prev => prev.filter(tr => tr.id !== id));
     } catch (err) {
@@ -346,14 +359,23 @@ export default function TriggersPanel({ lang, runbookId }: TriggersPanelProps) {
           onClose={() => setWizardFor(null)}
           lang={lang}
           source={
-            (['sentry', 'datadog', 'github', 'custom'] as const).includes(
-              wizardFor.source as 'sentry' | 'datadog' | 'github' | 'custom'
-            )
-              ? (wizardFor.source as 'sentry' | 'datadog' | 'github' | 'custom')
+            WEBHOOK_SOURCES.includes(wizardFor.source as WebhookSource)
+              ? (wizardFor.source as WebhookSource)
               : 'custom'
           }
           url={wizardFor.url}
           secret={revealedSecrets[wizardFor.id] ?? wizardFor.secret}
+          onUseProviderSecret={async provided => {
+            const res = await fetch(`${apiBase}/api/webhooks/${wizardFor.id}/rotate-secret`, {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ secret: provided }),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const body = (await res.json()) as { secret: string };
+            setRevealedSecrets(prev => ({ ...prev, [wizardFor.id]: body.secret }));
+          }}
         />
       )}
     </div>

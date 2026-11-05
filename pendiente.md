@@ -8,6 +8,34 @@ Items que no entraron en las sesiones de implementación. Se ordenan por scope e
 
 ## Código pendiente
 
+## Foco (decidido 2026-11-05): runbooks para incidentes, no paridad con n8n
+
+n8n gana en cantidad de integraciones y no vale la pena competir ahí. Operari se enfoca en lo que n8n no
+cubre: ejecución segura en servidores propios, aprobaciones, auditoría y respuesta a incidentes. Para
+integraciones raras, llamar a un workflow de n8n o a un webhook.
+
+**En este orden:**
+
+1. ✅ **Alertas como trigger** (2026-11-05). Fuentes `alertmanager`, `grafana`, `pagerduty` y `opsgenie`
+   en el panel de triggers, con guía de configuración. Payload normalizado en `vars.alert` (name, title,
+   severity, status, labels, summary, description, url, fingerprint, startsAt). Una corrida por ocurrencia
+   (huella + inicio, insert único): las repeticiones de Alertmanager y los reintentos no lanzan más; tope
+   de 10 corridas por envío. La resolución se anota en la corrida (`metadata.alert.resolvedAt`). Secreto
+   como `Authorization: Bearer` (Alertmanager/Opsgenie no firman) o HMAC; PagerDuty: se pega su propio
+   secreto y se verifica `X-PagerDuty-Signature`. **Falta:** mostrar alerta/resuelta en la vista del run;
+   Sentry y Datadog siguen con el parser viejo (sin dedup por ocurrencia).
+2. **Aprobar donde está el de guardia.** Avisar a los aprobadores por Slack, email o Telegram con botones
+   aprobar/rechazar (enlace firmado, de un solo uso, que respeta MFA/rol); tiempo límite y escalamiento.
+3. **Línea de tiempo del incidente.** Exportar en Markdown desde la cadena de auditoría: alerta, pasos,
+   salidas, quién aprobó qué y cuándo; base del postmortem.
+4. **Puente a n8n / webhooks:** paso que llama un workflow de n8n (o cualquier URL) y espera su respuesta.
+5. **Plantillas de incidentes comunes:** disco lleno, reiniciar servicio, rollback de deploy, certificado
+   por vencer, cola atascada.
+
+**Bajan de prioridad:** más servicios en el catálogo (#6), webhooks auto-registrados fuera de alertas,
+archivos en los pasos del catálogo, validar uno por uno los 94 servicios contra APIs reales.
+
+
 ### 🟢 Sandbox para terminal y runbooks; sudo solo por SSH a servidores propios (2026-11-01)
 
 **Detalle y diseño:** [`docs/sandbox-research.md`](docs/sandbox-research.md).

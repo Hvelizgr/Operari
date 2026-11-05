@@ -37,7 +37,18 @@ router.use((req: AuthRequest, _res, next) => {
 
 const createSchema = z.object({
   runbookId: z.string().min(1),
-  source: z.enum(['sentry', 'datadog', 'github', 'custom']).default('custom'),
+  source: z
+    .enum([
+      'sentry',
+      'datadog',
+      'github',
+      'alertmanager',
+      'grafana',
+      'pagerduty',
+      'opsgenie',
+      'custom',
+    ])
+    .default('custom'),
   useSecret: z.boolean().optional().default(true),
 });
 
@@ -277,11 +288,25 @@ router.post('/:id/receipts/:receiptId/replay', async (req: AuthRequest, res: Res
  * Use case: the operator pasted the secret into a chat by accident,
  * or routinely rotates secrets every quarter for compliance.
  */
+const rotateSchema = z.object({
+  secret: z
+    .string()
+    .trim()
+    .min(16)
+    .max(256)
+    .regex(/^[\x21-\x7e]+$/)
+    .optional(),
+});
+
 router.post('/:id/rotate-secret', async (req: AuthRequest, res: Response) => {
   try {
     const tenantId = req.user!.tenantId;
     const id = String(req.params.id);
-    const result = await getService().rotateSecret(tenantId, id);
+    const parsed = rotateSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'secret must be 16 to 256 printable characters' });
+    }
+    const result = await getService().rotateSecret(tenantId, id, parsed.data.secret);
     if (!result) return res.status(404).json({ error: 'Webhook not found' });
     return res.json({ id, secret: result.secret });
   } catch (err) {
