@@ -92,15 +92,15 @@ export function createExecutorRegistry(
 
   const registry = new Map<string, StepExecutor>();
 
+  const files = new FileStore(prisma);
   registry.set('shell', new ShellExecutor(runner));
-  registry.set('operari.code', new CodeExecutor(runner));
+  registry.set('operari.code', new CodeExecutor(runner, files));
   registry.set('operari.newItems', new NewItemsExecutor(prisma));
   registry.set('approval', new ApprovalExecutor(prisma));
   registry.set('notify', new NotifyExecutor());
   registry.set('wait', new WaitExecutor());
   const servers = new PrismaServerDirectory(prisma);
   registry.set('ssh', new SSHExecutor(undefined, { directory: servers }));
-  const files = new FileStore(prisma);
   registry.set('operari.httpRequest', new HttpExecutor(fetch, { files }));
   registry.set('operari.database', new DatabaseExecutor(undefined, { directory: servers }));
   registry.set('github.commitFile', new GitHubCommitFileExecutor());

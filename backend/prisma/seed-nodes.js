@@ -660,8 +660,16 @@ const NODES = [
         required: true,
         default: 'result = {"count": len(input.get("vars", {}))}',
         description:
-          'Read `input` (vars and earlier step outputs). Python: assign `result`. JavaScript: `return` a value. print/console.log go to the step log.',
+          'Read `input` (vars and earlier step outputs). Python: assign `result`. JavaScript: `return` a value. print/console.log go to the step log. Files: `read_file(ref)` / `readFile(ref)` return the bytes of a file listed under Files; `write_file(name, data)` / `writeFile(name, data)` save a new one and return its reference.',
         typeOptions: { rows: 12 },
+      },
+      {
+        name: 'files',
+        displayName: 'Files',
+        type: 'string',
+        description:
+          'Files from earlier steps the code can read (`files` in the code), e.g. {{steps.download.output.file}}; separate several with commas. Up to 768 KB in total.',
+        typeOptions: { expression: true },
       },
       {
         name: 'network',
