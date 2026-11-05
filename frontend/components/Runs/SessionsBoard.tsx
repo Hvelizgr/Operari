@@ -4,6 +4,8 @@ import { CheckCircle2, Clock, Hand, Loader2, RefreshCw, XCircle } from 'lucide-r
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { RunsTabs } from './RunsTabs';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 const POLL_MS = 5_000;
 const FINISHED_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -25,7 +27,7 @@ export interface BoardRun {
 
 const TEXT = {
   en: {
-    title: 'Sessions',
+    title: 'Runs in progress',
     subtitle:
       'Everything running for you right now. Dispatch from the editor, supervise from here.',
     running: 'Running',
@@ -42,7 +44,7 @@ const TEXT = {
     refresh: 'Refresh',
   },
   es: {
-    title: 'Sesiones',
+    title: 'Corridas en curso',
     subtitle:
       'Todo lo que está corriendo para vos ahora. Despachá desde el editor, supervisá desde acá.',
     running: 'En curso',
@@ -205,6 +207,7 @@ export default function SessionsBoard({ lang }: { lang: 'en' | 'es' }) {
 
   return (
     <div className="mx-auto max-w-7xl p-4 sm:p-6">
+      <RunsTabs lang={lang} active="live" />
       <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-xl font-semibold text-[var(--text-primary)]">{t.title}</h1>

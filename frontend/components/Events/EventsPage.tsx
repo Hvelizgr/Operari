@@ -30,7 +30,7 @@ interface VerifyResult {
 
 const STRINGS = {
   en: {
-    title: 'Events',
+    title: 'Audit log',
     subtitle:
       'Hash-chained immutable audit log of everything that happened in this tenant. Every run, approval, secret access, and config change is here.',
     chainTitle: 'Audit chain',
@@ -47,7 +47,7 @@ const STRINGS = {
     loadError: 'Failed to load events.',
   },
   es: {
-    title: 'Eventos',
+    title: 'Auditoría',
     subtitle:
       'Log de auditoría inmutable encadenado por hash de todo lo que pasó en este tenant. Cada ejecución, aprobación, acceso a secreto y cambio de config está acá.',
     chainTitle: 'Cadena de auditoría',

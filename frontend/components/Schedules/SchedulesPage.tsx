@@ -92,7 +92,7 @@ const STRINGS = {
     runTriggered: 'Run triggered',
   },
   es: {
-    title: 'Horarios',
+    title: 'Programados',
     subtitle:
       'Ejecuciones de runbooks por cron. Pausá uno para saltar el próximo disparo, editá el cron, o disparalo ahora sin esperar.',
     newSchedule: 'Nuevo horario',

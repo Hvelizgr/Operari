@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { List as VirtualList } from 'react-window';
 
+import { RunsTabs } from './RunsTabs';
+
 type RunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PAUSED' | 'CANCELLED';
 
 interface Run {
@@ -128,6 +130,7 @@ export default function RunHistory({ lang }: { lang: 'en' | 'es' }) {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
+      <RunsTabs lang={lang} active="history" />
       <header className="mb-8">
         <h1 className="text-3xl font-semibold tracking-tight">{t.title}</h1>
         <p className="mt-1 text-sm text-zinc-400">{t.subtitle}</p>

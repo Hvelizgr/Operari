@@ -3,14 +3,12 @@
 import { motion } from 'framer-motion';
 import {
   Activity,
-  Bot,
   CalendarClock,
   ChevronLeft,
   ChevronRight,
   Columns3,
   Database,
   FolderKanban,
-  History,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -18,13 +16,12 @@ import {
   Menu,
   MessageSquare,
   Plug,
+  ScrollText,
   Send,
   Settings,
   Share2,
-  ShieldCheck,
   SquareTerminal,
   User,
-  Wrench,
   X,
   Zap,
 } from 'lucide-react';
@@ -108,10 +105,11 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
     setDrawerOpen(false);
   }, [pathname]);
 
-  // Grouped navigation. OPERATE = what a user hits first during an
-  // incident. EXPLORE = investigative tools (SQL + dev surfaces).
-  // LIBRARY = configuration-time stuff. ADMIN sits at the bottom by
-  // gravity, separate from operational flow.
+  // Grouped by what you are doing. OPERATE is what the on-call person
+  // opens during an incident; AUTOMATE is where runbooks and what starts
+  // them are built; TOOLS are the investigative consoles; WORKSPACE holds
+  // the audit trail and every setting (team, integrations, servers,
+  // billing, the workspace overview).
   const menuGroups: MenuGroup[] = [
     {
       id: 'operate',
@@ -119,10 +117,35 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
       items: [
         {
           id: 'dashboard',
-          label: lang === 'en' ? 'Dashboard' : 'Panel',
+          label: lang === 'en' ? 'Home' : 'Inicio',
           icon: LayoutDashboard,
           href: `/${lang}/dashboard`,
         },
+        {
+          id: 'inbox',
+          label: lang === 'en' ? 'Approvals' : 'Aprobaciones',
+          icon: Inbox,
+          href: `/${lang}/inbox`,
+        },
+        {
+          id: 'runs',
+          label: lang === 'en' ? 'Runs' : 'Corridas',
+          icon: Columns3,
+          href: `/${lang}/sessions`,
+          alsoActiveOn: [`/${lang}/runs`],
+        },
+        {
+          id: 'monitors',
+          label: lang === 'en' ? 'Monitors' : 'Monitores',
+          icon: Activity,
+          href: `/${lang}/monitors`,
+        },
+      ],
+    },
+    {
+      id: 'automate',
+      label: lang === 'en' ? 'Automate' : 'Automatizar',
+      items: [
         {
           id: 'runbooks',
           label: 'Runbooks',
@@ -137,47 +160,23 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           href: `/${lang}/projects`,
         },
         {
-          id: 'sessions',
-          label: lang === 'en' ? 'Sessions' : 'Sesiones',
-          icon: Columns3,
-          href: `/${lang}/sessions`,
+          id: 'schedules',
+          label: lang === 'en' ? 'Schedules' : 'Programados',
+          icon: CalendarClock,
+          href: `/${lang}/schedules`,
         },
         {
-          id: 'runs',
-          label: lang === 'en' ? 'Run history' : 'Historial',
-          icon: History,
-          href: `/${lang}/runs`,
-        },
-        {
-          id: 'inbox',
-          label: lang === 'en' ? 'Inbox' : 'Bandeja',
-          icon: Inbox,
-          href: `/${lang}/inbox`,
-        },
-        {
-          id: 'monitors',
-          label: lang === 'en' ? 'Monitors' : 'Monitores',
-          icon: Activity,
-          href: `/${lang}/monitors`,
-        },
-        {
-          id: 'events',
-          label: lang === 'en' ? 'Events' : 'Eventos',
+          id: 'agents',
+          label: lang === 'en' ? 'Event rules' : 'Reglas de eventos',
           icon: Zap,
-          href: `/${lang}/events`,
+          href: `/${lang}/agents`,
         },
       ],
     },
     {
-      id: 'explore',
-      label: lang === 'en' ? 'Explore' : 'Explorar',
+      id: 'tools',
+      label: lang === 'en' ? 'Tools' : 'Herramientas',
       items: [
-        {
-          id: 'sql',
-          label: lang === 'en' ? 'SQL Editor' : 'SQL Editor',
-          icon: Database,
-          href: `/${lang}/sql-editor`,
-        },
         {
           id: 'terminal',
           label: 'Terminal',
@@ -185,58 +184,47 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           href: `/${lang}/terminal`,
         },
         {
+          id: 'sql',
+          label: lang === 'en' ? 'SQL editor' : 'Editor SQL',
+          icon: Database,
+          href: `/${lang}/sql-editor`,
+        },
+        {
           id: 'http-tester',
-          label: lang === 'en' ? 'API Tester' : 'Probador de API',
+          label: lang === 'en' ? 'API tester' : 'Probador de API',
           icon: Send,
           href: `/${lang}/http-tester`,
         },
         {
           id: 'mcp-tester',
-          label: lang === 'en' ? 'MCP Tester' : 'Probador MCP',
+          label: lang === 'en' ? 'MCP tester' : 'Probador MCP',
           icon: Plug,
           href: `/${lang}/mcp-tester`,
         },
         {
-          id: 'agents',
-          label: lang === 'en' ? 'Agents' : 'Agentes',
-          icon: Bot,
-          href: `/${lang}/agents`,
-        },
-        {
           id: 'chat',
-          label: lang === 'en' ? 'AI Assistant' : 'Asistente IA',
+          label: lang === 'en' ? 'AI assistant' : 'Asistente IA',
           icon: MessageSquare,
           href: `/${lang}/chat`,
         },
       ],
     },
     {
-      id: 'library',
-      label: lang === 'en' ? 'Library' : 'Biblioteca',
+      id: 'workspace',
+      label: 'Workspace',
       items: [
         {
-          id: 'schedules',
-          label: lang === 'en' ? 'Schedules' : 'Horarios',
-          icon: CalendarClock,
-          href: `/${lang}/schedules`,
+          id: 'audit',
+          label: lang === 'en' ? 'Audit log' : 'Auditoría',
+          icon: ScrollText,
+          href: `/${lang}/events`,
         },
         {
-          id: 'tools',
-          label: lang === 'en' ? 'Utilities' : 'Utilidades',
-          icon: Wrench,
-          href: `/${lang}/utilities`,
-        },
-      ],
-    },
-    {
-      id: 'admin',
-      label: lang === 'en' ? 'Admin' : 'Admin',
-      items: [
-        {
-          id: 'admin',
-          label: lang === 'en' ? 'Admin' : 'Admin',
-          icon: ShieldCheck,
-          href: `/${lang}/admin`,
+          id: 'settings',
+          label: lang === 'en' ? 'Settings' : 'Ajustes',
+          icon: Settings,
+          href: `/${lang}/settings`,
+          alsoActiveOn: [`/${lang}/utilities`, `/${lang}/admin`],
         },
       ],
     },
@@ -385,14 +373,7 @@ export default function EditorSidebar({ lang }: EditorSidebarProps) {
           </div>
 
           {showLabels && (
-            <div className="mt-4 flex items-center justify-between px-2">
-              <button
-                onClick={() => router.push(`/${lang}/settings`)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--text-muted)] transition-all hover:bg-[var(--panel-elevated)] hover:text-[var(--text-primary)]"
-                title={lang === 'en' ? 'Settings' : 'Configuración'}
-              >
-                <Settings size={16} />
-              </button>
+            <div className="mt-4 flex items-center justify-end px-2">
               {session && session.user.id !== 'anonymous' && (
                 <button
                   onClick={handleLogout}

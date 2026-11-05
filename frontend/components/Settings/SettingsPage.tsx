@@ -2,8 +2,10 @@
 
 import {
   ArrowRight,
+  Building2,
   Check,
   Grid3x3,
+  Key,
   Languages,
   Link2,
   Palette,
@@ -13,12 +15,16 @@ import {
   ShieldCheck,
   Sparkles,
   User,
+  Webhook,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import AdminPage from '@/components/Admin/AdminPage';
+import { ApiKeysPanel, WebhooksPanel } from '@/components/Utilities/UtilitiesPage';
 import { type Theme, THEMES, useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/lib/auth';
 import { storageRead, storageWrite } from '@/lib/storage-compat';
 
 import { BillingPanel } from './BillingPanel';
@@ -32,8 +38,7 @@ import { UpgradeWelcomeModal } from './UpgradeWelcomeModal';
 const STRINGS = {
   en: {
     title: 'Settings',
-    subtitle:
-      'Personal preferences for the editor and the app shell. Stored locally on this device — they survive reloads but do not sync across machines yet.',
+    subtitle: 'Your account, the workspace, integrations and where steps run.',
     themeTitle: 'Theme',
     themeHint: 'Pick the palette used by the dashboard, the editor, and every page chrome.',
     editorTitle: 'Editor',
@@ -46,8 +51,20 @@ const STRINGS = {
     en: 'English',
     es: 'Español',
     profileTitle: 'Profile',
-    profileHint: 'User profile sync is not wired in self-host mode yet.',
-    profilePlaceholder: 'You are signed in as the default tenant admin.',
+    profileName: 'Name',
+    tabs: {
+      account: 'Account',
+      workspace: 'Workspace',
+      integrations: 'Integrations',
+      execution: 'Execution',
+    },
+    overviewTitle: 'Overview',
+    overviewHint: 'The workspace at a glance: plan, SSO, billing link and how much is in it.',
+    apiKeysTitle: 'API keys',
+    apiKeysHint: 'For the SDK, the CLI and anything that calls /api/v1.',
+    webhooksTitle: 'Webhooks',
+    webhooksHint:
+      'Every webhook trigger in the workspace. Add one to a runbook from the editor (Triggers) to get a setup guide for its source.',
     on: 'On',
     off: 'Off',
     // Appearance link card
@@ -57,9 +74,8 @@ const STRINGS = {
     appearanceCta: 'Open appearance settings',
   },
   es: {
-    title: 'Configuración',
-    subtitle:
-      'Preferencias personales del editor y del shell. Se guardan en este dispositivo — sobreviven recargas pero todavía no sincronizan entre máquinas.',
+    title: 'Ajustes',
+    subtitle: 'Tu cuenta, el workspace, las integraciones y dónde se ejecutan los pasos.',
     themeTitle: 'Tema',
     themeHint: 'Elegí la paleta del dashboard, el editor y todas las páginas.',
     editorTitle: 'Editor',
@@ -72,8 +88,20 @@ const STRINGS = {
     en: 'English',
     es: 'Español',
     profileTitle: 'Perfil',
-    profileHint: 'La sincronización de perfil todavía no está cableada en self-host.',
-    profilePlaceholder: 'Estás autenticado como admin del tenant por defecto.',
+    profileName: 'Nombre',
+    tabs: {
+      account: 'Cuenta',
+      workspace: 'Workspace',
+      integrations: 'Integraciones',
+      execution: 'Ejecución',
+    },
+    overviewTitle: 'Resumen',
+    overviewHint: 'El workspace de un vistazo: plan, SSO, facturación y cuánto contiene.',
+    apiKeysTitle: 'API keys',
+    apiKeysHint: 'Para el SDK, la CLI y todo lo que llame a /api/v1.',
+    webhooksTitle: 'Webhooks',
+    webhooksHint:
+      'Todos los webhooks del workspace. Agrega uno a un runbook desde el editor (Triggers) para ver la guía de configuración de su fuente.',
     on: 'Encendido',
     off: 'Apagado',
     // Appearance link card
@@ -83,6 +111,9 @@ const STRINGS = {
     appearanceCta: 'Abrir ajustes de apariencia',
   },
 } as const;
+
+const TABS = ['account', 'workspace', 'integrations', 'execution'] as const;
+type SettingsTab = (typeof TABS)[number];
 
 interface SettingsPageProps {
   lang: 'en' | 'es';
@@ -94,6 +125,22 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
   const { theme, setTheme } = useTheme();
   const [autosave, setAutosave] = useState<boolean>(true);
   const [snap, setSnap] = useState<boolean>(false);
+  const { session } = useAuth();
+  const [tab, setTab] = useState<SettingsTab>('account');
+
+  // The tab lives in ?tab= so links can open a section (old /utilities
+  // and /admin redirect here) and a reload keeps it.
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get('tab');
+    if (fromUrl && (TABS as readonly string[]).includes(fromUrl)) setTab(fromUrl as SettingsTab);
+  }, []);
+
+  const selectTab = (next: SettingsTab) => {
+    setTab(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', next);
+    window.history.replaceState(null, '', url.toString());
+  };
 
   useEffect(() => {
     try {
@@ -145,140 +192,192 @@ export default function SettingsPage({ lang }: SettingsPageProps) {
                     strips the query param so reload doesn't re-show. */}
         <UpgradeWelcomeModal lang={lang} />
 
-        {/* Theme picker */}
-        <Section icon={<Palette size={16} />} title={t.themeTitle} hint={t.themeHint}>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            {THEMES.map(opt => (
-              <ThemeCard
-                key={opt.id}
-                id={opt.id}
-                label={opt.label[lang]}
-                description={opt.description[lang]}
-                active={theme === opt.id}
-                onClick={() => setTheme(opt.id)}
+        <nav
+          role="tablist"
+          aria-label={t.title}
+          className="mb-6 flex flex-wrap gap-1 border-b border-[var(--panel-border)]"
+        >
+          {TABS.map(id => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => selectTab(id)}
+              className={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${
+                tab === id
+                  ? 'border-[var(--accent-color)] text-[var(--text-primary)]'
+                  : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              {t.tabs[id]}
+            </button>
+          ))}
+        </nav>
+
+        {tab === 'account' && (
+          <>
+            <Section icon={<User size={16} />} title={t.profileTitle}>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
+                <dt className="text-[var(--text-muted)]">{t.profileName}</dt>
+                <dd>{session?.user.name || '—'}</dd>
+                <dt className="text-[var(--text-muted)]">Email</dt>
+                <dd>{session?.user.email || '—'}</dd>
+              </dl>
+            </Section>
+            {/* Language */}
+            <Section icon={<Languages size={16} />} title={t.langTitle} hint={t.langHint}>
+              <div className="flex gap-2">
+                <LangButton active={lang === 'en'} onClick={() => switchLang('en')}>
+                  {t.en}
+                </LangButton>
+                <LangButton active={lang === 'es'} onClick={() => switchLang('es')}>
+                  {t.es}
+                </LangButton>
+              </div>
+            </Section>
+
+            {/* Theme picker */}
+            <Section icon={<Palette size={16} />} title={t.themeTitle} hint={t.themeHint}>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {THEMES.map(opt => (
+                  <ThemeCard
+                    key={opt.id}
+                    id={opt.id}
+                    label={opt.label[lang]}
+                    description={opt.description[lang]}
+                    active={theme === opt.id}
+                    onClick={() => setTheme(opt.id)}
+                  />
+                ))}
+              </div>
+            </Section>
+
+            {/* Editor preferences */}
+            <Section icon={<Save size={16} />} title={t.editorTitle}>
+              <ToggleRow
+                label={t.autosaveLabel}
+                hint={t.autosaveHint}
+                value={autosave}
+                onChange={handleAutosave}
+                on={t.on}
+                off={t.off}
               />
-            ))}
-          </div>
-        </Section>
+              <ToggleRow
+                icon={<Grid3x3 size={14} />}
+                label={t.snapLabel}
+                hint={t.snapHint}
+                value={snap}
+                onChange={handleSnap}
+                on={t.on}
+                off={t.off}
+              />
+            </Section>
 
-        {/* Editor preferences */}
-        <Section icon={<Save size={16} />} title={t.editorTitle}>
-          <ToggleRow
-            label={t.autosaveLabel}
-            hint={t.autosaveHint}
-            value={autosave}
-            onChange={handleAutosave}
-            on={t.on}
-            off={t.off}
-          />
-          <ToggleRow
-            icon={<Grid3x3 size={14} />}
-            label={t.snapLabel}
-            hint={t.snapHint}
-            value={snap}
-            onChange={handleSnap}
-            on={t.on}
-            off={t.off}
-          />
-        </Section>
+            {/* Appearance — separate page so this Settings panel stays
+                        short. Every node/edge/flow/canvas knob + preset
+                        manager lives at /settings/appearance. */}
+            <Link
+              href={`/${lang}/settings/appearance`}
+              className="hover:border-[var(--accent-color)]/50 group mb-6 flex items-center justify-between rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] px-5 py-4 transition-colors"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--text-muted)]">
+                  <Palette size={14} />
+                  <span>{t.appearanceTitle}</span>
+                </div>
+                <p className="text-sm text-[var(--text-primary)]">{t.appearanceCta}</p>
+                <p className="mt-1 text-[11px] text-[var(--text-muted)]">{t.appearanceHint}</p>
+              </div>
+              <ArrowRight
+                size={16}
+                className="flex-shrink-0 text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--accent-color)]"
+              />
+            </Link>
+          </>
+        )}
 
-        {/* Appearance — separate page so this Settings panel stays
-                    short. Every node/edge/flow/canvas knob + preset
-                    manager lives at /settings/appearance. */}
-        <Link
-          href={`/${lang}/settings/appearance`}
-          className="hover:border-[var(--accent-color)]/50 group mb-6 flex items-center justify-between rounded-md border border-[var(--panel-border)] bg-[var(--panel-bg)] px-5 py-4 transition-colors"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-[var(--text-muted)]">
-              <Palette size={14} />
-              <span>{t.appearanceTitle}</span>
-            </div>
-            <p className="text-sm text-[var(--text-primary)]">{t.appearanceCta}</p>
-            <p className="mt-1 text-[11px] text-[var(--text-muted)]">{t.appearanceHint}</p>
-          </div>
-          <ArrowRight
-            size={16}
-            className="flex-shrink-0 text-[var(--text-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--accent-color)]"
-          />
-        </Link>
+        {tab === 'workspace' && (
+          <>
+            <Section icon={<Building2 size={16} />} title={t.overviewTitle} hint={t.overviewHint}>
+              <AdminPage lang={lang} embedded />
+            </Section>
+            {/* Team */}
+            <Section
+              icon={<User size={16} />}
+              title={lang === 'es' ? 'Equipo' : 'Team'}
+              hint={
+                lang === 'es'
+                  ? 'Invitá usuarios a este workspace. Los links de invitación duran 7 días.'
+                  : 'Invite teammates to this workspace. Invite links expire in 7 days.'
+              }
+            >
+              <TeamPanel lang={lang} />
+            </Section>
 
-        {/* Language */}
-        <Section icon={<Languages size={16} />} title={t.langTitle} hint={t.langHint}>
-          <div className="flex gap-2">
-            <LangButton active={lang === 'en'} onClick={() => switchLang('en')}>
-              {t.en}
-            </LangButton>
-            <LangButton active={lang === 'es'} onClick={() => switchLang('es')}>
-              {t.es}
-            </LangButton>
-          </div>
-        </Section>
+            {/* Plan & billing */}
+            <Section
+              icon={<Sparkles size={16} />}
+              title={lang === 'es' ? 'Plan y facturación' : 'Plan & billing'}
+              hint={
+                lang === 'es'
+                  ? 'Suscribite, gestioná la suscripción o bajá facturas. Self-host queda gratis para siempre.'
+                  : 'Upgrade, manage your subscription, or download invoices. Self-host stays free forever.'
+              }
+            >
+              <BillingPanel lang={lang} />
+            </Section>
 
-        {/* Team */}
-        <Section
-          icon={<User size={16} />}
-          title={lang === 'es' ? 'Equipo' : 'Team'}
-          hint={
-            lang === 'es'
-              ? 'Invitá usuarios a este workspace. Los links de invitación duran 7 días.'
-              : 'Invite teammates to this workspace. Invite links expire in 7 days.'
-          }
-        >
-          <TeamPanel lang={lang} />
-        </Section>
+            {/* Danger zone — self-serve GDPR account purge. Stays
+                        at the very bottom of the page so a casual scroll
+                        never lands on it; the modal still requires a
+                        typed confirmation + password + MFA + workspace
+                        opt-in before it fires. */}
+            <DangerZone lang={lang} />
+          </>
+        )}
 
-        {/* Connected accounts (GitHub today, more providers in time) */}
-        <Section
-          icon={<Link2 size={16} />}
-          title={lang === 'es' ? 'Cuentas conectadas' : 'Connected accounts'}
-        >
-          <ConnectedAccountsPanel lang={lang} />
-        </Section>
+        {tab === 'integrations' && (
+          <>
+            {/* Connected accounts (GitHub today, more providers in time) */}
+            <Section
+              icon={<Link2 size={16} />}
+              title={lang === 'es' ? 'Cuentas conectadas' : 'Connected accounts'}
+            >
+              <ConnectedAccountsPanel lang={lang} />
+            </Section>
 
-        <Section
-          icon={<Server size={16} />}
-          title={lang === 'es' ? 'Servidores' : 'Servers'}
-          hint={
-            lang === 'es'
-              ? 'Hosts propios a los que llegan los pasos SSH, con la clave del host fijada al registrarlos.'
-              : 'Your own hosts that SSH steps can reach, with the host key pinned at registration.'
-          }
-        >
-          <ServersPanel lang={lang} />
-        </Section>
+            <Section icon={<Key size={16} />} title={t.apiKeysTitle} hint={t.apiKeysHint}>
+              <ApiKeysPanel lang={lang} />
+            </Section>
+            <Section icon={<Webhook size={16} />} title={t.webhooksTitle} hint={t.webhooksHint}>
+              <WebhooksPanel lang={lang} />
+            </Section>
+          </>
+        )}
 
-        <Section
-          icon={<ShieldCheck size={16} />}
-          title={lang === 'es' ? 'Política de ejecución' : 'Execution policy'}
-        >
-          <ExecutionPolicyCard lang={lang} />
-        </Section>
+        {tab === 'execution' && (
+          <>
+            <Section
+              icon={<Server size={16} />}
+              title={lang === 'es' ? 'Servidores' : 'Servers'}
+              hint={
+                lang === 'es'
+                  ? 'Hosts propios a los que llegan los pasos SSH, con la clave del host fijada al registrarlos.'
+                  : 'Your own hosts that SSH steps can reach, with the host key pinned at registration.'
+              }
+            >
+              <ServersPanel lang={lang} />
+            </Section>
 
-        {/* Plan & billing */}
-        <Section
-          icon={<Sparkles size={16} />}
-          title={lang === 'es' ? 'Plan y facturación' : 'Plan & billing'}
-          hint={
-            lang === 'es'
-              ? 'Suscribite, gestioná la suscripción o bajá facturas. Self-host queda gratis para siempre.'
-              : 'Upgrade, manage your subscription, or download invoices. Self-host stays free forever.'
-          }
-        >
-          <BillingPanel lang={lang} />
-        </Section>
-
-        {/* Profile placeholder */}
-        <Section icon={<User size={16} />} title={t.profileTitle} hint={t.profileHint}>
-          <div className="text-sm text-[var(--text-muted)]">{t.profilePlaceholder}</div>
-        </Section>
-
-        {/* Danger zone — self-serve GDPR account purge. Stays
-                    at the very bottom of the page so a casual scroll
-                    never lands on it; the modal still requires a
-                    typed confirmation + password + MFA + workspace
-                    opt-in before it fires. */}
-        <DangerZone lang={lang} />
+            <Section
+              icon={<ShieldCheck size={16} />}
+              title={lang === 'es' ? 'Política de ejecución' : 'Execution policy'}
+            >
+              <ExecutionPolicyCard lang={lang} />
+            </Section>
+          </>
+        )}
       </div>
     </div>
   );

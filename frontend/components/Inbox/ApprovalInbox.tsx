@@ -33,7 +33,7 @@ interface Approval {
 
 const STRINGS: Record<'en' | 'es', Record<string, string>> = {
   en: {
-    title: 'Approval inbox',
+    title: 'Pending approvals',
     subtitle: 'Pending runbook steps waiting for a decision.',
     filterAll: 'All',
     filterPending: 'Pending',
@@ -58,7 +58,7 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     viewRun: 'View run →',
   },
   es: {
-    title: 'Bandeja de aprobaciones',
+    title: 'Aprobaciones pendientes',
     subtitle: 'Pasos del runbook esperando una decisión.',
     filterAll: 'Todo',
     filterPending: 'Pendientes',

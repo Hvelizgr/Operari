@@ -102,7 +102,10 @@ interface AdminPageProps {
   lang: 'en' | 'es';
 }
 
-export default function AdminPage({ lang }: AdminPageProps) {
+export default function AdminPage({
+  lang,
+  embedded = false,
+}: AdminPageProps & { embedded?: boolean }) {
   const t = STRINGS[lang];
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +120,98 @@ export default function AdminPage({ lang }: AdminPageProps) {
       .catch(e => setError(e instanceof Error ? e.message : 'unknown'));
   }, []);
 
+  const content = (
+    <>
+      {error && (
+        <div className="mb-4 rounded-md border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-300">
+          {t.loadError} · {error}
+        </div>
+      )}
+
+      {data === null ? (
+        <div className="text-sm text-gray-500">{t.loading}</div>
+      ) : (
+        <div className="space-y-6">
+          {/* Tenant card */}
+          <Section title={t.tenantTitle} icon={<Building2 size={16} />}>
+            {data.tenant ? (
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <Field label="Name" value={data.tenant.name} />
+                <Field label={t.slug} value={data.tenant.slug} />
+                <Field label={t.plan} value={data.tenant.plan} />
+                <Field
+                  label={t.created}
+                  value={new Date(data.tenant.createdAt).toLocaleDateString()}
+                />
+                <Field label={t.sso} value={data.tenant.workosOrganizationId ?? t.notLinked} />
+                <Field label={t.billing} value={data.tenant.stripeCustomerId ?? t.notLinked} />
+              </dl>
+            ) : null}
+          </Section>
+
+          {/* Counts */}
+          <Section title={t.countsTitle} icon={<KeyRound size={16} />}>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <CountCard label={t.runbooks} value={data.counts.runbooks} />
+              <CountCard label={t.runs} value={data.counts.runs} />
+              <CountCard label={t.schedules} value={data.counts.schedules} />
+              <CountCard label={t.agents} value={data.counts.agents} />
+              <CountCard label={t.monitors} value={data.counts.monitors} />
+              <CountCard label={t.webhooks} value={data.counts.webhooks} />
+              <CountCard label={t.apiKeys} value={data.counts.apiKeys} />
+              <CountCard label={t.auditEvents} value={data.counts.auditEvents} />
+            </div>
+          </Section>
+
+          {/* Users */}
+          <Section title={t.usersTitle} icon={<Users size={16} />}>
+            {data.users.length === 0 ? (
+              <div className="text-sm text-gray-500">{t.noUsers}</div>
+            ) : (
+              <ul className="divide-y divide-white/5 text-sm">
+                {data.users.map(u => (
+                  <li key={u.id} className="flex items-center gap-3 py-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-gray-400">
+                      {(u.name ?? u.email)[0].toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-gray-200">{u.name ?? u.email}</div>
+                      <div className="text-[10px] text-gray-500">{u.email}</div>
+                    </div>
+                    <span className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wider text-gray-400">
+                      {u.role}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          {/* Custom roles */}
+          <Section title={t.rolesTitle} icon={<ShieldCheck size={16} />}>
+            {data.customRoles.length === 0 ? (
+              <div className="text-sm text-gray-500">{t.noRoles}</div>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {data.customRoles.map(r => (
+                  <li key={r.id} className="rounded border border-white/5 bg-black/20 px-3 py-2">
+                    <div className="font-medium text-gray-200">{r.name}</div>
+                    {r.description && (
+                      <div className="mt-0.5 text-xs text-gray-500">{r.description}</div>
+                    )}
+                    <div className="mt-1 font-mono text-[10px] text-gray-600">
+                      {r.permissions.join(' · ')}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        </div>
+      )}
+    </>
+  );
+  if (embedded) return content;
   return (
     <div className="flex-1 overflow-y-auto bg-[#0f1218] text-gray-200">
       <div className="mx-auto max-w-6xl px-6 py-8">
@@ -127,94 +222,7 @@ export default function AdminPage({ lang }: AdminPageProps) {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-500">{t.subtitle}</p>
         </div>
-
-        {error && (
-          <div className="mb-4 rounded-md border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-300">
-            {t.loadError} · {error}
-          </div>
-        )}
-
-        {data === null ? (
-          <div className="text-sm text-gray-500">{t.loading}</div>
-        ) : (
-          <div className="space-y-6">
-            {/* Tenant card */}
-            <Section title={t.tenantTitle} icon={<Building2 size={16} />}>
-              {data.tenant ? (
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                  <Field label="Name" value={data.tenant.name} />
-                  <Field label={t.slug} value={data.tenant.slug} />
-                  <Field label={t.plan} value={data.tenant.plan} />
-                  <Field
-                    label={t.created}
-                    value={new Date(data.tenant.createdAt).toLocaleDateString()}
-                  />
-                  <Field label={t.sso} value={data.tenant.workosOrganizationId ?? t.notLinked} />
-                  <Field label={t.billing} value={data.tenant.stripeCustomerId ?? t.notLinked} />
-                </dl>
-              ) : null}
-            </Section>
-
-            {/* Counts */}
-            <Section title={t.countsTitle} icon={<KeyRound size={16} />}>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <CountCard label={t.runbooks} value={data.counts.runbooks} />
-                <CountCard label={t.runs} value={data.counts.runs} />
-                <CountCard label={t.schedules} value={data.counts.schedules} />
-                <CountCard label={t.agents} value={data.counts.agents} />
-                <CountCard label={t.monitors} value={data.counts.monitors} />
-                <CountCard label={t.webhooks} value={data.counts.webhooks} />
-                <CountCard label={t.apiKeys} value={data.counts.apiKeys} />
-                <CountCard label={t.auditEvents} value={data.counts.auditEvents} />
-              </div>
-            </Section>
-
-            {/* Users */}
-            <Section title={t.usersTitle} icon={<Users size={16} />}>
-              {data.users.length === 0 ? (
-                <div className="text-sm text-gray-500">{t.noUsers}</div>
-              ) : (
-                <ul className="divide-y divide-white/5 text-sm">
-                  {data.users.map(u => (
-                    <li key={u.id} className="flex items-center gap-3 py-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-gray-400">
-                        {(u.name ?? u.email)[0].toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-gray-200">{u.name ?? u.email}</div>
-                        <div className="text-[10px] text-gray-500">{u.email}</div>
-                      </div>
-                      <span className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wider text-gray-400">
-                        {u.role}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Section>
-
-            {/* Custom roles */}
-            <Section title={t.rolesTitle} icon={<ShieldCheck size={16} />}>
-              {data.customRoles.length === 0 ? (
-                <div className="text-sm text-gray-500">{t.noRoles}</div>
-              ) : (
-                <ul className="space-y-2 text-sm">
-                  {data.customRoles.map(r => (
-                    <li key={r.id} className="rounded border border-white/5 bg-black/20 px-3 py-2">
-                      <div className="font-medium text-gray-200">{r.name}</div>
-                      {r.description && (
-                        <div className="mt-0.5 text-xs text-gray-500">{r.description}</div>
-                      )}
-                      <div className="mt-1 font-mono text-[10px] text-gray-600">
-                        {r.permissions.join(' · ')}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Section>
-          </div>
-        )}
+        {content}
       </div>
     </div>
   );

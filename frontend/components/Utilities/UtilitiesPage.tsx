@@ -1,11 +1,9 @@
 'use client';
 
-import { Copy, Key, Link2, Plus, Trash2, Webhook as WebhookIcon, Wrench, X } from 'lucide-react';
+import { Copy, Key, Plus, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-type Tab = 'keys' | 'webhooks' | 'accounts';
 
 interface ApiKey {
   id: string;
@@ -25,14 +23,6 @@ interface Webhook {
   triggerCount: number;
   lastTriggeredAt: string | null;
   runbookId?: string;
-}
-
-interface ConnectedAccount {
-  id: string;
-  provider: string;
-  displayName: string | null;
-  scopes: string[];
-  createdAt: string;
 }
 
 interface Runbook {
@@ -106,77 +96,15 @@ interface UtilitiesPageProps {
   lang: 'en' | 'es';
 }
 
-export default function UtilitiesPage({ lang }: UtilitiesPageProps) {
-  const t = STRINGS[lang];
-  const [tab, setTab] = useState<Tab>('keys');
-
-  return (
-    <div className="flex-1 overflow-y-auto bg-[#0f1218] text-gray-200">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-6">
-          <h1 className="flex items-center gap-2 text-2xl font-semibold text-white">
-            <Wrench size={22} className="text-cyan-400" />
-            {t.title}
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">{t.subtitle}</p>
-        </div>
-
-        <div className="mb-5 flex border-b border-white/10">
-          <TabButton
-            active={tab === 'keys'}
-            onClick={() => setTab('keys')}
-            icon={<Key size={14} />}
-            label={t.tabKeys}
-          />
-          <TabButton
-            active={tab === 'webhooks'}
-            onClick={() => setTab('webhooks')}
-            icon={<WebhookIcon size={14} />}
-            label={t.tabWebhooks}
-          />
-          <TabButton
-            active={tab === 'accounts'}
-            onClick={() => setTab('accounts')}
-            icon={<Link2 size={14} />}
-            label={t.tabAccounts}
-          />
-        </div>
-
-        {tab === 'keys' && <KeysTab t={t} />}
-        {tab === 'webhooks' && <WebhooksTab t={t} />}
-        {tab === 'accounts' && <AccountsTab t={t} />}
-      </div>
-    </div>
-  );
+/** API keys, for the Integrations tab of Settings. */
+export function ApiKeysPanel({ lang }: UtilitiesPageProps) {
+  return <KeysTab t={STRINGS[lang]} />;
 }
 
-function TabButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2 text-sm transition-colors ${
-        active
-          ? 'border-primary text-white'
-          : 'border-transparent text-gray-500 hover:text-gray-300'
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
-  );
+/** Every webhook trigger in the workspace, for the Integrations tab of Settings. */
+export function WebhooksPanel({ lang }: UtilitiesPageProps) {
+  return <WebhooksTab t={STRINGS[lang]} />;
 }
-
-// ─── API Keys ──────────────────────────────────────────────
 
 function KeysTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
   const [keys, setKeys] = useState<ApiKey[] | null>(null);
@@ -395,44 +323,6 @@ function WebhooksTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
 }
 
 // ─── Connected Accounts ───────────────────────────────────
-
-function AccountsTab({ t }: { t: (typeof STRINGS)[keyof typeof STRINGS] }) {
-  const [accounts, setAccounts] = useState<ConnectedAccount[] | null>(null);
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/connected-accounts`, { credentials: 'include' })
-      .then(r => r.json())
-      .then(j => setAccounts(Array.isArray(j) ? j : (j.data ?? [])))
-      .catch(() => setAccounts([]));
-  }, []);
-
-  return (
-    <div>
-      {accounts === null ? (
-        <div className="text-sm text-gray-500">{t.loading}</div>
-      ) : accounts.length === 0 ? (
-        <EmptyBlock label={t.empty} />
-      ) : (
-        <div className="overflow-hidden rounded-md border border-white/10 bg-[#1a1f2a]">
-          {accounts.map(a => (
-            <div
-              key={a.id}
-              className="flex items-center gap-3 border-b border-white/5 px-4 py-3 last:border-0"
-            >
-              <Link2 size={14} className="text-gray-500" />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm text-white">{a.displayName ?? a.provider}</div>
-                <div className="text-[10px] text-gray-600">
-                  {a.provider} · {a.scopes?.join(' · ') ?? ''}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function EmptyBlock({ label }: { label: string }) {
   return (

@@ -51,7 +51,7 @@ interface Execution {
 
 const STRINGS = {
   en: {
-    title: 'Agents',
+    title: 'Event rules',
     subtitle:
       'Declarative listeners that turn webhook events into runbook triggers. Each agent watches one webhook source, evaluates a matcher, and fires a runbook on hit.',
     newAgent: 'New agent',
@@ -90,7 +90,7 @@ const STRINGS = {
     loadError: 'Failed to load agents.',
   },
   es: {
-    title: 'Agentes',
+    title: 'Reglas de eventos',
     subtitle:
       'Listeners declarativos que convierten eventos de webhooks en disparos de runbooks. Cada agente vigila una fuente, evalúa un matcher y dispara un runbook si coincide.',
     newAgent: 'Nuevo agente',
