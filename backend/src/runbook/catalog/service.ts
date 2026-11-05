@@ -407,7 +407,7 @@ export function service(def: ServiceDef): CatalogNode {
       displayName: 'Operation',
       type: 'options',
       default: ops[0].value,
-      options: ops.map(o => ({ name: o.label[0], value: o.value })),
+      options: ops.map(o => ({ name: o.label[0], es: o.label[1], value: o.value })),
     },
     ...authProperties(def.auth),
     ...(baseField ? [toProperty(baseField)] : []),

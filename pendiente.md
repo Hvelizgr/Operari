@@ -78,7 +78,9 @@ todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso
    SHA-256, 7 días), el paso HTTP guarda la respuesta como archivo (`output.file`) y manda un archivo
    como cuerpo binario (subidas a Drive/Dropbox/S3) o en multipart; descarga en `GET /api/files/:id`.
    El paso de email adjunta archivos de pasos anteriores (hasta 20 MB). La vista del run muestra un enlace de
-   descarga por cada archivo de la salida. **Falta:** archivos en el paso Code y en los pasos del catálogo.
+   descarga por cada archivo de la salida. El paso Code (2026-11-05) lee archivos elegidos en *Files*
+   (`read_file`/`readFile`, hasta 768 KB) y guarda los que escribe (`write_file`/`writeFile`, hasta 20 y
+   10 MB). **Falta:** archivos en los pasos del catálogo (hoy se suben con el paso HTTP).
 5. 🟡 **Triggers por aplicación** (n8n: 116; Operari: cron + webhook). ✅ (2026-11-04) Polling genérico:
    paso "Solo ítems nuevos" (`operari.newItems`) que recuerda entre corridas qué ítems ya dejó pasar;
    cron + cualquier listado del catálogo + este paso = trigger "nuevo X" para cualquier servicio (probado
@@ -91,9 +93,14 @@ todos los proveedores del catálogo. Catálogo en prod: 89 → 192 tipos de paso
 7. **Formularios:** ✅ (2026-11-04) editor JSON con validación (campos `json` y "Additional fields"),
    fecha/hora con selector que escribe ISO (todo campo `(ISO)` del catálogo), headers del paso HTTP como
    filas clave/valor, botón "Probar credencial", selector de credenciales filtrado por proveedor en los
-   pasos viejos. **Falta:** etiquetas de campo bilingües (hoy los campos del catálogo solo tienen
-   etiqueta en inglés) y multi-selección (ningún campo la necesita todavía).
-8. ✅ **Nodo Code** (2026-11-04): `operari.code`, Python 3.12 o Node 20 en el sandbox; código y entrada viajan en base64 por env (nunca en la línea de shell), resultado tras un marcador por run, red apagada salvo que se pida (con la política como techo). Probado con Docker real.
+   pasos viejos. (2026-11-05) Etiquetas de campo en español: glosario en
+   `frontend/lib/field-labels.ts` (traducción exacta + "X id" → "ID de X"; 641 de 688 etiquetas, el
+   resto son términos técnicos que no cambian) y el menú *Operación* muestra el nombre en español que ya
+   tenía el catálogo. **Falta:** multi-selección (ningún campo la necesita todavía) y descripciones de
+   campo en español.
+8. ✅ **Nodo Code** (2026-11-04): `operari.code`, Python 3.12 o Node 20 en el sandbox; código y entrada viajan en base64 por env (nunca en la línea de shell), resultado tras un marcador por run, red apagada salvo que se pida (con la política como techo). Probado con Docker real. (2026-11-05) Los
+   valores se parten en variables de ≤60 000 caracteres: antes, una entrada de más de ~48 KB fallaba en el
+   sandbox, que limita cada variable a 64 000.
 9. **Validar contra las APIs reales.** Los tests cubren la construcción de cada request con `fetch`
    simulado, no respuestas reales: probar cada servicio con una cuenta real a medida que se use.
 

@@ -31,7 +31,8 @@ export interface CatalogProperty {
   default?: unknown;
   description?: string;
   required?: boolean;
-  options?: Array<{ name: string; value: string }>;
+  /** `es`: the Spanish name, when it differs. */
+  options?: Array<{ name: string; value: string; es?: string }>;
   /** `provider` narrows a secret picker to credentials of that kind (`ai` matches `ai.*`). */
   typeOptions?: {
     rows?: number;

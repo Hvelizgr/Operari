@@ -2,6 +2,7 @@ import { Connection, WorkflowNode } from '@operari/shared';
 import { ChevronDown, Database, HelpCircle } from 'lucide-react';
 import React, { lazy, Suspense, useState } from 'react';
 
+import { fieldLabel, optionLabel } from '../../lib/field-labels';
 import ExpressionBuilder from './ExpressionBuilder';
 import { DateTimeField, JsonField, KeyValueField } from './FormFields';
 import OptionLoader from './OptionLoader';
@@ -27,7 +28,8 @@ export interface Property {
     | 'keyValue';
   default?: unknown;
   description?: string;
-  options?: { name: string; value: string }[];
+  /** `es`: the Spanish name, when the definition has one. */
+  options?: { name: string; value: string; es?: string }[];
   typeOptions?: {
     rows?: number;
     expression?: boolean;
@@ -91,7 +93,9 @@ export default function DynamicNodeForm({
   if (!properties || properties.length === 0) {
     return (
       <div className="p-4 text-xs italic text-[var(--descriptor-color)]">
-        No configurable properties for this node.
+        {lang === 'es'
+          ? 'Este paso no tiene propiedades configurables.'
+          : 'No configurable properties for this node.'}
       </div>
     );
   }
@@ -113,7 +117,7 @@ export default function DynamicNodeForm({
           <div key={prop.name} className="group">
             <div className="mb-1 flex items-center gap-2">
               <label className={labelClass}>
-                {prop.displayName}
+                {fieldLabel(prop.displayName, lang)}
                 {prop.required && (
                   <span className="ml-0.5 text-red-400" aria-hidden="true">
                     *
@@ -143,7 +147,11 @@ export default function DynamicNodeForm({
                   {prop.typeOptions.expression && (
                     <div
                       className="absolute right-2 top-2 cursor-pointer rounded p-1 text-[var(--icon-color)] opacity-50 transition-all hover:bg-white/10 hover:opacity-100"
-                      title="Open Expression Builder"
+                      title={
+                        lang === 'es'
+                          ? 'Abrir el constructor de expresiones'
+                          : 'Open Expression Builder'
+                      }
                       onClick={() => handleOpenBuilder(prop.name)}
                     >
                       <Database size={14} />
@@ -161,7 +169,11 @@ export default function DynamicNodeForm({
                   {prop.typeOptions?.expression && (
                     <div
                       className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded p-1 text-[var(--icon-color)] opacity-50 transition-all hover:bg-white/10 hover:opacity-100"
-                      title="Open Expression Builder"
+                      title={
+                        lang === 'es'
+                          ? 'Abrir el constructor de expresiones'
+                          : 'Open Expression Builder'
+                      }
                       onClick={() => handleOpenBuilder(prop.name)}
                     >
                       <Database size={14} />
@@ -189,7 +201,7 @@ export default function DynamicNodeForm({
                 value={stringValue}
                 onChange={next => onChange(prop.name, next)}
                 provider={prop.typeOptions?.provider}
-                label={prop.displayName}
+                label={fieldLabel(prop.displayName, lang)}
               />
             )}
 
@@ -272,7 +284,7 @@ export default function DynamicNodeForm({
                       value={opt.value}
                       className="bg-[var(--box-background-color)] text-[var(--body-text-color)]"
                     >
-                      {opt.name}
+                      {optionLabel(opt, lang)}
                     </option>
                   ))}
                 </select>
@@ -300,7 +312,13 @@ export default function DynamicNodeForm({
                   ></div>
                 </div>
                 <span className="select-none text-xs text-[var(--body-text-color)]">
-                  {booleanValue ? 'Active' : 'Inactive'}
+                  {booleanValue
+                    ? lang === 'es'
+                      ? 'Activo'
+                      : 'Active'
+                    : lang === 'es'
+                      ? 'Inactivo'
+                      : 'Inactive'}
                 </span>
               </label>
             )}
