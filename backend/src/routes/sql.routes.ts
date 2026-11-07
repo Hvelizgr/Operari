@@ -4,7 +4,7 @@ import { Client as PgClient } from 'pg';
 import { AuditService } from '../audit/audit.service';
 import { env } from '../config/env.config';
 import { logger } from '../config/logger.config';
-import { AuthRequest,requireSession } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { SecretCipher } from '../security/secret-cipher';
 import { SecretReader } from '../security/secret-reader';
 import { blockedTarget } from '../security/ssrf-guard';

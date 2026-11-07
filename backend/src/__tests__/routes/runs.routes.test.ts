@@ -398,3 +398,26 @@ describe('without a session', () => {
     await request(app).get('/some-run').expect(401);
   });
 });
+
+describe('GET /:id/timeline.md', () => {
+  const app = () => {
+    const a = express();
+    a.use((req, _res, next) => {
+      (req as unknown as { user: unknown }).user = { id: 'u1', tenantId: 't1', role: 'USER' };
+      next();
+    });
+    a.use(runsRouter);
+    return a;
+  };
+
+  it('does not reveal a run from another tenant', async () => {
+    m.execution.findFirst.mockResolvedValueOnce(null);
+    await request(app()).get('/other/timeline.md').expect(404);
+    expect(m.execution.findFirst.mock.calls.at(-1)?.[0].where.runbook).toEqual({ tenantId: 't1' });
+  });
+
+  it('answers 500 instead of leaving the request hanging', async () => {
+    m.execution.findFirst.mockRejectedValueOnce(new Error('db down'));
+    await request(app()).get('/r1/timeline.md').expect(500);
+  });
+});

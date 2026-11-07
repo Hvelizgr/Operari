@@ -3,7 +3,7 @@ import { Router } from 'express';
 
 import { AuditService } from '../audit/audit.service';
 import { ExecutionService } from '../editor/execution/execution.service';
-import { AuthRequest,requireSession } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { ExecutionEventStore } from '../runbook/engine/execution-event.store';
 import { parseInputDefs } from '../runbook/inputs/parse-input-defs';
 import { validateRunInputs } from '../runbook/inputs/validate-run-inputs';

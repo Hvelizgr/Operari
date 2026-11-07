@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { env } from '../config/env.config';
 import { logger } from '../config/logger.config';
-import { AuthRequest,requireSession } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { HttpExecutor } from '../runbook/executors/http.executor';
 import {
   SecretReferenceError,

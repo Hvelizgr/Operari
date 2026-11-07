@@ -33,8 +33,12 @@ integraciones raras, llamar a un workflow de n8n o a un webhook.
    definidos, las API keys no pueden resolver (no tienen email). **Falta:** `RESEND_API_KEY` en prod (sin
    eso los emails solo quedan en el log); probar con Slack y Telegram reales; aprobar sin salir de Slack
    (requiere una app de Slack y mapear usuarios).
-3. **Línea de tiempo del incidente.** Exportar en Markdown desde la cadena de auditoría: alerta, pasos,
-   salidas, quién aprobó qué y cuándo; base del postmortem.
+3. 🟡 **Línea de tiempo del incidente** (2026-11-07, sin desplegar). Botón *Exportar línea de tiempo* en la
+   vista del run (`GET /api/runs/:id/timeline.md`, en inglés o español): alerta, pasos, quién aprobó qué y
+   cuándo, comandos privilegiados, salidas y los hashes de la auditoría, más encabezados vacíos de
+   postmortem. Cada exportación queda auditada. Oculta secretos por forma y nombre de campo, no por valor:
+   puede escaparse uno sin formato conocido, y el documento avisa que hay que revisarlo. **Falta:** exportar
+   por API key/CLI; agrupar varias corridas de una misma alerta en un solo incidente.
 4. **Puente a n8n / webhooks:** paso que llama un workflow de n8n (o cualquier URL) y espera su respuesta.
 5. **Plantillas de incidentes comunes:** disco lleno, reiniciar servicio, rollback de deploy, certificado
    por vencer, cola atascada.

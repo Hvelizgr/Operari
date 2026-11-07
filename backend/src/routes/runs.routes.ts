@@ -1,6 +1,8 @@
 import { Response, Router } from 'express';
 
-import { AuthRequest,requireSession } from '../middleware/auth.middleware';
+import { AuditService } from '../audit/audit.service';
+import { loadIncidentTimeline, renderIncidentTimeline } from '../audit/incident-timeline';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { sseConcurrencyGuard, sseStreamRateLimiter } from '../middleware/ratelimit.middleware';
 import { getEventStream } from '../observability/event-stream.service';
 import { prisma } from '../server';
@@ -286,6 +288,44 @@ router.get(
     res.end();
   }
 );
+
+/**
+ * GET /api/runs/:id/timeline.md — incident timeline as a Markdown download.
+ */
+router.get('/:id/timeline.md', async (req: AuthRequest, res: Response) => {
+  const tenantId = req.user!.tenantId;
+  const runId = String(req.params.id);
+  const lang = req.query.lang === 'es' ? 'es' : 'en';
+
+  let data: Awaited<ReturnType<typeof loadIncidentTimeline>>;
+  try {
+    data = await loadIncidentTimeline(prisma, tenantId, runId);
+  } catch {
+    return res.status(500).json({ error: 'Could not build the timeline' });
+  }
+  if (!data) {
+    return res.status(404).json({ error: 'Run not found', code: 'run_not_found' });
+  }
+
+  await new AuditService(prisma)
+    .record({
+      tenantId,
+      type: 'audit.exported',
+      actorId: req.user!.id,
+      actorType: 'user',
+      resource: runId,
+      payload: { kind: 'incident-timeline', runId },
+    })
+    .catch(() => undefined);
+
+  const slug = (data.run.runbook.slug ?? 'run').replace(/[^a-zA-Z0-9_-]/g, '-');
+  res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="incident-${slug}-${runId.slice(0, 8)}.md"`
+  );
+  res.send(renderIncidentTimeline(data, lang));
+});
 
 /**
  * GET /api/runs/:id — run detail with step logs.

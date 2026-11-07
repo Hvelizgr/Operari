@@ -12,7 +12,7 @@ import {
   toolHash,
   withMcpClient,
 } from '../integrations/mcp/mcp-client';
-import { AuthRequest,requireSession } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { ConnectedAccountService } from '../security/connected-account.service';
 import { SecretCipher } from '../security/secret-cipher';
 import { SecretReader } from '../security/secret-reader';

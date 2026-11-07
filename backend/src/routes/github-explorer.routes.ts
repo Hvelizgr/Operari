@@ -1,6 +1,6 @@
 import { Response, Router } from 'express';
 
-import { AuthRequest,requireSession } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { GitHubBranchService } from '../runbook/services/github-branches.service';
 import { prisma } from '../server';
 

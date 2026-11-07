@@ -98,6 +98,7 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     notFound: 'Run not found.',
     runbook: 'Runbook',
     trigger: 'Trigger',
+    exportTimeline: 'Export timeline',
     alert: 'Alert',
     alertFiring: 'Alert firing',
     alertResolved: 'Alert resolved',
@@ -119,6 +120,7 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     notFound: 'Ejecución no encontrada.',
     runbook: 'Runbook',
     trigger: 'Disparador',
+    exportTimeline: 'Exportar línea de tiempo',
     alert: 'Alerta',
     alertFiring: 'Alerta activa',
     alertResolved: 'Alerta resuelta',
@@ -166,6 +168,23 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
   const [replayingId, setReplayingId] = useState<string | null>(null);
   const [replayInfo, setReplayInfo] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const exportTimeline = async () => {
+    try {
+      const res = await fetch(`${apiBase}/api/runs/${runId}/timeline.md?lang=${lang}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const url = URL.createObjectURL(await res.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `incident-${runId.slice(0, 8)}.md`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
 
   const copyRunId = async () => {
     if (!run) return;
@@ -337,6 +356,13 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
               Dry run
             </span>
           )}
+          <button
+            onClick={exportTimeline}
+            className="inline-flex items-center gap-1.5 rounded text-xs text-zinc-400 hover:text-zinc-200"
+          >
+            <Download size={12} className="shrink-0" />
+            {t.exportTimeline}
+          </button>
           <button
             onClick={copyRunId}
             className="group inline-flex min-w-0 items-center gap-1.5 rounded font-mono text-xs text-zinc-500 hover:text-zinc-300"
