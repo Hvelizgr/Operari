@@ -79,6 +79,7 @@ const buildPrisma = (
         }
       ),
     },
+    nodeLog: { updateMany: jest.fn(async () => ({ count: 1 })) },
     $transaction: jest.fn(async (fn: (tx: PrismaClient) => Promise<unknown>) =>
       fn(prisma as unknown as PrismaClient)
     ),

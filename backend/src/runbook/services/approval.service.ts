@@ -173,6 +173,10 @@ export class ApprovalService {
           },
         });
         executionCancelled = cancelled.count > 0;
+        await tx.nodeLog.updateMany({
+          where: { executionId: fresh.executionId, nodeId: fresh.stepId, status: 'RUNNING' },
+          data: { status: 'FAILED', completedAt: new Date(), error: 'Approval rejected' },
+        });
       }
 
       return { fresh, executionCancelled };
@@ -247,6 +251,10 @@ export class ApprovalService {
       await tx.execution.updateMany({
         where: { id: approval.executionId, status: 'PAUSED' },
         data: { status: 'CANCELLED', completedAt: new Date(), error: 'Approval timed out' },
+      });
+      await tx.nodeLog.updateMany({
+        where: { executionId: approval.executionId, nodeId: approval.stepId, status: 'RUNNING' },
+        data: { status: 'FAILED', completedAt: new Date(), error: 'Approval timed out' },
       });
       return true;
     });

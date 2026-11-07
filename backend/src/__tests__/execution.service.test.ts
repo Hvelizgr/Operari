@@ -51,6 +51,7 @@ const mockPrisma = {
   nodeLog: {
     create: jest.fn(),
     update: jest.fn(),
+    findFirst: jest.fn(),
   },
   executionError: {
     findFirst: jest.fn(),

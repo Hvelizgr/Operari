@@ -814,6 +814,35 @@ export class ExecutionService {
     const lastExecutedNodeId = Array.from(initialState.executedNodes).pop();
     if (lastExecutedNodeId && initialState.nodeOutputs[lastExecutedNodeId]) {
       Object.assign(initialState.nodeOutputs[lastExecutedNodeId], input);
+      const pausedStep = await this.prisma.nodeLog.findFirst({
+        where: { executionId, nodeId: lastExecutedNodeId, status: 'RUNNING' },
+      });
+      if (pausedStep) {
+        const completedAt = new Date();
+        const output = initialState.nodeOutputs[lastExecutedNodeId];
+        const durationMs = completedAt.getTime() - pausedStep.startedAt.getTime();
+        await this.prisma.nodeLog.update({
+          where: { id: pausedStep.id },
+          data: {
+            status: 'SUCCESS',
+            output: output as unknown as Prisma.InputJsonValue,
+            completedAt,
+            duration: durationMs,
+          },
+        });
+        // Without a terminal event the resume worker would treat this step as
+        // interrupted if the backend died later in the run.
+        await this.safeAppendEvent(executionId, tenantId, {
+          type: 'step.completed',
+          nodeId: lastExecutedNodeId,
+          payload: {
+            nodeName: pausedStep.nodeName,
+            nodeType: pausedStep.nodeType,
+            durationMs,
+            output,
+          },
+        });
+      }
     }
 
     this.runWorkflow(
@@ -1177,6 +1206,24 @@ export class ExecutionService {
 
           // Handle suspend signal
           if ((output as SuspendResult).isSuspended) {
+            // Resume starts from this state, so the step has to count as done
+            // here: otherwise its children are never queued and the run ends.
+            const { isSuspended: _isSuspended, ...pausedOutput } = output as SuspendResult;
+            nodeOutputs[currentNode.id] = pausedOutput;
+            executedNodes.add(currentNode.id);
+            nodesToExecute.push(
+              ...this.readyChildrenOfFiltered(
+                followedConnections(currentNode, pausedOutput, connections),
+                nodes,
+                connections,
+                executedNodes
+              )
+            );
+            await this.prisma.nodeLog.update({
+              where: { id: nodeLog.id },
+              data: { output: pausedOutput as unknown as Prisma.InputJsonValue },
+            });
+
             await this.prisma.execution.update({
               where: { id: executionId },
               data: {

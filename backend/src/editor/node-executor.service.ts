@@ -251,7 +251,10 @@ export class NodeExecutor {
     // NodeExecutionResult is a generic shape; the executor output
     // (typed by the editor side, uniform on the runbook side) is
     // handed back to the engine unchanged.
-    return (result.output ?? { success: true }) as unknown as NodeExecutionResult;
+    const output = result.output ?? { success: true };
+    return (result.paused
+      ? { ...(output as object), isSuspended: true }
+      : output) as unknown as NodeExecutionResult;
   }
 
   private resolveTemplate(template: string, context: ExecutionInput): string {

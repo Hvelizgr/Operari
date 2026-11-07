@@ -1,8 +1,8 @@
 import type { PrismaClient } from '@prisma/client';
 
 import { ApprovalService, ApprovalServiceError } from '../../../runbook/services/approval.service';
-import { ApprovalSweeper, sealTargets } from '../../../runbook/services/approval-sweeper';
 import type { ApprovalNotifier } from '../../../runbook/services/approval-notifier';
+import { ApprovalSweeper, sealTargets } from '../../../runbook/services/approval-sweeper';
 
 const NOW = new Date('2026-11-07T12:00:00Z');
 const row = {
@@ -115,6 +115,7 @@ describe('ApprovalService deadlines and approvers', () => {
         findUniqueOrThrow: jest.fn().mockResolvedValue({ ...row, status: 'APPROVED' }),
       },
       execution: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      nodeLog: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     const prisma = {
       approval: { findUnique: jest.fn().mockResolvedValue(row) },
