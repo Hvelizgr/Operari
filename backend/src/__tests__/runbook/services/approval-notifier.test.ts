@@ -1,7 +1,7 @@
 jest.mock('../../../services/email.service', () => ({ sendEmail: jest.fn() }));
 jest.mock('../../../security/ssrf-guard', () => ({ blockedTarget: jest.fn() }));
 
-import { ApprovalNotifier,approvalUrl } from '../../../runbook/services/approval-notifier';
+import { ApprovalNotifier, approvalUrl } from '../../../runbook/services/approval-notifier';
 import { blockedTarget } from '../../../security/ssrf-guard';
 import { sendEmail } from '../../../services/email.service';
 
