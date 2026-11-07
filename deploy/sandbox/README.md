@@ -66,13 +66,13 @@ run the acceptance tests under runsc before turning it on:
 
 ## Environment (sandbox-runner)
 
-| Variable | Default | |
-|---|---|---|
-| `OPERARI_SANDBOX_TOKEN` | — | required, ≥ 32 chars, same value in the backend |
-| `OPERARI_SANDBOX_LISTEN` | `0.0.0.0:4100` | or a unix socket path |
-| `OPERARI_SANDBOX_IMAGES` | `alpine:3.20` | comma list; first one is the default for steps |
-| `OPERARI_SANDBOX_TERMINAL_IMAGE` | first image | |
-| `OPERARI_SANDBOX_NETWORK` | `operari-sandbox` | `bridge`/`host`/`container:*` are refused |
-| `OPERARI_SANDBOX_RUNTIME` | — | e.g. `runsc` |
-| `OPERARI_SANDBOX_MAX_TERMINALS` / `_MAX_RUNS` | 20 / 20 | global caps |
-| `DOCKER_HOST` | — | the rootless daemon's socket |
+| Variable                                      | Default           |                                                 |
+| --------------------------------------------- | ----------------- | ----------------------------------------------- |
+| `OPERARI_SANDBOX_TOKEN`                       | —                 | required, ≥ 32 chars, same value in the backend |
+| `OPERARI_SANDBOX_LISTEN`                      | `0.0.0.0:4100`    | or a unix socket path                           |
+| `OPERARI_SANDBOX_IMAGES`                      | `alpine:3.20`     | comma list; first one is the default for steps  |
+| `OPERARI_SANDBOX_TERMINAL_IMAGE`              | first image       |                                                 |
+| `OPERARI_SANDBOX_NETWORK`                     | `operari-sandbox` | `bridge`/`host`/`container:*` are refused       |
+| `OPERARI_SANDBOX_RUNTIME`                     | —                 | e.g. `runsc`                                    |
+| `OPERARI_SANDBOX_MAX_TERMINALS` / `_MAX_RUNS` | 20 / 20           | global caps                                     |
+| `DOCKER_HOST`                                 | —                 | the rootless daemon's socket                    |

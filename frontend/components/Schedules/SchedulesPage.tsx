@@ -184,7 +184,9 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
     try {
       const [list, upc] = await Promise.all([
         fetch(`${API_BASE}/api/schedules`, { credentials: 'include' }).then(r => r.json()),
-        fetch(`${API_BASE}/api/schedules/upcoming?hours=24`, { credentials: 'include' }).then(r => r.json()),
+        fetch(`${API_BASE}/api/schedules/upcoming?hours=24`, { credentials: 'include' }).then(r =>
+          r.json()
+        ),
       ]);
       setSchedules(list.data);
       setUpcoming(upc.data);
@@ -242,7 +244,10 @@ export default function SchedulesPage({ lang }: SchedulesPageProps) {
   };
 
   const handleRunNow = async (s: Schedule) => {
-    const res = await fetch(`${API_BASE}/api/schedules/${s.id}/run`, { method: 'POST', credentials: 'include' });
+    const res = await fetch(`${API_BASE}/api/schedules/${s.id}/run`, {
+      method: 'POST',
+      credentials: 'include',
+    });
     if (res.ok) {
       setToast(t.runTriggered);
       load();

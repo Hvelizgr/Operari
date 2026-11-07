@@ -62,7 +62,6 @@ export default async function Page({ params }: { params: Promise<{ lang: string 
         <RunbookAsCode />
       </div>
 
-
       <div id="safety">
         <SafetyRails content={content.safety} />
       </div>

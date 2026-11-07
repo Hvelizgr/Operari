@@ -1,11 +1,7 @@
 import EditorSidebar from '@/components/Editor/EditorSidebar';
 import ProjectDetailPage from '@/components/Projects/ProjectDetailPage';
 
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ lang: string; id: string }>;
-}) {
+export default async function Page({ params }: { params: Promise<{ lang: string; id: string }> }) {
   const { lang, id } = await params;
   const typedLang = lang as 'en' | 'es';
   return (

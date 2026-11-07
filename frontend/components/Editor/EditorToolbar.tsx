@@ -99,7 +99,12 @@ export default function EditorToolbar({
             onClick={onDelete}
             role="button"
             tabIndex={0}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDelete?.(); } }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onDelete?.();
+              }
+            }}
             title={lang === 'en' ? 'Delete (Del)' : 'Eliminar (Del)'}
           >
             <Trash2 size={16} style={{ transform: 'scale(1.2)' }} />
@@ -110,7 +115,12 @@ export default function EditorToolbar({
             onClick={onDuplicate}
             role="button"
             tabIndex={0}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDuplicate?.(); } }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onDuplicate?.();
+              }
+            }}
             title={lang === 'en' ? 'Duplicate (Ctrl+D)' : 'Duplicar (Ctrl+D)'}
           >
             <Copy size={16} style={{ transform: 'scale(1.2)' }} />
@@ -121,7 +131,12 @@ export default function EditorToolbar({
             onClick={onToggleEnable}
             role="button"
             tabIndex={0}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleEnable?.(); } }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onToggleEnable?.();
+              }
+            }}
             title={lang === 'en' ? 'Toggle Enable' : 'Activar/Desactivar'}
           >
             <Power size={16} style={{ transform: 'scale(1.2)' }} />
@@ -132,7 +147,12 @@ export default function EditorToolbar({
             onClick={onDetach}
             role="button"
             tabIndex={0}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDetach?.(); } }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onDetach?.();
+              }
+            }}
             title={lang === 'en' ? 'Detach' : 'Desconectar'}
           >
             <Unlink size={16} style={{ transform: 'scale(1.2)' }} />
@@ -148,7 +168,12 @@ export default function EditorToolbar({
         onClick={redo}
         role="button"
         tabIndex={0}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); redo(); } }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            redo();
+          }
+        }}
         title={redoTitle}
       >
         <Redo2 size={16} style={{ transform: 'scale(1.2)' }} />
@@ -159,7 +184,12 @@ export default function EditorToolbar({
         onClick={undo}
         role="button"
         tabIndex={0}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); undo(); } }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            undo();
+          }
+        }}
         title={undoTitle}
       >
         <Undo2 size={16} style={{ transform: 'scale(1.2)' }} />
@@ -173,7 +203,12 @@ export default function EditorToolbar({
         onClick={() => setEditorMode('move')}
         role="button"
         tabIndex={0}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditorMode('move'); } }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setEditorMode('move');
+          }
+        }}
         title={lang === 'en' ? 'Move Tool (M)' : 'Mover (M)'}
       >
         <Move size={16} style={{ marginRight: '4px', transform: 'scale(1.2)' }} />
@@ -185,7 +220,12 @@ export default function EditorToolbar({
         onClick={() => setEditorMode('connect')}
         role="button"
         tabIndex={0}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditorMode('connect'); } }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setEditorMode('connect');
+          }
+        }}
         title={lang === 'en' ? 'Draw Tool (D)' : 'Dibujar (D)'}
       >
         <MousePointer2 size={16} style={{ marginRight: '4px', transform: 'scale(1.2)' }} />
@@ -200,7 +240,12 @@ export default function EditorToolbar({
         onClick={onOpenShortcuts}
         role="button"
         tabIndex={0}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenShortcuts(); } }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpenShortcuts();
+          }
+        }}
         title={lang === 'en' ? 'Shortcuts (?)' : 'Atajos (?)'}
       >
         <Keyboard size={16} style={{ transform: 'scale(1.2)' }} />
@@ -211,7 +256,12 @@ export default function EditorToolbar({
         onClick={onOpenHistory}
         role="button"
         tabIndex={0}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenHistory(); } }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpenHistory();
+          }
+        }}
         title={lang === 'en' ? 'History' : 'Historial'}
       >
         <HistoryIcon size={16} style={{ transform: 'scale(1.2)' }} />

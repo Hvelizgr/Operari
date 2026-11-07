@@ -93,7 +93,10 @@ export class ApprovalNotifier {
         { type: 'header', text: { type: 'plain_text', text: heading } },
         {
           type: 'section',
-          text: { type: 'plain_text', text: `${notice.runbookName}\n${notice.message}`.slice(0, 2900) },
+          text: {
+            type: 'plain_text',
+            text: `${notice.runbookName}\n${notice.message}`.slice(0, 2900),
+          },
         },
         {
           type: 'actions',

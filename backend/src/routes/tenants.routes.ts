@@ -2,7 +2,7 @@ import type { Role } from '@prisma/client';
 import { type Response, Router } from 'express';
 import { z } from 'zod';
 
-import { type AuditEventType,AuditService } from '../audit/audit.service';
+import { type AuditEventType, AuditService } from '../audit/audit.service';
 import { type AuditExportRow, buildDeletedActorSet, redactRow } from '../audit/audit-redaction';
 import { authenticate, type AuthRequest } from '../middleware/auth.middleware';
 import { normalizePolicy, policyUpdateSchema, tenantPolicyStore } from '../policy/tenant-policy';

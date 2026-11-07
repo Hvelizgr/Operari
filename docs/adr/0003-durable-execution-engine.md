@@ -196,4 +196,3 @@ Components:
   and finished SUCCESS.
 - Production: `OPERARI_RESUME_WORKER_ACT=true`, `OPERARI_RESUME_WORKER_REPLAY=true` in
   `docker-compose.server.yml`.
-

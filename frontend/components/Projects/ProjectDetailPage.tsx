@@ -1,16 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  ArrowLeft,
-  FolderKanban,
-  Plus,
-  Share2,
-  Terminal,
-  Trash2,
-  Users,
-  X,
-} from 'lucide-react';
+import { ArrowLeft, FolderKanban, Plus, Share2, Terminal, Trash2, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -219,8 +210,12 @@ export default function ProjectDetailPage({ lang, projectId }: ProjectDetailPage
             </p>
           )}
           <div className="mt-4 flex flex-wrap items-center gap-6 text-xs font-bold text-[var(--text-muted)]">
-            <span>{t.createdAt}: {new Date(project.createdAt).toLocaleDateString(lang)}</span>
-            <span>{t.updatedAt}: {new Date(project.updatedAt).toLocaleDateString(lang)}</span>
+            <span>
+              {t.createdAt}: {new Date(project.createdAt).toLocaleDateString(lang)}
+            </span>
+            <span>
+              {t.updatedAt}: {new Date(project.updatedAt).toLocaleDateString(lang)}
+            </span>
           </div>
         </div>
 
@@ -251,7 +246,7 @@ export default function ProjectDetailPage({ lang, projectId }: ProjectDetailPage
             </button>
           </div>
 
-          {(!project.members || project.members.length === 0) ? (
+          {!project.members || project.members.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[var(--panel-border)] bg-[rgba(255,255,255,0.02)] p-8 text-center text-sm font-medium text-[var(--text-muted)]">
               {t.noMembers}
             </div>
@@ -286,7 +281,9 @@ export default function ProjectDetailPage({ lang, projectId }: ProjectDetailPage
                         }}
                       >
                         {ROLES.map(r => (
-                          <option key={r} value={r}>{r}</option>
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -313,7 +310,7 @@ export default function ProjectDetailPage({ lang, projectId }: ProjectDetailPage
             {t.runbooks}
           </h2>
 
-          {(!project.runbooks || project.runbooks.length === 0) ? (
+          {!project.runbooks || project.runbooks.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[var(--panel-border)] bg-[rgba(255,255,255,0.02)] p-8 text-center text-sm font-medium text-[var(--text-muted)]">
               {t.noRunbooks}
             </div>
@@ -475,7 +472,9 @@ function AddMemberModal({
               }}
             >
               {ROLES.map(r => (
-                <option key={r} value={r}>{r}</option>
+                <option key={r} value={r}>
+                  {r}
+                </option>
               ))}
             </select>
           </div>

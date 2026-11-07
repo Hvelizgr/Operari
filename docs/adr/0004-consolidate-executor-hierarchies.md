@@ -165,7 +165,7 @@ Done (2026-11-04), after ADR 0003 phase 4.
 - `EditorNodeExecutor`, `editor/nodes/`, `editor/logic/` and `EditorExecutorAdapter` are gone.
   The 19 steps live in `runbook/executors/core/` and extend `FlatInputStep`, a `StepExecutor`
   whose `execute(config, context)` does what the adapter did; their logic stays in `run(config,
-  input, errorContext, tenantId, executionId)`, so behaviour is unchanged (flat input, thrown
+input, errorContext, tenantId, executionId)`, so behaviour is unchanged (flat input, thrown
   `NodeExecutionError` codes, Suspend → `paused`).
 - One registry: `createExecutorRegistry` registers native steps, catalog steps, then the core
   steps (a type already taken keeps its executor, so `operari.httpRequest` stays HttpExecutor),

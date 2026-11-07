@@ -111,18 +111,18 @@ it; the editor falls back to the JSON textarea).
 Converts a `z.object({...})` schema into a `PluginStepProperty[]` the editor
 can render. Supports:
 
-| zod                                | property                              |
-| ---------------------------------- | ------------------------------------- |
-| `z.string()`                       | `string`                              |
-| `z.number()`                       | `number`                              |
-| `z.boolean()`                      | `boolean`                             |
-| `z.enum([...])`                    | `options` with one choice per value   |
-| `z.literal('foo')` (string)        | `options` with a single choice        |
-| `z.nativeEnum(StringEnum)`         | `options`                             |
-| `.optional()` / `.nullable()`      | unwrapped + carried description       |
-| `.default(value)`                  | unwrapped + populated `default`       |
-| `.refine(...)` / `.transform(...)` | unwrapped to the underlying primitive |
-| `.describe('...')`                 | populated `description`               |
+| zod                                                         | property                                                              |
+| ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| `z.string()`                                                | `string`                                                              |
+| `z.number()`                                                | `number`                                                              |
+| `z.boolean()`                                               | `boolean`                                                             |
+| `z.enum([...])`                                             | `options` with one choice per value                                   |
+| `z.literal('foo')` (string)                                 | `options` with a single choice                                        |
+| `z.nativeEnum(StringEnum)`                                  | `options`                                                             |
+| `.optional()` / `.nullable()`                               | unwrapped + carried description                                       |
+| `.default(value)`                                           | unwrapped + populated `default`                                       |
+| `.refine(...)` / `.transform(...)`                          | unwrapped to the underlying primitive                                 |
+| `.describe('...')`                                          | populated `description`                                               |
 | `z.array` / `z.object` / `z.record` / `z.tuple` / `z.union` | JSON box (`typeOptions.json`); the loader parses it before validation |
 
 A field that is not `.optional()`, `.nullable()` or `.default(...)` is marked

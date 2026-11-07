@@ -1,7 +1,7 @@
 'use client';
 
 import anime from 'animejs';
-import { AnimatePresence,motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
   ChevronDown,
@@ -260,7 +260,10 @@ export default function RunbooksPage({ lang }: RunbooksPageProps) {
   };
 
   const handleDuplicate = async (rb: Runbook) => {
-    await fetch(`${API_BASE}/api/runbooks/${rb.id}/duplicate`, { method: 'POST', credentials: 'include' });
+    await fetch(`${API_BASE}/api/runbooks/${rb.id}/duplicate`, {
+      method: 'POST',
+      credentials: 'include',
+    });
     load();
   };
 

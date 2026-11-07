@@ -600,6 +600,48 @@ describe('Auth Routes', () => {
     });
   });
 
+  describe('POST /auth/dev-login', () => {
+    const devUser = {
+      id: 'dev-1',
+      email: 'dev@operari.local',
+      name: 'Dev User',
+      role: 'ADMIN',
+      tenantId: 'tenant-dev',
+      tenant: { id: 'tenant-dev', name: 'Dev workspace', plan: 'FREE' },
+    };
+
+    afterEach(() => {
+      delete process.env.OPERARI_DEV_LOGIN_ENABLED;
+    });
+
+    it('does not exist unless explicitly enabled', async () => {
+      await request(app).post('/auth/dev-login').expect(404);
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('stays closed for any value other than "true"', async () => {
+      process.env.OPERARI_DEV_LOGIN_ENABLED = '1';
+      await request(app).post('/auth/dev-login').expect(404);
+    });
+
+    it('signs in the existing dev user when enabled', async () => {
+      process.env.OPERARI_DEV_LOGIN_ENABLED = 'true';
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(devUser);
+
+      const res = await request(app).post('/auth/dev-login').expect(200);
+
+      expect(res.body.user.email).toBe('dev@operari.local');
+      expect(prisma.tenant.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /auth/me', () => {
+    it('rejects a request without a session', async () => {
+      await request(app).get('/auth/me').expect(401);
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
   describe('JWT Token Validation', () => {
     it('should generate valid JWT token on registration', async () => {
       const mockTenant = {

@@ -1,14 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  FolderKanban,
-  Plus,
-  Search,
-  Share2,
-  Users,
-  X,
-} from 'lucide-react';
+import { FolderKanban, Plus, Search, Share2, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -73,7 +66,8 @@ const STRINGS = {
     descPlaceholder: '¿Para qué es este proyecto?',
     shellDirLabel: 'Directorio de Shell Permitido',
     shellDirPlaceholder: '/opt/scripts (opcional)',
-    shellDirHint: 'Si se establece, los pasos shell en este proyecto solo podrán acceder a este directorio.',
+    shellDirHint:
+      'Si se establece, los pasos shell en este proyecto solo podrán acceder a este directorio.',
     cancel: 'Cancelar',
     create: 'Crear',
     creating: 'Creando…',
@@ -239,7 +233,12 @@ export default function ProjectsPage({ lang }: ProjectsPageProps) {
 
       <AnimatePresence>
         {showCreate && (
-          <CreateProjectModal lang={lang} t={t} onClose={() => setShowCreate(false)} onCreated={handleCreated} />
+          <CreateProjectModal
+            lang={lang}
+            t={t}
+            onClose={() => setShowCreate(false)}
+            onCreated={handleCreated}
+          />
         )}
       </AnimatePresence>
     </div>

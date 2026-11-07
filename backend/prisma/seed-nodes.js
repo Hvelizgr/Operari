@@ -558,7 +558,8 @@ const NODES = [
         name: 'approvers',
         displayName: 'Approvers (emails)',
         type: 'string',
-        description: 'Comma-separated. Only they can resolve it, and they get an email. Empty: any member.',
+        description:
+          'Comma-separated. Only they can resolve it, and they get an email. Empty: any member.',
       },
       {
         name: 'slackWebhookUrl',
