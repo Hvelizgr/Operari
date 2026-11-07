@@ -1,6 +1,6 @@
 import { Response, Router } from 'express';
 
-import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest,requireSession } from '../middleware/auth.middleware';
 import { GitHubBranchService } from '../runbook/services/github-branches.service';
 import { prisma } from '../server';
 
@@ -12,8 +12,7 @@ function getService(): GitHubBranchService {
   return service;
 }
 
-// Anonymous fallback gated by OPERARI_ANONYMOUS_MODE=true.
-router.use(anonymousFallback);
+router.use(requireSession);
 
 /**
  * GET /api/github/:owner/:repo/branches

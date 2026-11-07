@@ -14,7 +14,12 @@ import {
   resetAuthProviderForTest,
   setAuthProviderForTest,
 } from '../../auth';
-import { authenticate, AuthRequest, requireRole } from '../../middleware/auth.middleware';
+import {
+  authenticate,
+  AuthRequest,
+  requireRole,
+  requireSession,
+} from '../../middleware/auth.middleware';
 
 /**
  * Unit tests for the bearer-auth middleware.
@@ -250,5 +255,41 @@ describe('requireRole middleware', () => {
     requireRole('ADMIN')(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('requireSession', () => {
+  const run = (user?: AuthRequest['user']) => {
+    const req = { user } as AuthRequest;
+    const json = jest.fn();
+    const res = { status: jest.fn().mockReturnValue({ json }) } as unknown as Response;
+    const next = jest.fn();
+    requireSession(req, res, next);
+    return { req, res, next };
+  };
+
+  afterEach(() => {
+    delete process.env.OPERARI_ANONYMOUS_MODE;
+  });
+
+  it('rejects a request without a session when anonymous mode is off', () => {
+    const { req, res, next } = run();
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+    expect(req.user).toBeUndefined();
+  });
+
+  it('passes a request with a session', () => {
+    const user = { id: 'u', email: 'u@x.io', role: 'USER', tenantId: 't' };
+    const { req, next } = run(user);
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(req.user).toBe(user);
+  });
+
+  it('falls back to the default user only in anonymous mode', () => {
+    process.env.OPERARI_ANONYMOUS_MODE = 'true';
+    const { req, next } = run();
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(req.user?.tenantId).toBe('default-tenant');
   });
 });

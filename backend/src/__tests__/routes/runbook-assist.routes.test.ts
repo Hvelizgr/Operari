@@ -37,6 +37,15 @@ const findFirstMock = (
 function buildApp(): Express {
   const app = express();
   app.use(express.json());
+  app.use((req, _res, next) => {
+    (req as unknown as { user: unknown }).user = {
+      id: 'anonymous',
+      email: 'anonymous@operari.local',
+      role: 'USER',
+      tenantId: 'default-tenant',
+    };
+    next();
+  });
   app.use('/api/runbook-assist', runbookAssistRoutes);
   return app;
 }

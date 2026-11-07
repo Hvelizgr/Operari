@@ -1,14 +1,13 @@
 import { Response, Router } from 'express';
 
-import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest,requireSession } from '../middleware/auth.middleware';
 import { sseConcurrencyGuard, sseStreamRateLimiter } from '../middleware/ratelimit.middleware';
 import { getEventStream } from '../observability/event-stream.service';
 import { prisma } from '../server';
 
 const router = Router();
 
-// Anonymous fallback gated by OPERARI_ANONYMOUS_MODE=true.
-router.use(anonymousFallback);
+router.use(requireSession);
 
 /**
  * GET /api/runs

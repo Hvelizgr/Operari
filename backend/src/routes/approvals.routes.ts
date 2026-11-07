@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { ExecutionService } from '../editor/execution/execution.service';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, requireRole, requireSession } from '../middleware/auth.middleware';
 import {
   ApprovalService,
   ApprovalServiceError,
@@ -23,21 +23,7 @@ function getService(): ApprovalService {
   return approvalService;
 }
 
-// Anonymous fallback for dev/single-tenant self-host, mirrors
-// runbook.routes.ts. Real JWT verification is enforced on the
-// /api/v1/* surfaces — this route exists so the in-app Approval
-// Inbox UI can talk to the same backend without an API key.
-router.use((req: AuthRequest, _res, next) => {
-  if (!req.user) {
-    req.user = {
-      id: 'anonymous',
-      email: 'anonymous@operari.local',
-      role: 'USER',
-      tenantId: 'default-tenant',
-    };
-  }
-  next();
-});
+router.use(requireSession);
 
 /**
  * GET /api/approvals
@@ -159,7 +145,7 @@ const handle =
     }
   };
 
-router.post('/:id/grant', handle('grant'));
-router.post('/:id/reject', handle('reject'));
+router.post('/:id/grant', requireRole('ADMIN', 'USER'), handle('grant'));
+router.post('/:id/reject', requireRole('ADMIN', 'USER'), handle('reject'));
 
 export default router;

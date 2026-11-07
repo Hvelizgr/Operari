@@ -125,6 +125,16 @@ export const anonymousFallback = (req: AuthRequest, _res: Response, next: NextFu
   next();
 };
 
+/** Gate for session-only routers: `anonymousFallback` alone leaves `req.user` unset. */
+export const requireSession = (req: AuthRequest, res: Response, next: NextFunction) => {
+  anonymousFallback(req, res, () => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    next();
+  });
+};
+
 export const requireRole = (...roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {

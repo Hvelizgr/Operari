@@ -1,21 +1,11 @@
 import { Response, Router } from 'express';
 
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { prisma } from '../server';
 
 const router = Router();
 
-router.use((req: AuthRequest, _res, next) => {
-  if (!req.user) {
-    req.user = {
-      id: 'anonymous',
-      email: 'anonymous@operari.local',
-      role: 'USER',
-      tenantId: 'default-tenant',
-    };
-  }
-  next();
-});
+router.use(requireSession);
 
 /**
  * GET /api/events

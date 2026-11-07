@@ -4,23 +4,12 @@ import { z } from 'zod';
 
 import { streamOrchestratorReply } from '../agent/orchestrator';
 import { logger } from '../config/logger.config';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { prisma } from '../server';
 
 const router = Router();
 
-// Anonymous fallback consistent with the rest of the editor surfaces.
-router.use((req: AuthRequest, _res, next) => {
-  if (!req.user) {
-    req.user = {
-      id: 'anonymous',
-      email: 'anonymous@operari.local',
-      role: 'USER',
-      tenantId: 'default-tenant',
-    };
-  }
-  next();
-});
+router.use(requireSession);
 
 const diagnoseSchema = z.object({
   /** Optional run id — when present, real logs are pulled from the database. */

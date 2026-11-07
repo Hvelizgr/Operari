@@ -1,24 +1,11 @@
 import { Response, Router } from 'express';
 
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { prisma } from '../server';
 
 const router = Router();
 
-// Anonymous fallback for dev/single-tenant self-host. Same pattern as
-// /api/runs and /api/approvals — the in-app pages call this without an
-// API key; the v1 surface (when added) will require `dashboard:read`.
-router.use((req: AuthRequest, _res, next) => {
-  if (!req.user) {
-    req.user = {
-      id: 'anonymous',
-      email: 'anonymous@operari.local',
-      role: 'USER',
-      tenantId: 'default-tenant',
-    };
-  }
-  next();
-});
+router.use(requireSession);
 
 /**
  * GET /api/dashboard/overview

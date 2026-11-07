@@ -66,7 +66,10 @@ async function ensureDefaults() {
   }
 }
 
-router.use((req: AuthRequest, _res, next) => {
+router.use((req: AuthRequest, res, next) => {
+  if (!req.user && process.env.OPERARI_ANONYMOUS_MODE !== 'true') {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
   if (!req.user) {
     req.user = {
       id: 'anonymous',

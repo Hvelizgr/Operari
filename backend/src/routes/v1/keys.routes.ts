@@ -15,7 +15,10 @@ function getService() {
 
 // Use the legacy session-based auth for managing API keys (UI usage),
 // not the API key auth itself (chicken-and-egg).
-router.use(async (req: AuthRequest, _res, next) => {
+router.use(async (req: AuthRequest, res, next) => {
+  if (!req.user && process.env.OPERARI_ANONYMOUS_MODE !== 'true') {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
   if (!req.user) {
     // Bootstrap default tenant for anonymous mode (mirrors chat.routes.ts pattern)
     const tenant = await prisma.tenant.upsert({

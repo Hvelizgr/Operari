@@ -2,7 +2,7 @@ import { Response, Router } from 'express';
 import { z } from 'zod';
 
 import { ExecutionService } from '../editor/execution/execution.service';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { prisma, scheduler } from '../server';
 import { ScheduleService } from '../services/schedule.service';
 
@@ -16,17 +16,7 @@ function getService() {
   return _service;
 }
 
-router.use((req: AuthRequest, _res, next) => {
-  if (!req.user) {
-    req.user = {
-      id: 'anonymous',
-      email: 'anonymous@operari.local',
-      role: 'USER',
-      tenantId: 'default-tenant',
-    };
-  }
-  next();
-});
+router.use(requireSession);
 
 const createSchema = z.object({
   runbookId: z.string().min(1),

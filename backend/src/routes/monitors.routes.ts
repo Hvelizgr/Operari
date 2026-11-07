@@ -1,7 +1,7 @@
 import { Response, Router } from 'express';
 import { z } from 'zod';
 
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { prisma } from '../server';
 import { MonitorService } from '../services/monitor.service';
 
@@ -13,17 +13,7 @@ function getService() {
   return _service;
 }
 
-router.use((req: AuthRequest, _res, next) => {
-  if (!req.user) {
-    req.user = {
-      id: 'anonymous',
-      email: 'anonymous@operari.local',
-      role: 'USER',
-      tenantId: 'default-tenant',
-    };
-  }
-  next();
-});
+router.use(requireSession);
 
 const checkConfigSchema = z.object({
   windowMinutes: z.number().int().min(1).max(10080),

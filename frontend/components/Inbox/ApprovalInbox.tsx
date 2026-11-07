@@ -21,7 +21,7 @@ interface Approval {
   id: string;
   status: ApprovalStatus;
   message: string | null;
-  workflow: { id: string; slug: string | null; name: string };
+  runbook: { id: string; slug: string | null; name: string };
   executionId: string;
   stepId: string;
   requestedBy: string | null;
@@ -301,7 +301,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
                     <span>
-                      {t.runbook}: <span className="text-zinc-200">{a.workflow.name}</span>
+                      {t.runbook}: <span className="text-zinc-200">{a.runbook.name}</span>
                     </span>
                     <span className="inline-flex items-center gap-1">
                       {t.run}:{' '}

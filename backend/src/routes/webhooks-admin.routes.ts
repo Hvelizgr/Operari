@@ -2,7 +2,7 @@ import { Response, Router } from 'express';
 import { z } from 'zod';
 
 import { ExecutionService } from '../editor/execution/execution.service';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { WebhookService } from '../runbook/services/webhook.service';
 import { prisma } from '../server';
 
@@ -20,20 +20,7 @@ function getExecutionService(): ExecutionService {
   return _executionService;
 }
 
-// Anonymous fallback consistent with the rest of the editor surfaces.
-// The runtime webhook receiver lives at /webhook/:token and validates
-// HMAC; this admin surface only manages the registration metadata.
-router.use((req: AuthRequest, _res, next) => {
-  if (!req.user) {
-    req.user = {
-      id: 'anonymous',
-      email: 'anonymous@operari.local',
-      role: 'USER',
-      tenantId: 'default-tenant',
-    };
-  }
-  next();
-});
+router.use(requireSession);
 
 const createSchema = z.object({
   runbookId: z.string().min(1),

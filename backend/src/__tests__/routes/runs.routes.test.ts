@@ -389,3 +389,12 @@ describe('sseConcurrencyGuard (unit)', () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('without a session', () => {
+  it('answers 401 instead of reading req.user', async () => {
+    const app = express();
+    app.use(runsRouter);
+    await request(app).get('/').expect(401);
+    await request(app).get('/some-run').expect(401);
+  });
+});

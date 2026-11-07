@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
 
-import { AuthRequest, anonymousFallback } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { prisma } from '../server';
 
 const router = Router();
 
-router.use(anonymousFallback);
+router.use(requireSession);
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,4 +1,4 @@
-import { NextFunction, Response, Router } from 'express';
+import { Response, Router } from 'express';
 import { z } from 'zod';
 
 import { AuditService } from '../audit/audit.service';
@@ -12,7 +12,7 @@ import {
   toolHash,
   withMcpClient,
 } from '../integrations/mcp/mcp-client';
-import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest,requireSession } from '../middleware/auth.middleware';
 import { ConnectedAccountService } from '../security/connected-account.service';
 import { SecretCipher } from '../security/secret-cipher';
 import { SecretReader } from '../security/secret-reader';
@@ -20,11 +20,7 @@ import { prisma } from '../server';
 
 const router = Router();
 
-router.use(anonymousFallback);
-router.use((req: AuthRequest, res: Response, next: NextFunction) => {
-  if (!req.user) return res.status(401).json({ error: 'Authentication required' });
-  next();
-});
+router.use(requireSession);
 
 const targetSchema = z.object({
   credentialId: z.string().max(64).optional(),

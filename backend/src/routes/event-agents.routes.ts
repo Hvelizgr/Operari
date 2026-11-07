@@ -3,7 +3,7 @@ import { Response, Router } from 'express';
 import { z } from 'zod';
 
 import { EventAgentService } from '../agent/services/event-agent.service';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
 import { prisma } from '../server';
 
 const router = Router();
@@ -14,20 +14,7 @@ function getService() {
   return _service;
 }
 
-// Anonymous fallback for dev / single-tenant self-host. Same pattern as
-// /api/runs and /api/dashboard. The v1 API surface (when added) will
-// require an explicit `event_agents:write` scope.
-router.use((req: AuthRequest, _res, next) => {
-  if (!req.user) {
-    req.user = {
-      id: 'anonymous',
-      email: 'anonymous@operari.local',
-      role: 'USER',
-      tenantId: 'default-tenant',
-    };
-  }
-  next();
-});
+router.use(requireSession);
 
 const matcherTypeEnum = z.enum(['jsonpath', 'llm', 'always']);
 

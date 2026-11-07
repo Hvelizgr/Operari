@@ -3,7 +3,7 @@ import { Router } from 'express';
 
 import { AuditService } from '../audit/audit.service';
 import { ExecutionService } from '../editor/execution/execution.service';
-import { anonymousFallback, AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest,requireSession } from '../middleware/auth.middleware';
 import { ExecutionEventStore } from '../runbook/engine/execution-event.store';
 import { parseInputDefs } from '../runbook/inputs/parse-input-defs';
 import { validateRunInputs } from '../runbook/inputs/validate-run-inputs';
@@ -31,11 +31,7 @@ function getEventStore(): ExecutionEventStore | null {
 
 const router = Router();
 
-// Anonymous fallback gated by OPERARI_ANONYMOUS_MODE=true.
-// req.user is already populated by the global `attachUserIfPresent`
-// in server.ts. anonymousFallback fills in a default user for
-// anonymous-mode deployments where no JWT is present.
-router.use(anonymousFallback);
+router.use(requireSession);
 
 /**
  * @swagger

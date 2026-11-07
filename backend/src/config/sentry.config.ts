@@ -1,5 +1,7 @@
 import * as Sentry from '@sentry/node';
 
+import { logger } from './logger.config';
+
 /**
  * Sentry bootstrap.
  *
@@ -79,12 +81,15 @@ export function installExpressErrorHandler(app: import('express').Express): void
  * named function keeps the server bootstrap readable.
  */
 export function installProcessHandlers(): void {
+  // Express 4 does not catch async handlers: without this listener one
+  // throwing request exits the process, whether or not Sentry is on.
+  process.on('unhandledRejection', reason => {
+    logger.error({ err: reason }, 'Unhandled promise rejection');
+    if (_enabled) Sentry.captureException(reason);
+  });
   if (!_enabled) return;
   process.on('uncaughtException', err => {
     Sentry.captureException(err);
-  });
-  process.on('unhandledRejection', reason => {
-    Sentry.captureException(reason);
   });
 }
 

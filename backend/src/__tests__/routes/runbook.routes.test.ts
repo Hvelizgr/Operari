@@ -66,6 +66,12 @@ describe('Runbook routes', () => {
     // this for real, but tests mount the router on a bare express
     // app and skip middleware setup.
     app.use((req, _res, next) => {
+      (req as any).user = {
+        id: 'anonymous',
+        email: 'anonymous@operari.local',
+        role: 'USER',
+        tenantId: 'default-tenant',
+      };
       (req as any).log = {
         error: () => {
           /* noop */

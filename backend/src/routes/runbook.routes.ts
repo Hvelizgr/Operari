@@ -4,7 +4,8 @@ import { z } from 'zod';
 
 import { AuditEventType, AuditService } from '../audit/audit.service';
 import { assertRunbookQuota, QuotaExceededError } from '../billing/quotas';
-import { AuthRequest } from '../middleware/auth.middleware';
+import { AuthRequest, requireSession } from '../middleware/auth.middleware';
+import { tenantPolicyStore } from '../policy/tenant-policy';
 import { RunbookVersionService } from '../runbook/services/runbook-version.service';
 import {
   fromSpec,
@@ -15,7 +16,6 @@ import {
 } from '../runbook/yaml/runbook-serializer';
 import { validateRunbookSpec } from '../runbook/yaml/schema-validator';
 import { prisma } from '../server';
-import { tenantPolicyStore } from '../policy/tenant-policy';
 import {
   RunbookValidatorService,
   type ValidationIssue,
@@ -109,21 +109,7 @@ async function safeAuditWorkflow(
   }
 }
 
-// Authentication disabled for free usage per n8n policies
-// router.use(authenticate);
-
-// Set default anonymous user for public API access
-router.use((req: AuthRequest, _res, next) => {
-  if (!req.user) {
-    req.user = {
-      id: 'anonymous',
-      email: 'anonymous@operari.local',
-      role: 'USER',
-      tenantId: 'default-tenant',
-    };
-  }
-  next();
-});
+router.use(requireSession);
 
 /**
  * @swagger
