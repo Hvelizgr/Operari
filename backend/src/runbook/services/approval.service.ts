@@ -11,6 +11,8 @@ export interface ResolveApprovalInput {
   action: ResolveAction;
   /** Logical actor (e.g. "apikey:key-9" or a user id) */
   actorId: string;
+  /** Checked against the approval's allowed list. API keys have none. */
+  actorEmail?: string;
   /** Optional human comment shown next to the resolution */
   comment?: string;
 }
@@ -38,6 +40,7 @@ export interface ResolvedApproval {
  *   - approval_not_found       → 404 (also used when tenant mismatch, on
  *                                  purpose, to avoid leaking existence)
  *   - approval_not_pending     → 409 — already resolved or expired
+ *   - approval_forbidden       → 403 — actor is not on the allowed list
  *   - execution_not_paused     → 409 — runbook moved on already
  */
 export class ApprovalServiceError extends Error {
@@ -114,6 +117,24 @@ export class ApprovalService {
       throw new ApprovalServiceError(
         'approval_not_found',
         `Approval ${input.approvalId} not found`
+      );
+    }
+
+    const allowed = [
+      ...(approval.approvers ?? []),
+      ...(approval.escalatedAt ? (approval.escalateTo ?? []) : []),
+    ];
+    if (allowed.length > 0 && !allowed.includes((input.actorEmail ?? '').toLowerCase())) {
+      throw new ApprovalServiceError(
+        'approval_forbidden',
+        'You are not on the list of approvers for this step'
+      );
+    }
+    // The sweeper runs once a minute; a late answer must not beat the deadline.
+    if (approval.expiresAt && approval.expiresAt <= new Date()) {
+      throw new ApprovalServiceError(
+        'approval_not_pending',
+        `Approval ${input.approvalId} has expired`
       );
     }
 
@@ -209,8 +230,46 @@ export class ApprovalService {
     };
   }
 
+  /** Timeout path: same effect as a rejection, recorded as EXPIRED. */
+  async expire(approvalId: string): Promise<boolean> {
+    const approval = await this.prisma.approval.findUnique({
+      where: { id: approvalId },
+      include: { runbook: { select: { tenantId: true } } },
+    });
+    if (!approval) return false;
+
+    const expired = await this.prisma.$transaction(async tx => {
+      const claim = await tx.approval.updateMany({
+        where: { id: approvalId, status: 'PENDING' },
+        data: { status: 'EXPIRED' },
+      });
+      if (claim.count === 0) return false;
+      await tx.execution.updateMany({
+        where: { id: approval.executionId, status: 'PAUSED' },
+        data: { status: 'CANCELLED', completedAt: new Date(), error: 'Approval timed out' },
+      });
+      return true;
+    });
+
+    if (expired && approval.runbook.tenantId) {
+      await this.safeAudit({
+        type: 'approval.expired',
+        tenantId: approval.runbook.tenantId,
+        actorId: 'system',
+        resource: approval.executionId,
+        payload: {
+          approvalId,
+          executionId: approval.executionId,
+          runbookId: approval.runbookId,
+          stepId: approval.stepId,
+        },
+      });
+    }
+    return expired;
+  }
+
   private async safeAudit(params: {
-    type: 'approval.granted' | 'approval.rejected';
+    type: 'approval.granted' | 'approval.rejected' | 'approval.expired';
     tenantId: string;
     actorId: string;
     resource: string;
@@ -222,7 +281,11 @@ export class ApprovalService {
         tenantId: params.tenantId,
         type: params.type,
         actorId: params.actorId,
-        actorType: 'apikey',
+        actorType: params.actorId.startsWith('apikey:')
+          ? 'apikey'
+          : params.actorId === 'system'
+            ? 'system'
+            : 'user',
         resource: params.resource,
         payload: params.payload,
       });

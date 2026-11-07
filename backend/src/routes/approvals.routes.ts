@@ -12,6 +12,12 @@ import { prisma } from '../server';
 
 const router = Router();
 
+const APPROVAL_ERROR_STATUS: Record<string, number> = {
+  approval_not_found: 404,
+  approval_forbidden: 403,
+  approval_not_pending: 409,
+};
+
 let approvalService: ApprovalService | null = null;
 function getService(): ApprovalService {
   if (!approvalService) {
@@ -95,6 +101,29 @@ router.get('/', async (req: AuthRequest, res) => {
   });
 });
 
+router.get('/:id', async (req: AuthRequest, res) => {
+  const a = await prisma.approval.findFirst({
+    where: { id: String(req.params.id), runbook: { tenantId: req.user!.tenantId } },
+    include: { runbook: { select: { id: true, slug: true, name: true } } },
+  });
+  if (!a) {
+    return res.status(404).json({ error: 'Approval not found', code: 'approval_not_found' });
+  }
+  res.json({
+    id: a.id,
+    status: a.status,
+    message: a.message,
+    runbook: a.runbook,
+    executionId: a.executionId,
+    stepId: a.stepId,
+    requestedBy: a.requestedBy,
+    createdAt: a.createdAt,
+    approvedBy: a.approvedBy,
+    approvedAt: a.approvedAt,
+    comment: a.comment,
+  });
+});
+
 const resolveBodySchema = z.object({
   comment: z.string().max(2000).optional(),
 });
@@ -120,6 +149,7 @@ const handle =
         tenantId,
         action,
         actorId: `user:${userId}`,
+        actorEmail: req.user!.email,
         comment: parsed.data.comment,
       });
 
@@ -137,8 +167,7 @@ const handle =
       });
     } catch (err) {
       if (err instanceof ApprovalServiceError) {
-        const status =
-          err.code === 'approval_not_found' ? 404 : err.code === 'approval_not_pending' ? 409 : 500;
+        const status = APPROVAL_ERROR_STATUS[err.code] ?? 500;
         return res.status(status).json({ error: err.message, code: err.code });
       }
       throw err;

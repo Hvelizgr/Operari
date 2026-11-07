@@ -2,6 +2,13 @@ import { PrismaClient } from '@prisma/client';
 
 import { AuditService } from '../../audit/audit.service';
 import {
+  announceApproval,
+  ApprovalNotifier,
+  ApprovalTargets,
+  hasTargets,
+} from '../services/approval-notifier';
+import { sealTargets } from '../services/approval-sweeper';
+import {
   ExecutorContext,
   ExecutorResult,
   resolveTemplate,
@@ -11,10 +18,35 @@ import {
 export interface ApprovalConfig {
   /** Message shown to approvers (supports template substitution) */
   message: string;
-  /** Optional list of user emails who can approve */
-  approvers?: string[];
+  /** Emails allowed to resolve the approval, and notified. Comma-separated or a list. */
+  approvers?: string | string[];
   /** Auto-reject after this many seconds (default: never) */
   timeoutSeconds?: number;
+  slackWebhookUrl?: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
+  /** Notify again, adding `escalateTo`, if still pending after this many seconds. */
+  escalateAfterSeconds?: number;
+  /** Emails that join the approvers on escalation. Comma-separated or a list. */
+  escalateTo?: string | string[];
+}
+
+/** The sweeper ticks every minute, and a run needs a moment to reach PAUSED. */
+const MIN_DEADLINE_SECONDS = 60;
+
+function deadline(seconds: unknown, from: number): Date | undefined {
+  const n = Number(seconds);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return new Date(from + Math.max(n, MIN_DEADLINE_SECONDS) * 1000);
+}
+
+function emailList(value: string | string[] | undefined, context: ExecutorContext): string[] {
+  const items = Array.isArray(value) ? value : [value ?? ''];
+  const emails = items
+    .flatMap(item => resolveTemplate(item, context).split(/[\s,;]+/))
+    .map(email => email.trim().toLowerCase())
+    .filter(email => email.includes('@'));
+  return Array.from(new Set(emails));
 }
 
 export interface ApprovalExecutorOptions {
@@ -23,6 +55,7 @@ export interface ApprovalExecutorOptions {
    * to disable, otherwise a default instance is built from prisma.
    */
   audit?: AuditService | null;
+  notifier?: ApprovalNotifier;
 }
 
 /**
@@ -45,12 +78,14 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
   readonly type = 'approval';
 
   private readonly audit: AuditService | null;
+  private readonly notifier: ApprovalNotifier;
 
   constructor(
     private prisma: PrismaClient,
     options: ApprovalExecutorOptions = {}
   ) {
     this.audit = options.audit === null ? null : (options.audit ?? new AuditService(prisma));
+    this.notifier = options.notifier ?? new ApprovalNotifier();
   }
 
   async execute(config: ApprovalConfig, context: ExecutorContext): Promise<ExecutorResult> {
@@ -82,7 +117,7 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
     // Look up the runbookId from the execution
     const execution = await this.prisma.execution.findUnique({
       where: { id: context.runId },
-      select: { runbookId: true, userId: true },
+      select: { runbookId: true, userId: true, runbook: { select: { name: true } } },
     });
 
     if (!execution) {
@@ -93,6 +128,23 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
       };
     }
 
+    const approvers = emailList(config.approvers, context);
+    const escalateTo = emailList(config.escalateTo, context);
+    const expiresAt = deadline(config.timeoutSeconds, startTime);
+    const escalateAt = deadline(config.escalateAfterSeconds, startTime);
+    const slackWebhookUrl = resolveTemplate(config.slackWebhookUrl ?? '', context);
+    const botToken = resolveTemplate(config.telegramBotToken ?? '', context);
+    const chatId = resolveTemplate(config.telegramChatId ?? '', context);
+    const targets: ApprovalTargets = {
+      emails: approvers,
+      ...(slackWebhookUrl ? { slackWebhookUrl } : {}),
+      ...(botToken && chatId ? { telegram: { botToken, chatId } } : {}),
+    };
+    const sealed =
+      escalateAt && context.tenantId && hasTargets(targets)
+        ? sealTargets(targets, context.tenantId)
+        : null;
+
     const approval = await this.prisma.approval.create({
       data: {
         runbookId: execution.runbookId,
@@ -101,6 +153,11 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
         status: 'PENDING',
         message,
         requestedBy: execution.userId,
+        ...(approvers.length ? { approvers } : {}),
+        ...(escalateTo.length ? { escalateTo } : {}),
+        ...(expiresAt ? { expiresAt } : {}),
+        ...(escalateAt ? { escalateAt } : {}),
+        ...(sealed ? { notifyTargets: sealed } : {}),
       },
     });
 
@@ -126,8 +183,10 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
             stepId: context.stepId,
             approvalId: approval.id,
             message,
-            approvers: config.approvers ?? null,
+            approvers: approvers.length ? approvers : null,
             timeoutSeconds: config.timeoutSeconds ?? null,
+            escalateTo: escalateTo.length ? escalateTo : null,
+            escalateAfterSeconds: config.escalateAfterSeconds ?? null,
           },
         });
       } catch (err) {
@@ -137,6 +196,24 @@ export class ApprovalExecutor implements StepExecutor<ApprovalConfig> {
           timestamp: new Date(),
         });
       }
+    }
+
+    // Not awaited: a slow channel must not delay the run reaching PAUSED, or an
+    // answer could arrive before the run can be resumed.
+    if (hasTargets(targets)) {
+      void announceApproval({
+        notifier: this.notifier,
+        audit: this.audit,
+        notice: {
+          approvalId: approval.id,
+          runbookName: execution.runbook?.name ?? execution.runbookId,
+          message,
+          escalated: false,
+        },
+        targets,
+        tenantId: context.tenantId,
+        executionId: context.runId,
+      });
     }
 
     // Return paused — runbook engine will suspend execution until approval resolves.

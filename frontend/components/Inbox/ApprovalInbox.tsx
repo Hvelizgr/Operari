@@ -102,7 +102,14 @@ const STATUS_STYLES: Record<ApprovalStatus, { icon: typeof CheckCircle2; cls: st
   EXPIRED: { icon: AlertTriangle, cls: 'text-zinc-500' },
 };
 
-export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
+export default function ApprovalInbox({
+  lang,
+  focusId,
+}: {
+  lang: 'en' | 'es';
+  /** From a notification link: show this approval alone, whatever its status. */
+  focusId?: string;
+}) {
   const reducedMotion = usePrefersReducedMotion();
   const t = STRINGS[lang] ?? STRINGS.en;
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -130,6 +137,15 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
       setLoading(true);
       setError(null);
       try {
+        if (focusId) {
+          const res = await fetch(`${apiBase}/api/approvals/${encodeURIComponent(focusId)}`, {
+            credentials: 'include',
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          setApprovals([await res.json()]);
+          setNextCursor(null);
+          return;
+        }
         const params = new URLSearchParams({ status: filter, limit: '50' });
         if (mode === 'append' && nextCursor) params.set('cursor', nextCursor);
         const res = await fetch(`${apiBase}/api/approvals?${params}`, { credentials: 'include' });
@@ -143,7 +159,7 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
         setLoading(false);
       }
     },
-    [apiBase, filter, nextCursor]
+    [apiBase, filter, focusId, nextCursor]
   );
 
   useEffect(() => {
@@ -203,21 +219,27 @@ export default function ApprovalInbox({ lang }: { lang: 'en' | 'es' }) {
         <p className="mt-1 text-sm text-zinc-400">{t.subtitle}</p>
       </header>
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        {FILTERS.map(f => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-              filter === f.key
-                ? 'bg-white text-black'
-                : 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800'
-            }`}
-          >
-            {t[f.labelKey]}
-          </button>
-        ))}
-      </div>
+      {focusId ? (
+        <Link href={`/${lang}/inbox`} className="mb-6 inline-block text-xs text-zinc-400 underline">
+          {lang === 'es' ? 'Ver todas las aprobaciones' : 'View all approvals'}
+        </Link>
+      ) : (
+        <div className="mb-6 flex flex-wrap gap-2">
+          {FILTERS.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                filter === f.key
+                  ? 'bg-white text-black'
+                  : 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800'
+              }`}
+            >
+              {t[f.labelKey]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded border border-red-900 bg-red-950/50 px-4 py-3 text-sm text-red-300">

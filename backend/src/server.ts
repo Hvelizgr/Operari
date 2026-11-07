@@ -50,6 +50,7 @@ import dashboardRoutes from './routes/dashboard.routes';
 import eventAgentsRoutes from './routes/event-agents.routes';
 import eventsRoutes from './routes/events.routes';
 import executionRoutes from './routes/execution.routes';
+import { createFilesRouter } from './routes/files.routes';
 import githubExplorerRoutes from './routes/github-explorer.routes';
 import httpTesterRoutes from './routes/http-tester.routes';
 import invitesRoutes from './routes/invites.routes';
@@ -62,10 +63,9 @@ import oauthRoutes from './routes/oauth.routes';
 import projectRoutes from './routes/projects.routes';
 import runbookRoutes from './routes/runbook.routes';
 import runbookAssistRoutes from './routes/runbook-assist.routes';
+import { createRunnerLogsRouter } from './routes/runner-logs.routes';
 import runRoutes from './routes/runs.routes';
 import schedulesRoutes from './routes/schedules.routes';
-import { createRunnerLogsRouter } from './routes/runner-logs.routes';
-import { createFilesRouter } from './routes/files.routes';
 import { createServersRouter } from './routes/servers.routes';
 import sqlRoutes from './routes/sql.routes';
 import templatesRoutes from './routes/templates.routes';
@@ -525,6 +525,14 @@ async function main() {
     }, 60_000);
     process.on('SIGTERM', () => clearInterval(webhookRetryInterval));
     logger.info('Webhook retry worker started (60s interval)');
+
+    const { ApprovalSweeper } = await import('./runbook/services/approval-sweeper');
+    const { ApprovalService } = await import('./runbook/services/approval.service');
+    const approvalSweeper = new ApprovalSweeper(prisma, new ApprovalService(prisma));
+    const approvalSweepInterval = setInterval(() => {
+      approvalSweeper.runOnce().catch(err => logger.error({ err }, 'Approval sweep failed'));
+    }, 60_000);
+    process.on('SIGTERM', () => clearInterval(approvalSweepInterval));
 
     // Step files expire after 7 days; drop their bytes and rows hourly.
     const { FileStore } = await import('./files/file-store');

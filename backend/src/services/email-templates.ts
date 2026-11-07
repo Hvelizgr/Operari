@@ -124,6 +124,33 @@ export function renderInviteEmail(p: InviteParams): RenderedEmail {
   };
 }
 
+export interface ApprovalRequestParams {
+  runbookName: string;
+  message: string;
+  url: string;
+  escalated: boolean;
+}
+
+export function renderApprovalRequestEmail(p: ApprovalRequestParams): RenderedEmail {
+  const heading = p.escalated ? 'Escalated: approval still waiting' : 'Approval needed';
+  return {
+    subject: `[Operari] ${heading}: ${p.runbookName}`,
+    text: [heading, '', `Runbook: ${p.runbookName}`, p.message, '', p.url].join('\n'),
+    html: renderShell({
+      locale: 'en',
+      preheader: `${heading}: ${p.runbookName}`,
+      heading,
+      metaRows: [
+        ['Runbook', p.runbookName],
+        ['Request', p.message],
+      ],
+      ctaLabel: 'Review',
+      ctaUrl: p.url,
+      metaLines: [],
+    }),
+  };
+}
+
 export function renderMonitorAlertEmail(p: MonitorAlertParams): RenderedEmail {
   const t = STRINGS[p.locale ?? 'en'].monitorAlert;
   const heading = fill(t.heading, { monitorName: p.monitorName });

@@ -40,7 +40,7 @@ describe('ApprovalExecutor', () => {
     });
 
     const result = await executor.execute(
-      { message: 'Approve deploy?', approvers: ['eng-lead'], timeoutSeconds: 1800 },
+      { message: 'Approve deploy?', approvers: ['eng-lead@x.io'], timeoutSeconds: 1800 },
       ctx()
     );
 
@@ -69,7 +69,7 @@ describe('ApprovalExecutor', () => {
       stepId: 'step-1',
       approvalId: 'approval-1',
       message: 'Approve deploy?',
-      approvers: ['eng-lead'],
+      approvers: ['eng-lead@x.io'],
       timeoutSeconds: 1800,
     });
   });
@@ -139,5 +139,92 @@ describe('ApprovalExecutor', () => {
       data: expect.objectContaining({ message: 'Deploy api to production?' }),
     });
     expect(audit.events[0].payload.message).toBe('Deploy api to production?');
+  });
+});
+
+describe('ApprovalExecutor notifications', () => {
+  const context = {
+    runId: 'run-1',
+    stepId: 'step-1',
+    tenantId: 't1',
+    variables: { lead: 'Lead@x.io' },
+    previousOutputs: {},
+    secrets: { hook: 'https://hooks.slack.com/x' },
+  } as never;
+
+  function build() {
+    const prisma = {
+      execution: {
+        findUnique: jest.fn().mockResolvedValue({
+          runbookId: 'r1',
+          userId: 'u1',
+          runbook: { name: 'Restart' },
+        }),
+      },
+      approval: { create: jest.fn().mockResolvedValue({ id: 'a1' }) },
+    };
+    const notifier = { send: jest.fn().mockResolvedValue({ slack: 'sent' }) };
+    const audit = { record: jest.fn().mockResolvedValue(undefined) };
+    const executor = new ApprovalExecutor(prisma as never, {
+      audit: audit as never,
+      notifier: notifier as never,
+    });
+    return { executor, prisma, notifier, audit };
+  }
+
+  it('stores who may approve and notifies without holding the step', async () => {
+    const { executor, prisma, notifier } = build();
+    let release: (value: unknown) => void = () => undefined;
+    notifier.send.mockReturnValue(new Promise(resolve => (release = resolve)));
+
+    const result = await executor.execute(
+      {
+        message: 'Restart?',
+        approvers: 'oncall@x.io, {{vars.lead}}',
+        slackWebhookUrl: '{{secrets.hook}}',
+      },
+      context
+    );
+
+    expect(result.paused).toBe(true);
+    expect(prisma.approval.create.mock.calls[0][0].data.approvers).toEqual([
+      'oncall@x.io',
+      'lead@x.io',
+    ]);
+    expect(prisma.approval.create.mock.calls[0][0].data.notifyTargets).toBeUndefined();
+    expect(notifier.send).toHaveBeenCalledWith(
+      expect.objectContaining({ approvalId: 'a1', runbookName: 'Restart', escalated: false }),
+      { emails: ['oncall@x.io', 'lead@x.io'], slackWebhookUrl: 'https://hooks.slack.com/x' }
+    );
+    release({});
+  });
+
+  it('turns deadlines into dates, with a one minute floor', async () => {
+    const { executor, prisma } = build();
+    const before = Date.now();
+    await executor.execute(
+      { message: 'x', timeoutSeconds: 5, escalateAfterSeconds: 300, escalateTo: 'boss@x.io' },
+      context
+    );
+    const data = prisma.approval.create.mock.calls[0][0].data;
+    expect(data.expiresAt.getTime()).toBeGreaterThanOrEqual(before + 60_000);
+    expect(data.escalateAt.getTime()).toBeGreaterThanOrEqual(before + 300_000);
+    expect(data.escalateTo).toEqual(['boss@x.io']);
+  });
+
+  it('never puts a webhook or token in the audit trail', async () => {
+    const { executor, audit } = build();
+    await executor.execute({ message: 'x', slackWebhookUrl: '{{secrets.hook}}' }, context);
+    await new Promise(resolve => setImmediate(resolve));
+    expect(JSON.stringify(audit.record.mock.calls)).not.toContain('hooks.slack.com');
+  });
+
+  it('stays quiet in a dry run', async () => {
+    const { executor, notifier } = build();
+    await executor.execute({ message: 'x', approvers: 'a@x.io' }, {
+      ...(context as object),
+      dryRun: true,
+    } as never);
+    expect(notifier.send).not.toHaveBeenCalled();
   });
 });

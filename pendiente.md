@@ -2,7 +2,7 @@
 
 Items que no entraron en las sesiones de implementación. Se ordenan por scope estimado, no por prioridad.
 
-Última actualización: 2026-11-04 (sandbox: fases 1–4 en prod). Antes: 2026-11-02 (sandbox fases 1 y 2). Antes: 2026-11-01 (integraciones: research de n8n y fase 1 del catálogo). Antes: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
+Última actualización: 2026-11-07 (aprobaciones con aviso y sesión obligatoria en rutas web). Antes: 2026-11-04 (sandbox: fases 1–4 en prod). Antes: 2026-11-02 (sandbox fases 1 y 2). Antes: 2026-11-01 (integraciones: research de n8n y fase 1 del catálogo). Antes: 2026-04-30. Después de los 6 commits del último push (audit chain, webhook wizard, metrics, Grafana, plugin metadata bridge, plugin tenant-scoped schema, WorkOS, Python SDK).
 
 ---
 
@@ -22,10 +22,17 @@ integraciones raras, llamar a un workflow de n8n o a un webhook.
    (huella + inicio, insert único): las repeticiones de Alertmanager y los reintentos no lanzan más; tope
    de 10 corridas por envío. La resolución se anota en la corrida (`metadata.alert.resolvedAt`). Secreto
    como `Authorization: Bearer` (Alertmanager/Opsgenie no firman) o HMAC; PagerDuty: se pega su propio
-   secreto y se verifica `X-PagerDuty-Signature`. **Falta:** mostrar alerta/resuelta en la vista del run;
-   Sentry y Datadog siguen con el parser viejo (sin dedup por ocurrencia).
-2. **Aprobar donde está el de guardia.** Avisar a los aprobadores por Slack, email o Telegram con botones
-   aprobar/rechazar (enlace firmado, de un solo uso, que respeta MFA/rol); tiempo límite y escalamiento.
+   secreto y se verifica `X-PagerDuty-Signature`. La vista del run muestra alerta activa/resuelta (2026-11-07).
+   **Falta:** Sentry y Datadog siguen con el parser viejo (sin dedup por ocurrencia).
+2. 🟡 **Aprobar donde está el de guardia** (2026-11-07, sin desplegar). El paso de aprobación avisa por
+   email, Slack (webhook) y Telegram con botón *Review*. `approvers` y `timeoutSeconds` ahora se aplican de
+   verdad; `escalateAfterSeconds` + `escalateTo` reenvían el aviso y suman aprobadores. Barrido cada minuto,
+   entregas en la auditoría (`approval.notified/escalated/expired`). **Decisión:** el enlace no lleva token:
+   abre `/inbox?approval=<id>` y aprobar exige sesión, así valen MFA y rol, y una vista previa de Slack o
+   alguien del canal no puede aprobar; el estado de la aprobación ya la hace de un solo uso. Con `approvers`
+   definidos, las API keys no pueden resolver (no tienen email). **Falta:** `RESEND_API_KEY` en prod (sin
+   eso los emails solo quedan en el log); probar con Slack y Telegram reales; aprobar sin salir de Slack
+   (requiere una app de Slack y mapear usuarios).
 3. **Línea de tiempo del incidente.** Exportar en Markdown desde la cadena de auditoría: alerta, pasos,
    salidas, quién aprobó qué y cuándo; base del postmortem.
 4. **Puente a n8n / webhooks:** paso que llama un workflow de n8n (o cualquier URL) y espera su respuesta.

@@ -12,6 +12,12 @@ import { prisma } from '../../server';
 
 const router = Router();
 
+const APPROVAL_ERROR_STATUS: Record<string, number> = {
+  approval_not_found: 404,
+  approval_forbidden: 403,
+  approval_not_pending: 409,
+};
+
 let approvalService: ApprovalService | null = null;
 function getService(): ApprovalService {
   if (!approvalService) {
@@ -64,8 +70,7 @@ const handle = (action: ResolveAction) => async (req: ApiKeyRequest, res: Respon
     });
   } catch (err) {
     if (err instanceof ApprovalServiceError) {
-      const status =
-        err.code === 'approval_not_found' ? 404 : err.code === 'approval_not_pending' ? 409 : 500;
+      const status = APPROVAL_ERROR_STATUS[err.code] ?? 500;
       return res.status(status).json({ error: err.message, code: err.code });
     }
     throw err;

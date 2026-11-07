@@ -319,6 +319,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     duration: run.duration,
     error: run.error,
     dryRun: run.dryRun,
+    alert: (run.metadata as { alert?: unknown } | null)?.alert ?? null,
     steps: run.nodeLogs.map(log => ({
       id: log.id,
       stepId: log.nodeId,

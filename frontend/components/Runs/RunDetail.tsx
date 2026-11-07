@@ -53,6 +53,14 @@ interface RunDetailPayload {
    * for an actual deploy.
    */
   dryRun?: boolean;
+  /** Set on runs started by an alert. `resolvedAt` arrives when the alert clears. */
+  alert?: {
+    source: string;
+    name: string;
+    severity: string | null;
+    startsAt: string | null;
+    resolvedAt?: string;
+  } | null;
 }
 
 interface FileRefView {
@@ -90,6 +98,9 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     notFound: 'Run not found.',
     runbook: 'Runbook',
     trigger: 'Trigger',
+    alert: 'Alert',
+    alertFiring: 'Alert firing',
+    alertResolved: 'Alert resolved',
     started: 'Started',
     duration: 'Duration',
     steps: 'Steps',
@@ -108,6 +119,9 @@ const STRINGS: Record<'en' | 'es', Record<string, string>> = {
     notFound: 'Ejecución no encontrada.',
     runbook: 'Runbook',
     trigger: 'Disparador',
+    alert: 'Alerta',
+    alertFiring: 'Alerta activa',
+    alertResolved: 'Alerta resuelta',
     started: 'Inicio',
     duration: 'Duración',
     steps: 'Pasos',
@@ -295,6 +309,22 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
             className={`h-5 w-5 shrink-0 ${meta.cls} ${run.status === 'RUNNING' ? 'animate-spin' : ''}`}
           />
           <span className={`text-sm font-semibold ${meta.cls}`}>{run.status}</span>
+          {run.alert && (
+            <span
+              className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                run.alert.resolvedAt
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                  : 'border-red-500/40 bg-red-500/10 text-red-400'
+              }`}
+              title={
+                run.alert.resolvedAt
+                  ? new Date(run.alert.resolvedAt).toLocaleString(lang === 'es' ? 'es-GT' : 'en-US')
+                  : undefined
+              }
+            >
+              {run.alert.resolvedAt ? t.alertResolved : t.alertFiring}
+            </span>
+          )}
           {run.dryRun && (
             <span
               className="inline-flex items-center rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-400"
@@ -365,6 +395,15 @@ export default function RunDetail({ lang, runId }: { lang: 'en' | 'es'; runId: s
             <div className="text-[10px] uppercase text-zinc-500">{t.trigger}</div>
             <div>{run.trigger ?? '—'}</div>
           </div>
+          {run.alert && (
+            <div>
+              <div className="text-[10px] uppercase text-zinc-500">{t.alert}</div>
+              <div className="break-words">
+                {run.alert.name} · {run.alert.source}
+                {run.alert.severity ? ` · ${run.alert.severity}` : ''}
+              </div>
+            </div>
+          )}
           <div>
             <div className="text-[10px] uppercase text-zinc-500">{t.started}</div>
             <div>{new Date(run.startedAt).toLocaleString(lang === 'es' ? 'es-GT' : 'en-US')}</div>
