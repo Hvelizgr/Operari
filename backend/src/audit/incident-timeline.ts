@@ -133,6 +133,8 @@ const STRINGS = {
     approvalGranted: 'Approved by',
     approvalRejected: 'Rejected by',
     approvalExpired: 'Approval timed out',
+    workflowAnswered: 'Workflow answered',
+    workflowTimedOut: 'Workflow did not answer in time',
     paused: 'Run paused',
     resumed: 'Run resumed',
     cancelled: 'Run cancelled',
@@ -180,6 +182,8 @@ const STRINGS = {
     approvalGranted: 'Aprobado por',
     approvalRejected: 'Rechazado por',
     approvalExpired: 'Aprobación vencida',
+    workflowAnswered: 'El workflow respondió',
+    workflowTimedOut: 'El workflow no respondió a tiempo',
     paused: 'Corrida en pausa',
     resumed: 'Corrida reanudada',
     cancelled: 'Corrida cancelada',
@@ -216,6 +220,10 @@ function eventLine(event: EventRow, data: TimelineData, t: (typeof STRINGS)['en'
       return `${t.approvalRejected} ${actor}${comment}`;
     case 'approval.expired':
       return t.approvalExpired;
+    case 'workflow.callback_received':
+      return t.workflowAnswered;
+    case 'workflow.timed_out':
+      return t.workflowTimedOut;
     case 'run.paused':
       return t.paused;
     case 'run.resumed':

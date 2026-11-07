@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
-import { PrismaServerDirectory } from '../../servers/server-directory';
 import { FileStore } from '../../files/file-store';
+import { PrismaServerDirectory } from '../../servers/server-directory';
 import { Logger } from '../../services/logger.service';
 import { BUILTIN_CATALOG, CatalogExecutor } from '../catalog';
 import type { CatalogDeps } from '../catalog/define';
@@ -9,10 +9,11 @@ import { loadPluginsSync, type PluginNodeMetadata } from '../plugins/loader';
 import { upsertPluginNodeTypes } from '../plugins/upsert-node-types';
 import { getRunner } from '../runners';
 import { Runner } from '../runners/runner.types';
+import { getWorkflowCallbacks } from '../services/workflow-callbacks';
 import { StepExecutor } from '../types/executor.types';
 import { ApprovalExecutor } from './approval.executor';
+import { CallWorkflowExecutor } from './call-workflow.executor';
 import { CodeExecutor } from './code.executor';
-import { NewItemsExecutor } from './new-items.executor';
 import { registerCoreSteps } from './core';
 import type { EmailTransporterLike } from './core/_shared';
 import { DatabaseExecutor } from './database.executor';
@@ -23,6 +24,7 @@ import { GitHubIssueExecutor } from './github-issue.executor';
 import { GrafanaAnnotationExecutor } from './grafana-annotation.executor';
 import { HttpExecutor } from './http.executor';
 import { JiraExecutor } from './jira.executor';
+import { NewItemsExecutor } from './new-items.executor';
 import { NotifyExecutor } from './notify.executor';
 import { OpsgenieExecutor } from './opsgenie.executor';
 import { PagerDutyExecutor } from './pagerduty.executor';
@@ -102,6 +104,7 @@ export function createExecutorRegistry(
   const servers = new PrismaServerDirectory(prisma);
   registry.set('ssh', new SSHExecutor(undefined, { directory: servers }));
   registry.set('operari.httpRequest', new HttpExecutor(fetch, { files }));
+  registry.set('operari.callWorkflow', new CallWorkflowExecutor(() => getWorkflowCallbacks(prisma)));
   registry.set('operari.database', new DatabaseExecutor(undefined, { directory: servers }));
   registry.set('github.commitFile', new GitHubCommitFileExecutor());
   registry.set('runbook', new RunbookExecutor(prisma));

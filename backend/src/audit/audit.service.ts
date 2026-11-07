@@ -26,6 +26,8 @@ export type AuditEventType =
   | 'approval.notified'
   | 'approval.escalated'
   | 'approval.expired'
+  | 'workflow.callback_received'
+  | 'workflow.timed_out'
   | 'runbook.created'
   | 'runbook.updated'
   | 'runbook.deleted'

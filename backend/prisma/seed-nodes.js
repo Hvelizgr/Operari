@@ -186,6 +186,51 @@ const NODES = [
 
   // === core ===
   {
+    type: 'operari.callWorkflow',
+    category: 'core',
+    icon: 'Globe',
+    color: 'bg-orange-500',
+    label: { en: 'Call workflow and wait', es: 'Llamar workflow y esperar' },
+    description: {
+      en: 'Start an n8n workflow or webhook and pause until it answers',
+      es: 'Inicia un workflow de n8n o un webhook y pausa hasta que responda',
+    },
+    inputs: [MAIN_PORT],
+    outputs: [MAIN_PORT],
+    properties: [
+      {
+        name: 'url',
+        displayName: 'Workflow URL',
+        type: 'string',
+        required: true,
+        description: 'Receives a POST with your body plus `callbackUrl`.',
+        typeOptions: { expression: true },
+      },
+      {
+        name: 'body',
+        displayName: 'Body (JSON)',
+        type: 'string',
+        description: 'JSON object. Supports {{vars.x}}.',
+        typeOptions: { rows: 5, expression: true },
+      },
+      {
+        name: 'headers',
+        displayName: 'Headers (JSON)',
+        type: 'string',
+        description: 'JSON object. Use {{secrets.x}} for credentials.',
+        typeOptions: { rows: 3, expression: true },
+      },
+      {
+        name: 'timeoutSeconds',
+        displayName: 'Wait up to (seconds)',
+        type: 'number',
+        default: 3600,
+        description:
+          'The workflow must POST to `callbackUrl` before this, or the run fails. Its body is {{steps.<id>.output.callback}}.',
+      },
+    ],
+  },
+  {
     type: 'operari.httpRequest',
     category: 'core',
     icon: 'Globe',

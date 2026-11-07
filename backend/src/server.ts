@@ -104,6 +104,8 @@ socketService.initialize(httpServer, env.FRONTEND_URL);
 
 import { getAuthProvider } from './auth';
 import { allowedOriginsFrom, authenticateHandshake } from './realtime/socket-auth';
+import { createWorkflowCallbackRouter } from './routes/workflow-callback.routes';
+import { getWorkflowCallbacks } from './runbook/services/workflow-callbacks';
 import { attachTerminal } from './terminal/terminal.socket';
 {
   const allowedOrigins = allowedOriginsFrom(env.FRONTEND_URL);
@@ -214,10 +216,16 @@ app.use('/api/files', standardRateLimiter, createFilesRouter(prisma));
     runner.usePolicy(tenantId => tenantPolicyStore(prisma).get(tenantId));
   }
 }
+const workflowCallbacks = () => getWorkflowCallbacks(prisma);
 app.use('/api/executions', executionRateLimiter, executionRoutes);
 app.use('/api/runbooks', standardRateLimiter, runbookRoutes);
 app.use('/api/node-types', standardRateLimiter, nodeTypesRoutes);
 app.use('/api/projects', standardRateLimiter, projectRoutes);
+app.use(
+  '/webhook/workflow-callback',
+  webhookRateLimiter,
+  createWorkflowCallbackRouter(workflowCallbacks)
+);
 app.use('/webhook/runner-logs', webhookRateLimiter, createRunnerLogsRouter());
 app.use('/webhook', webhookRateLimiter, webhookRoutes);
 app.use('/api/chat', standardRateLimiter, chatRoutes);
@@ -533,6 +541,12 @@ async function main() {
       approvalSweeper.runOnce().catch(err => logger.error({ err }, 'Approval sweep failed'));
     }, 60_000);
     process.on('SIGTERM', () => clearInterval(approvalSweepInterval));
+    const callbackSweepInterval = setInterval(() => {
+      workflowCallbacks()
+        .sweep()
+        .catch(err => logger.error({ err }, 'Workflow callback sweep failed'));
+    }, 60_000);
+    process.on('SIGTERM', () => clearInterval(callbackSweepInterval));
 
     // Step files expire after 7 days; drop their bytes and rows hourly.
     const { FileStore } = await import('./files/file-store');

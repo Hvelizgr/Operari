@@ -557,6 +557,7 @@ model Execution {
   user            User             @relation(fields: [userId], references: [id])
   runbookVersion  RunbookVersion?  @relation(fields: [runbookVersionId], references: [id], onDelete: SetNull)
   nodeLogs        NodeLog[]
+  workflowCallbacks WorkflowCallback[]
   executionErrors ExecutionError[]
 
   @@index([runbookId])
@@ -1123,6 +1124,26 @@ model WebhookReceipt {
   @@index([webhookId, receivedAt])
   @@index([tenantId])
   @@index([status, nextRetryAt])
+}
+
+/// Return address for a workflow started by `operari.callWorkflow`. Only the
+/// token's hash is kept. WAITING -> RECEIVED -> DONE, or WAITING -> TIMED_OUT.
+model WorkflowCallback {
+  id          String    @id @default(uuid())
+  tokenHash   String    @unique
+  tenantId    String
+  executionId String
+  stepId      String
+  status      String    @default("WAITING")
+  payload     Json?
+  expiresAt   DateTime
+  receivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([status, expiresAt])
+  @@index([executionId])
 }
 
 /// Human approval gates. When a runbook reaches an approval node, it pauses
