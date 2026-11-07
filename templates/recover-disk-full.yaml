@@ -1,0 +1,84 @@
+# Operari Template: Recover a full disk
+#
+# The 3am scenario:
+#   - Disk alert on a host. Logs or old artefacts filled the volume and
+#     writes are starting to fail.
+#
+# What this runbook does:
+#   1. Reports usage and the largest directories, changing nothing.
+#   2. Waits for approval, showing that report to the on-call.
+#   3. Removes rotated logs older than `max_age_days` and vacuums the journal.
+#   4. Reports usage again and notifies the team.
+#
+# Variables expected:
+#   - server_id     (string) registered server, from Settings -> Servers
+#   - mount         (string) mount point to inspect, e.g. /var
+#   - max_age_days  (number) rotated logs older than this are deleted
+#   - slack_webhook (string) Slack webhook, usually {{secrets.<id>}}
+#
+# Trigger: an alert webhook. `vars.alert.*` fills the approval prompt.
+version: 1
+name: Recover a full disk
+slug: recover-disk-full
+description: >-
+  Report disk usage, gate on approval, remove old rotated logs, vacuum the
+  journal and confirm the space came back.
+category: incident-response
+steps:
+  - id: inspect
+    type: ssh
+    name: Report disk usage
+    config:
+      serverId: '{{vars.server_id}}'
+      command: |
+        df -h {{vars.mount}}
+        du -xh --max-depth=2 {{vars.mount}} 2>/dev/null | sort -rh | head -15
+      timeout: 60000
+    next: approve_cleanup
+
+  - id: approve_cleanup
+    type: approval
+    name: Approve cleanup
+    config:
+      message: |
+        {{vars.alert.title}}
+
+        Disk report:
+        {{steps.inspect.output.stdout}}
+
+        Approve to delete rotated logs older than {{vars.max_age_days}} days
+        and vacuum the journal.
+      timeoutSeconds: 1800
+    next: clean
+
+  - id: clean
+    type: ssh
+    name: Remove old rotated logs
+    config:
+      serverId: '{{vars.server_id}}'
+      privileged: true
+      command: |
+        find /var/log -type f \( -name '*.gz' -o -name '*.[0-9]' \) \
+          -mtime +{{vars.max_age_days}} -delete
+        journalctl --vacuum-time={{vars.max_age_days}}d
+      timeout: 120000
+    next: verify
+
+  - id: verify
+    type: ssh
+    name: Report disk usage again
+    config:
+      serverId: '{{vars.server_id}}'
+      command: df -h {{vars.mount}}
+      timeout: 30000
+    next: notify_team
+
+  - id: notify_team
+    type: notify
+    name: Tell the team
+    config:
+      channel: slack
+      webhookUrl: '{{vars.slack_webhook}}'
+      message: |
+        Disk cleanup finished on {{vars.server_id}}.
+        {{steps.verify.output.stdout}}

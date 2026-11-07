@@ -1,0 +1,79 @@
+# Operari Template: Roll back a bad deploy
+#
+# The 3am scenario:
+#   - Errors jump right after a release. The fix is to go back, not forward,
+#     and the rollback should be recorded with who approved it.
+#
+# What this runbook does:
+#   1. Shows the rollout history of the deployment.
+#   2. Waits for approval.
+#   3. Runs `kubectl rollout undo` and waits for it to finish.
+#   4. Opens a run of your n8n follow-up workflow (ticket, status page) and
+#      waits for it, then notifies the team.
+#
+# Variables expected:
+#   - namespace       (string) Kubernetes namespace
+#   - deployment      (string) deployment name
+#   - followup_url    (string) n8n webhook that handles the follow-up. It must
+#                              POST to the `callbackUrl` it receives when done.
+#   - slack_webhook   (string) Slack webhook, usually {{secrets.<id>}}
+#
+# The runner needs `kubectl` and a kubeconfig for the cluster.
+#
+# Trigger: an alert webhook, or manual.
+version: 1
+name: Roll back a bad deploy
+slug: rollback-deploy
+description: >-
+  Show rollout history, gate on approval, undo the rollout, wait for it, run a
+  follow-up workflow and notify the team.
+category: incident-response
+steps:
+  - id: history
+    type: shell
+    name: Show rollout history
+    config:
+      command: |
+        kubectl -n {{vars.namespace}} rollout history deployment/{{vars.deployment}}
+      timeout: 30000
+    next: approve_rollback
+
+  - id: approve_rollback
+    type: approval
+    name: Approve rollback
+    config:
+      message: |
+        {{vars.alert.title}}
+
+        Roll {{vars.deployment}} back to its previous revision?
+
+        {{steps.history.output.stdout}}
+      timeoutSeconds: 900
+    next: undo
+
+  - id: undo
+    type: shell
+    name: Undo the rollout
+    config:
+      command: |
+        kubectl -n {{vars.namespace}} rollout undo deployment/{{vars.deployment}}
+        kubectl -n {{vars.namespace}} rollout status deployment/{{vars.deployment}} --timeout=300s
+      timeout: 330000
+    next: followup
+
+  - id: followup
+    type: operari.callWorkflow
+    name: Run the follow-up workflow
+    config:
+      url: '{{vars.followup_url}}'
+      body: '{"deployment":"{{vars.deployment}}","namespace":"{{vars.namespace}}"}'
+      timeoutSeconds: 1800
+    next: notify_team
+
+  - id: notify_team
+    type: notify
+    name: Tell the team
+    config:
+      channel: slack
+      webhookUrl: '{{vars.slack_webhook}}'
+      message: '{{vars.deployment}} rolled back. Follow-up: {{steps.followup.output.callback}}'

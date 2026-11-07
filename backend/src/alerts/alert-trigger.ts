@@ -31,6 +31,9 @@ export interface AlertTriggerResult {
 
 export type StartRun = (input: Record<string, unknown>) => Promise<{ id: string }>;
 
+/** Source-specific variables runbooks already read, such as `issue_title`. */
+export type ExtraVariables = (payload: unknown) => Record<string, unknown>;
+
 /**
  * Starts one run per new occurrence of a firing alert. Alertmanager and
  * Grafana repeat a firing alert on every group interval, and PagerDuty
@@ -44,7 +47,8 @@ export async function triggerAlertRuns(
   webhook: AlertWebhook,
   payload: unknown,
   startRun: StartRun,
-  now: () => Date = () => new Date()
+  now: () => Date = () => new Date(),
+  extraVariables: ExtraVariables = () => ({})
 ): Promise<AlertTriggerResult> {
   const alerts = normalizeAlerts(webhook.source, payload);
   const result: AlertTriggerResult = {
@@ -72,7 +76,14 @@ export async function triggerAlertRuns(
     }
     let run: { id: string };
     try {
-      run = await startRun({ source: webhook.source, event: 'firing', alert, payload });
+      const extra = extraVariables(payload);
+      run = await startRun({
+        ...extra,
+        source: webhook.source,
+        event: extra.event ?? 'firing',
+        alert: { ...(extra.alert as object | undefined), ...alert },
+        payload,
+      });
     } catch (err) {
       // Give the occurrence back so the sender's retry starts it.
       await prisma.webhookEvent

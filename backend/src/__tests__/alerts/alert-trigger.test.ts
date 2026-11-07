@@ -148,3 +148,28 @@ describe('triggerAlertRuns', () => {
     expect(res.skipped).toBe(25 - MAX_RUNS_PER_DELIVERY);
   });
 });
+
+describe('source-specific variables', () => {
+  it('keeps what runbooks already read and lets the normalized alert win', async () => {
+    const prisma = {
+      webhookEvent: { create: jest.fn().mockResolvedValue({}) },
+      execution: { update: jest.fn().mockResolvedValue({}), findMany: jest.fn() },
+    } as unknown as PrismaClient;
+    const startRun = jest.fn().mockResolvedValue({ id: 'run-1' });
+
+    await triggerAlertRuns(
+      prisma,
+      { id: 'w1', tenantId: 't1', runbookId: 'r1', source: 'sentry', userId: 'u1' },
+      { action: 'created', data: { issue: { id: '42', title: 'Boom', level: 'error' } } },
+      startRun,
+      undefined,
+      () => ({ issue_title: 'Boom', event: 'issue', alert: { environment: 'prod' } })
+    );
+
+    expect(startRun.mock.calls[0][0]).toMatchObject({
+      issue_title: 'Boom',
+      event: 'issue',
+      alert: { environment: 'prod', fingerprint: 'issue:42', status: 'firing' },
+    });
+  });
+});

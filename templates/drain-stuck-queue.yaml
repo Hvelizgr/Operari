@@ -1,0 +1,91 @@
+# Operari Template: Unstick a backed-up queue
+#
+# The 3am scenario:
+#   - Queue depth keeps growing and consumers look alive but do nothing. A
+#     consumer restart normally clears it; purging is a separate, explicit call.
+#
+# What this runbook does:
+#   1. Reports queue depth and consumers.
+#   2. Waits for approval.
+#   3. Restarts the consumers.
+#   4. Waits, then reports the depth again so the on-call can see it falling.
+#   5. Notifies the team.
+#
+# This template uses RabbitMQ. For another broker, change the two report
+# commands. It never purges messages.
+#
+# Variables expected:
+#   - server_id     (string) registered server running the broker
+#   - queue         (string) queue name
+#   - consumer      (string) systemd unit of the consumers
+#   - slack_webhook (string) Slack webhook, usually {{secrets.<id>}}
+#
+# Trigger: an alert webhook.
+version: 1
+name: Unstick a backed-up queue
+slug: drain-stuck-queue
+description: >-
+  Report queue depth and consumers, gate on approval, restart the consumers and
+  confirm the backlog is falling. Never purges messages.
+category: incident-response
+steps:
+  - id: report
+    type: ssh
+    name: Report queue depth
+    config:
+      serverId: '{{vars.server_id}}'
+      command: |
+        rabbitmqctl list_queues name messages consumers | grep -E '^{{vars.queue}}\s'
+      timeout: 30000
+    next: approve_restart
+
+  - id: approve_restart
+    type: approval
+    name: Approve consumer restart
+    config:
+      message: |
+        {{vars.alert.title}}
+
+        Restart {{vars.consumer}}? No messages are purged.
+
+        {{steps.report.output.stdout}}
+      timeoutSeconds: 900
+    next: restart
+
+  - id: restart
+    type: ssh
+    name: Restart consumers
+    config:
+      serverId: '{{vars.server_id}}'
+      privileged: true
+      command: systemctl restart {{vars.consumer}}
+      timeout: 60000
+    next: settle
+
+  - id: settle
+    type: wait
+    name: Give consumers a minute
+    config:
+      durationMs: 60000
+    next: report_again
+
+  - id: report_again
+    type: ssh
+    name: Report queue depth again
+    config:
+      serverId: '{{vars.server_id}}'
+      command: |
+        rabbitmqctl list_queues name messages consumers | grep -E '^{{vars.queue}}\s'
+      timeout: 30000
+    next: notify_team
+
+  - id: notify_team
+    type: notify
+    name: Tell the team
+    config:
+      channel: slack
+      webhookUrl: '{{vars.slack_webhook}}'
+      message: |
+        Consumers restarted for {{vars.queue}}.
+        Before: {{steps.report.output.stdout}}
+        After: {{steps.report_again.output.stdout}}

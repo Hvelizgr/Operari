@@ -1,7 +1,14 @@
 import { createHash } from 'crypto';
 
 /** Webhook sources whose payload is one or more alerts. */
-export const ALERT_SOURCES = ['alertmanager', 'grafana', 'pagerduty', 'opsgenie'] as const;
+export const ALERT_SOURCES = [
+  'alertmanager',
+  'grafana',
+  'pagerduty',
+  'opsgenie',
+  'sentry',
+  'datadog',
+] as const;
 export type AlertSource = (typeof ALERT_SOURCES)[number];
 
 export function isAlertSource(source: string): source is AlertSource {
@@ -11,9 +18,8 @@ export function isAlertSource(source: string): source is AlertSource {
 export type AlertSeverity = 'critical' | 'error' | 'warning' | 'info' | 'unknown';
 
 /**
- * One alert, whatever sent it. `title`, `url`, `severity` and `summary`
- * match the envelope the Sentry and Datadog parsers already put in
- * vars.alert, so a runbook reads the same fields for every source.
+ * One alert, whatever sent it. A runbook reads the same `vars.alert` fields
+ * for every source.
  */
 export interface NormalizedAlert {
   source: AlertSource;
@@ -198,6 +204,88 @@ function fromOpsgenie(payload: Obj): NormalizedAlert[] {
 }
 
 /** The alerts in a delivery; empty for events that are not a firing or a resolution. */
+/**
+ * Issue alerts carry the issue under `data.issue`, rule alerts under
+ * `data.event`, metric alerts under `data.metric_alert`. Actions such as
+ * `assigned` or `ignored` are not alerts.
+ */
+function fromSentry(payload: Obj): NormalizedAlert[] {
+  const data = obj(payload.data);
+  const action = str(payload.action);
+  const metric = obj(data.metric_alert);
+  if (Object.keys(metric).length > 0) {
+    const id = str(metric.id);
+    if (!id) return [];
+    const title = str(metric.title) ?? str(metric.alert_rule_name) ?? 'Sentry metric alert';
+    return [
+      {
+        source: 'sentry',
+        status: action === 'resolved' ? 'resolved' : 'firing',
+        name: str(obj(metric.alert_rule).name) ?? title,
+        title,
+        severity: normalizeSeverity(action === 'warning' ? 'warning' : 'critical'),
+        summary: str(data.description_title),
+        url: str(data.web_url) ?? str(metric.web_url),
+        labels: {},
+        fingerprint: `metric:${id}`,
+        startsAt: str(metric.date_started),
+      },
+    ];
+  }
+
+  const issue = obj(data.issue);
+  const event = obj(data.event);
+  const id = str(issue.id) ?? str(event.issue_id);
+  if (!id) return [];
+  const firing = ['created', 'triggered', 'unresolved', undefined].includes(action);
+  if (!firing && action !== 'resolved') return [];
+  const title = str(issue.title) ?? str(event.title) ?? 'Sentry issue';
+  return [
+    {
+      source: 'sentry',
+      status: action === 'resolved' ? 'resolved' : 'firing',
+      name: title,
+      title,
+      severity: normalizeSeverity(str(issue.level) ?? str(event.level) ?? 'error'),
+      summary: str(issue.culprit) ?? str(event.culprit),
+      url: str(issue.web_url) ?? str(issue.permalink) ?? str(event.web_url),
+      labels: {},
+      fingerprint: `issue:${id}`,
+      // A regression reopens the issue, which is a new occurrence of it.
+      startsAt:
+        action === 'unresolved'
+          ? (str(issue.lastSeen) ?? str(issue.firstSeen))
+          : (str(issue.firstSeen) ?? str(event.datetime)),
+    },
+  ];
+}
+
+/** `alert_cycle_key` is the same for every notification of one trigger/recover cycle. */
+function fromDatadog(payload: Obj): NormalizedAlert[] {
+  const id = str(payload.id) ?? str(payload.alert_id) ?? str(payload.monitor_id);
+  const title = str(payload.monitor_name) ?? str(payload.alert_title) ?? str(payload.title);
+  if (!id && !title) return [];
+  const transition = (str(payload.alert_transition) ?? '').toLowerCase();
+  const scope = str(payload.alert_scope) ?? str(payload.scope) ?? str(payload.hostname) ?? '';
+  const name = title ?? 'Datadog alert';
+  const tags = String(payload.tags ?? '');
+  const severityTag = /(?:^|,)\s*(?:alert_)?severity:([^,]+)/.exec(tags)?.[1];
+  return [
+    {
+      source: 'datadog',
+      status: transition === 'recovered' ? 'resolved' : 'firing',
+      name,
+      title: name,
+      severity: normalizeSeverity(severityTag?.trim() ?? str(payload.priority) ?? 'warning'),
+      summary: str(payload.body) ?? str(payload.text),
+      url: str(payload.link) ?? str(payload.url),
+      labels: scope ? { scope } : {},
+      fingerprint: `${id ?? name}:${scope}`,
+      startsAt: str(payload.alert_cycle_key) ?? str(payload.last_updated) ?? str(payload.date),
+    },
+  ];
+}
+
 export function normalizeAlerts(source: AlertSource, payload: unknown): NormalizedAlert[] {
   const p = obj(payload);
   switch (source) {
@@ -208,6 +296,10 @@ export function normalizeAlerts(source: AlertSource, payload: unknown): Normaliz
       return fromPagerDuty(p);
     case 'opsgenie':
       return fromOpsgenie(p);
+    case 'sentry':
+      return fromSentry(p);
+    case 'datadog':
+      return fromDatadog(p);
   }
 }
 

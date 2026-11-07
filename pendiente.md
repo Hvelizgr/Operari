@@ -23,8 +23,10 @@ integraciones raras, llamar a un workflow de n8n o a un webhook.
    de 10 corridas por envío. La resolución se anota en la corrida (`metadata.alert.resolvedAt`). Secreto
    como `Authorization: Bearer` (Alertmanager/Opsgenie no firman) o HMAC; PagerDuty: se pega su propio
    secreto y se verifica `X-PagerDuty-Signature`. La vista del run muestra alerta activa/resuelta (2026-11-07).
-   **Falta:** Sentry y Datadog siguen con el parser viejo (sin dedup por ocurrencia).
-2. 🟡 **Aprobar donde está el de guardia** (2026-11-07, sin desplegar). El paso de aprobación avisa por
+   (2026-11-07) Sentry y Datadog ya van por el mismo camino: una corrida por ocurrencia y resolución
+   anotada, conservando sus variables (`issue_title`, `monitor_name`…). Una resolución ya no lanza corrida.
+2. 🟡 **Aprobar donde está el de guardia** (2026-11-07). **Antes de esto las aprobaciones no pausaban
+   la corrida** (la señal se perdía en el despachador); arreglado en `c428fc9` con test sobre motor real. El paso de aprobación avisa por
    email, Slack (webhook) y Telegram con botón *Review*. `approvers` y `timeoutSeconds` ahora se aplican de
    verdad; `escalateAfterSeconds` + `escalateTo` reenvían el aviso y suman aprobadores. Barrido cada minuto,
    entregas en la auditoría (`approval.notified/escalated/expired`). **Decisión:** el enlace no lleva token:
@@ -33,15 +35,19 @@ integraciones raras, llamar a un workflow de n8n o a un webhook.
    definidos, las API keys no pueden resolver (no tienen email). **Falta:** `RESEND_API_KEY` en prod (sin
    eso los emails solo quedan en el log); probar con Slack y Telegram reales; aprobar sin salir de Slack
    (requiere una app de Slack y mapear usuarios).
-3. 🟡 **Línea de tiempo del incidente** (2026-11-07, sin desplegar). Botón *Exportar línea de tiempo* en la
+3. 🟡 **Línea de tiempo del incidente** (2026-11-07). Botón *Exportar línea de tiempo* en la
    vista del run (`GET /api/runs/:id/timeline.md`, en inglés o español): alerta, pasos, quién aprobó qué y
    cuándo, comandos privilegiados, salidas y los hashes de la auditoría, más encabezados vacíos de
    postmortem. Cada exportación queda auditada. Oculta secretos por forma y nombre de campo, no por valor:
    puede escaparse uno sin formato conocido, y el documento avisa que hay que revisarlo. **Falta:** exportar
    por API key/CLI; agrupar varias corridas de una misma alerta en un solo incidente.
-4. **Puente a n8n / webhooks:** paso que llama un workflow de n8n (o cualquier URL) y espera su respuesta.
-5. **Plantillas de incidentes comunes:** disco lleno, reiniciar servicio, rollback de deploy, certificado
-   por vencer, cola atascada.
+4. ✅ **Puente a n8n / webhooks** (2026-11-07). Paso `operari.callWorkflow`: hace POST con `callbackUrl`,
+   pausa la corrida sin ocupar nada y sigue cuando el otro lado responde; la respuesta queda en
+   `steps.<id>.output.callback`. URL de un solo uso, solo se guarda su hash. Una respuesta anterior a la
+   pausa se guarda y la entrega el barrido (hasta 1 min de demora). Para respuestas inmediatas, el paso HTTP.
+5. ✅ **Plantillas de incidentes** (2026-11-07): `recover-disk-full`, `restart-unhealthy-service`,
+   `rollback-deploy`, `drain-stuck-queue`; certificados ya estaba en `rotate-tls-certificate`. **Falta:**
+   correrlas contra servidores reales: hoy solo están validadas contra el esquema.
 
 **Bajan de prioridad:** más servicios en el catálogo (#6), webhooks auto-registrados fuera de alertas,
 archivos en los pasos del catálogo, validar uno por uno los 94 servicios contra APIs reales.

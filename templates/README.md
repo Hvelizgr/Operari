@@ -18,6 +18,10 @@ Production-ready runbook templates you can import into Operari and adapt to your
 | [`failover-traffic-cloudflare.yaml`](./failover-traffic-cloudflare.yaml) | incident-response | Probe both regions → approval → patch Cloudflare DNS → wait TTL → verify → notify       |
 | [`scale-out-on-traffic-spike.yaml`](./scale-out-on-traffic-spike.yaml)   | ops               | Read HPA + Prometheus RPS → compute target → approval → patch maxReplicas → watch       |
 | [`quarantine-suspicious-ip.yaml`](./quarantine-suspicious-ip.yaml)       | security          | Count failed-auth events → check existing rule → approval → Cloudflare ban → file issue |
+| [`recover-disk-full.yaml`](./recover-disk-full.yaml)                     | incident-response | Report usage → approval → delete old rotated logs → vacuum journal → verify → notify    |
+| [`restart-unhealthy-service.yaml`](./restart-unhealthy-service.yaml)     | incident-response | Capture status and logs → approval → restart → probe health → notify                    |
+| [`rollback-deploy.yaml`](./rollback-deploy.yaml)                         | incident-response | Rollout history → approval → undo → run follow-up workflow → notify                     |
+| [`drain-stuck-queue.yaml`](./drain-stuck-queue.yaml)                     | incident-response | Report depth → approval → restart consumers → report depth → notify                     |
 
 ## How to use
 

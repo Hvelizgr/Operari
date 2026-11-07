@@ -246,7 +246,14 @@ async function handleWebhook(req: Request, res: Response) {
             trigger: 'WEBHOOK',
             input,
             tenantId: webhook.tenantId,
-          })
+          }),
+        undefined,
+        payload =>
+          service.mapPayloadToVariables(
+            alertSource,
+            event ? String(event) : undefined,
+            (payload ?? {}) as Record<string, unknown>
+          )
       );
     } catch (err) {
       // No local retry: alert senders retry on 5xx, and the occurrences

@@ -1,0 +1,86 @@
+# Operari Template: Restart an unhealthy service
+#
+# The 3am scenario:
+#   - A health check is failing. Restarting is usually right, but only after
+#     someone has seen the logs, and it should leave a trail.
+#
+# What this runbook does:
+#   1. Captures the service status and recent logs.
+#   2. Waits for approval, showing them to the on-call.
+#   3. Restarts the unit.
+#   4. Probes the health URL, failing the run if it stays down.
+#   5. Notifies the team.
+#
+# Variables expected:
+#   - server_id     (string) registered server, from Settings -> Servers
+#   - service       (string) systemd unit, e.g. nginx
+#   - health_url    (string) URL that answers 2xx when the service is healthy
+#   - slack_webhook (string) Slack webhook, usually {{secrets.<id>}}
+#
+# The registered server needs sudo allowed, and its sudoers entry must cover
+# `systemctl restart <service>`.
+#
+# Trigger: an alert webhook.
+version: 1
+name: Restart an unhealthy service
+slug: restart-unhealthy-service
+description: >-
+  Capture status and logs, gate on approval, restart the systemd unit and
+  confirm the health check recovers.
+category: incident-response
+steps:
+  - id: capture
+    type: ssh
+    name: Capture status and logs
+    config:
+      serverId: '{{vars.server_id}}'
+      command: |
+        systemctl status {{vars.service}} --no-pager || true
+        journalctl -u {{vars.service}} -n 50 --no-pager
+      timeout: 30000
+    next: approve_restart
+
+  - id: approve_restart
+    type: approval
+    name: Approve restart
+    config:
+      message: |
+        {{vars.alert.title}}
+
+        Restart {{vars.service}} on {{vars.server_id}}?
+
+        {{steps.capture.output.stdout}}
+      timeoutSeconds: 900
+    next: restart
+
+  - id: restart
+    type: ssh
+    name: Restart the service
+    config:
+      serverId: '{{vars.server_id}}'
+      privileged: true
+      command: systemctl restart {{vars.service}}
+      timeout: 60000
+    next: probe
+
+  - id: probe
+    type: shell
+    name: Wait for the health check
+    config:
+      command: |
+        for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+          curl -fsS -o /dev/null --max-time 5 '{{vars.health_url}}' && exit 0
+          sleep 5
+        done
+        echo 'still unhealthy after 60s' >&2
+        exit 1
+      timeout: 90000
+    next: notify_team
+
+  - id: notify_team
+    type: notify
+    name: Tell the team
+    config:
+      channel: slack
+      webhookUrl: '{{vars.slack_webhook}}'
+      message: '{{vars.service}} on {{vars.server_id}} restarted and healthy.'
