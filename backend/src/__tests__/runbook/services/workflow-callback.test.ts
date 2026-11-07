@@ -186,7 +186,10 @@ describe('CallWorkflowExecutor', () => {
 
   it('caps the wait at seven days and floors it at a minute', async () => {
     const fetchFn = jest.fn().mockResolvedValue({ ok: true });
-    const low = await executor(fetchFn).execute({ url: 'https://x.io', timeoutSeconds: 1 }, context);
+    const low = await executor(fetchFn).execute(
+      { url: 'https://x.io', timeoutSeconds: 1 },
+      context
+    );
     const high = await executor(fetchFn).execute(
       { url: 'https://x.io', timeoutSeconds: 999999999 },
       context

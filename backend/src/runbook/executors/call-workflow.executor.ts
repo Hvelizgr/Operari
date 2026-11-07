@@ -22,7 +22,8 @@ const MIN_WAIT_SECONDS = 60;
 const MAX_WAIT_SECONDS = 7 * 24 * 3600;
 
 function jsonObject(value: unknown, field: string): Record<string, unknown> {
-  const parsed = typeof value === 'string' ? (value.trim() ? JSON.parse(value) : {}) : (value ?? {});
+  const parsed =
+    typeof value === 'string' ? (value.trim() ? JSON.parse(value) : {}) : (value ?? {});
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error(`${field} must be a JSON object`);
   }

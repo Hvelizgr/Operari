@@ -104,7 +104,10 @@ export function createExecutorRegistry(
   const servers = new PrismaServerDirectory(prisma);
   registry.set('ssh', new SSHExecutor(undefined, { directory: servers }));
   registry.set('operari.httpRequest', new HttpExecutor(fetch, { files }));
-  registry.set('operari.callWorkflow', new CallWorkflowExecutor(() => getWorkflowCallbacks(prisma)));
+  registry.set(
+    'operari.callWorkflow',
+    new CallWorkflowExecutor(() => getWorkflowCallbacks(prisma))
+  );
   registry.set('operari.database', new DatabaseExecutor(undefined, { directory: servers }));
   registry.set('github.commitFile', new GitHubCommitFileExecutor());
   registry.set('runbook', new RunbookExecutor(prisma));
