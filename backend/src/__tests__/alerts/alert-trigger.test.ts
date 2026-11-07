@@ -151,14 +151,11 @@ describe('triggerAlertRuns', () => {
 
 describe('source-specific variables', () => {
   it('keeps what runbooks already read and lets the normalized alert win', async () => {
-    const prisma = {
-      webhookEvent: { create: jest.fn().mockResolvedValue({}) },
-      execution: { update: jest.fn().mockResolvedValue({}), findMany: jest.fn() },
-    } as unknown as PrismaClient;
+    const { prisma } = fakePrisma();
     const startRun = jest.fn().mockResolvedValue({ id: 'run-1' });
 
     await triggerAlertRuns(
-      prisma,
+      prisma as never,
       { id: 'w1', tenantId: 't1', runbookId: 'r1', source: 'sentry', userId: 'u1' },
       { action: 'created', data: { issue: { id: '42', title: 'Boom', level: 'error' } } },
       startRun,
